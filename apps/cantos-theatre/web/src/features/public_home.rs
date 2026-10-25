@@ -1,6 +1,6 @@
 //! Public Home composition. Session lookup and auth are separate, explicit user intents.
 //!
-//! This is the Khám phá screen: the hero, the search/filter form and the public Work list. The
+//! This is the Khám phá screen: the intro, the search/filter form and the public Work list. The
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches.
 use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
@@ -13,7 +13,7 @@ use crate::{
     core::public_ids::PublicWorkId,
     features::{
         auth_copy::{self, CopyKey},
-        common::icon,
+        common::{icon, EmptyArtwork, EmptyArtworkKind},
         discovery_language,
     },
     messages::{self, text, Key, Locale},
@@ -103,7 +103,7 @@ const fn query_error_key(error: QueryError) -> Key {
     }
 }
 
-/// "Truyện · Tiếng Việt · Chương đã công bố: 12", the hero's one fact line.
+/// "Truyện · Tiếng Việt · Chương đã công bố: 12", the card's server-supplied facts.
 fn feature_meta(kind: WorkKind, language: &str, count: u64, locale: Locale) -> String {
     let units = messages::format(
         unit_count_key(kind),
@@ -147,6 +147,7 @@ fn SearchForm(
     locale: RwSignal<Locale>,
     on_search: Callback<DiscoveryQuery>,
 ) -> impl IntoView {
+    let panel = NodeRef::<leptos::html::Div>::new();
     let initial = applied.get_untracked();
     let search = RwSignal::new(initial.text().to_owned());
     let kind = RwSignal::new(initial.kind());
@@ -175,7 +176,7 @@ fn SearchForm(
     });
     let filtered = move || !applied.get().is_unfiltered();
     view! {
-        <div class="theatre-public-search" role="search"
+        <div node_ref=panel class="theatre-public-search" role="search"
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
                 // composing. On a chip or button it keeps its own activation.
@@ -208,7 +209,10 @@ fn SearchForm(
                 </div>
                 <Show when=filtered>
                     <Button id="theatre-discovery-clear" icon=IconName::Close variant=ButtonVariant::Text
-                        on_press=Callback::new(move |_| on_search.run(DiscoveryQuery::default()))>
+                        on_press=Callback::new(move |_| {
+                            on_search.run(DiscoveryQuery::default());
+                            crate::platform::restore_disappearing_action_focus(panel, "theatre-discovery-search");
+                        })>
                         {move || text(Key::DiscoveryClear, locale.get())}
                     </Button>
                 </Show>
@@ -225,78 +229,42 @@ fn WorkCard(
 ) -> impl IntoView {
     let kind = work.kind;
     let count = work.unit_count;
+    let language = discovery_language::display_name(&work.language);
     view! {
         <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=work.work_id.clone()>
             <WorkCover kind locale/>
             <div class="theatre-public-work-body">
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
-                <h3 lang=work.language.clone()>{match PublicWorkId::parse(&work.work_id) {
-                    Some(id) => view! {
+                <h3>{match PublicWorkId::parse(&work.work_id) {
+                    Some(id) => {
+                        let action_id = format!("theatre-public-work-action-{id}");
+                        let title_id = format!("theatre-public-work-title-{id}");
+                        let labelled_by = format!("{action_id} {title_id}");
+                        view! {
                         <a id=work_link_id(id) class="theatre-public-work-link" href=Route::PublicWork(id).hash()
+                            lang=move || locale.get().lang()
+                            aria-labelledby=labelled_by
                             on:click=move |event| if in_app_activation(&event) {
                                 event.prevent_default();
                                 on_open_work.run(id);
-                            }>{work.title}</a>
-                    }.into_any(),
+                            }>
+                            <span id=action_id class="cui-sr-only" lang=move || locale.get().lang()>{move || text(Key::PublicHomeOpenWork, locale.get())}</span>
+                            <span id=title_id class="theatre-public-work-title" lang=work.language.clone()>{work.title}</span>
+                            <span class="theatre-public-work-arrow" aria-hidden="true">{icon("arrow_back")}</span>
+                        </a>
+                    }.into_any()
+                    },
                     // The decoder admits only canonical IDs; never route a guessed one.
-                    None => work.title.into_any(),
+                    None => view! { <span lang=work.language.clone()>{work.title}</span> }.into_any(),
                 }}</h3>
                 {(!work.description.trim().is_empty()).then(|| view! {
                     <p lang=work.language class="theatre-muted theatre-public-work-description">{work.description}</p>
                 })}
                 <p class="theatre-muted theatre-public-work-count">
-                    {move || messages::format(unit_count_key(kind), locale.get(), &[("count", count.to_string())])}
+                    {move || feature_meta(kind, &language, count, locale.get())}
                 </p>
             </div>
         </article>
-    }
-}
-
-/// The hero: the first Work of the answered search, with neutral wording. The server states no
-/// editorial selection, so nothing here says "featured", "trending" or rates the Work. Its one
-/// action opens the Work; listening starts from the Work's own units, never from this list.
-#[component]
-fn FeaturedWork(
-    work: PresentedWorkSummary,
-    /// The walk is narrowed, so this is a match rather than the head of the whole catalog.
-    narrowed: Signal<bool>,
-    locale: RwSignal<Locale>,
-    on_open_work: Callback<PublicWorkId>,
-) -> impl IntoView {
-    let kind = work.kind;
-    let count = work.unit_count;
-    let language = discovery_language::display_name(&work.language);
-    let title = work.title.clone();
-    let open = PublicWorkId::parse(&work.work_id).map(|id| {
-        view! {
-            <a id=work_link_id(id) class="theatre-action" href=Route::PublicWork(id).hash()
-                aria-label=move || messages::format(Key::PublicHomeOpenWorkNamed, locale.get(), &[("title", title.clone())])
-                on:click=move |event| if in_app_activation(&event) {
-                    event.prevent_default();
-                    on_open_work.run(id);
-                }>
-                <span class="cui-control-label">{move || text(Key::PublicHomeOpenWork, locale.get())}</span>
-            </a>
-        }
-    });
-    view! {
-        <section class="theatre-feature theatre-discover-feature" aria-labelledby="theatre-discovery-feature-heading"
-            data-work-id=work.work_id.clone()>
-            <div class="theatre-feature-copy">
-                <p class="theatre-eyebrow">{move || text(
-                    if narrowed.get() { Key::PublicHomeFirstMatchEyebrow } else { Key::PublicHomeFeaturedEyebrow },
-                    locale.get())}</p>
-                <h2 id="theatre-discovery-feature-heading" lang=work.language.clone()>{work.title}</h2>
-                {(!work.description.trim().is_empty()).then(|| view! {
-                    <p lang=work.language class="theatre-discover-feature-description">{work.description}</p>
-                })}
-                <p class="theatre-muted">
-                    {move || feature_meta(kind, &language, count, locale.get())}
-                </p>
-                <div class="theatre-actions">{open}</div>
-            </div>
-            <div class="theatre-feature-cover"><WorkCover kind locale/></div>
-        </section>
     }
 }
 
@@ -317,17 +285,9 @@ pub(crate) fn PublicHome(
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
     let current = Memo::new(move |_| state.with(|s| region(s.phase())));
-    // The hero is the head of the answered rows; the cards are the rest, so no Work appears twice
-    // and every Work has exactly one link (the focus target of Back and of a continuation).
-    let featured = Memo::new(move |_| {
-        state.with(|s| {
-            (region(s.phase()) == Region::Ready)
-                .then(|| s.rows().first().cloned())
-                .flatten()
-        })
-    });
-    let narrowed = Signal::derive(move || state.with(|s| !s.query().is_unfiltered()));
-    let rows = move || state.with(|s| s.rows().iter().skip(1).cloned().collect::<Vec<_>>());
+    // Every returned Work stays in one keyed shelf, including the first result. This keeps
+    // continuation and Back focus identities independent of visual rank or card reflow.
+    let rows = move || state.with(|s| s.rows().to_vec());
     let tail = Memo::new(move |_| state.with(|s| s.tail()));
     let count = move || state.with(|s| s.rows().len());
     let status_line = move || match tail.get() {
@@ -389,7 +349,6 @@ pub(crate) fn PublicHome(
                     </Button>
                 </div>
             </header>
-            {move || featured.get().map(|work| view! { <FeaturedWork work narrowed locale on_open_work/> })}
             <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading"
                 aria-busy=move || (current.get() == Region::Loading).then_some("true")>
                 <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
@@ -421,7 +380,8 @@ pub(crate) fn PublicHome(
                             (Key::DiscoveryNoMatches, Key::DiscoveryNoMatchesHelp)
                         };
                         view! {
-                            <div class="theatre-public-state theatre-panel" role="status">
+                            <div class="theatre-public-state theatre-public-empty theatre-panel" role="status">
+                                <EmptyArtwork kind=EmptyArtworkKind::Works/>
                                 <h3>{move || text(heading, locale.get())}</h3>
                                 <p>{move || text(help, locale.get())}</p>
                                 <Button id="theatre-home-refresh" icon=IconName::Refresh variant=ButtonVariant::Tonal
@@ -742,6 +702,14 @@ mod tests {
         });
     }
 
+    fn named_span<'a>(html: &'a str, id: &str) -> (&'a str, &'a str) {
+        let id_at = html.find(&format!("id=\"{id}\"")).unwrap();
+        let start = html[..id_at].rfind("<span").unwrap();
+        let end = id_at + html[id_at..].find('>').unwrap();
+        let content_end = end + 1 + html[end + 1..].find("</span>").unwrap();
+        (&html[start..=end], &html[end + 1..content_end])
+    }
+
     fn work_with(id: u8, title: &str) -> PresentedWorkSummary {
         PresentedWorkSummary {
             work_id: format!("00000000-0000-0000-0000-{id:012}"),
@@ -750,7 +718,7 @@ mod tests {
     }
 
     #[test]
-    fn the_first_work_leads_as_a_neutral_hero_and_the_rest_are_cards_with_one_link_each() {
+    fn every_work_has_one_compact_card_title_arrow_and_stable_named_link() {
         let state = answered(
             DiscoveryQuery::default(),
             Ok(page(
@@ -758,23 +726,33 @@ mod tests {
                 None,
             )),
         );
-        let html = render(state.clone(), Locale::Vietnamese);
-        assert!(
-            html.contains("theatre-discover-feature") && html.contains("Tác phẩm đầu danh mục")
-        );
-        assert!(html.contains("aria-label=\"Mở tác phẩm: Một\""), "{html}");
-        assert_eq!(
-            html.matches("theatre-public-cover").count(),
-            3 + 3,
-            "{html}"
-        );
-        // Hero and cards partition the rows: every Work has exactly one link and focus target.
-        for id in 1..=3u8 {
+        let html = render(state, Locale::Vietnamese);
+        assert!(!html.contains("theatre-discover-feature"));
+        assert_eq!(html.matches("<article").count(), 3);
+        assert_eq!(html.matches("theatre-public-work-arrow").count(), 3);
+        for (id, title) in [(1u8, "Một"), (2, "Hai"), (3, "Ba")] {
             let link = format!("id=\"theatre-public-work-link-00000000-0000-0000-0000-{id:012}\"");
             assert_eq!(html.matches(&link).count(), 1, "{link}");
+            let action = format!("theatre-public-work-action-00000000-0000-0000-0000-{id:012}");
+            let title_id = format!("theatre-public-work-title-00000000-0000-0000-0000-{id:012}");
+            assert!(html.contains(&format!("aria-labelledby=\"{action} {title_id}\"")));
+            let (tag, content) = named_span(&html, &title_id);
+            assert!(tag.contains("class=\"theatre-public-work-title\""));
+            assert!(tag.contains("lang=\"vi-VN\""));
+            assert_eq!(content, title);
         }
-        assert_eq!(html.matches("<article").count(), 2);
-        // The server states no editorial pick, rating or cover: none may be implied.
+        for card in html.split("<article").skip(1) {
+            let card = card.split("</article>").next().unwrap();
+            let title = card
+                .split("<h3")
+                .nth(1)
+                .unwrap()
+                .split("</h3>")
+                .next()
+                .unwrap();
+            assert!(title.contains("theatre-public-work-arrow"));
+            assert_eq!(card.matches("<a ").count(), 1);
+        }
         for absent in ["Tuyển chọn", "Thịnh hành", "<img", "Nghe ", "<audio"] {
             assert!(!html.contains(absent), "{absent}");
         }
@@ -784,8 +762,104 @@ mod tests {
             narrowed,
             Locale::English,
         );
-        assert!(html.contains("First match") && !html.contains("First in the catalog"));
-        assert_eq!(html.matches("<article").count(), 0);
+        assert_eq!(html.matches("<article").count(), 1);
+        let (tag, content) = named_span(
+            &html,
+            "theatre-public-work-action-00000000-0000-0000-0000-000000000001",
+        );
+        assert!(tag.contains("class=\"cui-sr-only\"") && tag.contains("lang=\"en\""));
+        assert_eq!(content, "Open story");
+    }
+
+    #[test]
+    fn completed_empty_catalog_and_no_results_have_decorative_art_without_self_navigation() {
+        for locale in Locale::ALL {
+            let query = DiscoveryQuery::new("không khớp", None, "").unwrap();
+            for applied in [DiscoveryQuery::default(), query] {
+                let html = render_with(
+                    answered(applied.clone(), Ok(page(vec![], None))),
+                    applied,
+                    locale,
+                );
+                assert_eq!(html.matches("data-artwork=\"works\"").count(), 1);
+                assert!(html.contains("assets/empty/light/cantos-empty-works.svg"));
+                assert!(html.contains("assets/empty/dark/cantos-empty-works.svg"));
+                assert!(!html.contains("href=\"#discover\""));
+                assert!(html.contains("id=\"theatre-home-refresh\""));
+            }
+            for state in [
+                PublicDiscoveryState::default(),
+                answered(
+                    DiscoveryQuery::default(),
+                    Err(DiscoveryReadError::Unavailable),
+                ),
+            ] {
+                assert!(!render(state, locale).contains("data-artwork="));
+            }
+        }
+    }
+
+    #[test]
+    fn work_action_uses_interface_language_and_only_the_visible_title_uses_content_language() {
+        for (locale, content_language, title, action) in [
+            (
+                Locale::English,
+                "vi-VN",
+                "Ánh đèn cuối sân khấu",
+                "Open story",
+            ),
+            (
+                Locale::Vietnamese,
+                "en",
+                "The last light on stage",
+                "Mở tác phẩm",
+            ),
+        ] {
+            let mut story = work(title);
+            story.language = content_language.to_owned();
+            let html = render(
+                answered(DiscoveryQuery::default(), Ok(page(vec![story], None))),
+                locale,
+            );
+            let card = html
+                .split("<article")
+                .nth(1)
+                .unwrap()
+                .split("</article>")
+                .next()
+                .unwrap();
+            let heading = card.split("<h3").nth(1).unwrap().split('>').next().unwrap();
+            assert!(!heading.contains("lang="), "{heading}");
+            let link = card.split("<a ").nth(1).unwrap().split('>').next().unwrap();
+            assert!(
+                link.contains(&format!("lang=\"{}\"", locale.lang())),
+                "{link}"
+            );
+            assert!(
+                !link.contains("aria-label="),
+                "aria-label would erase mixed-language text: {link}"
+            );
+            let prefix_id = "theatre-public-work-action-00000000-0000-0000-0000-000000000001";
+            let title_id = "theatre-public-work-title-00000000-0000-0000-0000-000000000001";
+            assert!(
+                link.contains(&format!("aria-labelledby=\"{prefix_id} {title_id}\"")),
+                "{link}"
+            );
+            let (tag, content) = named_span(card, prefix_id);
+            assert!(tag.contains("class=\"cui-sr-only\""), "{tag}");
+            assert!(
+                tag.contains(&format!("lang=\"{}\"", locale.lang())),
+                "{tag}"
+            );
+            assert_eq!(content, action);
+            let (tag, content) = named_span(card, title_id);
+            assert!(tag.contains("class=\"theatre-public-work-title\""), "{tag}");
+            assert!(
+                tag.contains(&format!("lang=\"{content_language}\"")),
+                "{tag}"
+            );
+            assert_eq!(content, title);
+        }
     }
 
     #[test]

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="200" viewBox="0 0 240 200" role="img" aria-labelledby="history-dark-title">
+  <title id="history-dark-title">Pages, clock and hourglass</title>
+  <desc>Cantos original vector redraw inspired by user-supplied reference, 2026-10-25. Transparent background; static decorative illustration.</desc>
+  <path d="M65 42C85 23 130 25 151 43C174 62 176 113 163 141C149 169 106 179 79 160C53 142 37 66 65 42Z" fill="#372f3e"/>
+  <path d="M45 51L128 32Q133 31 134 37L159 142Q160 148 154 149L72 169Q66 170 65 164L40 58Q39 52 45 51Z" fill="#4d3a5e" stroke="#f1e9f2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 28H151Q157 28 157 34V139L134 164H78Q72 164 72 157V34Q72 28 78 28Z" fill="#2b4157" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M134 164V145Q134 139 140 139H157Z" fill="#4d3a5e" stroke="#f1e9f2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 54h41" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 66h57" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 78h45" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 90h57" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 102h50" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 114h55" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 126h45" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 138h29" fill="none" stroke="#c4b8ca" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M144 54a29 29 0 1 0 58 0a29 29 0 1 0 -58 0Z" fill="#2c2631" stroke="#f1e9f2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M150 54a23 23 0 1 0 46 0a23 23 0 1 0 -46 0Z" fill="#573a2c" stroke="#f1e9f2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M173.00 35.00L173.00 32.00" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M186.44 40.56L188.56 38.44" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M192.00 54.00L195.00 54.00" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M186.44 67.44L188.56 69.56" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M173.00 73.00L173.00 76.00" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M159.56 67.44L157.44 69.56" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M154.00 54.00L151.00 54.00" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M159.56 40.56L157.44 38.44" fill="none" stroke="#f1e9f2" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M173 38V54L184 62" fill="none" stroke="#f1e9f2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M171.5 54a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0Z" fill="#f1e9f2"/>
+  <path d="M139 31L143 26M148 22L153 20M159 18L164 17M170 17L175 17M199 30L204 35M207 41L209 46M210 52V57M208 64L206 69M201 74L197 77" fill="none" stroke="#f1e9f2" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 115L73 108L75 117C73 132 59 134 63 143C66 151 80 151 85 163L87 172L51 180L49 169C48 155 61 148 57 140C53 132 40 132 39 121Z" fill="#2c2631" stroke="#f1e9f2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M44 123L69 118C68 126 60 128 58 132C55 129 48 129 44 123Z" fill="#54432a"/>
+  <path d="M57 166C56 159 63 155 65 150C68 156 78 157 80 165L81 167L57 172Z" fill="#54432a"/>
+  <path d="M34 113L76 104L78 113L36 122Z" fill="#2b4157" stroke="#f1e9f2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M47 175L89 166L91 175L49 184Z" fill="#2b4157" stroke="#f1e9f2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M61 135L63 144" fill="none" stroke="#d9b57d" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31.6 78a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0Z" fill="#4d3a5e"/>
+</svg>
