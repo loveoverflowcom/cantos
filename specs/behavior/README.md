@@ -32,7 +32,8 @@ the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
 Two further **draft, model-only** capabilities describe public media rules:
 `cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md),
 accepted for step-1 origin integration only) and `cantos.media.public-cover-projection`
-([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md), proposed).
+([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md), accepted by the owner
+for #157; model lifecycle remains draft).
 Neither has a registered Rust observer, so `--conformance` does not apply to them; their
 [inventory rows](inventory.md) separate implemented kernels from model assumptions.
 

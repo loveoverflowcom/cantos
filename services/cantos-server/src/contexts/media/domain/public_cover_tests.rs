@@ -368,3 +368,40 @@ fn cover_outcome_matches_an_independent_precedence_table() {
     // Non-vacuity: a cover is shown only for same-image clearances valid at now.
     assert_eq!(shown, 10);
 }
+
+#[test]
+fn cover_bytes_are_admitted_only_for_the_currently_shown_image() {
+    let h = history();
+    let [_, w2, w3, _] = &h.revisions;
+    let (a, b) = ("a".repeat(64), "b".repeat(64));
+    // Release pinned at w2 shows A: only A's SHA-256 is served, never the private head B.
+    let shown_a = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
+    assert_eq!(
+        admit_cover_fetch(&shown_a, &a).map(PublicCover::sha256),
+        Some(a.as_str())
+    );
+    for requested in [b.as_str(), "", "A".repeat(64).as_str(), &a[..63]] {
+        assert_eq!(admit_cover_fetch(&shown_a, requested), None, "{requested}");
+    }
+    // A republish pinned at w3 makes a cached URL for A stale; only B is served.
+    let shown_b = project(w3, &h, Some(&h.b), cleared(&h.b, 1000), 500);
+    assert_eq!(admit_cover_fetch(&shown_b, &a), None);
+    assert!(admit_cover_fetch(&shown_b, &b).is_some());
+    // Revocation, expiry and an undecided image deny the very next fetch of the same URL.
+    for denied in [
+        project(
+            w2,
+            &h,
+            Some(&h.a),
+            CoverDisclosure::Revoked {
+                image_asset_digest: h.a.digest(),
+            },
+            500,
+        ),
+        project(w2, &h, Some(&h.a), cleared(&h.a, 500), 500),
+        project(w2, &h, Some(&h.a), CoverDisclosure::Undecided, 500),
+    ] {
+        assert!(matches!(denied, CoverProjection::Fallback(_)));
+        assert_eq!(admit_cover_fetch(&denied, &a), None);
+    }
+}

@@ -1,9 +1,9 @@
-//! Proposed #157 P0 cover rule (ADR 0033, not accepted): the public Work cover is the artwork
-//! effective at the exact Work metadata revision pinned by the eligible representative release,
-//! disclosed only by an explicit public-display decision for that exact image. Private
+//! Accepted #157 P0 cover rule (ADR 0033): the public Work cover is the artwork effective at
+//! the exact Work metadata revision pinned by the eligible representative release, disclosed
+//! only by the current owner's explicit public-display decision for that exact image. Private
 //! admission, Work visibility and audio publication approval are separate facts, never this one.
 //! Pure and total: every cover failure is a stable fallback, never an error that would hide the
-//! title or block listening. No production reader supplies a decision until #157 is accepted.
+//! title or block listening. No production reader supplies a decision until #171 wires one.
 use super::{
     artwork::{artwork_at, ArtworkChange, WorkArtworkSelection},
     image::{ImageAsset, ImageMime},
@@ -142,6 +142,19 @@ fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjection {
         }
         (Ok(()), _) => CoverProjection::Fallback(CoverFallback::Corrupt),
         (Err(fallback), _) => CoverProjection::Fallback(fallback),
+    }
+}
+
+/// Delivery admission for `GET|HEAD /works/{work}/cover/{sha256}`: bytes are served only while
+/// the freshly computed projection shows exactly that image. A stale URL, a fallback of any
+/// reason and a malformed identity are indistinguishable denials.
+pub fn admit_cover_fetch<'p>(
+    projection: &'p CoverProjection,
+    requested_sha256: &str,
+) -> Option<&'p PublicCover> {
+    match projection {
+        CoverProjection::Shown(cover) if cover.sha256 == requested_sha256 => Some(cover),
+        CoverProjection::Shown(_) | CoverProjection::Fallback(_) => None,
     }
 }
 

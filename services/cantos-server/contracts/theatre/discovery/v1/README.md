@@ -42,7 +42,8 @@ selection. Title and description come from the exact Work metadata revision pinn
 release. Unit titles/descriptions come from their own pinned metadata revisions. Draft head
 text, source, private rights/audit notes, provider identities, producer bindings and storage keys
 never enter the public projection. `language` is the actual released Content/audio language;
-a Work's editorial language may differ. No genre, cover, author, popularity or rank is invented.
+a Work's editorial language may differ. No genre, author, popularity or rank is invented, and
+default v1 carries no cover (see [public cover v1.2](#public-cover-v12-accepted-not-served)).
 
 Public discovery remains useful metadata when playback delivery is unavailable. The normal
 Publication host cannot activate releases because its delivery adapter is unavailable. A
@@ -154,7 +155,7 @@ Browser-origin addressing of a deployed API (CORS, CDN) remains separate accepta
 `GET /works/{work}/units`. Omitting the query preserves every default v1 field and value;
 existing strict Rust and Kotlin readers reject unknown fields, so enriched responses use
 separate reviewed DTOs rather than adding fields to `WorkSummary` or `UnitSummary`.
-Any other presentation value is `invalid_request`. The capability is part of cursor identity:
+Any other presentation value is `invalid_request` (the accepted v1.2 `2` is admitted only by #171). The capability is part of cursor identity:
 a cursor cannot switch between default and presentation responses.
 
 | Opt-in DTO | Added field | Meaning |
@@ -208,6 +209,62 @@ New endpoints are additive. Earlier Theatre mock playback vectors remain separat
 explicit Unix milliseconds (`*_at_ms`), not float seconds; these new fields choose the existing
 backend time representation instead of the earlier illustrative RFC3339 listener proposal.
 
+## Public cover v1.2 (accepted, not served)
+
+**Accepted contract, NOT IMPLEMENTED.** [ADR 0033](../../../../../../docs/decisions/0033-release-pinned-public-cover.md)
+was accepted by the owner for [#157](https://github.com/loveoverflowcom/cantos/issues/157).
+Until [#171](https://github.com/loveoverflowcom/cantos/issues/171) ships, the Server still
+answers `presentation=2` with `invalid_request` and serves no cover route; clients keep their
+no-cover fallback and must not construct cover URLs or ship this capability ahead of the Server.
+
+| Request | v1.2 response |
+| --- | --- |
+| `GET /works?…&presentation=2`, `GET /search?…&presentation=2` | `CoveredWorkPage` |
+| `GET /works/{work_id}?presentation=2` | `CoveredWorkSummary` |
+| `GET /works/{work_id}/units?…&presentation=2` | `PresentedUnitPage`, identical to `presentation=1` |
+| `GET`, `HEAD /works/{work_id}/cover/{sha256}` | Raw `image/png` or `image/jpeg` bytes, or `ListenerError` |
+
+`CoveredWorkSummary` is every `PresentedWorkSummary` field plus a **required nullable**
+`cover`. `null` is the only no-cover state: no artwork, an undisclosed/revoked/expired image,
+corrupt or foreign facts and uncomposed cover delivery all serialize identically and never
+explain why. Omitting `cover` is invalid. The presentation level is cursor identity, so a
+`presentation=1` cursor is `invalid_cursor` under `presentation=2` and vice versa.
+
+`CoverImage` carries exactly `url`, `sha256` (of the image bytes), `content_type`
+(`image/png` or `image/jpeg`), `width_px`/`height_px` (1–4096), `byte_length` (1–8,388,608)
+and `alt_text` (non-blank, at most 1024 UTF-8 bytes; the schema's character bound is looser).
+These are the private Artwork v1 admission bounds; no resize or thumbnail is produced.
+Asset IDs and digests, rights references, provenance, owner, receipts, disclosure history and
+storage keys are never present. The cover is the image pinned by the same representative
+release as `title`/`description` and is shown only while the owner's disclosure of that exact
+image is current; a newer private image appears only after a newer eligible release pins it.
+
+`url` is `https://{public API origin}/api/v1/theatre/works/{work_id}/cover/{sha256}` with the
+summary's own `work_id` and `cover.sha256`. Clients use it exactly as given and must not derive
+another URL from a summary. Every GET/HEAD re-resolves the representative release, re-projects
+the cover with the current disclosure and clock and serves bytes only when it shows exactly
+that SHA-256. A stale URL after republish, revocation, expiry or withdrawal is `not_found`.
+
+| Cover response | HTTP | Code / retryable | Client action |
+| --- | --- | --- | --- |
+| Bytes | 200 / 304 | — | Show; `ETag: "{sha256}"`, `Cache-Control: public, no-cache`, nosniff, exact `Content-Type`/`Content-Length` |
+| Unknown Work, malformed or stale SHA-256, ineligible release, no current disclosure, uncomposed delivery | 404 | `not_found` / false | Show the no-cover fallback; refresh the summary later |
+| Storage timeout/unavailable | 503 | `unavailable` / true | Keep the fallback; retry with backoff |
+| Stored bytes contradict the admitted SHA-256/length | 500 | `unavailable` / false | Keep the fallback; report |
+
+`If-None-Match` with the strong ETag returns 304; `no-cache` requires revalidation before each
+use, so revocation takes effect on the next request rather than after a cache lifetime. Ranges
+are not served (`Accept-Ranges: none`; a `Range` header receives the full 200). HEAD has no body.
+A cover failure never changes the summary's other fields, unit lists or playback.
+
+The [schema](discovery.schema.json) defines `CoverImage`, `CoveredWorkSummary` and
+`CoveredWorkPage`; the [cover fixtures](fixtures/cover/) show a shown cover and `null`; the
+[shared Rust DTOs](../../../../src/contract/theatre/discovery.rs) round-trip them and the
+conformance tests prove that default and `presentation=1` readers reject v1.2 responses.
+The fixtures live in a subdirectory so the default-v1 CMP corpus is unchanged; Theatre Web
+and CMP adopt them under #158/#159 after #171. Exact CORP/CORS headers for the deployed
+origins (ADR 0041) and any offline cover retention on CMP remain #171/#159 decisions.
+
 ## Client state coverage (#172) is a review input, not a wire change
 
 The [coverage matrix](../../../../../../docs/work-plan/theatre-catalog-state-handoff.md) maps each Web/CMP
@@ -221,15 +278,16 @@ shared fixtures [`units_empty_continuation.json`](fixtures/units_empty_continuat
 intermediate page, the terminal empty page and a version change using only the v1 fields. A cursor is
 not consumed by a read, so a failed page is retried with the same cursor until it expires.
 
-## Proposed P1 metadata is not part of this contract
+## P1 metadata is not part of this contract
 
-[#177](https://github.com/loveoverflowcom/cantos/issues/177)'s genres, public credits and podcast
-seasons remain subject to [#157](https://github.com/loveoverflowcom/cantos/issues/157)'s applicable
-decision gate. The [source/rights/consumer matrix](../../../../../../docs/work-plan/public-metadata-decision-handoff.md)
-and [proposed ADR 0030](../../../../../../docs/decisions/0030-release-safe-public-metadata.md) are review
-inputs, not new wire fields or accepted semantics. Existing strict v1 readers reject unknown
-properties, so even optional response fields require deliberate compatibility/version review.
-Current q/kind/language filters, cursor behavior and public projections remain unchanged.
+[#157](https://github.com/loveoverflowcom/cantos/issues/157) accepted only the release-pinned
+authority principle for future public metadata ([ADR 0030](../../../../../../docs/decisions/0030-release-safe-public-metadata.md)).
+Genre/taxonomy is open pending its vocabulary decision; contributors, credits/license, podcast
+seasons, timed markers and public transcripts are deferred. None is a wire field here, and
+[#177](https://github.com/loveoverflowcom/cantos/issues/177) needs its own accepted rows before
+any field. Existing strict v1 readers reject unknown properties, so even optional response
+fields require deliberate compatibility/version review. Current q/kind/language filters,
+cursor behavior and public projections remain unchanged.
 
 ## Shared transport boundary
 

@@ -12,6 +12,17 @@ fn positive_safe_integer<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u
     }
 }
 
+fn bounded<'de, D: Deserializer<'de>, const MAX: u64>(deserializer: D) -> Result<u64, D::Error> {
+    let value = u64::deserialize(deserializer)?;
+    if (1..=MAX).contains(&value) {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom(
+            "expected an integer within the cover bounds",
+        ))
+    }
+}
+
 fn required_nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
@@ -85,6 +96,52 @@ pub struct PresentedWorkSummary {
 #[serde(deny_unknown_fields)]
 pub struct PresentedWorkPage {
     pub items: Vec<PresentedWorkSummary>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+/// Accepted Discovery v1.2 cover (ADR 0033, `presentation=2`); not served until #171.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum CoverMime {
+    #[serde(rename = "image/png")]
+    Png,
+    #[serde(rename = "image/jpeg")]
+    Jpeg,
+}
+/// Public image facts only: no asset ID/digest, rights, provenance, owner or storage key.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CoverImage {
+    /// Origin delivery URL, used exactly as given; revalidated on every use.
+    pub url: String,
+    pub sha256: String,
+    pub content_type: CoverMime,
+    #[serde(deserialize_with = "bounded::<_, 4096>")]
+    pub width_px: u64,
+    #[serde(deserialize_with = "bounded::<_, 4096>")]
+    pub height_px: u64,
+    #[serde(deserialize_with = "bounded::<_, 8_388_608>")]
+    pub byte_length: u64,
+    pub alt_text: String,
+}
+/// `PresentedWorkSummary` plus a required nullable cover; `null` is the only no-cover state.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CoveredWorkSummary {
+    pub work_id: String,
+    pub kind: WorkKind,
+    pub title: String,
+    pub description: String,
+    pub language: String,
+    pub first_published_at_ms: i64,
+    #[serde(deserialize_with = "positive_safe_integer")]
+    pub unit_count: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub cover: Option<CoverImage>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CoveredWorkPage {
+    pub items: Vec<CoveredWorkSummary>,
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }

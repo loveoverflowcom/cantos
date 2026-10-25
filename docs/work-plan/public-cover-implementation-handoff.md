@@ -1,69 +1,62 @@
 # Public Work cover implementation handoff
 
-Review boundary: make [#171](https://github.com/loveoverflowcom/cantos/issues/171)'s next
-implementation review reproducible without selecting the unaccepted public-image policy.
-[ADR 0033](../decisions/0033-release-pinned-public-cover.md) owns the proposed cover rule;
-this handoff adds neither acceptance nor a second artwork contract. GitHub owns execution
-status. The source inventory below is pinned to `origin/develop`
-`f6204e8bc8cb5361f93917c09dfe9d01aa6ef359`; re-read the issue, comments and current decisions
-before resuming implementation.
+Review boundary: make [#171](https://github.com/loveoverflowcom/cantos/issues/171)'s
+implementation review reproducible against the accepted policy. The accepted
+[ADR 0033](../decisions/0033-release-pinned-public-cover.md) owns the cover rule and the
+[Discovery v1.2 section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-accepted-not-served)
+owns the wire; this handoff adds no second artwork contract. GitHub owns execution status.
+The source inventory was first pinned to `f6204e8bc8cb5361f93917c09dfe9d01aa6ef359` and
+refreshed for the #157 decision at `e082d2d8df51056678611361d0c39b590e650acf` (native Turso
+`server.db`); re-read the issue, comments and current decisions before resuming implementation.
 
 ## Entry gate and owner receipt
 
-Issue #171 explicitly requires implementation to remain blocked if
-[#157](https://github.com/loveoverflowcom/cantos/issues/157) has not selected delivery.
-ADR 0033 remains proposed, with its decision owner unassigned. Its existing kernel and draft
-behavior model are review inputs, not permission to expose an image. The
-[work-item prerequisite rule](../../.agents/skills/cantos-work-item/SKILL.md#2-confirm-the-prerequisites-are-accepted)
-does not let a merged proposal substitute for owner acceptance.
+The owner accepted [ADR 0033](../decisions/0033-release-pinned-public-cover.md) for
+[#157](https://github.com/loveoverflowcom/cantos/issues/157) on 2026-10-25, so #171's policy
+prerequisite is met. The receipt below records each selected answer and its owning text; it
+accepts no implementation, which still needs the acceptance matrix further down.
 
-Product, Catalog and Publication owners must record the following in #157 or its accepted
-decision before the corresponding runtime work. Assignment is required; this table assigns
-no person and accepts none of ADR 0033's recommendations.
+| Receipt item | Accepted answer (owner) | Still open for #171 |
+| --- | --- | --- |
+| Authority and scope | Current active Work owner records an append-only, digest-bound clearance with a required `valid_until_ms`, or a revocation; latest by server sequence wins; separate from admission, visibility, clearance and audio approval | Studio route/DTO shape, idempotency key and UX copy; reviewed alongside #171 |
+| Release identity | Image effective at the Work revision pinned by the representative release; private replacement/clear changes nothing until a newer release pins it; withdrawal hides it; no backfill | None beyond the real SQL scenarios |
+| Delivery and privacy | Origin GET/HEAD `/api/v1/theatre/works/{work_id}/cover/{sha256}`, re-projected on every request; one anonymous `not_found` for every denial | Composition gate, private-object read and actual-byte check |
+| Cache and revocation | Strong `ETag: "{sha256}"`, `Cache-Control: public, no-cache`; revocation effective on the next request | Exact CORP/CORS headers for deployed origins (ADR 0041); CMP offline retention |
+| Wire and rollout | Discovery v1.2 `presentation=2` → `CoveredWorkPage`/`CoveredWorkSummary` with required nullable `cover`; default and `presentation=1` unchanged; JSON only | Admitting `presentation=2` in the closed query and cursor identity |
+| Consumers and acceptance | [Contract section](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-cover-v12-accepted-not-served) and `fixtures/cover/`; Web #158 and CMP #159 adopt after #171 | Web/CMP decoding and fallback observations |
 
-| Receipt item | Decision required for this artwork slice |
-| --- | --- |
-| Authority and scope | Who can disclose/revoke an exact image, how that authority is authenticated, how image rights differ from private admission and audio approval, and whether disclosure expires |
-| Release identity | Exact representative-release/Work-revision binding, legacy releases with no image, replacement across units, clear, correction and withdrawal behavior; reconcile any departure from ADR 0033's kernel |
-| Delivery and privacy | Chosen image delivery mode, publication-class object isolation, actual-byte identity, GET/HEAD behavior, denial semantics and races with revoke/withdrawal/visibility changes |
-| Cache and revocation | Immutable image/version identity, validators, cache authorization and retention policy, stale capability behavior and the permitted revocation lag; digest identity alone does not revoke a cached image |
-| Wire and rollout | Approved public fields and absence/null semantics, explicit compatibility/version boundary, actual JSON/Protobuf route coverage, old-reader behavior and rollback |
-| Consumers and acceptance | Shared Web/CMP fixture ownership and decoding method, fallback semantics, exact acceptance evidence links and remaining independently gated work |
-
-Only the applicable P0 artwork and wire decisions are needed here. This does not require or
-accept #157's unrelated P1 genres, contributors, seasons, markers or transcripts. Conversely,
-accepting those P1 rows would not accept this P0 gate.
+#157's P1 metadata rows are separate ([ADR 0030](../decisions/0030-release-safe-public-metadata.md#157-capability-matrix));
+accepting them would not change this P0 gate.
 
 ## Existing seams to reuse after acceptance
 
 | Owner / implemented seam | What it supplies | What it does not supply |
 | --- | --- | --- |
-| [Private Artwork v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md), [Media artwork SQL](https://github.com/loveoverflowcom/cantos/blob/7057ab41720b9bb341b27bae8a08f0ea7211b6ae/services/cantos-server/src/contexts/media/postgres/artwork.rs) | Owner-only image admission and immutable set/clear history; `effective` reads the last change at or before an exact Work revision, retaining clear tombstones | Public rights, an anonymous preview URL, publication promotion or public cover DTO |
+| [Private Artwork v1](../../services/cantos-server/contracts/studio/artwork/v1/README.md), [Media artwork SQL](../../services/cantos-server/src/contexts/media/turso/artwork.rs) (Turso; [historical PG](https://github.com/loveoverflowcom/cantos/blob/7057ab41720b9bb341b27bae8a08f0ea7211b6ae/services/cantos-server/src/contexts/media/postgres/artwork.rs)) | Owner-only image admission and immutable set/clear history; `effective` reads the last change at or before an exact Work revision, retaining clear tombstones | Public rights, an anonymous preview URL, publication promotion or public cover DTO |
 | [Listener publication SQL](../../services/cantos-server/src/contexts/media/turso/listener.rs), [Discovery v1](../../services/cantos-server/contracts/theatre/discovery/v1/README.md#public-eligibility-and-representative-metadata) | Current eligibility plus exact release-pinned metadata; shared representative selection for list/detail; bounded batched reads | Image/disclosure resolution; present-day private head is not the release's cover |
-| [Pure cover kernel](../../services/cantos-server/src/contexts/media/domain/public_cover.rs) | Proposed `project_public_cover` over eligible `ListenerPublication`, artwork history, exact admitted asset and explicit disclosure; typed total fallback | A production caller, persisted disclosure authority or public wire serialization |
-| [Theatre DTO](../../services/cantos-server/src/contract/theatre/discovery.rs), [wire projection](../../services/cantos-server/src/contexts/media/listener_projection.rs) | Strict existing `WorkSummary` for list/detail, with no cover field | Automatic compatibility for an optional addition: `deny_unknown_fields` readers reject extra properties |
+| [Pure cover kernel](../../services/cantos-server/src/contexts/media/domain/public_cover.rs) | Accepted `project_public_cover` over eligible `ListenerPublication`, artwork history, exact admitted asset and explicit disclosure, typed total fallback; `admit_cover_fetch` serves only the currently shown SHA-256 | A production caller, persisted disclosure authority or route |
+| [Theatre DTO](../../services/cantos-server/src/contract/theatre/discovery.rs), [wire projection](../../services/cantos-server/src/contexts/media/listener_projection.rs) | Strict `WorkSummary`/`PresentedWorkSummary` without a cover; accepted v1.2 `CoveredWorkSummary`/`CoveredWorkPage`/`CoverImage` DTOs with schema/fixture conformance | A projection that fills them or a query that selects them |
 | [Private storage](../architecture/object-storage.md), [origin playback seam](../../services/cantos-server/src/contexts/media/listener_delivery.rs) | Existing private adapters and a separate composition-gated audio `PublicationObjects` port | A promoted public-image adapter; private storage has no promotion/ACL operation, and the audio route is not an image endpoint |
 
-[ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md) is also proposed and concerns
-audio. Its grant TTL, MIME, URL shape and headers do not select image delivery. Do not add an
-image response to a Studio handler or widen the existing audio route as a substitute for #157.
-The [P1 wire review](../decisions/0030-release-safe-public-metadata.md) identifies the strict-reader
-hazard but supplies no accepted Theatre Protobuf field numbers or cover DTO.
+[ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md) concerns audio (accepted for
+step-1 origin integration). Its grant TTL, MIME, URL shape and headers do not select image delivery. Do not add an
+image response to a Studio handler or widen the existing audio route; the accepted cover
+route is its own Theatre handler. Theatre stays JSON; no Protobuf field numbers are selected.
 
 ## Next review sequence
 
-1. Record the owner receipt above and reconcile the owning ADR/contract. Preserve private
+1. Done by #157: owner receipt, accepted ADR and Discovery v1.2 contract. Preserve private
    artwork authority; no existing owner URL, rights reference or receipt becomes public.
-2. Review one consumer-ready projection contract and shared fixture set before changing
-   serialization. Preserve old v1 fixtures and test both old-reader and new-reader rollout.
-   Keep raw PNG/JPEG bytes outside metadata envelopes; document transport per actual route.
+2. Done by #157: the consumer-ready contract and `fixtures/cover/` with old-reader rejection
+   tests. #171 keeps old v1 fixtures unchanged and adds the served-response conformance.
+   Keep raw PNG/JPEG bytes outside metadata envelopes.
 3. Reconcile and verify the pure cover rule against that contract, then supply its facts through
    Media's application and Catalog's existing metadata facade. Reuse exact revision/history
    semantics and fail closed on cross-owner/image/release mismatches. A broken optional cover
    must not suppress an otherwise eligible title or playable release.
 4. Add the reviewed disclosure persistence and bounded read path, with additive migrations
    only where needed. Before changing reads, follow the
-   [PostgreSQL read workflow](../../.agents/skills/cantos-engineering/references/turso-read-performance.md):
+   [Turso read workflow](../../.agents/skills/cantos-engineering/references/turso-read-performance.md):
    inventory list/search/detail, retain representative-first filtering and opaque keysets,
    compare query counts/plans and avoid per-item artwork queries. No measured need for DBSP
    or another storage service is established here.
@@ -94,8 +87,8 @@ Use the [verification cadence](../../.agents/skills/cantos-engineering/reference
 for focused development checks, affected-layer checkpoints and final-diff
 `cargo xtask preflight --changed-only`; reuse attributable results and do not repeat suites
 already covered for the same inputs. The later implementation's affected suites include
-`cargo xtask verify rust`, `cargo xtask verify contracts` and `cargo xtask verify postgres`
-(a disposable native cluster, never an inherited database). Select behavior/conformance and
+`cargo xtask verify rust`, `cargo xtask verify contracts` and `cargo xtask verify turso`
+(file-backed `server.db` fixtures, never an inherited database; `verify postgres` is retired). Select behavior/conformance and
 renderer checks according to the actual changed inputs and the [xtask contract](../../xtask/README.md#preflight).
 These commands cannot establish a cover test exists: register the new SQL/storage scenarios
 in the canonical gates before citing a result.
@@ -104,12 +97,12 @@ neither a mock fixture nor an agent-authored hash is that evidence.
 
 ## Handoff evidence boundary
 
-This documentation-only slice provides a source inventory, decision receipt and acceptance
-plan (`documented`). Its final-diff local gate output and independent review belong in its PR.
-It changes no domain, DTO, schema, migration, fixture, storage object or client behavior.
-No release or manifest is produced; no cache/audio identity, rights or approval is changed.
-No performance measurement is claimed. L2/L4 implementation evidence is inapplicable here;
-runtime SQL/API/storage/browser/device acceptance for #171 remains **NOT_RUN / BLOCKED** on
-the prerequisite policy and subsequent implementation. The pure kernel's inherited evidence
+The original slice provided a source inventory and acceptance plan (`documented`). The #157
+decision slice adds the accepted receipt above, the Discovery v1.2 schema/fixtures with shared
+Rust DTOs and conformance tests (`contract-tested`) and the pure `admit_cover_fetch` rule
+(`example-tested`). It changes no migration, route, query admission, storage object or client
+behavior. No release or manifest is produced; no cache/audio identity, rights or approval is
+changed. No performance measurement is claimed. Runtime SQL/API/storage/browser/device
+acceptance for #171 remains **NOT_RUN** until its implementation. The pure kernel's inherited evidence
 does not complete any of #171's end-to-end acceptance criteria. Keep #171 open until its
 required contract, projection, real SQL and delivery/consumer evidence are actually accepted.
