@@ -79,7 +79,7 @@ pub mod tool {
     pub const AUTH_EDITABLE: &str = "Editable";
     pub const AUTH_READONLY: &str = "Read-only, selectable and copyable";
     pub const TOGGLE_ERROR: &str = "Toggle sample error";
-    pub const AUTH_CANDIDATE: &str = "Floating (Fields v3) · Web-only. Use Tab to compare focus with the existing AuthTonal counterpart below. Qualification is recorded separately.";
+    pub const AUTH_CANDIDATE: &str = "Floating (Fields v3) · Web specimen. Use Tab to compare focus with the existing AuthTonal counterpart below. Qualification is recorded separately.";
     pub const AUTH_BASELINE: &str = "Existing AuthTonal · compatibility baseline:";
     pub const AUTH_REGULAR: &str = "Regular field with unchanged geometry";
     pub const BACK_HEADING: &str = "Contextual Back · host-owned destination";
