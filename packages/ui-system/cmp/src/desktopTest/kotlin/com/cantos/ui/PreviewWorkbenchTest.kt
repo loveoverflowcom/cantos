@@ -53,7 +53,7 @@ class PreviewWorkbenchTest {
         runDesktopComposeUiTest(width = 840, height = 1000) {
             setContent {
                 var state by remember { mutableStateOf("editable") }
-                UiRoot { Column {
+                BundledPreviewCaptureRoot { Column {
                     Button("Change availability", { state = "readonly" })
                     com.cantos.ui.preview.ComponentExample(PreviewExample.TextField, state, {}, Modifier)
                 } }
@@ -67,7 +67,7 @@ class PreviewWorkbenchTest {
     fun actual_button_intents_survive_replay_and_recreate_then_reset_explicitly() {
         val recipe = recipe("button", "enabled")
         runDesktopComposeUiTest(width = 1140, height = 2200) {
-            setContent { UiRoot { ComponentWorkbench(recipe) } }
+            setContent { BundledPreviewCaptureRoot { ComponentWorkbench(recipe) } }
             onNodeWithText("Lưu · Primary").performScrollTo().performClick()
             onNodeWithText("Callback count: 1").assertExists()
             onNodeWithText("Replay intents").performScrollTo().performClick()
@@ -83,7 +83,7 @@ class PreviewWorkbenchTest {
     fun filtering_does_not_unmount_the_edited_field_and_snapshot_restores_it() {
         val recipe = recipe("text-field", "selection")
         runDesktopComposeUiTest(width = 1140, height = 2200) {
-            setContent { UiRoot { ComponentWorkbench(recipe) } }
+            setContent { BundledPreviewCaptureRoot { ComponentWorkbench(recipe) } }
             onNodeWithText("Tên tác phẩm").performScrollTo().performTextReplacement(SyntheticPreviewText.alternateTitleVi)
             onNodeWithText("Filter recipes").performScrollTo().performTextReplacement("checkbox")
             onNodeWithText(SyntheticPreviewText.alternateTitleVi).assertExists()
@@ -118,13 +118,15 @@ class PreviewWorkbenchTest {
                 density = LocalDensity.current.density
                 fontScale = LocalDensity.current.fontScale
                 Box(Modifier.requiredSize(1140.dp, 2200.dp).testTag("workbench-root")) {
-                    com.cantos.ui.preview.PreviewApp(initialSection = 3, initialRecipe = recipe)
+                    com.cantos.ui.preview.PreviewApp(initialSection = 3, initialRecipe = recipe,
+                        uiFontFamily = com.cantos.ui.preview.PreviewFonts.ui,
+                        editorialFontFamily = com.cantos.ui.preview.PreviewFonts.editorial)
                 }
             }
             val name = "cmp-workbench-light-1140-controls"
             writeCapture(CaptureScenario(name, "workbench", "button", "enabled", themeMode = ThemeMode.Light,
                 systemIsDark = false, preferences = UiPreferences(), viewportWidthDp = 1140, viewportHeightDp = 2200,
-                hostDensity = density, hostFontScale = fontScale), onNodeWithTag("workbench-root").captureToImage())
+                hostDensity = density, hostFontScale = fontScale, fontSource = BundledPreviewFontSource), onNodeWithTag("workbench-root").captureToImage())
             File(captureDirectory(), "$name.semantics.txt").writeText(onNodeWithTag("workbench-root").printToString())
         }
     }
@@ -137,13 +139,16 @@ class PreviewWorkbenchTest {
             setContent {
                 density = LocalDensity.current.density
                 fontScale = LocalDensity.current.fontScale
-                RecipeFrame(recipe, systemIsDark = systemIsDark)
+                CantosTheme(UiPreferences(), com.cantos.ui.preview.PreviewFonts.ui,
+                    com.cantos.ui.preview.PreviewFonts.editorial) {
+                    RecipeFrame(recipe, systemIsDark = systemIsDark)
+                }
             }
             val node = onNodeWithTag("recipe-frame")
             writeCapture(CaptureScenario(name, recipe.mode.name, recipe.component.id, recipe.stateId,
                 themeMode = recipe.settings.themeMode, systemIsDark = systemIsDark,
                 preferences = recipe.settings.preferences(systemIsDark), viewportWidthDp = frame.widthDp,
-                viewportHeightDp = frame.heightDp, hostDensity = density, hostFontScale = fontScale), node.captureToImage())
+                viewportHeightDp = frame.heightDp, hostDensity = density, hostFontScale = fontScale, fontSource = BundledPreviewFontSource), node.captureToImage())
             File(captureDirectory(), "$name.semantics.txt").writeText(node.printToString())
         }
     }

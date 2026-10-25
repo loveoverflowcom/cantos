@@ -48,7 +48,7 @@ class InteractionCaptureTest {
                     density = LocalDensity.current.density
                     fontScale = LocalDensity.current.fontScale
                     Box(Modifier.requiredSize(390.dp, 840.dp).testTag("support-root")) {
-                        UiRoot(preferences = preferences) {
+                        BundledPreviewCaptureRoot(preferences = preferences) {
                             Column(Modifier.padding(tokenDp("space.lg")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                                 Checkbox("Giữ ghi chú · Ỗ, Ữ", checked, { checked = it })
                                 Status("Bản nháp vẫn còn", modifier = Modifier.testTag("support-status"),
@@ -114,7 +114,7 @@ class InteractionCaptureTest {
             setContent {
                 var value by androidx.compose.runtime.remember { mutableStateOf(-50f) }
                 Box(Modifier.requiredSize(372.dp, 840.dp).testTag("regression-root")) {
-                    UiRoot(preferences = UiPreferences(theme = Theme.Dark, density = Density.Comfortable, textScale = 2f)) {
+                    BundledPreviewCaptureRoot(preferences = UiPreferences(theme = Theme.Dark, density = Density.Comfortable, textScale = 2f)) {
                         Column(Modifier.padding(tokenDp("space.lg"))) {
                             RangeField("Mức tín hiệu thử", value, { value = it }, range = -100f..0f, steps = 3,
                                 valueText = "$value trên khoảng −100 đến 0 · Ỗ, Ữ")
@@ -140,7 +140,7 @@ class InteractionCaptureTest {
         runDesktopComposeUiTest(width = width, height = 840) {
             setContent {
                 Box(Modifier.requiredSize(width.dp, 840.dp).testTag("interaction-root")) {
-                    UiRoot(preferences = preferences) {
+                    BundledPreviewCaptureRoot(preferences = preferences) {
                         Column(Modifier.padding(tokenDp("space.lg")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                             Text("${example.id} · $state · Ỗ, Ữ")
                             ComponentExample(example, state, {}, Modifier)

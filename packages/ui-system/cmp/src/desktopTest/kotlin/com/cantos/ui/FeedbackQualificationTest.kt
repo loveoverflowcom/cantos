@@ -67,7 +67,7 @@ class FeedbackQualificationTest {
                         hostDensity = LocalDensity.current.density
                         hostFontScale = LocalDensity.current.fontScale
                         Box(Modifier.requiredSize(320.dp, 844.dp).testTag("capture")) {
-                            UiRoot(preferences = preferences) {
+                            BundledPreviewCaptureRoot(preferences = preferences) {
                                 Column(Modifier.padding(tokenDp("space.lg"))) {
                                     ErrorState(title, message, Modifier.testTag("feedback"), announcement) {
                                         Stack(direction = StackDirection.Horizontal, gap = Space.Sm) {
@@ -110,7 +110,7 @@ class FeedbackQualificationTest {
                         "cmp-qualification-error-state-${theme.tokenName}-text$scale-320", "qualification-feedback",
                         "error-state", "recovery-slot", themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
                         systemIsDark = false, preferences = preferences, viewportWidthDp = 320, viewportHeightDp = 844,
-                        hostDensity = hostDensity, hostFontScale = hostFontScale,
+                        hostDensity = hostDensity, hostFontScale = hostFontScale, fontSource = BundledPreviewFontSource,
                     ), onNodeWithTag("capture").captureToImage())
                 }
             }
@@ -126,7 +126,7 @@ class FeedbackQualificationTest {
             var hostDensity = 1f
             setContent {
                 Box(Modifier.requiredSize(320.dp, 600.dp).testTag("paint-root")) {
-                    UiRoot(preferences = UiPreferences(textScale = 2f)) {
+                    BundledPreviewCaptureRoot(preferences = UiPreferences(textScale = 2f)) {
                         foreground = tokenColor("color.error")
                         hostDensity = LocalDensity.current.density
                         Column(Modifier.padding(tokenDp("space.lg"))) {
@@ -186,7 +186,7 @@ class FeedbackQualificationTest {
                             hostDensity = LocalDensity.current.density
                             hostFontScale = LocalDensity.current.fontScale
                             Box(Modifier.requiredSize(width.dp, 400.dp).testTag("capture")) {
-                                UiRoot(preferences = preferences) {
+                                BundledPreviewCaptureRoot(preferences = preferences) {
                                     Column(Modifier.padding(tokenDp("space.lg")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                                         Status(label, Modifier.testTag("status"), tone, announcement = announcement)
                                     }
@@ -217,7 +217,7 @@ class FeedbackQualificationTest {
                             "cmp-qualification-status-${tone.name.lowercase()}-${theme.tokenName}-text$scale-$width", "qualification-feedback",
                             "status", tone.name.lowercase(), themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
                             systemIsDark = false, preferences = preferences, viewportWidthDp = width, viewportHeightDp = 400,
-                            hostDensity = hostDensity, hostFontScale = hostFontScale,
+                            hostDensity = hostDensity, hostFontScale = hostFontScale, fontSource = BundledPreviewFontSource,
                         ), onNodeWithTag("capture").captureToImage())
                     }
                 }

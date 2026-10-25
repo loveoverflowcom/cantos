@@ -54,7 +54,7 @@ class TheatreCaptureTest {
         val name = "cmp-theatre-${example.id}-$state-${preferences.theme.tokenName}-text${preferences.textScale}-$width"
         runDesktopComposeUiTest(width = width, height = 1800) {
             setContent {
-                UiRoot(preferences = preferences) {
+                BundledPreviewCaptureRoot(preferences = preferences) {
                     Column(Modifier.testTag("scene").padding(tokenDp("space.md"))) {
                         ComponentExample(example, state, {}, Modifier)
                     }
@@ -75,7 +75,7 @@ class TheatreCaptureTest {
                     name = name, section = "theatre-foundation", component = example.id, state = state,
                     themeMode = if (preferences.theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light, systemIsDark = false,
                     preferences = preferences, viewportWidthDp = width, viewportHeightDp = 1800,
-                    hostDensity = 1f, hostFontScale = 1f,
+                    hostDensity = 1f, hostFontScale = 1f, fontSource = BundledPreviewFontSource,
                 ),
                 image,
             )

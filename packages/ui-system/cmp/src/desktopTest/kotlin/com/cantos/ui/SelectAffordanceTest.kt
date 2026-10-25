@@ -52,7 +52,7 @@ class SelectAffordanceTest {
         val calls = mutableListOf<String>()
         var value by mutableStateOf<String?>("0")
         setContent {
-            UiRoot {
+            BundledPreviewCaptureRoot {
                 Select("Nhân vật", listOf(SelectOption("0", "Người dẫn chuyện", icon = "mic"), SelectOption("1", "Minh Phương", icon = "person")), value,
                     { calls += it; value = it }, expandedDescription = "Mở", collapsedDescription = "Đóng",
                     placeholder = "Chọn nhân vật", emptyDescription = "Chưa có nhân vật",
@@ -83,7 +83,7 @@ class SelectAffordanceTest {
         var state by mutableStateOf<ButtonState>(ButtonState.Enabled)
         var calls = 0
         setContent {
-            UiRoot {
+            BundledPreviewCaptureRoot {
                 Select("Nhân vật", listOf(SelectOption("0", longLabel, icon = "mic")), "0", { calls += 1 }, state = state,
                     expandedDescription = "Mở", collapsedDescription = "Đóng", placeholder = "Chọn nhân vật",
                     emptyDescription = "Chưa có nhân vật", controlModifier = Modifier.testTag("select-trigger"))
@@ -115,7 +115,7 @@ class SelectAffordanceTest {
             SelectOption("2", "Giọng chưa được duyệt", ButtonState.Disabled(DisabledReason.of("Thiếu quyền dùng giọng"))))
         setContent {
             Box(Modifier.requiredSize(width.dp, 1000.dp).testTag("select-root")) {
-                UiRoot(preferences = UiPreferences(theme = theme, textScale = textScale)) {
+                BundledPreviewCaptureRoot(preferences = UiPreferences(theme = theme, textScale = textScale)) {
                     Column(Modifier.padding(tokenDp("space.lg"))) {
                         Select("Nhân vật / Character", options, value, { value = it }, state = state,
                             expandedDescription = "Mở", collapsedDescription = "Đóng", placeholder = "Chọn nhân vật / Choose a character",

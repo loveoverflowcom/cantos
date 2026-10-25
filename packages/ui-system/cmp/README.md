@@ -236,7 +236,11 @@ density and host font scale (`host_font_scale` is the host value; the effective 
 the preview multiplier), token version, `tokens.json` byte digest, `CANTOS_SOURCE_REVISION` (or
 `unrecorded`) and the PNG SHA-256. It always names its renderer `jvm-desktop-compose-test-root` and lists what it
 is **not** evidence of: Android/iOS devices, an OS window, a screen reader or a design-pixel match.
-Open the PNG before calling it `screenshot-inspected`.
+Open the PNG before calling it `screenshot-inspected`. New sidecars also name `font_source`;
+`unrecorded` stays explicit for older helpers. The qualification capture roots inject the same
+`PreviewFonts.ui` / `PreviewFonts.editorial` bundle as the canonical desktop host, and an
+executed nested-text-layout test verifies those families. Platform-fallback/type diagnostics
+remain labeled separately; a token family name alone is not proof of delivered glyphs.
 
 ## One token source
 

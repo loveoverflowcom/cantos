@@ -248,3 +248,29 @@ OS-window binding remains UNSUPPORTED and device/AT acceptance remains separate;
 receipt or screenshot alone supplies a new runtime PASS. Independent review confirmed this
 scope interpretation against the current owners. Remaining admission is still not renewed at
 this intermediate checkpoint.
+
+
+### Final capture host: delivered Noto families
+
+The earlier component captures used the library's reviewed platform fallback. The canonical
+Desktop preview injects the bundled Noto Sans/Serif faces, so that earlier scope is not silently
+called a Noto-host review. Capture roots now receive exactly the same PreviewFonts families;
+Select, workbench and motion hosts are included. No production theme/font API or asset changes.
+A real layout assertion inspects the button, headline and nested editable value's actual
+TextLayoutResults and families. Its first new assertion incorrectly counted merged semantics;
+it was corrected to examine the named layouts in the unmerged tree, not to waive font delivery.
+
+`cmp-noto-final-host.log`: PASS, 253 tests / 41 suites, zero failures/errors/skips. Both glyph
+paint and modal focus-paint regressions pass with Noto. New output is
+`artifacts/ui-evidence/20261025-qualification-noto-final-host` (197 PNGs, 133 individual sidecars).
+125 sidecars explicitly name the Noto source, one names the deliberate type-specimen platform
+fallback, and seven remain honestly unrecorded. Four of the latter are Noto support-dialog/
+checkbox captures; three are the additional Theatre pixel diagnostics using the default
+platform family. Legacy PNG helpers are attributed by their actual source host and the enclosing
+run manifest, not invented per-image metadata. Vector-only Logo captures do not establish font
+rendering. Existing font-byte/provenance tests validate the delivered four-face bundle.
+
+The tested input digests are `noto-tested-input-digests.json`. Review of changed Noto pixels
+and final Web TextField/Select observations precedes any new admission record. Earlier matched
+before/after defect pairs retain their original identical fallback-font scope; Noto results
+are additional current-host coverage, never a cross-font before/after comparison.

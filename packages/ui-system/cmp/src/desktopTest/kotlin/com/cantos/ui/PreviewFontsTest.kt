@@ -1,5 +1,7 @@
 package com.cantos.ui
 
+import androidx.compose.material3.Text
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.Modifier
@@ -73,4 +75,33 @@ class PreviewFontsTest {
         assertTrue(families.any { it == FontFamily.Monospace }, "the editorial headline must use the editorial family")
         assertTrue(families.any { it == FontFamily.Cursive }, "UI text must use the injected UI family")
     }
+
+    @Test
+    fun qualification_capture_roots_inherit_the_actual_bundled_families_in_nested_components() {
+        compose.setContent {
+            BundledPreviewCaptureRoot {
+                Stack {
+                    Button("Nguyễn Thị Ánh Nguyệt", {})
+                    Text("Sơn Hà Ký · Ỗ, Ữ", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+                    UiRoot(preferences = UiPreferences(theme = Theme.Dark)) {
+                        TextField("Ghi chú", "Lời hẹn", {})
+                    }
+                }
+            }
+        }
+        val layouts = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+            useUnmergedTree = true).fetchSemanticsNodes().flatMap { node ->
+                val results = mutableListOf<TextLayoutResult>()
+                node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+                results
+            }
+        val examined = layouts.map { it.layoutInput.text.text }.toSet()
+        assertTrue(examined.containsAll(setOf("Nguyễn Thị Ánh Nguyệt", "Sơn Hà Ký · Ỗ, Ữ", "Lời hẹn")),
+            "Actual button, headline and nested editable text must be examined: $examined")
+        val families = layouts.map { it.layoutInput.style.fontFamily }
+        assertTrue(families.all { it == PreviewFonts.ui || it == PreviewFonts.editorial })
+        assertTrue(families.any { it == PreviewFonts.editorial })
+        assertTrue(families.any { it == PreviewFonts.ui })
+    }
+
 }

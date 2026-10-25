@@ -57,7 +57,7 @@ class DialogQualificationTest {
                         density = LocalDensity.current.density
                         fontScale = LocalDensity.current.fontScale
                         Box(Modifier.requiredSize(width.dp, 844.dp).testTag("host")) {
-                            UiRoot(preferences = preferences) {
+                            BundledPreviewCaptureRoot(preferences = preferences) {
                                 focusColor = tokenColor("color.focus")
                                 with(LocalDensity.current) {
                                     focusOffset = tokenDp("size.focusOffset").toPx()
@@ -87,7 +87,7 @@ class DialogQualificationTest {
                         "cmp-qualification-dialog-${theme.tokenName}-text$scale-$width-focused", "qualification-dialog",
                         "dialog", "focused-input", themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
                         systemIsDark = false, preferences = preferences, viewportWidthDp = width, viewportHeightDp = 844,
-                        hostDensity = density, hostFontScale = fontScale,
+                        hostDensity = density, hostFontScale = fontScale, fontSource = BundledPreviewFontSource,
                     ), focusedRoot.captureToImage())
                     editor.assertIsDisplayed()
                     val editorBounds = editor.fetchSemanticsNode().boundsInRoot
@@ -118,7 +118,7 @@ class DialogQualificationTest {
                         "cmp-qualification-dialog-${theme.tokenName}-text$scale-$width", "qualification-dialog",
                         "dialog", "retained-input", themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
                         systemIsDark = false, preferences = preferences, viewportWidthDp = width, viewportHeightDp = 844,
-                        hostDensity = density, hostFontScale = fontScale,
+                        hostDensity = density, hostFontScale = fontScale, fontSource = BundledPreviewFontSource,
                     ), image)
                     close.performKeyInput { pressKey(Key.Escape) }
                     assertEquals(1, requests)
