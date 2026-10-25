@@ -103,6 +103,8 @@ unrelated cleanup. Update the work queue when order/rationale changes; GitHub ow
 
 Use [templates](templates/README.md) for a concrete proposal or production record when relevant. Clearly distinguish proposed design, implemented behavior and verified behavior. Never commit secrets, real provider credentials, private manuscripts, downloaded media or generated audio to Git.
 
+**Credential custody (proposed):** The [Google Secret Manager operator guide](docs/deployment/google-secret-manager.md) specifies project `cantos-a348b`, scoped create/import/read/rotation and local/CI/VPS boundaries. Only nonsecret names, mapping and instructions may be tracked; no keys, JSON credentials, plaintext or ciphertext credential payloads belong in Git. This guide is not evidence of live GCP provisioning. Agents request missing credentials through an approved secure local route, not chat or issue bodies.
+
 ## Agent skills
 
 Canonical skills live in [`.agents/skills/`](.agents/skills/README.md) and are shared by Codex, Claude Code and any other agent; `.claude/skills/<name>` entries are symlinks to them. Read the skill index, then load the skill that owns the task:
