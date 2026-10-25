@@ -4,11 +4,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.unit.dp
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellCatalogView
@@ -26,6 +34,41 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class DiscoveryPresentationTest {
     private val noSelection = ShellEpisodeId("none", ShellWorkId("none"))
+
+    @Test
+    fun discovery_brand_uses_one_decorative_official_mark_and_account_keeps_its_existing_header() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { CantosPresentation(ShellState(selectedEpisode = noSelection), ShellCatalogView(), {}) }
+            onNodeWithTag("header-logo", useUnmergedTree = true)
+                .assertHeightIsAtLeast(44.dp).assertWidthIsAtLeast(44.dp)
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+            assertEquals(onNodeWithTag("theme-toggle").fetchSemanticsNode().boundsInRoot.center.y,
+                onNodeWithTag("header-logo", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center.y)
+            onNodeWithTag("header-title").assertExists()
+        }
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { CantosPresentation(ShellState(stack = listOf(ShellRoute.Account), selectedEpisode = noSelection), ShellCatalogView(), {}) }
+            onNodeWithTag("header-logo", useUnmergedTree = true).assertDoesNotExist()
+            onNodeWithText("Không gian của bạn").assertExists()
+        }
+    }
+
+    @Test
+    fun floating_search_keeps_query_on_change_and_clear_emits_no_navigation_or_submit() = runDesktopComposeUiTest(width = 390, height = 844) {
+        var state by mutableStateOf(ShellState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), selectedEpisode = noSelection, query = "Đèn"))
+        val events = mutableListOf<ShellEvent>()
+        setContent {
+            CantosPresentation(state, ShellCatalogView(), { event ->
+                events += event
+                if (event is ShellEvent.Search) state = state.copy(query = event.query)
+            })
+        }
+        onNodeWithTag("search-input").performTextReplacement("Sơn Hà")
+        assertEquals(listOf<ShellEvent>(ShellEvent.Search("Sơn Hà")), events.toList())
+        onNodeWithContentDescription("Xóa tìm kiếm").performClick()
+        assertEquals(listOf<ShellEvent>(ShellEvent.Search("Sơn Hà"), ShellEvent.Search("")), events.toList())
+        assertEquals(ShellRoute.Search, state.route)
+    }
 
     @Test
     fun a_work_keeps_its_semantic_identity_when_reordered_across_grid_rows() = runDesktopComposeUiTest(width = 1100, height = 1000) {

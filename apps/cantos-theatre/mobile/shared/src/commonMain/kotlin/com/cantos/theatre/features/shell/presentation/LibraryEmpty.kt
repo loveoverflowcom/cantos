@@ -6,12 +6,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,9 +26,8 @@ import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
-import com.cantos.ui.CantosShapes
+import com.cantos.ui.Button
 import com.cantos.ui.LocalEditorialFontFamily
-import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
 /** Library-owned composition shared by its sections and full History; no effects or read authority. */
@@ -86,13 +82,9 @@ internal fun LibraryEmpty(
 @Composable
 private fun DiscoverEmptyAction(copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     Button(
-        onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) },
-        modifier = Modifier.heightIn(min = 48.dp).testTag("library-empty-discover"),
-        shape = CantosShapes.full,
-    ) {
-        Icon(rememberCantosIconVector("arrow_forward"), null)
-        Text(copy.text(CopyKey.Discover), Modifier.padding(start = tokenDp("space.sm")))
-    }
+        label = copy.text(CopyKey.Discover), onPress = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) },
+        controlModifier = Modifier.testTag("library-empty-discover"), icon = "arrow_forward",
+    )
 }
 
 @Composable

@@ -75,11 +75,20 @@ with long text and use the existing neutral cover fallback; design sample covers
 catalog content. Completed-empty catalog and filtered no-results remain distinct, with bundled
 decorative works artwork and existing recovery actions, never Discover-to-Discover navigation.
 
+The intro and existing Floating search share a bounded, app-owned hero using the canonical
+`theatreHero`/`theatreOnHero` and bold Theatre heading roles. The existing visibly labelled Search
+Button is docked in the admitted field's trailing slot; submit, IME, history and Clear still have
+one owner. Filters remain outside that hero, before results. The live brand uses the admitted
+official Symbol at the canonical 44-unit mark size with a 12-unit gap before Cantos. Its one
+link retains paired decorative tones and existing navigation.
+
 The [app-owned empty artwork](assets/empty/README.md) is packaged from the actual v4 handoff,
-with unchanged source hashes and no runtime Drive access. The independent composition work does
-not admit the foundation's new expression, avatar/theme controls, chips or search-shell API.
-Those adoptions remain pending fresh two-renderer qualification under #452; source packaging and
-host-render tests do not establish browser, device, screen-reader or full v4 design acceptance.
+with unchanged source hashes and no runtime Drive access. This bounded adoption consumes the
+[qualified component scopes](../../../docs/evidence/ui-qualification-459-final.md). It does not
+activate the shared root's Theatre expression or duplicate that role remap in app CSS. Icon-only
+search/theme controls, shared Avatar and FilterChip still need their own two-renderer admission;
+those APIs were excluded from #459. Source packaging and host-render tests do not establish
+browser, device, screen-reader or full v4 design acceptance.
 The [earlier #282 record](../../../docs/evidence/theatre-web-discover-parity.md) retains its
 historical hero-layout evidence and does not qualify this changed grid.
 

@@ -388,6 +388,9 @@ body { margin: 0; }
 :where(.cantos-ui[data-theme="dark"]) .theatre-logo-light { display: none; }
 :where(.cantos-ui[data-theme="dark"]) .theatre-logo-dark { display: block; }
 .theatre-brand .cui-logo { inline-size: 100%; max-inline-size: 10rem; block-size: auto; }
+.theatre-live-brand { display: flex; align-items: center; gap: var(--cantos-space-inset); min-block-size: var(--cantos-size-control); }
+.theatre-live-brand .cui-logo { flex: none; inline-size: var(--cantos-size-brand-mark); block-size: var(--cantos-size-brand-mark); object-fit: contain; }
+.theatre-live-brand-name { min-inline-size: 0; font-family: var(--cantos-type-family-ui); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-theatre-control-weight); line-height: var(--cantos-type-title-line-height); }
 .theatre-auth { max-inline-size: 70rem; margin-inline: auto; }
 .theatre-auth-top { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
 .theatre-auth-brand { inline-size: 9rem; min-block-size: var(--cantos-size-control); flex-shrink: 0; display: inline-flex; align-items: center; border-radius: var(--cantos-web-shape-control); }
@@ -431,7 +434,7 @@ body { margin: 0; }
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
 .theatre-discover-intro-copy { flex: 1 1 24rem; min-inline-size: 0; }
-.theatre-discover-intro h1 { margin-block-end: var(--cantos-space-sm); font-size: var(--cantos-type-auth-heading-size); line-height: var(--cantos-type-auth-heading-line-height); }
+.theatre-discover-intro h1 { margin-block-end: var(--cantos-space-sm); font-size: var(--cantos-type-auth-heading-size); font-weight: var(--cantos-type-theatre-heading-weight); line-height: var(--cantos-type-auth-heading-line-height); }
 .theatre-discover-intro p { max-inline-size: 60ch; margin-block-end: 0; }
 .theatre-discover-intro .theatre-eyebrow { margin-block-end: var(--cantos-space-xs); }
 .theatre-public-catalog > h2 { margin-block: 0 var(--cantos-space-md); }
@@ -457,12 +460,17 @@ body { margin: 0; }
 /* Search: one labelled form, wrapped on a narrow screen, with a stable list region below. */
 .theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
-/* The button stays beside the field until large text or a narrow screen leaves no room for both.
-   It aligns to the control (the field's shell), never to the helper/error below it. */
-.theatre-public-search-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--cantos-space-md); max-inline-size: 40rem; }
-.theatre-public-search-main > .cui-field { flex: 1 1 13rem; min-inline-size: 0; }
-.theatre-public-search-main > .cui-button { min-block-size: var(--cantos-web-field-block-size); }
+/* Dedicated Theatre hero roles are an app composition, without remapping the shared root. */
+.theatre-discovery-search-hero { display: grid; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
+.theatre-discovery-search-hero .theatre-discover-intro { margin: 0; align-items: flex-start; }
+.theatre-discovery-search-hero :where(.theatre-muted, .theatre-eyebrow) { color: inherit; }
+/* The admitted Floating shell owns input and the existing visibly labelled Button together.
+   The trailing column reserves the button's actual width, including enlarged text. */
+.theatre-public-search-main, .theatre-public-search-main > .cui-field { min-inline-size: 0; inline-size: 100%; }
 .theatre-public-search-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); }
+@media (max-width: 43.75rem) {
+  .theatre-discovery-search-hero { padding: var(--cantos-space-lg); }
+}
 .theatre-public-status { margin-block: var(--cantos-space-md); }
 .theatre-public-work-count { margin-block-end: 0; font-size: var(--cantos-type-metadata-size); }
 .theatre-public-work h3, .theatre-public-work p { overflow-wrap: anywhere; }

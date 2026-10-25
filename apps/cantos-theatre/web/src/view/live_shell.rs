@@ -30,14 +30,28 @@ use crate::{
     platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Select, SelectDensity,
-    SelectLabelPlacement, SelectOption, Theme,
+    AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, LogoVariant, Select,
+    SelectDensity, SelectLabelPlacement, SelectOption, Theme,
 };
 use leptos::prelude::*;
 
 // Registered outline icons (assets/icons) of the two primary destinations.
 const NAV_ICON_DISCOVER: &str = "home";
 const NAV_ICON_LIBRARY: &str = "library_books";
+
+const CANTOS_BRAND: &str = "Cantos";
+
+/// One app-owned brand link; the admitted shared Logo supplies the original decorative symbol.
+#[component]
+fn LiveBrand() -> impl IntoView {
+    view! {
+        <a class="theatre-brand theatre-live-brand" href="#discover" aria-label=CANTOS_BRAND>
+            <Logo variant=LogoVariant::Symbol tone=LogoTone::Light class="theatre-logo-light"/>
+            <Logo variant=LogoVariant::Symbol tone=LogoTone::Dark class="theatre-logo-dark"/>
+            <strong class="theatre-live-brand-name">{CANTOS_BRAND}</strong>
+        </a>
+    }
+}
 
 fn sync_admission(
     state: ReadSignal<AccountViewState>,
@@ -957,7 +971,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <aside class="theatre-rail">
-                    <a class="theatre-brand" href="#discover" aria-label="Cantos"><Logo tone=LogoTone::Light class="theatre-logo-light"/><Logo tone=LogoTone::Dark class="theatre-logo-dark"/></a>
+                    <LiveBrand/>
                     <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
                         <a class="theatre-nav-link" href="#discover" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span>{move || messages::text(Key::Discover, locale.get())}</span></a>
                         <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span></a>
@@ -1109,6 +1123,23 @@ fn membership_back_key(member: MembershipReturn) -> crate::features::auth_copy::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn live_brand_has_one_named_link_with_original_decorative_symbols_and_wordmark() {
+        Owner::new().with(|| {
+            let html = view! { <LiveBrand/> }.to_html();
+            assert_eq!(html.matches("<a ").count(), 1);
+            assert!(html.contains("href=\"#discover\""));
+            assert!(html.contains("aria-label=\"Cantos\""));
+            assert_eq!(html.matches("data-logo-variant=\"symbol\"").count(), 2);
+            assert!(html.contains("data-logo-tone=\"light\""));
+            assert!(html.contains("data-logo-tone=\"dark\""));
+            assert_eq!(html.matches("aria-hidden=\"true\"").count(), 2);
+            assert_eq!(html.matches("alt=\"\"").count(), 2);
+            assert!(html.contains("class=\"theatre-live-brand-name\">Cantos</strong>"));
+            assert!(!html.contains("<button"));
+        });
+    }
 
     #[test]
     fn sync_admission_does_not_retrigger_reads_for_projection_updates() {

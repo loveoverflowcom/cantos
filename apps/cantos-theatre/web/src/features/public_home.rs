@@ -146,6 +146,7 @@ fn SearchForm(
     applied: RwSignal<DiscoveryQuery>,
     locale: RwSignal<Locale>,
     on_search: Callback<DiscoveryQuery>,
+    children: Children,
 ) -> impl IntoView {
     let panel = NodeRef::<leptos::html::Div>::new();
     let initial = applied.get_untracked();
@@ -176,7 +177,7 @@ fn SearchForm(
     });
     let filtered = move || !applied.get().is_unfiltered();
     view! {
-        <div node_ref=panel class="theatre-public-search" role="search"
+        <div node_ref=panel class="theatre-public-search"
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
                 // composing. On a chip or button it keeps its own activation.
@@ -185,16 +186,21 @@ fn SearchForm(
                     submit();
                 }
             }>
-            <div class="theatre-public-search-main">
-                <TextField id="theatre-discovery-search" kind=TextFieldKind::Search
-                    variant=TextFieldVariant::Floating
-                    label=Signal::derive(move || text(Key::DiscoverySearchLabel, locale.get()).to_owned())
-                    value=search on_input=Callback::new(move |value| search.set(value))
-                    error=search_error autocomplete="off"/>
-                <Button id="theatre-discovery-submit" variant=ButtonVariant::Tonal icon=IconName::Search
-                    on_press=Callback::new(move |_| submit())>
-                    {move || text(Key::DiscoverySearchSubmit, locale.get())}
-                </Button>
+            <div class="theatre-discovery-search-hero">
+                {children()}
+                <div class="theatre-public-search-main" role="search">
+                    <TextField id="theatre-discovery-search" kind=TextFieldKind::Search
+                        variant=TextFieldVariant::Floating
+                        label=Signal::derive(move || text(Key::DiscoverySearchLabel, locale.get()).to_owned())
+                        value=search on_input=Callback::new(move |value| search.set(value))
+                        error=search_error autocomplete="off"
+                        trailing=move || view! {
+                            <Button id="theatre-discovery-submit" variant=ButtonVariant::Tonal icon=IconName::Search
+                                on_press=Callback::new(move |_| submit())>
+                                {move || text(Key::DiscoverySearchSubmit, locale.get())}
+                            </Button>
+                        }/>
+                </div>
             </div>
             <div class="theatre-public-search-filters">
                 <div class="theatre-filters" role="group" aria-label=move || text(Key::DiscoveryKindLabel, locale.get())>
@@ -329,6 +335,7 @@ pub(crate) fn PublicHome(
     });
     view! {
         <section class="theatre-public-home" aria-labelledby="theatre-public-home-heading">
+            <SearchForm applied locale on_search>
             <header class="theatre-discover-intro">
                 <div class="theatre-discover-intro-copy">
                     <p class="theatre-eyebrow">{move || text(Key::PublicHomeEyebrow, locale.get())}</p>
@@ -348,10 +355,10 @@ pub(crate) fn PublicHome(
                     </Button>
                 </div>
             </header>
+            </SearchForm>
             <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading"
                 aria-busy=move || (current.get() == Region::Loading).then_some("true")>
                 <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
-                <SearchForm applied locale on_search/>
                 {move || match current.get() {
                     Region::Loading => view! {
                         <p class="theatre-public-state" role="status">{move || text(Key::PublicHomeLoading, locale.get())}</p>
@@ -914,6 +921,29 @@ mod tests {
         let register_at = html.find("id=\"theatre-home-register\"").unwrap();
         assert!(cluster < login_at && login_at < register_at);
         assert!(html.contains("Đăng nhập") && html.contains("Tạo tài khoản"));
+    }
+
+    #[test]
+    fn bounded_hero_keeps_one_docked_visible_search_action_and_filters_before_results() {
+        for locale in Locale::ALL {
+            let html = render(PublicDiscoveryState::default(), locale);
+            let hero = html.find("theatre-discovery-search-hero").unwrap();
+            let intro = html.find("theatre-discover-intro").unwrap();
+            let search = html.find("id=\"theatre-discovery-search\"").unwrap();
+            let trailing = html.find("class=\"cui-field-trailing\"").unwrap();
+            let submit = html.find("id=\"theatre-discovery-submit\"").unwrap();
+            let filters = html.find("theatre-public-search-filters").unwrap();
+            let results = html.find("class=\"theatre-public-catalog\"").unwrap();
+            assert!(hero < intro && intro < search && search < trailing && trailing < submit);
+            assert!(submit < filters && filters < results);
+            assert_eq!(html.matches("role=\"search\"").count(), 1);
+            assert_eq!(html.matches("id=\"theatre-discovery-search\"").count(), 1);
+            assert_eq!(html.matches("id=\"theatre-discovery-submit\"").count(), 1);
+            assert!(html.contains("data-trailing=\"true\""));
+            let button = html[submit..].split("</button>").next().unwrap();
+            assert!(button.contains(text(Key::DiscoverySearchSubmit, locale)));
+            assert!(!button.contains("cui-sr-only"));
+        }
     }
 
     #[test]

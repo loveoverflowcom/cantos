@@ -20,8 +20,9 @@ Works/History XML through Compose resources; its provenance is bundled in
 `shared/src/commonMain/composeResources/files/theatre_empty_artwork_provenance.json`.
 The header theme action dispatches the existing preference intent, and Discovery opens the
 existing query-on-change Search route. These compositions retain the current Standard Material
-presentation. The v4 shared expression, official logo/avatar treatment and expressive control
-adoption await foundation admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
+presentation. Qualified Logo Symbol, FloatingSearch and the Library Button are adopted in the
+bounded continuation below. Avatar, tonal IconButton, FilterChip and UiRoot/Theatre expression
+still await admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
 
 **Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
 is a JVM-desktop-only module (one `desktop` target; no Android or iOS target, framework or source
@@ -399,6 +400,15 @@ native Material controls and official outlined icons; no reusable Cantos primiti
 The current [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) owns
 qualification scope/freshness. Any further shared API or variant adoption still requires fresh
 [two-renderer admission](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
+
+The #453 Discovery/Search/Library/History header adopts the qualified official `Logo.Symbol`;
+Search adopts the qualified `TextField.FloatingSearch` with its editor-owned tag and existing
+query-on-change/Clear contract. Library's invitation uses the qualified shared `Button`.
+The app-owned search containment reads the dedicated Theatre hero/foreground and heading-weight
+tokens. It does not enable the global Theatre expression or change account/Auth/Membership
+presentation. Avatar, tonal shared IconButton, filters and expression adoption remain separate
+until their exact renderer scopes are admitted. Component qualification does not establish
+Android/iOS or production-flow acceptance.
 
 ## Local commands
 

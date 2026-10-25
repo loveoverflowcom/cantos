@@ -1,5 +1,56 @@
 # Theatre Discovery and Library: bounded #453 source evidence
 
+## Continuation with the exact #459 dependency
+
+Feature merge `20134b9a7093f66a65cf172f1eef31c10427754f` integrates #459 at
+`a5a13c7b2c2e09b772414905a9366c7132510401` and preserves the earlier #461 history.
+This is a feature-branch dependency, not permission to merge #459 or its combined commits
+into `develop`. The [dependency's final report](ui-qualification-459-final.md) admits 12
+bounded APIs through 24 receipts; independent exact-tree reconstruction matched all three
+token/renderer digests. App-only adoption does not change those shared inputs or receipts.
+
+The continuation adopts qualified Logo Symbol (44 units, 12-unit gap), the existing Floating
+Web field's trailing slot, CMP FloatingSearch and the shared Library Button. Hero containment
+and bold headings use the dedicated canonical Theatre roles locally. No global expression
+map is copied, no palette is invented and no unqualified API is substituted with a clone.
+Web keeps a visible-label submit Button until IconButton admission; CMP keeps query-on-change
+and its existing Clear action without adding a pretend submit or kind-filter policy.
+
+**Avatar, IconButton, FilterChip and UiRoot/Theatre expression remain unqualified.** Full text
+avatar/tonal-header controls, icon-only Web submit and root/palette/type adoption still depend
+on their two-renderer qualification. Resolving the former 32 diagnostics does not admit them.
+
+Fresh continuation evidence is separate from the historical checkpoint below:
+
+- `cargo test --locked -p cantos-theatre --features preview`: 489 unit tests and 3 doc tests PASS.
+- `cargo xtask verify web`: both Web lints/builds and the shared Leptos preview PASS.
+- `cargo xtask theatre-preview verify`: 528 shared tests (3 skipped), 137 sandbox tests
+  (2 skipped), zero failures/errors. A 2 px centerline finding was repaired; the new assertion
+  checks Logo and theme control at the same centre. JVM PNGs/sidecars are under
+  `artifacts/ui-evidence/453-resume/cmp-after/`; their original working-tree attribution remains.
+  The README clarification happened after capture; tested rendering-source bytes are unchanged.
+- Repository checker PASS, including qualified imports and unchanged receipt bindings. The
+  full Python suite FAILS two unchanged retired-VPS synthetic cases on this Mac: BSD `sed -i`
+  syntax and missing `flock`. These are environment limitations, not live VPS operations or
+  evidence that the full repository gate passed. No checker/test/receipt was relaxed.
+- Fresh Web observations used the real loopback WASM app with API unavailable: 390 light VI,
+  320 light VI/dark EN and 1280 light EN; long query, Tab to the trailing action, Enter and Clear
+  back to input focus were observed. Locale/account/settings paths remain. Browser zoom shortcut
+  produced no measured scale change, so the real Web 200% matrix remains NOT_RUN.
+
+The continuation logs are under `artifacts/agent-runs/453-resume/`. Final preflight/CI results
+belong to their exact published head in the PR, not the old `a8a2e7c9` results. On the integration
+head `20134b9a`, remote repository/Web passed, Rust was cancelled and native qualification was
+skipped; these are not CI results of the later app-only working changes. Full product/IME/AT,
+Android/iOS, wide Library and production acceptance remain pending. The fixture denial and
+dependency merge-approval restriction remain in force. Queue order is unchanged.
+
+## Historical checkpoint at a8a2e7c9
+
+The following record preserves the earlier independent source checkpoint. In particular its
+32 qualification failures and blanket adoption deferral are historical, superseded only by
+the precise continuation scope above; its runtime gaps are not silently converted into PASS.
+
 This is an implementation/evidence boundary for [#453](https://github.com/loveoverflowcom/cantos/issues/453),
 not full design admission, native-device acceptance or production acceptance. The PR and its
 check output own the final execution status. Base: `origin/develop` at
