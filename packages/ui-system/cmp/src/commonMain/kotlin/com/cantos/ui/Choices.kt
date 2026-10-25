@@ -219,6 +219,7 @@ fun Select(
         Box {
             ButtonControl(onPress = { expanded = true }, state = effective,
                 shape = if (theatre) CantosShapes.full else null, insetPerimeter = theatre,
+                invalid = theatre && !error.isNullOrBlank(),
                 active = theatre && expanded && effective.canPress(),
                 containerColor = if (theatre) tokenColor("color.surfaceContainer") else null,
                 modifier = controlModifier.onSizeChanged { anchorWidth = it.width }

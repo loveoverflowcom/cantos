@@ -15,10 +15,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
@@ -180,6 +186,87 @@ class TheatrePixelTest {
         assertTrue(idle.column(3, 4).last().isNear(role("color.surfaceContainer")), "board 5 utility select uses the field tonal surface")
         assertEquals((2 * open.density).roundToInt(), open.strokeRows(focusColor), "open select has one 2-unit inset cue")
         assertTrue(open.outside(listOf(focusColor)), "the cue stays inside the control")
+    }
+
+    private data class SelectFrames(val idle: Frame, val focused: Frame, val open: Frame)
+
+    private fun theatreSelect(theme: Theme, error: String?): SelectFrames {
+        val focus = FocusRequester()
+        lateinit var result: SelectFrames
+        runDesktopComposeUiTest(width = 390, height = 400) {
+            var density = 1f
+            setContent {
+                UiRoot(preferences = theatre.copy(theme = theme)) {
+                    density = LocalDensity.current.density
+                    Column(Modifier.testTag("scene").padding(tokenDp("space.lg"))) {
+                        Select("Ngôn ngữ", listOf("Tiếng Việt", "English"), 0, {},
+                            expandedDescription = "Đang mở", collapsedDescription = "Đang đóng", error = error,
+                            controlModifier = Modifier.focusRequester(focus).testTag("select"))
+                    }
+                }
+            }
+            waitForIdle()
+            val trigger = onNodeWithTag("select")
+            if (error.isNullOrBlank()) {
+                assertEquals(null, trigger.fetchSemanticsNode().config.getOrNull(SemanticsProperties.Error))
+            } else {
+                assertEquals(error, trigger.fetchSemanticsNode().config.getOrNull(SemanticsProperties.Error))
+                onNodeWithText(error).assertIsDisplayed()
+            }
+            val idle = frameOf("scene", "select", density)
+            runOnIdle { focus.requestFocus() }
+            waitForIdle()
+            trigger.assertIsFocused()
+            val focused = frameOf("scene", "select", density)
+            trigger.performClick()
+            waitForIdle()
+            onNode(isPopup()).assertExists()
+            result = SelectFrames(idle, focused, frameOf("scene", "select", density))
+            val errorState = if (error.isNullOrBlank()) "valid" else "invalid"
+            listOf("idle" to result.idle, "focused" to result.focused, "open" to result.open).forEach { (state, frame) ->
+                writeCapture(CaptureScenario(
+                    name = "cmp-theatre-select-$errorState-$state-${theme.tokenName}",
+                    section = "theatre-foundation", component = "select", state = "$errorState-$state",
+                    themeMode = if (theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light, systemIsDark = false,
+                    preferences = theatre.copy(theme = theme), viewportWidthDp = 390, viewportHeightDp = 400,
+                    hostDensity = density, hostFontScale = 1f,
+                    fontSource = "platform fallback; intentional perimeter pixel diagnostic",
+                ), frame.image)
+            }
+        }
+        return result
+    }
+
+    @Test
+    fun an_invalid_theatre_select_keeps_one_error_perimeter_when_idle_focused_or_open() {
+        Theme.entries.forEach { theme ->
+            val frames = theatreSelect(theme, "Kiểm tra ngôn ngữ đã chọn.")
+            val error = role("color.error", theme)
+            val focus = role("color.focus", theme)
+            listOf("idle" to frames.idle, "focused" to frames.focused, "open" to frames.open).forEach { (state, frame) ->
+                val thickness = if (state == "idle") 1 else 2
+                assertEquals((thickness * frame.density).roundToInt(), frame.strokeRows(error), "$theme/$state error stroke")
+                assertTrue(frame.column(0, 12).none { it.isNear(focus) }, "$theme/$state never stacks a focus-colour stroke")
+                assertTrue(frame.outside(listOf(error, focus)), "$theme/$state keeps the perimeter inside the trigger")
+            }
+        }
+    }
+
+    @Test
+    fun absent_or_blank_theatre_select_errors_keep_the_valid_idle_focus_and_open_cues() {
+        Theme.entries.forEach { theme ->
+            listOf(null, " \t\n").forEach { message ->
+                val frames = theatreSelect(theme, message)
+                val error = role("color.error", theme)
+                val focus = role("color.focus", theme)
+                assertTrue(frames.idle.column(0, 12).none { it.isNear(error) || it.isNear(focus) }, "$theme valid idle has no stroke")
+                listOf("focused" to frames.focused, "open" to frames.open).forEach { (state, frame) ->
+                    assertEquals((2 * frame.density).roundToInt(), frame.strokeRows(focus), "$theme/$state valid focus stroke")
+                    assertTrue(frame.column(0, 12).none { it.isNear(error) }, "$theme/$state blank errors never paint an error stroke")
+                    assertTrue(frame.outside(listOf(error, focus)), "$theme/$state keeps the perimeter inside the trigger")
+                }
+            }
+        }
     }
 
     @Test
