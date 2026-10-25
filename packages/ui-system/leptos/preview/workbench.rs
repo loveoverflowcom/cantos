@@ -214,10 +214,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let text = RwSignal::new(String::new());
     let language_value = RwSignal::new("vi-VN".to_owned());
     let select_value = RwSignal::new(
-        if state == ScenarioState::MissingValue {
-            "missing"
-        } else {
-            "system"
+        match state {
+            ScenarioState::MissingValue => "missing",
+            ScenarioState::UnsupportedOption => "unavailable",
+            _ => "system",
         }
         .to_owned(),
     );
@@ -232,10 +232,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
         });
         language_value.set("vi-VN".to_owned());
         select_value.set(
-            if state == ScenarioState::MissingValue {
-                "missing"
-            } else {
-                "system"
+            match state {
+                ScenarioState::MissingValue => "missing",
+                ScenarioState::UnsupportedOption => "unavailable",
+                _ => "system",
             }
             .to_owned(),
         );

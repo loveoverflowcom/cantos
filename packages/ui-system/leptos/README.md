@@ -220,8 +220,13 @@ The full API/token catalog stays available; exact recipe support is intentionall
 | `filter-chip` | `filter-chip` / `FilterChip` | `unselected`, `selected`, `disabled`, `loading` |
 | `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
 | `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
-| `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `empty-options` |
+| `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `unsupported-option`, `empty-options` |
 | `back-button` | `back-button` / opt-in `BackButtonVariant::Unified`, Account/Sign in/icon-only plus unchanged IconTonal baseline | `enabled`, `disabled`, `loading` |
+
+The `unsupported-option` Select recipe retains the disabled `unavailable` value. Opening then
+Tab/blur must not silently select an enabled replacement; deliberate keyboard navigation may
+choose one. Reset restores the disabled current value and clears the intent log. This is a
+registered diagnostic fixture, not a new application or admission.
 
 The canonical query is versioned. For example, append this query to the local preview URL:
 

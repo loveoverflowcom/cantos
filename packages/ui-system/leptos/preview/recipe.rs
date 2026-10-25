@@ -60,6 +60,7 @@ recipe_enum!(ScenarioState {
     Open => "open",
     Error => "error",
     MissingValue => "missing-value",
+    UnsupportedOption => "unsupported-option",
     EmptyOptions => "empty-options",
     ReadOnly => "readonly",
 });
@@ -79,6 +80,7 @@ impl ComponentId {
                 Loading,
                 Error,
                 MissingValue,
+                UnsupportedOption,
                 EmptyOptions,
             ],
         }
@@ -465,6 +467,27 @@ mod tests {
         assert_eq!(Recipe::decode_query(expected), Ok(recipe));
         assert_eq!(recipe.scenario_id(), "auth-primary/loading/long-vietnamese");
         assert_eq!(recipe.component.catalog_id(), "button");
+    }
+
+    #[test]
+    fn disabled_current_select_recipe_is_not_accepted_by_other_controls() {
+        let recipe = Recipe::decode_query("?v=1&component=select&state=unsupported-option")
+            .expect("the registered disabled-current state needs a real host fixture");
+        assert_eq!(recipe.component, ComponentId::Select);
+        assert_eq!(recipe.state.as_str(), "unsupported-option");
+        assert_eq!(Recipe::decode_query(&recipe.encode_query()), Ok(recipe));
+        for &component in ComponentId::ALL {
+            if component != ComponentId::Select {
+                let query = format!(
+                    "?v=1&component={}&state=unsupported-option",
+                    component.as_str()
+                );
+                assert!(matches!(
+                    Recipe::decode_query(&query),
+                    Err(RecipeError::StateMismatch { .. })
+                ));
+            }
+        }
     }
 
     #[test]
