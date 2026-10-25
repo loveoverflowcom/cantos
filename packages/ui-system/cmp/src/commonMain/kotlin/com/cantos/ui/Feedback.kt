@@ -29,6 +29,7 @@ private fun Modifier.announcement(mode: Announcement): Modifier = semantics {
     }
 }
 
+/** A bounded reading radius keeps wrapped labels inside the painted surface at large text. */
 @Composable
 fun Badge(text: String, modifier: Modifier = Modifier, tone: StatusTone = StatusTone.Neutral) {
     androidx.compose.material3.Surface(modifier,
@@ -37,7 +38,7 @@ fun Badge(text: String, modifier: Modifier = Modifier, tone: StatusTone = Status
             StatusTone.Neutral -> tokenColor("color.onSurface")
             StatusTone.Info -> tokenColor("color.onPrimaryContainer")
             else -> tokenColor("color.${tone.role()}")
-        }, shape = CantosShapes.full) {
+        }, shape = CantosShapes.reading) {
         Text(text, Modifier.padding(horizontal = tokenDp("space.inset"), vertical = tokenDp("space.xs")),
             style = MaterialTheme.typography.labelSmall)
     }

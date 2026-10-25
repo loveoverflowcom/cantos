@@ -162,3 +162,35 @@ claim is made.
 Evidence level: statically checked, example-tested, real JVM semantics/interactions, bounded
 browser input and inspected stills within the limits above. No new model/proof, service,
 authentication, audio, device or production result is inferred.
+
+
+## Resumed qualification — confirmed CMP paint defect
+
+The preserved checkout resumed clean at `a2c19793`; integration base remains `fa114100`.
+No #453 source, main checkout, denied catalog/API fixture, provider, credential or deployment
+operation is used by this component campaign.
+
+A new real-JVM matrix exercises ErrorState in both themes at 320 dp and 100/200% text,
+and all five Status tones at narrow/large and wide constraints. It asserts complete text
+layout, independent pointer/key recovery callbacks and explicit announcement semantics.
+The first matrix passed 250 tests, but opening the large light ErrorState revealed actual
+letter clipping at the curved Badge boundary. Layout-only assertions could not detect it.
+
+A separate paint regression compares the shaped production Badge against independent native
+Text with identical font, width and ink but no clipping ancestor. Before the product fix it
+fails: 2,180 foreground pixels versus 2,209 in the independent reference, despite complete
+text layout. The CircleShape surface clips wrapped first/last-line glyphs.
+
+Badge now uses the existing bounded `shape.reading` radius instead of a proportional circle.
+No token value, content, callbacks or public API changes. The same regression and full CMP
+matrix pass after the fix (251 tests, zero failures/errors/skips). The same light 320/200%
+ErrorState before/after images were opened: initial/terminal glyphs remain inside the corrected
+painted surface; body and both independently focused recovery actions remain visible.
+
+Logs: `cmp-resume-baseline.log`, `cmp-resume-paint-before-compiled.log` (actual assertion FAIL),
+`cmp-resume-paint-after.log` (PASS), under the run directory. A preceding new-test import error
+was corrected before the paint assertion was executed; it is not product failure evidence.
+Captures: `artifacts/ui-evidence/20261025-qualification-resume-paint-before` and
+`20261025-qualification-resume-paint-after`, with explicit dirty-source attribution in sidecars.
+No final receipt is renewed from these intermediate captures. Remaining runtime and admission
+obligations above stay open until checked against the final inputs.
