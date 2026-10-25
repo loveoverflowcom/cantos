@@ -71,7 +71,7 @@ class FoundationCaptureTest {
         runDesktopComposeUiTest(width = width.roundToInt(), height = expanded.roundToInt()) {
             setContent {
                 Box(Modifier.requiredSize(width.dp, expanded.dp).testTag("specimen-root")) {
-                    UiRoot(preferences = preferences) {
+                    BundledPreviewCaptureRoot(preferences = preferences) {
                         Column(Modifier.padding(tokenDp("space.lg")),
                             verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                             Text("${example.id} · $state · Ỗ, Ữ")

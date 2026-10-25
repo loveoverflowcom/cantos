@@ -15,7 +15,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
 | `FilterChip` | Controlled `selected`, native `aria-pressed`, `on_change(bool)`; blocked/loading reason |
 | `TextField`, `TextArea`, `NumberField` | Required stable ID, visible label, controlled raw string and `on_input(String)`; editable/readonly/disabled/loading |
-| `Select` | Native option children by default; opt-in `options: Signal<Vec<SelectOption>>` Web menu candidate in preview; controlled string, enabled/disabled/loading |
+| `Select` | Native option children by default; opt-in `options: Signal<Vec<SelectOption>>` enhanced Web menu with native fallback; controlled string, enabled/disabled/loading |
 | `Checkbox`, `Radio`, `Switch` | Native checked inputs, controlled bool, `on_change(bool)`; Radio requires group name/value; Switch exposes switch semantics |
 | `RangeField` | Native range and keyboard steps; raw string callback, native min/max/step; optional localized `value_text` |
 | `FieldLabel`, `FieldHelp`, `FieldError` | Composable label/description primitives for caller-owned native controls |
@@ -127,13 +127,14 @@ in every enabled/disabled/loading/error/missing/empty scenario. Expanded/focus/h
 input-driven. Catalog states `web-regular`, `web-compact-inline`, `web-native-compact` describe
 these Web specimens; generated CMP metadata is inventory, not a native density implementation.
 
-This remains an unqualified Web presentation. On 2026-10-19 the task owner explicitly authorized
-an exception for locale topbar migration in the review PR after browser review, with acceptance
-pending and no merge/deploy. Account/Settings theme adoption remains deferred under the
-[existing admission policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
-The qualification gate and compatibility baseline are unchanged; no PASS record is fabricated.
-See the [original #221 record](../../../docs/evidence/web-select-221.md) and
-[density continuation](../../../docs/evidence/web-select-density-221.md).
+The original 19 October checkpoint was an unqualified presentation with an explicitly reviewed
+locale-topbar exception; retain the [original #221 record](../../../docs/evidence/web-select-221.md)
+and [density continuation](../../../docs/evidence/web-select-density-221.md) as historical evidence.
+Current Studio and Theatre consumers use the enhanced menu, including compact-inline locale
+selection. Their current admission is owned by the source-bound qualification records and the
+[existing admission policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md),
+not a permanent candidate label. The gate and compatibility baseline are unchanged.
+See the [current recheck](../../../docs/evidence/ui-qualification-20261025.md); missing checks remain closed.
 
 ## Styling and gallery
 
@@ -220,8 +221,13 @@ The full API/token catalog stays available; exact recipe support is intentionall
 | `filter-chip` | `filter-chip` / `FilterChip` | `unselected`, `selected`, `disabled`, `loading` |
 | `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
 | `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
-| `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `empty-options` |
+| `select` | `select` / enhanced Web menu, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `unsupported-option`, `empty-options` |
 | `back-button` | `back-button` / opt-in `BackButtonVariant::Unified`, Account/Sign in/icon-only plus unchanged IconTonal baseline | `enabled`, `disabled`, `loading` |
+
+The `unsupported-option` Select recipe retains the disabled `unavailable` value. Opening then
+Tab/blur must not silently select an enabled replacement; deliberate keyboard navigation may
+choose one. Reset restores the disabled current value and clears the intent log. This is a
+registered diagnostic fixture, not a new application or admission.
 
 The canonical query is versioned. For example, append this query to the local preview URL:
 
@@ -363,7 +369,7 @@ screen-reader behavior. These APIs remain **implemented-unverified and unqualifi
 adoption** until both real Leptos/CMP previews satisfy the shared admission contract. They add
 no application route, auth/payment integration or backend authority.
 
-## Web Floating fields (Fields v3) — preview only
+## Web Floating fields (Fields v3)
 
 `TextFieldVariant::Floating` ([#423](https://github.com/loveoverflowcom/cantos/issues/423)) is the
 Fields v3 target and supersedes the AuthTonalSpacious candidate below. Existing `Regular`,
@@ -403,9 +409,12 @@ surface through `--cantos-web-stroke-inset`. The Select popup drops its decorati
 elevation (forced colors restore a `CanvasText` border). `Button` is unchanged: Primary/Tonal with
 `icon=IconName::PersonAdd|Login` already give a filled/tonal pair with icon and label centered.
 
-Consumer migration for #424 (Theatre) and #425 (Studio): switch `variant=TextFieldVariant::Floating`
-on the existing `TextField`; remove app-local underline/halo/placeholder overrides; keep ownership
-of validation, locale and auth policy.
+Current #424/#425 consumers include Theatre search and Studio email/password sign-in. Their
+adopted `TextFieldVariant::Floating` needs the actual current Web state review, not a renewal
+limited to Regular/AuthTonal. Current CMP also implements Floating/FloatingSearch and trailing actions under the Theatre
+expression (#457); these require their own JVM runtime and visual review. Qualification records and their explicit scope
+limits own admission; preview registration alone grants none. Remaining migrations keep ownership
+of validation, locale and auth policy and remove app-local underline/halo overrides.
 
 ### Trailing action and the Theatre expression ([#452](https://github.com/loveoverflowcom/cantos/issues/452))
 

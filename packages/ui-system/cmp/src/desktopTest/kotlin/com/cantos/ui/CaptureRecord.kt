@@ -1,5 +1,7 @@
 package com.cantos.ui
 
+import androidx.compose.runtime.Composable
+import com.cantos.ui.preview.PreviewFonts
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import com.cantos.ui.generated.CantosTokens
@@ -10,6 +12,19 @@ import org.jetbrains.skia.Image
 
 /** Renderer label of every record written here; it never claims Android, iOS, an OS window or a screen reader. */
 internal const val JvmTestRootRenderer = "jvm-desktop-compose-test-root"
+
+internal const val BundledPreviewFontSource = "bundled Noto Sans/Serif; PreviewFonts; shared font provenance"
+
+/** Match the canonical desktop preview host; production components still receive host families. */
+@Composable
+internal fun BundledPreviewCaptureRoot(
+    preferences: UiPreferences = UiPreferences(),
+    content: @Composable () -> Unit,
+) {
+    CantosTheme(preferences, PreviewFonts.ui, PreviewFonts.editorial) {
+        UiRoot(preferences = preferences, content = content)
+    }
+}
 
 /**
  * One instant of a replayed interaction. [timebase] names the clock that produced [timeMillis]: a
@@ -33,6 +48,7 @@ internal data class CaptureScenario(
     val hostDensity: Float,
     val hostFontScale: Float,
     val frame: CaptureFrame? = null,
+    val fontSource: String = "unrecorded",
 )
 
 internal fun captureDirectory(): File =
@@ -96,6 +112,7 @@ internal fun sidecar(scenario: CaptureScenario, bitmap: ImageBitmap, png: ByteAr
         "bitmap_px" to "{\"width\": ${bitmap.width}, \"height\": ${bitmap.height}}",
         "host_density_px_per_dp" to scenario.hostDensity.toString(),
         "host_font_scale" to scenario.hostFontScale.toString(),
+        "font_source" to quoted(scenario.fontSource),
         "tokens_version" to quoted(CantosTokens.version),
         "tokens_file_sha256" to quoted(tokenFileDigest()),
         "source_revision" to quoted(System.getenv("CANTOS_SOURCE_REVISION") ?: "unrecorded"),

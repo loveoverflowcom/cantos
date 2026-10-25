@@ -119,7 +119,7 @@ class AuthAccountCaptureTest {
         runDesktopComposeUiTest(width = 390, height = height) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, height.dp).testTag("auth-capture-root")) {
-                    UiRoot(preferences = preferences) {
+                    BundledPreviewCaptureRoot(preferences = preferences) {
                         // Unbounded vertical measurement prevents the last card from consuming
                         // only a bounded Column's remaining height and clipping its own text.
                         val scene = if (wholeScene) Modifier.verticalScroll(rememberScrollState()) else Modifier

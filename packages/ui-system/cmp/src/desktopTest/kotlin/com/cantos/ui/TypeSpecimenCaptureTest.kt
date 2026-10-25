@@ -86,6 +86,7 @@ class TypeSpecimenCaptureTest {
                     viewportHeightDp = HeightDp,
                     hostDensity = hostDensity,
                     hostFontScale = hostFontScale,
+                    fontSource = if (noto) BundledPreviewFontSource else "reviewed platform SansSerif/Serif fallback",
                 ),
                 bitmap,
             )

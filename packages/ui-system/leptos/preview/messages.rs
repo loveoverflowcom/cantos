@@ -79,7 +79,7 @@ pub mod tool {
     pub const AUTH_EDITABLE: &str = "Editable";
     pub const AUTH_READONLY: &str = "Read-only, selectable and copyable";
     pub const TOGGLE_ERROR: &str = "Toggle sample error";
-    pub const AUTH_CANDIDATE: &str = "Floating (Fields v3) · unqualified Web candidate. Use Tab to compare focus with the existing AuthTonal baseline below.";
+    pub const AUTH_CANDIDATE: &str = "Floating (Fields v3) · Web specimen. Use Tab to compare focus with the existing AuthTonal counterpart below. Qualification is recorded separately.";
     pub const AUTH_BASELINE: &str = "Existing AuthTonal · compatibility baseline:";
     pub const AUTH_REGULAR: &str = "Regular field with unchanged geometry";
     pub const BACK_HEADING: &str = "Contextual Back · host-owned destination";
@@ -116,13 +116,13 @@ pub mod tool {
     pub const MOTION_PROFILE: &str = "Trusted input frame profile";
     pub const CAPTURE_LABEL: &str = "Capture label (local diagnostic text)";
     pub const MOTION_DESCRIPTION: &str = "Computed styles at start/middle/end; interruptions and unavailable middle frames stay explicit. This is a bounded observation, not a video or pixel review.";
-    pub const AUTH_RHYTHM: &str = "Floating (Fields v3) Web candidate — unqualified. Real input required for hover/focus/autofill/forced-colors. CTA logs an intent only.";
+    pub const AUTH_RHYTHM: &str = "Floating (Fields v3) Web specimen. Real input is required for hover/focus/autofill/forced-colors; qualification is recorded separately. CTA logs an intent only.";
     pub const AUTH_RHYTHM_BASELINE: &str =
         "Existing AuthTonal presentation and 16-unit field→CTA gap (compatibility baseline):";
     pub const BACK_CANDIDATE: &str = "Unified Web candidate — unqualified. Hover, pressed and keyboard focus require real input. Every sample records a host intent only; no route/history effect.";
     pub const ICON_BASELINE: &str = "Existing IconTonal presentation (compatibility baseline):";
     pub const SELECT_DENSITIES: &str = "Regular theme: 48. Compact inline language: 40 painted / 48 target, 20 icon. Native compact baseline below; unsupported Popover uses the same native geometry. No Button/TextField/CMP resizing.";
-    pub const MENU_CANDIDATE: &str = "Web menu candidate — unqualified. Native fallback on unsupported engines. Expanded/hover/focus require real input; this recipe does not force visual states.";
+    pub const MENU_CANDIDATE: &str = "Enhanced Web menu specimen. Native fallback on unsupported engines. Qualification is recorded separately; expanded/hover/focus require real input, never forced visual states.";
     pub const SAMPLE_DIALOG: &str = "Sample dialog";
     pub const CLOSE_SAMPLE: &str = "Close sample";
     pub const BROWSER_PENDING: &str = "Browser facts not captured; refresh after fonts are ready.";
