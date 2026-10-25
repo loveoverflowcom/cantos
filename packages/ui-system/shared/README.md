@@ -157,12 +157,13 @@ uses the surface's paired foreground (`onPrimaryContainer` on `primaryContainer`
 muted foreground on that background. All existing contrast pairs remain active. Functional
 focus/error/selected boundaries stay intact; only these surfaces omit decorative borders.
 
-Both package-local previews register concrete specimens and state controls. New `BackButton`
-and `Logo` remain **implemented-unverified** and unqualified until fresh two-renderer runtime,
-accessibility and inspected-reference evidence exists. Variants likewise remain preview-only:
-no real app adopts them in this issue. [Evidence and pending admission](../../../docs/evidence/ui-auth-account-v2.md)
-separate implemented source from executed gates. Future #128–#131 consumers retain their own
-product/backend/auth/navigation acceptance boundaries.
+Both package-local previews register concrete specimens and state controls. The original
+[implementation-only checkpoint](../../../docs/evidence/ui-auth-account-v2.md) is historical;
+current adoption is governed by fresh qualification records, not a permanent preview-only label.
+The [current recheck](../../../docs/evidence/ui-qualification-20261025.md) distinguishes implemented
+and adopted variants from those still outside admission. Web Floating fields have no CMP
+Floating variant; the native counterpart is Regular/AuthTonal, and a catalog fallback is not
+proof of native Floating behavior. Product/backend/auth/navigation and device acceptance remain separate.
 
 ## Avatar
 
