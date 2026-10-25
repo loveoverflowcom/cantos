@@ -132,6 +132,51 @@ numeric runtime pins, provider calls and deployment remain **NOT_RUN**. The othe
 ops secrets remained `MISSING` in this readback; no production-secret state was refreshed.
 Importing these keys completes only this bounded custody step of #446.
 
+### VPS SSH custody preparation — 2026-10-25
+
+**Import NOT_RUN; exact storage authorization pending.** The existing inventory entry
+`cantos-ops-vps-ssh-private-key` is the proposed destination in `cantos-a348b`; this record
+does not authorize creating it or adding a version. A targeted metadata-only check on the Mac
+mini, using the already credentialed operator account, returned `NOT_FOUND` for both secret
+metadata and version listing. Thus the observed custody state was `MISSING`, with no numeric
+version or pin. Refresh this observation immediately before any authorized import; do not
+create a second secret under a similar name.
+
+The supplied SSH private key appeared in an agent tool result on **2026-10-23**. It is marked
+`rotation_required = true` / `ROTATION_REQUIRED` independently of whether a stored version
+exists. The owner's bounded acceptance of SSH verification on 2026-10-25 does not remediate
+that exposure or authorize indefinite use. Importing the same bytes cannot rotate or revoke
+the key. Host-side replacement/revocation requires a separate owner-authorized operation;
+no rotation, host trust change, new reader, IAM grant or deployment was performed here.
+
+After the owner confirms the exact project and secret, reuse the approved existing local
+`0600` regular file in its `0700` directory outside the checkout. Do not download another copy
+from Drive when that file is available. Do not fetch the key into chat, render a preview, or
+record its source/download URL. Check the file's ownership/mode without printing its contents.
+Use the [import procedure](#importing-a-value), selecting the existing `opaque` format so the
+SSH key's bytes and newlines are preserved. Never trim or re-encode it as a one-line text secret.
+
+The reviewed plan should name only this destination and the explicit operator account:
+
+```sh
+# Plan only, after resolving SSH_KEY_FILE securely; never paste the key itself.
+cargo xtask secrets import --project cantos-a348b --account OPERATOR_EMAIL \
+  --secret cantos-ops-vps-ssh-private-key --file "$SSH_KEY_FILE" \
+  --expect-latest none --dry-run
+```
+
+`none` is valid only while a fresh metadata read still shows no versions. Otherwise use the
+highest version ever issued, including disabled/destroyed versions. Run the real import only
+after the exact persistent-storage authorization; preserve all previous versions. On an
+uncertain add result, stop and reconcile metadata before any retry. Record the resulting
+secret resource name, numeric version and sanitized outcome here after verification; never
+record key bytes, size, hash, local private path or a signed download URL. Byte equality, if
+separately allowed, is checked privately without printing either value or a digest.
+
+The only intended reader is the operator on the workstation. Existing gcloud credentials and
+metadata access do not prove payload access. Import, file readback, `VERIFIED_ACCESS`, numeric
+consumer binding, SSH acceptance and deployment are all **NOT_RUN** in this preparation.
+
 ## Identities and least-privilege IAM
 
 Separate writers from readers. Grant on the **individual secret**, never project-wide, except
@@ -276,6 +321,41 @@ never project-wide credentials.
 **Operations.** SSH and Android signing material are read on the operator workstation only.
 Prefer a scoped deploy user over root; storing a key does not make it safe, and loss requires
 host-side revocation.
+
+### SSH retrieval to a private local file
+
+This is an operator procedure for a separately authorized read of an already imported numeric
+version. It is not executed by builds, CI or an import, and it installs no consumer. Review the
+secret/version metadata and reader first. For operator SSH, the operator account is the consumer
+reader; do not infer `VERIFIED_ACCESS` from another account's import or metadata result.
+
+```sh
+(
+  set -eu
+  umask 077
+  SSH_SECRET_VERSION=REVIEWED_NUMERIC_VERSION
+  case "$SSH_SECRET_VERSION" in
+    ''|0|*[!0-9]*) exit 1 ;;
+  esac
+  ssh_key_dir=$(mktemp -d "${TMPDIR:-/tmp}/cantos-ssh.XXXXXXXX")
+  chmod 700 "$ssh_key_dir"
+  # Remove only the temporary copy created by this procedure, never the source input.
+  trap 'rm -f "$ssh_key_dir/id"; rmdir "$ssh_key_dir"' EXIT
+  gcloud secrets versions access "$SSH_SECRET_VERSION" \
+    --secret=cantos-ops-vps-ssh-private-key --project=cantos-a348b \
+    --account=OPERATOR_EMAIL --out-file="$ssh_key_dir/id"
+  chmod 600 "$ssh_key_dir/id"
+  # Use this file only within the separately approved SSH scope.
+  # Keep established host-key verification; never bypass it or change known_hosts here.
+)
+```
+
+`--out-file` keeps the opaque key off stdout and preserves its bytes. Do not use shell command
+substitution to load the key, `cat` it, export it in an environment variable, print a public-key
+derivative/fingerprint as evidence, or place payloads in argv/logs. A local readback may establish
+file delivery for that reader/version; it does not establish successful SSH, host configuration
+or deployment. Cleanup removes the temporary copy but does not claim secure erasure or erase
+the approved existing source. Preserve that source until its owner authorizes its disposition.
 
 ## Version pin, rotation, rollback and incidents
 
