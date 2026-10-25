@@ -150,3 +150,6 @@ consumer = "operator"
 contract = "ssh -i (operator workstation only)"
 delivery = "file"
 format = "opaque"
+# The supplied SSH private key appeared in an agent tool result on 2026-10-23.
+# Bounded SSH use or Secret Manager custody does not rotate/revoke that key on its host.
+rotation_required = true

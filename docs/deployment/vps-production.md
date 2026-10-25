@@ -18,3 +18,18 @@ Do not stop/remove legacy services, accounts, packages, credentials, DB/WAL, vol
 media because their source path retired. Such actions require a separately authorized operator
 scope, fresh inventory and proven restore/cutover/retention. Static Hosting/Pages, Firebase
 Functions/App Distribution, Drive and Forge have independent owners.
+
+## Operator SSH credential custody
+
+Current SSH-key storage and retrieval belong to the
+[Google Secret Manager guide](google-secret-manager.md#vps-ssh-custody-preparation--2026-10-25),
+including the [private-file retrieval procedure](google-secret-manager.md#ssh-retrieval-to-a-private-local-file).
+The proposed existing inventory name is `cantos-ops-vps-ssh-private-key` in `cantos-a348b`,
+for the operator workstation only; it is never an application or CI credential. The
+2026-10-25 preparation observed `MISSING` through metadata and performed no upload; exact
+persistent-storage authorization remains pending. No version/pin is asserted.
+
+The supplied key was exposed in an agent tool result on 2026-10-23 and remains
+`ROTATION_REQUIRED`. Storage does not remediate exposure. Bounded SSH verification permission
+does not authorize rotation, host trust changes, installation or deployment. SSH consumer and
+deployment acceptance remain `NOT_RUN` for this custody work; retain all existing host data.
