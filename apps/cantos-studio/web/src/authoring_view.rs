@@ -1450,6 +1450,43 @@ mod tests {
     }
 
     #[test]
+    fn an_unresolved_cue_anchor_is_kept_as_the_disabled_current_choice() {
+        let target = Target::Cue("cue-01".into());
+        let document = fixture()
+            .set(&target, Field::CueDialogue, "dialogue-missing")
+            .unwrap();
+        let original = document.to_json();
+        let projected = choice_projection(
+            &document,
+            &target,
+            Field::CueDialogue,
+            vec![("dialogue-01".into(), "Người dẫn chuyện mở màn.".into())],
+            &[],
+            false,
+            true,
+        );
+        assert_eq!(projected.value, "dialogue-missing");
+        assert_eq!(
+            projected.options,
+            vec![
+                SelectOption {
+                    value: "dialogue-missing".into(),
+                    label: choice("unknown", false).into(),
+                    disabled: true,
+                    lang: None,
+                    icon: None,
+                },
+                SelectOption {
+                    lang: Some("vi-VN".into()),
+                    ..SelectOption::new("dialogue-01", "Người dẫn chuyện mở màn.")
+                },
+            ]
+        );
+        assert_eq!(projected.error.as_deref(), Some(choice("unknown", false)));
+        assert_eq!(document.to_json(), original);
+    }
+
+    #[test]
     fn studio_css_leaves_field_focus_and_label_spacing_to_the_shared_anatomy() {
         let css = include_str!("../studio.css");
         let focus = css

@@ -36,6 +36,8 @@ accepted for step-1 origin integration only) and `cantos.media.public-cover-proj
 for #157; model lifecycle remains draft).
 Neither has a registered Rust observer, so `--conformance` does not apply to them; their
 [inventory rows](inventory.md) separate implemented kernels from model assumptions.
+The cover model includes fresh-projection fetch admission; its six `run.fetch-*` IDs are
+reused by independent native tests for traceability, without replaying model traces.
 
 ## Run locally
 
