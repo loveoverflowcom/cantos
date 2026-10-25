@@ -1,6 +1,8 @@
 # Shared component qualification recheck — 25 October 2026
 
-Status: **incomplete Draft PR; no new admission**. The existing qualification gate remains
+Historical investigation log. The [final bounded acceptance](ui-qualification-459-final.md) supersedes intermediate status and blockers below.
+
+Status at the original checkpoint: **incomplete Draft PR; no new admission**. The existing qualification gate remains
 closed. This record preserves executed checks and the exact missing evidence; it is not a
 completed repair of the 32 qualification diagnostics. No qualification receipt, compatibility
 baseline or gate policy was relaxed. Historical `ui402-*` records are preserved.
