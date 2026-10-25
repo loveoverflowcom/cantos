@@ -296,11 +296,10 @@ pub(super) fn FieldMessages(
     }
 }
 
-/// A reactive `type` (the password eye) changes the attribute of the same element. Chromium
-/// recalculates the caret when the type changes, after the first frame, so the selection and its
-/// direction are read first and restored immediately and again on the next two animation frames; the
-/// element, its focus, value and composition callbacks are never replaced. Types without a text
-/// selection (`number`, `email`) report none, and nothing is restored for them.
+/// A reactive `type` (the password eye) changes the attribute of the same element. Preserve its
+/// selection synchronously: a delayed animation-frame restore would overwrite a newer selection
+/// or edit. The element, focus, value and composition callbacks are never replaced. Types without
+/// a text selection (`number`, `email`) report none, and nothing is restored for them.
 #[cfg(target_arch = "wasm32")]
 fn retype_preserving_selection(
     input: NodeRef<leptos::html::Input>,
@@ -329,19 +328,6 @@ fn retype_preserving_selection(
             if let (Some(start), Some(end)) = (start, end) {
                 let selection = (start, end, direction);
                 restore(&element, &selection);
-                let first = element.clone();
-                let selection_again = selection.clone();
-                leptos::prelude::request_animation_frame(move || {
-                    if first.type_() == next {
-                        restore(&first, &selection_again);
-                    }
-                    let second = first.clone();
-                    leptos::prelude::request_animation_frame(move || {
-                        if second.type_() == next {
-                            restore(&second, &selection_again);
-                        }
-                    });
-                });
             }
         }
         next

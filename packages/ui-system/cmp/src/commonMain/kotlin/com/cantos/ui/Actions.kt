@@ -113,6 +113,7 @@ internal fun ButtonControl(
     shape: Shape? = null,
     insetPerimeter: Boolean = false,
     active: Boolean = false,
+    containerColor: Color? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     // The closed registry rejects unknown names even when pending hides the glyph.
@@ -125,7 +126,7 @@ internal fun ButtonControl(
         ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> "size.authSecondary"
         else -> "size.control"
     })
-    val background = buttonContainerColor(variant)
+    val background = containerColor ?: buttonContainerColor(variant)
     val foreground = buttonContentColor(variant)
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },

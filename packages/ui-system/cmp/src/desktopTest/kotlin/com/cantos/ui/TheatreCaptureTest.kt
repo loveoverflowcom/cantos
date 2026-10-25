@@ -6,8 +6,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.unit.dp
 import com.cantos.ui.generated.PreviewCatalog
 import com.cantos.ui.preview.ComponentExample
 import org.junit.Test
@@ -39,6 +43,7 @@ class TheatreCaptureTest {
             UiPreferences(theme = Theme.Light) to 390,
             UiPreferences(theme = Theme.Dark) to 390,
             UiPreferences(theme = Theme.Light, textScale = 2f) to 390,
+            UiPreferences(theme = Theme.Dark, textScale = 2f) to 320,
             UiPreferences(theme = Theme.Light) to 1100,
         ).forEach { (preferences, width) ->
             specimens.forEach { (example, state) -> capture(example, state, preferences, width) }
@@ -56,6 +61,13 @@ class TheatreCaptureTest {
                 }
             }
             waitForIdle()
+            if (example == PreviewExample.Logo) {
+                onNodeWithContentDescription("Tài khoản của bạn")
+                    .assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+                val scene = onNodeWithTag("scene").fetchSemanticsNode().boundsInRoot
+                val action = onNodeWithContentDescription("Chuyển giao diện").fetchSemanticsNode().boundsInRoot
+                assertTrue(action.left >= scene.left && action.right <= scene.right, "header actions stay inside the frame")
+            }
             val image = onNodeWithTag("scene").captureToImage()
             assertTrue(image.width > 0 && image.height > 0, name)
             writeCapture(

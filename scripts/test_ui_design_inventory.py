@@ -52,7 +52,8 @@ class DesignInventory(unittest.TestCase):
 
     def test_baseline_state_or_api_removal_is_rejected(self):
         for mutation, expected in (
-            (lambda s: s["components"][0]["states"].pop(), "baseline states lost: ui-root"),
+            # Later opt-in states may follow the baseline; remove an actual frozen state.
+            (lambda s: s["components"][0]["states"].remove("light"), "baseline states lost: ui-root"),
             (lambda s: s["components"][0].update(name="RenamedRoot"), "baseline API changed: ui-root"),
             (lambda s: s["components"].pop(0), "baseline API missing: ui-root"),
             (lambda s: s["baseline_consumers"].append(copy.deepcopy(s["baseline_consumers"][0])), "compatibility sites changed"),

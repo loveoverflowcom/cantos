@@ -430,7 +430,14 @@ def _rust(source):
     lines += [f"    Token::{rust_variant(role)}," for role in roles]
     lines += ["];", "", "impl Token {", "    pub const ALL: &'static [Self] = ALL;", "",
               "    pub const fn css_variable(self) -> &'static str {", "        match self {"]
-    lines += [f'            Self::{rust_variant(role)} => "{variable(role)}",' for role in roles]
+    for role in roles:
+        arm = f'            Self::{rust_variant(role)} => "{variable(role)}",'
+        # Preserve the pinned rustfmt layout when expressive role names exceed its width.
+        if len(arm) > 100:
+            lines += [f"            Self::{rust_variant(role)} => {{",
+                      f'                "{variable(role)}"', "            }"]
+        else:
+            lines.append(arm)
     lines += ["        }", "    }", "",
               "    /// Static lookup: System resolves to Light; CSS follows the system preference.",
               "    /// Density and reduced motion are CSS scope overrides, absent from this lookup.",

@@ -87,7 +87,7 @@ internal fun TheatreSpecimen(example: PreviewExample, state: String, onEvent: (S
                 PreviewExample.Select -> UtilitySelectSpecimen()
                 PreviewExample.Avatar -> AvatarSpecimen()
                 PreviewExample.Logo -> HeaderSpecimen(outer.theme, onEvent)
-                else -> FieldHelp("No Theatre specimen is registered for ${example.id}/$state.")
+                else -> FieldHelp(PreviewToolCopy.theatreMissing(example.id, state))
             }
         }
     }
@@ -101,45 +101,44 @@ private fun ExpressionSpecimen() {
         Modifier.fillMaxWidth().background(hero, CantosShapes.container).padding(tokenDp("space.lg")),
         verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
     ) {
-        Text(vietnameseSpecimenText("Mở một miền tưởng tượng."), color = ink, style = MaterialTheme.typography.headlineMedium)
-        Text(vietnameseSpecimenText("Tiểu thuyết, truyện kể và podcast cho mỗi ngày."), color = ink, style = MaterialTheme.typography.bodyLarge)
+        Text(vietnameseSpecimenText(PreviewToolCopy.TheatreFixture.HeroTitle), color = ink, style = MaterialTheme.typography.headlineMedium)
+        Text(vietnameseSpecimenText(PreviewToolCopy.TheatreFixture.HeroSubtitle), color = ink, style = MaterialTheme.typography.bodyLarge)
     }
     FieldHelp(
-        "Hero pair #1d0b28 on #c6a0f5 is two solid canonical roles; headings use weight " +
-            "${CantosTokens.number("type.theatreHeading.weight").toInt()}.",
+        PreviewToolCopy.theatreHero(CantosTokens.number("type.theatreHeading.weight").toInt()),
     )
 }
 
 @Composable
 private fun GroupSpecimen(onEvent: (String) -> Unit) {
-    val reason = DisabledReason.of("Đang gửi, vui lòng chờ.")
+    val reason = DisabledReason.of(PreviewToolCopy.TheatreFixture.Sending)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Button("Đăng nhập", { onEvent("Button · Đăng nhập") }, icon = "login")
-        Button("Tạo tài khoản", { onEvent("Button · Tạo tài khoản") }, variant = ButtonVariant.Tonal, icon = "person_add")
-        Button("Xác nhận", {}, state = ButtonState.Loading(reason), icon = "check")
+        Button(PreviewToolCopy.TheatreFixture.SignIn, { onEvent(PreviewToolCopy.TheatreSignInEvent) }, icon = "login")
+        Button(PreviewToolCopy.TheatreFixture.SignUp, { onEvent(PreviewToolCopy.TheatreSignUpEvent) }, variant = ButtonVariant.Tonal, icon = "person_add")
+        Button(PreviewToolCopy.TheatreFixture.Confirm, {}, state = ButtonState.Loading(reason), icon = "check")
     }
-    Button("Gửi liên kết xác minh cho Nguyễn Thị Ánh Nguyệt", { onEvent("Button · long label") }, icon = "mail", modifier = Modifier.fillMaxWidth())
+    Button(PreviewToolCopy.TheatreFixture.LongAction, { onEvent(PreviewToolCopy.TheatreLongActionEvent) }, icon = "mail", modifier = Modifier.fillMaxWidth())
 }
 
 @Composable
 private fun TonalSpecimen(onEvent: (String) -> Unit) {
     var dark by remember { mutableStateOf(false) }
     IconButton(
-        AccessibleName.of(if (dark) "Chuyển sang giao diện sáng" else "Chuyển sang giao diện tối"),
+        AccessibleName.of(if (dark) PreviewToolCopy.TheatreFixture.SwitchLight else PreviewToolCopy.TheatreFixture.SwitchDark),
         if (dark) "light_mode" else "dark_mode",
-        { dark = !dark; onEvent("Tonal icon button · ${if (dark) "dark" else "light"} requested") },
+        { dark = !dark; onEvent(PreviewToolCopy.theatreTheme(dark)) },
         variant = ButtonVariant.Tonal,
     )
-    FieldHelp("48-unit tonal rounded square; the host owns the theme and the localized name.")
+    FieldHelp(PreviewToolCopy.TheatreTonalHelp)
 }
 
 @Composable
 private fun DockedSpecimen(onEvent: (String) -> Unit) {
     IconButton(
-        AccessibleName.of("Tìm trong danh mục"), "search", { onEvent("Docked search action") },
+        AccessibleName.of(PreviewToolCopy.TheatreFixture.Search), "search", { onEvent(PreviewToolCopy.TheatreDockedEvent) },
         variant = ButtonVariant.Primary, circular = true, controlModifier = Modifier.size(tokenDp("size.searchAction")),
     )
-    FieldHelp("52-unit visible circle, a 48-unit minimum touch target; one magnifier, no caption.")
+    FieldHelp(PreviewToolCopy.TheatreDockedHelp)
 }
 
 @Composable
@@ -147,33 +146,33 @@ private fun SelectionSpecimen() {
     var all by remember { mutableStateOf(true) }
     var novel by remember { mutableStateOf(false) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        FilterChip("Tất cả loại", all, { all = it })
-        FilterChip("Tiểu thuyết", novel, { novel = it })
-        FilterChip("Truyện huyền huyễn và lời kể dưới chân Thanh Vân Sơn", false, {},
-            state = ButtonState.Disabled(DisabledReason.of("Chưa có nội dung cho mục này.")))
+        FilterChip(PreviewToolCopy.TheatreFixture.AllTypes, all, { all = it })
+        FilterChip(PreviewToolCopy.TheatreFixture.Novel, novel, { novel = it })
+        FilterChip(PreviewToolCopy.TheatreFixture.LongChip, false, {},
+            state = ButtonState.Disabled(DisabledReason.of(PreviewToolCopy.TheatreFixture.NoContent)))
     }
 }
 
 @Composable
 private fun FieldMatrixSpecimen() {
     var idle by remember { mutableStateOf("") }
-    var filled by remember { mutableStateOf("ban@example.com") }
-    var invalid by remember { mutableStateOf("ban@") }
-    var long by remember { mutableStateOf("Giữ nguyên nội dung dài có dấu: Ỗ, Ữ") }
+    var filled by remember { mutableStateOf(PreviewToolCopy.TheatreFixture.EmailValue) }
+    var invalid by remember { mutableStateOf(PreviewToolCopy.TheatreFixture.EmailInvalid) }
+    var long by remember { mutableStateOf(PreviewToolCopy.TheatreFixture.LongValue) }
     val focus = remember { FocusRequester() }
-    TextField("Email", idle, { idle = it }, variant = TextFieldVariant.Floating,
+    TextField(PreviewToolCopy.TheatreFixture.Email, idle, { idle = it }, variant = TextFieldVariant.Floating,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-    TextField("Email", filled, { filled = it }, variant = TextFieldVariant.Floating,
+    TextField(PreviewToolCopy.TheatreFixture.Email, filled, { filled = it }, variant = TextFieldVariant.Floating,
         controlModifier = Modifier.focusRequester(focus))
-    TextField("Email", invalid, { invalid = it }, variant = TextFieldVariant.Floating, error = "Kiểm tra địa chỉ email.")
-    TextField("Email", "ban@example.com", {}, variant = TextFieldVariant.Floating, state = FieldState.ReadOnly)
-    TextField("Email", "ban@example.com", {}, variant = TextFieldVariant.Floating,
-        state = FieldState.Disabled(DisabledReason.of("Chưa thể chỉnh sửa.")))
-    TextField("Email", "ban@example.com", {}, variant = TextFieldVariant.Floating,
-        state = FieldState.Loading(DisabledReason.of("Đang nạp thông tin.")))
-    TextField("Tên hiển thị của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện dài", long, { long = it },
-        variant = TextFieldVariant.Floating, help = "Nhãn dài không đè lên giá trị; ô tự cao hơn khi chữ lớn.")
-    FieldHelp("Tab into the second field for the 2-unit inset focus perimeter; the third shows the 1-unit error stroke.")
+    TextField(PreviewToolCopy.TheatreFixture.Email, invalid, { invalid = it }, variant = TextFieldVariant.Floating, error = PreviewToolCopy.TheatreFixture.EmailError)
+    TextField(PreviewToolCopy.TheatreFixture.Email, PreviewToolCopy.TheatreFixture.EmailValue, {}, variant = TextFieldVariant.Floating, state = FieldState.ReadOnly)
+    TextField(PreviewToolCopy.TheatreFixture.Email, PreviewToolCopy.TheatreFixture.EmailValue, {}, variant = TextFieldVariant.Floating,
+        state = FieldState.Disabled(DisabledReason.of(PreviewToolCopy.TheatreFixture.Unavailable)))
+    TextField(PreviewToolCopy.TheatreFixture.Email, PreviewToolCopy.TheatreFixture.EmailValue, {}, variant = TextFieldVariant.Floating,
+        state = FieldState.Loading(DisabledReason.of(PreviewToolCopy.TheatreFixture.Loading)))
+    TextField(PreviewToolCopy.TheatreFixture.LongLabel, long, { long = it },
+        variant = TextFieldVariant.Floating, help = PreviewToolCopy.TheatreFixture.LongHelp)
+    FieldHelp(PreviewToolCopy.TheatreFieldHelp)
 }
 
 @Composable
@@ -181,13 +180,13 @@ private fun PasswordRow(label: String, initial: String, error: String?) {
     var value by remember { mutableStateOf(initial) }
     var visible by remember { mutableStateOf(false) }
     TextField(label, value, { value = it }, variant = TextFieldVariant.Floating, error = error,
-        help = if (error == null) "Giá trị chỉ nằm trong ô này; không ghi nhật ký, không lưu." else null,
+        help = if (error == null) PreviewToolCopy.TheatreFixture.PasswordHelp else null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions.Default,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         trailing = {
             IconButton(
-                AccessibleName.of(if (visible) "Ẩn mật khẩu" else "Hiện mật khẩu"),
+                AccessibleName.of(if (visible) PreviewToolCopy.TheatreFixture.HidePassword else PreviewToolCopy.TheatreFixture.ShowPassword),
                 if (visible) "visibility_off" else "visibility",
                 { visible = !visible },
             )
@@ -196,54 +195,62 @@ private fun PasswordRow(label: String, initial: String, error: String?) {
 
 @Composable
 private fun EyeSpecimen() {
-    PasswordRow("Mật khẩu mới", "mật-khẩu-Ỗ", null)
-    PasswordRow("Nhập lại mật khẩu", "mật-khẩu", "Hai mật khẩu chưa giống nhau.")
-    FieldHelp("Each eye owns its own visibility; the masked default never reaches a snapshot.")
+    PasswordRow(PreviewToolCopy.TheatreFixture.NewPassword, PreviewToolCopy.TheatreFixture.PasswordValue, null)
+    PasswordRow(PreviewToolCopy.TheatreFixture.RepeatPassword, PreviewToolCopy.TheatreFixture.RepeatValue, PreviewToolCopy.TheatreFixture.Mismatch)
+    FieldHelp(PreviewToolCopy.TheatreEyeHelp)
 }
 
 @Composable
 private fun SearchSpecimen(onEvent: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
-    TextField("Tìm trong danh mục", query, { query = it }, variant = TextFieldVariant.FloatingSearch,
+    TextField(PreviewToolCopy.TheatreFixture.Search, query, { query = it }, variant = TextFieldVariant.FloatingSearch,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onEvent("Search IME action · \"$query\"") }),
+        keyboardActions = KeyboardActions(onSearch = { onEvent(PreviewToolCopy.theatreSearch(query, ime = true)) }),
         trailing = {
             IconButton(
-                AccessibleName.of("Tìm trong danh mục"), "search", { onEvent("Docked search · \"$query\"") },
+                AccessibleName.of(PreviewToolCopy.TheatreFixture.Search), "search", { onEvent(PreviewToolCopy.theatreSearch(query, ime = false)) },
                 variant = ButtonVariant.Primary, circular = true, controlModifier = Modifier.size(tokenDp("size.searchAction")),
             )
         })
-    FieldHelp("The host decides whether this commits a query; CMP search keeps its own route and query-on-change semantics.")
+    FieldHelp(PreviewToolCopy.TheatreSearchHelp)
 }
 
 @Composable
 private fun UtilitySelectSpecimen() {
     var language by remember { mutableStateOf(0) }
-    Select("Ngôn ngữ", listOf("Tiếng Việt", "English"), language, { language = it },
-        expandedDescription = "Danh sách ngôn ngữ đang mở", collapsedDescription = "Danh sách ngôn ngữ đang đóng")
+    Select(PreviewToolCopy.TheatreFixture.Language, listOf(PreviewToolCopy.TheatreFixture.Vietnamese, PreviewToolCopy.TheatreFixture.English), language, { language = it },
+        expandedDescription = PreviewToolCopy.TheatreFixture.LanguagesOpen, collapsedDescription = PreviewToolCopy.TheatreFixture.LanguagesClosed)
 }
 
 @Composable
 private fun AvatarSpecimen() {
     Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")), verticalAlignment = Alignment.CenterVertically) {
-        Avatar("Cantos", size = AvatarSize.Control, accent = true, accessibleName = AccessibleName.of("Tài khoản của bạn"))
-        Avatar("Nguyễn Thị Ánh", size = AvatarSize.Control)
+        Avatar(PreviewToolCopy.TheatreFixture.Brand, size = AvatarSize.Control, accent = true, accessibleName = AccessibleName.of(PreviewToolCopy.TheatreFixture.Account))
+        Avatar(PreviewToolCopy.TheatreFixture.Identity, size = AvatarSize.Control)
     }
-    FieldHelp("Left: the pinned Theatre accent. Right: the identity hue, never inferred as the accent.")
+    FieldHelp(PreviewToolCopy.TheatreAvatarHelp)
 }
 
 @Composable
 private fun HeaderSpecimen(theme: Theme, onEvent: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Logo(LogoVariant.Symbol, Modifier.size(tokenDp("size.brandMark")),
-            tone = if (theme == Theme.Dark) LogoTone.Dark else LogoTone.Light)
-        Spacer(Modifier.width(tokenDp("space.inset")))
-        Text("Cantos", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.weight(1f))
-        IconButton(AccessibleName.of("Chuyển giao diện"), if (theme == Theme.Dark) "light_mode" else "dark_mode",
-            { onEvent("Theme action requested") }, variant = ButtonVariant.Tonal)
-        Spacer(Modifier.width(tokenDp("space.inset")))
-        Avatar("Cantos", size = AvatarSize.Control, accent = true)
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Logo(LogoVariant.Symbol, Modifier.size(tokenDp("size.brandMark")),
+                tone = if (theme == Theme.Dark) LogoTone.Dark else LogoTone.Light)
+            Spacer(Modifier.width(tokenDp("space.inset")))
+            Text(PreviewToolCopy.TheatreFixture.Brand, style = MaterialTheme.typography.titleLarge)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(AccessibleName.of(PreviewToolCopy.TheatreFixture.SwitchTheme), if (theme == Theme.Dark) "light_mode" else "dark_mode",
+                { onEvent(PreviewToolCopy.TheatreThemeEvent) }, variant = ButtonVariant.Tonal)
+            Spacer(Modifier.width(tokenDp("space.inset")))
+            Avatar(PreviewToolCopy.TheatreFixture.Brand, size = AvatarSize.Control, accent = true,
+                accessibleName = AccessibleName.of(PreviewToolCopy.TheatreFixture.Account))
+        }
     }
-    FieldHelp("Official symbol 44, 12 before the bold word; brand, theme and avatar share one 48-unit centerline.")
+    FieldHelp(PreviewToolCopy.TheatreHeaderHelp)
 }

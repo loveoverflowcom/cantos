@@ -220,6 +220,7 @@ fun Select(
             ButtonControl(onPress = { expanded = true }, state = effective,
                 shape = if (theatre) CantosShapes.full else null, insetPerimeter = theatre,
                 active = theatre && expanded && effective.canPress(),
+                containerColor = if (theatre) tokenColor("color.surfaceContainer") else null,
                 modifier = controlModifier.onSizeChanged { anchorWidth = it.width }
                     .semantics { error?.takeIf { it.isNotBlank() }?.let { error(it) } },
                 variant = ButtonVariant.Tonal, name = AccessibleName.of(listOf(label, text).joinToString(": ")),

@@ -177,6 +177,7 @@ class TheatrePixelTest {
             open = frameOf("scene", "select", density)
         }
         assertEquals(0, idle.strokeRows(focusColor), "idle select is tonal with no stroke")
+        assertTrue(idle.column(3, 4).last().isNear(role("color.surfaceContainer")), "board 5 utility select uses the field tonal surface")
         assertEquals((2 * open.density).roundToInt(), open.strokeRows(focusColor), "open select has one 2-unit inset cue")
         assertTrue(open.outside(listOf(focusColor)), "the cue stays inside the control")
     }
@@ -232,7 +233,9 @@ class TheatrePixelTest {
         val square = images.first.toPixelMap()
         val circle = images.second.toPixelMap()
         assertTrue(square[4, 4].isNear(container), "a 12-unit radius still fills this near-corner pixel")
-        assertTrue(!square[24, 24].isNear(role("color.primaryContainer")), "the tonal action is not the selection ink")
+        // The center contains the moon glyph, whose onSurface ink intentionally equals the
+        // selected container. Sample unobstructed fill instead of mistaking that glyph for fill.
+        assertTrue(square[4, 24].isNear(container), "the tonal action keeps its tonal fill beside the glyph")
         assertTrue(!circle[4, 4].isNear(primary), "a circle leaves the same near-corner pixel unpainted")
         assertTrue(circle[26, 26].isNear(primary) || circle[8, 26].isNear(primary), "the docked action is the primary tone")
     }
