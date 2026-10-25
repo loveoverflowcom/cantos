@@ -102,7 +102,7 @@ who wrote them. Operator review remains necessary; synthetic fixtures are never 
 
 Output reports only `offline-contract=PASS`. `registry-access`, `native-qualification`,
 `activation` and `cleanup` remain `NOT_RUN`, with operation `PLAN_ONLY`. It is not `PREPARED`,
-`ACCEPTED`, an activation receipt or permission to stop legacy owners. A future executor must
+`ACCEPTED`, an activation receipt or permission to stop legacy owners. The existing same-schema executor below and any future cutover executor must
 independently revalidate registry bytes/metadata, inventory freshness, runtime principal/store,
 disk/inodes, source-bound assets, admission, locks/generation and native migration/security
 recovery before any mutation. Do not trust this plan as an activation token.
@@ -132,7 +132,7 @@ producer. Nothing a producer writes is an admission, and labels or a pushed tag 
 `infra/oci/compatibility.json` holds the declared RPC, Server schema, Identity schema and
 security-state identifiers; the Turso version is read from the locked `Cargo.lock`. They are
 declarations of this commit, not tested rollback authority. Server's declaration is
-`server-turso-epoch-1-v23`; `cantos-migrate` operates on `server.db`, and serving never migrates at startup. Server runs as UID/GID 10001 and Identity
+`server-turso-epoch-1-v24`; `cantos-migrate` operates on `server.db`, and serving never migrates at startup. Server runs as UID/GID 10001 and Identity
 as 10002 so a bind-mounted database directory belongs to exactly one service; mounts, sockets and
 Quadlet units are PR B.
 
@@ -169,8 +169,8 @@ Add `--host-inventory PATH --host-inventory-digest SHA256` to `release oci-verif
 required together. The same admission, source-bound bundle and qualification-record checks run
 first. This optional local JSON input is **operator-declared**, not a host observation, SSH inventory,
 activation token or deployment receipt. The command reads no lock/journal on a host and creates no
-native Quadlet. The source bundle still contains retained legacy recovery assets; the native renderer
-and activation consumer must be implemented and qualified independently.
+native Quadlet. The source bundle still contains retained legacy recovery assets; first-native rendering/cutover
+and the existing same-schema upgrade consumer must be qualified independently.
 
 Inventory schema 1 accepts exactly these fields (missing/unknown fields refuse):
 
@@ -285,3 +285,101 @@ Parser/client regressions exercise production code with a named HTTP transport d
 real standard-library HTTP response reader. They are `mock-integration-tested`, not real GHCR
 integration. No real publish, private registry login, digest pull, image run or native release
 acceptance follows from these fixtures; those remain explicit producer/operator gates.
+
+## Existing native-host executor (review boundary)
+
+`cargo xtask release native-upgrade --request /private/request.json --request-digest SHA256`
+validates both admitted releases and a strict request offline. Add `--execute` only on the
+explicitly authorized target host to upgrade it. This is **host-local**, rootful Linux, cgroup v2,
+existing **NATIVE_READY**, same schema/RPC/security/Turso identifiers and unchanged runtime
+configuration only. No SSH connection, NEW bootstrap, LEGACY cutover, rootless conversion,
+credential setup, live seed, schema upgrade or database restore is implemented by this lane.
+The retired `deploy vps` command remains a refusal.
+
+The release build configuration digest may change between versions. Runtime configuration is
+bound separately by the exact existing Quadlet bytes and `configuration_files` hashes. Every
+EnvironmentFile and mounted regular file must be bound; services with systemd drop-ins refuse.
+The adapter preserves each unit's observed owner/group/mode and every Quadlet byte except its single `[Container] Image=` value. It does
+not extract or execute the retained legacy runtime bundle.
+
+Both old and new releases must pass the existing source-bound bundle/evidence/admission
+verifier, match their actual committed schema registries, and have all four qualification records
+marked `evidence_level: integration-tested` and
+`execution_environment: linux-native-exact-images`. These are **reviewed execution claims**,
+not cryptographic proof of execution. The executor never manufactures a qualification PASS or
+an admission. Model, fake-host and file-only tests cannot provide these records. The producer
+continues to emit NOT_RUN/unadmitted candidates. No production qualification is claimed here.
+
+The producer now compares declared Server/Identity schema identifiers with the actual registered
+migration versions before building. Current source selects Server epoch 1/version 24 and
+Identity version 4. A stale declaration refuses; old published v23-declared candidates whose
+source registers v24 remain unsuitable for this executor. Registered SQL is unchanged.
+
+### Request and existing state
+
+The request is a private regular, single-link JSON file pinned by SHA-256. Its exact fields are:
+
+| Field | Required value |
+| --- | --- |
+| `schema_version`, `host_state`, `observed_at` | `1`, `NATIVE_READY`, integer Unix seconds within one hour (recovery may use the original request) |
+| `host_machine_sha256` | Independently verified SHA-256 of this host's `/etc/machine-id` bytes |
+| `generation`, `current_manifest_sha256` | Exact existing generation and previous manifest digest; reobserved under lock |
+| `previous`, `next` | Each: `manifest`, `manifest_digest`, `admission`, `admission_digest`, `source_sha`, `configuration_digest`, `platform`; absolute pinned local records as for `oci-verify` |
+| `databases` | Exactly `cantos-server` and `cantos-identity`: distinct canonical existing directories below `/var/lib/cantos/`, owned UID/GID 10001 and 10002 respectively, no other permissions |
+| `socket_directory` | Existing canonical directory below `/run/cantos/`, Identity-owned UID 10002/group 10001, setgid, no other permissions |
+| `mounts` | Exactly the two service names, each mapping to a complete list of 2–16 objects with `source`, `destination`, `read_only`; bind mounts only, canonical paths, no overlapping destinations or foreign DB roots. DB mount writable, config-file mounts explicitly bound. Runtime DB env must resolve to that mount's `server.db`/`identity.db`; both use `identity.sock` under their socket mount. Numeric peer UID/caller and 0660 socket policy are checked. |
+| `units` | Exactly the two service names mapped to SHA-256 of their existing `/etc/containers/systemd/SERVICE.container` bytes |
+| `configuration_files` | Explicit map of 1–32 canonical `/etc/cantos/` regular files to their byte hashes, all operator-private and bounded to 2 MiB per file; never put their contents in the request |
+| `health_url` | Exact `http://127.0.0.1:PORT/PATH`; redirects/proxies refused, bounded read/time budget; observation only, not authentication acceptance |
+
+`/var/lib/cantos-release` must already exist, root-owned/private. `current.json` contains
+`generation`, `manifest_sha256`, `images` (the exact admitted manifest's full image objects),
+and optionally `previous_manifest_sha256`. Creating that trusted state is part of separately
+reviewed first-native acceptance, **not** something this upgrade command bootstraps. A guessed
+inventory/current.json is not native acceptance. The request requires operator-reviewed host
+identity and exact running native pair; source-only examples never establish it.
+
+### Effects, backup and recovery
+
+Under one nonblocking host lock, generation/current images, machine/platform, live native
+containers, mounts/UIDs, unit provenance and runtime configuration hashes are reobserved.
+The executor retains original units/current state/request in a fresh private attempt directory,
+then fsyncs `in-progress.json` with `RECOVERY_REQUIRED` **before the first pull**. A failed pull
+or interruption never silently replays. Digest pulls are inspected for actual image/config/source
+identity; tags never choose a release. Backup capacity/inodes are checked before stopping owners.
+
+Stop order is Server then Identity, with inactive/no-running-owner checks. Both complete DB
+directories (at most 4096 entries each), including WAL/sidecars, are cold-copied, ownership/modes preserved, source/copy
+streaming hashes compared and files/directories fsynced before unit replacement. Symlinks, hardlinks,
+foreign owners, filesystem boundaries and partial backups refuse. Backups are never substituted
+for production files. After another unit/config hash check, replace only the image directives,
+reload systemd, start Identity then Server and observe exact running pair/mount/UID plus bounded
+loopback HTTP readiness. Commit the generation/current pointer only after those checks, retain
+an immutable receipt and remove the intent marker last.
+
+On any failure/crash, keep units, backups and marker for explicit reconciliation. The old
+`current.json` can remain even when one new unit has started; **it is not then a running-state
+claim**. Inspect the attempt and actual processes before recovery. An activation receipt reports
+that limited host observation only; separate full HTTP/auth/mail/browser evidence stays required.
+
+For explicit image-only rollback of that exact attempt:
+
+```sh
+cargo xtask release native-upgrade --request /private/original-request.json \
+  --request-digest SHA256 --rollback-attempt attempt-HEX --execute
+```
+
+Recovery locks and rechecks the host, exact request, old/new generation, original unit hashes,
+allowed unit/image pair and unchanged runtime configuration. It pulls the admitted old digests,
+stops both owners, restores the original unit bytes, starts Identity then Server and increments
+generation monotonically. It **never restores DB bytes**, so writes made after activation remain.
+Any schema/config change, foreign generation/unit/container or previous rollback refuses.
+An interrupted rollback retains its marker; never manually remove it to force a retry. A DB
+restore needs its own reviewed consistent recovery operation and authorization.
+
+The source-level tests exercise actual private files/sidecars/locks/hash failures with a named
+`FakeHost` for systemd/Podman. They are executable recovery/admission regressions, not Linux
+image-pair, Turso restore, host reboot or live VPS evidence. Run them through
+`cargo xtask release self-test`; they also belong to the existing repository gate. Actual
+same-schema Podman/Quadlet acceptance and the four exact-image qualification records remain
+mandatory before any operational use. No production candidate is admitted by this PR.

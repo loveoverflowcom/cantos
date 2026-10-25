@@ -187,6 +187,17 @@ fresh validated bytes instead of building the product. VPS artifact deploy requi
 `--smoke-origin ORIGIN` and cannot combine with bootstrap/status/rollback/reload/cutover.
 Local build-and-deploy commands remain available when no artifact input is supplied.
 
+### Existing native host upgrade
+
+`cargo xtask release native-upgrade --request PATH --request-digest SHA256 [--execute]
+[--rollback-attempt attempt-HEX]` is the explicit host-local, rootful Linux same-schema
+NATIVE_READY upgrade/recovery lane. Default is offline admitted-input validation; `--execute`
+changes the authorized host. It never connects over SSH, bootstraps, imports seeds, migrates a
+schema or restores DBs. The [native executor contract](../docs/deployment/native-oci-release.md#existing-native-host-executor-review-boundary)
+owns exact request/current-state pins, qualification requirements, cold backup, effect order,
+crash refusal and explicit image-only rollback. Model/mock/file-only tests cannot admit images.
+Build, verify, preflight and CI never execute host activation. `deploy vps` remains retired.
+
 ### Offline Hosting rollout report
 
 `cargo xtask hosting-report --record PATH [--dry-run]` reads a strict local version-1

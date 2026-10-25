@@ -58,6 +58,16 @@ def compatibility(root, sha):
     declared = json.loads(git_bytes(root, sha, COMPATIBILITY))
     contract.require(isinstance(declared, dict) and set(declared) == {"rpc", "server_schema", "identity_schema",
                      "security_state"}, "compatibility policy fields")
+    # The declaration must match the registered immutable migrations in this source.
+    schema = git_bytes(root, sha, "services/cantos-server/src/platform/turso/mod.rs").decode()
+    identity = git_bytes(root, sha, "services/cantos-identity/src/persistence/mod.rs").decode()
+    server_versions = [int(v) for v in re.findall(r"version: ([0-9]+),", schema)]
+    identity_versions = [int(v) for v in re.findall(r"version: ([0-9]+),", identity)]
+    epoch = re.search(r"pub const SERVER_EPOCH: u32 = ([0-9]+);", schema)
+    contract.require(server_versions and identity_versions and epoch is not None and
+                     declared["server_schema"] == f"server-turso-epoch-{epoch[1]}-v{max(server_versions)}" and
+                     declared["identity_schema"] == f"identity-migrations-v{max(identity_versions)}",
+                     "schema compatibility declaration differs from source registry")
     lock = tomllib.loads(git_bytes(root, sha, "Cargo.lock").decode())
     versions = sorted({p["version"] for p in lock["package"] if p["name"] == "turso"})
     contract.require(len(versions) == 1, "exactly one locked Turso version required")

@@ -4,7 +4,7 @@
 packaged as GHCR images and supervised by Podman Quadlet. The
 [offline OCI contract](../../docs/deployment/native-oci-release.md) is the first release-owner
 slice; candidate producers and an offline declared inventory plan exist, while native host
-rendering/activation and live qualification remain pending. The assets below are retained
+first-native rendering/cutover and live qualification remain pending. The explicit [same-schema NATIVE_READY upgrade/recovery lane](../../docs/deployment/native-oci-release.md#existing-native-host-executor-review-boundary) preserves existing units/config and requires independent qualification/admission. The assets below are retained
 legacy runtime/recovery owners, not an implementation of the native target or host inventory.
 New source work targets `develop` after PR #400. Do not activate unqualified HEAD, retire PG/Kanidm or change runtime principal from source evidence.
 

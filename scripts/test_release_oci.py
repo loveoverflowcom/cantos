@@ -36,8 +36,17 @@ def fixture(root, producer=PRODUCERS[0]):
     helper.parent.mkdir(parents=True)
     helper.write_bytes(b"#!/bin/sh\nexit 0\n")
     helper.chmod(0o755)
+    server=source/'services/cantos-server/src/platform/turso/mod.rs'
+    identity=source/'services/cantos-identity/src/persistence/mod.rs'
+    server.parent.mkdir(parents=True);identity.parent.mkdir(parents=True)
+    server.write_text('pub const SERVER_EPOCH: u32 = 1;\n    version: 1,\n')
+    identity.write_text('    version: 1,\n')
+    policy=source/'infra/oci/compatibility.json';policy.parent.mkdir(parents=True)
+    policy.write_text(json.dumps({'rpc':'rpc-v1','server_schema':'server-turso-epoch-1-v1',
+                                 'identity_schema':'identity-migrations-v1','security_state':'security-v1'}))
+    (source/'Cargo.lock').write_text('[[package]]\nname = "turso"\nversion = "0.6.0-pre.7"\n')
     git(source, "init", "--quiet")
-    git(source, "add", "infra/vps/bin/cantos-vps")
+    git(source, "add", "infra/vps/bin/cantos-vps", "infra/oci/compatibility.json", "Cargo.lock", "services")
     git(source, "-c", "user.name=Contract Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "fixture")
     sha = git(source, "rev-parse", "HEAD")
     release = root / "release"
@@ -53,7 +62,7 @@ def fixture(root, producer=PRODUCERS[0]):
     manifest = {"schema_version": 1, "kind": "cantos-native-oci", "repository": contract.REPOSITORY,
                 "source_sha": sha, "configuration_sha256": CONFIG, "platform": "linux/amd64",
                 "producer": copy.deepcopy(producer),
-                "compatibility": {"rpc": "rpc-v1", "server_schema": "server-v1", "identity_schema": "identity-v1",
+                "compatibility": {"rpc": "rpc-v1", "server_schema": "server-turso-epoch-1-v1", "identity_schema": "identity-migrations-v1",
                                   "security_state": "security-v1", "turso": "0.6.0-pre.7"},
                 "images": {service: {"ref": "ghcr.io/loveoverflowcom/" + service + "@sha256:" + str(i + 1) * 64,
                                      "config_digest": "sha256:" + str(i + 3) * 64}

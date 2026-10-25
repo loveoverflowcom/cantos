@@ -196,7 +196,7 @@ CircleCI selections; no current workflow receives the old VPS context. The
 [native OCI contract](docs/deployment/native-oci-release.md) owns candidate publication,
 qualification/admission and the optional digest-pinned, operator-declared host inventory plan.
 The plan is offline and never locks, pulls, activates, restores or changes a host. Native
-Quadlet rendering/activation, health/reboot and recovery acceptance remain separate #348 work.
+First-native/legacy Quadlet cutover and actual health/reboot/recovery acceptance remain separate #348 work; the same-schema NATIVE_READY upgrade lane is described below.
 The [historical VPS runbook](docs/deployment/vps-production.md) and
 [PostgreSQL prefix-upgrade recovery record](docs/deployment/postgres-prefix-upgrade.md) retain
 legacy recovery context; they are not current release instructions. Preserve their historical
@@ -293,7 +293,11 @@ publish-attempt journal before remote writes; failed/unknown publication require
 `release oci-verify --host-inventory PATH --host-inventory-digest SHA256` adds an offline declared
 readiness plan, never activation authority. Actual
 publish/admission and host activation require separate evidence. `deploy vps` is a retired
-refusal. Preserve legacy runtime/principals, PG/Kanidm/ingress and recovery until real native
+refusal. The explicit `release native-upgrade` lane is host-local rootful Linux, existing
+NATIVE_READY and same-schema only, with operator-admitted exact images, cold backups, a durable
+recovery marker and image-only rollback; first-native/legacy cutover and live qualification
+remain separate. Its file/FakeHost regressions belong to release self-test/repository; they
+never establish live VPS or exact-image qualification. Preserve legacy runtime/principals, PG/Kanidm/ingress and recovery until real native
 acceptance and separately authorized cutover; missing inventory is `UNKNOWN`, never permission
 to bootstrap. Build/publish, inventory, activation, restore and cleanup are separate scopes.
 
