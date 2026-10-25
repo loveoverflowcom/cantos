@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741
+// Generated from Cantos UI tokens v0.7.0 sha256:f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.6.0"
+    const val version: String = "0.7.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -46,6 +46,23 @@ object CantosTokens {
         TokenValue("color.surface", "color", "#fffcf7", "#2c2631", null, null, null),
         TokenValue("color.surfaceContainer", "color", "#eee8f1", "#372f3e", null, null, null),
         TokenValue("color.surfaceContainerHigh", "color", "#e7dfea", "#463a4e", null, null, null),
+        TokenValue("color.theatreBackground", "color", "#fff2e9", "#21112d", null, null, null),
+        TokenValue("color.theatreFocus", "color", "#6b3093", "#e0b8fc", null, null, null),
+        TokenValue("color.theatreHero", "color", "#c6a0f5", "#352142", null, null, null),
+        TokenValue("color.theatreOnHero", "color", "#1d0b28", "#fff8ef", null, null, null),
+        TokenValue("color.theatreOnPeach", "color", "#462b19", "#ffe0c5", null, null, null),
+        TokenValue("color.theatreOnPink", "color", "#291332", "#291332", null, null, null),
+        TokenValue("color.theatreOnPrimary", "color", "#ffffff", "#291332", null, null, null),
+        TokenValue("color.theatreOnPrimaryContainer", "color", "#fff8ef", "#291332", null, null, null),
+        TokenValue("color.theatreOnSurface", "color", "#291332", "#fff8ef", null, null, null),
+        TokenValue("color.theatreOnSurfaceVariant", "color", "#68506d", "#d5c2dc", null, null, null),
+        TokenValue("color.theatrePeach", "color", "#ffd8ba", "#674733", null, null, null),
+        TokenValue("color.theatrePink", "color", "#e8a2da", "#ed99de", null, null, null),
+        TokenValue("color.theatrePrimary", "color", "#50276c", "#ed99de", null, null, null),
+        TokenValue("color.theatrePrimaryContainer", "color", "#291332", "#bfa0eb", null, null, null),
+        TokenValue("color.theatreSurface", "color", "#fffdf8", "#281632", null, null, null),
+        TokenValue("color.theatreSurfaceContainer", "color", "#eaddf7", "#3c2748", null, null, null),
+        TokenValue("color.theatreSurfaceContainerHigh", "color", "#ddc9f1", "#4f345e", null, null, null),
         TokenValue("color.warning", "color", "#7a521c", "#f5d397", null, null, null),
         TokenValue("color.warningContainer", "color", "#f6e7ca", "#483b26", null, null, null),
         TokenValue("elevation.base", "shadow", "{\"blur\":0,\"color\":\"#000000\",\"opacity\":0,\"spread\":0,\"x\":0,\"y\":0}", "{\"blur\":0,\"color\":\"#000000\",\"opacity\":0,\"spread\":0,\"x\":0,\"y\":0}", null, null, null),
@@ -76,16 +93,19 @@ object CantosTokens {
         TokenValue("size.authOutline", "dimension", "1.5", "1.5", null, null, null),
         TokenValue("size.authPrimary", "dimension", "60", "60", null, null, null),
         TokenValue("size.authSecondary", "dimension", "56", "56", null, null, null),
+        TokenValue("size.avatarControl", "dimension", "48", "48", null, null, null),
         TokenValue("size.avatarLarge", "dimension", "64", "64", null, null, null),
         TokenValue("size.avatarMedium", "dimension", "40", "40", null, null, null),
         TokenValue("size.avatarSmall", "dimension", "32", "32", null, null, null),
         TokenValue("size.backControl", "dimension", "48", "48", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
+        TokenValue("size.brandMark", "dimension", "44", "44", null, null, null),
         TokenValue("size.control", "dimension", "48", "48", "48", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
+        TokenValue("size.searchAction", "dimension", "52", "52", null, null, null),
         TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),
         TokenValue("space.controlInline", "dimension", "12", "12", "12", "16", null),
         TokenValue("space.inset", "dimension", "12", "12", null, null, null),
@@ -123,6 +143,8 @@ object CantosTokens {
         TokenValue("type.metadata.lineHeight", "number", "1.5", "1.5", null, null, null),
         TokenValue("type.metadata.size", "dimension", "12", "12", null, null, null),
         TokenValue("type.metadata.weight", "fontWeight", "400", "400", null, null, null),
+        TokenValue("type.theatreControl.weight", "fontWeight", "700", "700", null, null, null),
+        TokenValue("type.theatreHeading.weight", "fontWeight", "700", "700", null, null, null),
         TokenValue("type.title.lineHeight", "number", "1.4", "1.4", null, null, null),
         TokenValue("type.title.size", "dimension", "20", "20", null, null, null),
         TokenValue("type.title.weight", "fontWeight", "600", "600", null, null, null),
@@ -130,6 +152,15 @@ object CantosTokens {
     val names: List<String> = entries.map { it.name }
     private val byName = entries.associateBy { it.name }
     private val reducedRoles = setOf("motion.emphasis.duration", "motion.feedback.duration", "motion.navigation.duration", "motion.shape.duration")
+    /** Opt-in role remaps; standard is the absence of an expression and is never remapped. */
+    val expressionNames: List<String> = listOf("standard", "theatre")
+    private val expressionRoles: Map<String, Map<String, String>> = mapOf("theatre" to mapOf("color.background" to "color.theatreBackground", "color.focus" to "color.theatreFocus", "color.onPrimary" to "color.theatreOnPrimary", "color.onPrimaryContainer" to "color.theatreOnPrimaryContainer", "color.onSurface" to "color.theatreOnSurface", "color.onSurfaceVariant" to "color.theatreOnSurfaceVariant", "color.primary" to "color.theatrePrimary", "color.primaryContainer" to "color.theatrePrimaryContainer", "color.surface" to "color.theatreSurface", "color.surfaceContainer" to "color.theatreSurfaceContainer", "color.surfaceContainerHigh" to "color.theatreSurfaceContainerHigh", "type.authHeading.weight" to "type.theatreHeading.weight", "type.headline.weight" to "type.theatreHeading.weight", "type.label.weight" to "type.theatreControl.weight", "type.membershipTitle.weight" to "type.theatreHeading.weight", "type.title.weight" to "type.theatreHeading.weight"))
+
+    /** The canonical role a consumer of [expression] reads for [name]; unmapped roles are unchanged. */
+    fun role(name: String, expression: String = "standard"): String {
+        require(expression in expressionNames) { "Unknown expression: $expression" }
+        return expressionRoles[expression]?.get(name) ?: name
+    }
 
     fun raw(name: String, theme: String = "light", density: String = "compact"): String {
         require(theme == "light" || theme == "dark") { "Unknown theme: $theme" }

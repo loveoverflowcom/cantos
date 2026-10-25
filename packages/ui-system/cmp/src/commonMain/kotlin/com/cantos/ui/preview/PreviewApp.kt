@@ -52,6 +52,7 @@ import com.cantos.ui.Avatar
 import com.cantos.ui.AvatarInitials
 import com.cantos.ui.AvatarSize
 import com.cantos.ui.BackButton
+import com.cantos.ui.CantosExpression
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
@@ -276,6 +277,10 @@ private fun PreviewControls(
         FilterChip(PreviewToolCopy.Compact, preferences.density == Density.Compact, { onChange(preferences.copy(density = Density.Compact)) })
         FilterChip(PreviewToolCopy.Comfortable, preferences.density == Density.Comfortable, { onChange(preferences.copy(density = Density.Comfortable)) })
         FilterChip(PreviewToolCopy.ReducedMotion, preferences.reducedMotion, { onChange(preferences.copy(reducedMotion = it)) })
+        FilterChip(PreviewToolCopy.StandardExpression, preferences.expression == CantosExpression.Standard,
+            { onChange(preferences.copy(expression = CantosExpression.Standard)) })
+        FilterChip(PreviewToolCopy.TheatreExpression, preferences.expression == CantosExpression.Theatre,
+            { onChange(preferences.copy(expression = CantosExpression.Theatre)) })
         listOf(1f, 1.3f, 2f).forEach { scale ->
             FilterChip(PreviewToolCopy.textScale(scale), preferences.textScale == scale, { onChange(preferences.copy(textScale = scale)) })
         }
@@ -401,6 +406,10 @@ internal fun ComponentExample(
             is ComponentSampleResult.Accepted -> { localSample = next.state; retainedSample = next.state }
             is ComponentSampleResult.Rejected -> onEvent("Rejected sample intent: ${next.error}")
         }
+    }
+    if (state.startsWith(TheatreStatePrefix)) {
+        TheatreSpecimen(example, state, onEvent, modifier)
+        return
     }
     val richText = TextFieldValue(sample.richText, TextRange(sample.selectionStart, sample.selectionEnd),
         sample.compositionStart?.let { TextRange(it, sample.compositionEnd ?: it) })

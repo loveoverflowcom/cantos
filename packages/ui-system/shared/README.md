@@ -1,4 +1,10 @@
-# Shared semantic contract v0.6.0
+# Shared semantic contract v0.7.0
+
+v0.7.0 adds the **Theatre expression** ([#452](https://github.com/loveoverflowcom/cantos/issues/452),
+owner direction of 2026-10-25): an opt-in role remap for one subtree, 17 themed `color.theatre*`
+roles, `type.theatreHeading.weight` / `type.theatreControl.weight` (700), `size.avatarControl` 48,
+`size.brandMark` 44 and `size.searchAction` 52. No existing role changes value; a consumer that names
+no expression resolves exactly the v0.6.0 roles. See [Theatre expression](#theatre-expression-v070).
 
 v0.6.0 reconciles [design v3](../../../docs/design/ui-token-v3-reconciliation.md): UI body is
 16 logical units and the regular minimum control is 48 at both densities; compact/comfortable
@@ -31,6 +37,7 @@ it is not a live second theme.
 | `tokens` | Theme-independent semantic roles, each `{type, value}` |
 | `themes` | Exactly light/dark; identical roles and types |
 | `aliases` | Legacy semantic role → direct canonical role; no chains or cycles |
+| `expressions` | Optional. Name → `{standard role: canonical target}`; same type and theme scope, color or font weight only, no chains; contrast pairs the remap touches are re-measured |
 | `contrast_pairs` | Named foreground/background color roles with text/nontext floor |
 | `density` | Compact/comfortable logical control dimensions; common roles, no per-app palette |
 | `reduced_motion` | Every shared duration has an explicit zero mapping under reduced motion |
@@ -47,6 +54,59 @@ Roles map mechanically to CSS custom properties and generated Rust `Token` varia
 resolved CSS values. `Theme::System` returns the light default for this diagnostic API; browser
 preference resolution belongs to CSS. Static token values do not resolve density or reduced
 motion overrides: read runtime computed CSS for those observations.
+
+## Theatre expression (v0.7.0)
+
+The owner chose a more distinctive Theatre treatment (lilac hero, deep-plum selection, cream reading
+surface, peach and pink accents, bold editorial headings). It supersedes the quiet first draft for
+Theatre only, and it is not a recolor: the 17 `color.theatre<Role>` palettes sit beside the existing
+roles, and `expressions.theatre` maps eleven standard color roles
+(`background`, `surface`, `surfaceContainer`, `surfaceContainerHigh`, `primary`, `onPrimary`,
+`primaryContainer`, `onPrimaryContainer`, `onSurface`, `onSurfaceVariant`, `focus`) and five weights
+(`type.{headline,title,authHeading,membershipTitle}.weight` → `type.theatreHeading.weight`,
+`type.label.weight` → `type.theatreControl.weight`) onto them. Player, status, outline, accent and
+geometry roles are untouched.
+
+| Renderer | Opt in | Opt out (default) |
+| --- | --- | --- |
+| Web | `UiRoot expression=Expression::Theatre` → `data-expression="theatre"`; the generated rule is declared after every theme block and again for the system-dark selector, so it holds in light, dark and system themes | no attribute, no rule applies |
+| CMP | `UiPreferences(expression = CantosExpression.Theatre)`; `tokenColor`, the Material scheme and `typeStyle` resolve through the generated `CantosTokens.role(name, expression)` | `CantosExpression.Standard` resolves every role to itself |
+
+Studio opts out by default and has no consumer that selects the expression. The generator refuses
+an expression that changes a role's type or theme scope, chains remaps, names a non-canonical role
+or weakens any contrast pair its swap touches (every pair is re-measured in both themes). The
+exact solid-pair measurements for the roles that matter, computed by `scripts/ui_tokens.py` and
+asserted by `scripts/test_ui_tokens.py`:
+
+| Pair | Light | Dark | Floor |
+| --- | --- | --- | --- |
+| `theatreOnHero` on `theatreHero` (`#1d0b28` on `#c6a0f5`) | 8.62 | 13.76 | 4.5 |
+| `theatreOnPeach` on `theatrePeach` | 9.74 | 6.62 | 4.5 |
+| `theatreOnPink` on `theatrePink` | 8.60 | 8.28 | 4.5 |
+| `theatreOnPrimary` on `theatrePrimary` | 11.36 | 8.28 | 4.5 |
+| `theatreOnPrimaryContainer` on `theatrePrimaryContainer` | 16.15 | 7.66 | 4.5 |
+| `theatreOnSurfaceVariant` on `theatreSurfaceContainer` | 5.47 | 7.98 | 4.5 |
+| `theatreFocus` on `theatreSurfaceContainer` | 6.55 | 7.89 | 3 |
+| `color.error` on `theatreSurfaceContainer` | 5.22 | 7.79 | 3 |
+
+These are solid-color arithmetic only: nothing here measures text over artwork, scrims,
+transparency, disabled opacity or forced colors. Light `color.error` on `theatreSurfaceContainerHigh`
+is 4.42, so error *text* is never placed on that fill; the field stroke is an indicator (floor 3).
+The expressive proposal's hexes are Theatre-only provenance in
+[#452](https://github.com/loveoverflowcom/cantos/issues/452); `tokens.json` remains the sole source.
+
+Renderer-local geometry stays out of the canonical source (design v4 calls the numbers starting
+points, not shared pixels): Web declares 68 minimum shell, 16 radius and a 72-unit pill search in
+`foundation.css.in` under `[data-expression="theatre"]`; CMP names `FloatingFieldMinHeight` 68,
+`FloatingFieldRadius` 16 and `FloatingSearchMinHeight` 72 in `Fields.kt`. The shared sizes are the
+ones both renderers and every consumer must agree on: a 48-unit header control (`size.avatarControl`,
+also the minimum hit area), a 44-unit official mark 12 units before the wordmark (`size.brandMark`,
+`space.inset`) and a 52-unit docked search action (`size.searchAction`).
+
+Noto Serif Bold 700 and Noto Sans Bold 700 are the committed static faces of the
+[font bundle](assets/noto-fonts/README.md); no font asset is added. The two eye glyphs
+(`visibility`, `visibility_off`) are the filled Material Icons originals the design selected, at the
+same pinned revision and recorded in the [icon manifest](icons/material-outlined/manifest.json).
 
 ## Decisions from the reference
 

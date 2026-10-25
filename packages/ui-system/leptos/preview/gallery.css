@@ -256,3 +256,57 @@
 :where(.cantos-ui) .cui-preview .cui-design-entry summary > * { display: block; margin-block: var(--cantos-space-xs); }
 :where(.cantos-ui) .cui-preview .cui-design-entry details[open] summary { list-style: disclosure-open; }
 :where(.cantos-ui) .cui-preview .cui-font-editorial { font-family: var(--cantos-type-family-editorial); }
+
+/* Theatre expression specimens (preview only). The roles come from the canonical remap; this file
+   adds layout and a swatch of the owner-selected hero pair, never a palette of its own. */
+:where(.cantos-ui) .cui-preview .cui-theatre-sample {
+  padding: var(--cantos-space-lg);
+  border-radius: var(--cantos-web-shape-panel);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-heading {
+  margin: 0;
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-headline-size);
+  line-height: var(--cantos-type-headline-line-height);
+  font-weight: var(--cantos-type-headline-weight);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-preview :where(.cui-theatre-brand, .cui-theatre-header-actions) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cantos-space-inset);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-mark {
+  inline-size: var(--cantos-size-brand-mark);
+  block-size: var(--cantos-size-brand-mark);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-wordmark {
+  font-size: var(--cantos-type-title-size);
+  line-height: var(--cantos-type-title-line-height);
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--cantos-space-md);
+  align-items: start;
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-hero {
+  padding: var(--cantos-space-lg);
+  border-radius: var(--cantos-web-shape-panel);
+  background: var(--cantos-color-theatre-hero);
+  color: var(--cantos-color-theatre-on-hero);
+}
+:where(.cantos-ui) .cui-preview .cui-theatre-hero p { margin: 0; }
+:where(.cantos-ui) .cui-preview .cui-theatre-hero-title {
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-headline-size);
+  line-height: var(--cantos-type-headline-line-height);
+  font-weight: var(--cantos-type-headline-weight);
+}

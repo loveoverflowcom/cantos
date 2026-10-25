@@ -154,6 +154,12 @@ impl TextFieldVariant {
             Self::Regular | Self::AuthTonal | Self::AuthTonalSpacious => false,
         }
     }
+
+    /// A trailing action lives inside the one shell, so only the shell variant can host it.
+    /// Other variants render no slot rather than paint a control outside their painted surface.
+    pub const fn supports_trailing(self) -> bool {
+        self.has_floating_label()
+    }
 }
 
 /// Floating labels follow the browser's real value, not the Rust signal: composition text,
@@ -290,6 +296,44 @@ pub(super) fn FieldMessages(
     }
 }
 
+/// A reactive `type` (the password eye) changes the attribute of the same element. Preserve its
+/// selection synchronously: a delayed animation-frame restore would overwrite a newer selection
+/// or edit. The element, focus, value and composition callbacks are never replaced. Types without
+/// a text selection (`number`, `email`) report none, and nothing is restored for them.
+#[cfg(target_arch = "wasm32")]
+fn retype_preserving_selection(
+    input: NodeRef<leptos::html::Input>,
+    input_type: Signal<&'static str>,
+) {
+    fn restore(
+        element: &leptos::web_sys::HtmlInputElement,
+        selection: &(u32, u32, Option<String>),
+    ) {
+        let (start, end, direction) = selection;
+        let _ = match direction {
+            Some(direction) => element.set_selection_range_with_direction(*start, *end, direction),
+            None => element.set_selection_range(*start, *end),
+        };
+    }
+    Effect::new(move |previous: Option<&'static str>| {
+        let next = input_type.get();
+        let Some(element) = input.get() else {
+            return next;
+        };
+        if previous.is_some_and(|previous| previous != next) {
+            let start = element.selection_start().ok().flatten();
+            let end = element.selection_end().ok().flatten();
+            let direction = element.selection_direction().ok().flatten();
+            element.set_type(next);
+            if let (Some(start), Some(end)) = (start, end) {
+                let selection = (start, end, direction);
+                restore(&element, &selection);
+            }
+        }
+        next
+    });
+}
+
 #[component]
 fn InputField(
     id: String,
@@ -298,8 +342,9 @@ fn InputField(
     on_input: Callback<String>,
     on_composition_start: Option<Callback<CompositionEvent>>,
     on_composition_end: Option<Callback<CompositionEvent>>,
-    input_type: &'static str,
+    input_type: Signal<&'static str>,
     variant: TextFieldVariant,
+    trailing: Option<ViewFn>,
     state: Signal<FieldState>,
     help: Signal<Option<String>>,
     error: Signal<Option<String>>,
@@ -316,6 +361,9 @@ fn InputField(
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
     let error_reference = error_reference(id.clone(), error);
+    let input_ref = NodeRef::<leptos::html::Input>::new();
+    #[cfg(target_arch = "wasm32")]
+    retype_preserving_selection(input_ref, input_type);
     let floating = variant.has_floating_label();
     let placeholder = if floating {
         Some(floating_placeholder(placeholder))
@@ -324,7 +372,7 @@ fn InputField(
     };
     let label_view = view! { <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel> };
     let control = view! {
-        <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
+        <input id=id.clone() node_ref=input_ref class="cui-field-control" type=input_type.get_untracked() name=name required=required
             placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
             value=move || value.get() prop:value=move || value.get()
             readonly=move || state.get().is_read_only()
@@ -350,10 +398,18 @@ fn InputField(
     // read the browser's own value/focus state with sibling selectors; grid placement keeps the
     // label visually first. Messages stay outside it, below the control.
     let anatomy = if floating {
+        let has_trailing = trailing.is_some();
         view! {
-            <div class="cui-field-shell" data-invalid=move || has_text(&error.get()).to_string()>
+            <div class="cui-field-shell" data-invalid=move || has_text(&error.get()).to_string()
+                data-trailing=has_trailing.then_some("true")>
                 {control}
                 {label_view}
+                {trailing.map(|slot| view! {
+                    // A pointer press on the action must not move focus out of the field: the caret,
+                    // an active IME composition and a touch keyboard stay put. Keyboard focus and
+                    // activation of the action itself are unchanged.
+                    <div class="cui-field-trailing" on:mousedown=move |event| event.prevent_default()>{slot.run()}</div>
+                })}
             </div>
         }
         .into_any()
@@ -361,7 +417,7 @@ fn InputField(
         view! { <>{label_view}{control}</> }.into_any()
     };
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-state=move || state.get().as_str()>
+        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-kind=move || input_type.get() data-state=move || state.get().as_str()>
             {anatomy}
             <FieldMessages id=id help=help error=error reason=reason/>
         </div>
@@ -379,7 +435,10 @@ pub fn TextField(
     #[prop(into)] on_input: Callback<String>,
     #[prop(optional)] on_composition_start: Option<Callback<CompositionEvent>>,
     #[prop(optional)] on_composition_end: Option<Callback<CompositionEvent>>,
-    #[prop(optional)] kind: TextFieldKind,
+    /// A signal changes the native `type` of the same element (the password eye), so focus,
+    /// selection and composition survive; nothing is remounted.
+    #[prop(optional, into)]
+    kind: Signal<TextFieldKind>,
     #[prop(optional)] variant: TextFieldVariant,
     #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
     #[prop(into, default = None.into())] help: Signal<Option<String>>,
@@ -390,9 +449,18 @@ pub fn TextField(
     #[prop(optional)] required: bool,
     #[prop(into, optional)] placeholder: Option<String>,
     #[prop(into, optional)] autocomplete: Option<String>,
+    /// One trailing action inside the shell of a `Floating` field: the password eye or a docked
+    /// search submit. Pass a real native control (`IconButton`) with a localized name; the shell
+    /// is never a clickable surface and owns no action or secret state. The control column
+    /// reserves the action's width, so text never runs under it. Other variants ignore the slot.
+    #[prop(optional, into)]
+    trailing: Option<ViewFn>,
 ) -> impl IntoView {
+    let trailing = trailing.filter(|_| variant.supports_trailing());
+    let input_type = Signal::derive(move || kind.get().as_str());
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type=kind.as_str() variant=variant
+        <InputField id=id label=label value=value on_input=on_input input_type=input_type variant=variant
+            trailing=trailing
             on_composition_start=on_composition_start on_composition_end=on_composition_end
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=autocomplete min=None max=None step=None/>
@@ -419,7 +487,8 @@ pub fn NumberField(
     #[prop(into, optional)] step: Option<String>,
 ) -> impl IntoView {
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type="number" variant=TextFieldVariant::Regular
+        <InputField id=id label=label value=value on_input=on_input input_type=Signal::derive(|| "number") variant=TextFieldVariant::Regular
+            trailing=None
             on_composition_start=None on_composition_end=None
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=None min=min max=max step=step/>

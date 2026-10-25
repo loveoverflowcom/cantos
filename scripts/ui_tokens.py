@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0", "0.6.0")
+VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",
@@ -52,6 +52,11 @@ TOP_LEVEL = {
     "version", "tokens", "themes", "aliases", "contrast_pairs",
     "reduced_motion", "density",
 }
+OPTIONAL_TOP_LEVEL = {"expressions"}
+# An expression is an opt-in, renderer-neutral role remap for one consumer subtree (v0.7.0
+# Theatre). Standard is the absence of an expression; it is never declared here.
+EXPRESSION_NAME = re.compile(r"[a-z][a-z0-9]*")
+EXPRESSION_TYPES = {"color", "fontWeight"}
 REDUCED_ROLES = {
     "motion.feedback.duration", "motion.navigation.duration",
     "motion.emphasis.duration",
@@ -104,10 +109,10 @@ def _finite(value):
         return False
 
 
-def _object(value, label, keys=None):
+def _object(value, label, keys=None, optional=frozenset()):
     if not isinstance(value, dict):
         raise ValueError(f"{label}: expected an object")
-    if keys is not None and set(value) != keys:
+    if keys is not None and not (keys <= set(value) <= keys | optional):
         raise ValueError(f"{label}: expected keys {', '.join(sorted(keys))}")
 
 
@@ -210,7 +215,7 @@ def contrast(first, second):
 
 def validate(source):
     """Refuse ambiguous mappings, unresolved values and unmet contrast floors."""
-    _object(source, "source", TOP_LEVEL)
+    _object(source, "source", TOP_LEVEL, OPTIONAL_TOP_LEVEL)
     if source["version"] not in VERSIONS:
         raise ValueError(f"unsupported token version: expected one of {sorted(VERSIONS)}")
     _object(source["tokens"], "tokens")
@@ -279,6 +284,8 @@ def validate(source):
             if ratio < floor:
                 raise ValueError(f"{theme}: {foreground} on {background} contrast {ratio:.3f} < {floor:g}")
 
+    _validate_expressions(source, canonical, light)
+
     # Every shared duration needs an explicit reduced-motion mapping. This also
     # preserves the required historical intents while accepting scoped new ones.
     duration_roles = {role for role, token in source["tokens"].items()
@@ -299,6 +306,42 @@ def validate(source):
         if overrides["size.control"] < 44:
             raise ValueError(f"density.{density}: control hit area must be at least 44 logical units")
     return source
+
+
+def _validate_expressions(source, canonical, themed):
+    """An expression may only swap one role for a same-type, same-scope canonical role.
+
+    Every contrast pair that the swap touches is re-measured in both themes, so an opt-in
+    palette can never weaken a floor the standard roles already guarantee.
+    """
+    expressions = source.get("expressions", {})
+    _object(expressions, "expressions")
+    for name, mapping in expressions.items():
+        if not isinstance(name, str) or not EXPRESSION_NAME.fullmatch(name) or name == "standard":
+            raise ValueError(f"expressions: invalid expression name {name!r}")
+        _object(mapping, f"expressions.{name}")
+        if not mapping:
+            raise ValueError(f"expressions.{name}: remap must not be empty")
+        for role, target in mapping.items():
+            _role(role)
+            if not isinstance(target, str) or role not in canonical or target not in canonical:
+                raise ValueError(f"expressions.{name}: {role} must map canonical role to canonical role")
+            if role == target or target in mapping:
+                raise ValueError(f"expressions.{name}: {role} must not chain or map to itself")
+            kind = canonical[role]["type"]
+            if kind != canonical[target]["type"] or kind not in EXPRESSION_TYPES:
+                raise ValueError(f"expressions.{name}: {role} requires a same-type color or fontWeight target")
+            if (role in themed) != (target in themed):
+                raise ValueError(f"expressions.{name}: {role} and {target} must share theme scope")
+        for foreground, background, floor in source["contrast_pairs"]:
+            swapped = (mapping.get(foreground, foreground), mapping.get(background, background))
+            if swapped == (foreground, background):
+                continue
+            for theme, tokens in source["themes"].items():
+                colors = source["tokens"] | tokens
+                ratio = contrast(colors[swapped[0]]["value"], colors[swapped[1]]["value"])
+                if ratio < floor:
+                    raise ValueError(f"{theme}: expression {name} {swapped[0]} on {swapped[1]} contrast {ratio:.3f} < {floor:g}")
 
 
 def _number(value):
@@ -356,6 +399,13 @@ def _css(source):
         lines += _declarations({role: {"type": "dimension", "value": value}
                                for role, value in overrides.items()})
         lines += ["}", ""]
+    for name, mapping in sorted(source.get("expressions", {}).items()):
+        # Declared after every theme block. The second selector outranks the system-dark
+        # block so the remap survives it; var() then resolves each target for the live theme.
+        scope = f'.cantos-ui[data-expression="{name}"]'
+        lines += [f"{scope},", f'{scope}:not([data-theme="light"]):not([data-theme="dark"]) {{']
+        lines += [f"  {variable(role)}: var({variable(target)});" for role, target in sorted(mapping.items())]
+        lines += ["}", ""]
     lines += ["@media (prefers-reduced-motion: reduce) {", f"  {DEFAULT_SCOPE},",
               '  .cantos-ui[data-theme="light"],', '  .cantos-ui[data-theme="dark"],',
               f"  {SYSTEM_DARK_SCOPE} {{"]
@@ -372,11 +422,22 @@ def _rust(source):
              "/// Canonical roles and migration aliases from the shared source.",
              "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]", "pub enum Token {"]
     lines += [f"    {rust_variant(role)}," for role in roles]
-    lines += ["}", "", "pub const ALL: &[Token] = &["]
+    names = ", ".join(json.dumps(name) for name in sorted(source.get("expressions", {})))
+    lines += ["}", "",
+              "/// Opt-in role remaps (`data-expression`); Standard is no expression.",
+              f"pub const EXPRESSIONS: &[&str] = &[{names}];", "",
+              "pub const ALL: &[Token] = &["]
     lines += [f"    Token::{rust_variant(role)}," for role in roles]
     lines += ["];", "", "impl Token {", "    pub const ALL: &'static [Self] = ALL;", "",
               "    pub const fn css_variable(self) -> &'static str {", "        match self {"]
-    lines += [f'            Self::{rust_variant(role)} => "{variable(role)}",' for role in roles]
+    for role in roles:
+        arm = f'            Self::{rust_variant(role)} => "{variable(role)}",'
+        # Preserve the pinned rustfmt layout when expressive role names exceed its width.
+        if len(arm) > 100:
+            lines += [f"            Self::{rust_variant(role)} => {{",
+                      f'                "{variable(role)}"', "            }"]
+        else:
+            lines.append(arm)
     lines += ["        }", "    }", "",
               "    /// Static lookup: System resolves to Light; CSS follows the system preference.",
               "    /// Density and reduced motion are CSS scope overrides, absent from this lookup.",
@@ -462,9 +523,24 @@ def _kotlin(source):
         args.append(kotlin_string(target) if target != role else "null")
         lines.append("        TokenValue(" + ", ".join(args) + "),")
     reduced = ", ".join(kotlin_string(name) for name in sorted(source["reduced_motion"]))
+    expressions = source.get("expressions", {})
+    remaps = ", ".join(
+        kotlin_string(name) + " to mapOf(" + ", ".join(
+            kotlin_string(role) + " to " + kotlin_string(target)
+            for role, target in sorted(mapping.items())) + ")"
+        for name, mapping in sorted(expressions.items()))
+    names = ", ".join(kotlin_string(name) for name in ["standard", *sorted(expressions)])
     lines += ["    )", "    val names: List<String> = entries.map { it.name }",
               "    private val byName = entries.associateBy { it.name }",
-              f"    private val reducedRoles = setOf({reduced})", "",
+              f"    private val reducedRoles = setOf({reduced})",
+              "    /** Opt-in role remaps; standard is the absence of an expression and is never remapped. */",
+              f"    val expressionNames: List<String> = listOf({names})",
+              f"    private val expressionRoles: Map<String, Map<String, String>> = mapOf({remaps})", "",
+              "    /** The canonical role a consumer of [expression] reads for [name]; unmapped roles are unchanged. */",
+              "    fun role(name: String, expression: String = \"standard\"): String {",
+              "        require(expression in expressionNames) { \"Unknown expression: $expression\" }",
+              "        return expressionRoles[expression]?.get(name) ?: name",
+              "    }", "",
               "    fun raw(name: String, theme: String = \"light\", density: String = \"compact\"): String {",
               "        require(theme == \"light\" || theme == \"dark\") { \"Unknown theme: $theme\" }",
               "        require(density == \"compact\" || density == \"comfortable\") { \"Unknown density: $density\" }",

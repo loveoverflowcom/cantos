@@ -56,10 +56,24 @@ fun FieldState.reason(): String? = when (this) {
 }
 
 enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger, AuthPrimary, AuthSecondary, AuthOutlined }
-enum class TextFieldVariant { Regular, AuthTonal }
+/**
+ * Floating (Fields v3/v4) keeps the label inside one tonal shell with one inset state perimeter and
+ * is the only variant whose trailing slot is part of its anatomy. Regular and AuthTonal keep
+ * their existing geometry for their current consumers. FloatingSearch is the same anatomy as a
+ * stadium with a 72-unit minimum, the shape of a search field that docks its action in the trailing
+ * slot; the host still decides what, if anything, a query commits.
+ */
+enum class TextFieldVariant { Regular, AuthTonal, Floating, FloatingSearch }
 enum class StatusTone { Neutral, Info, Success, Warning, Error }
 enum class Theme(val tokenName: String) { Light("light"), Dark("dark") }
 enum class Density(val tokenName: String) { Compact("compact"), Comfortable("comfortable") }
+
+/**
+ * An opt-in remap of semantic roles for one subtree (token v0.7.0). Standard remaps nothing, so
+ * Studio and any consumer that names no expression resolve exactly the roles they always did.
+ * [tokenName] is the generated `CantosTokens.expressionNames` entry.
+ */
+enum class CantosExpression(val tokenName: String) { Standard("standard"), Theatre("theatre") }
 
 /**
  * The appearance a person chooses. Only a composition root resolves [System], from a dark-mode

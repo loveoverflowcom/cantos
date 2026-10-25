@@ -582,11 +582,30 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in field_extension {
         assert!(field.states.contains(&state));
     }
+    // Token v0.7.0 adds Theatre-expression diagnostics to existing registrations only.
+    let theatre_extension = [
+        ("ui-root", "theatre-expression"),
+        ("button", "theatre-group"),
+        ("icon-button", "theatre-tonal"),
+        ("icon-button", "theatre-docked"),
+        ("filter-chip", "theatre-selection"),
+        ("text-field", "theatre-fields"),
+        ("text-field", "theatre-trailing-eye"),
+        ("text-field", "theatre-docked-search"),
+        ("select", "theatre-utility"),
+        ("avatar", "theatre-control"),
+        ("logo", "theatre-header"),
+    ];
+    for (id, state) in theatre_extension {
+        let api = components.iter().find(|api| api.id == id).unwrap();
+        assert!(api.states.contains(&state), "{id} omits {state}");
+    }
     assert_eq!(
         components.iter().map(|api| api.states.len()).sum::<usize>()
             - select_extension.len()
             - back_extension.len()
-            - field_extension.len(),
+            - field_extension.len()
+            - theatre_extension.len(),
         198
     );
     assert_eq!(
@@ -821,4 +840,60 @@ fn recipe_specimen_resources_render_both_locales_without_translating_tool_contro
             })
         );
     }
+}
+
+#[test]
+fn every_registered_theatre_state_has_a_real_specimen_inside_the_expression_scope() {
+    let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
+    let section_start = html
+        .find("id=\"gallery-theatre\"")
+        .expect("the Theatre section");
+    let scope = html[section_start..]
+        .find("data-expression=\"theatre\"")
+        .expect("an expression scope")
+        + section_start;
+    let section = &html[scope..];
+    let registered: Vec<(&str, &str)> = preview::preview_catalog::COMPONENTS
+        .iter()
+        .flat_map(|api| api.states.iter().map(move |state| (api.id, *state)))
+        .filter(|(_, state)| state.starts_with("theatre-"))
+        .collect();
+    assert_eq!(
+        registered.len(),
+        11,
+        "the registered Theatre states: {registered:?}"
+    );
+    let specimens: BTreeSet<&str> = section
+        .split("data-preview-state=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .flat_map(str::split_whitespace)
+        .collect();
+    for (id, state) in registered {
+        assert!(
+            specimens.contains(state),
+            "{id}/{state} has no specimen in the Theatre scope: {specimens:?}"
+        );
+    }
+    // The real components, not a lookalike: trailing eye, docked submit, control avatar, pill select.
+    for needle in [
+        "id=\"theatre-password-eye\"",
+        "id=\"theatre-confirm-eye\"",
+        "id=\"theatre-search-submit\"",
+        "type=\"submit\"",
+        "data-size=\"control\"",
+        "data-tone=\"accent\"",
+        "data-select-density=\"compact\"",
+        "data-kind=\"search\"",
+    ] {
+        assert!(section.contains(needle), "missing {needle}");
+    }
+    // Two eyes, two independent states: one id and one accessible name each.
+    assert_eq!(
+        section.matches("Hiện mật khẩu").count() % 2,
+        0,
+        "each eye carries its own name"
+    );
+    // Nothing outside the section opts in.
+    assert_eq!(html.matches("data-expression=\"theatre\"").count(), 1);
 }

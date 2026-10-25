@@ -35,6 +35,35 @@ text multiplier against the inherited platform font scale; they do not multiply 
 fallback. It is registered in both preview catalogues (`avatar`, seven states) with the Leptos
 `Avatar`; no application may adopt it before both renderers qualify.
 
+### Theatre expression and Floating fields ([#452](https://github.com/loveoverflowcom/cantos/issues/452))
+
+`UiPreferences(expression = CantosExpression.Theatre)` opts a subtree into the token v0.7.0 remap
+(`tokenColor`, the Material scheme and `typeStyle` resolve through `CantosTokens.role`); the default
+`Standard` resolves every role to itself, and a nested `CantosTheme` that names none leaves the scope.
+Everything below is additive and local to the control that opts in:
+
+- `TextFieldVariant.Floating` / `FloatingSearch` keep the label inside one tonal shell, draw one
+  inset state perimeter (`cantosInsetPerimeter`: idle none, invalid 1, focus 2, focused-invalid 2 in
+  the error colour, always inside the node's bounds) and keep help outside it. They never change
+  `cantosFocus`, so `Regular` and `AuthTonal` keep their outset ring. Minimums are 68 and 72 logical
+  units (`FloatingFieldMinHeight`, `FloatingSearchMinHeight`); text scale and a long label grow the shell.
+- `TextField(..., trailing = { IconButton(...) })` on both the `String` and `TextFieldValue`
+  overloads places one action inside the shell. The layout reserves its width; the field owns no
+  action or visibility state, and the caller's selection and composition are untouched by a press.
+- `IconButton(variant, circular)`: `Text` (default) is the existing plain muted glyph; `Tonal` and
+  `Primary` fill a 48-unit container (a reading-radius square, or a circle when `circular`). A docked
+  search action passes `controlModifier = Modifier.size(tokenDp("size.searchAction"))`.
+- `FilterChip` under the Theatre expression is a tonal 12-radius chip that becomes an ink capsule
+  with its check when selected; it keeps its start edge and 48-unit height, so only its width grows.
+  The shape change uses the interruptible feedback motion that reduced motion removes.
+- `Select` under the Theatre expression is one tonal capsule whose value and chevron are one
+  centered group, with a single 2-unit inset cue while open or focused.
+- `Avatar(size = AvatarSize.Control, accent = true)` is a 48-unit accent avatar; `accent` pins
+  `color.theatrePink` and leaves initials and semantics unchanged.
+
+The preview adds Standard/Theatre expression chips and the 11 registered `theatre-*` specimens,
+and `TheatreCaptureTest` writes each in both themes at phone width, 2x text and desktop width.
+
 String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
 caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
 received values promptly and do not normalize composing text. Read-only permits selection changes

@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 35 unmodified SVG files come from
+These 37 unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -10,6 +10,12 @@ at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 
 nodes. It replaces the SVG root with `currentColor`, the shared size class,
 `aria-hidden="true"` and `focusable="false"`; child geometry is preserved. It does not inject
 HTML, use a remote CDN/font, accept arbitrary SVG markup or substitute emoji.
+
+`visibility` and `visibility_off` are the exception to the Outlined style: the Theatre v4 design
+(issue [#452](https://github.com/loveoverflowcom/cantos/issues/452)) selects the filled Material Icons
+originals, `src/action/visibility{,_off}/materialicons/24px.svg` at the same pinned revision. Their
+manifest paths and hashes record that style; the bytes equal the upstream files. The Outlined
+variants exist upstream, but no consumer selected them.
 
 Add icons only for concrete consumers. Keep an official original, its pinned upstream path/hash
 and license; extend the closed `IconName` API through generation. `auto_mirror: true` in the manifest marks the glyphs Material publishes as AutoMirrored
@@ -37,6 +43,8 @@ names even when a pending action temporarily hides its glyph.
 | Sync / settings | `cloud_sync` / `settings` | Explicit synchronization and settings |
 | Player transport / options | `fast_rewind`, `fast_forward`, `speed`, `timer`, `star`, `queue_music` | Theatre CMP player controls |
 | Account / chevron | `account_circle`, `person`, `keyboard_arrow_right` | Theatre CMP shell and account rows |
+| Show / hide a secret field value | `visibility` / `visibility_off` | Theatre password fields' trailing action; the host owns the visibility state and its localized name |
+| Search action | `search` | Icon-only, docked action of a Theatre search field; the host owns the localized name |
 
 `arrow_forward` remains progression; `expand_more` remains disclosure. Neither disclosure nor
 a selected/success check represents waiting. Buttons keep the visible action label and localized

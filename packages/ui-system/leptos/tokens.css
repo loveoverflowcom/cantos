@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741
+/* Generated from Cantos UI tokens v0.7.0 sha256:f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -37,6 +37,23 @@
   --cantos-color-surface: #fffcf7;
   --cantos-color-surface-container: #eee8f1;
   --cantos-color-surface-container-high: #e7dfea;
+  --cantos-color-theatre-background: #fff2e9;
+  --cantos-color-theatre-focus: #6b3093;
+  --cantos-color-theatre-hero: #c6a0f5;
+  --cantos-color-theatre-on-hero: #1d0b28;
+  --cantos-color-theatre-on-peach: #462b19;
+  --cantos-color-theatre-on-pink: #291332;
+  --cantos-color-theatre-on-primary: #ffffff;
+  --cantos-color-theatre-on-primary-container: #fff8ef;
+  --cantos-color-theatre-on-surface: #291332;
+  --cantos-color-theatre-on-surface-variant: #68506d;
+  --cantos-color-theatre-peach: #ffd8ba;
+  --cantos-color-theatre-pink: #e8a2da;
+  --cantos-color-theatre-primary: #50276c;
+  --cantos-color-theatre-primary-container: #291332;
+  --cantos-color-theatre-surface: #fffdf8;
+  --cantos-color-theatre-surface-container: #eaddf7;
+  --cantos-color-theatre-surface-container-high: #ddc9f1;
   --cantos-color-warning: #7a521c;
   --cantos-color-warning-container: #f6e7ca;
   --cantos-elevation-base: 0rem 0rem 0rem 0rem rgba(0, 0, 0, 0);
@@ -66,16 +83,19 @@
   --cantos-size-auth-outline: 0.09375rem;
   --cantos-size-auth-primary: 3.75rem;
   --cantos-size-auth-secondary: 3.5rem;
+  --cantos-size-avatar-control: 3rem;
   --cantos-size-avatar-large: 4rem;
   --cantos-size-avatar-medium: 2.5rem;
   --cantos-size-avatar-small: 2rem;
   --cantos-size-back-control: 3rem;
   --cantos-size-border: 0.0625rem;
+  --cantos-size-brand-mark: 2.75rem;
   --cantos-size-control: 3rem;
   --cantos-size-focus-offset: 0.25rem;
   --cantos-size-focus-width: 0.1875rem;
   --cantos-size-icon: 1.5rem;
   --cantos-size-icon-compact: 1.25rem;
+  --cantos-size-search-action: 3.25rem;
   --cantos-size-status-symbol: 4.5rem;
   --cantos-space-control-inline: 0.75rem;
   --cantos-space-inset: 0.75rem;
@@ -113,6 +133,8 @@
   --cantos-type-metadata-line-height: 1.5;
   --cantos-type-metadata-size: 0.75rem;
   --cantos-type-metadata-weight: 400;
+  --cantos-type-theatre-control-weight: 700;
+  --cantos-type-theatre-heading-weight: 700;
   --cantos-type-title-line-height: 1.4;
   --cantos-type-title-size: 1.25rem;
   --cantos-type-title-weight: 600;
@@ -155,6 +177,23 @@
     --cantos-color-surface: #2c2631;
     --cantos-color-surface-container: #372f3e;
     --cantos-color-surface-container-high: #463a4e;
+    --cantos-color-theatre-background: #21112d;
+    --cantos-color-theatre-focus: #e0b8fc;
+    --cantos-color-theatre-hero: #352142;
+    --cantos-color-theatre-on-hero: #fff8ef;
+    --cantos-color-theatre-on-peach: #ffe0c5;
+    --cantos-color-theatre-on-pink: #291332;
+    --cantos-color-theatre-on-primary: #291332;
+    --cantos-color-theatre-on-primary-container: #291332;
+    --cantos-color-theatre-on-surface: #fff8ef;
+    --cantos-color-theatre-on-surface-variant: #d5c2dc;
+    --cantos-color-theatre-peach: #674733;
+    --cantos-color-theatre-pink: #ed99de;
+    --cantos-color-theatre-primary: #ed99de;
+    --cantos-color-theatre-primary-container: #bfa0eb;
+    --cantos-color-theatre-surface: #281632;
+    --cantos-color-theatre-surface-container: #3c2748;
+    --cantos-color-theatre-surface-container-high: #4f345e;
     --cantos-color-warning: #f5d397;
     --cantos-color-warning-container: #483b26;
   }
@@ -195,6 +234,23 @@
   --cantos-color-surface: #fffcf7;
   --cantos-color-surface-container: #eee8f1;
   --cantos-color-surface-container-high: #e7dfea;
+  --cantos-color-theatre-background: #fff2e9;
+  --cantos-color-theatre-focus: #6b3093;
+  --cantos-color-theatre-hero: #c6a0f5;
+  --cantos-color-theatre-on-hero: #1d0b28;
+  --cantos-color-theatre-on-peach: #462b19;
+  --cantos-color-theatre-on-pink: #291332;
+  --cantos-color-theatre-on-primary: #ffffff;
+  --cantos-color-theatre-on-primary-container: #fff8ef;
+  --cantos-color-theatre-on-surface: #291332;
+  --cantos-color-theatre-on-surface-variant: #68506d;
+  --cantos-color-theatre-peach: #ffd8ba;
+  --cantos-color-theatre-pink: #e8a2da;
+  --cantos-color-theatre-primary: #50276c;
+  --cantos-color-theatre-primary-container: #291332;
+  --cantos-color-theatre-surface: #fffdf8;
+  --cantos-color-theatre-surface-container: #eaddf7;
+  --cantos-color-theatre-surface-container-high: #ddc9f1;
   --cantos-color-warning: #7a521c;
   --cantos-color-warning-container: #f6e7ca;
 }
@@ -234,6 +290,23 @@
   --cantos-color-surface: #2c2631;
   --cantos-color-surface-container: #372f3e;
   --cantos-color-surface-container-high: #463a4e;
+  --cantos-color-theatre-background: #21112d;
+  --cantos-color-theatre-focus: #e0b8fc;
+  --cantos-color-theatre-hero: #352142;
+  --cantos-color-theatre-on-hero: #fff8ef;
+  --cantos-color-theatre-on-peach: #ffe0c5;
+  --cantos-color-theatre-on-pink: #291332;
+  --cantos-color-theatre-on-primary: #291332;
+  --cantos-color-theatre-on-primary-container: #291332;
+  --cantos-color-theatre-on-surface: #fff8ef;
+  --cantos-color-theatre-on-surface-variant: #d5c2dc;
+  --cantos-color-theatre-peach: #674733;
+  --cantos-color-theatre-pink: #ed99de;
+  --cantos-color-theatre-primary: #ed99de;
+  --cantos-color-theatre-primary-container: #bfa0eb;
+  --cantos-color-theatre-surface: #281632;
+  --cantos-color-theatre-surface-container: #3c2748;
+  --cantos-color-theatre-surface-container-high: #4f345e;
   --cantos-color-warning: #f5d397;
   --cantos-color-warning-container: #483b26;
 }
@@ -246,6 +319,26 @@
 .cantos-ui[data-density="compact"] {
   --cantos-size-control: 3rem;
   --cantos-space-control-inline: 0.75rem;
+}
+
+.cantos-ui[data-expression="theatre"],
+.cantos-ui[data-expression="theatre"]:not([data-theme="light"]):not([data-theme="dark"]) {
+  --cantos-color-background: var(--cantos-color-theatre-background);
+  --cantos-color-focus: var(--cantos-color-theatre-focus);
+  --cantos-color-on-primary: var(--cantos-color-theatre-on-primary);
+  --cantos-color-on-primary-container: var(--cantos-color-theatre-on-primary-container);
+  --cantos-color-on-surface: var(--cantos-color-theatre-on-surface);
+  --cantos-color-on-surface-variant: var(--cantos-color-theatre-on-surface-variant);
+  --cantos-color-primary: var(--cantos-color-theatre-primary);
+  --cantos-color-primary-container: var(--cantos-color-theatre-primary-container);
+  --cantos-color-surface: var(--cantos-color-theatre-surface);
+  --cantos-color-surface-container: var(--cantos-color-theatre-surface-container);
+  --cantos-color-surface-container-high: var(--cantos-color-theatre-surface-container-high);
+  --cantos-type-auth-heading-weight: var(--cantos-type-theatre-heading-weight);
+  --cantos-type-headline-weight: var(--cantos-type-theatre-heading-weight);
+  --cantos-type-label-weight: var(--cantos-type-theatre-control-weight);
+  --cantos-type-membership-title-weight: var(--cantos-type-theatre-heading-weight);
+  --cantos-type-title-weight: var(--cantos-type-theatre-heading-weight);
 }
 
 @media (prefers-reduced-motion: reduce) {

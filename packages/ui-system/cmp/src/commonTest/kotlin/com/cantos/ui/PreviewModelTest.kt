@@ -96,7 +96,7 @@ class PreviewModelTest {
 
     @Test
     fun generated_density_aliases_and_motion_are_resolved_by_role() {
-        assertEquals("0.6.0", CantosTokens.version)
+        assertEquals("0.7.0", CantosTokens.version)
         assertEquals(CantosTokens.names.size, CantosTokens.names.distinct().size)
         assertEquals(48.0, CantosTokens.number("size.control", "compact"))
         assertEquals(48.0, CantosTokens.number("size.control", "comfortable"))
@@ -130,7 +130,7 @@ class PreviewModelTest {
 
     @Test
     fun every_official_icon_has_visible_vector_paths() {
-        val names = listOf("account_circle", "add", "archive", "arrow_back", "arrow_forward", "check", "close", "cloud_sync", "content_copy", "dark_mode", "delete_outline", "expand_more", "fast_forward", "fast_rewind", "home", "keyboard_arrow_right", "light_mode", "login", "logout", "mail", "menu_book", "mic", "pause", "person", "person_add", "play_arrow", "queue_music", "refresh", "save", "search", "settings", "speed", "star", "timer", "warning_amber")
+        val names = listOf("account_circle", "add", "archive", "arrow_back", "arrow_forward", "check", "close", "cloud_sync", "content_copy", "dark_mode", "delete_outline", "expand_more", "fast_forward", "fast_rewind", "home", "keyboard_arrow_right", "light_mode", "login", "logout", "mail", "menu_book", "mic", "pause", "person", "person_add", "play_arrow", "queue_music", "refresh", "save", "search", "settings", "speed", "star", "timer", "visibility", "visibility_off", "warning_amber")
         assertEquals(names, CantosIcons.icons.map { it.name })
         CantosIcons.icons.forEach { icon ->
             assertEquals("0 0 24 24", icon.viewBox)

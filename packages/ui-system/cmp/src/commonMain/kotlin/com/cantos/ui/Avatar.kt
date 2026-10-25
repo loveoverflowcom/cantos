@@ -31,6 +31,8 @@ enum class AvatarInitials { Single, Pair }
 enum class AvatarSize(internal val token: String) {
     Small("size.avatarSmall"),
     Medium("size.avatarMedium"),
+    /** A 48-unit header control: the same hit area as an icon action, never smaller. */
+    Control("size.avatarControl"),
     Large("size.avatarLarge"),
 }
 
@@ -114,7 +116,8 @@ private const val PAIR_GLYPH_RATIO = 0.36f
  * stays underneath an image, so transparent artwork never sits on an undefined background.
  *
  * Decorative by default: adjacent text supplies the name. Pass a localized [accessibleName]
- * only when the avatar stands alone and must convey who it is.
+ * only when the avatar stands alone and must convey who it is. [accent] pins the Theatre accent
+ * pair instead of the identity hue; initials and semantics are unchanged.
  *
  * Registered in both preview catalogues; apps adopt it only after both renderers qualify.
  */
@@ -127,15 +130,19 @@ fun Avatar(
     size: AvatarSize = AvatarSize.Medium,
     initials: AvatarInitials = AvatarInitials.Single,
     accessibleName: AccessibleName? = null,
+    accent: Boolean = false,
 ) {
     val tone = avatarTone(avatarSeed(displayName, stableId))
+    // The accent pins the Theatre pink pair; the identity hue stays the default and is never inferred.
+    val fill = if (accent) "color.theatrePink" else "color.avatar${tone.name}"
+    val ink = if (accent) "color.theatreOnPink" else "color.onAvatar${tone.name}"
     val diameter = tokenDp(size.token)
     val ratio = if (initials == AvatarInitials.Pair) PAIR_GLYPH_RATIO else SINGLE_GLYPH_RATIO
     // toSp divides by fontScale, keeping the glyph inside the circle at large text sizes.
     val glyph = with(LocalDensity.current) { (diameter * ratio).toSp() }
     Box(
         modifier = modifier.size(diameter).clip(CircleShape)
-            .background(tokenColor("color.avatar${tone.name}"))
+            .background(tokenColor(fill))
             .clearAndSetSemantics {
                 if (accessibleName != null) {
                     contentDescription = accessibleName.text
@@ -150,7 +157,7 @@ fun Avatar(
         } else {
             Text(
                 text = avatarInitials(displayName, initials),
-                color = tokenColor("color.onAvatar${tone.name}"),
+                color = tokenColor(ink),
                 style = MaterialTheme.typography.labelLarge.copy(fontSize = glyph, lineHeight = glyph),
                 maxLines = 1,
                 softWrap = false,

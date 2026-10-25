@@ -27,6 +27,7 @@ pub mod platform;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
 pub mod recipe;
+pub mod theatre_samples;
 pub mod token_sample;
 pub mod workbench;
 
@@ -37,6 +38,7 @@ use foundation_samples::{
     ComposedButtonSample, FieldFoundationSamples, FontReadinessSample, NestedThemeSample,
 };
 use interaction_samples::{LayoutFeedbackContractSamples, SelectionContractSamples};
+use theatre_samples::TheatreExpressionSamples;
 
 fn name(text: &str) -> AccessibleName {
     AccessibleName::new(text).expect("gallery fixture names are nonempty")
@@ -194,6 +196,7 @@ pub fn Gallery(
                         })/>
                         <ComponentCatalog query=catalog_query family=catalog_family current_anchor=current_anchor/>
                         <PrototypeCompositions/>
+                        <TheatreExpressionSamples theme=theme density=density/>
 
                         <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
                             aria-labelledby="gallery-navigation-heading">
