@@ -31,6 +31,8 @@ data class UiPreferences(
     val reducedMotion: Boolean = false,
     /** Absolute multiplier on the host font scale, including when themes are nested. */
     val textScale: Float = 1f,
+    /** Opt-in semantic remap for this subtree; every other role and geometry stays as it was. */
+    val expression: CantosExpression = CantosExpression.Standard,
 ) {
     init {
         require(textScale.isFinite() && textScale > 0f) { "Text scale must be finite and positive" }
@@ -60,16 +62,24 @@ fun tokenDp(name: String): Dp = CantosTokens.number(
 ).toFloat().dp
 
 @Composable
-fun tokenColor(name: String): Color = parseTokenColor(
-    CantosTokens.color(name, LocalUiPreferences.current.theme.tokenName),
-)
+fun tokenColor(name: String): Color {
+    val preferences = LocalUiPreferences.current
+    return parseTokenColor(
+        CantosTokens.color(CantosTokens.role(name, preferences.expression.tokenName), preferences.theme.tokenName),
+    )
+}
 
 fun parseTokenColor(hex: String): Color {
     require(hex.matches(Regex("#[0-9a-fA-F]{6}"))) { "Expected a six-digit shared color token" }
     return Color(hex.drop(1).toInt(16) or (255 shl 24))
 }
 
-internal fun typeStyle(role: String, editorial: Boolean = false, fontFamily: FontFamily? = null): TextStyle {
+internal fun typeStyle(
+    role: String,
+    editorial: Boolean = false,
+    fontFamily: FontFamily? = null,
+    expression: CantosExpression = CantosExpression.Standard,
+): TextStyle {
     val size = CantosTokens.number("type.$role.size").toFloat()
     val family = CantosTokens.text(if (editorial) "type.family.editorial" else "type.family.ui")
     val fallback = when {
@@ -82,7 +92,7 @@ internal fun typeStyle(role: String, editorial: Boolean = false, fontFamily: Fon
         fontFamily = fontFamily ?: fallback,
         fontSize = size.sp,
         lineHeight = (size * CantosTokens.number("type.$role.lineHeight").toFloat()).sp,
-        fontWeight = FontWeight(CantosTokens.number("type.$role.weight").toInt()),
+        fontWeight = FontWeight(CantosTokens.number(CantosTokens.role("type.$role.weight", expression.tokenName)).toInt()),
     )
 }
 
@@ -94,7 +104,9 @@ fun CantosTheme(
     editorialFontFamily: FontFamily? = null,
     content: @Composable () -> Unit,
 ) {
-    fun color(name: String): Color = parseTokenColor(CantosTokens.color(name, preferences.theme.tokenName))
+    fun color(name: String): Color = parseTokenColor(
+        CantosTokens.color(CantosTokens.role(name, preferences.expression.tokenName), preferences.theme.tokenName),
+    )
     val primary = color("color.primary")
     val onPrimary = color("color.onPrimary")
     val primaryContainer = color("color.primaryContainer")
@@ -144,11 +156,11 @@ fun CantosTheme(
     )
     val uiFamily = uiFontFamily ?: LocalInjectedUiFontFamily.current
     val editorialFamily = editorialFontFamily ?: LocalInjectedEditorialFontFamily.current
-    val body = typeStyle("body", fontFamily = uiFamily)
-    val title = typeStyle("title", fontFamily = uiFamily)
-    val headline = typeStyle("headline", editorial = editorialFamily != null, fontFamily = editorialFamily ?: uiFamily)
-    val label = typeStyle("label", fontFamily = uiFamily)
-    val metadata = typeStyle("metadata", fontFamily = uiFamily).copy(fontFeatureSettings = "tnum")
+    val body = typeStyle("body", fontFamily = uiFamily, expression = preferences.expression)
+    val title = typeStyle("title", fontFamily = uiFamily, expression = preferences.expression)
+    val headline = typeStyle("headline", editorial = editorialFamily != null, fontFamily = editorialFamily ?: uiFamily, expression = preferences.expression)
+    val label = typeStyle("label", fontFamily = uiFamily, expression = preferences.expression)
+    val metadata = typeStyle("metadata", fontFamily = uiFamily, expression = preferences.expression).copy(fontFeatureSettings = "tnum")
     val currentDensity = LocalDensity.current
     val platformFontScale = LocalPlatformFontScale.current ?: currentDensity.fontScale
     val minimumControlSize = CantosTokens.number("size.control", density = preferences.density.tokenName).toFloat().dp

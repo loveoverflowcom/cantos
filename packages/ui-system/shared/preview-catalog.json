@@ -10,7 +10,8 @@
         "dark",
         "compact",
         "comfortable",
-        "nested-theme"
+        "nested-theme",
+        "theatre-expression"
       ],
       "leptos": {
         "status": "registered",
@@ -36,7 +37,8 @@
         "auth-outlined",
         "pressed",
         "long-vietnamese",
-        "large-text"
+        "large-text",
+        "theatre-group"
       ],
       "leptos": {
         "status": "registered",
@@ -55,7 +57,9 @@
         "enabled",
         "disabled",
         "loading",
-        "focus"
+        "focus",
+        "theatre-tonal",
+        "theatre-docked"
       ],
       "leptos": {
         "status": "registered",
@@ -75,7 +79,8 @@
         "disabled",
         "loading",
         "focus",
-        "selected"
+        "selected",
+        "theatre-selection"
       ],
       "leptos": {
         "status": "registered",
@@ -164,7 +169,10 @@
         "autofill",
         "forced-colors",
         "long-vietnamese",
-        "large-text"
+        "large-text",
+        "theatre-fields",
+        "theatre-trailing-eye",
+        "theatre-docked-search"
       ],
       "leptos": {
         "status": "registered",
@@ -244,7 +252,8 @@
         "web-compact-inline",
         "web-native-compact",
         "long-vietnamese",
-        "large-text"
+        "large-text",
+        "theatre-utility"
       ],
       "leptos": {
         "status": "registered",
@@ -605,7 +614,8 @@
         "image",
         "image-failed",
         "sizes",
-        "named"
+        "named",
+        "theatre-control"
       ],
       "leptos": {
         "status": "registered",
@@ -682,7 +692,8 @@
         "decorative",
         "named",
         "aspect-fit",
-        "transparent-knockout"
+        "transparent-knockout",
+        "theatre-header"
       ],
       "leptos": {
         "status": "implemented-unverified",

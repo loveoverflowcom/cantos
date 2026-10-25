@@ -449,10 +449,122 @@ class TokenContract(unittest.TestCase):
             self.assertEqual(list(Path(directory).rglob(".*.rs.*")), [])
 
 
+def expressive_fixture():
+    source = fixture()
+    for theme, (ink, paper, alt_ink, alt_paper) in {
+        "light": ("#102030", "#fffaf0", "#201030", "#f4eaff"),
+        "dark": ("#fffaf0", "#102030", "#f4eaff", "#201030"),
+    }.items():
+        source["themes"][theme] |= {
+            "color.theatreOnSurface": token("color", alt_ink),
+            "color.theatreSurface": token("color", alt_paper),
+        }
+    source["tokens"]["type.label.weight"] = token("fontWeight", 600)
+    source["tokens"]["type.theatreControl.weight"] = token("fontWeight", 700)
+    source["expressions"] = {"theatre": {
+        "color.onSurface": "color.theatreOnSurface",
+        "color.surface": "color.theatreSurface",
+        "type.label.weight": "type.theatreControl.weight",
+    }}
+    return source
+
+
+class ExpressionContract(unittest.TestCase):
+    """An expression is an opt-in remap that can never weaken a standard contrast floor."""
+
+    def setUp(self):
+        self.source = expressive_fixture()
+
+    def refuse(self, pattern):
+        with self.assertRaisesRegex(ValueError, pattern):
+            validate(json.loads(json.dumps(self.source)))
+
+    def test_a_valid_expression_generates_css_rust_and_kotlin_without_touching_standard_roles(self):
+        generated = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)
+        css, rust, kotlin = (generated[OUTPUTS[name]] for name in ("css", "rust", "kotlin"))
+        self.assertIn('.cantos-ui[data-expression="theatre"],\n'
+                      '.cantos-ui[data-expression="theatre"]:not([data-theme="light"]):not([data-theme="dark"]) {', css)
+        self.assertIn("  --cantos-color-on-surface: var(--cantos-color-theatre-on-surface);", css)
+        self.assertIn("  --cantos-type-label-weight: var(--cantos-type-theatre-control-weight);", css)
+        self.assertIn('pub const EXPRESSIONS: &[&str] = &["theatre"];', rust)
+        self.assertIn('listOf("standard", "theatre")', kotlin)
+        self.assertIn('"color.onSurface" to "color.theatreOnSurface"', kotlin)
+        # The standard declarations keep their literal values; only the opt-in scope aliases them.
+        self.assertIn("--cantos-color-on-surface: #000000;", css)
+
+    def test_the_remap_follows_every_theme_block_and_outranks_the_system_dark_block(self):
+        css = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)[OUTPUTS["css"]]
+        remap = css.index('.cantos-ui[data-expression="theatre"],')
+        self.assertGreater(remap, css.rindex('.cantos-ui[data-theme="dark"] {'))
+        self.assertGreater(remap, css.index('.cantos-ui[data-density="comfortable"] {'))
+        self.assertLess(remap, css.index("@media (prefers-reduced-motion: reduce)"))
+        system_dark = css.index('.cantos-ui:not([data-theme="light"]):not([data-theme="dark"]) {')
+        self.assertLess(system_dark, remap)
+
+    def test_expressions_are_optional_and_absent_ones_generate_empty_inventories(self):
+        generated = outputs(json.dumps(fixture()), SAMPLE_TEMPLATE)
+        self.assertNotIn("data-expression", generated[OUTPUTS["css"]])
+        self.assertIn("pub const EXPRESSIONS: &[&str] = &[];", generated[OUTPUTS["rust"]])
+        self.assertIn('listOf("standard")', generated[OUTPUTS["kotlin"]])
+        self.assertIn("mapOf()", generated[OUTPUTS["kotlin"]])
+
+    def test_refuses_invalid_names_empty_chained_and_self_mappings(self):
+        for name in ("standard", "Theatre", "the-atre", "", "1theatre"):
+            with self.subTest(name=name):
+                self.source = expressive_fixture()
+                self.source["expressions"] = {name: self.source["expressions"]["theatre"]}
+                self.refuse("invalid expression name")
+        self.source = expressive_fixture()
+        self.source["expressions"]["theatre"] = {}
+        self.refuse("remap must not be empty")
+        self.source = expressive_fixture()
+        self.source["expressions"]["theatre"]["color.surface"] = "color.surface"
+        self.refuse("must not chain or map to itself")
+        self.source = expressive_fixture()
+        self.source["expressions"]["theatre"]["color.theatreSurface"] = "color.theatreOnSurface"
+        self.refuse("must not chain or map to itself|requires a same-type")
+        self.source = expressive_fixture()
+        self.source["expressions"] = []
+        self.refuse("expressions: expected an object")
+
+    def test_refuses_unknown_alias_wrong_type_and_wrong_scope_targets(self):
+        cases = [("color.surface", "color.missing", "canonical role to canonical role"),
+                 ("shape.field", "color.theatreSurface", "canonical role to canonical role"),
+                 ("color.surface", "type.theatreControl.weight", "same-type"),
+                 ("size.control", "size.control", "chain or map to itself"),
+                 ("color.surface", "motion.feedback.duration", "same-type"),
+                 ("type.label.weight", "color.theatreSurface", "same-type")]
+        for role, target, message in cases:
+            with self.subTest(role=role, target=target):
+                self.source = expressive_fixture()
+                self.source["expressions"]["theatre"][role] = target
+                self.refuse(message)
+        self.source = expressive_fixture()
+        self.source["tokens"]["type.theatreBody.weight"] = token("fontWeight", 500)
+        self.source["expressions"]["theatre"]["color.surface"] = "color.theatreSurface"
+        self.source["expressions"]["theatre"]["type.body.weight"] = "type.theatreBody.weight"
+        validate(json.loads(json.dumps(self.source)))
+        # A shared role cannot map to a themed one, nor the reverse: the scopes must agree.
+        self.source["themes"]["light"]["color.alt"] = token("color", "#ffffff")
+        self.source["themes"]["dark"]["color.alt"] = token("color", "#000000")
+        self.source["expressions"]["theatre"]["type.body.weight"] = "color.alt"
+        self.refuse("same-type")
+
+    def test_a_remap_that_weakens_any_touched_contrast_pair_is_refused_in_the_failing_theme(self):
+        self.source["themes"]["dark"]["color.theatreSurface"]["value"] = "#222233"
+        self.source["themes"]["dark"]["color.theatreOnSurface"]["value"] = "#2a2a3a"
+        self.refuse(r"dark: expression theatre color.theatreOnSurface on color.theatreSurface contrast")
+        # A mixed pair is measured too: only the foreground is remapped here.
+        self.source = expressive_fixture()
+        del self.source["expressions"]["theatre"]["color.surface"]
+        self.source["themes"]["light"]["color.theatreOnSurface"]["value"] = "#fefefe"
+        self.refuse(r"light: expression theatre color.theatreOnSurface on color.surface contrast")
+
+
 class CanonicalRepositoryTokens(unittest.TestCase):
     def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
         source = validate(load_source(SOURCE.read_bytes()))
-        self.assertEqual(source["version"], "0.6.0")
+        self.assertEqual(source["version"], "0.7.0")
         self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
         self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
         self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))
@@ -594,3 +706,59 @@ class WebShapeIndependence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheatreExpressionTokens(unittest.TestCase):
+    """The owner-selected v4 palette, mapped once and consumed by both renderers."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = validate(load_source(SOURCE.read_bytes()))
+
+    def colors(self, theme):
+        return self.source["tokens"] | self.source["themes"][theme]
+
+    def test_the_hero_pair_and_heading_weights_are_the_owner_selected_values(self):
+        light, dark = self.colors("light"), self.colors("dark")
+        self.assertEqual((light["color.theatreOnHero"]["value"], light["color.theatreHero"]["value"]),
+                         ("#1d0b28", "#c6a0f5"))
+        self.assertEqual((dark["color.theatreOnHero"]["value"], dark["color.theatreHero"]["value"]),
+                         ("#fff8ef", "#352142"))
+        self.assertEqual(self.source["tokens"]["type.theatreHeading.weight"], token("fontWeight", 700))
+        self.assertEqual(self.source["tokens"]["type.theatreControl.weight"], token("fontWeight", 700))
+
+    def test_exact_solid_pair_floors_hold_for_every_theatre_text_and_indicator_pair(self):
+        measured = {}
+        for theme in ("light", "dark"):
+            colors = self.colors(theme)
+            for foreground, background, floor in self.source["contrast_pairs"]:
+                if "theatre" in foreground or "theatre" in background:
+                    ratio = contrast(colors[foreground]["value"], colors[background]["value"])
+                    measured[(theme, foreground, background)] = ratio
+                    self.assertGreaterEqual(ratio, floor, (theme, foreground, background))
+        self.assertAlmostEqual(measured[("light", "color.theatreOnHero", "color.theatreHero")], 8.62, places=2)
+        self.assertAlmostEqual(measured[("dark", "color.theatreOnHero", "color.theatreHero")], 13.76, places=2)
+        for role in ("Hero", "Peach", "Pink"):
+            for theme in ("light", "dark"):
+                self.assertIn((theme, f"color.theatreOn{role}", f"color.theatre{role}"), measured)
+
+    def test_expression_remaps_the_standard_roles_and_never_changes_studio_values(self):
+        remap = self.source["expressions"]["theatre"]
+        self.assertEqual(remap["color.primary"], "color.theatrePrimary")
+        self.assertEqual(remap["type.headline.weight"], "type.theatreHeading.weight")
+        self.assertEqual(self.source["themes"]["light"]["color.primary"]["value"], "#675080")
+        self.assertEqual(self.source["tokens"]["type.headline.weight"]["value"], 500)
+        generated = outputs(SOURCE.read_bytes(), TEMPLATE.read_text(encoding="utf-8"))
+        css = generated[OUTPUTS["css"]]
+        self.assertIn("--cantos-color-primary: #675080;", css)
+        # One rule, two selectors: the plain scope and the one that outranks the system-dark block.
+        self.assertEqual(css.count('[data-expression="theatre"]'), 2)
+
+    def test_the_hit_and_mark_sizes_are_shared_roles_not_renderer_literals(self):
+        tokens = self.source["tokens"]
+        self.assertEqual(tokens["size.avatarControl"], token("dimension", 48))
+        self.assertEqual(tokens["size.brandMark"], token("dimension", 44))
+        self.assertEqual(tokens["size.searchAction"], token("dimension", 52))
+        self.assertGreaterEqual(tokens["size.searchAction"]["value"], tokens["size.control"]["value"])
+        self.assertGreaterEqual(tokens["size.avatarControl"]["value"], tokens["size.control"]["value"])
+

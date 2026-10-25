@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip as MaterialFilterChip
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
@@ -27,10 +29,21 @@ import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Density as DisplayDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -97,36 +110,32 @@ internal fun ButtonControl(
     minimumHeightRole: String? = null,
     contentPadding: PaddingValues? = null,
     icon: String? = null,
+    shape: Shape? = null,
+    insetPerimeter: Boolean = false,
+    active: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
     // The closed registry rejects unknown names even when pending hides the glyph.
     icon?.let { CantosIcons.paths(it) }
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val auth = variant.isAuth()
-    val shape = if (auth) authActionShape(interactions) else CantosShapes.control
+    val resolvedShape = shape ?: if (auth) authActionShape(interactions) else CantosShapes.control
     val minimumHeight = tokenDp(minimumHeightRole ?: when (variant) {
         ButtonVariant.AuthPrimary -> "size.authPrimary"
         ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> "size.authSecondary"
         else -> "size.control"
     })
-    val background = when (variant) {
-        ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.primary")
-        ButtonVariant.Tonal, ButtonVariant.AuthSecondary -> tokenColor("color.primaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.errorContainer")
-        ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> Color.Transparent
-    }
-    val foreground = when (variant) {
-        ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.onPrimary")
-        ButtonVariant.Tonal, ButtonVariant.AuthSecondary -> tokenColor("color.onPrimaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.error")
-        ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> tokenColor("color.primary")
-    }
+    val background = buttonContainerColor(variant)
+    val foreground = buttonContentColor(variant)
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },
         enabled = state.canPress(),
-        modifier = modifier.heightIn(min = minimumHeight).cantosFocus(if (auth) "shape.pill" else "shape.control").actionState(state, description)
+        modifier = modifier.heightIn(min = minimumHeight)
+            .then(if (insetPerimeter) Modifier.cantosInsetPerimeter(InsetPerimeterRadius, active = active)
+                else Modifier.cantosFocus(if (auth) "shape.pill" else "shape.control"))
+            .actionState(state, description)
             .semantics { name?.let { contentDescription = it.text } },
-        shape = shape,
+        shape = resolvedShape,
         interactionSource = interactions,
         border = if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
             tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
@@ -146,6 +155,39 @@ internal fun ButtonControl(
         }
         content()
     }
+}
+
+/**
+ * A capsule is a radius of half the shortest side; Skia scales an oversized radius down to it, so a
+ * stadium needs no measured height. Only used by the inset perimeter.
+ */
+private val InsetPerimeterRadius: Dp = Dp(999f)
+
+/**
+ * Under the Theatre expression `primaryContainer` is the ink of selection (chips, the current
+ * destination), so a tonal action reads from the tonal surface roles: pale lilac with ink text.
+ */
+@Composable
+private fun theatreTonal(variant: ButtonVariant): Boolean =
+    LocalUiPreferences.current.expression == CantosExpression.Theatre &&
+        (variant == ButtonVariant.Tonal || variant == ButtonVariant.AuthSecondary)
+
+@Composable
+internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant) {
+    ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.primary")
+    ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
+        tokenColor(if (theatreTonal(variant)) "color.surfaceContainerHigh" else "color.primaryContainer")
+    ButtonVariant.Danger -> tokenColor("color.errorContainer")
+    ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> Color.Transparent
+}
+
+@Composable
+internal fun buttonContentColor(variant: ButtonVariant): Color = when (variant) {
+    ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.onPrimary")
+    ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
+        tokenColor(if (theatreTonal(variant)) "color.onSurface" else "color.onPrimaryContainer")
+    ButtonVariant.Danger -> tokenColor("color.error")
+    ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> tokenColor("color.primary")
 }
 
 /** The 23 October anatomy centers the glyph and label together, without an icon bubble. */
@@ -224,6 +266,12 @@ fun BackButton(
     }
 }
 
+/**
+ * Icon-only native action; [name] is its localized accessible name and tooltip. [variant] Text keeps
+ * the plain muted glyph every existing caller has; Tonal/Primary fill a 48-unit container, so a
+ * Theatre theme button or a docked search action is this control, never a clickable container.
+ * [circular] makes the container a circle (a docked action) instead of the reading-radius square.
+ */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun IconButton(
@@ -233,29 +281,74 @@ fun IconButton(
     modifier: Modifier = Modifier,
     state: ButtonState = ButtonState.Enabled,
     controlModifier: Modifier = Modifier,
+    variant: ButtonVariant = ButtonVariant.Text,
+    circular: Boolean = false,
 ) {
     CantosIcons.paths(icon)
+    val filled = variant != ButtonVariant.Text
+    val shape = if (circular) CantosShapes.full else CantosShapes.reading
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         TooltipBox(
             positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
             tooltip = { PlainTooltip { Text(name.text) } },
             state = rememberTooltipState(),
         ) {
-        MaterialIconButton(
-            onClick = { if (state.canPress()) onPress() },
-            enabled = state.canPress(),
-            modifier = controlModifier.size(tokenDp("size.control")).cantosFocus().actionState(state)
-                .semantics { contentDescription = name.text },
-            colors = IconButtonDefaults.iconButtonColors(
-                contentColor = tokenColor("color.onSurfaceVariant"),
-                disabledContentColor = tokenColor("color.onSurfaceVariant"),
-            ),
-        ) { ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current) }
+        val iconModifier = controlModifier.size(tokenDp("size.control"))
+            .cantosFocus(if (circular) "shape.pill" else "shape.control").actionState(state)
+            .semantics { contentDescription = name.text }
+        if (filled) {
+            FilledIconButton(
+                onClick = { if (state.canPress()) onPress() },
+                enabled = state.canPress(),
+                shape = shape,
+                modifier = iconModifier,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = buttonContainerColor(variant),
+                    contentColor = buttonContentColor(variant),
+                    disabledContainerColor = tokenColor("color.surfaceContainer"),
+                    disabledContentColor = tokenColor("color.onSurfaceVariant"),
+                ),
+            ) { ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current) }
+        } else {
+            MaterialIconButton(
+                onClick = { if (state.canPress()) onPress() },
+                enabled = state.canPress(),
+                modifier = iconModifier,
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = tokenColor("color.onSurfaceVariant"),
+                    disabledContentColor = tokenColor("color.onSurfaceVariant"),
+                ),
+            ) { ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current) }
+        }
         }
         state.reason()?.let { FieldHelp(it) }
     }
 }
 
+/**
+ * Pure: the corner radius of a Theatre chip between its resting radius and the capsule of its
+ * shortest side, at [fraction] 0 (unselected) to 1 (selected). Out-of-range input is clamped.
+ */
+internal fun chipRadius(shortestSidePx: Float, restingPx: Float, fraction: Float): Float {
+    val capsule = shortestSidePx / 2f
+    val resting = restingPx.coerceAtMost(capsule)
+    return resting + (capsule - resting) * fraction.coerceIn(0f, 1f)
+}
+
+private class ChipShape(private val fraction: Float, private val restingRadius: Dp) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: DisplayDensity): Outline {
+        val radius = chipRadius(size.minDimension, with(density) { restingRadius.toPx() }, fraction)
+        return Outline.Rounded(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(radius)))
+    }
+}
+
+/**
+ * Standard keeps the Material filter chip. The Theatre expression reads selection by check, tone and
+ * shape: unselected is a tonal reading-radius chip centered on its label, selected an ink capsule
+ * that gains the check. The chip keeps its left edge, top and 48-unit height, so the press point
+ * stays inside it; only its width grows. The shape change uses the interruptible feedback motion
+ * that reduced motion removes.
+ */
 @Composable
 fun FilterChip(
     label: String,
@@ -265,15 +358,44 @@ fun FilterChip(
     state: ButtonState = ButtonState.Enabled,
     controlModifier: Modifier = Modifier,
 ) {
+    val theatre = LocalUiPreferences.current.expression == CantosExpression.Theatre
     Column(modifier) {
-        MaterialFilterChip(
-            selected = selected,
-            onClick = { if (state.canPress()) onSelect(!selected) },
-            enabled = state.canPress(),
-            label = { Text(label) },
-            leadingIcon = if (selected) ({ Icon("check") }) else null,
-            modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
-        )
+        if (theatre) {
+            val spec = rememberMotionSpec(MotionIntent.Feedback, MotionProperty.Spatial)
+            val fraction by animateFloatAsState(if (selected) 1f else 0f, spec.toAnimationSpec(), label = "chip-shape")
+            val resting = tokenDp("shape.reading")
+            MaterialFilterChip(
+                selected = selected,
+                onClick = { if (state.canPress()) onSelect(!selected) },
+                enabled = state.canPress(),
+                label = { Text(label) },
+                leadingIcon = if (selected) ({ Icon("check") }) else null,
+                shape = remember(fraction, resting) { ChipShape(fraction, resting) },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = tokenColor("color.surfaceContainer"),
+                    labelColor = tokenColor("color.onSurface"),
+                    iconColor = tokenColor("color.onPrimaryContainer"),
+                    selectedContainerColor = tokenColor("color.primaryContainer"),
+                    selectedLabelColor = tokenColor("color.onPrimaryContainer"),
+                    selectedLeadingIconColor = tokenColor("color.onPrimaryContainer"),
+                    disabledContainerColor = tokenColor("color.surfaceContainer"),
+                    disabledLabelColor = tokenColor("color.onSurfaceVariant"),
+                    disabledLeadingIconColor = tokenColor("color.onSurfaceVariant"),
+                    disabledSelectedContainerColor = tokenColor("color.surfaceContainer"),
+                ),
+                border = null,
+                modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
+            )
+        } else {
+            MaterialFilterChip(
+                selected = selected,
+                onClick = { if (state.canPress()) onSelect(!selected) },
+                enabled = state.canPress(),
+                label = { Text(label) },
+                leadingIcon = if (selected) ({ Icon("check") }) else null,
+                modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
+            )
+        }
         state.reason()?.let { FieldHelp(it) }
     }
 }

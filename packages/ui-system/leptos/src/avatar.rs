@@ -16,6 +16,8 @@ pub enum AvatarSize {
     Small,
     #[default]
     Medium,
+    /// A 48-unit header control: the same hit area as an icon action, never smaller.
+    Control,
     Large,
 }
 
@@ -24,6 +26,7 @@ impl AvatarSize {
         match self {
             Self::Small => "small",
             Self::Medium => "medium",
+            Self::Control => "control",
             Self::Large => "large",
         }
     }
@@ -155,11 +158,18 @@ pub fn Avatar(
     #[prop(optional, into)] image_src: Signal<Option<String>>,
     #[prop(optional)] size: AvatarSize,
     #[prop(optional)] initials: AvatarInitials,
+    /// Pins the Theatre accent pair (`color.theatrePink` / `color.theatreOnPink`) instead of the
+    /// identity hue. The hue stays the stable identity default; the host decides when to pin.
+    #[prop(optional)]
+    accent: bool,
     #[prop(optional)] accessible_name: Option<AccessibleName>,
     #[prop(optional, into)] class: Signal<String>,
 ) -> impl IntoView {
     let failed_src = RwSignal::new(None::<String>);
     let tone = move || {
+        if accent {
+            return "accent";
+        }
         let stable_id = stable_id.get();
         avatar_tone(&avatar_seed(&display_name.get(), stable_id.as_deref())).as_str()
     };

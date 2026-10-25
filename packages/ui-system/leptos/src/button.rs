@@ -272,7 +272,10 @@ mod auth_geometry {
 pub fn IconButton(
     #[prop(into)] id: String,
     #[prop(into)] name: Signal<AccessibleName>,
-    icon: IconName,
+    /// A signal lets a stateful action (the password eye) swap its glyph in place: the native
+    /// button, its focus and its caller's listeners are never remounted.
+    #[prop(into)]
+    icon: Signal<IconName>,
     #[prop(default = ButtonVariant::Text)] variant: ButtonVariant,
     #[prop(into, default = ButtonState::Enabled.into())] state: Signal<ButtonState>,
     #[prop(optional)] on_press: Option<Callback<MouseEvent>>,
@@ -280,12 +283,16 @@ pub fn IconButton(
     #[prop(into, default = String::new().into())] described_by: Signal<String>,
     #[prop(optional, into)] aria_controls: Option<String>,
     #[prop(optional)] aria_expanded: Option<Signal<bool>>,
+    /// Native submit for an app-owned `<form>`, such as a docked search action: the form keeps
+    /// Enter, composition, validation and history. A blocked state still prevents submission.
+    #[prop(optional)]
+    submit: bool,
 ) -> impl IntoView {
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
     view! {
         <div class="cui-button-field">
-            <button id=id type="button" class=move || component_class("cui-button cui-icon-button", &class.get())
+            <button id=id type=if submit { "submit" } else { "button" } class=move || component_class("cui-button cui-icon-button", &class.get())
                 title=move || name.get().as_str().to_owned()
                 data-variant=variant.as_str() data-state=move || state.get().as_str()
                 disabled=move || !state.get().can_press()
@@ -298,12 +305,15 @@ pub fn IconButton(
                 on:click=move |event| {
                     if state.get_untracked().can_press() {
                         if let Some(callback) = on_press { callback.run(event); }
+                    } else {
+                        // A synthetic click must not submit a form from a blocked action.
+                        event.prevent_default();
                     }
                 }>
                 {move || if state.get().is_busy() {
                     view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
                 } else {
-                    view! { <Icon name=icon/> }.into_any()
+                    view! { <Icon name=icon.get()/> }.into_any()
                 }}
                 <span class="cui-sr-only">{move || name.get().as_str().to_owned()}</span>
             </button>

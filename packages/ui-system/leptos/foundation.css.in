@@ -23,6 +23,8 @@
   --cantos-web-field-label-top: 0.5rem;
   --cantos-web-field-label-gap: 0.125rem;
   --cantos-web-field-value-bottom: 0.375rem;
+  --cantos-web-field-radius: var(--cantos-web-shape-reading);
+  --cantos-web-field-trailing-inset: 0.25rem;
   --cantos-web-stroke-rest: var(--cantos-size-border);
   --cantos-web-stroke-active: calc(2 * var(--cantos-size-border));
 }
@@ -209,6 +211,7 @@
   user-select: none;
 }
 :where(.cantos-ui) .cui-avatar[data-size="small"] { --cui-avatar-size: var(--cantos-size-avatar-small); }
+:where(.cantos-ui) .cui-avatar[data-size="control"] { --cui-avatar-size: var(--cantos-size-avatar-control); }
 :where(.cantos-ui) .cui-avatar[data-size="large"] { --cui-avatar-size: var(--cantos-size-avatar-large); }
 :where(.cantos-ui) .cui-avatar[data-initials="pair"] { --cui-avatar-glyph: 0.36; }
 :where(.cantos-ui) .cui-avatar-image { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
@@ -218,6 +221,8 @@
 :where(.cantos-ui) .cui-avatar[data-tone="rose"] { background: var(--cantos-color-avatar-rose); color: var(--cantos-color-on-avatar-rose); }
 :where(.cantos-ui) .cui-avatar[data-tone="sky"] { background: var(--cantos-color-avatar-sky); color: var(--cantos-color-on-avatar-sky); }
 :where(.cantos-ui) .cui-avatar[data-tone="clay"] { background: var(--cantos-color-avatar-clay); color: var(--cantos-color-on-avatar-clay); }
+/* Accent is pinned by the host (a Theatre header), never derived from an identity seed. */
+:where(.cantos-ui) .cui-avatar[data-tone="accent"] { background: var(--cantos-color-theatre-pink); color: var(--cantos-color-theatre-on-pink); }
 @media (forced-colors: active) {
   :where(.cantos-ui) :where(.cui-badge, .cui-status, .cui-error-state, .cui-avatar) { border: var(--cantos-size-border) solid CanvasText; }
 }
@@ -734,7 +739,7 @@
   grid-template-rows: auto 1fr;
   min-inline-size: 0;
   min-block-size: var(--cantos-web-field-block-size);
-  border-radius: var(--cantos-web-shape-reading);
+  border-radius: var(--cantos-web-field-radius);
   background: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
   cursor: text;
@@ -815,12 +820,44 @@
   outline: var(--cantos-web-stroke-rest) solid var(--cantos-color-error);
   outline-offset: calc(-1 * var(--cantos-web-stroke-rest));
 }
-:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:focus-within {
+/* The perimeter follows the field's own control. A trailing action inside the shell keeps its
+   own focus ring, so focus-within would stack a second indicator on the shell. */
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:has(> .cui-field-control:focus-visible) {
   outline: var(--cantos-web-stroke-active) solid var(--cantos-color-focus);
   outline-offset: calc(-1 * var(--cantos-web-stroke-active));
 }
-:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:focus-within {
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus-visible) {
   outline-color: var(--cantos-color-error);
+}
+/* Trailing action: one native control in a second column of the same shell. The control column
+   ends where the action begins, so typed text can never run under it, at any zoom. The action keeps
+   its own 48-unit hit area; a blocked reason stays available to assistive technology while the
+   field's own reason is the visible one. */
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-trailing="true"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+:where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-trailing {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  padding-inline-end: var(--cantos-web-field-trailing-inset);
+  cursor: default;
+}
+:where(.cantos-ui) .cui-field-trailing .cui-button-reason:not([hidden]) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:where(.cantos-ui) .cui-field-trailing .cui-icon-button[data-variant="text"] {
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-field-trailing .cui-button:focus-visible {
+  outline-offset: 0;
 }
 :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"] > .cui-field-label {
   color: var(--cantos-color-error);
@@ -920,8 +957,8 @@
   :where(.cantos-ui) .cui-field-control:is(:focus-visible, [aria-expanded="true"]) { outline-color: Highlight; }
   :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell { border: var(--cantos-size-border) solid FieldText; }
   :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell > .cui-field-control { border: 0; }
-  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:not(:focus-within) { outline-style: dashed; }
-  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:focus-within { outline-color: Highlight; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell[data-invalid="true"]:not(:has(> .cui-field-control:focus-visible)) { outline-style: dashed; }
+  :where(.cantos-ui) .cui-field[data-variant="floating"] .cui-field-shell:has(> .cui-field-control:focus-visible) { outline-color: Highlight; }
   :where(.cantos-ui) .cui-field[data-variant="floating"]:is([data-state="disabled"], [data-state="loading"]) .cui-field-shell { border-color: GrayText; }
   :where(.cantos-ui) .cui-select-menu { border: var(--cantos-size-border) solid CanvasText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
@@ -1106,4 +1143,95 @@
   font-size: var(--cantos-type-membership-title-size);
   font-weight: var(--cantos-type-membership-title-weight);
   line-height: var(--cantos-type-membership-title-line-height);
+}
+
+/* Theatre expression. Palette and weights arrive from the canonical expression remap in
+   tokens.css; only renderer-local geometry lives here, scoped to data-expression="theatre" so a
+   consumer that names no expression keeps every value above. Heights are minimums: text,
+   labels and zoom grow them, and nothing clips. Web CSS pixels are not Android dp. */
+:where(.cantos-ui)[data-expression="theatre"] {
+  --cantos-web-field-block-size: 4.25rem;
+  --cantos-web-field-radius: 1rem;
+  --cantos-web-field-label-top: 0.75rem;
+  --cantos-web-field-value-bottom: 0.75rem;
+  --cantos-web-field-trailing-inset: 0.5rem;
+  --cantos-web-chip-radius: var(--cantos-web-shape-reading);
+  --cantos-web-chip-selected-radius: calc(var(--cantos-size-control) / 2);
+}
+/* A search field is a pill with its action docked inside: 72 high, a 52-unit visible action
+   (at least 48 to touch) and a larger inline inset so the rounded end never crowds the text. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] {
+  --cantos-web-field-block-size: 4.5rem;
+  --cantos-web-field-radius: var(--cantos-shape-pill);
+  --cantos-web-field-inset: 1.5rem;
+  --cantos-web-field-trailing-inset: 0.625rem;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] .cui-field-trailing .cui-button {
+  min-inline-size: var(--cantos-size-search-action);
+  min-block-size: var(--cantos-size-search-action);
+  padding: 0;
+  border-radius: var(--cantos-shape-pill);
+}
+/* Selection reads by check + tone + shape: unselected 12, selected a pill. An unselected chip is
+   centered on its label, so the check's space is not reserved here (Standard still reserves it);
+   the chip keeps its start edge and 48-unit height and only grows. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip .cui-chip-check {
+  display: none;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip[aria-pressed="true"] .cui-chip-check {
+  display: inline-flex;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip {
+  border-radius: var(--cantos-web-chip-radius);
+  transition:
+    background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing),
+    border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip[aria-pressed="true"] {
+  border-radius: var(--cantos-web-chip-selected-radius);
+}
+/* The utility select is one tonal pill; its value, trailing chevron and optional leading icon
+   are one centered group. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-select-field[data-select-density="compact"] .cui-field-control {
+  border-radius: var(--cantos-shape-pill);
+  background-color: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-select-field[data-select-density="compact"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-select-field[data-select-density="compact"] .cui-select-trigger {
+  justify-content: center;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-select-field[data-select-density="compact"] .cui-select-value {
+  flex: 0 1 auto;
+}
+/* In this expression primaryContainer is the ink of selection (chips, the current destination), so a
+   tonal action reads from the tonal surface roles instead: pale lilac with the paired ink text. A
+   tonal icon action (the theme switch) is a rounded square; a docked or circular one stays a pill. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-button:where([data-variant="tonal"], [data-variant="auth-secondary"]):not(:disabled) {
+  background-color: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-icon-button[data-variant="tonal"] {
+  border-radius: var(--cantos-web-shape-reading);
+}
+/* Fields are the tonal container (the board's lilac), with the same paler fill for any state that
+   is not editable; the label, value and disabled reason, not the fill alone, carry the state. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell {
+  background: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-state="editable"] .cui-field-shell:hover {
+  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"]:is([data-state="readonly"], [data-state="disabled"], [data-state="loading"]) .cui-field-shell {
+  background: color-mix(in srgb, var(--cantos-color-surface-container) 50%, var(--cantos-color-surface));
+}
+/* The invalid cue is the stroke and the error-colored label; the message below is plain text on
+   the page, not a second tinted block. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] > .cui-field-error {
+  padding: 0 var(--cantos-web-field-inset);
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip { transition: none; }
 }

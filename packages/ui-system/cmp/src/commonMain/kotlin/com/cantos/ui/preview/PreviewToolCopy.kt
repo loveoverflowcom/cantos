@@ -29,6 +29,8 @@ internal object PreviewToolCopy {
     const val Compact = "Compact"
     const val Comfortable = "Comfortable"
     const val ReducedMotion = "Reduced motion"
+    const val StandardExpression = "Standard roles"
+    const val TheatreExpression = "Theatre expression"
     const val AllFamilies = "All families"
     const val ChooseComponent = "Choose a component"
     const val ChooseComponentHelp = "Choose an example to try its states."

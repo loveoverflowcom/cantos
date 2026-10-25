@@ -211,10 +211,15 @@ fun Select(
     val description = listOf(if (expanded) expandedDescription else collapsedDescription,
         choiceDescription(ButtonState.Enabled, help, error), selectedOption?.state?.reason()).filterNotNull()
         .filter { it.isNotBlank() }.joinToString(". ")
+    // Theatre: one tonal capsule, its value + chevron one centered group, and a single inset cue
+    // (2 while open or focused) instead of the outset ring. Standard keeps the button anatomy.
+    val theatre = LocalUiPreferences.current.expression == CantosExpression.Theatre
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         FieldLabel(label)
         Box {
             ButtonControl(onPress = { expanded = true }, state = effective,
+                shape = if (theatre) CantosShapes.full else null, insetPerimeter = theatre,
+                active = theatre && expanded && effective.canPress(),
                 modifier = controlModifier.onSizeChanged { anchorWidth = it.width }
                     .semantics { error?.takeIf { it.isNotBlank() }?.let { error(it) } },
                 variant = ButtonVariant.Tonal, name = AccessibleName.of(listOf(label, text).joinToString(": ")),
@@ -224,7 +229,7 @@ fun Select(
                         selectedOption?.icon?.let { Icon(it) }
                     }
                 }
-                Text(text, Modifier.weight(1f))
+                Text(text, Modifier.weight(1f, fill = !theatre))
                 // A trailing slot keeps long labels away from the decorative disclosure.
                 // Loading already has the action's pending cue; it must not look expandable.
                 Box(Modifier.padding(start = tokenDp("space.sm")).size(tokenDp("size.icon"))) {

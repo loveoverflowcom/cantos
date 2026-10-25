@@ -69,6 +69,6 @@ class AvatarContractTest {
             assertTrue(CantosTokens.color("color.avatar${tone.name}", theme).startsWith("#"))
             assertTrue(CantosTokens.color("color.onAvatar${tone.name}", theme).startsWith("#"))
         }
-        assertEquals(listOf(32.0, 40.0, 64.0), AvatarSize.entries.map { CantosTokens.number(it.token).toDouble() })
+        assertEquals(listOf(32.0, 40.0, 48.0, 64.0), AvatarSize.entries.map { CantosTokens.number(it.token).toDouble() })
     }
 }
