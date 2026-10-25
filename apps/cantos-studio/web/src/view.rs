@@ -251,6 +251,11 @@ pub fn Studio() -> impl IntoView {
         let theme = RwSignal::new(Theme::Light);
         return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::live::artwork::preview::Preview theme=theme/></UiRoot>}.into_any();
     }
+    #[cfg(debug_assertions)]
+    if crate::authoring_preview::requested() {
+        let theme = RwSignal::new(Theme::Light);
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::authoring_preview::Preview theme=theme/></UiRoot>}.into_any();
+    }
 
     let bootstrap_api = StudioHttp::new();
     let state = RwSignal::new(Editor::default());

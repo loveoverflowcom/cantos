@@ -21,7 +21,8 @@ pub mod forge;
 
 #[cfg(target_arch = "wasm32")]
 pub mod api;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+mod authoring_preview;
 pub mod authoring_view;
 #[cfg(target_arch = "wasm32")]
 mod download;

@@ -6,8 +6,8 @@ use crate::{
     ui::FormSubmit,
 };
 use cantos_ui::{
-    Announcement, DisabledReason, FieldState, Icon, IconName, Status, TextField, TextFieldKind,
-    TextFieldVariant,
+    Announcement, ButtonVariant, DisabledReason, FieldState, Icon, IconName, Status, TextField,
+    TextFieldKind, TextFieldVariant,
 };
 use leptos::{ev::SubmitEvent, prelude::*};
 
@@ -63,7 +63,7 @@ pub fn SignInPanel(
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_password(value)))
                 kind=TextFieldKind::Password variant=TextFieldVariant::Floating state=field_state required=true
                 autocomplete="current-password"/>
-            <FormSubmit id=submit_id english=english
+            <FormSubmit id=submit_id english=english variant=ButtonVariant::Primary
                 icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
                 busy=submitting
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>
@@ -105,6 +105,18 @@ mod tests {
             assert_eq!(html.matches("class=\"cui-button-icon\"").count(), 1);
             assert!(html.contains("aria-hidden=\"true\""), "{html}");
             assert!(html.contains(text(Key::Password, english)), "{html}");
+        }
+    }
+
+    #[test]
+    fn the_current_sign_in_or_reauthentication_task_submits_through_a_primary_action() {
+        for reauth in [false, true] {
+            let html = render(SignInForm::default(), false, false, reauth);
+            let at = html.find("id=\"session-submit\"").unwrap();
+            let start = html[..at].rfind("<button").unwrap();
+            let submit = &html[start..at + html[at..].find('>').unwrap()];
+            assert!(submit.contains("data-variant=\"primary\""), "{submit}");
+            assert!(submit.contains("type=\"submit\""), "{submit}");
         }
     }
 

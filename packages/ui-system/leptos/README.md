@@ -443,8 +443,8 @@ native parity; see [session 1 evidence](../../../docs/evidence/cmp-ui-system-ses
 | UiRoot + Theme + Density | app root, appearance selector; comfortable targets and compact pane spacing | themed skeleton, appearance selector; comfortable targets |
 | Container / Surface / Stack / EmptyState | fluid shell; app owns editorial panes | reading measure and honest unavailable-listener state |
 | Button / FilterChip | language action, pane navigation, guarded revision and casting actions | no listener actions implemented |
-| TextField / Select | development token; theme; ContextSelect for casting/catalog choices | native theme selector only |
-| FieldLabel / FieldError + native control classes | buffered editor/casting inputs, retaining NodeRef/IME/undo; app-owned submit buttons | none |
+| TextField / Select | development token; theme; ContextSelect for casting/catalog choices; menu Select for structured-script choices | native theme selector only |
+| FieldLabel / FieldError + native control classes | buffered editor/casting inputs, retaining NodeRef/IME/undo; buffered editor fields wrap them in the external-label `cui-field` anatomy; app-owned submit buttons | none |
 | Status / Announcement | stable revision/validation/production feedback, visible dialog errors | empty state has no automatic announcement |
 | Dialog | explicit browser-draft discard; caller owns approval, open/error state and callback | none |
 
