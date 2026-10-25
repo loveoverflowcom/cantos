@@ -33,6 +33,7 @@ mod resend_local;
 mod retired;
 mod run;
 mod run_files;
+mod secrets;
 mod seed;
 mod services;
 mod theatre_host;
@@ -86,6 +87,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::HostingSmoke(args) => deploy::inspect::run(&workspace, &args, &tools),
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
+        Task::Secrets(args) => secrets::run(&workspace, &args),
         Task::Kanidm(_) => unreachable!("retired commands are refused before dispatch"),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),

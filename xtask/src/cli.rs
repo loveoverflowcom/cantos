@@ -69,6 +69,9 @@ pub enum Task {
     /// Explicit remote tester distribution (Firebase App Distribution, selected Theatre QA APK). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Distribute(crate::distribute::DistributeArgs),
+    /// Operator-only Google Cloud Secret Manager inventory, metadata status and explicit import (a
+    /// remote write); never invoked by build, run, verify, preflight or ci.
+    Secrets(crate::secrets::SecretsArgs),
     /// Retired with Kanidm; refuses before any effect.
     #[command(hide = true)]
     Kanidm(Retired),
