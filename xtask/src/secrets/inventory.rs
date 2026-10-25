@@ -197,10 +197,12 @@ fn validate(secret: &Secret) -> Result<(), InventoryError> {
                 secret.consumer.as_str()
             )))
         }
-        (Environment::Dev | Environment::Prod, false) => return Err(invalid(format!(
+        (Environment::Dev | Environment::Prod, false) => {
+            return Err(invalid(format!(
             "{id} is a {} runtime secret; its consumer must be cantos-server or cantos-identity",
             secret.environment.as_str()
-        ))),
+        )))
+        }
         _ => {}
     }
     if matches!(secret.format, Format::Bytes32 | Format::ServiceAccountJson)
