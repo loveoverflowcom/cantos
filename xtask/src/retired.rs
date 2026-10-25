@@ -105,12 +105,14 @@ mod tests {
     }
 
     #[test]
-    fn the_vps_refusal_points_at_the_native_oci_flow_and_claims_no_host_activation() {
+    fn the_vps_refusal_points_at_native_upgrade_and_refuses_first_native_cutover() {
         let Refusal::Usage(message) = Retirement::DeployVps.refusal() else {
             unreachable!()
         };
         assert!(message.contains("release oci-build"));
         assert!(message.contains("docs/deployment/native-oci-release.md"));
-        assert!(message.contains("No xtask command activates a host"));
+        assert!(message.contains("already admitted NATIVE_READY"));
+        assert!(message.contains("same schema/config"));
+        assert!(message.contains("first-native or legacy cutover is not implemented"));
     }
 }

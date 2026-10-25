@@ -436,6 +436,13 @@ pub fn run(
             CommandSpec::new("cargo", workspace.root())
                 .args(["test", "-p", "xtask", "--locked", "deploy::"]),
         );
+        commands.push(CommandSpec::new("cargo", workspace.root()).args([
+            "test",
+            "-p",
+            "xtask",
+            "--locked",
+            "retired::",
+        ]));
     }
     let needed: &[Tool] = if matches!(args.action, Action::SelfTest) {
         &[Tool::Python3, Tool::Cargo]
