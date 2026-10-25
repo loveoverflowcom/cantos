@@ -5,6 +5,9 @@ The catalog is the only ID/lifecycle/selection owner; `.qnt` owns executable exp
 for accepted capabilities. Companion `_tests.qnt` files contain named runs of the same
 model, never another reducer. Product prose accepts requirements and explains context.
 Protobuf owns transport/schema; native tests keep their implementation/platform boundaries.
+Each runnable capability lives beside the module that owns the behavior, in that boundary's
+`behavior/` directory ([layout](#federated-registry-and-module-owned-manifests)); this directory
+keeps the registry, the shared inventory index, the observation protocol and retained history.
 
 The private AudioSubmission pilot is **PR A model foundation plus PR B pure-core observations of issue 106**. Its lifecycle is draft:
 model-only PASS neither accepts the model nor demonstrates Rust/DB/API/client conformance.
@@ -25,8 +28,9 @@ security-state rechecks, `cantos.identity.native-session-admission`. Each regist
 `MailboxProof::plan_*` and `validate_fact`/`SecurityState::from_response`/`decide_issue`/
 `decide_admission` seams with a small, disclosed synthetic shell. This is pure-core conformance,
 not DB/RPC/E2E acceptance; read the [native protocol](observation-protocol.md#native-identity-auth-observation-protocol-v1).
-Their [inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334335-v1-signup)
-report two contract/implementation mismatches and a needs-decision case that no property constrains, and map
+Their inventory ([mailbox proof](../../services/cantos-identity/behavior/native_mailbox_proof.md),
+[session admission](../../services/cantos-server/behavior/identity/native_session_admission.md))
+reports two contract/implementation mismatches and a needs-decision case that no property constrains, and maps
 the unchanged legacy `cantos.identity.bearer-lifecycle` scope.
 
 Two further **draft, model-only** capabilities describe public media rules:
@@ -34,8 +38,10 @@ Two further **draft, model-only** capabilities describe public media rules:
 accepted for step-1 origin integration only) and `cantos.media.public-cover-projection`
 ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md), accepted by the owner
 for #157; model lifecycle remains draft).
-Neither has a registered Rust observer, so `--conformance` does not apply to them; their
-[inventory rows](inventory.md) separate implemented kernels from model assumptions.
+Neither has a registered Rust observer, so `--conformance` does not apply to them; their inventory
+([playback](../../services/cantos-server/behavior/media/public_playback_delivery.md),
+[cover](../../services/cantos-server/behavior/media/public_cover_projection.md))
+separates implemented kernels from model assumptions.
 The cover model includes fresh-projection fetch admission; its six `run.fetch-*` IDs are
 reused by independent native tests for traceability, without replaying model traces.
 
@@ -84,7 +90,8 @@ gates and also retains the scoped behavior selection; run the explicit suite for
 
 ## Read the pilot
 
-[Model](media/private_audio_admission.qnt) and [named runs](media/private_audio_admission_tests.qnt)
+[Model](../../services/cantos-server/behavior/media/private_audio_admission.qnt) and
+[named runs](../../services/cantos-server/behavior/media/private_audio_admission_tests.qnt)
 use closed state/action/outcome/error variants. A submission is already prepared and valid.
 One exact byte equality class and one conflicting class separately exercise digest and
 length checks. Time partitions cover creation, admitted_at, in-window and expiry boundaries,
@@ -115,8 +122,20 @@ of a pointer lives in a module-owned JSON manifest:
   "model": "services/x/behavior/thing.qnt", "module": "thing",
   "scenarios": "services/x/behavior/thing_tests.qnt", "scenarioModule": "thing_tests",
   "simulation": {}, "properties": [], "runs": [], "witnesses": [], "controls": [],
-  "sourceRefs": [], "inventory": "specs/behavior/inventory.md", "aliases": [] }
+  "sourceRefs": [], "inventory": "services/x/behavior/thing.md", "aliases": [] }
 ```
+
+**Layout.** All ten runnable capabilities are root pointers. A model, its `_tests.qnt`, its
+`<name>.manifest.json` and its capability document `<name>.md` (the capability's rows of the
+[authority inventory](inventory.md#module-owned-inventories)) sit together in the `behavior/`
+directory of the boundary that owns the behavior: `services/<name>/behavior/`,
+`apps/<name>/behavior/` or `xtask/behavior/`. The Server groups by context (`media/`,
+`identity/`). A model therefore lives in the same boundary as its `owner`. Three records stay
+inline: the two unmodeled capabilities and the deprecated `cantos.identity.theatre-registration`,
+whose retained historical `.qnt` files remain under `specs/behavior/identity/`. The observation
+protocol stays here: it is the contract of the shared verifier adapters, not of one module.
+Changed-only preflight recognizes a `behavior/` directory by location, so a new, renamed-away
+or orphaned file there selects the Behavior gate even when no registry index can be built.
 
 Both forms resolve to the same normalized capability, so the verifier, evidence bundle and the
 registered conformance adapters read one shape. The loader fails closed for a missing, linked,

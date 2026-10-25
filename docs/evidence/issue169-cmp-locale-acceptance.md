@@ -203,7 +203,7 @@ independent implementation evidence and do not accept deferred native/product ga
 
 ## Executable expectation boundary
 
-The [draft locale-preference model](../../specs/behavior/presentation/locale_preference.qnt) and
+The [draft locale-preference model](../../apps/cantos-theatre/behavior/locale_preference.qnt) and
 [registered scenarios](../../specs/behavior/catalog.json) describe restoration precedence, atomic
 refusal/retry, accepted locale/reset and theme isolation. They are model-only expectations of the
 bounded controller contract, not an accepted localization architecture or a Kotlin conformance

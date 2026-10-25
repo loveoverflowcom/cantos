@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.identity.native-mailbox-proof",
+  "sourceRefs": [
+    "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+    "services/cantos-identity/contracts/identity/v1/README.md#one-command-setup-decision",
+    "services/cantos-identity/docs/mailbox-store-v1.md#secrets-and-atomic-transitions",
+    "services/cantos-server/contracts/auth/identity-auth/v1/README.md#email-link-and-signup",
+    "services/cantos-identity/src/persistence/proofs.rs",
+    "services/cantos-identity/src/persistence/signup.rs"
+  ],
+  "model": "services/cantos-identity/behavior/native_mailbox_proof.qnt",
+  "module": "native_mailbox_proof",
+  "scenarios": "services/cantos-identity/behavior/native_mailbox_proof_tests.qnt",
+  "scenarioModule": "native_mailbox_proof_tests",
+  "inventory": "services/cantos-identity/behavior/native_mailbox_proof.md",
+  "properties": [
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.explicit-only",
+      "declaration": "explicitOnly"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.consumed-within-bound-window",
+      "declaration": "consumedWithinBoundWindow"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.terminal-sticky",
+      "declaration": "terminalSticky"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.retired-locator-rejected",
+      "declaration": "retiredLocatorRejected"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.plan-has-no-effect",
+      "declaration": "planHasNoEffect"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.commit-compares-snapshot",
+      "declaration": "commitComparesSnapshot"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.single-account-effect",
+      "declaration": "singleAccountEffect"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.no-authority",
+      "declaration": "noAuthority"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+      "declaration": "onlyCommittedEffects"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.explicit-confirmation",
+      "declaration": "explicitConfirmationTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.binding-and-window",
+      "declaration": "bindingAndWindowTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.cancelled-terminal",
+      "declaration": "cancelledTerminalTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.consumed-terminal",
+      "declaration": "consumedTerminalTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.replacement",
+      "declaration": "replacementTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.stale-plan",
+      "declaration": "stalePlanTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.lost-response",
+      "declaration": "lostResponseTest"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.run.lost-before-commit",
+      "declaration": "lostBeforeCommitTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.consumed-explicitly",
+      "declaration": "consumedExplicitly"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.inspected-pending",
+      "declaration": "inspectedPending"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.expired-at-commit",
+      "declaration": "expiredAtCommit"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.cancelled-replace-refused",
+      "declaration": "cancelledReplaceRefused"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.retired-locator-refused",
+      "declaration": "retiredLocatorRefused"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.plan-without-effect",
+      "declaration": "planWithoutEffect"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.stale-commit-refused",
+      "declaration": "staleCommitRefused"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.witness.exact-retry-replayed",
+      "declaration": "exactRetryReplayed"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "334",
+    "samples": 500,
+    "steps": 30,
+    "scenarioSamples": 1,
+    "witnessSamples": 3000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.explicit-only",
+      "property": "cantos.identity.native-mailbox-proof.property.explicit-only",
+      "from": "else if (not(p.explicit)) record(state, event, Rejected(NotExplicit))",
+      "to": "else if (false) record(state, event, Rejected(NotExplicit))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.consumed-within-bound-window",
+      "property": "cantos.identity.native-mailbox-proof.property.consumed-within-bound-window",
+      "from": "else if (state.now >= d.proof.expiresAt) record(cleared, event, Rejected(Expired))",
+      "to": "else if (false) record(cleared, event, Rejected(Expired))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.terminal-sticky",
+      "property": "cantos.identity.native-mailbox-proof.property.terminal-sticky",
+      "from": "else if (current.state == Cancelled) record(state, event, Rejected(AlreadyCancelled))",
+      "to": "else if (false) record(state, event, Rejected(AlreadyCancelled))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.retired-locator-rejected",
+      "property": "cantos.identity.native-mailbox-proof.property.retired-locator-rejected",
+      "from": "else if (p.loc != d.proof.loc) record(state, event, Rejected(ProofChanged))",
+      "to": "else if (false) record(state, event, Rejected(ProofChanged))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.plan-has-no-effect",
+      "property": "cantos.identity.native-mailbox-proof.property.plan-has-no-effect",
+      "from": "else record({ ...state, plan: Planned({",
+      "to": "else record({ ...state, durable: { ...d, proof: { ...d.proof, state: Consumed } }, plan: Planned({"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.commit-compares-snapshot",
+      "property": "cantos.identity.native-mailbox-proof.property.commit-compares-snapshot",
+      "from": "if (plan.expected != d.proof) record(cleared, event, Rejected(StaleSnapshot))",
+      "to": "if (false) record(cleared, event, Rejected(StaleSnapshot))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.single-account-effect",
+      "property": "cantos.identity.native-mailbox-proof.property.single-account-effect",
+      "from": "else if (d.proof.state == Consumed) record(state, event, Rejected(AlreadyConsumed))",
+      "to": "else if (false) record(state, event, Rejected(AlreadyConsumed))"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.no-authority",
+      "property": "cantos.identity.native-mailbox-proof.property.no-authority",
+      "from": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 } }",
+      "to": "receipts: d.receipts.put(plan.command, plan.request), accounts: d.accounts + 1 }, session: true }"
+    },
+    {
+      "id": "cantos.identity.native-mailbox-proof.control.only-committed-effects",
+      "property": "cantos.identity.native-mailbox-proof.property.only-committed-effects",
+      "from": "else if (fate == UnknownLost) record(cleared, event, UnknownEffect)",
+      "to": "else if (fate == UnknownLost) record(applied, event, UnknownEffect)"
+    }
+  ],
+  "aliases": [],
+  "observationSchema": "cantos-native-mailbox-proof-observation-v1",
+  "implementationConformance": "pure-core-observer",
+  "ownedSources": [
+    "services/cantos-identity/src/domain/admission.rs",
+    "services/cantos-identity/src/domain/ids.rs",
+    "services/cantos-identity/src/domain/mailbox_proof.rs",
+    "services/cantos-identity/src/domain/security_version.rs",
+    "services/cantos-identity/src/lib.rs",
+    "services/cantos-server/src/platform/identity_auth/decision.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc/generated.rs"
+  ],
+  "implementationTests": [
+    "services/cantos-identity/src/quint_conformance_tests.rs"
+  ]
+}

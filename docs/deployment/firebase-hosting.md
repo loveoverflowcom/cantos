@@ -454,6 +454,6 @@ Surrogate-Control headers are refused so they cannot override conservative reval
 result URLs must identify the selected site and exact channel; unfamiliar origins remain an
 unknown outcome and are never a successful release receipt.
 
-The [draft executable workflow](../../specs/behavior/tooling/hosting_deploy.qnt), selected through
+The [draft executable workflow](../../xtask/behavior/hosting_deploy.qnt), selected through
 the [catalog](../../specs/behavior/catalog.json), covers abstract intent/no-retry/outcome retention.
 It is model-only, not a Firebase response, file-integrity or deployment acceptance claim.

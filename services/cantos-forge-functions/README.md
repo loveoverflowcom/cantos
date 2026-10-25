@@ -178,7 +178,7 @@ regenerate(operation, acknowledgement?) → a new attempt, only after a settled 
 | spend and attempts stay inside the operator's policy and never wrap | `Ledger::open`/`reserve` use checked arithmetic | bounded-model-checked over full-width integers (dev-run, see below) |
 
 The expected behavior is owned by the Quint capability `cantos.production.forge-attempt`
-([model](../../specs/behavior/production/forge_attempt.qnt)); each of its thirteen named runs has
+([model](behavior/forge_attempt.qnt)); each of its thirteen named runs has
 one native mirror test in `src/application/produce_tests.rs`, kept equal by
 `tests/behavior_binding.rs`. The Kani kernel is registered as `forge-attempt-ledger`. Both are
 opt-in gates that need pinned tools; their statuses are in the

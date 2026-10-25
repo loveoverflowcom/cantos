@@ -100,7 +100,7 @@ concurrent first logins, renewal racing logout and a slow Identity. The journey 
 `CANTOS_TEST_IDENTITY_BINARY` and runs under the [isolation guard](../assurance/native-isolation.md#native-auth-linux-qualification-campaign).
 It is not HTTP, cookie transport or production Server binary evidence.
 
-The [inventory mismatches](../../specs/behavior/inventory.md) are unchanged by this slice: a
+The [inventory mismatches](../../services/cantos-server/behavior/identity/native_session_admission.md) are unchanged by this slice: a
 reply naming another subject is still a protocol failure without revocation, a failed revoke
 write is redone only while Identity still differs, and roster removal/re-add is undecided.
 

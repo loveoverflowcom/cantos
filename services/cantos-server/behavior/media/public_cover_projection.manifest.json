@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.media.public-cover-projection",
+  "sourceRefs": [
+    "docs/decisions/0033-release-pinned-public-cover.md#decision",
+    "services/cantos-server/contracts/studio/artwork/v1/README.md#bounds-and-receipts",
+    "services/cantos-server/src/contexts/media/domain/artwork.rs",
+    "services/cantos-server/src/contexts/media/domain/listening.rs"
+  ],
+  "model": "services/cantos-server/behavior/media/public_cover_projection.qnt",
+  "module": "public_cover_projection",
+  "scenarios": "services/cantos-server/behavior/media/public_cover_projection_tests.qnt",
+  "scenarioModule": "public_cover_projection_tests",
+  "inventory": "services/cantos-server/behavior/media/public_cover_projection.md",
+  "properties": [
+    {
+      "id": "cantos.media.public-cover-projection.property.shown-is-pinned",
+      "declaration": "shownIsPinned"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.property.private-edit-isolated",
+      "declaration": "privateEditIsolated"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.property.disclosure-required",
+      "declaration": "disclosureRequired"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.property.withdrawn-hidden",
+      "declaration": "withdrawnHidden"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.property.clear-is-tombstone",
+      "declaration": "clearIsTombstone"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.property.fetch-matches-projection",
+      "declaration": "fetchMatchesProjection"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.media.public-cover-projection.run.not-published",
+      "declaration": "notPublishedTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.pinned-replacement",
+      "declaration": "pinnedReplacementTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.undisclosed",
+      "declaration": "undisclosedTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.other-image-disclosure",
+      "declaration": "otherImageDisclosureTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.revoke",
+      "declaration": "revokeTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.expiry",
+      "declaration": "expiryTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.withdraw",
+      "declaration": "withdrawTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.clear-tombstone",
+      "declaration": "clearTombstoneTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.metadata-edit-keeps-cover",
+      "declaration": "metadataEditKeepsCoverTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.cover-before-artwork",
+      "declaration": "coverBeforeArtworkTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-current-shown",
+      "declaration": "fetchCurrentShownTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-private-replacement",
+      "declaration": "fetchPrivateReplacementTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-stale-republish",
+      "declaration": "fetchStaleRepublishTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-revoked",
+      "declaration": "fetchRevokedTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-expired",
+      "declaration": "fetchExpiredTest"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.run.fetch-withdrawn",
+      "declaration": "fetchWithdrawnTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.media.public-cover-projection.witness.shown",
+      "declaration": "shown"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.pinned-despite-replacement",
+      "declaration": "pinnedDespiteReplacement"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.republished-replacement",
+      "declaration": "republishedReplacement"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.withdrawn-fallback",
+      "declaration": "withdrawnFallback"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.revoked-fallback",
+      "declaration": "revokedFallback"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.expired-fallback",
+      "declaration": "expiredFallback"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.undisclosed-fallback",
+      "declaration": "undisclosedFallback"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.cleared-fallback",
+      "declaration": "clearedFallback"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.fetch-served",
+      "declaration": "fetchServed"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.fetch-mismatch-denied",
+      "declaration": "fetchMismatchDenied"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.fetch-fallback-denied",
+      "declaration": "fetchFallbackDenied"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.witness.fetch-pinned-despite-replacement",
+      "declaration": "fetchPinnedDespiteReplacement"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "171",
+    "samples": 500,
+    "steps": 30,
+    "scenarioSamples": 1,
+    "witnessSamples": 1000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.media.public-cover-projection.control.shown-is-pinned",
+      "property": "cantos.media.public-cover-projection.property.shown-is-pinned",
+      "from": "else match effectiveAt(s.changes, r) {",
+      "to": "else match effectiveAt(s.changes, s.revision) {"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.control.private-edit-isolated",
+      "property": "cantos.media.public-cover-projection.property.private-edit-isolated",
+      "from": "changes: state.changes.put(successor, Img(i)) }, SetPrivate(i))",
+      "to": "changes: state.changes.put(successor, Img(i)), pin: Pinned(successor) }, SetPrivate(i))"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.control.disclosure-required",
+      "property": "cantos.media.public-cover-projection.property.disclosure-required",
+      "from": "| Undecided => Fallback(Undisclosed)",
+      "to": "| Undecided => Shown(image)"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.control.withdrawn-hidden",
+      "property": "cantos.media.public-cover-projection.property.withdrawn-hidden",
+      "from": "if (not(s.eligible)) Fallback(NotPublished)",
+      "to": "if (false) Fallback(NotPublished)"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.control.clear-is-tombstone",
+      "property": "cantos.media.public-cover-projection.property.clear-is-tombstone",
+      "from": "val atOrBefore = changes.keys().filter(k => k <= revision)",
+      "to": "val atOrBefore = changes.keys().filter(k => k <= revision and changes.get(k) != Cleared)"
+    },
+    {
+      "id": "cantos.media.public-cover-projection.control.fetch-matches-projection",
+      "property": "cantos.media.public-cover-projection.property.fetch-matches-projection",
+      "from": "pure def fetchOutcome(s: State, requested: int): Outcome = match coverView(s) {",
+      "to": "pure def fetchOutcome(s: State, requested: int): Outcome = match disclosure(s.decisions.get(requested), requested, s.now) {"
+    }
+  ],
+  "aliases": []
+}

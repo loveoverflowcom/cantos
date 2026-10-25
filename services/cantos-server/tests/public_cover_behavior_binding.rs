@@ -1,6 +1,7 @@
 //! Lexical linkage for the public-cover fetch runs only (`statically-checked`).
 //!
-//! The catalog owns stable run IDs; Quint owns the modeled expectations. Each fetch run must
+//! The catalog owns the capability ID and points to its module-owned manifest, which registers
+//! the stable run IDs; Quint owns the modeled expectations. Each fetch run must
 //! name exactly one native regression over the real cover seams. This membership check does
 //! not inspect assertions, replay traces or establish implementation conformance. Existing
 //! projection runs are outside this bounded linkage; no registered Rust observer is claimed.
@@ -12,18 +13,32 @@ const FETCH_RUN_PREFIX: &str = "cantos.media.public-cover-projection.run.fetch-"
 const MARKER: &str = "/// Quint run: ";
 const NATIVE_TESTS: &str = "src/contexts/media/domain/public_cover_tests.rs";
 
+fn read_json(path: &Path) -> serde_json::Value {
+    serde_json::from_str(&fs::read_to_string(path).expect("readable behavior JSON"))
+        .expect("behavior file is JSON")
+}
+
 fn registered_fetch_runs() -> BTreeSet<String> {
-    let catalog = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../specs/behavior/catalog.json");
-    let catalog: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(catalog).expect("readable behavior catalog"))
-            .expect("catalog is JSON");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let catalog = read_json(&root.join("specs/behavior/catalog.json"));
     let capability = catalog["capabilities"]
         .as_array()
         .expect("capability list")
         .iter()
         .find(|capability| capability["id"] == CAPABILITY)
         .expect("the public-cover capability is registered");
-    capability["runs"]
+    let manifest = read_json(
+        &root.join(
+            capability["manifestPath"]
+                .as_str()
+                .expect("the capability points to its module-owned manifest"),
+        ),
+    );
+    assert_eq!(
+        manifest["capabilityId"], CAPABILITY,
+        "manifest binds another capability"
+    );
+    manifest["runs"]
         .as_array()
         .expect("run list")
         .iter()

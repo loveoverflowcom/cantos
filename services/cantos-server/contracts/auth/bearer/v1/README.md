@@ -61,7 +61,7 @@ immutable subject binding preserves actor/ownership history; no email merge or a
 Web uses the shared cookie owner with exact Origin/CSRF and no Bearer fallback. Native retains
 the secure journal, single-flight refresh, persist-before-admission, unknown-outcome cleanup,
 restart confirmation and late actor/intent fencing. The executable
-[bearer lifecycle model](../../../../../../specs/behavior/inventory.md#cantos-bearer-lifecycle-253) remains draft
+[bearer lifecycle model](../../../../behavior/identity/bearer_lifecycle.md) remains draft
 with all properties/controls; model PASS never proves native storage, process or device acceptance.
 Historical provider credentials/setup/callback records are not migrated by restoring old routes.
 

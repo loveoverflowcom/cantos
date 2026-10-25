@@ -21,7 +21,7 @@ attempt, inside the operator's attempt and spend limits.
 
 | Owner | Role |
 | --- | --- |
-| [`specs/behavior/production/forge_attempt.qnt`](../../specs/behavior/production/forge_attempt.qnt), catalog capability `cantos.production.forge-attempt` (draft) | expected behavior: 7 properties, 12 named runs, 9 witnesses, 7 negative controls |
+| [`services/cantos-forge-functions/behavior/forge_attempt.qnt`](../../services/cantos-forge-functions/behavior/forge_attempt.qnt), catalog capability `cantos.production.forge-attempt` (draft) | expected behavior: 7 properties, 12 named runs, 9 witnesses, 7 negative controls |
 | [`domain/attempt.rs`](../../services/cantos-forge-functions/src/domain/attempt.rs), [`domain/generation.rs`](../../services/cantos-forge-functions/src/domain/generation.rs) | pure decisions, the `Ledger` integer kernel, the request fingerprint |
 | [`application/produce.rs`](../../services/cantos-forge-functions/src/application/produce.rs) | reserve, then call once, then record, over the `AttemptStore` and `Provider` ports |
 | [`adapters/mock_provider.rs`](../../services/cantos-forge-functions/src/adapters/mock_provider.rs) | deterministic, scriptable, no network, no spend |
