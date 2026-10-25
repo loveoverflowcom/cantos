@@ -37,7 +37,7 @@ pub use layout::{
 };
 pub use logo::{Logo, LogoTone, LogoVariant};
 pub use navigation::{FilterChip, InvalidLinkHref, Link, LinkHref, NavItem, NavTabs};
-pub use root::{Density, Theme, UiRoot};
+pub use root::{Density, Expression, Theme, UiRoot};
 pub use select_menu::SelectOption;
 
 /// Load these before app styles. Trunk consumers can link the same files directly.

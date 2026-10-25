@@ -414,8 +414,35 @@ adopted `TextFieldVariant::Floating` needs the actual current Web state review, 
 limited to Regular/AuthTonal. Floating is Web-only: CMP retains its implemented Regular/AuthTonal
 counterpart and has no native Floating variant. Qualification records and their explicit scope
 limits own admission; preview registration alone grants none. Remaining migrations keep ownership
-of validation, locale and auth policy and remove app-local underline/halo overrides. A trailing action slot is intentionally not added here: the
-first consumer that needs one should propose it with its real call site.
+of validation, locale and auth policy and remove app-local underline/halo overrides.
+
+### Trailing action and the Theatre expression ([#452](https://github.com/loveoverflowcom/cantos/issues/452))
+
+The first real call sites arrived with the Theatre v4 design, so the slot is now typed:
+`TextField trailing=<ViewFn>` places one native control in a second column of the same shell
+(`data-trailing="true"`). The control column ends where the action begins, so typed text cannot run
+under it at any zoom, and the shell never becomes a clickable surface or owns action/secret state.
+Only the `Floating` variant hosts it (`TextFieldVariant::supports_trailing`); the others render no
+slot. The perimeter follows the field's own control (`:has(> .cui-field-control:focus-visible)`), so
+a focused trailing action keeps its own ring instead of stacking a second indicator. A blocked
+trailing action's reason stays available to assistive technology; the field's own reason is the
+visible one.
+
+- `IconButton` takes `icon` as a `Signal<IconName>` (a plain `IconName` still works) so a stateful
+  action such as the password eye swaps its glyph without remounting the button or losing focus, and
+  `submit=true` for a native `type="submit"` that lets an app-owned `<form>` keep Enter, composition,
+  validation and history (a blocked action also cancels the click). `variant=Tonal` gives the 48-unit
+  theme action.
+- `TextField` marks `data-kind` on `.cui-field`; with `kind=Search` under the Theatre expression the
+  shell is a 72-minimum pill and its trailing action a 52-unit circle (`size.searchAction`).
+- `Avatar` gains `AvatarSize::Control` (48) and `accent=true`, which pins the Theatre pink pair
+  instead of the identity hue; the golden initials and tone vectors are unchanged.
+- `UiRoot expression=Expression::Theatre` opts a subtree in. Everything Theatre-specific in
+  `foundation.css.in` sits under `[data-expression="theatre"]` (a Rust test refuses any unscoped rule
+  after the section marker): 68/72 field minimums with a 16 radius, a chip that is a tonal 12-radius
+  shape when unselected and an ink capsule with its check when selected (an interruptible radius
+  transition that reduced motion removes), and a tonal pill utility `Select` whose value and chevron
+  are one centered group. Standard consumers keep every value above.
 
 ## Web AuthTonal spacing candidate — superseded, preview only
 

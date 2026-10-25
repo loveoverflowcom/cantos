@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 
 /**
  * Focus decorates the native node without changing its layout or hit area.
@@ -54,6 +55,41 @@ internal fun Modifier.cantosFocus(shapeRole: String = "shape.control", restingBo
             }
         }
 }
+
+/**
+ * One state perimeter, drawn inside the node's own bounds (Fields v3/v4): idle paints nothing, an
+ * invalid field paints one `size.border`, focus (or an [active] open menu) paints two, in the
+ * error colour while invalid. It never leaves the bounds, so it cannot be clipped, double with the
+ * node's fill or move neighbouring layout; the radius is capped by Skia to a stadium.
+ * Only the node itself counts as focused: a trailing action inside the shell keeps its own ring.
+ * Standard controls keep [cantosFocus]; this is local to the fields and menus that opt in.
+ */
+internal fun Modifier.cantosInsetPerimeter(radius: Dp, invalid: Boolean = false, active: Boolean = false): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    val rest = tokenDp("size.border")
+    val strong = rest * InsetPerimeterActiveFactor
+    val error = tokenColor("color.error")
+    val focus = tokenColor("color.focus")
+    onFocusChanged { focused = it.isFocused }
+        .drawWithContent {
+            drawContent()
+            val engaged = focused || active
+            if (engaged || invalid) {
+                val stroke = (if (engaged) strong else rest).toPx()
+                val corner = (radius.toPx() - stroke / 2).coerceAtLeast(0f)
+                drawRoundRect(
+                    color = if (invalid) error else focus,
+                    topLeft = Offset(stroke / 2, stroke / 2),
+                    size = Size(size.width - stroke, size.height - stroke),
+                    cornerRadius = CornerRadius(corner, corner),
+                    style = Stroke(stroke),
+                )
+            }
+        }
+}
+
+/** Focus and an open menu are twice the resting stroke, as in the Web `--cantos-web-stroke-active`. */
+internal const val InsetPerimeterActiveFactor: Int = 2
 
 internal fun Modifier.actionState(state: ButtonState, description: String? = null): Modifier = semantics {
     val descriptions = listOfNotNull(description, state.reason()).filter { it.isNotBlank() }.joinToString(". ")

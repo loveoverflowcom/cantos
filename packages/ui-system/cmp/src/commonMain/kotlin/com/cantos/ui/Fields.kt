@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +16,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
@@ -22,6 +24,17 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+// Renderer-local geometry from the Theatre v4 design (board 5), in logical dp rather than Web CSS
+// pixels. Both are minimums: the label, value and text scale grow the shell, nothing is clipped.
+internal val FloatingFieldMinHeight: Dp = 68.dp
+internal val FloatingFieldRadius: Dp = 16.dp
+internal val FloatingSearchMinHeight: Dp = 72.dp
+
+/** The two shell variants share one anatomy; only the search field changes shape and minimum. */
+internal fun TextFieldVariant.isFloating(): Boolean = this == TextFieldVariant.Floating || this == TextFieldVariant.FloatingSearch
 
 /** Blank messages have no visible or semantic invalid state, matching the Web contract. */
 internal data class FieldMessages(val help: String?, val error: String?, val reason: String?) {
@@ -52,13 +65,24 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 
 @Composable
 private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String): Modifier = fillMaxWidth()
-    .then(if (variant == TextFieldVariant.AuthTonal) Modifier.heightIn(min = tokenDp("size.authField")) else Modifier)
-    .cantosFocus(
-        if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
-        restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
-            BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error"))
-        } else null,
-    )
+    .then(when (variant) {
+        TextFieldVariant.AuthTonal -> Modifier.heightIn(min = tokenDp("size.authField"))
+        TextFieldVariant.Floating -> Modifier.heightIn(min = FloatingFieldMinHeight)
+        TextFieldVariant.FloatingSearch -> Modifier.heightIn(min = FloatingSearchMinHeight)
+        TextFieldVariant.Regular -> Modifier
+    })
+    .then(when (variant) {
+        // One inset perimeter owned by this field; no other control's focus geometry changes.
+        TextFieldVariant.Floating -> Modifier.cantosInsetPerimeter(FloatingFieldRadius, invalid = messages.error != null)
+        // A capsule is a radius of half the shortest side; Skia scales an oversized radius to it.
+        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(Dp(999f), invalid = messages.error != null)
+        TextFieldVariant.AuthTonal, TextFieldVariant.Regular -> Modifier.cantosFocus(
+            if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
+            restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
+                BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error"))
+            } else null,
+        )
+    })
     .semantics {
         if (variant == TextFieldVariant.AuthTonal) contentDescription = label
         if (messages.description.isNotBlank()) stateDescription = messages.description
@@ -67,7 +91,15 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
 
 @Composable
 private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextFieldColors {
-    val container = tokenColor(if (state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal) "color.surfaceContainer" else "color.surfaceContainerHigh")
+    val tonal = tokenColor("color.surfaceContainer")
+    // A non-editable shell is the same tone, paler: state is never carried by the fill alone.
+    val quiet = lerp(tonal, tokenColor("color.surface"), FloatingQuietFillFraction)
+    val floating = variant.isFloating()
+    val container = when {
+        floating -> if (state == FieldState.Editable) tonal else quiet
+        state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal -> tonal
+        else -> tokenColor("color.surfaceContainerHigh")
+    }
     val content = tokenColor("color.onSurface")
     val secondary = tokenColor("color.onSurfaceVariant")
     val error = tokenColor("color.error")
@@ -78,20 +110,29 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextField
         errorTextColor = content,
         focusedContainerColor = container,
         unfocusedContainerColor = container,
-        disabledContainerColor = tokenColor("color.surfaceContainer"),
-        errorContainerColor = tokenColor("color.errorContainer"),
+        disabledContainerColor = if (floating) quiet else tokenColor("color.surfaceContainer"),
+        errorContainerColor = if (floating) container else tokenColor("color.errorContainer"),
         cursorColor = tokenColor("color.primary"),
         errorCursorColor = error,
         focusedIndicatorColor = Color.Transparent,
         unfocusedIndicatorColor = Color.Transparent,
         disabledIndicatorColor = Color.Transparent,
-        errorIndicatorColor = if (variant == TextFieldVariant.AuthTonal) Color.Transparent else error,
-        focusedLabelColor = tokenColor("color.primary"),
+        errorIndicatorColor = if (variant == TextFieldVariant.Regular) error else Color.Transparent,
+        focusedLabelColor = if (floating) secondary else tokenColor("color.primary"),
         unfocusedLabelColor = secondary,
         disabledLabelColor = secondary,
         errorLabelColor = error,
+        focusedPlaceholderColor = secondary,
+        unfocusedPlaceholderColor = secondary,
+        focusedTrailingIconColor = secondary,
+        unfocusedTrailingIconColor = secondary,
+        disabledTrailingIconColor = secondary,
+        errorTrailingIconColor = secondary,
     )
 }
+
+/** How far a read-only, disabled or loading Floating shell moves from the tonal fill toward the surface. */
+private const val FloatingQuietFillFraction: Float = 0.5f
 
 @Composable
 private fun fieldSupportingText(messages: FieldMessages): (@Composable () -> Unit)? =
@@ -103,7 +144,10 @@ private fun fieldSupportingText(messages: FieldMessages): (@Composable () -> Uni
         }
     })
 
-/** Auth help remains readable outside the functional boundary and focus paint. */
+/**
+ * Auth and floating fields keep help outside the painted boundary, so the perimeter and fill wrap
+ * only the control. AuthTonal also puts its label outside; Floating keeps it inside the shell.
+ */
 @Composable
 private fun FieldFrame(
     modifier: Modifier,
@@ -115,13 +159,22 @@ private fun FieldFrame(
     if (variant == TextFieldVariant.Regular) {
         content(modifier)
     } else {
-        val supportGap = tokenDp("size.focusOffset") + tokenDp("size.focusWidth") + tokenDp("space.xs")
+        val supportGap = if (variant.isFloating()) tokenDp("space.xs")
+            else tokenDp("size.focusOffset") + tokenDp("size.focusWidth") + tokenDp("space.xs")
         Column(modifier, verticalArrangement = Arrangement.spacedBy(supportGap)) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
+            if (variant == TextFieldVariant.AuthTonal) Text(label, style = MaterialTheme.typography.labelLarge)
             content(Modifier)
             fieldSupportingText(messages)?.invoke()
         }
     }
+}
+
+@Composable
+private fun fieldShape(variant: TextFieldVariant): androidx.compose.ui.graphics.Shape = when (variant) {
+    TextFieldVariant.AuthTonal -> CantosShapes.authField
+    TextFieldVariant.Floating -> RoundedCornerShape(FloatingFieldRadius)
+    TextFieldVariant.FloatingSearch -> CantosShapes.full
+    TextFieldVariant.Regular -> CantosShapes.reading
 }
 
 @Composable
@@ -141,6 +194,7 @@ private fun ControlledTextField(
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
@@ -150,6 +204,7 @@ private fun ControlledTextField(
             onValueChange = { if (state.acceptsInput()) onValueChange(it) },
             modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
             label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
+            trailingIcon = trailing,
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,
@@ -159,9 +214,9 @@ private fun ControlledTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions.guardedBy(state),
             visualTransformation = visualTransformation,
-            shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
+            shape = fieldShape(variant),
             colors = fieldColors(state, variant),
-            supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
+            supportingText = if (variant == TextFieldVariant.Regular) fieldSupportingText(messages) else null,
         )
     }
 }
@@ -183,6 +238,7 @@ private fun ControlledTextField(
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
@@ -192,6 +248,7 @@ private fun ControlledTextField(
             onValueChange = { if (state.acceptsValueChange(value, it)) onValueChange(it) },
             modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
             label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
+            trailingIcon = trailing,
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,
@@ -201,14 +258,21 @@ private fun ControlledTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions.guardedBy(state),
             visualTransformation = visualTransformation,
-            shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
+            shape = fieldShape(variant),
             colors = fieldColors(state, variant),
-            supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
+            supportingText = if (variant == TextFieldVariant.Regular) fieldSupportingText(messages) else null,
         )
     }
 }
 
-/** Controlled raw text; the native field owns cursor/selection internally. */
+/**
+ * Controlled raw text; the native field owns cursor/selection internally.
+ *
+ * [trailing] is one optional action inside the shell (a password eye, a docked search submit): pass
+ * a real control with a localized name, such as [IconButton]. The field reserves its width, so text
+ * never runs under it, and owns no action, secret or visibility state. A trailing action keeps its
+ * own focus ring; the field's perimeter follows only the text node.
+ */
 @Composable
 fun TextField(
     label: String,
@@ -223,6 +287,7 @@ fun TextField(
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     ControlledTextField(
         label = label,
@@ -238,10 +303,14 @@ fun TextField(
         variant = variant,
         controlModifier = controlModifier,
         visualTransformation = visualTransformation,
+        trailing = trailing,
     )
 }
 
-/** Caller owns raw text, selection and IME composition; return the received value unchanged while composing. */
+/**
+ * Caller owns raw text, selection and IME composition; return the received value unchanged while composing.
+ * [trailing] has the same contract as the string overload and never changes composition or selection.
+ */
 @Composable
 fun TextField(
     label: String,
@@ -256,6 +325,7 @@ fun TextField(
     variant: TextFieldVariant = TextFieldVariant.Regular,
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     ControlledTextField(
         label = label,
@@ -271,6 +341,7 @@ fun TextField(
         variant = variant,
         controlModifier = controlModifier,
         visualTransformation = visualTransformation,
+        trailing = trailing,
     )
 }
 

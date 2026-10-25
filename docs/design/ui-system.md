@@ -46,7 +46,10 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 
 Dynamic system colors must not silently replace Cantos's identity. Shared values belong in the
 canonical source, with generated CSS/Rust/Kotlin, contrast checks and native theme mappings.
-Studio and Theatre vary density/layout, not palettes. The [foundation evidence](../evidence/ui-system-foundation.md)
+Studio and Theatre vary density/layout, not palettes, with one scoped exception: the opt-in
+[Theatre expression](../../packages/ui-system/shared/README.md#theatre-expression-v070) remaps
+standard roles for a Theatre subtree from the same source and never touches Studio. The
+[foundation evidence](../evidence/ui-system-foundation.md)
 separates source/compile checks from pending runtime appearance, motion and interaction review.
 
 Platform scope follows the [repository matrix](../architecture/repository-layout.md#platform-scope):
@@ -72,6 +75,13 @@ Use command labels such as “Generate selected dialogue” and “Publish episo
 ## Theatre: compact listening
 
 Discovery emphasizes cover art, title, genre, synopsis, duration, and episode availability. Avoid oversized banners, excessive gradients, and repeated nested cards. Episode lists must remain useful with long titles, missing covers, and no listening history.
+
+The owner's 2026-10-25 direction ([#452](https://github.com/loveoverflowcom/cantos/issues/452)) narrows
+that for Theatre only: a saturated lilac containment bounds the search area, deep-plum selection reads by
+check, tone and shape, a cream reading surface and peach/pink accents carry work cards and the primary
+action, and editorial headings are Noto Serif Bold. This changes hierarchy and color, not scope: there is
+still no gradient or moving hero, real results stay prominent below the containment, every text/indicator
+pair keeps its measured floor, and the opt-in expression is the only way a subtree receives it.
 
 - A compact mini-player preserves the current episode across navigation, with play/pause, title, position, and an entry to the full player.
 - The full player presents transport, seek, speed, sleep timer, bookmark, download, and episode context with accessible labels. Group secondary actions without hiding essential playback state.

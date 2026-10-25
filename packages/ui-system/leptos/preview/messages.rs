@@ -7,6 +7,13 @@
 use super::recipe::{Fixture, Locale, Recipe};
 
 pub mod tool {
+    pub const THEATRE_TITLE: &str = "Theatre expression · v0.7.0";
+    pub const THEATRE_INTRO: &str = "This subtree opts into Theatre expression; the rest of the gallery stays Standard. No app adopts it yet.";
+    pub const THEATRE_CONTROL_HELP: &str =
+        "The tonal theme action (48) and circular search action (52) use the same IconButton.";
+    pub fn theatre_submissions(count: u32, query: &str) -> String {
+        format!("Form submissions: {count} · query: {query}")
+    }
     pub const LANGUAGE_TAG: &str = "en";
     pub const GALLERY_TITLE: &str = "Component gallery";
     pub const GALLERY_INTRO: &str = "Try component states, long Vietnamese fixtures and keyboard input. Changes stay in this local preview.";
@@ -415,6 +422,47 @@ pub const fn fixture_label(recipe: Recipe) -> &'static str {
         (Locale::Vi, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt — Ánh đèn cuối sân khấu và lời hẹn dưới chân Thanh Vân Sơn. Ngày mai, mình có diễn tiếp không?",
         (Locale::En, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt — The last stage light and a promise beneath Thanh Vân Sơn. Shall we perform again tomorrow?",
     }
+}
+
+/// Fixed Vietnamese fixtures from the pinned Theatre boards, independent of recipe locale.
+/// Synthetic values only; these are not production translations.
+pub mod theatre_fixture {
+    pub const BRAND: &str = "Cantos";
+    pub const ACCOUNT: &str = "Tài khoản của bạn";
+    pub const EMAIL: &str = "Email";
+    pub const EMAIL_VALUE: &str = "ban@example.com";
+    pub const EMAIL_INVALID: &str = "ban@";
+    pub const EMAIL_ERROR: &str = "Kiểm tra địa chỉ email.";
+    pub const LONG_VALUE: &str = "Giữ nguyên nội dung dài có dấu: Ỗ, Ữ";
+    pub const LONG_LABEL: &str =
+        "Tên hiển thị của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện dài";
+    pub const UNAVAILABLE: &str = "Chưa thể chỉnh sửa.";
+    pub const LOADING: &str = "Đang nạp thông tin.";
+    pub const SENDING: &str = "Đang gửi, vui lòng chờ.";
+    pub const SIGN_IN: &str = "Đăng nhập";
+    pub const SIGN_UP: &str = "Tạo tài khoản";
+    pub const CONFIRM: &str = "Xác nhận";
+    pub const LONG_ACTION: &str = "Gửi liên kết xác minh cho Nguyễn Thị Ánh Nguyệt";
+    pub const SWITCH_LIGHT: &str = "Chuyển sang giao diện sáng";
+    pub const SWITCH_DARK: &str = "Chuyển sang giao diện tối";
+    pub const SEARCH: &str = "Tìm trong danh mục";
+    pub const ALL_TYPES: &str = "Tất cả loại";
+    pub const NOVEL: &str = "Tiểu thuyết";
+    pub const LONG_CHIP: &str = "Truyện huyền huyễn và lời kể dưới chân Thanh Vân Sơn";
+    pub const NO_CONTENT: &str = "Chưa có nội dung cho mục này.";
+    pub const PASSWORD_HELP: &str = "Giá trị chỉ nằm trong ô này; không ghi nhật ký, không lưu.";
+    pub const HIDE_PASSWORD: &str = "Ẩn mật khẩu";
+    pub const SHOW_PASSWORD: &str = "Hiện mật khẩu";
+    pub const NEW_PASSWORD: &str = "Mật khẩu mới";
+    pub const REPEAT_PASSWORD: &str = "Nhập lại mật khẩu";
+    pub const MISMATCH: &str = "Hai mật khẩu chưa giống nhau.";
+    pub const PASSWORD_VALUE: &str = "mật-khẩu-Ỗ";
+    pub const REPEAT_VALUE: &str = "mật-khẩu";
+    pub const LANGUAGE: &str = "Ngôn ngữ";
+    pub const VIETNAMESE: &str = "Tiếng Việt";
+    pub const ENGLISH: &str = "English";
+    pub const HERO_TITLE: &str = "Mở một miền tưởng tượng.";
+    pub const HERO_SUBTITLE: &str = "Tiểu thuyết, truyện kể và podcast cho mỗi ngày.";
 }
 
 #[cfg(test)]

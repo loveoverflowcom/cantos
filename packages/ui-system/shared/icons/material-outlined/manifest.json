@@ -147,6 +147,14 @@
     "content_copy": {
       "path": "src/content/content_copy/materialiconsoutlined/24px.svg",
       "sha256": "a978f7983cb6c8abffb09a1c71081ef2a038003114bccc7a06c1026198b17888"
+    },
+    "visibility": {
+      "path": "src/action/visibility/materialicons/24px.svg",
+      "sha256": "c95003a018f3776b3107d3a70057e18e7e1f1810bbcbadd32eebb04238c75bbf"
+    },
+    "visibility_off": {
+      "path": "src/action/visibility_off/materialicons/24px.svg",
+      "sha256": "e28996cb2ef8ad3377e4500d4714bb99462593d611a6f7b0c43d662dda9863b6"
     }
   }
 }
