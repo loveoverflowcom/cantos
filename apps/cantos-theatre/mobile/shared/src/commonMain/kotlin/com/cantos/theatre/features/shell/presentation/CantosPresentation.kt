@@ -1,13 +1,11 @@
 package com.cantos.theatre.features.shell.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +44,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -85,7 +86,6 @@ import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.MotionPreference
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
-import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 import com.cantos.ui.rememberCantosIconVector
 
@@ -275,10 +275,19 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
 
 @Composable
 private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, accountFocus: FocusRequester) {
-    Row(
+    BoxWithConstraints(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        val reflow = maxWidth < tokenDp("breakpoint.medium") && LocalDensity.current.fontScale > 1.3f
+        val actionsWidth = tokenDp("size.control") * 2
+        val brandWidth = if (reflow) maxWidth else (maxWidth - actionsWidth).coerceAtLeast(tokenDp("size.control"))
+        FlowRow(
+            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
+        ) {
+        // Keep the same two groups mounted as text grows; only their constraints change.
+        Row(Modifier.widthIn(max = brandWidth),
+            verticalAlignment = Alignment.CenterVertically) {
         if (canGoBack(state)) {
             IconButton(onClick = { dispatch(ShellEvent.Back) }, modifier = Modifier.size(tokenDp("size.control")).testTag("back")) {
                 Icon(
@@ -296,11 +305,23 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
                 else MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary,
         )
+        }
+        Row(if (reflow) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = { dispatch(ShellEvent.SetTheme(if (state.theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) },
+            modifier = Modifier.size(tokenDp("size.control")).testTag("theme-toggle"),
+        ) {
+            Icon(rememberCantosIconVector(if (state.theme == ShellTheme.Dark) "light_mode" else "dark_mode"),
+                copy.text(if (state.theme == ShellTheme.Dark) CopyKey.SwitchToLight else CopyKey.SwitchToDark))
+        }
         if (state.route != ShellRoute.Account) {
             IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
                 modifier = Modifier.size(tokenDp("size.control")).focusRequester(accountFocus).testTag("account")) {
                 Icon(rememberCantosIconVector("account_circle"), copy.text(CopyKey.Account))
             }
+        }
+        }
         }
     }
 }
@@ -314,22 +335,19 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
             modifier = Modifier.semantics { heading() })
         val point = continuingProgress(state).firstOrNull()
         if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
-        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }, modifier = Modifier.testTag("search")) {
-            Icon(rememberCantosIconVector("search"), null)
-            Text(copy.text(CopyKey.Search))
+        IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }, modifier = Modifier.size(tokenDp("size.control")).testTag("search")) {
+            Icon(rememberCantosIconVector("search"), copy.text(CopyKey.Search))
         }
     }
     Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
         modifier = Modifier.semantics { heading() })
     if (state.catalogMode == ShellCatalogMode.Ready && catalog.works.isNotEmpty()) {
-        WorkSummary(catalog.works.first(), state, copy, dispatch, Modifier, featured = true)
-        if (catalog.works.size > 1) {
-            SectionHeading(CopyKey.ExploreHeading, copy)
-            WorkShelf(catalog.works.drop(1), state, copy, dispatch)
-        }
+        WorkShelf(catalog.works, state, copy, dispatch)
         ListFooter(catalog.worksPhase, copy, dispatch)
     } else {
-        CatalogRecovery(if (state.catalogMode == ShellCatalogMode.Ready) ShellCatalogMode.Empty else state.catalogMode, copy, dispatch)
+        if (state.catalogMode == ShellCatalogMode.Ready && catalog.worksPhase != ShellListPhase.Complete) {
+            ListFooter(catalog.worksPhase, copy, dispatch, first = true)
+        } else CatalogRecovery(if (state.catalogMode == ShellCatalogMode.Ready) ShellCatalogMode.Empty else state.catalogMode, copy, dispatch, state.theme)
     }
 }
 
@@ -337,14 +355,11 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
 internal fun WorkShelf(works: List<ShellWork>, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = if (maxWidth >= tokenDp("breakpoint.medium")) 2 else 1
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            works.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                    row.forEach { work ->
-                        WorkSummary(work, state, copy, dispatch, Modifier.weight(1f))
-                    }
-                    if (row.size < columns) Spacer(Modifier.weight(1f))
-                }
+        val gap = tokenDp("space.md")
+        val cardWidth = (maxWidth - gap * (columns - 1)) / columns
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap)) {
+            works.forEach { work ->
+                key(work.id) { WorkSummary(work, state, copy, dispatch, Modifier.width(cardWidth)) }
             }
         }
     }
@@ -357,7 +372,6 @@ private fun WorkSummary(
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
     modifier: Modifier,
-    featured: Boolean = false,
 ) {
     Card(
         onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Work(work.id))) },
@@ -366,30 +380,21 @@ private fun WorkSummary(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
     ) {
-        if (featured) {
-            Box(Modifier.fillMaxWidth()) {
-                WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .background(tokenColor("color.playerSurface")).padding(tokenDp("space.inset"))) {
-                    Text(work.category, color = tokenColor("color.playerAccent"), style = MaterialTheme.typography.bodySmall)
-                    Text(work.title, style = MaterialTheme.typography.headlineSmall, color = tokenColor("color.onPlayerSurface"))
-                }
-            }
-        }
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            if (!featured) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-                    WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                        Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
-                        Text(work.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
+                WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                    Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                        Text(work.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+                            modifier = Modifier.weight(1f))
+                        Icon(rememberCantosIconVector("arrow_forward"), null)
                     }
+                    UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Text(work.description)
-            if (featured) UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(work.description, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
@@ -418,8 +423,9 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
         Text(copy.text(CopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
     }
     when {
-        state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch)
-        works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch)
+        state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch, state.theme, state.query)
+        works.isEmpty() && catalog.worksPhase != ShellListPhase.Complete -> ListFooter(catalog.worksPhase, copy, dispatch, first = true)
+        works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch, state.theme, state.query)
         else -> {
             WorkShelf(works, state, copy, dispatch)
             ListFooter(catalog.worksPhase, copy, dispatch)
@@ -439,28 +445,33 @@ internal fun SelectionUnavailable(copy: ShellCopy, dispatch: (ShellEvent) -> Uni
 }
 
 @Composable
-private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, theme: ShellTheme, query: String? = null) {
+    val filtered = !query.isNullOrBlank()
     val title = when (mode) {
         ShellCatalogMode.Ready -> CopyKey.Ready
         ShellCatalogMode.Loading -> CopyKey.Loading
-        ShellCatalogMode.Empty -> CopyKey.Empty
+        ShellCatalogMode.Empty -> if (filtered) CopyKey.Empty else CopyKey.CatalogEmpty
         ShellCatalogMode.Error -> CopyKey.Error
     }
     val message = when (mode) {
         ShellCatalogMode.Ready -> CopyKey.Ready
         ShellCatalogMode.Loading -> CopyKey.LoadingNote
-        ShellCatalogMode.Empty -> CopyKey.EmptyNote
+        ShellCatalogMode.Empty -> if (filtered) CopyKey.EmptyNote else CopyKey.CatalogEmptyNote
         ShellCatalogMode.Error -> CopyKey.ErrorNote
     }
     Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+        if (mode == ShellCatalogMode.Empty) TheatreEmptyArtwork(TheatreEmptyArtworkKind.Works, theme,
+            Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f).align(Alignment.CenterHorizontally).testTag("catalog-empty-artwork"))
         Text(copy.text(title), style = MaterialTheme.typography.titleLarge)
         Text(copy.text(message))
         if (mode == ShellCatalogMode.Error || mode == ShellCatalogMode.Loading) {
             Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) }, modifier = Modifier.testTag("retry")) { Text(copy.text(CopyKey.Retry)) }
-        } else {
-            TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")); dispatch(ShellEvent.Retry); dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) }) {
-                Text(copy.text(CopyKey.Discover))
+        } else if (filtered) {
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.testTag("catalog-clear-search")) {
+                Text(copy.text(CopyKey.SearchClear))
             }
+        } else Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) }, modifier = Modifier.testTag("catalog-empty-retry")) {
+            Text(copy.text(CopyKey.Retry))
         }
     }
 }
@@ -479,7 +490,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         ShellDetailPhase.Ready -> Unit
         ShellDetailPhase.Loading -> Text(copy.text(CopyKey.Loading), Modifier.testTag("work-loading")
             .semantics { liveRegion = LiveRegionMode.Polite })
-        ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch)
+            ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch, state.theme)
         ShellDetailPhase.NotFound -> {
             Column(Modifier.testTag("work-not-found").semantics { liveRegion = LiveRegionMode.Polite },
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -504,7 +515,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     if (work.episodes.isEmpty() && work.unitsPhase == ShellListPhase.Complete) {
         Text(copy.text(CopyKey.SelectionUnavailableNote))
     }
-    work.episodes.forEach { EpisodeSelection(it, state, copy, dispatch) }
+    work.episodes.forEach { episode -> key(episode.id) { EpisodeSelection(episode, state, copy, dispatch) } }
     ListFooter(work.unitsPhase, copy, dispatch, first = work.episodes.isEmpty())
 }
 

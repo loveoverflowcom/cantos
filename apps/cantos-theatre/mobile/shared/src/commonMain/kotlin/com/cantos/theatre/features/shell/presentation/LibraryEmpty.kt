@@ -2,11 +2,14 @@ package com.cantos.theatre.features.shell.presentation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +28,7 @@ import com.cantos.theatre.presentation.model.LibraryEmptyKind
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.rememberCantosIconVector
@@ -36,56 +40,58 @@ internal fun LibraryEmpty(
     kind: LibraryEmptyKind,
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
+    theme: ShellTheme,
     modifier: Modifier = Modifier,
     discover: Boolean = false,
     compact: Boolean = false,
+    illustrated: Boolean = false,
 ) {
     val hero = kind == LibraryEmptyKind.Library
     val foreground = if (hero) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    // Keep the reading measure when either the preview preference or the real OS enlarges text.
-    val stackSymbol = LocalDensity.current.fontScale > 1.3f
     Surface(
         modifier.fillMaxWidth(),
         color = if (hero) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.background,
         contentColor = foreground,
         shape = MaterialTheme.shapes.extraLarge,
     ) {
-        Column(
+        BoxWithConstraints(
             Modifier.padding(if (hero) tokenDp("space.section") else 0.dp),
-            verticalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
         ) {
-            if (stackSymbol) {
-                LibraryEmptySymbol(kind)
+            val wide = hero && maxWidth >= tokenDp("breakpoint.medium") && LocalDensity.current.fontScale <= 1.3f
+            if (wide) Row(
+                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TheatreEmptyArtwork(TheatreEmptyArtworkKind.Library, theme,
+                    Modifier.width(224.dp).aspectRatio(1.2f).testTag("library-empty-artwork"))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
+                    LibraryEmptyText(kind, copy, compact)
+                    if (discover) DiscoverEmptyAction(copy, dispatch)
+                }
+            } else Column(
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
+            ) {
+                if (hero || illustrated) TheatreEmptyArtwork(
+                    if (hero) TheatreEmptyArtworkKind.Library else TheatreEmptyArtworkKind.History,
+                    theme, Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f)
+                        .align(Alignment.CenterHorizontally).testTag(if (hero) "library-empty-artwork" else "history-empty-artwork"),
+                )
                 LibraryEmptyText(kind, copy, compact)
-            } else Row(
-                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
-                verticalAlignment = Alignment.Top,
-            ) {
-                LibraryEmptySymbol(kind)
-                LibraryEmptyText(kind, copy, compact, Modifier.weight(1f))
-            }
-            if (discover) Button(
-                onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) },
-                modifier = Modifier.heightIn(min = 48.dp).testTag("library-empty-discover"),
-                shape = CantosShapes.full,
-            ) {
-                Text(copy.text(CopyKey.Discover))
-                Icon(rememberCantosIconVector("arrow_forward"), null, Modifier.padding(start = tokenDp("space.sm")))
+                if (discover) DiscoverEmptyAction(copy, dispatch)
             }
         }
     }
 }
 
 @Composable
-private fun LibraryEmptySymbol(kind: LibraryEmptyKind) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+private fun DiscoverEmptyAction(copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+    Button(
+        onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) },
+        modifier = Modifier.heightIn(min = 48.dp).testTag("library-empty-discover"),
         shape = CantosShapes.full,
     ) {
-        // Adjacent localized text carries the meaning; the symbol is decorative.
-        Icon(rememberCantosIconVector(kind.icon), null,
-            Modifier.padding(tokenDp("space.inset")).size(tokenDp("size.icon")))
+        Icon(rememberCantosIconVector("arrow_forward"), null)
+        Text(copy.text(CopyKey.Discover), Modifier.padding(start = tokenDp("space.sm")))
     }
 }
 

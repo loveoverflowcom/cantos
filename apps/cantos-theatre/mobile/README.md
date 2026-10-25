@@ -13,6 +13,16 @@ they mount `CantosTheatreApp`; a refused override or packaging renders `CantosLi
 with a typed configuration diagnostic. They never fall back to a mock (#286, #298). Studio is web-only.
 See [what the application reads from where](#the-application-over-real-owners).
 
+Discovery uses compact keyed Work cards, with one title/arrow navigation action and a separate
+save action. Catalog completeness, filtered no-results and retained partial data remain distinct.
+The app-owned empty artwork uses the supplied transparent Library PNG and theme-paired
+Works/History XML through Compose resources; its provenance is bundled in
+`shared/src/commonMain/composeResources/files/theatre_empty_artwork_provenance.json`.
+The header theme action dispatches the existing preference intent, and Discovery opens the
+existing query-on-change Search route. These compositions retain the current Standard Material
+presentation. The v4 shared expression, official logo/avatar treatment and expressive control
+adoption await foundation admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
+
 **Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
 is a JVM-desktop-only module (one `desktop` target; no Android or iOS target, framework or source
 set, and no Android SDK or Kotlin/Native needed) for the Desktop Preview, its scenario workbench and

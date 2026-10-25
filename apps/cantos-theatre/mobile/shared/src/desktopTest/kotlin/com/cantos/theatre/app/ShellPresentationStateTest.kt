@@ -168,7 +168,8 @@ class ShellPresentationStateTest {
                     CantosPresentation(sampleState(), ShellCatalogView(), {})
                 }
             }
-            onNodeWithText("Chưa tìm thấy câu chuyện").assertExists()
+            onNodeWithText("Chưa có câu chuyện khả dụng").assertExists()
+            onNodeWithText("Chưa tìm thấy câu chuyện").assertDoesNotExist()
             onNodeWithTag("continue").assertDoesNotExist()
             onNodeWithTag("mini-open").assertDoesNotExist()
             onNodeWithTag("nav-discovery").assertExists()
