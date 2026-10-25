@@ -388,6 +388,9 @@ body { margin: 0; }
 :where(.cantos-ui[data-theme="dark"]) .theatre-logo-light { display: none; }
 :where(.cantos-ui[data-theme="dark"]) .theatre-logo-dark { display: block; }
 .theatre-brand .cui-logo { inline-size: 100%; max-inline-size: 10rem; block-size: auto; }
+.theatre-live-brand { display: flex; align-items: center; gap: var(--cantos-space-inset); min-block-size: var(--cantos-size-control); }
+.theatre-live-brand .cui-logo { flex: none; inline-size: var(--cantos-size-brand-mark); block-size: var(--cantos-size-brand-mark); object-fit: contain; }
+.theatre-live-brand-name { min-inline-size: 0; font-family: var(--cantos-type-family-ui); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-theatre-control-weight); line-height: var(--cantos-type-title-line-height); }
 .theatre-auth { max-inline-size: 70rem; margin-inline: auto; }
 .theatre-auth-top { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
 .theatre-auth-brand { inline-size: 9rem; min-block-size: var(--cantos-size-control); flex-shrink: 0; display: inline-flex; align-items: center; border-radius: var(--cantos-web-shape-control); }
@@ -431,40 +434,43 @@ body { margin: 0; }
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
 .theatre-discover-intro-copy { flex: 1 1 24rem; min-inline-size: 0; }
-.theatre-discover-intro h1 { margin-block-end: var(--cantos-space-sm); font-size: var(--cantos-type-auth-heading-size); line-height: var(--cantos-type-auth-heading-line-height); }
+.theatre-discover-intro h1 { margin-block-end: var(--cantos-space-sm); font-size: var(--cantos-type-auth-heading-size); font-weight: var(--cantos-type-theatre-heading-weight); line-height: var(--cantos-type-auth-heading-line-height); }
 .theatre-discover-intro p { max-inline-size: 60ch; margin-block-end: 0; }
 .theatre-discover-intro .theatre-eyebrow { margin-block-end: var(--cantos-space-xs); }
-.theatre-discover-feature { margin-block-end: var(--cantos-space-xl); background: var(--cantos-color-surface-container); }
-.theatre-discover-feature .theatre-feature-copy { padding: var(--cantos-space-lg) var(--cantos-space-xl); }
-.theatre-discover-feature h2 { margin-block: var(--cantos-space-xs) var(--cantos-space-sm); }
-.theatre-discover-feature-description { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .theatre-public-catalog > h2 { margin-block: 0 var(--cantos-space-md); }
 .theatre-public-work, .theatre-public-state { padding: var(--cantos-space-lg); }
-.theatre-public-work { position: relative; display: grid; align-content: start; gap: var(--cantos-space-md); padding: 0; overflow: hidden; }
-.theatre-public-work-body { display: grid; gap: var(--cantos-space-xs); padding: 0 var(--cantos-space-lg) var(--cantos-space-lg); min-inline-size: 0; }
+.theatre-public-work { position: relative; display: grid; grid-template-columns: minmax(3.5rem, 25%) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); padding: var(--cantos-space-md); min-inline-size: 0; }
+.theatre-public-work-body { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
 .theatre-public-work-body :where(h3, p) { margin: 0; }
 .theatre-public-work-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 /* Fallback cover: decoration plus the kind, in the same shape as a real cover would take. */
-.theatre-public-cover { min-block-size: 9rem; justify-content: space-between; padding: var(--cantos-space-md); border-radius: 0; }
+.theatre-public-cover { min-block-size: 7rem; justify-content: center; align-items: center; padding: var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); }
 .theatre-public-cover-glyph { display: inline-flex; inline-size: 2.5rem; block-size: 2.5rem; }
 .theatre-public-cover-glyph .theatre-icon { inline-size: 100%; block-size: 100%; }
 .theatre-public-cover small { padding: 0; }
-.theatre-discover-feature .theatre-public-cover { block-size: 100%; min-block-size: 12rem; }
-.theatre-public-skeleton { min-block-size: 15rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
+.theatre-public-skeleton { min-block-size: 11rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
 /* The title link is the card's one named target; its hit area covers the card. */
-.theatre-public-work-link { text-decoration: none; }
+.theatre-public-work-link { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cantos-space-sm); text-decoration: none; }
+.theatre-public-work-title { min-inline-size: 0; }
+.theatre-public-work-arrow { flex: none; display: inline-flex; }
+.theatre-public-work-arrow svg { transform: rotate(180deg); }
 .theatre-public-work-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .theatre-public-work-link:hover { text-decoration: underline; }
 .theatre-public-work:has(.theatre-public-work-link:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 /* Search: one labelled form, wrapped on a narrow screen, with a stable list region below. */
 .theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
-/* The button stays beside the field until large text or a narrow screen leaves no room for both.
-   It aligns to the control (the field's shell), never to the helper/error below it. */
-.theatre-public-search-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--cantos-space-md); max-inline-size: 40rem; }
-.theatre-public-search-main > .cui-field { flex: 1 1 13rem; min-inline-size: 0; }
-.theatre-public-search-main > .cui-button { min-block-size: var(--cantos-web-field-block-size); }
+/* Dedicated Theatre hero roles are an app composition, without remapping the shared root. */
+.theatre-discovery-search-hero { display: grid; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
+.theatre-discovery-search-hero .theatre-discover-intro { margin: 0; align-items: flex-start; }
+.theatre-discovery-search-hero :where(.theatre-muted, .theatre-eyebrow) { color: inherit; }
+/* The admitted Floating shell owns input and the existing visibly labelled Button together.
+   The trailing column reserves the button's actual width, including enlarged text. */
+.theatre-public-search-main, .theatre-public-search-main > .cui-field { min-inline-size: 0; inline-size: 100%; }
 .theatre-public-search-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); }
+@media (max-width: 43.75rem) {
+  .theatre-discovery-search-hero { padding: var(--cantos-space-lg); }
+}
 .theatre-public-status { margin-block: var(--cantos-space-md); }
 .theatre-public-work-count { margin-block-end: 0; font-size: var(--cantos-type-metadata-size); }
 .theatre-public-work h3, .theatre-public-work p { overflow-wrap: anywhere; }
@@ -497,21 +503,32 @@ body { margin: 0; }
 .theatre-auth-preview { margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }
 @media (max-width: 56.25rem) { .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr); } }
 
-/* Live Library composition; reuse canonical roles and the app's licensed icon registry.
-   The invitation symbol is three standard icons wide; section columns wrap at a reading measure. */
+/* App-owned decorative assets retain their original colors and proportions. Theme follows
+   the scoped app preference, including System; it never follows OS dark over an explicit Light. */
+.theatre-empty-artwork { inline-size: min(100%, 16rem); flex: 0 1 16rem; }
+.theatre-empty-artwork img { inline-size: 100%; block-size: auto; object-fit: contain; }
+.theatre-empty-artwork-light { display: block; }
+.theatre-empty-artwork-dark { display: none; }
+:where(.cantos-ui[data-theme="dark"]) .theatre-empty-artwork-light { display: none; }
+:where(.cantos-ui[data-theme="dark"]) .theatre-empty-artwork-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :where(.cantos-ui[data-theme="system"]) .theatre-empty-artwork-light { display: none; }
+  :where(.cantos-ui[data-theme="system"]) .theatre-empty-artwork-dark { display: block; }
+}
+.theatre-public-empty .theatre-empty-artwork { margin-block-end: var(--cantos-space-lg); }
+/* Live Library composition; one global illustration, with quiet completed-empty summaries. */
 .theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
 .theatre-library-tools p { margin: 0; }
 .theatre-library-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-lg); }
 .theatre-library-invitation > div:last-child { flex: 1 1 16rem; min-inline-size: 0; }
 .theatre-library-invitation h2 { margin-block-end: var(--cantos-space-sm); }
 .theatre-library-invitation p { max-inline-size: 55ch; }
-.theatre-library-illustration { display: grid; place-items: center; padding: var(--cantos-space-lg); border-radius: var(--cantos-shape-pill); background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
-.theatre-library-illustration .theatre-icon { inline-size: calc(var(--cantos-size-icon) * 3); block-size: calc(var(--cantos-size-icon) * 3); }
 .theatre-library-sections[data-empty="true"] { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cantos-space-lg); margin-block-start: var(--cantos-space-lg); }
 .theatre-library-sections[data-empty="true"] .theatre-library-section { margin-block: 0; }
 .theatre-library-sections[data-empty="true"] .theatre-section-heading { margin-block: 0 var(--cantos-space-md); }
 .theatre-library-feedback[data-empty="true"] { display: flex; align-items: flex-start; gap: var(--cantos-space-inset); }
 .theatre-library-feedback[data-empty="true"] > .theatre-icon { margin-block-start: var(--cantos-space-xs); color: var(--cantos-color-primary); }
+.theatre-library-feedback > .theatre-empty-artwork { inline-size: min(35%, 8rem); flex-basis: 8rem; }
 .theatre-library-feedback > div { min-inline-size: 0; }
 .theatre-library-feedback p { margin-block-end: var(--cantos-space-sm); }
 

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="200" viewBox="0 0 240 200" role="img" aria-labelledby="works-dark-title">
+  <title id="works-dark-title">Open book and quill</title>
+  <desc>Cantos original vector redraw inspired by user-supplied reference, 2026-10-25. Transparent background; static decorative illustration.</desc>
+  <path d="M30 91C23 65 47 34 87 32C119 28 137 44 161 36C193 28 212 49 209 81C205 117 174 146 131 159C91 171 45 153 34 128Z" fill="#372f3e"/>
+  <path d="M29 116C18 100 18 83 25 68M29 60L32 56M36 51L41 46M47 42L52 40M59 37L65 36M96 173L102 175M108 176L114 176M120 176L126 175M132 173L137 170" fill="none" stroke="#f1e9f2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 75L110 57L183 59L205 143L124 165L60 165Z" fill="#5a3239" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 68L111 52L180 53L199 138L123 158L57 158Z" fill="#2b4157" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M52 60C78 51 101 53 121 69L123 149C103 135 81 136 65 143Z" fill="#2b4157" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M121 69C137 46 158 40 182 44L194 128C162 126 144 135 123 149Z" fill="#2f4a3a" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M121 69L123 149M66 143C85 139 103 140 123 152C148 135 168 132 194 133" fill="none" stroke="#f1e9f2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M64 72L77 127M70 69L84 127" fill="none" stroke="#2c2631" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M139 109C139 82 156 34 213 23C191 46 191 66 174 80C162 91 150 96 139 109Z" fill="#4d3a5e" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M133 126C150 88 171 55 194 36" fill="none" stroke="#f1e9f2" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M150 86L150 65M162 67L164 49M176 49L178 38M153 81L172 77M165 61L183 56" fill="none" stroke="#f1e9f2" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M69 15Q70 23 78 24Q70 25 69 33Q68 25 60 24Q68 23 69 15Z" fill="#54432a" stroke="#f1e9f2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M180 158Q181 164 187 165Q181 166 180 172Q179 166 173 165Q179 164 180 158Z" fill="#54432a" stroke="#f1e9f2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39.6 31a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0Z" fill="#4d3a5e"/>
+  <path d="M207.6 112a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0 -4.8 0Z" fill="#4d3a5e"/>
+  <path d="M20.6 140a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0 -6.8 0Z" fill="#2c2631" stroke="#f1e9f2" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

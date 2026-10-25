@@ -67,6 +67,8 @@ class LibraryEmptyCaptureTest {
             setContent { PreviewTestRoot(TheatreRecipe.fixture(TheatreFixture.LibraryEmpty).initialSeed(false), onOwners = { owners = it }) }
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("library-empty-hero").fetchSemanticsNodes().isNotEmpty() }
             onAllNodesWithTag("library-empty-discover").assertCountEquals(1)
+            onAllNodesWithTag("library-empty-artwork").assertCountEquals(1)
+            onAllNodesWithTag("history-empty-artwork").assertCountEquals(0)
             onNodeWithTag("history-all").assertDoesNotExist()
             onNodeWithTag("library-empty-discover").performScrollTo().performClick()
             assertEquals(listOf(TheatreRoute.Discovery), owners.shell.navigation.value.stack)

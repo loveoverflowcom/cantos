@@ -13,6 +13,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -31,6 +33,7 @@ import com.cantos.theatre.ports.LocalePreferenceRead
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
 import com.cantos.theatre.adapters.preview.PreviewLocalePreferenceStore
 import com.cantos.theatre.adapters.preview.PreviewLoginMode
@@ -139,6 +142,28 @@ class PreviewShellFlowTest {
         onNodeWithTag("back").performClick()
         title("Tác phẩm")
         assertEquals(emptySet(), owners.projection().savedWorks)
+    }
+
+    @Test
+    fun the_card_save_is_a_separate_action_and_back_keeps_the_discovery_origin() = run { owners ->
+        untilTag("work-$sonHa")
+        onNodeWithTag("save-card-$sonHa").performScrollTo().performClick()
+        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login), owners.shell.navigation.value.stack)
+        onNodeWithTag("back").performClick()
+        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
+    }
+
+    @Test
+    fun header_theme_control_changes_the_existing_preference_without_changing_query_or_route() = run { owners ->
+        untilTag("work-$sonHa")
+        onNodeWithTag("search").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+        onNodeWithTag("search").performScrollTo().performClick()
+        onNodeWithTag("search-input").performTextReplacement("Đèn")
+        onNodeWithContentDescription("Chuyển sang giao diện tối").performClick()
+        assertEquals(ShellTheme.Dark, owners.projection().theme)
+        assertEquals("Đèn", owners.projection().query)
+        assertEquals(TheatreRoute.Search, owners.shell.navigation.value.route)
+        onNodeWithContentDescription("Chuyển sang giao diện sáng").assertExists()
     }
 
     @Test

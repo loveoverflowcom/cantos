@@ -1,5 +1,5 @@
 //! Web-owned Library composition over the full presented read model, separate from demo data.
-use super::super::common::icon;
+use super::super::common::{icon, EmptyArtwork, EmptyArtworkKind};
 use crate::contract::library::{
     AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
 };
@@ -72,8 +72,6 @@ fn availability(resume: ResumeStatus) -> Key {
     }
 }
 mod rows;
-
-const LIBRARY_ILLUSTRATION: &str = "library_books";
 
 fn row_count(projection: &LibraryProjection, section: Section) -> usize {
     match section {
@@ -287,8 +285,12 @@ fn LiveSection(
             </ul>
             <div id=status_id(section) tabindex="-1" role="status" aria-live="polite"
                 class="theatre-library-feedback" data-empty=move || chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty)).to_string()>
-                <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
-                    {icon(empty_icon(section))}
+                <Show when=move || !all_empty.get() && chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
+                    {if section == Section::History {
+                        view! { <EmptyArtwork kind=EmptyArtworkKind::History/> }.into_any()
+                    } else {
+                        icon(empty_icon(section)).into_any()
+                    }}
                 </Show>
                 <div>
                     <p>{move || chrome.with(|ui| status(ui.as_ref(), section, locale.get()))}</p>
@@ -363,7 +365,7 @@ pub(crate) fn LiveLibrary(
                 </Show>
                 <Show when=move || all_empty.get()>
                     <div class="theatre-panel theatre-library-invitation" aria-labelledby="theatre-library-empty-title">
-                        <div class="theatre-library-illustration">{icon(LIBRARY_ILLUSTRATION)}</div>
+                        <EmptyArtwork kind=EmptyArtworkKind::Library/>
                         <div>
                             <h2 id="theatre-library-empty-title">{move || messages::text(Key::LiveLibraryEmptyTitle, locale.get())}</h2>
                             <p class="theatre-muted">{move || messages::text(Key::LiveLibraryEmptyHelp, locale.get())}</p>

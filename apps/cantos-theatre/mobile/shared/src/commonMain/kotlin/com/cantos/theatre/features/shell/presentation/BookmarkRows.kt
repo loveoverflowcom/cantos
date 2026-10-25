@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,7 +36,9 @@ import com.cantos.ui.tokenDp
  */
 @Composable
 internal fun BookmarkRows(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
-    state.bookmarks.forEach { BookmarkRow(it, catalog, copy, dispatch, tag) }
+    state.bookmarks.forEach { bookmark ->
+        key(bookmark.id.ifEmpty { "${bookmark.episodeId}:${bookmark.positionMs}" }) { BookmarkRow(bookmark, catalog, copy, dispatch, tag) }
+    }
 }
 
 @Composable

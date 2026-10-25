@@ -9,6 +9,36 @@ use crate::{
 };
 use leptos::prelude::*;
 
+/// App-owned decorative artwork. These bundled design assets carry no catalog or release data.
+#[derive(Clone, Copy)]
+pub(crate) enum EmptyArtworkKind {
+    Library,
+    Works,
+    History,
+}
+
+#[component]
+pub(crate) fn EmptyArtwork(kind: EmptyArtworkKind) -> impl IntoView {
+    match kind {
+        EmptyArtworkKind::Library => view! {
+            <div class="theatre-empty-artwork" data-artwork="library" aria-hidden="true">
+                <img src="assets/empty/library-expressive.png" alt="" width="1374" height="1145" decoding="async"/>
+            </div>
+        }.into_any(),
+        EmptyArtworkKind::Works => paired_empty_artwork("works").into_any(),
+        EmptyArtworkKind::History => paired_empty_artwork("history").into_any(),
+    }
+}
+
+fn paired_empty_artwork(name: &'static str) -> impl IntoView {
+    view! {
+        <div class="theatre-empty-artwork theatre-empty-artwork-paired" data-artwork=name aria-hidden="true">
+            <img class="theatre-empty-artwork-light" src=format!("assets/empty/light/cantos-empty-{name}.svg") alt="" width="240" height="200" decoding="async"/>
+            <img class="theatre-empty-artwork-dark" src=format!("assets/empty/dark/cantos-empty-{name}.svg") alt="" width="240" height="200" decoding="async"/>
+        </div>
+    }
+}
+
 // Official licensed static markup, never user content. This is app chrome, not a shared API.
 pub(crate) fn icon(asset: &'static str) -> impl IntoView {
     let markup = match asset {

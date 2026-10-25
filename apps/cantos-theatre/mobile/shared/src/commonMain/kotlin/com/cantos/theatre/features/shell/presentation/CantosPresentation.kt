@@ -1,21 +1,21 @@
 package com.cantos.theatre.features.shell.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,13 +26,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +44,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +55,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.errors.ErrorAction
 import com.cantos.theatre.application.errors.ErrorNotice
@@ -82,12 +84,18 @@ import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
 import com.cantos.ui.LocalEditorialFontFamily
+import com.cantos.ui.Logo
+import com.cantos.ui.LogoTone
+import com.cantos.ui.LogoVariant
 import com.cantos.ui.MotionPreference
 import com.cantos.ui.Theme
+import com.cantos.ui.TextField
+import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.UiPreferences
-import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
+import com.cantos.ui.tokenColor
 import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.generated.CantosTokens
 
 /** Optional host-owned presentation additions; absent in an ordinary application mount. */
 typealias ShellNoticeContent = @Composable (ShellState, ShellCopy) -> Unit
@@ -275,10 +283,21 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
 
 @Composable
 private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, accountFocus: FocusRequester) {
-    Row(
+    val branded = state.route == ShellRoute.Discovery || state.route == ShellRoute.Search ||
+        state.route == ShellRoute.Library || state.route == ShellRoute.History
+    BoxWithConstraints(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        val reflow = maxWidth < tokenDp("breakpoint.medium") && LocalDensity.current.fontScale > 1.3f
+        val actionsWidth = tokenDp("size.control") * 2
+        val brandWidth = if (reflow) maxWidth else (maxWidth - actionsWidth).coerceAtLeast(tokenDp("size.control"))
+        FlowRow(
+            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
+        ) {
+        // Keep the same two groups mounted as text grows; only their constraints change.
+        Row(Modifier.widthIn(max = brandWidth).heightIn(min = tokenDp("size.control")),
+            verticalAlignment = Alignment.CenterVertically) {
         if (canGoBack(state)) {
             IconButton(onClick = { dispatch(ShellEvent.Back) }, modifier = Modifier.size(tokenDp("size.control")).testTag("back")) {
                 Icon(
@@ -287,49 +306,67 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
                 )
             }
         }
+        if (branded) {
+            Logo(LogoVariant.Symbol, Modifier.size(tokenDp("size.brandMark")).testTag("header-logo"),
+                tone = if (state.theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light)
+        }
         Text(
             copy.text(headerTitleKey(state.route)),
-            modifier = Modifier.weight(1f).padding(horizontal = tokenDp("space.sm"))
+            modifier = Modifier.weight(1f).padding(start = tokenDp(if (branded) "space.inset" else "space.sm"), end = tokenDp("space.sm"))
                 .then(if (state.route == ShellRoute.Account) Modifier.semantics { heading() } else Modifier)
                 .testTag("header-title"),
-            style = if (state.route == ShellRoute.Player) MaterialTheme.typography.labelLarge
+            style = if (branded) MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight(CantosTokens.number("type.theatreHeading.weight").toInt()))
+                else if (state.route == ShellRoute.Player) MaterialTheme.typography.labelLarge
                 else MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary,
         )
+        }
+        Row(if (reflow) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = { dispatch(ShellEvent.SetTheme(if (state.theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) },
+            modifier = Modifier.size(tokenDp("size.control")).testTag("theme-toggle"),
+        ) {
+            Icon(rememberCantosIconVector(if (state.theme == ShellTheme.Dark) "light_mode" else "dark_mode"),
+                copy.text(if (state.theme == ShellTheme.Dark) CopyKey.SwitchToLight else CopyKey.SwitchToDark))
+        }
         if (state.route != ShellRoute.Account) {
             IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
                 modifier = Modifier.size(tokenDp("size.control")).focusRequester(accountFocus).testTag("account")) {
                 Icon(rememberCantosIconVector("account_circle"), copy.text(CopyKey.Account))
             }
         }
+        }
+        }
     }
 }
 
 @Composable
 private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Text(copy.text(CopyKey.ContinuingHeading), color = MaterialTheme.colorScheme.tertiary,
-            style = MaterialTheme.typography.labelLarge)
-        Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.semantics { heading() })
-        val point = continuingProgress(state).firstOrNull()
-        if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
-        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }, modifier = Modifier.testTag("search")) {
-            Icon(rememberCantosIconVector("search"), null)
-            Text(copy.text(CopyKey.Search))
+    Surface(Modifier.fillMaxWidth().testTag("discovery-hero"),
+        color = tokenColor("color.theatreHero"), contentColor = tokenColor("color.theatreOnHero"),
+        shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.padding(tokenDp("space.section")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Text(copy.text(CopyKey.ContinuingHeading), style = MaterialTheme.typography.labelLarge)
+            Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight(CantosTokens.number("type.theatreHeading.weight").toInt())),
+                modifier = Modifier.semantics { heading() })
+            IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }, modifier = Modifier.size(tokenDp("size.control")).testTag("search")) {
+                Icon(rememberCantosIconVector("search"), copy.text(CopyKey.Search))
+            }
         }
     }
+    val point = continuingProgress(state).firstOrNull()
+    if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
     Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
         modifier = Modifier.semantics { heading() })
     if (state.catalogMode == ShellCatalogMode.Ready && catalog.works.isNotEmpty()) {
-        WorkSummary(catalog.works.first(), state, copy, dispatch, Modifier, featured = true)
-        if (catalog.works.size > 1) {
-            SectionHeading(CopyKey.ExploreHeading, copy)
-            WorkShelf(catalog.works.drop(1), state, copy, dispatch)
-        }
+        WorkShelf(catalog.works, state, copy, dispatch)
         ListFooter(catalog.worksPhase, copy, dispatch)
     } else {
-        CatalogRecovery(if (state.catalogMode == ShellCatalogMode.Ready) ShellCatalogMode.Empty else state.catalogMode, copy, dispatch)
+        if (state.catalogMode == ShellCatalogMode.Ready && catalog.worksPhase != ShellListPhase.Complete) {
+            ListFooter(catalog.worksPhase, copy, dispatch, first = true)
+        } else CatalogRecovery(if (state.catalogMode == ShellCatalogMode.Ready) ShellCatalogMode.Empty else state.catalogMode, copy, dispatch, state.theme)
     }
 }
 
@@ -337,14 +374,11 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
 internal fun WorkShelf(works: List<ShellWork>, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = if (maxWidth >= tokenDp("breakpoint.medium")) 2 else 1
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            works.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                    row.forEach { work ->
-                        WorkSummary(work, state, copy, dispatch, Modifier.weight(1f))
-                    }
-                    if (row.size < columns) Spacer(Modifier.weight(1f))
-                }
+        val gap = tokenDp("space.md")
+        val cardWidth = (maxWidth - gap * (columns - 1)) / columns
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap)) {
+            works.forEach { work ->
+                key(work.id) { WorkSummary(work, state, copy, dispatch, Modifier.width(cardWidth)) }
             }
         }
     }
@@ -357,7 +391,6 @@ private fun WorkSummary(
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
     modifier: Modifier,
-    featured: Boolean = false,
 ) {
     Card(
         onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Work(work.id))) },
@@ -366,30 +399,21 @@ private fun WorkSummary(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
     ) {
-        if (featured) {
-            Box(Modifier.fillMaxWidth()) {
-                WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .background(tokenColor("color.playerSurface")).padding(tokenDp("space.inset"))) {
-                    Text(work.category, color = tokenColor("color.playerAccent"), style = MaterialTheme.typography.bodySmall)
-                    Text(work.title, style = MaterialTheme.typography.headlineSmall, color = tokenColor("color.onPlayerSurface"))
-                }
-            }
-        }
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            if (!featured) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-                    WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                        Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
-                        Text(work.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
+                WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                    Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                        Text(work.title, style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+                            modifier = Modifier.weight(1f))
+                        Icon(rememberCantosIconVector("arrow_forward"), null)
                     }
+                    UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Text(work.description)
-            if (featured) UnitCount(work, copy, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(work.description, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
@@ -397,29 +421,34 @@ private fun WorkSummary(
 
 @Composable
 private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
-    Text(copy.text(CopyKey.Search), style = MaterialTheme.typography.headlineSmall,
-        modifier = Modifier.semantics { heading() })
-    OutlinedTextField(
-        shape = MaterialTheme.shapes.medium,
-        value = state.query, onValueChange = { dispatch(ShellEvent.Search(it)) },
-        modifier = Modifier.fillMaxWidth().testTag("search-input"),
-        label = { Text(copy.text(CopyKey.SearchLabel)) },
-        placeholder = { Text(copy.text(CopyKey.SearchHint)) },
-        leadingIcon = { Icon(rememberCantosIconVector("search"), null) },
-        trailingIcon = {
-            if (state.query.isNotEmpty()) IconButton(onClick = { dispatch(ShellEvent.Search("")) }) {
-                Icon(rememberCantosIconVector("close"), copy.text(CopyKey.SearchClear))
-            }
-        },
-    )
+    Surface(Modifier.fillMaxWidth().testTag("search-hero"),
+        color = tokenColor("color.theatreHero"), contentColor = tokenColor("color.theatreOnHero"),
+        shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.padding(tokenDp("space.section")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+            Text(copy.text(CopyKey.Search), style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight(CantosTokens.number("type.theatreHeading.weight").toInt())),
+                modifier = Modifier.semantics { heading() })
+            TextField(
+                label = copy.text(CopyKey.SearchLabel), value = state.query, onValueChange = { dispatch(ShellEvent.Search(it)) },
+                modifier = Modifier.fillMaxWidth(), controlModifier = Modifier.testTag("search-input"),
+                variant = TextFieldVariant.FloatingSearch,
+                trailing = {
+                    if (state.query.isNotEmpty()) IconButton(onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.size(tokenDp("size.control"))) {
+                        Icon(rememberCantosIconVector("close"), copy.text(CopyKey.SearchClear))
+                    }
+                },
+            )
+        }
+    }
     val works = filteredWorks(state, catalog)
     // A partial list has no honest total: the count is shown only once the list is complete.
     if (catalog.worksPhase == ShellListPhase.Complete) {
         Text(copy.text(CopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
     }
     when {
-        state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch)
-        works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch)
+        state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch, state.theme, state.query)
+        works.isEmpty() && catalog.worksPhase != ShellListPhase.Complete -> ListFooter(catalog.worksPhase, copy, dispatch, first = true)
+        works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch, state.theme, state.query)
         else -> {
             WorkShelf(works, state, copy, dispatch)
             ListFooter(catalog.worksPhase, copy, dispatch)
@@ -439,28 +468,33 @@ internal fun SelectionUnavailable(copy: ShellCopy, dispatch: (ShellEvent) -> Uni
 }
 
 @Composable
-private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, theme: ShellTheme, query: String? = null) {
+    val filtered = !query.isNullOrBlank()
     val title = when (mode) {
         ShellCatalogMode.Ready -> CopyKey.Ready
         ShellCatalogMode.Loading -> CopyKey.Loading
-        ShellCatalogMode.Empty -> CopyKey.Empty
+        ShellCatalogMode.Empty -> if (filtered) CopyKey.Empty else CopyKey.CatalogEmpty
         ShellCatalogMode.Error -> CopyKey.Error
     }
     val message = when (mode) {
         ShellCatalogMode.Ready -> CopyKey.Ready
         ShellCatalogMode.Loading -> CopyKey.LoadingNote
-        ShellCatalogMode.Empty -> CopyKey.EmptyNote
+        ShellCatalogMode.Empty -> if (filtered) CopyKey.EmptyNote else CopyKey.CatalogEmptyNote
         ShellCatalogMode.Error -> CopyKey.ErrorNote
     }
     Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+        if (mode == ShellCatalogMode.Empty) TheatreEmptyArtwork(TheatreEmptyArtworkKind.Works, theme,
+            Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f).align(Alignment.CenterHorizontally).testTag("catalog-empty-artwork"))
         Text(copy.text(title), style = MaterialTheme.typography.titleLarge)
         Text(copy.text(message))
         if (mode == ShellCatalogMode.Error || mode == ShellCatalogMode.Loading) {
             Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) }, modifier = Modifier.testTag("retry")) { Text(copy.text(CopyKey.Retry)) }
-        } else {
-            TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")); dispatch(ShellEvent.Retry); dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) }) {
-                Text(copy.text(CopyKey.Discover))
+        } else if (filtered) {
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.testTag("catalog-clear-search")) {
+                Text(copy.text(CopyKey.SearchClear))
             }
+        } else Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) }, modifier = Modifier.testTag("catalog-empty-retry")) {
+            Text(copy.text(CopyKey.Retry))
         }
     }
 }
@@ -479,7 +513,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         ShellDetailPhase.Ready -> Unit
         ShellDetailPhase.Loading -> Text(copy.text(CopyKey.Loading), Modifier.testTag("work-loading")
             .semantics { liveRegion = LiveRegionMode.Polite })
-        ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch)
+            ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch, state.theme)
         ShellDetailPhase.NotFound -> {
             Column(Modifier.testTag("work-not-found").semantics { liveRegion = LiveRegionMode.Polite },
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -504,7 +538,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     if (work.episodes.isEmpty() && work.unitsPhase == ShellListPhase.Complete) {
         Text(copy.text(CopyKey.SelectionUnavailableNote))
     }
-    work.episodes.forEach { EpisodeSelection(it, state, copy, dispatch) }
+    work.episodes.forEach { episode -> key(episode.id) { EpisodeSelection(episode, state, copy, dispatch) } }
     ListFooter(work.unitsPhase, copy, dispatch, first = work.episodes.isEmpty())
 }
 

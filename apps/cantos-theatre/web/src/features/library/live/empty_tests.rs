@@ -50,7 +50,7 @@ fn render(state: AccountViewState, locale: Locale) -> String {
 }
 
 #[test]
-fn terminal_empty_library_has_one_discover_path_contextual_icons_and_one_refresh() {
+fn terminal_empty_library_has_one_expressive_illustration_quiet_summaries_and_one_refresh() {
     for locale in Locale::ALL {
         let html = render(ready_empty(), locale);
         assert_eq!(html.matches("href=\"#discover\"").count(), 1);
@@ -70,8 +70,14 @@ fn terminal_empty_library_has_one_discover_path_contextual_icons_and_one_refresh
                 tag.contains("theatre-icon").then_some(tag)
             })
             .collect::<Vec<_>>();
-        assert_eq!(icons.len(), 4);
-        assert!(icons.iter().all(|tag| tag.contains("aria-hidden=\"true\"")));
+        assert!(
+            icons.is_empty(),
+            "global emptiness keeps section summaries quiet"
+        );
+        assert_eq!(html.matches("data-artwork=\"library\"").count(), 1);
+        assert_eq!(html.matches("<img ").count(), 1);
+        assert!(html.contains("assets/empty/library-expressive.png"));
+        assert!(!html.contains("data-artwork=\"history\""));
     }
 }
 
@@ -96,6 +102,32 @@ fn empty_is_section_local_while_rows_and_failures_keep_their_meaning() {
     assert!(html.contains("theatre-library-history-retry"));
     assert!(!html.contains("No listening history in this account yet."));
     assert_eq!(html.matches("href=\"#discover\"").count(), 1);
+}
+
+#[test]
+fn contextual_history_art_requires_its_own_completed_read_and_keeps_other_rows() {
+    let mut state = super::tests::signed_in();
+    let continuing = state.begin_library(Section::Continue, false).unwrap();
+    state.finish_page(&continuing, crate::live::library::decode_page(Section::Continue,
+        include_bytes!("../../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_continue.json"))).unwrap();
+    let history = state.begin_library(Section::History, true).unwrap();
+    assert!(!render(state.clone(), Locale::English).contains("data-artwork=\"history\""));
+    state
+        .finish_page(&history, Err(AccountFailure::Unavailable))
+        .unwrap();
+    assert!(!render(state.clone(), Locale::English).contains("data-artwork=\"history\""));
+    let retry = state.begin_library(Section::History, true).unwrap();
+    state
+        .finish_page(&retry, Ok(empty_page(Section::History, false)))
+        .unwrap();
+    for locale in Locale::ALL {
+        let html = render(state.clone(), locale);
+        assert!(html.contains("Ánh đèn cuối sân khấu"));
+        assert_eq!(html.matches("data-artwork=\"history\"").count(), 1);
+        assert!(html.contains("assets/empty/light/cantos-empty-history.svg"));
+        assert!(html.contains("assets/empty/dark/cantos-empty-history.svg"));
+        assert!(!html.contains("library-expressive.png"));
+    }
 }
 
 #[test]

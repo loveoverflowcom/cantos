@@ -1,0 +1,42 @@
+{
+  "source_folder": "https://drive.google.com/drive/folders/1CT8-icdYTGtCJQCNzb3jP3AwCxMnLFZW",
+  "source_package": "https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view",
+  "revision": "owner-feedback-2-bold-symmetry-density",
+  "assets": [
+    {
+      "path": "source/assets/dark/cantos-empty-history.svg",
+      "bytes": 4717,
+      "sha256": "d968ba6d942ac25ae10c16070a0f22ee425d1eac7982568a34c5567038259ed5",
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original",
+      "packaged_path": "dark/cantos-empty-history.svg"
+    },
+    {
+      "path": "source/assets/dark/cantos-empty-works.svg",
+      "bytes": 2897,
+      "sha256": "8d239077d729f6916fa4188c767632b59f212cb37b82e269253e957f13e7e485",
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original",
+      "packaged_path": "dark/cantos-empty-works.svg"
+    },
+    {
+      "path": "source/assets/library-expressive.png",
+      "bytes": 897322,
+      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector",
+      "packaged_path": "library-expressive.png"
+    },
+    {
+      "path": "source/assets/light/cantos-empty-history.svg",
+      "bytes": 4719,
+      "sha256": "b95aeb92c33e6eee439dab2127440712a61ad08efa9c0480016d43a48d09bf84",
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original",
+      "packaged_path": "light/cantos-empty-history.svg"
+    },
+    {
+      "path": "source/assets/light/cantos-empty-works.svg",
+      "bytes": 2899,
+      "sha256": "1c13660f0c791e8ae52da9ac6dfe837500c0d18cdcf60f5fa5fbdfe42606ad55",
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original",
+      "packaged_path": "light/cantos-empty-works.svg"
+    }
+  ]
+}

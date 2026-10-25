@@ -1,0 +1,42 @@
+{
+  "design_revision": "owner-feedback-2-bold-symmetry-density",
+  "drive_source": "https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view",
+  "assets": [
+    {
+      "resource": "drawable/library_expressive.png",
+      "source": "source/assets/library-expressive.png",
+      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "bytes": 897322,
+      "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector"
+    },
+    {
+      "resource": "drawable/cantos_empty_works_light.xml",
+      "source": "source/assets/light/cantos_empty_works.xml",
+      "sha256": "4ce8553f43595fdec8c69cb60c093a0a1087a14ea1cc6a287d5502e9e5516de1",
+      "bytes": 3772,
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
+    },
+    {
+      "resource": "drawable/cantos_empty_history_light.xml",
+      "source": "source/assets/light/cantos_empty_history.xml",
+      "sha256": "16ea1e57cd940bb4b329ce29aec1adaad4b9541fa39a39af97d50a266cad9a35",
+      "bytes": 6575,
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
+    },
+    {
+      "resource": "drawable/cantos_empty_works_dark.xml",
+      "source": "source/assets/dark/cantos_empty_works.xml",
+      "sha256": "2fc4a9c0d07327020204fdaaa70e4479d9c54e348d7dc130bd2efba2896cde1a",
+      "bytes": 3772,
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
+    },
+    {
+      "resource": "drawable/cantos_empty_history_dark.xml",
+      "source": "source/assets/dark/cantos_empty_history.xml",
+      "sha256": "719ef97e0d39d39bbb0b151d2791e2a966b13fca28ed993a75672cfaa851e204",
+      "bytes": 6575,
+      "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
+    }
+  ],
+  "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. PNG is transparent raster; XML native rendering must be observed separately."
+}

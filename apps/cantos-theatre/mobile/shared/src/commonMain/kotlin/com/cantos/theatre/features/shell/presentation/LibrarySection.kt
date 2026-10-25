@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,16 +58,16 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     val allEmpty = isLibraryCompletelyEmpty(state, catalog.library, capabilities)
     val discoverSection = if (allEmpty) null else listOf(ShellLibrarySection.Continue, ShellLibrarySection.Saved,
         ShellLibrarySection.Bookmarks, ShellLibrarySection.History).firstOrNull { it in empty }
-    if (allEmpty) LibraryEmpty(LibraryEmptyKind.Library, copy, dispatch, Modifier.testTag("library-empty-hero"), discover = true)
+    if (allEmpty) LibraryEmpty(LibraryEmptyKind.Library, copy, dispatch, state.theme, Modifier.testTag("library-empty-hero"), discover = true)
     Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         if (!allEmpty) SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
         val phase = catalog.library.continuing
         if (ShellLibrarySection.Continue in empty) LibraryEmpty(
-            LibraryEmptyKind.Continue, copy, dispatch, Modifier.testTag("library-continue-empty"),
+            LibraryEmptyKind.Continue, copy, dispatch, state.theme, Modifier.testTag("library-continue-empty"),
             discover = discoverSection == ShellLibrarySection.Continue, compact = allEmpty,
         )
-        points.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = false, tag = "resume-${it.episodeId}") }
+        points.forEach { point -> key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "resume-${point.episodeId}") } }
         LibraryFooter(phase, ShellLibrarySection.Continue, "library-continue", copy, dispatch)
     }
     Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -75,13 +76,13 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         val works = state.savedWorks.mapNotNull { catalog.work(it) }
         val phase = catalog.library.saved
         if (ShellLibrarySection.Saved in empty) LibraryEmpty(
-            LibraryEmptyKind.Saved, copy, dispatch, Modifier.testTag("library-saved-empty"),
+            LibraryEmptyKind.Saved, copy, dispatch, state.theme, Modifier.testTag("library-saved-empty"),
             discover = discoverSection == ShellLibrarySection.Saved, compact = allEmpty,
         )
         else {
             val (bare, described) = works.partition { it.unavailable }
             if (described.isNotEmpty()) WorkShelf(described, state, copy, dispatch)
-            bare.forEach { UndescribedSaved(it, state, copy, dispatch) }
+            bare.forEach { work -> key(work.id) { UndescribedSaved(work, state, copy, dispatch) } }
         }
         if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
         LibraryFooter(phase, ShellLibrarySection.Saved, "library-saved", copy, dispatch)
@@ -94,7 +95,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
             Text(copy.text(CopyKey.BookmarksUnavailable), Modifier.testTag("library-bookmarks-unavailable"))
         }
         else {
-            if (ShellLibrarySection.Bookmarks in empty) LibraryEmpty(LibraryEmptyKind.Bookmarks, copy, dispatch,
+            if (ShellLibrarySection.Bookmarks in empty) LibraryEmpty(LibraryEmptyKind.Bookmarks, copy, dispatch, state.theme,
                 Modifier.testTag("library-bookmarks-empty"), discover = discoverSection == ShellLibrarySection.Bookmarks, compact = allEmpty)
             BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
             LibraryFooter(phase, ShellLibrarySection.Bookmarks, "library-bookmarks", copy, dispatch)
@@ -107,10 +108,10 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
             onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
         }
-        if (ShellLibrarySection.History in empty) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch,
+        if (ShellLibrarySection.History in empty) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, state.theme,
             Modifier.testTag("library-history-empty"), discover = discoverSection == ShellLibrarySection.History, compact = allEmpty)
-        state.history.take(3).forEach {
-            ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "recent-${it.episodeId}")
+        state.history.take(3).forEach { point ->
+            key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = true, tag = "recent-${point.episodeId}") }
         }
         // Only the full History list pages; here a read in flight or a failure is still shown honestly.
         if (phase == ShellLibraryPhase.Loading || phase == ShellLibraryPhase.Failed || phase == ShellLibraryPhase.Stale) {
@@ -190,11 +191,12 @@ internal fun HistoryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     Text(copy.text(CopyKey.HistoryHelp))
     val phase = catalog.library.history
     if (state.history.isEmpty()) {
-        if (phase == ShellLibraryPhase.Complete) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, Modifier.testTag("history-empty"), discover = true)
+        if (phase == ShellLibraryPhase.Complete) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, state.theme,
+            Modifier.testTag("history-empty"), discover = true, illustrated = true)
     }
     else {
         TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
-        state.history.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "history-${it.episodeId}") }
+        state.history.forEach { point -> key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = true, tag = "history-${point.episodeId}") } }
     }
     LibraryFooter(phase, ShellLibrarySection.History, "history", copy, dispatch)
     if (confirming) AlertDialog(

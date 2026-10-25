@@ -66,12 +66,31 @@ logged, persisted or fetched into a `Blob`.
 
 ## Discover layout
 
-Discover follows the Home anatomy of the design ([#282](https://github.com/loveoverflowcom/cantos/issues/282),
-[record and gaps](../../../docs/evidence/theatre-web-discover-parity.md)): intro, a hero for the
-first Work of the answered search, then the search/filters and a grid of Work cards. The hero
-and cards use a neutral cover fallback because the public contract carries no cover, and the
-hero's eyebrow never claims an editorial pick. Each card shows the Work's own language. The
-design reference was not re-rendered for this change.
+Discover keeps the intro and search/filters, then presents every returned Work in one keyed,
+compact card grid ([#453](https://github.com/loveoverflowcom/cantos/issues/453)). The first result
+uses the same card and stable focus ID as later results. Title and decorative arrow share a row;
+the named title link covers the card without introducing a second focus target. Descriptions,
+released language and public unit counts remain visible facts from the same response. Cards grow
+with long text and use the existing neutral cover fallback; design sample covers are not public
+catalog content. Completed-empty catalog and filtered no-results remain distinct, with bundled
+decorative works artwork and existing recovery actions, never Discover-to-Discover navigation.
+
+The intro and existing Floating search share a bounded, app-owned hero using the canonical
+`theatreHero`/`theatreOnHero` and bold Theatre heading roles. The existing visibly labelled Search
+Button is docked in the admitted field's trailing slot; submit, IME, history and Clear still have
+one owner. Filters remain outside that hero, before results. The live brand uses the admitted
+official Symbol at the canonical 44-unit mark size with a 12-unit gap before Cantos. Its one
+link retains paired decorative tones and existing navigation.
+
+The [app-owned empty artwork](assets/empty/README.md) is packaged from the actual v4 handoff,
+with unchanged source hashes and no runtime Drive access. This bounded adoption consumes the
+[qualified component scopes](../../../docs/evidence/ui-qualification-459-final.md). It does not
+activate the shared root's Theatre expression or duplicate that role remap in app CSS. Icon-only
+search/theme controls, shared Avatar and FilterChip still need their own two-renderer admission;
+those APIs were excluded from #459. Source packaging and host-render tests do not establish
+browser, device, screen-reader or full v4 design acceptance.
+The [earlier #282 record](../../../docs/evidence/theatre-web-discover-parity.md) retains its
+historical hero-layout evidence and does not qualify this changed grid.
 
 ## Scope and honest behavior
 
@@ -115,12 +134,14 @@ Logout, expiry and session change hide all private lists before new admission; l
 fenced by account/session and page generation. Reading/rendering/navigating never writes progress,
 Saved or history and never starts media.
 
-A terminal empty section (`Ready`, no rows, no next cursor) uses its existing Theatre Outlined
-icon and contextual guidance. When all three sections are terminally empty, one invitation
-links to Discover and the section explanations form a compact responsive group. Partial empty
-sections keep their own Discover link. An empty page with a cursor still offers Load more;
-loading, errors and retained rows never become empty success. The shared `EmptyState` remains
-unchanged: its fixed book glyph is not a contextual Library contract. Page-wide refresh keeps
+A terminal empty section (`Ready`, no rows, no next cursor) keeps contextual guidance. Outside a
+global invitation, Continue/Saved use their existing Theatre Outlined icon and History uses the
+supplied light/dark artwork pair. When all three sections are terminally empty, one expressive
+transparent Library PNG and invitation link to Discover; the three section explanations remain
+quiet summaries without repeated illustrations. Partial empty sections keep their own Discover
+link. An empty page with a cursor still offers Load more; loading, errors and retained rows never
+become empty success. The shared `EmptyState` remains unchanged; artwork composition is app-owned.
+Page-wide refresh keeps
 focus by retaining a native focusable trigger with `aria-disabled`/`aria-busy` and an associated
 pending status. Its current-state intent guard rejects repeats; no completion effect restores or
 steals focus moved by the listener. Section retries/paging keep the existing status focus target.
@@ -481,6 +502,8 @@ restore it; an answered search is kept with its rows and cursor, another search 
 walk and fences the old response. Invalid input (over 512 bytes, control characters) is shown
 inline and sends nothing. Guests get one cluster beside the intro: **Tạo tài khoản** (filled) and
 **Đăng nhập** (tonal).
+Clearing the applied query removes its Clear action; if that removal loses focus, the still-mounted
+search input receives it after rendering. A disposed search or focus moved elsewhere is left alone.
 
 **Pagination.** The cursor is opaque and only form-encoded; it is bound to its search, so
 changing the search drops it. **Tải thêm tác phẩm** keeps the rows when a later page fails and
