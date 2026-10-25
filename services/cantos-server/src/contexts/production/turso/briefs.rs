@@ -140,12 +140,14 @@ pub(in crate::contexts::production) struct GrantRow {
     pub request_digest: String,
 }
 const GRANT_SELECT:&str="SELECT g.*,b.snapshot FROM production_producer_grants g JOIN production_briefs b ON b.id=g.brief_id";
+/// `column` becomes SQL syntax, so it is a `'static` literal of this module, never a runtime
+/// string; the looked-up value is always the bound `?1`.
 async fn grant_query(
     tx: &Tx<'_>,
-    predicate: &str,
+    column: &'static str,
     value: &(dyn crate::platform::store::Param + Sync),
 ) -> Result<Option<GrantRow>, StoreError> {
-    let query = format!("{GRANT_SELECT} WHERE {predicate}=?1");
+    let query = format!("{GRANT_SELECT} WHERE {column}=?1");
     let Some(row) = tx.query_opt(&query, &[value]).await? else {
         return Ok(None);
     };

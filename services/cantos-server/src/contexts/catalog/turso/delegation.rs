@@ -56,9 +56,11 @@ fn decode(row: &Row) -> Result<GrantRecord, StoreError> {
     })
 }
 
+/// `predicate` becomes SQL syntax, so it is a `'static` literal of this module, never a runtime
+/// string; its `?N` placeholders and `params` sit side by side at each caller.
 async fn one(
     tx: &Tx<'_>,
-    predicate: &str,
+    predicate: &'static str,
     params: &[&(dyn crate::platform::store::Param + Sync)],
 ) -> Result<Option<GrantRecord>, StoreError> {
     tx.query_opt(&format!("{SELECT} WHERE {predicate}"), params)
