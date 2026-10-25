@@ -198,6 +198,14 @@ impl Gate {
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
             Gate::RepositoryStatic { .. } => "repository-static".into(),
+            Gate::Behavior {
+                capability: Some(id),
+                conformance,
+                ..
+            } => format!(
+                "{kind} ({id}{})",
+                if *conformance { ", conformance" } else { "" }
+            ),
             _ => kind,
         }
     }

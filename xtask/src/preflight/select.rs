@@ -19,7 +19,10 @@ use crate::{
     gate::{self, Gate, Scope},
 };
 
-use super::graph::PackageGraph;
+use super::{
+    behavior_index::{BehaviorIndex, BehaviorPlan},
+    graph::PackageGraph,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
@@ -92,12 +95,22 @@ pub fn within(path: &str, dir: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
+#[cfg(test)]
 pub fn select_with_kani(
     changed: Option<&[String]>,
     graph: &PackageGraph,
     enabled: bool,
 ) -> Selection {
-    let mut selection = select(changed, graph);
+    select_with_kani_indexed(changed, graph, enabled, None)
+}
+
+pub fn select_with_kani_indexed(
+    changed: Option<&[String]>,
+    graph: &PackageGraph,
+    enabled: bool,
+    index: Option<&BehaviorIndex>,
+) -> Selection {
+    let mut selection = select_indexed(changed, graph, index);
     if enabled {
         let kernels = crate::kani::affected(changed, selection.broadened.is_some());
         if kernels.is_empty() {
@@ -111,20 +124,36 @@ pub fn select_with_kani(
     selection
 }
 
+#[cfg(test)]
 pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
+    select_indexed(changed, graph, None)
+}
+
+/// Selection with the registry's reverse dependency index. Without it (`None`) every registered
+/// behavior input still selects the unscoped Behavior gate, as before the federated registry.
+pub fn select_indexed(
+    changed: Option<&[String]>,
+    graph: &PackageGraph,
+    index: Option<&BehaviorIndex>,
+) -> Selection {
     let paths = match changed {
         None => return full("changed-only mode was not requested"),
         Some([]) => return full("no changed paths, so impact is unknown"),
         Some(paths) => paths,
     };
-    let conformance_changed = paths.iter().any(|path| conformance_input(path));
-    let behavior_changed = conformance_changed || paths.iter().any(|path| behavior_input(path));
+    let plan = index.map(|index| behavior_plan(paths, index));
+    let conformance_changed = index.is_none() && paths.iter().any(|path| conformance_input(path));
+    let behavior_changed =
+        conformance_changed || (index.is_none() && paths.iter().any(|path| behavior_input(path)));
     let mut impact = Impact::default();
     for path in paths {
-        classify(path, graph, &mut impact);
+        classify(path, graph, index, &mut impact);
         if let Some(reason) = impact.broaden.take() {
             let mut selection = full(&reason);
-            if behavior_changed {
+            if let (Some(plan), Some(index)) = (&plan, index) {
+                selection.gates.extend(plan.gates(index));
+                selection.gates.sort();
+            } else if behavior_changed {
                 selection.gates.push(Gate::Behavior {
                     capability: None,
                     setup: false,
@@ -145,6 +174,9 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
             setup: false,
             conformance: true,
         });
+    }
+    if let (Some(plan), Some(index)) = (&plan, index) {
+        impact.gates.extend(plan.gates(index));
     }
     let affected = graph.dependents_closure(&impact.packages);
     let mut gates: BTreeSet<Gate> = [Gate::Repository { base: None }, Gate::RustFormat].into();
@@ -200,13 +232,22 @@ fn full(reason: &str) -> Selection {
 /// repository gate's Python regression suite; documentation under `xtask/` stays a document.
 /// Shared Cargo inputs and unclassified paths broaden to every local check, never to the
 /// handoff campaigns. An empty change set plans only the always-on checks.
+#[cfg(test)]
 pub fn select_local(paths: &[String], graph: &PackageGraph) -> Selection {
-    let handoff = select(Some(paths), graph);
+    select_local_indexed(paths, graph, None)
+}
+
+pub fn select_local_indexed(
+    paths: &[String],
+    graph: &PackageGraph,
+    index: Option<&BehaviorIndex>,
+) -> Selection {
+    let handoff = select_indexed(Some(paths), graph, index);
     let mut impact = Impact::default();
     let mut tooling = false;
     let broadened = paths
         .iter()
-        .find_map(|path| classify_local(path, graph, &mut impact, &mut tooling));
+        .find_map(|path| classify_local(path, graph, index, &mut impact, &mut tooling));
 
     let mut gates: BTreeSet<Gate> = [Gate::RustFormat].into();
     let mut affected = BTreeSet::new();
@@ -270,6 +311,7 @@ pub fn select_local(paths: &[String], graph: &PackageGraph) -> Selection {
 fn classify_local(
     path: &str,
     graph: &PackageGraph,
+    index: Option<&BehaviorIndex>,
     impact: &mut Impact,
     tooling: &mut bool,
 ) -> Option<String> {
@@ -295,7 +337,7 @@ fn classify_local(
     if within(path, "scripts") {
         *tooling = true;
     }
-    classify(path, graph, impact);
+    classify(path, graph, index, impact);
     impact.broaden.take()
 }
 
@@ -312,55 +354,107 @@ fn deferred_coverage(gate: &Gate) -> Option<&'static str> {
     })
 }
 
+/// Verifier code shared by every observer: any change replays all registered observers.
+const CONFORMANCE_TOOLING: [&str; 4] = [
+    crate::behavior::CONFORMANCE_SCRIPT,
+    crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
+    "scripts/test_verify_behavior_conformance.py",
+    "scripts/test_verify_behavior_conformance_native.py",
+];
+
+/// Index-free fallback: tooling plus the production cores and observers the registry now
+/// declares per capability (`ownedSources`/`implementationTests`). A test pins the two together.
 fn conformance_input(path: &str) -> bool {
-    [
-        crate::behavior::CONFORMANCE_SCRIPT,
-        crate::behavior::NATIVE_CONFORMANCE_SCRIPT,
-        crate::behavior::OBSERVER,
-        "scripts/test_verify_behavior_conformance.py",
-        "scripts/test_verify_behavior_conformance_native.py",
-        "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
-        "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
-        "services/cantos-server/src/contexts/production/domain/brief.rs",
-        "services/cantos-server/src/contract/studio/audio_lifecycle.rs",
-        "services/cantos-server/src/contract/studio/audio_intake.rs",
-        crate::behavior::MAILBOX_OBSERVER,
-        crate::behavior::ADMISSION_OBSERVER,
-        // Native Identity auth: the production seams the observers call (`validate_fact` included),
-        // the checked constructors and wire types they build inputs with, and the observer's parent.
-        "services/cantos-identity/src/lib.rs",
-        "services/cantos-identity/src/domain/mailbox_proof.rs",
-        "services/cantos-identity/src/domain/ids.rs",
-        "services/cantos-identity/src/domain/security_version.rs",
-        "services/cantos-identity/src/domain/admission.rs",
-        "services/cantos-server/src/platform/identity_auth/decision.rs",
-        "services/cantos-server/src/platform/identity_auth/rpc.rs",
-        "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
-    ]
-    .contains(&path)
+    CONFORMANCE_TOOLING.contains(&path)
+        || [
+            crate::behavior::OBSERVER,
+            "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+            "services/cantos-server/src/contexts/production/domain/brief.rs",
+            "services/cantos-server/src/contract/studio/audio_lifecycle.rs",
+            "services/cantos-server/src/contract/studio/audio_intake.rs",
+            crate::behavior::MAILBOX_OBSERVER,
+            crate::behavior::ADMISSION_OBSERVER,
+            // Native Identity auth: the production seams the observers call (`validate_fact`
+            // included), the checked constructors and wire types they build inputs with, and
+            // the observer's parent.
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            "services/cantos-identity/src/domain/security_version.rs",
+            "services/cantos-identity/src/domain/admission.rs",
+            "services/cantos-server/src/platform/identity_auth/decision.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+        ]
+        .contains(&path)
 }
 
 fn behavior_input(path: &str) -> bool {
     !path.ends_with(".md")
         && (within(path, "specs/behavior")
             || within(path, "tools/behavior")
-            || path == crate::behavior::SCRIPT
-            || path == crate::behavior::CONFORMANCE_SCRIPT
-            || path == crate::behavior::NATIVE_CONFORMANCE_SCRIPT)
+            || behavior_tooling(path))
 }
 
-fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
+/// The registry/verifier code every capability depends on.
+fn behavior_tooling(path: &str) -> bool {
+    path == crate::behavior::SCRIPT
+        || path == crate::behavior::REGISTRY_MODULE
+        || CONFORMANCE_TOOLING[..2].contains(&path)
+        || within(path, "tools/behavior")
+        || path == "specs/behavior/catalog.json"
+}
+
+/// Executable behavior inputs the registry owns, wherever a module keeps them.
+fn behavior_claims(path: &str, index: Option<&BehaviorIndex>) -> bool {
+    match index {
+        None => behavior_input(path),
+        Some(index) => {
+            behavior_input(path) || path.ends_with(".qnt") || index.effect(path).executable_input
+        }
+    }
+}
+
+/// Registered-behavior impact of every path: what to verify, never a package classification.
+fn behavior_plan(paths: &[String], index: &BehaviorIndex) -> BehaviorPlan {
+    let mut plan = BehaviorPlan::default();
+    for path in paths {
+        if CONFORMANCE_TOOLING.contains(&path.as_str()) {
+            plan.include_everything(true);
+            continue;
+        }
+        if behavior_tooling(path) {
+            plan.include_everything(false);
+            continue;
+        }
+        let effect = index.effect(path);
+        // A behavior file the registry does not know (new, renamed away, deleted or orphaned)
+        // has unknown impact: run every model so the registry check reports it.
+        if behavior_claims(path, Some(index)) && !effect.executable_input {
+            plan.include_everything(false);
+        }
+        plan.include(effect);
+    }
+    plan
+}
+
+fn classify(path: &str, graph: &PackageGraph, index: Option<&BehaviorIndex>, impact: &mut Impact) {
     let is_doc = path.ends_with(".md");
     if SHARED_RUST_INPUTS.contains(&path) {
         impact.broaden = Some(format!("{path} is a shared Cargo input"));
     } else if let Some(dir) = VERIFICATION_TOOLING.iter().find(|dir| within(path, dir)) {
         impact.broaden = Some(format!("{path} changes verification tooling ({dir})"));
-    } else if behavior_input(path) {
-        impact.gates.insert(Gate::Behavior {
-            capability: None,
-            setup: false,
-            conformance: false,
-        });
+    } else if behavior_claims(path, index) {
+        // Registered behavior files are planned from the index; without one the unscoped gate
+        // runs, exactly as before manifests existed.
+        if index.is_none() {
+            impact.gates.insert(Gate::Behavior {
+                capability: None,
+                setup: false,
+                conformance: false,
+            });
+        }
     } else if within(path, SERVER_CONTRACTS) {
         // Fixtures (Markdown manuscripts included) and schemas are read by Rust and Kotlin tests;
         // contract documents are covered by the repository gate.
@@ -1632,5 +1726,267 @@ mod tests {
             }
             assert_eq!(names(&selection), expected, "{path}");
         }
+    }
+
+    fn pick_indexed(paths: &[&str]) -> Selection {
+        let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+        select_indexed(
+            Some(&paths),
+            &testing::cantos(),
+            Some(&crate::preflight::behavior_index::testing::federated()),
+        )
+    }
+
+    fn behavior_gates(selection: &Selection) -> Vec<(Option<String>, bool)> {
+        selection
+            .gates
+            .iter()
+            .filter_map(|gate| match gate {
+                Gate::Behavior {
+                    capability,
+                    conformance,
+                    ..
+                } => Some((capability.clone(), *conformance)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn scoped(id: &str, conformance: bool) -> (Option<String>, bool) {
+        (Some(id.to_owned()), conformance)
+    }
+
+    #[test]
+    fn a_module_owned_model_or_manifest_selects_only_its_capability() {
+        for path in [
+            "services/cantos-forge-functions/behavior/one.qnt",
+            "services/cantos-forge-functions/behavior/one_tests.qnt",
+            "services/cantos-forge-functions/behavior/one.manifest.json",
+        ] {
+            let selection = pick_indexed(&[path]);
+            // A registered behavior file is not a Cargo input: no package gate, no broadening.
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                ["repository", "behavior (cantos.a.one)", "rust-format"],
+                "{path}"
+            );
+            assert_eq!(behavior_gates(&selection), [scoped("cantos.a.one", false)]);
+        }
+    }
+
+    #[test]
+    fn a_shared_helper_selects_every_registered_dependent_and_nothing_else() {
+        let selection = pick_indexed(&["specs/behavior/shared/clock.qnt"]);
+        assert_eq!(
+            behavior_gates(&selection),
+            [scoped("cantos.a.one", false), scoped("cantos.b.two", false)]
+        );
+        assert_eq!(selection.broadened, None);
+    }
+
+    #[test]
+    fn production_source_references_select_the_model_beside_their_package_gates() {
+        let selection = pick_indexed(&["services/cantos-forge-functions/src/domain/attempt.rs"]);
+        assert_eq!(behavior_gates(&selection), [scoped("cantos.a.one", false)]);
+        assert!(selection.gates.contains(&Gate::ForgeFunctions));
+        // A directory prefix declared by the capability is the same exact claim.
+        let owned = pick_indexed(&["services/cantos-forge-functions/src/owned/deep/rule.rs"]);
+        assert_eq!(behavior_gates(&owned), [scoped("cantos.a.one", false)]);
+        // A sibling the capability does not own selects no model.
+        let sibling = pick_indexed(&["services/cantos-forge-functions/src/other.rs"]);
+        assert!(behavior_gates(&sibling).is_empty());
+    }
+
+    #[test]
+    fn a_native_observer_or_core_keeps_conformance_for_its_capability_only() {
+        for path in [
+            "services/cantos-identity/src/domain/ids.rs",
+            "services/cantos-identity/src/observer_tests.rs",
+            "services/cantos-identity/src/kernel/deep/core.rs",
+        ] {
+            let selection = pick_indexed(&[path]);
+            assert_eq!(
+                behavior_gates(&selection),
+                [scoped("cantos.c.observed", true)],
+                "{path}"
+            );
+            assert!(
+                names(&selection).contains(&"behavior (cantos.c.observed, conformance)".to_owned())
+            );
+            // The native Rust and Turso impact of an Identity change is not lost.
+            assert!(selection.gates.contains(&Gate::Turso), "{path}");
+            assert!(
+                selection
+                    .gates
+                    .iter()
+                    .any(|gate| matches!(gate, Gate::RustTests(_))),
+                "{path}"
+            );
+        }
+        // The model of an observed capability alone stays model-only.
+        let model = pick_indexed(&["services/cantos-identity/behavior/c.qnt"]);
+        assert_eq!(behavior_gates(&model), [scoped("cantos.c.observed", false)]);
+    }
+
+    #[test]
+    fn shared_verifier_tooling_selects_every_model_and_observer_as_before() {
+        for path in [
+            "scripts/verify_behavior.py",
+            "scripts/behavior_registry.py",
+            "specs/behavior/catalog.json",
+            "tools/behavior/package-lock.json",
+        ] {
+            let selection = pick_indexed(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(behavior_gates(&selection), [(None, false)], "{path}");
+        }
+        for path in [
+            crate::behavior::CONFORMANCE_SCRIPT,
+            "scripts/test_verify_behavior_conformance_native.py",
+        ] {
+            assert_eq!(
+                behavior_gates(&pick_indexed(&[path])),
+                [(None, true)],
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_behavior_impact_is_never_silently_skipped() {
+        for path in [
+            // New, renamed-away or deleted Quint files, wherever a module keeps them.
+            "services/cantos-server/behavior/unregistered.qnt",
+            "specs/behavior/media/removed.qnt",
+            "specs/behavior/media/unknown-input.json",
+            // A registered historical scenario has no single runnable capability.
+            "specs/behavior/legacy/old_tests.qnt",
+        ] {
+            let selection = pick_indexed(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(behavior_gates(&selection), [(None, false)], "{path}");
+        }
+    }
+
+    #[test]
+    fn unrelated_and_documentation_changes_run_no_model() {
+        for paths in [
+            &["services/cantos-server/README.md"][..],
+            &["specs/behavior/inventory.md"],
+            &["docs/architecture/overview.md"],
+            &["packages/ui-system/leptos/src/lib.rs"],
+            &["services/cantos-server/src/contexts/media/unrelated.rs"],
+        ] {
+            let selection = pick_indexed(paths);
+            assert!(behavior_gates(&selection).is_empty(), "{paths:?}");
+        }
+    }
+
+    #[test]
+    fn broadened_changes_keep_the_scoped_behavior_selection() {
+        for paths in [
+            [
+                "xtask/src/gate.rs",
+                "services/cantos-forge-functions/behavior/one.qnt",
+            ],
+            [
+                "services/cantos-forge-functions/behavior/one.qnt",
+                "xtask/src/gate.rs",
+            ],
+        ] {
+            let selection = pick_indexed(&paths);
+            assert!(selection.broadened.is_some(), "{paths:?}");
+            assert_eq!(
+                behavior_gates(&selection),
+                [scoped("cantos.a.one", false)],
+                "{paths:?}"
+            );
+        }
+        // Other gates are untouched: the same paths without an index broaden to the unscoped gate.
+        let paths: Vec<String> = ["xtask/src/gate.rs", "specs/behavior/catalog.json"]
+            .iter()
+            .map(|path| (*path).to_owned())
+            .collect();
+        let legacy = select(Some(&paths), &testing::cantos());
+        assert!(legacy.gates.contains(&Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: false
+        }));
+    }
+
+    #[test]
+    fn without_an_index_a_module_owned_model_has_unknown_impact_and_broadens() {
+        let selection = pick(&["services/unowned/behavior/one.qnt"]);
+        assert!(selection.broadened.is_some());
+    }
+
+    #[test]
+    fn the_local_profile_defers_the_scoped_behavior_gate_without_broadening() {
+        let paths = vec!["services/cantos-server/behavior/two.qnt".to_owned()];
+        let index = crate::preflight::behavior_index::testing::federated();
+        let selection = select_local_indexed(&paths, &testing::cantos(), Some(&index));
+        assert_eq!(selection.broadened, None);
+        assert_eq!(behavior_gates(&selection), []);
+        assert_eq!(
+            selection
+                .deferred
+                .iter()
+                .filter_map(|gate| match gate {
+                    Gate::Behavior { capability, .. } => capability.clone(),
+                    _ => None,
+                })
+                .collect::<Vec<_>>(),
+            ["cantos.b.two"]
+        );
+    }
+
+    /// The real registry, resolved by the verifier: pins that moving production cores and
+    /// observers from this file's list into the catalog dropped no conformance trigger.
+    #[test]
+    fn the_real_registry_index_covers_every_index_free_conformance_trigger() {
+        let workspace = crate::workspace::Workspace::discover().unwrap();
+        let index = crate::preflight::behavior_index::BehaviorIndex::load(workspace.root())
+            .expect("the repository registry resolves");
+        for path in [
+            crate::behavior::OBSERVER,
+            "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+            "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+            "services/cantos-server/src/contexts/production/domain/brief.rs",
+            "services/cantos-server/src/contract/studio/audio_lifecycle.rs",
+            "services/cantos-server/src/contract/studio/audio_intake.rs",
+            crate::behavior::MAILBOX_OBSERVER,
+            crate::behavior::ADMISSION_OBSERVER,
+            "services/cantos-identity/src/lib.rs",
+            "services/cantos-identity/src/domain/mailbox_proof.rs",
+            "services/cantos-identity/src/domain/ids.rs",
+            "services/cantos-identity/src/domain/security_version.rs",
+            "services/cantos-identity/src/domain/admission.rs",
+            "services/cantos-server/src/platform/identity_auth/decision.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc.rs",
+            "services/cantos-server/src/platform/identity_auth/rpc/generated.rs",
+        ] {
+            assert!(conformance_input(path), "{path}");
+            let effect = index.effect(path);
+            assert!(
+                !effect.conformance.is_empty(),
+                "{path}: no registered observer"
+            );
+            let paths = vec![path.to_owned()];
+            let selection = select_indexed(Some(&paths), &testing::cantos(), Some(&index));
+            assert!(
+                behavior_gates(&selection)
+                    .iter()
+                    .any(|(id, conformance)| id.is_some() && *conformance),
+                "{path}"
+            );
+        }
+        // Every registered model resolves to exactly itself: no model hides behind another.
+        let audio = index.effect("specs/behavior/media/private_audio_admission.qnt");
+        assert_eq!(
+            audio.models.into_iter().collect::<Vec<_>>(),
+            ["cantos.media.private-audio-admission"]
+        );
     }
 }

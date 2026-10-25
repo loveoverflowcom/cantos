@@ -1,6 +1,7 @@
 //! `cargo xtask preflight`: the developer safety gate before pushing. The default `handoff`
 //! profile is that gate; `--profile local` is a lighter DEV/CHECKPOINT subset of it.
 
+mod behavior_index;
 mod changes;
 mod graph;
 mod select;
@@ -78,9 +79,22 @@ pub fn run(
         Some(_) => graph::PackageGraph::load(workspace.root())?,
         None => graph::PackageGraph::default(),
     };
+    // The registry's own resolution of changed path -> capability; absent or invalid keeps the
+    // conservative unscoped Behavior selection, and the Behavior gate reports a broken registry.
+    let behavior = changed
+        .as_ref()
+        .and_then(|_| behavior_index::BehaviorIndex::load(workspace.root()));
+    if changed.is_some() && behavior.is_none() {
+        println!("  behavior:      registry index unavailable; unscoped Behavior selection");
+    }
     let mut selection = match &changed {
-        Some(paths) if local => select::select_local(paths, &graph),
-        _ => select::select_with_kani(changed.as_deref(), &graph, options.kani),
+        Some(paths) if local => select::select_local_indexed(paths, &graph, behavior.as_ref()),
+        _ => select::select_with_kani_indexed(
+            changed.as_deref(),
+            &graph,
+            options.kani,
+            behavior.as_ref(),
+        ),
     };
     for gate in &mut selection.gates {
         if let Gate::Repository { base } | Gate::RepositoryStatic { base } = gate {

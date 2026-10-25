@@ -21,7 +21,9 @@ and [the inventory](../../../specs/behavior/inventory.md) explain that division.
 ## Required order
 
 1. Read [the catalog](../../../specs/behavior/catalog.json), locate the stable capability ID,
-   then its sourceRefs, inventory, owner and lifecycle. Check actual production code separately.
+   then its sourceRefs, inventory, owner and lifecycle. A root pointer's `manifestPath` names the
+   module-owned manifest that carries model, runs and controls ([federation](../../../specs/behavior/README.md#federated-registry-and-module-owned-manifests));
+   never duplicate root-owned fields there. Check actual production code separately.
    `draft` or `needs-decision` is not accepted behavior just because a model runs.
 2. State the behavior claim and scope in the foundation ledger. Separate approved requirements,
    real implementation facts and explicit finite assumptions. Report missing/conflicting
