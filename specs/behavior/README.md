@@ -75,10 +75,12 @@ observers ([mailbox](../../services/cantos-identity/src/quint_conformance_tests.
 The dispatcher's finite allowlist (`adapters()`) fails closed for any capability the catalog and an adapter do not both register.
 The existing POSIX bounded process primitive owns timeout/output/group cleanup. Current
 execution requires POSIX with waitid/WNOWAIT; another host is UNSUPPORTED at tool probing.
-The behavior gate is opt-in outside full preflight/CI. Non-document changes under
-`specs/behavior` or `tools/behavior`, and the behavior primitive, select it in changed-only
-preflight. Full/uncertain preflight retains its existing gates and also retains behavior when
-changed model/tool inputs select it; run the explicit suite for other behavior-tool changes.
+The behavior gate is opt-in outside full preflight/CI. Changed-only preflight plans it from
+the registry's reverse index ([federation](#federated-registry-and-module-owned-manifests)):
+a changed model, scenario, import, manifest, exact non-document reference or owned source selects
+that capability only; shared verifier code or an unregistered Quint/behavior file selects every
+model; Markdown needs only the always-on gates. Full/uncertain preflight retains its existing
+gates and also retains the scoped behavior selection; run the explicit suite for other changes.
 
 ## Read the pilot
 
@@ -100,6 +102,47 @@ staleness or expiry. Owner state is a separate projection with the contract's pr
 The sampled generator biases exact attempts so settled/replay antecedents are reached before
 invalidation, while retaining all modeled input/environment actions. No actual
 authentication, bytes, database transaction, object store or cancellation runs.
+
+## Federated registry and module-owned manifests
+
+[catalog.json](catalog.json) stays the one root registry and the only owner of `id`, `owner`
+and `lifecycle`. A capability is either today's **inline record** (no change needed) or a
+**root pointer**: `id`, `owner`, `lifecycle` and `manifestPath` only. The verification payload
+of a pointer lives in a module-owned JSON manifest:
+
+```json
+{ "schemaVersion": 1, "capabilityId": "cantos.example.thing",
+  "model": "services/x/behavior/thing.qnt", "module": "thing",
+  "scenarios": "services/x/behavior/thing_tests.qnt", "scenarioModule": "thing_tests",
+  "simulation": {}, "properties": [], "runs": [], "witnesses": [], "controls": [],
+  "sourceRefs": [], "inventory": "specs/behavior/inventory.md", "aliases": [] }
+```
+
+Both forms resolve to the same normalized capability, so the verifier, evidence bundle and the
+registered conformance adapters read one shape. The loader fails closed for a missing, linked,
+non-JSON, non-normalized or escaping `manifestPath`; a manifest shared by two capabilities; a
+`capabilityId` that differs from the registry ID; any `id`/`owner`/`lifecycle` duplicated in
+the manifest; a root pointer that also carries payload keys; unknown manifest keys; and a
+manifest naming another manifest. Key names follow the catalog's camelCase (`manifestPath`).
+
+Quint sources are found by registration, not by directory: a file is registered when a
+capability names it as `model`/`scenarios`, when a registered file of the same service/app tree
+imports it, or when the root `sharedHelpers` list names it (`{"path", "reason"}`; reviewed,
+stateless, `var`/`action`-free, importing only other helpers). A historical, non-executable
+scenario of a deprecated entry registers its imported model the same way. Relative imports must
+stay in the importer's tree (`services/<name>`, `apps/<name>`, `specs`, `xtask`) unless they target
+a registered helper; cross-service/app behavioral imports, non-relative specifiers, missing files
+and import cycles are rejected. Any other `.qnt` under `specs`, `services`, `apps` or `xtask`
+(build output and dependency directories excluded) is an orphan and fails the load, for every
+capability selection. The evidence snapshot retains exact bytes and SHA-256 of the registered
+model, scenarios, import closure, manifest, references and tool inputs, no longer sweeping
+unrelated `.qnt` files.
+
+Optional `ownedSources` and `implementationTests` (at most 64 unique repository paths each;
+a directory is a trailing-`/` prefix at least three components deep) name production code and
+observer tests a capability depends on. Together with `owner` and exact non-document `sourceRefs`
+they feed the preflight reverse index. They never change model evidence; the three observed
+capabilities declare the production cores and observers that select their conformance run.
 
 ## IDs and authoring
 

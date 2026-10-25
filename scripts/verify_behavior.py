@@ -21,65 +21,18 @@ from urllib.parse import urlsplit
 
 # Reuse the existing tested POSIX boundary, including pinned-leader group cleanup.
 from verify_kani import KaniError as ProcessError, bounded_run
+from behavior_registry import (  # noqa: F401  (re-exported: conformance and tests use these names)
+    CATALOG, LIFECYCLES, MAX_BYTES, NAME, STABLE_ID, BehaviorError, check_sources, digest,
+    impact_index, local_path, owned_sources, read_json, regular, require, resolve_capabilities,
+    shared_helpers)
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = "specs/behavior/catalog.json"
 TOOL_DIR = "tools/behavior"
 CLI = "node_modules/@informalsystems/quint/dist/src/cli.js"
 INSTALLATION = "target/verification/behavior/installation.json"
 SETUP_INPUTS = ("package.json", "package-lock.json", ".npmrc", ".node-version",
                 "empty-user.npmrc", "empty-global.npmrc")
-MAX_BYTES = 4 * 1024 * 1024
-NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
-STABLE_ID = re.compile(r"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$")
-LIFECYCLES = {"draft", "accepted", "deprecated", "needs-decision"}
-
-
-class BehaviorError(Exception):
-    pass
-
-
-def regular(path, limit=MAX_BYTES):
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
-        raise BehaviorError(f"missing, linked, special or oversized input: {path.name}")
-    return path.read_bytes()
-
-
-def digest(path, limit=MAX_BYTES):
-    return hashlib.sha256(regular(path, limit)).hexdigest()
-
-
-def read_json(path):
-    try:
-        return json.loads(regular(path))
-    except (ValueError, UnicodeError) as error:
-        raise BehaviorError(f"invalid JSON: {path.name}") from error
-
-
-def local_path(root, relative):
-    if not isinstance(relative, str) or not relative or "\\" in relative:
-        raise BehaviorError("invalid repository-relative input path")
-    plain = relative.split("#", 1)[0]
-    if any(part in ("", ".", "..") for part in plain.split("/")):
-        raise BehaviorError("input path must be normalized and repository-relative")
-    path = Path(plain)
-    if path.is_absolute() or any(p in (".", "..") for p in path.parts):
-        raise BehaviorError("input path escapes the repository")
-    result = root / path
-    if not result.resolve().is_relative_to(root.resolve()):
-        raise BehaviorError("input path escapes the repository")
-    for ancestor in (result, *result.parents):
-        if ancestor == root:
-            break
-        if ancestor.is_symlink():
-            raise BehaviorError("linked input paths are not supported")
-    regular(result)
-    return result
-
-
-def require(condition, message):
-    if not condition:
-        raise BehaviorError(message)
+REGISTRY_MODULE = "scripts/behavior_registry.py"
 
 
 def entries(capability, kind, seen):
@@ -99,13 +52,19 @@ def entries(capability, kind, seen):
     return rows
 
 
-def load_catalog(root, selected=None):
+def load_registry(root):
+    """Every capability (runnable, unmodeled, deprecated) fully resolved and source-checked.
+
+    Inline records and manifest pointers resolve to one normalized shape. Registered Quint
+    sources, import closures and orphan files are validated for the whole registry, whatever
+    capability a caller later selects.
+    """
     catalog = read_json(local_path(root, CATALOG))
     require(isinstance(catalog, dict), "catalog must be an object")
     require(catalog.get("schemaVersion") == 1, "unsupported behavior catalog schema")
-    capabilities = catalog.get("capabilities")
-    require(isinstance(capabilities, list) and capabilities, "empty capability catalog")
-    seen, runnable = set(), []
+    capabilities = resolve_capabilities(root, catalog)
+    helpers = shared_helpers(root, catalog)
+    seen = set()
     for cap in capabilities:
         require(isinstance(cap, dict), "capability must be an object")
         identity = cap.get("id")
@@ -119,6 +78,7 @@ def load_catalog(root, selected=None):
         require(isinstance(refs, list) and refs, "requirements must be linked")
         for ref in refs:
             local_path(root, ref)
+        owned_sources(root, cap)
         if cap.get("model") is None:
             require(bool(cap.get("reason")), "unmodeled capability needs a reason")
             continue
@@ -157,7 +117,13 @@ def load_catalog(root, selected=None):
             require(isinstance(before, str) and before and model.count(before) == 1,
                     "negative substitution must match exactly once")
             require(isinstance(after, str) and after and after != before, "empty or inert negative substitution")
-        runnable.append(cap)
+    check_sources(root, capabilities, helpers)
+    return capabilities, helpers
+
+
+def load_catalog(root, selected=None):
+    capabilities, _ = load_registry(root)
+    runnable = [cap for cap in capabilities if cap.get("model") is not None]
     if selected is not None:
         require(selected in {c["id"] for c in capabilities}, "unknown capability ID")
         runnable = [cap for cap in runnable if cap["id"] == selected]
@@ -372,12 +338,15 @@ def validate_itf(path, source, status, count=None, *, expected_variables):
 
 
 def snapshot(root, capabilities):
-    paths = {CATALOG, "scripts/verify_behavior.py", "scripts/verify_kani.py",
+    """Exact inputs of the selected capabilities: registered sources, never a directory sweep."""
+    paths = {CATALOG, "scripts/verify_behavior.py", REGISTRY_MODULE, "scripts/verify_kani.py",
              "xtask/src/behavior.rs", "xtask/src/gate.rs", "xtask/src/cli.rs", "Cargo.lock"}
     paths.update(str(p.relative_to(root)) for p in (root / TOOL_DIR).iterdir() if p.is_file())
-    paths.update(str(p.relative_to(root)) for p in (root / "specs/behavior").rglob("*.qnt"))
     for cap in capabilities:
         paths.update([cap["model"], cap["scenarios"]])
+        paths.update(cap.get("importClosure", []))
+        if cap.get("manifestPath"):
+            paths.add(cap["manifestPath"])
         paths.update([cap["owner"], cap["inventory"], *[ref.split("#", 1)[0] for ref in cap["sourceRefs"]]])
     return {p: digest(local_path(root, p)) for p in sorted(paths)}
 
@@ -549,6 +518,8 @@ def main():
     parser.add_argument("--conformance", action="store_true")
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--runtime-only", action="store_true")
+    parser.add_argument("--impact-index", action="store_true",
+                        help="print the changed-path -> capability index (read-only, no toolchain)")
     args = parser.parse_args()
     try:
         if args.probe:
@@ -557,6 +528,11 @@ def main():
             print("; ".join(f"{k} {versions[k]}" for k in ("node", "npm", "quint") if k in versions))
             return 0
         require(not args.runtime_only, "runtime-only belongs to probe mode")
+        if args.impact_index:
+            require(not args.setup and not args.conformance and args.capability is None,
+                    "impact index is read-only and covers every capability")
+            print(json.dumps(impact_index(*load_registry(ROOT)), sort_keys=True))
+            return 0
         capabilities = load_catalog(ROOT, args.capability)
         if args.setup:
             manifest, _, executables = runtime(ROOT)

@@ -656,10 +656,21 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   `forge-functions`; they do not select the API, database or Web clients.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-preview` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
-- Non-document `specs/behavior`, `tools/behavior` and `scripts/verify_behavior.py` inputs select
-  the default model-only behavior gate; their Markdown needs only the always-on gates.
-- Registered observer/codec and private admission/projection seam changes select behavior
-  with `--conformance`, preserving the ordinary affected native Cargo gates.
+- Non-document behavior inputs select the model-only behavior gate; their Markdown needs only
+  the always-on gates. Verifier code (`scripts/verify_behavior.py`, `scripts/behavior_registry.py`,
+  `tools/behavior`, the root `catalog.json`) selects every model. Any other registered or
+  unregistered `.qnt`, manifest or `specs/behavior` file the registry does not resolve also selects
+  every model, so unknown impact is never skipped.
+- Changed-only preflight asks the registry for its reverse index (`scripts/verify_behavior.py
+  --impact-index`, read-only, no Quint/Node) and plans one `behavior (CAPABILITY)` gate per
+  affected capability: its model, scenarios, import closure, manifest, exact non-document
+  `sourceRefs`/`owner` and bounded `ownedSources`/`implementationTests`. A shared stateless helper
+  selects every importer. The index is derived from the registry, never a second handwritten map;
+  when it is unavailable or the registry is invalid, selection keeps the previous unscoped gate and
+  the Behavior gate reports the registry error. Registered production cores and observer tests of
+  an observed capability select `behavior (CAPABILITY, conformance)`; the shared codec scripts
+  replay every observer. Registered behavior files are not Cargo inputs, so a module-owned model
+  does not broaden the Rust gates; production sources keep their normal package gates beside it.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. The native service
   manifest and configuration docs are statically validated by
@@ -717,6 +728,10 @@ seeds, type/effect output, raw ITF, input/tool hashes and counterexamples under 
 conformance and exhaustive proof are NOT_RUN. `--conformance` adds a separately reported
 test-only observer of actual private-admission pure-core decisions, with synthetic shell
 effects and full immutable receipts; it never proves IO/database/runtime acceptance. See [scope and reproduction](../specs/behavior/README.md).
+
+Capabilities are inline records or root pointers to module-owned manifests
+([federation](../specs/behavior/README.md#federated-registry-and-module-owned-manifests));
+`--impact-index` prints the resolved reverse index without running anything.
 
 This gate is outside full preflight/CI until its toolchain is separately provisioned.
 Non-document model/catalog/tool inputs and the behavior primitive select it in changed-only

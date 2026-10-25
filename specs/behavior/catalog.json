@@ -228,7 +228,17 @@
       ],
       "aliases": [],
       "observationSchema": "cantos-private-audio-admission-observation-v1",
-      "implementationConformance": "pure-core-observer"
+      "implementationConformance": "pure-core-observer",
+      "ownedSources": [
+        "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+        "services/cantos-server/src/contexts/production/domain/brief.rs",
+        "services/cantos-server/src/contract/studio/audio_intake.rs",
+        "services/cantos-server/src/contract/studio/audio_lifecycle.rs"
+      ],
+      "implementationTests": [
+        "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+        "services/cantos-server/src/contexts/media/quint_conformance_tests.rs"
+      ]
     },
     {
       "id": "cantos.media.public-playback-delivery",
@@ -1716,7 +1726,20 @@
       ],
       "aliases": [],
       "observationSchema": "cantos-native-mailbox-proof-observation-v1",
-      "implementationConformance": "pure-core-observer"
+      "implementationConformance": "pure-core-observer",
+      "ownedSources": [
+        "services/cantos-identity/src/domain/admission.rs",
+        "services/cantos-identity/src/domain/ids.rs",
+        "services/cantos-identity/src/domain/mailbox_proof.rs",
+        "services/cantos-identity/src/domain/security_version.rs",
+        "services/cantos-identity/src/lib.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc/generated.rs"
+      ],
+      "implementationTests": [
+        "services/cantos-identity/src/quint_conformance_tests.rs"
+      ]
     },
     {
       "id": "cantos.identity.native-session-admission",
@@ -1889,7 +1912,20 @@
       ],
       "aliases": [],
       "observationSchema": "cantos-native-session-admission-observation-v1",
-      "implementationConformance": "pure-core-observer"
+      "implementationConformance": "pure-core-observer",
+      "ownedSources": [
+        "services/cantos-identity/src/domain/admission.rs",
+        "services/cantos-identity/src/domain/ids.rs",
+        "services/cantos-identity/src/domain/mailbox_proof.rs",
+        "services/cantos-identity/src/domain/security_version.rs",
+        "services/cantos-identity/src/lib.rs",
+        "services/cantos-server/src/platform/identity_auth/decision.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc.rs",
+        "services/cantos-server/src/platform/identity_auth/rpc/generated.rs"
+      ],
+      "implementationTests": [
+        "services/cantos-server/src/platform/identity_auth/decision/quint_conformance_tests.rs"
+      ]
     }
   ]
 }

@@ -9,6 +9,7 @@ from subprocess import CompletedProcess
 from unittest.mock import patch
 
 import verify_behavior as behavior
+from test_verify_behavior_registry import federate
 
 
 class BehaviorContracts(unittest.TestCase):
@@ -33,9 +34,10 @@ class BehaviorContracts(unittest.TestCase):
         root = Path(directory.name)
         catalog = behavior.read_json(behavior.ROOT / behavior.CATALOG)
         for cap in catalog["capabilities"]:
+            # Every registered Quint file, historical scenarios and their imports included.
             paths = [cap["owner"], cap["inventory"], *cap["sourceRefs"]]
-            if cap["model"]:
-                paths += [cap["model"], cap["scenarios"]]
+            paths += [p for p in cap.get("ownedSources", []) + cap.get("implementationTests", []) if not p.endswith("/")]
+            paths += [str(p.relative_to(behavior.ROOT)) for p in (behavior.ROOT / "specs/behavior").rglob("*.qnt")]
             for relative in paths:
                 source = behavior.local_path(behavior.ROOT, relative)
                 target = root / relative.split("#", 1)[0]
@@ -46,9 +48,9 @@ class BehaviorContracts(unittest.TestCase):
         (root / behavior.CATALOG).write_text(json.dumps(catalog))
         return root
 
-    def synthetic_forge_campaign(self, trace_mutation=None, type_mutation=None):
+    def synthetic_forge_campaign(self, trace_mutation=None, type_mutation=None, root=None):
         """Exercise the real gate shell with synthetic Quint/process outputs only."""
-        root = self.catalog_fixture()
+        root = root or self.catalog_fixture()
         cap = behavior.load_catalog(root, "cantos.production.forge-attempt")[0]
         receipt = behavior.artifact_root(root) / "installation.json"
         receipt.write_text('{"schemaVersion": 1}\n')
@@ -133,6 +135,18 @@ class BehaviorContracts(unittest.TestCase):
                     (len(cap["runs"]), len(cap["properties"]), len(cap["witnesses"])),
                     expected[cap["id"]])
                 self.assertEqual(len(cap["controls"]), len(cap["properties"]))
+
+    def test_manifest_pointer_campaign_produces_the_same_evidence_as_the_inline_record(self):
+        _, inline, _, inline_labels, inline_error = self.synthetic_forge_campaign()
+        root = self.catalog_fixture()
+        federate(root, "cantos.production.forge-attempt", "specs/behavior/production/forge.manifest.json")
+        cap, report, bundle, labels, error = self.synthetic_forge_campaign(root=root)
+        self.assertIsNone(inline_error)
+        self.assertIsNone(error)
+        self.assertEqual(cap["manifestPath"], "specs/behavior/production/forge.manifest.json")
+        self.assertEqual(labels, inline_labels)
+        for key in ("status", "stages", "selection", "controlSelection", "budget", "observationVariables"):
+            self.assertEqual(report[key], inline[key], key)
 
     def test_unknown_or_unmodeled_selection_fails(self):
         for selection in ("cantos.unknown", "cantos.publishing.lifecycle", "cantos.identity.theatre-registration"):

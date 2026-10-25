@@ -13,6 +13,8 @@ pub const ADMISSION_OBSERVER: &str =
     "services/cantos-server/src/platform/identity_auth/decision/quint_conformance_tests.rs";
 
 pub const SCRIPT: &str = "scripts/verify_behavior.py";
+/// Registry/manifest resolution and registered-source checks the verifier imports.
+pub const REGISTRY_MODULE: &str = "scripts/behavior_registry.py";
 
 pub fn command(
     workspace: &Workspace,
