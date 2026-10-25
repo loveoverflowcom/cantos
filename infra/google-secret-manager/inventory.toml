@@ -1,0 +1,139 @@
+# Nonsecret Google Cloud Secret Manager inventory for Cantos (issue #446).
+#
+# This file holds NAMES, consumers, delivery contracts and reviewed numeric version pins only.
+# It never holds a secret value, a hash of one, a service-account key or a private path.
+# `cargo xtask secrets inventory` validates it offline; `cargo xtask secrets import` refuses any
+# secret ID or project that is not listed here. Runbook: docs/deployment/google-secret-manager.md.
+#
+# Fields
+#   id            Secret Manager secret ID; must start with `cantos-<environment>-`
+#   environment   dev | prod | ops (ops secrets are never bound to Server or Identity)
+#   consumer      cantos-server | cantos-identity | ci-deploy | operator
+#   contract      the existing variable the consumer reads (derived from source, not invented)
+#   delivery      env (a runtime value) | file (a private owner-only file whose path is the contract)
+#   format        text (one line, no control characters) | bytes32 (exactly 32 bytes) |
+#                 service-account-json | opaque (any bytes up to 64 KiB, e.g. a keystore)
+#   pinned_version  optional positive integer: the reviewed version a runtime binding uses.
+#                 Absent means "not yet bound"; `latest` is never a valid pin.
+#   rotation_required  true when the value is known to have left its protected store and must be
+#                 rotated at its provider after import (Secret Manager cannot revoke it).
+
+schema_version = 1
+project = "cantos-a348b"
+replication = "automatic"
+
+# --- development -----------------------------------------------------------------------------
+
+[[secret]]
+id = "cantos-dev-identity-smtp-password"
+environment = "dev"
+consumer = "cantos-identity"
+contract = "CANTOS_IDENTITY_SMTP_PASSWORD"
+delivery = "env"
+format = "text"
+
+# --- production runtime: Identity ------------------------------------------------------------
+
+[[secret]]
+id = "cantos-prod-identity-smtp-password"
+environment = "prod"
+consumer = "cantos-identity"
+contract = "CANTOS_IDENTITY_SMTP_PASSWORD"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-prod-identity-firebase-api-key"
+environment = "prod"
+consumer = "cantos-identity"
+contract = "CANTOS_IDENTITY_FIREBASE_API_KEY"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-prod-identity-firebase-service-account"
+environment = "prod"
+consumer = "cantos-identity"
+contract = "CANTOS_IDENTITY_FIREBASE_SERVICE_ACCOUNT_FILE"
+delivery = "file"
+format = "service-account-json"
+
+[[secret]]
+id = "cantos-prod-identity-firebase-envelope-key"
+environment = "prod"
+consumer = "cantos-identity"
+contract = "CANTOS_IDENTITY_FIREBASE_ENVELOPE_KEY_FILE"
+delivery = "file"
+format = "bytes32"
+
+# --- production runtime: Server --------------------------------------------------------------
+# The S3 pair is the Long Van object storage key (endpoint https://s3-hn1-r1.longvan.net, a
+# nonsecret value that belongs in the Server storage TOML, not here). Both values were shared in
+# an agent chat on 2026-10-25; the owner explicitly accepted that exposure and kept the pair, so
+# rotation_required is false. Reset it at Long Van if the chat record is ever disclosed further.
+
+[[secret]]
+id = "cantos-prod-server-playback-key"
+environment = "prod"
+consumer = "cantos-server"
+contract = "CANTOS_PLAYBACK_KEY_FILE"
+delivery = "file"
+format = "bytes32"
+
+[[secret]]
+id = "cantos-prod-server-s3-access-key-id"
+environment = "prod"
+consumer = "cantos-server"
+contract = "CANTOS_S3_ACCESS_KEY_ID"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-prod-server-s3-secret-access-key"
+environment = "prod"
+consumer = "cantos-server"
+contract = "CANTOS_S3_SECRET_ACCESS_KEY"
+delivery = "env"
+format = "text"
+
+# --- operations: deploy jobs and the operator only -------------------------------------------
+
+[[secret]]
+id = "cantos-ops-cloudflare-api-token"
+environment = "ops"
+consumer = "ci-deploy"
+contract = "CLOUDFLARE_API_TOKEN"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-ops-android-release-keystore"
+environment = "ops"
+consumer = "operator"
+contract = "CANTOS_RELEASE_KEYSTORE"
+delivery = "file"
+format = "opaque"
+
+[[secret]]
+id = "cantos-ops-android-release-keystore-password"
+environment = "ops"
+consumer = "operator"
+contract = "CANTOS_RELEASE_KEYSTORE_PASSWORD"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-ops-android-release-key-password"
+environment = "ops"
+consumer = "operator"
+contract = "CANTOS_RELEASE_KEY_PASSWORD"
+delivery = "env"
+format = "text"
+
+[[secret]]
+id = "cantos-ops-vps-ssh-private-key"
+environment = "ops"
+consumer = "operator"
+contract = "ssh -i (operator workstation only)"
+delivery = "file"
+format = "opaque"
