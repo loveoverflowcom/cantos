@@ -49,8 +49,9 @@ from the consumers' source (not from an old `.env.example`). Print it with
 
 The S3 pair is the **Long Van** object storage key. Its endpoint
 (`https://s3-hn1-r1.longvan.net`), region and bucket are nonsecret Server storage TOML values.
-Both entries are `ROTATION_REQUIRED`: the current pair was shared in an agent chat, so the
-operator resets it in the Long Van console ("Reset key") and imports only the new pair.
+The current pair was shared in an agent chat on 2026-10-25; the owner accepted that exposure and
+kept it, so it is not marked `ROTATION_REQUIRED`. Reset it in the Long Van console ("Reset key")
+and import the new pair if that record is disclosed further or the key is misused.
 
 Deliberately **not** inventoried:
 

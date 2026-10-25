@@ -69,7 +69,8 @@ format = "bytes32"
 # --- production runtime: Server --------------------------------------------------------------
 # The S3 pair is the Long Van object storage key (endpoint https://s3-hn1-r1.longvan.net, a
 # nonsecret value that belongs in the Server storage TOML, not here). Both values were shared in
-# an agent chat on 2026-10-25, so they must be reset at Long Van and the new pair imported.
+# an agent chat on 2026-10-25; the owner explicitly accepted that exposure and kept the pair, so
+# rotation_required is false. Reset it at Long Van if the chat record is ever disclosed further.
 
 [[secret]]
 id = "cantos-prod-server-playback-key"
@@ -86,7 +87,6 @@ consumer = "cantos-server"
 contract = "CANTOS_S3_ACCESS_KEY_ID"
 delivery = "env"
 format = "text"
-rotation_required = true
 
 [[secret]]
 id = "cantos-prod-server-s3-secret-access-key"
@@ -95,7 +95,6 @@ consumer = "cantos-server"
 contract = "CANTOS_S3_SECRET_ACCESS_KEY"
 delivery = "env"
 format = "text"
-rotation_required = true
 
 # --- operations: deploy jobs and the operator only -------------------------------------------
 
