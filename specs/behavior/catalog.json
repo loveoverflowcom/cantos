@@ -439,6 +439,10 @@
         {
           "id": "cantos.media.public-cover-projection.property.clear-is-tombstone",
           "declaration": "clearIsTombstone"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.property.fetch-matches-projection",
+          "declaration": "fetchMatchesProjection"
         }
       ],
       "runs": [
@@ -481,6 +485,30 @@
         {
           "id": "cantos.media.public-cover-projection.run.cover-before-artwork",
           "declaration": "coverBeforeArtworkTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-current-shown",
+          "declaration": "fetchCurrentShownTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-private-replacement",
+          "declaration": "fetchPrivateReplacementTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-stale-republish",
+          "declaration": "fetchStaleRepublishTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-revoked",
+          "declaration": "fetchRevokedTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-expired",
+          "declaration": "fetchExpiredTest"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.run.fetch-withdrawn",
+          "declaration": "fetchWithdrawnTest"
         }
       ],
       "witnesses": [
@@ -515,6 +543,22 @@
         {
           "id": "cantos.media.public-cover-projection.witness.cleared-fallback",
           "declaration": "clearedFallback"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.witness.fetch-served",
+          "declaration": "fetchServed"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.witness.fetch-mismatch-denied",
+          "declaration": "fetchMismatchDenied"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.witness.fetch-fallback-denied",
+          "declaration": "fetchFallbackDenied"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.witness.fetch-pinned-despite-replacement",
+          "declaration": "fetchPinnedDespiteReplacement"
         }
       ],
       "simulation": {
@@ -556,6 +600,12 @@
           "property": "cantos.media.public-cover-projection.property.clear-is-tombstone",
           "from": "val atOrBefore = changes.keys().filter(k => k <= revision)",
           "to": "val atOrBefore = changes.keys().filter(k => k <= revision and changes.get(k) != Cleared)"
+        },
+        {
+          "id": "cantos.media.public-cover-projection.control.fetch-matches-projection",
+          "property": "cantos.media.public-cover-projection.property.fetch-matches-projection",
+          "from": "pure def fetchOutcome(s: State, requested: int): Outcome = match coverView(s) {",
+          "to": "pure def fetchOutcome(s: State, requested: int): Outcome = match disclosure(s.decisions.get(requested), requested, s.now) {"
         }
       ],
       "aliases": []

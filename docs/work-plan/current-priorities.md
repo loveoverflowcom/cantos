@@ -50,6 +50,9 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
   [#402](https://github.com/loveoverflowcom/cantos/issues/402) integrates the 23 October control
   delta through those existing owners; its [local evidence](../evidence/ui-parity-402.md) keeps
   product/browser/device acceptance and remaining consumer work separate.
+  The next Select qualification must retain an unresolved disabled current value on open then
+  Tab/blur, while deliberate navigation can select an enabled replacement; cover the Studio
+  speaker and cue-anchor adapters as well as the shared menu.
 
 Consult domain work items through the [queue index](README.md) when those boundaries are selected;
 do not copy all GitHub issues into this file. Provider-only enrollment plans and historical

@@ -27,7 +27,9 @@ impl MenuState {
     fn initial(options: &[SelectOption], value: &str) -> Option<usize> {
         options
             .iter()
-            .position(|option| option.value == value && !option.disabled)
+            // A disabled current value can represent an unresolved caller-owned reference.
+            // Opening alone must keep it; only navigation chooses an enabled replacement.
+            .position(|option| option.value == value)
             .or_else(|| options.iter().position(|option| !option.disabled))
     }
 
@@ -178,6 +180,43 @@ mod tests {
             assert_eq!(state.apply(Intent::Toggle, &options, "missing"), None);
             assert_eq!(state.apply(Intent::Dismiss, &options, "missing"), None);
         }
+    }
+
+    fn unresolved_speaker_options() -> Vec<SelectOption> {
+        vec![
+            SelectOption {
+                disabled: true,
+                ..SelectOption::new(
+                    "minh-cu",
+                    "Chọn người nói · tham chiếu hiện tại chưa hợp lệ",
+                )
+            },
+            SelectOption::new("narrator", "Người dẫn chuyện"),
+            SelectOption::new("an", "An"),
+        ]
+    }
+
+    #[test]
+    fn a_disabled_current_value_survives_open_then_accept_without_navigation() {
+        let options = unresolved_speaker_options();
+        let mut state = MenuState::default();
+        assert_eq!(state.apply(Intent::Toggle, &options, "minh-cu"), None);
+        // Tab and blur both acknowledge the active option through Accept. Opening alone
+        // must not choose a replacement for the caller's unresolved current value.
+        assert_eq!(state.apply(Intent::Accept, &options, "minh-cu"), None);
+        assert_eq!(state, MenuState::default());
+    }
+
+    #[test]
+    fn navigation_from_a_disabled_current_value_commits_the_selected_enabled_option() {
+        let options = unresolved_speaker_options();
+        let mut state = MenuState::default();
+        assert_eq!(state.apply(Intent::Toggle, &options, "minh-cu"), None);
+        assert_eq!(state.apply(Intent::Next, &options, "minh-cu"), None);
+        assert_eq!(
+            state.apply(Intent::Accept, &options, "minh-cu"),
+            Some("narrator".to_owned())
+        );
     }
 
     #[test]

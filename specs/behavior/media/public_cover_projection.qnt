@@ -1,16 +1,17 @@
-// Proposed #157 P0 public Work cover projection (ADR 0033, not accepted).
+// Accepted #157 P0 public Work cover policy (ADR 0033); model lifecycle is draft.
 // Authority: the public_cover kernel and artwork-v1.md revision-bound history.
-// Images 1 and 2 are synthetic asset identities; asset binding is assumed exact here
-// (binding/corruption partitions are native example tests, not modeled).
+// Images 1 and 2 have distinct byte SHA identities; requests name those equality
+// classes. Separate assets sharing bytes are outside this instance. Asset binding is
+// exact (malformed hashes, binding/corruption and actual bytes remain native partitions).
 module public_cover_projection {
   type Art = Img(int) | Cleared
   type Pin = Unpublished | Pinned(int)
   type Decision = Undecided | Disclosed(int) | Revoked
   type Reason = NotPublished | NoArtwork | Undisclosed | RevokedCover | Expired
   type View = Shown(int) | Fallback(Reason)
-  type Outcome = NoOutcome | Changed
+  type Outcome = NoOutcome | Changed | Served(int) | FetchDenied
   type Event = NoEvent | Assertion | SetPrivate(int) | ClearPrivate | EditMetadata | Publish
-    | Withdraw | Disclose(int) | Revoke(int) | Clock(int)
+    | Withdraw | Disclose(int) | Revoke(int) | Clock(int) | Fetch(int)
   type State = {
     now: int, revision: int, changes: int -> Art, pin: Pin, eligible: bool,
     decisions: int -> Decision, view: View
@@ -41,6 +42,12 @@ module public_cover_projection {
       }
   }
   pure def project(s: State): State = { ...s, view: coverView(s) }
+  // Every request re-resolves today's eligible release, disclosure and clock. The
+  // requested identity may be a URL retained before a replacement or revocation.
+  pure def fetchOutcome(s: State, requested: int): Outcome = match coverView(s) {
+    | Shown(i) => if (i == requested) Served(i) else FetchDenied
+    | Fallback(_) => FetchDenied
+  }
 
   pure val initial: State = {
     now: 1, revision: 1, changes: Map(), pin: Unpublished, eligible: false,
@@ -71,7 +78,7 @@ module public_cover_projection {
   action publish = checkpoint({ ...state, pin: Pinned(state.revision), eligible: true }, Publish)
   // Withdrawal, supersession without replacement or visibility loss of the release.
   action withdraw = checkpoint({ ...state, eligible: false }, Withdraw)
-  // Proposed #157 public-display decision for one exact image; private admission is not it.
+  // Accepted #157 public-display decision for one exact image; private admission is not it.
   action disclose(i: int, until: int): bool =
     checkpoint({ ...state, decisions: state.decisions.put(i, Disclosed(until)) }, Disclose(i))
   action revoke(i: int): bool =
@@ -80,17 +87,21 @@ module public_cover_projection {
     0 <= now and now <= 6,
     checkpoint({ ...state, now: now }, Clock(now))
   }
+  action fetch(requested: int): bool = all {
+    state' = project(state), before' = state, last' = Fetch(requested),
+    outcome' = fetchOutcome(state, requested)
+  }
   action sampledInputs = {
     nondet i = images.oneOf()
     nondet until = 0.to(6).oneOf()
     nondet now = 0.to(6).oneOf()
     any {
       setPrivate(i), clearPrivate, editMetadata, publish, withdraw,
-      disclose(i, until), revoke(i), clock(now)
+      disclose(i, until), revoke(i), clock(now), fetch(i)
     }
   }
   // Bias toward cover A disclosed and published before later private replacements.
-  action step = any { setPrivate(1), disclose(1, 6), publish, sampledInputs }
+  action step = any { setPrivate(1), disclose(1, 6), publish, fetch(1), sampledInputs }
 
   pure def pinnedRevision(p: Pin): int = match p { | Unpublished => 0 | Pinned(r) => r }
   pure def published(p: Pin): bool = match p { | Unpublished => false | Pinned(_) => true }
@@ -121,6 +132,14 @@ module public_cover_projection {
   val clearIsTombstone = not(published(state.pin) and state.eligible and
       latestIs(state.changes, pinnedRevision(state.pin), Cleared))
     or state.view == Fallback(NoArtwork)
+  // Both directions matter: serve exactly today's shown image, and deny every
+  // other request. The projection assertions above independently constrain view.
+  val fetchMatchesProjection = match last {
+    | Fetch(requested) =>
+      if (state.view == Shown(requested)) outcome == Served(requested)
+      else outcome == FetchDenied
+    | _ => true
+  }
 
   val shown = isShown(state.view)
   val pinnedDespiteReplacement = isShown(state.view) and
@@ -132,4 +151,18 @@ module public_cover_projection {
   val expiredFallback = state.view == Fallback(Expired)
   val undisclosedFallback = state.view == Fallback(Undisclosed)
   val clearedFallback = state.view == Fallback(NoArtwork) and state.changes.keys().size() > 0
+  val fetchServed = match last {
+    | Fetch(requested) => outcome == Served(requested)
+    | _ => false
+  }
+  val fetchMismatchDenied = match last {
+    | Fetch(requested) => isShown(state.view) and shownImage(state.view) != requested and
+      outcome == FetchDenied
+    | _ => false
+  }
+  val fetchFallbackDenied = match last {
+    | Fetch(_) => not(isShown(state.view)) and outcome == FetchDenied
+    | _ => false
+  }
+  val fetchPinnedDespiteReplacement = fetchServed and pinnedDespiteReplacement
 }

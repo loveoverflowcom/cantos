@@ -369,39 +369,224 @@ fn cover_outcome_matches_an_independent_precedence_table() {
     assert_eq!(shown, 10);
 }
 
+// The six fetch markers below are checked by tests/public_cover_behavior_binding.rs.
+// They link native regressions to modeled scenarios; no trace replay/conformance is implied.
+/// Quint run: cantos.media.public-cover-projection.run.fetch-current-shown
 #[test]
-fn cover_bytes_are_admitted_only_for_the_currently_shown_image() {
+fn cover_fetch_requires_the_exact_currently_shown_sha256() {
     let h = history();
-    let [_, w2, w3, _] = &h.revisions;
+    let w2 = &h.revisions[1];
     let (a, b) = ("a".repeat(64), "b".repeat(64));
-    // Release pinned at w2 shows A: only A's SHA-256 is served, never the private head B.
+
+    let undisclosed = project(w2, &h, Some(&h.a), CoverDisclosure::Undecided, 500);
+    assert_eq!(
+        undisclosed,
+        CoverProjection::Fallback(CoverFallback::Undisclosed)
+    );
+    assert_eq!(admit_cover_fetch(&undisclosed, &a), None);
+
+    let shown_a = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
+    let before = shown_a.clone();
+    let admitted = admit_cover_fetch(&shown_a, &a).unwrap();
+    assert_eq!(admitted.sha256(), a);
+    assert_eq!(admitted.image_asset_id(), h.a.id().as_str());
+    assert_eq!(admitted.image_asset_digest(), h.a.digest());
+    // Malformed byte identities are native partitions, outside the model's two-image bound.
+    for requested in [
+        b,
+        String::new(),
+        "A".repeat(64),
+        "g".repeat(64),
+        a[..63].into(),
+        "a".repeat(65),
+    ] {
+        assert_eq!(admit_cover_fetch(&shown_a, &requested), None, "{requested}");
+    }
+    assert_eq!(
+        shown_a, before,
+        "fetch admission cannot mutate the projection"
+    );
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-private-replacement
+#[test]
+fn cover_fetch_keeps_the_release_pinned_image_after_private_replacement_and_clear() {
+    let h = history();
+    let w2 = &h.revisions[1];
+    let (a, b) = ("a".repeat(64), "b".repeat(64));
+    // Complete history includes replacement B and a later clear; the release still pins A.
     let shown_a = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
     assert_eq!(
         admit_cover_fetch(&shown_a, &a).map(PublicCover::sha256),
         Some(a.as_str())
     );
-    for requested in [b.as_str(), "", "A".repeat(64).as_str(), &a[..63]] {
-        assert_eq!(admit_cover_fetch(&shown_a, requested), None, "{requested}");
-    }
-    // A republish pinned at w3 makes a cached URL for A stale; only B is served.
+    assert_eq!(admit_cover_fetch(&shown_a, &b), None);
+
+    // Even a current disclosure of private B is not authority for either image at A's pin.
+    let wrong_disclosure = project(w2, &h, Some(&h.a), cleared(&h.b, 1000), 500);
+    assert_eq!(
+        wrong_disclosure,
+        CoverProjection::Fallback(CoverFallback::Corrupt)
+    );
+    assert_eq!(admit_cover_fetch(&wrong_disclosure, &a), None);
+    assert_eq!(admit_cover_fetch(&wrong_disclosure, &b), None);
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-stale-republish
+#[test]
+fn cover_fetch_rejects_the_old_image_after_republish_pins_the_replacement() {
+    let h = history();
+    let [_, w2, w3, _] = &h.revisions;
+    let (a, b) = ("a".repeat(64), "b".repeat(64));
+    let shown_a = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
+    assert_eq!(
+        admit_cover_fetch(&shown_a, &a).map(PublicCover::sha256),
+        Some(a.as_str())
+    );
     let shown_b = project(w3, &h, Some(&h.b), cleared(&h.b, 1000), 500);
     assert_eq!(admit_cover_fetch(&shown_b, &a), None);
-    assert!(admit_cover_fetch(&shown_b, &b).is_some());
-    // Revocation, expiry and an undecided image deny the very next fetch of the same URL.
-    for denied in [
-        project(
-            w2,
-            &h,
-            Some(&h.a),
-            CoverDisclosure::Revoked {
-                image_asset_digest: h.a.digest(),
+    let admitted = admit_cover_fetch(&shown_b, &b).unwrap();
+    assert_eq!(admitted.sha256(), b);
+    assert_eq!(admitted.image_asset_id(), h.b.id().as_str());
+    assert_eq!(admitted.image_asset_digest(), h.b.digest());
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-revoked
+#[test]
+fn cover_fetch_rejects_the_previously_shown_image_after_revocation() {
+    let h = history();
+    let w2 = &h.revisions[1];
+    let a = "a".repeat(64);
+    let shown_a = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
+    assert_eq!(
+        admit_cover_fetch(&shown_a, &a).map(PublicCover::sha256),
+        Some(a.as_str())
+    );
+    let revoked = project(
+        w2,
+        &h,
+        Some(&h.a),
+        CoverDisclosure::Revoked {
+            image_asset_digest: h.a.digest(),
+        },
+        500,
+    );
+    assert_eq!(revoked, CoverProjection::Fallback(CoverFallback::Revoked));
+    assert_eq!(admit_cover_fetch(&revoked, &a), None);
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-expired
+#[test]
+fn cover_fetch_rejects_the_previously_shown_image_at_the_expiry_boundary() {
+    let h = history();
+    let w2 = &h.revisions[1];
+    let a = "a".repeat(64);
+    let before_expiry = project(w2, &h, Some(&h.a), cleared(&h.a, 500), 499);
+    assert_eq!(
+        admit_cover_fetch(&before_expiry, &a).map(PublicCover::sha256),
+        Some(a.as_str())
+    );
+    let expired = project(w2, &h, Some(&h.a), cleared(&h.a, 500), 500);
+    assert_eq!(expired, CoverProjection::Fallback(CoverFallback::Expired));
+    assert_eq!(admit_cover_fetch(&expired, &a), None);
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-withdrawn
+#[test]
+fn cover_fetch_loses_its_publication_authority_after_withdrawal() {
+    use crate::contexts::media::domain::{
+        lifecycle::ReleaseCandidate,
+        listening::ListenerFacts,
+        publication::{
+            decide, tests::fixture, AudioRelease, DistributionClearance, PublicationApproval,
+            ReleaseId,
+        },
+    };
+
+    let mut f = fixture();
+    let mut details = f.work.details().clone();
+    details.visibility = Visibility::Public;
+    f.work = Work::new(NewWork {
+        id: f.work.id().clone(),
+        kind: f.work.kind(),
+        owner_id: f.work.owner_id().clone(),
+        details,
+        at: 1000,
+    })
+    .unwrap();
+    let image = asset(&f.work, INTENT_A, 'a', 1100);
+    let (pinned, set_image) = change(&f.work, Some(&image), 1200);
+    f.work = pinned;
+    // Bind the existing synthetic audio fixture to the real artwork metadata revision,
+    // rebuilding every dependent digest through its production constructor.
+    let mut candidate = f.candidate.document().clone();
+    candidate.work_metadata_revision = f.work.revision();
+    f.candidate = ReleaseCandidate::record(candidate, &f.r).unwrap();
+    let mut rights = f.rights.document().clone();
+    rights.request.candidate_digest = f.candidate.document().digest.clone();
+    f.rights = DistributionClearance::record(rights, &f.candidate).unwrap();
+    let mut approval = f.approval.document().clone();
+    approval.request.candidate_digest = f.candidate.document().digest.clone();
+    approval.request.clearance_digest = f.rights.document().digest.clone();
+    f.approval = PublicationApproval::record(approval, &f.candidate).unwrap();
+    let release = AudioRelease::publish(
+        ReleaseId::parse("80000000-0000-4000-8000-000000000008").unwrap(),
+        &f.actor,
+        5000,
+        None,
+        decide(&f.facts()).unwrap(),
+    )
+    .unwrap();
+
+    let resolve = |withdrawn| {
+        ListenerPublication::resolve(ListenerFacts {
+            release: &release,
+            pinned_work: &f.work,
+            pinned_unit: &f.unit,
+            current_work: &f.work,
+            current_unit: &f.unit,
+            rights: Some(&f.rights),
+            approval: Some(&f.approval),
+            active: true,
+            owner_active: true,
+            withdrawn,
+            submission_revoked: false,
+            now: 5000,
+        })
+        .unwrap()
+    };
+    let changes = [set_image];
+    let project = |publication: &ListenerPublication| {
+        project_public_cover(
+            publication,
+            CoverFacts {
+                changes: &changes,
+                asset: Some(&image),
+                disclosure: cleared(&image, 9000),
+                now_ms: 5000,
             },
-            500,
-        ),
-        project(w2, &h, Some(&h.a), cleared(&h.a, 500), 500),
-        project(w2, &h, Some(&h.a), CoverDisclosure::Undecided, 500),
-    ] {
-        assert!(matches!(denied, CoverProjection::Fallback(_)));
-        assert_eq!(admit_cover_fetch(&denied, &a), None);
-    }
+        )
+    };
+    let a = "a".repeat(64);
+    let eligible = resolve(false).unwrap();
+    assert_eq!(eligible.work().revision(), 2);
+    assert_eq!(eligible.release().document().id, release.document().id);
+    let shown_a = project(&eligible);
+    assert_eq!(
+        admit_cover_fetch(&shown_a, &a).map(PublicCover::sha256),
+        Some(a.as_str())
+    );
+
+    // A fresh eligibility read yields no witness; no public projection can be requested.
+    // This exercises the native eligibility boundary, not an invented HTTP/storage shell.
+    let withdrawn = resolve(true);
+    assert!(withdrawn.is_none());
+    let after_withdrawal = withdrawn.as_ref().map(project);
+    assert_eq!(after_withdrawal, None);
+    assert_eq!(
+        after_withdrawal
+            .as_ref()
+            .and_then(|projection| admit_cover_fetch(projection, &a)),
+        None
+    );
 }

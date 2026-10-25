@@ -97,7 +97,7 @@ WorkKind stays `novel`/`story`/`podcast`; design labels such as "Audiobook" add 
 | Option | Benefits | Costs and limitations | Reason selected or rejected |
 | --- | --- | --- | --- |
 | A: mutable live Catalog plus publish snapshot | Fast editorial corrections; familiar Studio authoring | Public values/filter membership can change without release review; must define which snapshot wins and how old clients/cache/cursors behave | Not recommended for first slice; no safe editorial override policy exists |
-| B: release-pinned projection | Matches current title/synopsis revision authority; reproducible attribution and genre assignment | Corrections require a new reviewed binding/release; vocabulary labels and cross-unit representative changes still need policy | Recommended, not accepted; minimizes new authority paths |
+| B: release-pinned projection | Matches current title/synopsis revision authority; reproducible attribution and genre assignment | Corrections require a new reviewed binding/release; vocabulary labels and cross-unit representative changes still need policy | Accepted as the authority principle by #157; each field still follows the capability matrix above |
 | C: immutable facts plus selected live editorial fields | Can separate stable credits from safe display corrections | Requires an explicit per-field allowlist, two version identities and cursor/cache invalidation; a live field is not inherently safe | Defer until a concrete correction use case justifies the extra policy |
 
 For taxonomy, a compiled enum requires releases for editorial vocabulary changes; bounded
