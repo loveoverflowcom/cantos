@@ -3,6 +3,8 @@ pub mod domain;
 
 mod application;
 pub mod audio_intake;
+mod cover_application;
+pub use cover_application::{CoverDisclosureApplicationError, CoverDisclosureService};
 mod image_application;
 pub mod image_intake;
 pub use image_application::{
@@ -42,13 +44,15 @@ pub use publication_delivery::{
 };
 
 mod listener_application;
+mod listener_cover;
 mod listener_cursor;
 mod listener_delivery;
 mod listener_media;
 mod listener_projection;
 #[cfg(test)]
 pub(crate) use listener_application::PlaybackFixtureEligibility;
-pub use listener_application::{ListenerError, ListenerService};
+pub use listener_application::{ListenerError, ListenerService, PresentationLevel};
+pub use listener_cover::AdmittedCover;
 pub use listener_delivery::{
     MediaGrant, OriginPlayback, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit,
     PublicMediaOrigin, PublicationObjectRef, PublicationObjects,

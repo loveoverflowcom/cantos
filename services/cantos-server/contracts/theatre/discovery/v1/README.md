@@ -43,7 +43,7 @@ release. Unit titles/descriptions come from their own pinned metadata revisions.
 text, source, private rights/audit notes, provider identities, producer bindings and storage keys
 never enter the public projection. `language` is the actual released Content/audio language;
 a Work's editorial language may differ. No genre, author, popularity or rank is invented, and
-default v1 carries no cover (see [public cover v1.2](#public-cover-v12-accepted-not-served)).
+default v1 carries no cover (see [public cover v1.2](#public-cover-v12-composition-gated)).
 
 Public discovery remains useful metadata when playback delivery is unavailable. The normal
 Publication host cannot activate releases because its delivery adapter is unavailable. A
@@ -155,7 +155,7 @@ Browser-origin addressing of a deployed API (CORS, CDN) remains separate accepta
 `GET /works/{work}/units`. Omitting the query preserves every default v1 field and value;
 existing strict Rust and Kotlin readers reject unknown fields, so enriched responses use
 separate reviewed DTOs rather than adding fields to `WorkSummary` or `UnitSummary`.
-Any other presentation value is `invalid_request` (the accepted v1.2 `2` is admitted only by #171). The capability is part of cursor identity:
+`presentation=2` selects [public cover v1.2](#public-cover-v12-composition-gated); any other value is `invalid_request`. The capability is part of cursor identity:
 a cursor cannot switch between default and presentation responses.
 
 | Opt-in DTO | Added field | Meaning |
@@ -209,13 +209,18 @@ New endpoints are additive. Earlier Theatre mock playback vectors remain separat
 explicit Unix milliseconds (`*_at_ms`), not float seconds; these new fields choose the existing
 backend time representation instead of the earlier illustrative RFC3339 listener proposal.
 
-## Public cover v1.2 (accepted, not served)
+## Public cover v1.2 (composition-gated)
 
-**Accepted contract, NOT IMPLEMENTED.** [ADR 0033](../../../../../../docs/decisions/0033-release-pinned-public-cover.md)
-was accepted by the owner for [#157](https://github.com/loveoverflowcom/cantos/issues/157).
-Until [#171](https://github.com/loveoverflowcom/cantos/issues/171) ships, the Server still
-answers `presentation=2` with `invalid_request` and serves no cover route; clients keep their
-no-cover fallback and must not construct cover URLs or ship this capability ahead of the Server.
+[ADR 0033](../../../../../../docs/decisions/0033-release-pinned-public-cover.md) was accepted by
+the owner for [#157](https://github.com/loveoverflowcom/cantos/issues/157), and
+[#171](https://github.com/loveoverflowcom/cantos/issues/171) implements it in the Server:
+`presentation=2` is admitted on every route below, and the cover route is mounted. A cover is
+shown only on a host that composes cover delivery, which today is the public-media host
+(`CANTOS_PUBLICATION_ROOT`, `CANTOS_PUBLIC_MEDIA_ORIGIN` and the playback key) that also has
+private media storage configured; the cover URL uses that same explicit HTTPS origin. Every other
+host answers `presentation=2` with `cover: null` and the route with `not_found`. The owner
+discloses each image through the [Studio cover disclosure](../../../studio/cover-disclosure/v1/README.md)
+route. Clients must still use URLs exactly as given and adopt this level only under #158/#159.
 
 | Request | v1.2 response |
 | --- | --- |
@@ -252,18 +257,24 @@ that SHA-256. A stale URL after republish, revocation, expiry or withdrawal is `
 | Storage timeout/unavailable | 503 | `unavailable` / true | Keep the fallback; retry with backoff |
 | Stored bytes contradict the admitted SHA-256/length | 500 | `unavailable` / false | Keep the fallback; report |
 
-`If-None-Match` with the strong ETag returns 304; `no-cache` requires revalidation before each
-use, so revocation takes effect on the next request rather than after a cache lifetime. Ranges
-are not served (`Accept-Ranges: none`; a `Range` header receives the full 200). HEAD has no body.
-A cover failure never changes the summary's other fields, unit lists or playback.
+`If-None-Match` with the strong ETag (or its weak spelling, or `*`) returns 304 after the same
+re-projection; `no-cache` requires revalidation before each use, so revocation takes effect on
+the next request rather than after a cache lifetime. Ranges are not served (`Accept-Ranges:
+none`; a `Range` header receives the full 200). HEAD has no body. Only a 200/304 from this route
+carries `public, no-cache`; every error stays `no-store`. The Server hashes the stored object
+before sending any byte and re-projects again after opening it, so a decision committed while
+the object was opening still denies. A cover failure never changes the summary's other fields,
+unit lists or playback.
 
 The [schema](discovery.schema.json) defines `CoverImage`, `CoveredWorkSummary` and
 `CoveredWorkPage`; the [cover fixtures](fixtures/cover/) show a shown cover and `null`; the
 [shared Rust DTOs](../../../../src/contract/theatre/discovery.rs) round-trip them and the
 conformance tests prove that default and `presentation=1` readers reject v1.2 responses.
 The fixtures live in a subdirectory so the default-v1 CMP corpus is unchanged; Theatre Web
-and CMP adopt them under #158/#159 after #171. Exact CORP/CORS headers for the deployed
-origins (ADR 0041) and any offline cover retention on CMP remain #171/#159 decisions.
+and CMP adopt them under #158/#159. #171 selects no CORP/CORS header for the deployed origins
+(ADR 0041): the route answers with the Theatre surface's existing CORS boundary, and an
+explicit `Cross-Origin-Resource-Policy` and any offline cover retention on CMP remain open
+decisions for the deployment owner and #159.
 
 ## Client state coverage (#172) is a review input, not a wire change
 

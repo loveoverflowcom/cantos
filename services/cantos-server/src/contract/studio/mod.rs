@@ -21,6 +21,8 @@ mod audio_intake;
 pub use audio_intake::*;
 mod artwork;
 pub use artwork::*;
+mod cover_disclosure;
+pub use cover_disclosure::*;
 pub mod protobuf;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

@@ -299,11 +299,28 @@ impl ServerFixture {
         work: &SeededWork,
         unit: &SeededUnit,
     ) -> Chain {
+        self.publish_generation(storage, work, unit, 1).await
+    }
+
+    /// The `generation`-th replacement (from 1) of `unit`, pinned to the current Work head. Each
+    /// generation has its own identities, brief version and media bytes, so a unit can be
+    /// republished repeatedly; generations must be used in increasing order.
+    pub async fn publish_generation(
+        &self,
+        storage: Option<&FilesystemPublicationStorage>,
+        work: &SeededWork,
+        unit: &SeededUnit,
+        generation: u32,
+    ) -> Chain {
+        assert!(
+            (1..0x100).contains(&generation),
+            "a small replacement generation"
+        );
         let mut conn = self.store().connection().await.expect("a connection");
         let tx = conn.transaction().await.expect("the writer");
-        // Fresh identities for the replacement chain, disjoint from the first (`tag + 1 << 16`).
+        // Fresh identities per generation, disjoint from the first (`tag + generation << 16`).
         let mut ids = Ids {
-            tag: work.tag.wrapping_add(0x1_0000),
+            tag: work.tag.wrapping_add(generation << 16),
             next: 0,
         };
         let now = self.clock_now_micros().div_euclid(1000);
@@ -327,13 +344,14 @@ impl ServerFixture {
                 seed: &seed,
                 work: &work_row,
                 unit: &unit_row,
-                unit_index: usize::try_from(unit.position).expect("a position") + 100,
-                chain_no: 2,
+                unit_index: usize::try_from(unit.position).expect("a position")
+                    + 100 * usize::try_from(generation).expect("a generation"),
+                chain_no: generation + 1,
                 unit_seed: &UnitSeed::published(&unit.title),
                 content: &content,
                 t0,
                 now,
-                brief_version: 2,
+                brief_version: u64::from(generation) + 1,
             },
         )
         .await;

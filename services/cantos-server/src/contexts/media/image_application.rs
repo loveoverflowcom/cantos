@@ -26,7 +26,7 @@ use crate::{
     platform::store::{Store, StoreError},
 };
 
-mod objects;
+pub(super) mod objects;
 mod turso;
 
 #[derive(Debug)]
