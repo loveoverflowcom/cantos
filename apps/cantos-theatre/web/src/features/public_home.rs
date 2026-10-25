@@ -230,17 +230,17 @@ fn WorkCard(
     let kind = work.kind;
     let count = work.unit_count;
     let language = discovery_language::display_name(&work.language);
+    let action_id = format!("theatre-public-work-action-{}", work.work_id);
+    let title_id = format!("theatre-public-work-title-{}", work.work_id);
+    let labelled_by = format!("{action_id} {title_id}");
+    let arrow = icon("arrow_back");
     view! {
         <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=work.work_id.clone()>
             <WorkCover kind locale/>
             <div class="theatre-public-work-body">
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h3>{match PublicWorkId::parse(&work.work_id) {
-                    Some(id) => {
-                        let action_id = format!("theatre-public-work-action-{id}");
-                        let title_id = format!("theatre-public-work-title-{id}");
-                        let labelled_by = format!("{action_id} {title_id}");
-                        view! {
+                    Some(id) => view! {
                         <a id=work_link_id(id) class="theatre-public-work-link" href=Route::PublicWork(id).hash()
                             lang=move || locale.get().lang()
                             aria-labelledby=labelled_by
@@ -250,10 +250,9 @@ fn WorkCard(
                             }>
                             <span id=action_id class="cui-sr-only" lang=move || locale.get().lang()>{move || text(Key::PublicHomeOpenWork, locale.get())}</span>
                             <span id=title_id class="theatre-public-work-title" lang=work.language.clone()>{work.title}</span>
-                            <span class="theatre-public-work-arrow" aria-hidden="true">{icon("arrow_back")}</span>
+                            <span class="theatre-public-work-arrow" aria-hidden="true">{arrow}</span>
                         </a>
-                    }.into_any()
-                    },
+                    }.into_any(),
                     // The decoder admits only canonical IDs; never route a guessed one.
                     None => view! { <span lang=work.language.clone()>{work.title}</span> }.into_any(),
                 }}</h3>
