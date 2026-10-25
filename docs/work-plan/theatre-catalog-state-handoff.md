@@ -38,7 +38,7 @@ provider, device or browser observation.
 | "First published" | Catalog | `first_published_at_ms` | Immutable first-index anchor; republish never moves it | P0 |
 | Work missing, private, withdrawn, expired, owner-disabled | Catalog | `404 not_found` (`not_found.json`) | One merged anonymous answer; no reason, no 410 | P0, by design |
 | Non-canonical Work id | Catalog | `400 invalid_request` | Strict canonical lower-case UUID | P0 |
-| Cover or fallback art | Deferred | none (`WorkSummary` has no cover) | [#157](https://github.com/loveoverflowcom/cantos/issues/157), [ADR 0033](../decisions/0033-release-pinned-public-cover.md) proposed | Deferred; FE shows its fallback |
+| Cover or fallback art | Deferred | none (`WorkSummary` has no cover) | [#171](https://github.com/loveoverflowcom/cantos/issues/171), [ADR 0033](../decisions/0033-release-pinned-public-cover.md) accepted (v1.2 `presentation=2`, `cover: null` fallback) | Deferred until #171; FE shows its fallback |
 | Genres, credits, seasons, transcript, markers | Deferred | none | P1, [ADR 0030](../decisions/0030-release-safe-public-metadata.md) | Deferred; fixtures stay labelled in preview only |
 | Unit count or total duration | — | none | Would disclose hidden-unit existence | Gap G5; FE must not invent it |
 | CTA "Nghe" (first unit) | Catalog | first page of `GET /works/{work}/units`, first item | Display order, see `position` below | P0; CTA disabled until the page loads; never autoplays |
@@ -141,7 +141,7 @@ these small correctness fixtures establish no latency, throughput or optimizatio
 | G3 | Cursor vault is process-local | Behind more than one API process, `invalid_cursor` is spurious | [ADR 0035 §5](../decisions/0035-theatre-catalog-unit-availability.md#decision); decide a shared/stateless cursor before replication | Platform/Publication |
 | G4 | Schema allows `duration_ms: 0`; the domain never emits it | Readers cannot tell `0` is corrupt | Optional `minimum: 1` tightening, compatible; ADR 0035 §3 | Contract owner |
 | G5 | No Work-level unit count or total duration | Hidden-unit disclosure | Leave absent; FE derives only from walked pages | Product |
-| G6 | P1 cover, credits, genres, seasons, transcript, markers | Not P0 | #157/#171 and ADR 0030 gates | Product/Catalog |
+| G6 | Cover; P1 credits, genres, seasons, transcript, markers | Not P0 | Cover: #171 (ADR 0033 accepted); P1: ADR 0030 matrix (genre open, rest deferred) | Product/Catalog |
 | G7 | No live Web/CMP consumer; Kotlin wire generation and drift check not implemented | A client could drift from the strict schema | Adopt the shared fixtures above; drift check before claiming wire acceptance | #158/#159 |
 | G8 | Playback delivery is composition-gated | Listening cannot be accepted end to end | #10/#11 and ADR 0032 | Publication |
 

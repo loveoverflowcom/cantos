@@ -233,3 +233,117 @@ fn unit_state_fixtures_pin_empty_continuation_and_version_change() {
     assert!(after.published_at_ms > before.published_at_ms);
     assert!(before.duration_ms > 0 && after.duration_ms > 0);
 }
+/// Accepted Discovery v1.2 (ADR 0033): `presentation=2` adds a required nullable cover.
+#[test]
+fn cover_opt_in_fixtures_match_strict_schema_and_shared_rust_types() {
+    fixture::<CoveredWorkPage>(
+        "CoveredWorkPage",
+        include_str!("../../contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"),
+    );
+    fixture::<CoveredWorkSummary>(
+        "CoveredWorkSummary",
+        include_str!("../../contracts/theatre/discovery/v1/fixtures/cover/covered_work.json"),
+    );
+}
+#[test]
+fn cover_fixtures_bind_url_to_their_work_and_bytes_and_cover_both_states() {
+    let page: CoveredWorkPage = serde_json::from_str(include_str!(
+        "../../contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+    ))
+    .unwrap();
+    let detail: CoveredWorkSummary = serde_json::from_str(include_str!(
+        "../../contracts/theatre/discovery/v1/fixtures/cover/covered_work.json"
+    ))
+    .unwrap();
+    let mut shown = 0;
+    for work in page.items.iter().chain([&detail]) {
+        let Some(cover) = &work.cover else { continue };
+        shown += 1;
+        let suffix = format!(
+            "/api/v1/theatre/works/{}/cover/{}",
+            work.work_id, cover.sha256
+        );
+        assert!(cover.url.ends_with(&suffix), "{}", cover.url);
+    }
+    assert_eq!(shown, 2);
+    assert!(page.items.iter().any(|work| work.cover.is_none()));
+}
+#[test]
+fn old_readers_reject_cover_responses_and_cover_requires_explicit_null() {
+    let page: Value = serde_json::from_str(include_str!(
+        "../../contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+    ))
+    .unwrap();
+    // Default v1 and presentation=1 readers must never receive presentation=2 responses.
+    assert!(!schema_accepts("WorkPage", &page));
+    assert!(serde_json::from_value::<WorkPage>(page.clone()).is_err());
+    assert!(!schema_accepts("PresentedWorkPage", &page));
+    assert!(serde_json::from_value::<PresentedWorkPage>(page.clone()).is_err());
+    // Omission is not a no-cover state: `null` is the only one.
+    let mut missing = page["items"][1].clone();
+    missing.as_object_mut().unwrap().remove("cover");
+    assert!(!schema_accepts("CoveredWorkSummary", &missing));
+    assert!(serde_json::from_value::<CoveredWorkSummary>(missing).is_err());
+}
+#[test]
+fn cover_rejects_private_fields_and_out_of_contract_values() {
+    let page: Value = serde_json::from_str(include_str!(
+        "../../contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+    ))
+    .unwrap();
+    let cover = page["items"][0]["cover"].clone();
+    assert!(schema_accepts("CoverImage", &cover));
+    for field in [
+        "image_asset_id",
+        "image_asset_digest",
+        "rights_refs",
+        "provenance",
+        "owner_id",
+        "object_key",
+        "receipt",
+        "disclosure",
+        "valid_until_ms",
+    ] {
+        let mut v = cover.clone();
+        v[field] = json!("private-sentinel");
+        assert!(!schema_accepts("CoverImage", &v), "schema admits {field}");
+        assert!(
+            serde_json::from_value::<CoverImage>(v).is_err(),
+            "reader admits {field}"
+        );
+    }
+    let sha = cover["sha256"].as_str().unwrap().to_owned();
+    for (field, invalid) in [
+        ("content_type", json!("image/webp")),
+        ("content_type", json!("image/svg+xml")),
+        ("width_px", json!(0)),
+        ("width_px", json!(4097)),
+        ("height_px", json!(0)),
+        ("height_px", json!(4097)),
+        ("byte_length", json!(0)),
+        ("byte_length", json!(8_388_609)),
+    ] {
+        let mut v = cover.clone();
+        v[field] = invalid;
+        assert!(
+            !schema_accepts("CoverImage", &v),
+            "schema admits {field}={}",
+            v[field]
+        );
+        assert!(
+            serde_json::from_value::<CoverImage>(v).is_err(),
+            "reader admits {field}"
+        );
+    }
+    for (field, invalid) in [
+        ("sha256", "A".repeat(64)),
+        ("alt_text", String::new()),
+        ("url", format!("http://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/{sha}")),
+        ("url", format!("https://api.cantos.example/api/v1/theatre/media/pg1_{sha}")),
+        ("url", format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/{sha}?sig=x")),
+    ] {
+        let mut v = cover.clone();
+        v[field] = json!(invalid);
+        assert!(!schema_accepts("CoverImage", &v), "schema admits {field}={invalid}");
+    }
+}

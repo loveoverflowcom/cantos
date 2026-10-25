@@ -154,10 +154,10 @@ fixture must observe their absence from anonymous discovery and refusal of anony
 artwork reads. No whole private-media root is served, and no host path, `file://` URL or private
 storage key is added to a client contract.
 
-[ADR 0033](../decisions/0033-release-pinned-public-cover.md) remains **proposed**. The public
-cover disclosure authority, versioned wire representation and delivery decision belong to
-[#157](https://github.com/loveoverflowcom/cantos/issues/157) and
-[#171](https://github.com/loveoverflowcom/cantos/issues/171). Private image admission and public
+[ADR 0033](../decisions/0033-release-pinned-public-cover.md) is **accepted** (#157): an owner's
+digest-bound disclosure, Discovery v1.2 `presentation=2` and an origin cover route. Its
+implementation belongs to [#171](https://github.com/loveoverflowcom/cantos/issues/171); the
+sample's private covers stay private until a release pins them and the owner discloses each. Private image admission and public
 Work visibility cannot stand in for that decision. Public cover delivery and real Web/CMP
 observations remain separate acceptance work; do not add a hardcoded frontend catalog or
 weaken publication/QC/auth gates to display this fixture.

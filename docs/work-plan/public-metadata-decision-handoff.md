@@ -1,11 +1,12 @@
 # Public metadata: owner decision and implementation handoff
 
-This is a **proposal and source inventory**, not an accepted P1 contract or a prototype runtime.
-It supports [#177](https://github.com/loveoverflowcom/cantos/issues/177) after the applicable
-[#157](https://github.com/loveoverflowcom/cantos/issues/157) decision gate. The
-[proposed ADR 0030](../decisions/0030-release-safe-public-metadata.md) owns the alternatives and
-six decisions to record; this file owns their field/consumer inventory and proposed evidence
-boundary. GitHub owns execution status and acceptance. Neither document closes either issue.
+This is a **source inventory and evidence plan**, not an accepted P1 contract or a prototype
+runtime. It supports [#177](https://github.com/loveoverflowcom/cantos/issues/177). The owner's
+[#157](https://github.com/loveoverflowcom/cantos/issues/157) decision accepted option B as the
+authority principle and recorded each family's accepted/open/deferred status in
+[ADR 0030's capability matrix](../decisions/0030-release-safe-public-metadata.md#157-capability-matrix);
+ADR 0030 owns the alternatives and the per-slice decisions still to record, and this file owns
+the field/consumer inventory and proposed evidence boundary. GitHub owns execution status and acceptance. Neither document closes either issue.
 
 ## Review boundary and baseline
 
@@ -76,7 +77,7 @@ rejection before another read. `empty_catalog_and_private_or_absent_release_are_
 also checks the empty-initial/no-continuation `NotFound` boundary.
 
 These are native Rust **mock-integration-tested** application scenarios with synthetic
-publication facts. They do not establish a PostgreSQL expiry race, live HTTP or Web/CMP
+publication facts. They do not establish a real `server.db` expiry race, live HTTP or Web/CMP
 pagination acceptance. The independent review and final local gate results belong in the PR;
 all proposed P1 scenarios below retain their own decision and implementation gates.
 
@@ -100,7 +101,7 @@ these proposed fields. #158/#159 own the exact Web/CMP mapping and runtime accep
 | Public credits/license text | Candidate expressly approved public attribution/license statement, not private distribution clearance | Separate revision and publication scope; absence is not a license grant or guessed copyright | Decide exact allowed public text and mandatory attribution/withdrawal behavior; private evidence stays private | Detail/license consumer must be named before schema; separate slice |
 | Timed markers | Candidate rendition/publication-bound navigation asset | Exact audio identity, timing units, duration bounds and stale marker policy; optional | Independent admission/publication; never treat ContentUnit as an audio marker | Separate player/navigation slice; not selected by #177 |
 | Public transcript | Candidate separately approved plain/timed text asset | Exact language/MIME/revision and release/rendition relation; optional | Separate text publication rights; private Script IR, manuscript/source and production instructions are not transcript endpoints | Separate accessibility/transcript slice; not selected by #177 |
-| Public artwork | Separate #157 P0 image projection/delivery authority | Exact approved image/release identity; no image or denial retains truthful fallback | Private artwork admission/owner URL grants no public display right | #158/#159 fallback consumer only until #157 P0 acceptance; not implemented here |
+| Public artwork | Accepted #157 P0 projection/delivery ([ADR 0033](../decisions/0033-release-pinned-public-cover.md)) | Exact approved image/release identity; no image or denial retains truthful fallback | Private artwork admission/owner URL grants no public display right | Implemented by #171; #158/#159 keep the fallback until then; not implemented here |
 
 For every new optional field the owner must distinguish at least: not authored, explicitly
 empty/not applicable, unavailable/withheld and a supplied approved value. The public response
@@ -126,7 +127,7 @@ An empty worksheet, a recommendation, a merged document or a passing fixture is 
 
 Accepting these applicable decisions can prepare a genre-only implementation boundary while
 other families remain deferred. It does not implement the capability, approve a prototype,
-accept unrun PostgreSQL/client behavior or waive an unmet dependency. The excluded attribution
+accept unrun `server.db`/client behavior or waive an unmet dependency. The excluded attribution
 and season rows need their own applicable decisions only when their slices are selected.
 
 ## Compatibility and query rules to settle before coding
@@ -150,7 +151,7 @@ and season rows need their own applicable decisions only when their slices are s
    Changed filter must fail with typed invalid_cursor. Preserve deterministic tie-breaks,
    expiry/capacity bounds and immutable anchors. The current keyset walk is not a frozen
    cross-page snapshot; document insertion/removal/replacement behavior honestly.
-5. **Bounded PostgreSQL work:** apply selected-representative filters before limit, avoid
+5. **Bounded `server.db` work:** apply selected-representative filters before limit, avoid
    duplicate Works for multi-genre joins, and retain batched metadata admission. Follow the
    [read-performance owner](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
    before choosing indexes, scanning JSON, DBSP or another endpoint. Measure eligible and
@@ -181,26 +182,26 @@ capability accepted or clone the audio model merely to populate the catalog.
 | Claim / failure class | Cheapest independent oracle after decisions | Additional boundary acceptance |
 | --- | --- | --- |
 | Approved projection only; absent value is truthful | Literal shape/semantic fixtures for every admitted field and absent/empty/withheld state; reject forged revision/source | Real HTTP response plus private-name/provider/storage/rights-evidence sentinels absent from body, errors, cursors, facets and logs |
-| No implicit current-head or unrelated-unit attribution | Pin old revision, edit draft, replace one unit release, compare exact expected representative and credits/genres | PostgreSQL publish/replacement/withdrawal and restart; failed replacement leaves prior release unchanged |
+| No implicit current-head or unrelated-unit attribution | Pin old revision, edit draft, replace one unit release, compare exact expected representative and credits/genres | File-backed `server.db` publish/replacement/withdrawal and restart; failed replacement leaves prior release unchanged |
 | Multi-genre semantics and exact errors | Hand-written ANY/ALL table, duplicate/permuted IDs, unknown/retired IDs, max bounds, mixed q/kind/language and exact errors | Real SQL differential results against reviewed pure oracle; no duplicate works or private facet counts |
 | Vocabulary authoring/removal has no hidden authority path | Separate curator/Work-writer allow/deny, stale revision and retry tables; compare absent/private/withdrawn-ID public responses with an independent expected response | Real SQL atomic source-to-release binding, concurrent vocabulary retirement and negative HTTP/error/facet/cursor leakage checks; no timing noninterference claim from matching JSON alone |
 | Stable bounded pagination | Cursor mismatch/expiry/restart/type/work cases and equal-anchor tie-break fixtures | Concurrent publish/withdraw/reorder/genre replacement between pages; unchanged anchors once, continue through empty page with next cursor |
 | Podcast without season and novel chapters | Explicit no-season podcast, mixed grouped/ungrouped episodes, duplicate display labels and flat novel/story fixtures | Real SQL order/revision rejection and Web/CMP decode/render using exactly the accepted shared fixture |
 | Old-client compatibility | Preserve current v1 literal responses/readers; new-version positive and old-reader rejection tests | Version negotiation/unsupported version and actual Web/CMP drift checks; a Rust build is not CMP wire acceptance |
-| Bounded query cost and migration safety | Query inventory and old-row snapshots; no applied migration edits or invented old values | Disposable PostgreSQL upgrade/rollback-read plan, constraints, EXPLAIN ANALYZE with measured representative cardinalities and batch/query counts |
+| Bounded query cost and migration safety | Query inventory and old-row snapshots; no applied migration edits or invented old values | Appended `server.db` migration on old-row snapshots, constraints, `EXPLAIN QUERY PLAN` with measured representative cardinalities and batch/query counts |
 | Credits withdrawal cannot leak old names | Exact scope/expiry/revocation truth table, private/public same-name collision and missing-grant denial | Real TOCTOU/revocation reads during publication and paging, plus dependent consumer/cache behavior |
 
 Existing projection tests include
 `manifest_projects_exact_release_identity_and_omits_private_envelope` and
 `summaries_use_published_audio_language_and_listing_anchors` in the projection owner; the cursor
 test `opaque_tokens_bind_query_expire_and_never_encode_internal_values` covers today's selectors.
-They are not genre/credit/season or real PostgreSQL acceptance.
+They are not genre/credit/season or real `server.db` acceptance.
 
 ## Recommended review sequence and stopping conditions
 
-1. Product/Catalog/Publication owners record the applicable ADR choices and #157's exact matrix
-   acceptance for the selected first capability. For genre-only work, use the worksheet above
-   and explicitly defer attribution/seasons rather than requiring their eventual design first.
+1. #157 accepted option B and marked genre/taxonomy as the open next candidate, with
+   attribution/seasons deferred. For genre-only work, the owner still records the vocabulary,
+   filter and wire choices through the worksheet above.
    Name the real authoring/source and Web/CMP consumers. Leave excluded families out of types
    and migrations; no dependency is waived and no owner is assigned by this document.
 2. For an accepted genre slice, agree the versioned contract/presence/compatibility corpus and
@@ -209,7 +210,7 @@ They are not genre/credit/season or real PostgreSQL acceptance.
 3. Add only the necessary persistence/index projection and publication binding. Coordinate the
    actual next free migration slot on refreshed develop; expand/backfill without rewriting
    old snapshots/digests, fail closed for unapproved data and prove atomic rollback/retry.
-4. Run real PostgreSQL/HTTP/privacy/concurrent pagination and query-cost acceptance. Adopt that
+4. Run real `server.db`/HTTP/privacy/concurrent pagination and query-cost acceptance. Adopt that
    same contract in Web/CMP under #158/#159 with explicit missing-field fallbacks. No hand-copied
    Kotlin DTO or fixture label in live UI; do not claim UI/native acceptance from backend tests.
 5. Open a separate bounded credits or season slice only after its authoring/rights/order
@@ -218,7 +219,8 @@ They are not genre/credit/season or real PostgreSQL acceptance.
 
 At runtime HANDOFF use `cargo xtask preflight --changed-only` on the final diff; the current
 implemented selectors include `cargo xtask verify rust`, `cargo xtask verify contracts` and
-`cargo xtask verify postgres` when additional focused evidence is needed. Follow the repository's
+`cargo xtask verify turso` when additional focused evidence is needed (`verify postgres` is a
+retired refusal). Follow the repository's
 [verification cadence](../../.agents/skills/cantos-engineering/references/verification-cadence.md),
 not repeated broad campaigns after each edit. Proposed new test names/benchmarks are not
 implemented commands. Owner-reviewed criteria, actual results and every NOT_RUN/BLOCKED boundary

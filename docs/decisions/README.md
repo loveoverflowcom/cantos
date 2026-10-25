@@ -40,10 +40,10 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0027 — Quint](0027-quint-executable-behavior.md) | Proposed architecture/model review | Model lifecycle and implementation observations stay separate |
 | [0028 — Work delegation](0028-work-scoped-delegation.md) | Accepted first slice; implemented | Catalog opaque grants, not producer/upload/publication permission |
 | [0029 — Visual comparison](0029-local-visual-comparison.md) | Proposed; local MVP implemented | Advisory pixel metric, no baseline/UX acceptance |
-| [0030 — Public metadata](0030-release-safe-public-metadata.md) | Proposed | No P1 field/source policy accepted |
+| [0030 — Public metadata](0030-release-safe-public-metadata.md) | Accepted in part (owner, #157): option B principle and capability status matrix | Genre open; contributors, credits, seasons, markers, transcript deferred; no P1 field accepted |
 | [0031 — Interest receipts](0031-membership-interest-receipts.md) | Proposed | Privacy/submitter/persistence decisions pending |
 | [0032 — Origin delivery](0032-theatre-origin-playback-delivery.md) | Accepted for step-1 origin integration; configured filesystem adapter/server | Deployed TLS/proxy/performance and native playback acceptance pending |
-| [0033 — Public cover](0033-release-pinned-public-cover.md) | Proposed; pure kernel only | No public cover wire/storage/delivery activation |
+| [0033 — Public cover](0033-release-pinned-public-cover.md) | Accepted (owner, #157); kernel and v1.2 contract DTOs implemented | Disclosure persistence, origin cover route, `presentation=2` serving and Web/CMP adoption are #171/#158/#159 |
 | [0034 — Account policy](0034-theatre-signup-and-provisioned-studio.md) | Accepted product/onboarding direction | Theatre signup, provisioned-only Studio; live issuer activation separate |
 | [0035 — Unit availability](0035-theatre-catalog-unit-availability.md) | Accepted owner decision | Version-aware metadata policy; implementation/consumer acceptance remains separate |
 | [0036 — Firebase enrollment proof](0036-firebase-enrollment-proof.md) | Accepted bounded direction; default-disabled runtime | Dedicated enrollment UID and one-shot setup continuation; real provider/issuer/activation gates remain open |

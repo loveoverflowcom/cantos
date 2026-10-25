@@ -39,11 +39,11 @@ observing a later clock is not its explicit `Expire` event.
 | Model assumption | One immutable publication (identity 1); another unit's release is identity 2. Time classes 0–6 with publishedAt=1, rightsUntil=5, TTL=2, including rollback. `authentic` abstracts the HMAC result; tokens, keys, URLs and bytes are not modeled. Eligibility loss (withdraw/revoke/supersede/owner disable) is one irreversible fact. | No hash, Range, header, SQL isolation, restart or concurrency claim; HTTP transport is native-tested. |
 | Model assumption | `Opening` is shell history between admission and the post-open recheck; `completeFetch` abstracts verified object bytes. | Covers withdrawal/expiry while the object opens; not lane bounds or body streaming. |
 
-## Draft: `cantos.media.public-cover-projection` (#171, proposal for #157)
+## Draft: `cantos.media.public-cover-projection` (#171, accepted #157 policy)
 
 | Classification | Authority / fact | Model consequence |
 | --- | --- | --- |
-| Proposed, not accepted | [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md#decision) recommends the release-pinned cover plus an explicit per-image disclosure; #157 has not accepted it. | `draft`; no wire field or delivery follows from a PASS. |
+| Accepted policy, model not yet re-reviewed | [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md#decision) was accepted for #157 with the modeled release-pinned cover and owner per-image clearance/revocation. Its accepted delivery rule (serve only the currently shown SHA-256) is native-tested by `admit_cover_fetch`, not modeled. | Lifecycle stays `draft` until a model review adds the fetch action; no wire field or delivery follows from a PASS. |
 | Implemented, independently of this model | [Pure kernel](../../services/cantos-server/src/contexts/media/domain/public_cover.rs) `project_public_cover`/`cover_outcome` over existing [artwork history](../../services/cantos-server/src/contexts/media/domain/artwork.rs) `artwork_at`. No production shell supplies a disclosure; it is always `Undecided`. | `effectiveAt`, `disclosure` and `coverView` mirror those seams; no observer is registered. |
 | Model assumption | Two synthetic images; asset binding is exact (binding/corruption partitions are native tests). Release eligibility is one flag; a publish pins the current head revision. Time classes 0–6. | No SQL, storage, wire, cache or client claim. |
 
