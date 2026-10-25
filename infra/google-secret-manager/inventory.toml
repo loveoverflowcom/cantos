@@ -99,6 +99,19 @@ format = "text"
 # --- operations: deploy jobs and the operator only -------------------------------------------
 
 [[secret]]
+id = "cantos-ops-google-api-key"
+environment = "ops"
+consumer = "operator"
+# Owner-confirmed Gemini Flash TTS / Google AI key for an external producer. This custody
+# note does not introduce a Cantos API/Identity environment variable or provider execution.
+contract = "Gemini Flash TTS / Google AI (external producer; operator custody)"
+delivery = "env"
+format = "text"
+# The supplied value was shared in an agent chat. Replacement belongs to its Google owner;
+# importing it neither rotates the provider credential nor authorizes runtime use.
+rotation_required = true
+
+[[secret]]
 id = "cantos-ops-cloudflare-api-token"
 environment = "ops"
 consumer = "ci-deploy"

@@ -1,10 +1,10 @@
 # Google Cloud Secret Manager — Cantos operator setup and secret custody
 
 **Status:** the operator import helper (`cargo xtask secrets`) and the tracked inventory are
-**implemented and tested against a scripted gcloud with synthetic payloads**. One live read-only
-`secrets status` run has passed ([observed state](#observed-live-state)); imports, per-secret IAM
-grants, CI workload identity and runtime binding are **NOT_RUN** until an operator performs and
-records them. Tracked by [issue #446](https://github.com/loveoverflowcom/cantos/issues/446).
+**implemented and tested against a scripted gcloud with synthetic payloads**. Live metadata
+reads and the two authorized ops-key imports below have passed ([observed state](#observed-live-state));
+per-secret IAM grants, CI workload identity and runtime binding remain **NOT_RUN**.
+Tracked by [issue #446](https://github.com/loveoverflowcom/cantos/issues/446).
 This document contains **no secret values**. Committing it creates no Google Cloud resource,
 IAM grant, secret version, VPS runtime mount or CI identity.
 
@@ -45,6 +45,7 @@ from the consumers' source (not from an old `.env.example`). Print it with
 | prod | `cantos-prod-server-s3-access-key-id` | Server `CANTOS_S3_ACCESS_KEY_ID` (default `access_key_env`) | Server runtime only, when S3 is configured |
 | prod | `cantos-prod-server-s3-secret-access-key` | Server `CANTOS_S3_SECRET_ACCESS_KEY` (default `secret_key_env`) | Server runtime only, when S3 is configured |
 | ops | `cantos-ops-cloudflare-api-token` | `deploy cloudflare` / CircleCI `cloudflare-web` `CLOUDFLARE_API_TOKEN` | selected deploy job or operator only |
+| ops | `cantos-ops-google-api-key` | owner-confirmed Gemini Flash TTS / Google AI for an external producer | operator custody only; no Cantos runtime binding or application env contract |
 | ops | `cantos-ops-android-release-keystore` (+ `-keystore-password`, `-key-password`) | `distribute firebase --channel production` `CANTOS_RELEASE_*` | operator workstation only |
 | ops | `cantos-ops-vps-ssh-private-key` | operator SSH | operator workstation only; **never** Server, Identity or CI |
 
@@ -53,6 +54,15 @@ The S3 pair is the **Long Van** object storage key. Its endpoint
 The current pair was shared in an agent chat on 2026-10-25; the owner accepted that exposure and
 kept it, so it is not marked `ROTATION_REQUIRED`. Reset it in the Long Van console ("Reset key")
 and import the new pair if that record is disclosed further or the key is misused.
+
+The separately supplied Google API key is held in ops custody for the owner-confirmed
+**Gemini Flash TTS / Google AI external producer**. It is not mapped to
+`CANTOS_IDENTITY_FIREBASE_API_KEY`, Server or Identity. Its inventory contract is a custody
+note, not an environment variable to export; no producer execution or secret delivery is wired
+by this addition. Audio production remains outside Cantos under [ADR 0018](../decisions/0018-external-audio-production.md).
+Because the value was supplied in an agent chat, it is marked `rotation_required = true`:
+the owner replaces it at its Google provider, then imports that replacement with the observed
+version fence. This record neither revokes the supplied value nor grants runtime authority.
 
 Deliberately **not** inventoried:
 
@@ -80,7 +90,7 @@ An `IMPORTED` secret is not `VERIFIED_ACCESS`; neither is `RUNTIME_BOUND`.
 
 ### Observed live state
 
-Operator-reported observation of 2026-10-25, source-bound to that day and to
+Initial operator-reported observation of 2026-10-25, source-bound to that day and to
 `cargo xtask secrets status`; refresh it by rerunning `status`, not by editing this table.
 
 | Layer | Result | Evidence and limit |
@@ -88,11 +98,39 @@ Operator-reported observation of 2026-10-25, source-bound to that day and to
 | gcloud account | PASS | signed in as the owner's account `manhpdbroad@gmail.com`, default project `cantos-a348b` (nonsecret) |
 | Secret Manager API | PASS | `secretmanager.googleapis.com` was already enabled; nothing was enabled by this run |
 | `secrets status --environment prod` | PASS | first live run; all 13 inventoried secrets reported `MISSING`, including both Long Van S3 secrets |
-| Imports | NOT_RUN | no version exists yet; the Long Van pair is the first planned import |
+| Imports at the initial observation | NOT_RUN | no version existed then; the later ops imports are recorded below |
 | Per-secret IAM, `VERIFIED_ACCESS`, `RUNTIME_BOUND` | NOT_RUN | no consumer identity has read a version. Other operator machines (workstation, Mac mini) that sign in with the same account need no extra grant, but that is not verified here |
 
 A passing `status` shows that the account can list version metadata. It does not show that any
 value is correct, that a consumer can read it, or that the S3 pair works against Long Van.
+
+### Authorized ops-key imports — 2026-10-25
+
+Executed on the owner's authenticated operator workstation as `manhpdbroad@gmail.com`, with
+the explicitly requested project `cantos-a348b`, using the helper from
+`develop@409ace61360d303160e55828a9bf5ecdd0a9e97b` plus this nonsecret inventory addition.
+The owner supplied a private Drive file containing a Cloudflare Bearer token and a separate
+Google API key. The Drive command snippet was treated as data, never executed. Only the token
+was extracted; neither the source file, source URL nor a credential payload is tracked.
+
+| Secret | Status | Observed evidence and limit |
+| --- | --- | --- |
+| `cantos-ops-cloudflare-api-token` | `IMPORTED` | `secrets import` passed; metadata readback reports enabled version `1`, unpinned. Cloudflare token validity, scope and deploy-job access were not tested. |
+| `cantos-ops-google-api-key` | `ROTATION_REQUIRED` | `secrets import` passed; metadata readback reports enabled version `1`, unpinned. The owner confirmed Gemini Flash TTS / Google AI for an external producer; key validity and producer access were not tested. |
+
+Before each write, `secrets status --environment ops` reported the target `MISSING` and an
+import `--dry-run` showed the exact project/account/consumer. Each real import used an
+owner-only file outside the checkout and `--expect-latest none`, created the secret with
+automatic replication, then returned `PASS add-version added v1 (IMPORTED)`. Values reached
+gcloud through stdin, never argv. The ignored, sanitized
+`artifacts/secrets/import-ledger.ndjson` records both successful create/add operations.
+Post-import `cargo xtask secrets status --project cantos-a348b --account manhpdbroad@gmail.com
+--environment ops` confirms version metadata without accessing payloads.
+
+No consumer has performed `VERIFIED_ACCESS` or `RUNTIME_BOUND`; IAM grants, CI wiring,
+numeric runtime pins, provider calls and deployment remain **NOT_RUN**. The other inventoried
+ops secrets remained `MISSING` in this readback; no production-secret state was refreshed.
+Importing these keys completes only this bounded custody step of #446.
 
 ## Identities and least-privilege IAM
 
@@ -107,7 +145,7 @@ the creation role an operator holds while bootstrapping.
 | Server runtime reader | `roles/secretmanager.secretAccessor` | each `cantos-prod-server-*` secret only |
 | Cloudflare deploy job (WIF principal) | `roles/secretmanager.secretAccessor` | `cantos-ops-cloudflare-api-token` only |
 | Developer | `roles/secretmanager.secretAccessor` | `cantos-dev-*` secrets only |
-| Operator workstation | `roles/secretmanager.secretAccessor` | `cantos-ops-android-*`, `cantos-ops-vps-ssh-private-key` |
+| Operator workstation | `roles/secretmanager.secretAccessor` | `cantos-ops-android-*`, `cantos-ops-vps-ssh-private-key`, `cantos-ops-google-api-key` |
 
 No service-account key is created to bootstrap any of these. No production or ops reader is
 granted to pull-request, checkout, compile or test jobs.
