@@ -205,7 +205,7 @@ connectivity-callback acceptance. The request count printed by the test is an ob
 invariant.
 
 The behavior catalog's listening-progress entry remains `needs-decision` without a model;
-`identity/native_session_admission.qnt` is draft and models outage without revocation, excluding
+`services/cantos-server/behavior/identity/native_session_admission.qnt` is draft and models outage without revocation, excluding
 HTTP and client retry scheduling. Neither model nor Rust/Kani owner changes here. No formal or
 Kotlin/Native conformance claim is made.
 

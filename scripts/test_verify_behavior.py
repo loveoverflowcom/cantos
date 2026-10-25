@@ -8,13 +8,15 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
 
+import behavior_registry as registry
 import verify_behavior as behavior
-from test_verify_behavior_registry import federate
+from test_verify_behavior_registry import federate, real_catalog
 
 
 class BehaviorContracts(unittest.TestCase):
     def setUp(self):
-        self.cap = behavior.read_json(behavior.ROOT / behavior.CATALOG)["capabilities"][0]
+        # The first registered runnable capability, resolved whether it is inline or a pointer.
+        self.cap = behavior.load_catalog(behavior.ROOT)[0]
 
     def typecheck_fixture(self, variables, module="forge_attempt", definitions=(), qualifier="val"):
         declarations = [{"kind": "var", "name": name, "id": index + 1000}
@@ -32,17 +34,19 @@ class BehaviorContracts(unittest.TestCase):
         directory = tempfile.TemporaryDirectory(prefix="cantos-behavior-contract-")
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
-        catalog = behavior.read_json(behavior.ROOT / behavior.CATALOG)
+        # The inline form of the real registry: mutation tests edit capability fields directly,
+        # while pointer resolution is covered by the registry contracts.
+        catalog = real_catalog()
+        # Every registered Quint file, wherever a module keeps it, historical scenarios included.
+        paths = sorted(registry.discover_qnt(behavior.ROOT)) + [row["path"] for row in catalog.get("sharedHelpers", [])]
         for cap in catalog["capabilities"]:
-            # Every registered Quint file, historical scenarios and their imports included.
-            paths = [cap["owner"], cap["inventory"], *cap["sourceRefs"]]
+            paths += [cap["owner"], cap["inventory"], *cap["sourceRefs"]]
             paths += [p for p in cap.get("ownedSources", []) + cap.get("implementationTests", []) if not p.endswith("/")]
-            paths += [str(p.relative_to(behavior.ROOT)) for p in (behavior.ROOT / "specs/behavior").rglob("*.qnt")]
-            for relative in paths:
-                source = behavior.local_path(behavior.ROOT, relative)
-                target = root / relative.split("#", 1)[0]
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(source.read_bytes())
+        for relative in paths:
+            source = behavior.local_path(behavior.ROOT, relative)
+            target = root / relative.split("#", 1)[0]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
         if change:
             change(catalog)
         (root / behavior.CATALOG).write_text(json.dumps(catalog))
@@ -139,11 +143,12 @@ class BehaviorContracts(unittest.TestCase):
     def test_manifest_pointer_campaign_produces_the_same_evidence_as_the_inline_record(self):
         _, inline, _, inline_labels, inline_error = self.synthetic_forge_campaign()
         root = self.catalog_fixture()
-        federate(root, "cantos.production.forge-attempt", "specs/behavior/production/forge.manifest.json")
+        manifest = "services/cantos-forge-functions/behavior/forge_attempt.manifest.json"
+        federate(root, "cantos.production.forge-attempt", manifest)
         cap, report, bundle, labels, error = self.synthetic_forge_campaign(root=root)
         self.assertIsNone(inline_error)
         self.assertIsNone(error)
-        self.assertEqual(cap["manifestPath"], "specs/behavior/production/forge.manifest.json")
+        self.assertEqual(cap["manifestPath"], manifest)
         self.assertEqual(labels, inline_labels)
         for key in ("status", "stages", "selection", "controlSelection", "budget", "observationVariables"):
             self.assertEqual(report[key], inline[key], key)

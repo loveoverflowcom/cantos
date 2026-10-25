@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.media.public-playback-delivery",
+  "sourceRefs": [
+    "services/cantos-server/contracts/theatre/discovery/v1/README.md#origin-mode-media-proposed-adr-0032",
+    "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
+    "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
+    "services/cantos-server/src/contexts/media/listener_media.rs",
+    "services/cantos-server/src/contexts/media/listener_application.rs",
+    "services/cantos-server/src/contexts/media/domain/listening.rs"
+  ],
+  "model": "services/cantos-server/behavior/media/public_playback_delivery.qnt",
+  "module": "public_playback_delivery",
+  "scenarios": "services/cantos-server/behavior/media/public_playback_delivery_tests.qnt",
+  "scenarioModule": "public_playback_delivery_tests",
+  "inventory": "services/cantos-server/behavior/media/public_playback_delivery.md",
+  "properties": [
+    {
+      "id": "cantos.media.public-playback-delivery.property.served-only-current",
+      "declaration": "servedOnlyCurrent"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.property.served-within-grant",
+      "declaration": "servedWithinGrant"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.property.grant-bounded",
+      "declaration": "grantBounded"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.property.forgery-rejected",
+      "declaration": "forgeryRejected"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.property.no-silent-swap",
+      "declaration": "noSilentSwap"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.media.public-playback-delivery.run.served",
+      "declaration": "servedTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.expired-refresh",
+      "declaration": "expiredRefreshTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.withdraw-before-fetch",
+      "declaration": "withdrawBeforeFetchTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.withdraw-during-open",
+      "declaration": "withdrawDuringOpenTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.expiry-during-open",
+      "declaration": "expiryDuringOpenTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.forged-grant",
+      "declaration": "forgedGrantTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.unbounded-grant",
+      "declaration": "unboundedGrantTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.outside-rights-grant",
+      "declaration": "outsideRightsGrantTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.rights-bounded-issue",
+      "declaration": "rightsBoundedIssueTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.rights-expired-issue",
+      "declaration": "rightsExpiredIssueTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.no-silent-swap",
+      "declaration": "noSilentSwapTest"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.run.clock-rollback",
+      "declaration": "clockRollbackTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.media.public-playback-delivery.witness.served",
+      "declaration": "served"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.refreshed",
+      "declaration": "refreshed"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.expired-denied",
+      "declaration": "expiredDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.unbounded-denied",
+      "declaration": "unboundedDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.withdrawn-denied",
+      "declaration": "withdrawnDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.recheck-denied",
+      "declaration": "recheckDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.forged-denied",
+      "declaration": "forgedDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.outside-rights-denied",
+      "declaration": "outsideRightsDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.authorization-denied",
+      "declaration": "authorizationDenied"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.witness.served-after-representative-change",
+      "declaration": "servedAfterRepresentativeChange"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "170",
+    "samples": 500,
+    "steps": 30,
+    "scenarioSamples": 1,
+    "witnessSamples": 1000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.media.public-playback-delivery.control.served-only-current",
+      "property": "cantos.media.public-playback-delivery.property.served-only-current",
+      "from": "val recheck = admit(state, g)",
+      "to": "val recheck = Admitted"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.control.served-within-grant",
+      "property": "cantos.media.public-playback-delivery.property.served-within-grant",
+      "from": "if (s.now < 0 or s.now >= g.expires) Rejected(Expired)",
+      "to": "if (s.now < 0 or s.now > g.expires) Rejected(Expired)"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.control.grant-bounded",
+      "property": "cantos.media.public-playback-delivery.property.grant-bounded",
+      "from": "pure def issuedExpiry(s: State): int = min2(s.now + ttl, rightsUntil)",
+      "to": "pure def issuedExpiry(s: State): int = s.now + ttl"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.control.forgery-rejected",
+      "property": "cantos.media.public-playback-delivery.property.forgery-rejected",
+      "from": "else if (not(g.authentic)) Rejected(Forged)",
+      "to": "else if (false) Rejected(Forged)"
+    },
+    {
+      "id": "cantos.media.public-playback-delivery.control.no-silent-swap",
+      "property": "cantos.media.public-playback-delivery.property.no-silent-swap",
+      "from": "Served(pinned) else denial(recheck)",
+      "to": "Served(state.representative) else denial(recheck)"
+    }
+  ],
+  "aliases": []
+}

@@ -1,7 +1,7 @@
 //! The generation use cases against the mock provider and a fault-injecting attempt history.
 //!
 //! The first group mirrors the named runs of the Quint capability
-//! `cantos.production.forge-attempt` (`specs/behavior/production/forge_attempt.qnt`): each test
+//! `cantos.production.forge-attempt` (`behavior/forge_attempt.qnt`): each test
 //! carries its run ID in a `Quint run:` line, and `tests/behavior_binding.rs` keeps the two
 //! lists equal. A test checks the same observable facts the run asserts (attempts, provider
 //! calls, spend, the recorded state) through production code; it does not replay the model.

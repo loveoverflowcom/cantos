@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.presentation.locale-preference",
+  "sourceRefs": [
+    "docs/evidence/issue169-cmp-locale-acceptance.md",
+    "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/preferences/PreferencesControllerTest.kt",
+    "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/LocalePreferenceStore.kt"
+  ],
+  "model": "apps/cantos-theatre/behavior/locale_preference.qnt",
+  "module": "locale_preference",
+  "scenarios": "apps/cantos-theatre/behavior/locale_preference_tests.qnt",
+  "scenarioModule": "locale_preference_tests",
+  "inventory": "apps/cantos-theatre/behavior/locale_preference.md",
+  "properties": [
+    {
+      "id": "cantos.presentation.locale-preference.property.rejection-atomic",
+      "declaration": "rejectionAtomic"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.property.theme-isolated",
+      "declaration": "themeIsolated"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.property.accepted-requested",
+      "declaration": "acceptedRequested"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.property.restoration-precedence",
+      "declaration": "restorationPrecedence"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.presentation.locale-preference.run.saved-wins",
+      "declaration": "savedWinsTest"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.run.fallback",
+      "declaration": "fallbackTest"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.run.refused-retry",
+      "declaration": "refusedRetryTest"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.run.theme-after-failure",
+      "declaration": "themeAfterFailureTest"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.run.reset-refused",
+      "declaration": "resetRefusedTest"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.run.reset-applied",
+      "declaration": "resetAppliedTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.presentation.locale-preference.witness.restored-saved",
+      "declaration": "restoredSaved"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.witness.refused-english",
+      "declaration": "refusedEnglish"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.witness.theme-after-failure",
+      "declaration": "themeAfterFailure"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.witness.reset-applied",
+      "declaration": "resetApplied"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "169",
+    "samples": 300,
+    "steps": 20,
+    "scenarioSamples": 1,
+    "witnessSamples": 1000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.presentation.locale-preference.control.rejection-atomic",
+      "property": "cantos.presentation.locale-preference.property.rejection-atomic",
+      "from": "else { ...state, notice: StoreUnavailable }, SetLocale({ locale: locale, accepted: accepted }))",
+      "to": "else { ...state, locale: locale, notice: StoreUnavailable }, SetLocale({ locale: locale, accepted: accepted }))"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.control.theme-isolated",
+      "property": "cantos.presentation.locale-preference.property.theme-isolated",
+      "from": "record({ ...state, theme: theme }, SetTheme(theme))",
+      "to": "record({ ...state, theme: theme, notice: Applied }, SetTheme(theme))"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.control.accepted-requested",
+      "property": "cantos.presentation.locale-preference.property.accepted-requested",
+      "from": "if (accepted) { ...state, locale: locale, notice: Applied }",
+      "to": "if (accepted) { ...state, notice: Applied }"
+    },
+    {
+      "id": "cantos.presentation.locale-preference.control.restoration-precedence",
+      "property": "cantos.presentation.locale-preference.property.restoration-precedence",
+      "from": "| Saved(locale) => locale",
+      "to": "| Saved(locale) => seed"
+    }
+  ],
+  "aliases": []
+}

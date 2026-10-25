@@ -194,6 +194,7 @@ pub mod testing {
                 "services/cantos-forge-functions/behavior/one_tests.qnt": ["cantos.a.one"],
                 "services/cantos-forge-functions/behavior/one.manifest.json": ["cantos.a.one"],
                 "services/cantos-server/behavior/two.qnt": ["cantos.b.two"],
+                "xtask/behavior/hosting.qnt": ["cantos.b.two"],
                 "specs/behavior/shared/clock.qnt": ["cantos.a.one", "cantos.b.two"],
                 "specs/behavior/legacy/old_tests.qnt": ["*"],
                 "services/cantos-identity/behavior/c.qnt": ["cantos.c.observed"]

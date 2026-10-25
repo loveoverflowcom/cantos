@@ -45,7 +45,7 @@ loaded them, and a task entrypoint cites owner references directly instead of re
 | Truth | Owner | Rule |
 |---|---|---|
 | Product behavior: hierarchy, business rules, pipeline gates, mobile behavior, UI requirements | [`docs/`](../../docs/README.md) | Link the owning document; never copy a competing version of a rule into a skill |
-| Accepted executable stateful expectations | [`specs/behavior/`](../../specs/behavior/README.md) | Catalog owns IDs/lifecycle; accepted `.qnt` owns executable outcomes; draft model PASS never accepts requirements or proves implementation |
+| Accepted executable stateful expectations | [`specs/behavior/`](../../specs/behavior/README.md) | Catalog owns IDs/lifecycle; accepted `.qnt` (kept beside its owner in the boundary's `behavior/` directory) owns executable outcomes; draft model PASS never accepts requirements or proves implementation |
 | Working method: order of work, decoupling, evidence selection, test technique, reporting | these skills | One canonical definition per method, in exactly one skill |
 
 When a skill and an owning document disagree, the document wins for product behavior. Report the

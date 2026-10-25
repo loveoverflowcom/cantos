@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.identity.native-session-admission",
+  "sourceRefs": [
+    "docs/decisions/0045-v1-email-password-sign-in.md#decision",
+    "services/cantos-server/contracts/auth/identity-auth/v1/README.md#freshness-and-revocation-quantified",
+    "services/cantos-identity/contracts/identity/v1/README.md#authentication-fact",
+    "services/cantos-identity/docs/security-store-v1.md#startup-and-mutations",
+    "services/cantos-server/src/platform/identity_auth/mod.rs",
+    "services/cantos-server/src/platform/identity_auth/turso.rs",
+    "services/cantos-server/tests/identity_password_facts_turso.rs"
+  ],
+  "model": "services/cantos-server/behavior/identity/native_session_admission.qnt",
+  "module": "native_session_admission",
+  "scenarios": "services/cantos-server/behavior/identity/native_session_admission_tests.qnt",
+  "scenarioModule": "native_session_admission_tests",
+  "inventory": "services/cantos-server/behavior/identity/native_session_admission.md",
+  "properties": [
+    {
+      "id": "cantos.identity.native-session-admission.property.issue-needs-fresh-bound-fact",
+      "declaration": "issueNeedsFreshBoundFact"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.admit-only-exact-active",
+      "declaration": "admitOnlyExactActive"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.mismatch-requests-revoke",
+      "declaration": "mismatchRequestsRevoke"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.request-is-not-commit",
+      "declaration": "requestIsNotCommit"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.revocation-sticky",
+      "declaration": "revocationSticky"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.outage-never-revokes",
+      "declaration": "outageNeverRevokes"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+      "declaration": "sessionChangesOnlyByTransition"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.identity.native-session-admission.run.issue",
+      "declaration": "issueTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.fact-binding",
+      "declaration": "factBindingTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.version-advanced",
+      "declaration": "versionAdvancedTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.version-regressed",
+      "declaration": "versionRegressedTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.security-changes",
+      "declaration": "securityChangesTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.outage",
+      "declaration": "outageTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.failed-revoke-write",
+      "declaration": "failedRevokeWriteTest"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.run.studio-roster",
+      "declaration": "studioRosterTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.identity.native-session-admission.witness.issued",
+      "declaration": "issued"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.admitted",
+      "declaration": "admitted"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.stale-fact-refused",
+      "declaration": "staleFactRefused"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.epoch-change-requested",
+      "declaration": "epochChangeRequested"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.regression-requested",
+      "declaration": "regressionRequested"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.request-without-commit",
+      "declaration": "requestWithoutCommit"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.sticky-after-restore",
+      "declaration": "stickyAfterRestore"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.witness.outage-denied",
+      "declaration": "outageDenied"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "335",
+    "samples": 500,
+    "steps": 30,
+    "scenarioSamples": 1,
+    "witnessSamples": 3000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.identity.native-session-admission.control.issue-needs-fresh-bound-fact",
+      "property": "cantos.identity.native-session-admission.property.issue-needs-fresh-bound-fact",
+      "from": "else if (fact.age != Fresh) record(state, event, Rejected(FactNotFresh))",
+      "to": "else if (false) record(state, event, Rejected(FactNotFresh))"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.admit-only-exact-active",
+      "property": "cantos.identity.native-session-admission.property.admit-only-exact-active",
+      "from": "else if (id.version < observed.version) request(VersionRegressed)",
+      "to": "else if (false) request(VersionRegressed)"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.mismatch-requests-revoke",
+      "property": "cantos.identity.native-session-admission.property.mismatch-requests-revoke",
+      "from": "else if (not(id.active)) request(Disabled)",
+      "to": "else if (not(id.active)) record(state, Admit, Rejected(Inactive))"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.request-is-not-commit",
+      "property": "cantos.identity.native-session-admission.property.request-is-not-commit",
+      "from": "record({ ...state, pending: Requested(reason) }, Admit, Rejected(SecurityChanged))",
+      "to": "record({ ...state, pending: Requested(reason), session: { ...state.session, revoked: true } }, Admit, Rejected(SecurityChanged))"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.revocation-sticky",
+      "property": "cantos.identity.native-session-admission.property.revocation-sticky",
+      "from": "else if (state.session.revoked) record(state, Admit, Rejected(SessionRevoked))",
+      "to": "else if (false) record(state, Admit, Rejected(SessionRevoked))"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.outage-never-revokes",
+      "property": "cantos.identity.native-session-admission.property.outage-never-revokes",
+      "from": "else if (state.identity.read != Answer) record(state, Admit, Rejected(IdentityUnavailable))",
+      "to": "else if (state.identity.read != Answer) request(SubjectMissing)"
+    },
+    {
+      "id": "cantos.identity.native-session-admission.control.session-changes-only-by-transition",
+      "property": "cantos.identity.native-session-admission.property.session-changes-only-by-transition",
+      "from": "else record({ ...state, pending: NoPending }, CommitRevoke(written), Rejected(RevokeWriteFailed))",
+      "to": "else record({ ...state, pending: NoPending, session: { ...state.session, revoked: true } }, CommitRevoke(written), Rejected(RevokeWriteFailed))"
+    }
+  ],
+  "aliases": [],
+  "observationSchema": "cantos-native-session-admission-observation-v1",
+  "implementationConformance": "pure-core-observer",
+  "ownedSources": [
+    "services/cantos-identity/src/domain/admission.rs",
+    "services/cantos-identity/src/domain/ids.rs",
+    "services/cantos-identity/src/domain/mailbox_proof.rs",
+    "services/cantos-identity/src/domain/security_version.rs",
+    "services/cantos-identity/src/lib.rs",
+    "services/cantos-server/src/platform/identity_auth/decision.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc.rs",
+    "services/cantos-server/src/platform/identity_auth/rpc/generated.rs"
+  ],
+  "implementationTests": [
+    "services/cantos-server/src/platform/identity_auth/decision/quint_conformance_tests.rs"
+  ]
+}

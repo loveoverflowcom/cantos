@@ -660,7 +660,11 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   the always-on gates. Verifier code (`scripts/verify_behavior.py`, `scripts/behavior_registry.py`,
   `tools/behavior`, the root `catalog.json`) selects every model. Any other registered or
   unregistered `.qnt`, manifest or `specs/behavior` file the registry does not resolve also selects
-  every model, so unknown impact is never skipped.
+  every model, so unknown impact is never skipped. A module keeps its models in the `behavior/`
+  directory of its boundary (`services/<name>`, `apps/<name>`, `xtask`); that location alone marks
+  a file as behavior, so without a registry index it selects the unscoped gate rather than the
+  owning package, and `xtask/behavior` is not broadened as xtask code. A capability document there
+  is Markdown and needs only the always-on gates.
 - Changed-only preflight asks the registry for its reverse index (`scripts/verify_behavior.py
   --impact-index`, read-only, no Quint/Node) and plans one `behavior (CAPABILITY)` gate per
   affected capability: its model, scenarios, import closure, manifest, exact non-document

@@ -1,11 +1,12 @@
 //! Keeps the Quint behavior catalog and the native tests that mirror it from drifting apart.
 //!
-//! The catalog (`specs/behavior/catalog.json`) owns the stable IDs of the capability
-//! `cantos.production.forge-attempt`; its `.qnt` model owns the expected behavior. Each
-//! registered named run must have exactly one native test that says which run it mirrors, and a
-//! native test may not claim a run the catalog does not register. This is a lexical traceability
-//! check (`statically-checked`): it proves nothing about what either side asserts, and a model
-//! PASS or this test is not implementation conformance.
+//! The catalog (`specs/behavior/catalog.json`) owns the stable ID of the capability
+//! `cantos.production.forge-attempt` and points to its module-owned manifest, which registers the
+//! named runs; the `.qnt` model beside it owns the expected behavior. Each registered named run
+//! must have exactly one native test that says which run it mirrors, and a native test may not
+//! claim a run the manifest does not register. This is a lexical traceability check
+//! (`statically-checked`): it proves nothing about what either side asserts, and a model PASS or
+//! this test is not implementation conformance.
 
 use std::{collections::BTreeSet, fs, path::Path};
 
@@ -13,18 +14,32 @@ const CAPABILITY: &str = "cantos.production.forge-attempt";
 const MARKER: &str = "/// Quint run: ";
 const MIRROR: &str = "src/application/produce_tests.rs";
 
+fn read_json(path: &Path) -> serde_json::Value {
+    serde_json::from_str(&fs::read_to_string(path).expect("readable behavior JSON"))
+        .expect("behavior file is JSON")
+}
+
 fn registered_runs() -> BTreeSet<String> {
-    let catalog = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../specs/behavior/catalog.json");
-    let catalog: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(catalog).expect("readable behavior catalog"))
-            .expect("catalog is JSON");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let catalog = read_json(&root.join("specs/behavior/catalog.json"));
     let capability = catalog["capabilities"]
         .as_array()
         .expect("capability list")
         .iter()
         .find(|capability| capability["id"] == CAPABILITY)
         .expect("the Forge attempt capability is registered");
-    capability["runs"]
+    let manifest = read_json(
+        &root.join(
+            capability["manifestPath"]
+                .as_str()
+                .expect("the capability points to its module-owned manifest"),
+        ),
+    );
+    assert_eq!(
+        manifest["capabilityId"], CAPABILITY,
+        "manifest binds another capability"
+    );
+    manifest["runs"]
         .as_array()
         .expect("run list")
         .iter()

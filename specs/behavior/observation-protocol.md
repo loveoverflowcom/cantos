@@ -8,7 +8,7 @@ Both are test protocols for pure-core differential observation, never an API or 
 
 Capability: `cantos.media.private-audio-admission`; schema:
 `cantos-private-audio-admission-observation-v1`. Lifecycle remains **draft**. The
-[model](media/private_audio_admission.qnt) and [catalog](catalog.json) own expectations/IDs;
+[model](../../services/cantos-server/behavior/media/private_audio_admission.qnt) and [catalog](catalog.json) own expectations/IDs;
 [production lifecycle](../../services/cantos-server/src/contexts/media/domain/lifecycle.rs)
 owns actual decisions. This is a test protocol, not an API, replacement DSL or production dependency.
 
@@ -137,7 +137,8 @@ Capabilities `cantos.identity.native-mailbox-proof` (schema
 `cantos-native-mailbox-proof-observation-v1`) and `cantos.identity.native-session-admission`
 (schema `cantos-native-session-admission-observation-v1`), #334/#335 observed under #106. Both
 lifecycles remain **draft**; the catalog and `.qnt` models own IDs and expectations and the
-[inventory rows](inventory.md#draft-cantosidentitynative-mailbox-proof-334335-v1-signup) keep
+inventory ([mailbox proof](../../services/cantos-identity/behavior/native_mailbox_proof.md),
+[session admission](../../services/cantos-server/behavior/identity/native_session_admission.md)) keep
 their reported mismatches and needs-decision gaps. Scope is **`pure-core-synthetic-shell`**:
 real production decisions plus a small, disclosed synthetic shell. It is not DB, RPC, HTTP,
 cookie, mail or end-to-end acceptance, and it does not promote either model.

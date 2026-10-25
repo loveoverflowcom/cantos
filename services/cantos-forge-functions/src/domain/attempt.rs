@@ -14,7 +14,7 @@
 //! Everything here is a pure decision over plain facts. [`Ledger`] is the small integer kernel
 //! (phase, attempt count and reserved spend) that carries these rules; [`Operation`] adds the
 //! recorded identity and per-attempt facts around it. The model is
-//! `specs/behavior/production/forge_attempt.qnt` (capability
+//! `behavior/forge_attempt.qnt` (capability
 //! `cantos.production.forge-attempt`); a bounded proof of the kernel lives at the end of this
 //! file. Neither says anything about a provider, a store or a clock: the application starts the
 //! call only after an append succeeded, and settles it with exactly one recorded outcome.

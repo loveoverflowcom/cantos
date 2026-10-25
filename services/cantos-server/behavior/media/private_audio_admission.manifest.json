@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.media.private-audio-admission",
+  "sourceRefs": [
+    "services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md#state-reviews-and-candidate-blockers",
+    "docs/decisions/0020-studio-private-audio-intake.md#decision",
+    "docs/assurance/domain-invariants.md",
+    "services/cantos-server/src/contexts/production/domain/brief.rs",
+    "services/cantos-server/src/contexts/production/application/briefs.rs",
+    "services/cantos-server/src/contexts/catalog/domain/work.rs",
+    "services/cantos-server/src/contexts/catalog/domain/unit.rs"
+  ],
+  "model": "services/cantos-server/behavior/media/private_audio_admission.qnt",
+  "module": "private_audio_admission",
+  "scenarios": "services/cantos-server/behavior/media/private_audio_admission_tests.qnt",
+  "scenarioModule": "private_audio_admission_tests",
+  "inventory": "services/cantos-server/behavior/media/private_audio_admission.md",
+  "properties": [
+    {
+      "id": "cantos.media.private-audio-admission.property.rejection",
+      "declaration": "rejectedPreservesReceipt"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.immutable-receipt",
+      "declaration": "receiptIsImmutable"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.producer-authority",
+      "declaration": "producerAuthority"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.payload",
+      "declaration": "payloadOwnsAdmission"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.verified-settlement",
+      "declaration": "inspectionRequired"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.owner-projection",
+      "declaration": "ownerViewPrecedence"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.property.shape",
+      "declaration": "settlementShape"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.media.private-audio-admission.run.admit",
+      "declaration": "admissionTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.lost-response-replay",
+      "declaration": "lostResponseReplayTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.wrong-digest",
+      "declaration": "digestMismatchTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.wrong-length",
+      "declaration": "lengthMismatchTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.contradictory-replay",
+      "declaration": "contradictoryReplayTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.media-rejection-retry",
+      "declaration": "rejectedMediaRetryTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.abandon-retry",
+      "declaration": "abandonedInspectionRetryTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.revoke-during-inspection",
+      "declaration": "revokeDuringInspectionTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.invalidate-during-inspection",
+      "declaration": "invalidateDuringInspectionTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.expire-during-inspection",
+      "declaration": "expireDuringInspectionTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.expired-owner-history",
+      "declaration": "expiredOwnerHistoryTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.revoked-replay",
+      "declaration": "revokedReplayTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.stale-revocation",
+      "declaration": "staleRevocationPrecedenceTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.error-precedence",
+      "declaration": "errorPrecedenceTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.before-creation",
+      "declaration": "beforeCreationTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.before-admission-replay",
+      "declaration": "beforeAdmissionReplayTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.restored-authority-admit",
+      "declaration": "restoredAuthorityAdmissionTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.restored-authority-replay",
+      "declaration": "restoredAuthorityReplayTest"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.run.revocation-survives-restoration",
+      "declaration": "revocationSurvivesRestorationTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.media.private-audio-admission.witness.inspected",
+      "declaration": "inspected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.admitted",
+      "declaration": "admitted"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.replayed",
+      "declaration": "replayed"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.digest-rejected",
+      "declaration": "digestRejected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.operation-rejected",
+      "declaration": "operationRejected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.completion-revoked",
+      "declaration": "completionRevoked"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.media-rejected",
+      "declaration": "mediaRejected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.stale-and-revoked",
+      "declaration": "staleAndRevoked"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.expired-owner-history",
+      "declaration": "expiredOwnerHistory"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.clock-rejected",
+      "declaration": "clockRejected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.witness.authority-restored",
+      "declaration": "authorityRestored"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "106",
+    "samples": 500,
+    "steps": 30,
+    "scenarioSamples": 1,
+    "witnessSamples": 1000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.media.private-audio-admission.control.rejection",
+      "property": "cantos.media.private-audio-admission.property.rejection",
+      "from": "else state\n    all { state.pending == Idle",
+      "to": "else { ...state, admissions: state.admissions + 1 }\n    all { state.pending == Idle"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.immutable-receipt",
+      "property": "cantos.media.private-audio-admission.property.immutable-receipt",
+      "from": "else state\n    all { state.pending == Idle",
+      "to": "else if (result == Replay) { ...state, receipt: Settled({ id: 2, admittedAt: state.facts.now, digest: 0, length: 0 }) } else state\n    all { state.pending == Idle"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.producer-authority",
+      "property": "cantos.media.private-audio-admission.property.producer-authority",
+      "from": "if (s.facts.revoked) Rejected(PermissionRevoked)",
+      "to": "if (false) Rejected(PermissionRevoked)"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.payload",
+      "property": "cantos.media.private-audio-admission.property.payload",
+      "from": "if (q.digest != exact.digest or q.length != exact.length)",
+      "to": "if (false)"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.verified-settlement",
+      "property": "cantos.media.private-audio-admission.property.verified-settlement",
+      "from": "if (not(verified)) MediaRejected",
+      "to": "if (false) MediaRejected"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.owner-projection",
+      "property": "cantos.media.private-audio-admission.property.owner-projection",
+      "from": "else if (settled(r)) OwnerAdmitted\n    else if (f.now >= expiresAt) Expired",
+      "to": "else if (f.now >= expiresAt) Expired\n    else if (settled(r)) OwnerAdmitted"
+    },
+    {
+      "id": "cantos.media.private-audio-admission.control.shape",
+      "property": "cantos.media.private-audio-admission.property.shape",
+      "from": "admissions: state.admissions + 1\n    }",
+      "to": "admissions: state.admissions + 2\n    }"
+    }
+  ],
+  "aliases": [],
+  "observationSchema": "cantos-private-audio-admission-observation-v1",
+  "implementationConformance": "pure-core-observer",
+  "ownedSources": [
+    "services/cantos-server/src/contexts/media/domain/lifecycle.rs",
+    "services/cantos-server/src/contexts/production/domain/brief.rs",
+    "services/cantos-server/src/contract/studio/audio_intake.rs",
+    "services/cantos-server/src/contract/studio/audio_lifecycle.rs"
+  ],
+  "implementationTests": [
+    "services/cantos-server/src/contexts/media/lifecycle_tests.rs",
+    "services/cantos-server/src/contexts/media/quint_conformance_tests.rs"
+  ]
+}

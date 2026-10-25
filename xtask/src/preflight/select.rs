@@ -394,7 +394,23 @@ fn behavior_input(path: &str) -> bool {
     !path.ends_with(".md")
         && (within(path, "specs/behavior")
             || within(path, "tools/behavior")
+            || module_behavior(path)
+            || path.ends_with(".qnt")
             || behavior_tooling(path))
+}
+
+/// A module's own behavior directory: `services/<name>/behavior`, `apps/<name>/behavior` or
+/// `xtask/behavior`. Registered Quint models, manifests and capability documents live there.
+/// Location alone marks a file, so a new, renamed-away or orphaned file there still selects the
+/// Behavior gate when no registry index is available.
+fn module_behavior(path: &str) -> bool {
+    let mut parts = path.split('/');
+    let directory = match parts.next() {
+        Some("services" | "apps") => parts.nth(1),
+        Some("xtask") => parts.next(),
+        _ => None,
+    };
+    directory == Some("behavior") && parts.next().is_some()
 }
 
 /// The registry/verifier code every capability depends on.
@@ -410,9 +426,7 @@ fn behavior_tooling(path: &str) -> bool {
 fn behavior_claims(path: &str, index: Option<&BehaviorIndex>) -> bool {
     match index {
         None => behavior_input(path),
-        Some(index) => {
-            behavior_input(path) || path.ends_with(".qnt") || index.effect(path).executable_input
-        }
+        Some(index) => behavior_input(path) || index.effect(path).executable_input,
     }
 }
 
@@ -443,12 +457,17 @@ fn classify(path: &str, graph: &PackageGraph, index: Option<&BehaviorIndex>, imp
     let is_doc = path.ends_with(".md");
     if SHARED_RUST_INPUTS.contains(&path) {
         impact.broaden = Some(format!("{path} is a shared Cargo input"));
-    } else if let Some(dir) = VERIFICATION_TOOLING.iter().find(|dir| within(path, dir)) {
+    } else if let Some(dir) = VERIFICATION_TOOLING
+        .iter()
+        .find(|dir| within(path, dir) && !module_behavior(path))
+    {
+        // `xtask/behavior` holds a model and its documents, not xtask code: the registry plans it.
         impact.broaden = Some(format!("{path} changes verification tooling ({dir})"));
-    } else if behavior_claims(path, index) {
+    } else if behavior_claims(path, index) || module_behavior(path) {
         // Registered behavior files are planned from the index; without one the unscoped gate
-        // runs, exactly as before manifests existed.
-        if index.is_none() {
+        // runs, exactly as before manifests existed. A capability document in a module's
+        // behavior directory is covered by the repository gate, never by the owning package.
+        if index.is_none() && !is_doc {
             impact.gates.insert(Gate::Behavior {
                 capability: None,
                 setup: false,
@@ -702,7 +721,7 @@ mod tests {
     fn registered_behavior_inputs_select_model_only_without_infrastructure() {
         for path in [
             "specs/behavior/catalog.json",
-            "specs/behavior/media/private_audio_admission.qnt",
+            "services/cantos-server/behavior/media/private_audio_admission.qnt",
             "tools/behavior/package-lock.json",
             "tools/behavior/.npmrc",
             "scripts/verify_behavior.py",
@@ -722,6 +741,62 @@ mod tests {
     }
 
     #[test]
+    fn module_owned_behavior_files_select_behavior_without_a_registry_index() {
+        for path in [
+            "services/cantos-server/behavior/media/private_audio_admission.qnt",
+            "services/cantos-server/behavior/media/private_audio_admission.manifest.json",
+            "services/cantos-identity/behavior/native_mailbox_proof_tests.qnt",
+            "services/cantos-forge-functions/behavior/forge_attempt.qnt",
+            "apps/cantos-theatre/behavior/locale_preference.manifest.json",
+            "xtask/behavior/hosting_deploy.qnt",
+            // A Quint file is never an ordinary package change, wherever it is kept.
+            "docs/stray/orphan.qnt",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                ["repository", "behavior", "rust-format"],
+                "{path}"
+            );
+        }
+        // Their capability documents stay with the repository gate, not the owning package.
+        for path in [
+            "services/cantos-server/behavior/media/private_audio_admission.md",
+            "services/cantos-identity/behavior/native_mailbox_proof.md",
+            "services/cantos-forge-functions/behavior/forge_attempt.md",
+            "apps/cantos-theatre/behavior/locale_preference.md",
+            "xtask/behavior/hosting_deploy.md",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(names(&selection), ["repository", "rust-format"], "{path}");
+        }
+    }
+
+    #[test]
+    fn module_behavior_is_recognized_by_location_only() {
+        for path in [
+            "services/cantos-server/behavior/media/x.qnt",
+            "services/cantos-identity/behavior/x.json",
+            "apps/cantos-theatre/behavior/x.qnt",
+            "xtask/behavior/x.json",
+        ] {
+            assert!(module_behavior(path), "{path}");
+        }
+        for path in [
+            "services/cantos-server/behavior",
+            "services/cantos-server/src/behavior/x.rs",
+            "services/behavior/x.qnt",
+            "xtask/src/behavior.rs",
+            "packages/ui-system/behavior/x.qnt",
+            "specs/behavior/x.qnt",
+        ] {
+            assert!(!module_behavior(path), "{path}");
+        }
+    }
+
+    #[test]
     fn mixed_behavior_and_tooling_changes_preserve_behavior_in_both_orders() {
         let mut expected = gate::full();
         expected.push(Gate::Behavior {
@@ -733,10 +808,10 @@ mod tests {
         for paths in [
             [
                 "xtask/src/gate.rs",
-                "specs/behavior/media/private_audio_admission.qnt",
+                "services/cantos-server/behavior/media/private_audio_admission.qnt",
             ],
             [
-                "specs/behavior/media/private_audio_admission.qnt",
+                "services/cantos-server/behavior/media/private_audio_admission.qnt",
                 "xtask/src/gate.rs",
             ],
         ] {
@@ -1776,6 +1851,40 @@ mod tests {
     }
 
     #[test]
+    fn an_xtask_owned_model_is_planned_by_the_registry_not_broadened_as_xtask_code() {
+        let selection = pick_indexed(&["xtask/behavior/hosting.qnt"]);
+        assert_eq!(selection.broadened, None);
+        assert_eq!(behavior_gates(&selection), [scoped("cantos.b.two", false)]);
+        // An xtask file that is not behavior keeps broadening to every gate.
+        assert!(
+            pick_indexed(&["xtask/src/cli.rs"]).broadened.is_some(),
+            "xtask code remains verification tooling"
+        );
+        // An unregistered file beside it has unknown impact: every model, never silence.
+        let unknown = pick_indexed(&["xtask/behavior/unregistered_tests.qnt"]);
+        assert_eq!(unknown.broadened, None);
+        assert_eq!(behavior_gates(&unknown), [(None, false)]);
+    }
+
+    #[test]
+    fn capability_documents_beside_a_model_select_no_model_and_no_package() {
+        for path in [
+            "services/cantos-server/behavior/media/two.md",
+            "services/cantos-identity/behavior/c.md",
+            "xtask/behavior/hosting.md",
+        ] {
+            let selection = pick_indexed(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(behavior_gates(&selection).is_empty(), "{path}");
+            assert_eq!(names(&selection), ["repository", "rust-format"], "{path}");
+        }
+        // A non-document file the registry does not know, beside a model, is unknown impact.
+        let selection = pick_indexed(&["services/cantos-identity/behavior/unregistered.json"]);
+        assert_eq!(selection.broadened, None);
+        assert_eq!(behavior_gates(&selection), [(None, false)]);
+    }
+
+    #[test]
     fn a_shared_helper_selects_every_registered_dependent_and_nothing_else() {
         let selection = pick_indexed(&["specs/behavior/shared/clock.qnt"]);
         assert_eq!(
@@ -1917,9 +2026,16 @@ mod tests {
     }
 
     #[test]
-    fn without_an_index_a_module_owned_model_has_unknown_impact_and_broadens() {
-        let selection = pick(&["services/unowned/behavior/one.qnt"]);
-        assert!(selection.broadened.is_some());
+    fn without_an_index_a_module_owned_model_selects_the_unscoped_behavior_gate() {
+        // Neither a silent skip nor a package change: the gate that also reports the registry.
+        for path in [
+            "services/unowned/behavior/one.qnt",
+            "services/cantos-server/behavior/two.qnt",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(behavior_gates(&selection), [(None, false)], "{path}");
+        }
     }
 
     #[test]
@@ -1983,7 +2099,8 @@ mod tests {
             );
         }
         // Every registered model resolves to exactly itself: no model hides behind another.
-        let audio = index.effect("specs/behavior/media/private_audio_admission.qnt");
+        let audio =
+            index.effect("services/cantos-server/behavior/media/private_audio_admission.qnt");
         assert_eq!(
             audio.models.into_iter().collect::<Vec<_>>(),
             ["cantos.media.private-audio-admission"]

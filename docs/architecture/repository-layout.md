@@ -47,6 +47,7 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 ```text
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
+    behavior/              Module-owned Quint models, manifests and capability documents for locale preference and discovery language (not a Gradle or Cargo member)
     web/                   Leptos CSR discovery/playback/Library (package cantos-theatre) LIVE CLIENT + MOCK
       src/contract/        Theatre Web's own DTOs of the Server contracts it uses (ADR 0046)
     conformance/           Theatre-owned client corpora (mock playback, boundary probes) for Web and Mobile
@@ -61,11 +62,14 @@ apps/
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
+    behavior/              Module-owned Quint model, manifest and capability document (registered in specs/behavior/catalog.json)
   cantos-server/           Rust + Axum + embedded Turso (business port incomplete) (package cantos-server)  IMPLEMENTED
     contracts/             Canonical Studio/Theatre/Admin/auth schemas, protos, fixtures by surface/module/version
+    behavior/              Module-owned Quint models, manifests and capability documents, grouped by context (media/, identity/)
     src/contract/          The Server's own Rust representation of those contracts (a wire leaf)
   cantos-identity/         Security/proof core + file-backed state + `service` executable   Theatre signup/password (and Studio password) over private UDS RPC; NO passkey/recovery; Server sessions consume Turso
     contracts/identity/v1/ Canonical private RPC proto and wire goldens (each side generates its own binding)
+    behavior/              Module-owned Quint model, manifest and capability document for mailbox-proof consumption
   manifest.toml            Typed native/external process inventory                  CONFIGURED
 infra/                     Deployment/runtime assets; no application domain logic
   vps/                     Legacy PG/Kanidm/two-API VPS image, Quadlet units, grants, host script RETAINED
@@ -83,12 +87,13 @@ packages/                  No contract package: canonical contracts belong to th
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
 specs/
-  behavior/                Quint behavior catalog, models and named runs (ADR 0027, proposed; no capability accepted)
+  behavior/                Quint behavior registry (catalog.json), inventory index, observation protocol and retained history; runnable models live in the owning boundary's `behavior/` directory (ADR 0027, proposed; no capability accepted)
 tools/
   proto-codegen/           Pinned, isolated generator of every consumer-owned Protobuf binding (not a workspace member)
   behavior/                Locked Node/npm install of the pinned Quint tool for `cargo xtask verify behavior`
   visual-compare/          Optional pinned dependency for `cargo xtask visual-compare` (ADR 0029, proposed)
 xtask/                     cargo xtask: command orchestration (package xtask), not deployment assets
+  behavior/                Module-owned Quint model, manifest and capability document for Hosting deploy (not xtask code)
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
 ```

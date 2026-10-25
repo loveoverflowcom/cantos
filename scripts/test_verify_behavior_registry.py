@@ -1,10 +1,12 @@
-"""Federated registry contracts over temporary repositories; no real model is migrated.
+"""Federated registry contracts over temporary repositories, plus the real registry's shape.
 
 Fixtures copy real Quint files to module-owned locations, so inline and external-manifest
 capabilities are exercised through the same loader, snapshot and impact index the gate uses.
+The real registry is checked against the layout rule: a model lives in its owner's boundary.
 """
 import copy
 import json
+import posixpath
 import subprocess
 import sys
 import tempfile
@@ -22,7 +24,15 @@ CLOCK_FROM_SERVICE = "../../../specs/behavior/shared/clock"
 
 
 def real_catalog():
-    return behavior.read_json(behavior.ROOT / behavior.CATALOG)
+    """The real registry with every manifest pointer resolved back to an inline record.
+
+    Fixtures start from the inline form (and `federate` turns a record into a pointer again), so
+    they stay independent of where the real repository keeps each manifest.
+    """
+    catalog = behavior.read_json(behavior.ROOT / behavior.CATALOG)
+    catalog["capabilities"] = [{k: v for k, v in cap.items() if k != "manifestPath"}
+                               for cap in behavior.resolve_capabilities(behavior.ROOT, catalog)]
+    return catalog
 
 
 def real_capability(identity):
@@ -90,9 +100,9 @@ def build(case, *, helper=False, manifest=True):
         repo.put(relative)
     forge, hosting = real_capability(FORGE), real_capability(HOSTING)
     import_line = f'module forge_attempt {{\n  import clock.* from "{CLOCK_FROM_SERVICE}"' if helper else None
-    repo.copy("specs/behavior/production/forge_attempt.qnt", f"{SERVICE}/forge_attempt.qnt",
+    repo.copy(forge["model"], f"{SERVICE}/forge_attempt.qnt",
               (lambda t: t.replace("module forge_attempt {", import_line, 1)) if helper else None)
-    repo.copy("specs/behavior/production/forge_attempt_tests.qnt", f"{SERVICE}/forge_attempt_tests.qnt")
+    repo.copy(forge["scenarios"], f"{SERVICE}/forge_attempt_tests.qnt")
     forge.update(model=f"{SERVICE}/forge_attempt.qnt", scenarios=f"{SERVICE}/forge_attempt_tests.qnt")
     for relative in (hosting["model"], hosting["scenarios"]):
         repo.copy(relative, relative)
@@ -117,16 +127,31 @@ def rejects(case, repo, message=None):
 
 
 class RealCatalogCompatibility(unittest.TestCase):
-    def test_every_existing_capability_resolves_unchanged(self):
-        raw = real_catalog()["capabilities"]
+    def test_every_capability_resolves_to_one_normalized_shape(self):
+        entries = behavior.read_json(behavior.ROOT / behavior.CATALOG)["capabilities"]
         capabilities, helpers = behavior.load_registry(behavior.ROOT)
         self.assertEqual(helpers, [])
-        self.assertEqual([c["id"] for c in capabilities], [c["id"] for c in raw])
+        self.assertEqual([c["id"] for c in capabilities], [e["id"] for e in entries])
         self.assertEqual(sum(1 for c in capabilities if c.get("model") is not None), 10)
-        for resolved, original in zip(capabilities, raw):
-            with self.subTest(capability=original["id"]):
-                self.assertEqual({k: v for k, v in resolved.items() if k != "importClosure"}, original)
-                self.assertNotIn("manifestPath", original)
+        for resolved, entry in zip(capabilities, entries):
+            with self.subTest(capability=entry["id"]):
+                if resolved.get("model") is None:
+                    # Deprecated and unmodeled records stay inline, byte for byte.
+                    self.assertEqual({k: v for k, v in resolved.items() if k != "importClosure"}, entry)
+                    continue
+                self.assertEqual(sorted(entry), ["id", "lifecycle", "manifestPath", "owner"])
+                self.assertEqual(posixpath.dirname(entry["manifestPath"]), posixpath.dirname(resolved["model"]))
+                self.assertEqual(posixpath.dirname(resolved["scenarios"]), posixpath.dirname(resolved["model"]))
+                self.assertEqual(posixpath.dirname(resolved["inventory"]), posixpath.dirname(resolved["model"]))
+                self.assertEqual(registry.boundary(resolved["model"]), registry.boundary(resolved["owner"]),
+                                 "a model lives in the boundary that owns the behavior")
+
+    def test_the_root_inventory_index_links_every_module_owned_document(self):
+        text = (behavior.ROOT / "specs/behavior/inventory.md").read_text()
+        for cap in behavior.load_catalog(behavior.ROOT):
+            with self.subTest(capability=cap["id"]):
+                self.assertIn(f"| `{cap['id']}` |", text)
+                self.assertIn("](" + posixpath.relpath(cap["inventory"], "specs/behavior") + ")", text)
 
     def test_deprecated_and_unmodeled_entries_remain_valid_but_cannot_be_selected(self):
         capabilities, _ = behavior.load_registry(behavior.ROOT)
@@ -454,7 +479,7 @@ class ImpactIndex(unittest.TestCase):
         self.assertEqual(index["capabilities"], [FORGE, HOSTING])
         for path in (f"{SERVICE}/forge_attempt.qnt", f"{SERVICE}/forge_attempt_tests.qnt", f"{SERVICE}/forge.manifest.json"):
             self.assertEqual(index["inputs"][path], [FORGE])
-        self.assertEqual(index["inputs"]["specs/behavior/tooling/hosting_deploy.qnt"], [HOSTING])
+        self.assertEqual(index["inputs"][real_capability(HOSTING)["model"]], [HOSTING])
         self.assertEqual(index["inputs"][CLOCK], [FORGE])
 
     def test_an_unused_helper_has_unknown_impact(self):

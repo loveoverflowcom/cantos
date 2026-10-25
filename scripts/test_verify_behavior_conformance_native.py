@@ -141,7 +141,7 @@ class RegistryContracts(unittest.TestCase):
     def test_the_allowlist_is_finite_and_agrees_with_the_catalog_and_observer_sources(self):
         registry = conformance.adapters()
         self.assertEqual(set(registry), {conformance.CAPABILITY, native.MAILBOX, native.ADMISSION})
-        catalog = {cap["id"]: cap for cap in json.loads((ROOT / "specs/behavior/catalog.json").read_text())["capabilities"]}
+        catalog = {cap["id"]: cap for cap in behavior.load_registry(ROOT)[0]}
         registered = {identity for identity, cap in catalog.items() if cap.get("implementationConformance") == "pure-core-observer"}
         self.assertEqual(registered, set(registry), "a catalog observer without an adapter, or the reverse, would be silently skipped")
         for identity, adapter in registry.items():
@@ -392,7 +392,7 @@ class DetectionReasonContracts(unittest.TestCase):
                 "observed": {"outcome": {"tag": outcome[0], "value": outcome[1]}}, "fields": fields, "origin": origin}
 
     def test_registered_reasons_cover_exactly_the_catalog_controls(self):
-        catalog = {cap["id"]: cap for cap in json.loads((ROOT / "specs/behavior/catalog.json").read_text())["capabilities"]}
+        catalog = {cap["id"]: cap for cap in behavior.load_registry(ROOT)[0]}
         for adapter in (native.MAILBOX_ADAPTER, native.ADMISSION_ADAPTER):
             names = {row["id"].rsplit(".control.", 1)[-1] for row in catalog[adapter.capability]["controls"]}
             self.assertEqual(set(adapter.reasons), names)
