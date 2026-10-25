@@ -212,6 +212,8 @@ pub enum BlockReason {
     SaveReview,
     Pending,
     ReadOnly,
+    /// A structured script choice while the record or actor cannot edit.
+    ScriptReadOnly,
     ProductionReview,
     Artwork(crate::live::artwork::copy::Key),
     #[cfg(debug_assertions)]
@@ -233,6 +235,7 @@ impl BlockReason {
             Self::SaveReview => text(Key::ValidateFirst, english),
             Self::Pending => copy.pending,
             Self::ReadOnly => text(Key::ControlReadOnly, english),
+            Self::ScriptReadOnly => messages::authoring::authoring_copy(english).readonly_choice,
             Self::ProductionReview => {
                 messages::production::text(messages::production::Key::ValidationHelp, english)
             }
@@ -309,6 +312,7 @@ pub fn ActionButton(
 /// Real form submission stays native (including Enter); the form owns the submit guard/effect.
 /// The optional decorative slot takes a caller-owned view; adopting Icon at a new product site
 /// still requires its two-renderer qualification. No interactive content belongs in this slot.
+/// Tonal by default; the form that is the screen's current task passes `Primary`.
 #[component]
 pub fn FormSubmit(
     #[prop(into)] id: String,
@@ -317,6 +321,7 @@ pub fn FormSubmit(
     children: Children,
     #[prop(optional)] icon: Option<ViewFn>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
+    #[prop(default = ButtonVariant::Tonal)] variant: ButtonVariant,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
         return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
@@ -326,7 +331,7 @@ pub fn FormSubmit(
     let described_by = reason_id.clone();
     view! {
         <div class="cui-button-field">
-            <button id=id class="cui-button" data-variant="tonal" type="submit" disabled=move || blocked.get() || busy.get()
+            <button id=id class="cui-button" data-variant=variant.as_str() type="submit" disabled=move || blocked.get() || busy.get()
                 aria-busy=move || busy.get().then_some("true")
                 aria-describedby=move || (blocked.get() || busy.get()).then(|| described_by.clone())>
                 {move || if busy.get() {
@@ -699,6 +704,7 @@ mod tests {
             owner.with(|| {
                 let html = view! { <FormSubmit id="session-submit" english=Signal::stored(false) blocked=Signal::derive(move || blocked)>"Đăng nhập"</FormSubmit> }.to_html();
                 assert!(html.contains("type=\"submit\""));
+                assert!(html.contains("data-variant=\"tonal\""), "secondary forms stay tonal: {html}");
                 assert_eq!(html.contains(" disabled"), blocked);
                 assert_eq!(html.contains("aria-describedby=\"session-submit-reason\""), blocked);
                 assert!(html.contains(text(Key::ControlBlocked, false)));

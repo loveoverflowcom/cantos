@@ -30,6 +30,13 @@ run/storage/take/sync states and remaining acceptance are documented in the
 [Forge mock record](../../../docs/evidence/studio-forge-mock-ui.md). Reload/reset discards mock
 changes. No real keys or audio are accepted by this preview.
 
+Development-only editor fixture: `?preview=studio-authoring` mounts the real structured editor over
+the accepted Script IR fixture `two-scenes.json` (recipes `editable`, `invalid`, `readonly`, `long`;
+synthetic findings with real rule codes; a visible draft-commit counter). Like the other debug
+compositions it returns before live bootstrap, makes no API/session/storage request and is absent
+from release builds; it is presentation evidence, not save, validation or auth acceptance. See the
+[#425 evidence](../../../docs/evidence/studio-fields-v3-425.md).
+
 The owner-selected Forge workspace is a future section of this app, backed by a separately
 configured producer client; it is not implemented by the relocated producer/worker foundation.
 See [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md) and the

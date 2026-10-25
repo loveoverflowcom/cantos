@@ -10,9 +10,10 @@ body { margin: 0; }
 .studio-shell .toolbar { margin-block: var(--cantos-space-sm); }
 .studio-shell .session-controls { align-items: end; }
 .studio-shell .session-controls > .cui-field, .studio-shell .toolbar > input { flex: 1 1 18rem; }
-.studio-shell :where(label):not(:where(.cui-choice-label)) { display: block; margin-block: var(--cantos-space-sm); }
+.studio-shell :where(label):not(:where(.cui-choice-label, .cui-field > .cui-field-label, .cui-field-shell > .cui-field-label)) { display: block; margin-block: var(--cantos-space-sm); }
 .studio-shell textarea { inline-size: 100%; min-block-size: 23rem; resize: vertical; }
-.studio-shell :where(a, summary, button, input, textarea, select):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+/* Field controls keep the shared inset state perimeter (Fields v3); this offset ring is for other natives. */
+.studio-shell :where(a, summary, button, input, textarea, select):not(.cui-field-control):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 .studio-shell output { display: inline-block; margin-inline-start: var(--cantos-space-sm); font-variant-numeric: tabular-nums; }
 .studio-shell .mode { color: var(--cantos-color-on-surface-variant); }
 .studio-shell pre { background: var(--cantos-color-surface-container); padding: var(--cantos-space-md); white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 30rem; overflow: auto; }
@@ -82,6 +83,12 @@ body { margin: 0; }
 .studio-shell .authoring-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-sm); }
 
 .studio-shell .authoring-inspector li, .studio-shell .authoring-inspector code { overflow-wrap: anywhere; }
+/* A finding is a quiet link to its field: localized rule first, exact path and code as metadata. */
+.studio-shell .authoring-findings { display: grid; gap: var(--cantos-space-xs); margin: 0 0 var(--cantos-space-md); padding: 0; list-style: none; }
+.studio-shell .authoring-findings li { display: grid; min-inline-size: 0; }
+.studio-shell .authoring-findings .cui-button { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: var(--cantos-space-xs); inline-size: 100%; text-align: start; }
+.studio-shell .authoring-findings :is(.cui-button code, li > code) { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); font-weight: 400; }
+.studio-shell .authoring-findings li > code { padding-inline: var(--cantos-space-control-inline); }
 .studio-shell .validation-controls { margin-block: var(--cantos-space-md); }
 .studio-shell .validation-controls p { margin-block: var(--cantos-space-sm); }
 .studio-shell [hidden] { display: none !important; }
@@ -99,16 +106,19 @@ body { margin: 0; }
 .studio-shell .script-adaptation { margin-block: var(--cantos-space-md); padding-block: var(--cantos-space-sm); }
 .studio-shell .session-panel { margin-block: var(--cantos-space-sm); }
 
-/* Authoring controls stay compact while preserving native selection and touch targets. */
-.studio-shell .authoring-field input, .studio-shell .authoring-field select { width: 100%; min-height: var(--cantos-size-control); }
+/* Authoring fields reuse the cantos-ui external-label anatomy: the field's own gap binds label,
+   control and finding; space between questions comes from here, never from a label margin. */
+.studio-shell .authoring-canvas .authoring-field { margin-block-start: var(--cantos-space-md); }
+.studio-shell :is(.authoring-fields, .authoring-pronunciation) > .authoring-field { margin-block-start: 0; }
 
-.studio-shell .authoring-pronunciation { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: start; }
-.studio-shell .authoring-pronunciation-field { min-width: 0; }
-.studio-shell .authoring-pronunciation > button { align-self: end; justify-self: start; width: auto; }
+/* Subgrid rows share label/control/finding tracks, so the remove action aligns with the controls. */
+.studio-shell .authoring-pronunciation { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; grid-template-rows: repeat(3, auto); align-items: start; }
+.studio-shell .authoring-pronunciation > .cui-field { grid-row: span 3; grid-template-rows: subgrid; }
+.studio-shell .authoring-pronunciation > button { grid-row: 2; align-self: center; justify-self: start; width: auto; }
 .studio-shell .authoring-id { display: block; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); line-height: 1.5; }
 .studio-shell .authoring-row-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--cantos-space-sm); }
 .studio-shell .authoring-row-heading h4 { margin: 0; }
-@container studio (max-width: 45rem) { .studio-shell .authoring-pronunciation { grid-template-columns: minmax(0, 1fr); } }
+@container studio (max-width: 45rem) { .studio-shell .authoring-pronunciation { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; } .studio-shell .authoring-pronunciation > * { grid-row: auto; } .studio-shell .authoring-pronunciation > .cui-field { grid-template-rows: none; } }
 
 /* Long localized actions and immutable identifiers must reflow at browser zoom. */
 .studio-shell button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
