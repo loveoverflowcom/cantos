@@ -103,7 +103,7 @@ unrelated cleanup. Update the work queue when order/rationale changes; GitHub ow
 
 Use [templates](templates/README.md) for a concrete proposal or production record when relevant. Clearly distinguish proposed design, implemented behavior and verified behavior. Never commit secrets, real provider credentials, private manuscripts, downloaded media or generated audio to Git.
 
-**Credential custody (proposed):** The [Google Secret Manager operator guide](docs/deployment/google-secret-manager.md) specifies project `cantos-a348b`, scoped create/import/read/rotation and local/CI/VPS boundaries. Only nonsecret names, mapping and instructions may be tracked; no keys, JSON credentials, plaintext or ciphertext credential payloads belong in Git. This guide is not evidence of live GCP provisioning. Agents request missing credentials through an approved secure local route, not chat or issue bodies.
+**Credential custody:** The [Google Secret Manager operator guide](docs/deployment/google-secret-manager.md) owns project `cantos-a348b`, the nonsecret [inventory](infra/google-secret-manager/inventory.toml), least-privilege IAM, version pins, rotation and local/CI/VPS boundaries; `cargo xtask secrets inventory|status|import` is the operator-only helper ([contract](xtask/README.md#secrets)), never a build/CI side effect. Only nonsecret names, mapping and instructions may be tracked; no keys, JSON credentials, plaintext or ciphertext credential payloads belong in Git. The guide and synthetic tests are not evidence of live GCP provisioning, imports or runtime binding. Agents request missing credentials through an approved secure local route, not chat or issue bodies.
 
 ## Agent skills
 

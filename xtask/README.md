@@ -44,7 +44,8 @@ providers, create cloud resources, publish or deploy, with **explicit, opt-in ex
 hands it to Firebase App Distribution, and `deploy firebase` ([below](#deploy-firebase)) builds one
 Leptos Web app and publishes its static bundle to Firebase Hosting, and `deploy cloudflare`
 ([below](#deploy-cloudflare)) uploads an already built, verified Web artifact to Cloudflare Pages
-(it never builds). Legacy `services up` refuses. Native build/test/run/preflight/ci never
+(it never builds), and `secrets import` ([below](#secrets)) creates a listed Google Secret
+Manager secret if absent and adds one version from an approved local input. Legacy `services up` refuses. Native build/test/run/preflight/ci never
 start container infrastructure or implicitly distribute/deploy.
 
 ## Commands
@@ -97,6 +98,10 @@ cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT
   --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
 cargo xtask deploy cloudflare cantos-theatre|cantos-studio --web --account ACCOUNT_ID --project NAME \
   --branch BRANCH --environment production|preview --artifact DIR [--dry-run]  # opt-in Pages Direct Upload of a release-build artifact
+cargo xtask secrets inventory                                  # offline: validate the tracked Secret Manager names
+cargo xtask secrets status --project PROJECT_ID --account EMAIL [--environment dev|prod|ops] [--dry-run]  # version metadata only
+cargo xtask secrets import --project PROJECT_ID --account EMAIL --secret ID (--file PATH | --stdin) \
+  --expect-latest none|N [--dry-run]                           # operator-only remote write: create-if-absent + one version
   [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
@@ -932,6 +937,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `distribute/` | explicit real-only development/release APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
+| `secrets/` | explicit operator-only Secret Manager commands: `inventory` (tracked mapping, pure), `request` (flags, payload metadata/shape, pure), `gcloud` (argv, failure classification, output parsing, pure), `host` (one approved input, the gcloud child, the ignored ledger) and `flow` (account → secret → version fence → add, short-circuiting) |
 | `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
 | `native_isolation.rs`, `native_qualification.rs` | the isolation primitive's plan and typed receipt validation; the #336 campaign's fixed allowlist, Cargo JSON artifact resolution, layer statuses and sanitized report |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
@@ -947,8 +953,9 @@ planned through `theatre-preview`; the generic production mobile gate remains `U
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure; the
-exceptions are the APK `distribute firebase` command and the static Web `deploy firebase` and
-`deploy cloudflare` commands, which stay outside every gate, preflight selection and CI job.
+exceptions are the APK `distribute firebase` command, the static Web `deploy firebase` and
+`deploy cloudflare` commands and the operator-only `secrets` command, which stay outside every
+gate, preflight selection and CI job.
 
 ### distribute firebase
 
@@ -976,6 +983,46 @@ The [release/distribution runbook](../apps/cantos-theatre/mobile/docs/firebase-d
 owns inputs, audit pairing, key/registration/version migration, independent device/live gates
 and recovery. [Infrastructure inputs](../infra/firebase/app-distribution/README.md) point there.
 Build/run/tests/preflight/CI never distribute, install, uninstall or reset app data.
+
+### secrets
+
+Operator-only Google Cloud Secret Manager custody for the project named in the tracked
+[inventory](../infra/google-secret-manager/inventory.toml). The
+[runbook](../docs/deployment/google-secret-manager.md) owns IAM, consumers, version pins,
+rotation and runtime binding; this section is the command contract.
+
+```sh
+cargo xtask secrets inventory
+cargo xtask secrets status --project cantos-a348b --account operator@example.com --environment prod
+cargo xtask secrets import --project cantos-a348b --account operator@example.com \
+  --secret cantos-prod-server-playback-key --file /home/operator/private/playback.key \
+  --expect-latest none --dry-run
+```
+
+- `inventory` validates names, environments (`dev`/`prod`/`ops`), consumers, file/env delivery,
+  formats and numeric pins offline. Ops secrets cannot name Server or Identity; runtime secrets
+  cannot name a deploy job or the operator; a pin is a positive number, never `latest`.
+- `status` lists version metadata (`MISSING`, `IMPORTED vN`, pin `ENABLED` or not). It never
+  accesses a payload, so it cannot establish `VERIFIED_ACCESS` or `RUNTIME_BOUND`.
+- `import` refuses an unlisted secret, another project, an implicit account and a missing fence
+  before starting gcloud. Real runs read one owner-only (`0600`/`0400`), non-symlink regular file
+  outside the checkout, or piped stdin (never a terminal), bounded to 64 KiB and checked against
+  the consumer's format (text without control characters, exactly 32 bytes, a service-account
+  JSON shape or opaque bytes). Then: the account must already hold a gcloud credential; `get` or
+  `create` (metadata only, automatic replication); the version fence (`--expect-latest` must
+  equal the highest version ever issued); one `versions add --data-file=-` with the bytes on
+  stdin. Every gcloud call names `--project` and `--account`.
+- gcloud's stderr is classified (`NOT_FOUND`, `PERMISSION_DENIED`, API/billing not enabled,
+  credential required, transport, unknown) and never printed. A transport, unknown or killed add
+  is `UNCERTAIN`: it is never retried; reconcile with `status` and the fence.
+- `--dry-run` starts no gcloud, makes no request, writes no ledger and does not open the input
+  (a file is `lstat`ed only). Real attempts append a sanitized line (project, secret, account,
+  action, result, version, time) to the ignored owner-only `artifacts/secrets/import-ledger.ndjson`.
+- Missing gcloud is `UNSUPPORTED`. xtask never installs gcloud, logs in, enables APIs or
+  billing, grants IAM, generates a value, reads a payload back, binds a runtime or restarts a host.
+
+Regressions run against a scripted gcloud with synthetic payloads in `cargo test -p xtask`
+(the `rust` gate); live `cantos-a348b` writes are `ACCEPTANCE(NOT_RUN)` until an operator runs them.
 
 ### deploy firebase
 
