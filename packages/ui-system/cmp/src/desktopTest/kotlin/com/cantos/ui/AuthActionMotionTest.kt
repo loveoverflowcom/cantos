@@ -39,7 +39,7 @@ class AuthActionMotionTest {
     private fun verifyMotion(reducedMotion: Boolean) {
         var intents = 0
         compose.setContent {
-            UiRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
+            BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
                 Button("Đăng nhập với Cantos ID", { intents += 1 },
                     variant = ButtonVariant.AuthPrimary,
                     controlModifier = Modifier.requiredSize(300.dp, 60.dp).testTag("motion-action"))

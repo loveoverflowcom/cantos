@@ -46,7 +46,7 @@ class PendingRingAndFieldIndicatorTest {
             // The test policy cancels infinite animations while the clock auto-advances, so pause it first.
             mainClock.autoAdvance = false
             setContent {
-                UiRoot(preferences = UiPreferences(reducedMotion = reducedMotion, textScale = scale)) {
+                BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = reducedMotion, textScale = scale)) {
                     Box(Modifier.padding(tokenDp("space.lg"))) {
                         Button("Gửi liên kết", {}, state = ButtonState.Loading(reason), variant = ButtonVariant.AuthPrimary,
                             icon = "mail", controlModifier = Modifier.requiredSize(300.dp, 60.dp).testTag("pending"))
@@ -105,7 +105,7 @@ class PendingRingAndFieldIndicatorTest {
         var density = 0f
         runDesktopComposeUiTest(width = 390, height = 300) {
             setContent {
-                UiRoot(preferences = UiPreferences()) {
+                BundledPreviewCaptureRoot(preferences = UiPreferences()) {
                     density = androidx.compose.ui.platform.LocalDensity.current.density
                     Column(Modifier.testTag("scene").padding(tokenDp("space.lg"))) {
                         TextField("Email", "linh@example", {}, variant = TextFieldVariant.AuthTonal, error = error,

@@ -140,7 +140,11 @@ v0.2.2 standardizes the existing shape roles instead of adding a mobile-only tok
 | `shape.container` | 16 | large; story/continue cards and large covers |
 | `shape.overlay` | 20 | extraLarge; dialogs |
 | `shape.thumbnail` | 10 | compact artwork, including mini-player; explicit requested exception |
-| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators; scoped auth actions in v0.4.0 |
+| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/indicators; scoped auth actions in v0.4.0 |
+
+Textual CMP `Badge` uses the bounded `shape.reading` radius: a proportional capsule clips
+first/last-line glyphs when Vietnamese labels wrap at large text. Chip/icon pill geometry is
+unchanged; no token value changes. See the [qualification repair](../../../docs/evidence/ui-qualification-20261025.md#resumed-qualification--confirmed-cmp-paint-defect).
 
 `CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
 slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock
@@ -217,12 +221,12 @@ uses the surface's paired foreground (`onPrimaryContainer` on `primaryContainer`
 muted foreground on that background. All existing contrast pairs remain active. Functional
 focus/error/selected boundaries stay intact; only these surfaces omit decorative borders.
 
-Both package-local previews register concrete specimens and state controls. New `BackButton`
-and `Logo` remain **implemented-unverified** and unqualified until fresh two-renderer runtime,
-accessibility and inspected-reference evidence exists. Variants likewise remain preview-only:
-no real app adopts them in this issue. [Evidence and pending admission](../../../docs/evidence/ui-auth-account-v2.md)
-separate implemented source from executed gates. Future #128–#131 consumers retain their own
-product/backend/auth/navigation acceptance boundaries.
+Both package-local previews register concrete specimens and state controls. The original
+[implementation-only checkpoint](../../../docs/evidence/ui-auth-account-v2.md) is historical;
+current adoption is governed by fresh qualification records, not a permanent preview-only label.
+The [current recheck](../../../docs/evidence/ui-qualification-20261025.md) distinguishes implemented
+and adopted variants from those still outside admission. Current CMP also implements Theatre Floating/FloatingSearch with trailing actions (#457);
+its native counterpart requires independent JVM runtime and visual evidence. Product/backend/auth/navigation and device acceptance remain separate.
 
 ## Avatar
 

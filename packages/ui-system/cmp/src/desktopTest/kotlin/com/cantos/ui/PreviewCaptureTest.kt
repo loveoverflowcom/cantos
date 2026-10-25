@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.generated.CantosTokens
+import com.cantos.ui.preview.PreviewFonts
 import com.cantos.ui.preview.PreviewApp
 import com.cantos.ui.preview.ViewportPreset
 import org.junit.Test
@@ -111,7 +112,8 @@ class PreviewCaptureTest {
                 hostDensity = host.density
                 hostFontScale = host.fontScale
                 Box(Modifier.requiredSize(widthDp.dp, heightDp.dp).testTag("capture-root")) {
-                    PreviewApp(initialPreferences = preferences, initialSection = section,
+                    PreviewApp(uiFontFamily = PreviewFonts.ui, editorialFontFamily = PreviewFonts.editorial,
+                        initialPreferences = preferences, initialSection = section,
                         systemIsDark = systemIsDark, initialThemeMode = mode, initialSpecimenId = specimen)
                 }
             }
@@ -133,6 +135,7 @@ class PreviewCaptureTest {
                     viewportHeightDp = heightDp,
                     hostDensity = hostDensity,
                     hostFontScale = hostFontScale,
+                    fontSource = BundledPreviewFontSource,
                 ),
                 bitmap,
             )

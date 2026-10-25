@@ -50,6 +50,7 @@ class CaptureRecordTest {
             val tokensDigest = MessageDigest.getInstance("SHA-256").digest(tokens.readBytes()).joinToString("") { "%02x".format(it) }
             assertTrue(json.contains("\"tokens_file_sha256\": \"$tokensDigest\""))
             assertTrue(json.contains("\"source_revision\":"))
+            assertTrue(json.contains("\"font_source\": \"unrecorded\""))
             assertEquals(setOf("cmp-jvm-fixture.json", "cmp-jvm-fixture.png"), directory.list()!!.toSet())
         } finally {
             directory.deleteRecursively()

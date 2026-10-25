@@ -87,12 +87,24 @@ pub fn Workbench(#[prop(optional)] initial_query: Option<String>) -> impl IntoVi
             notice.set(format!("Scenario URL unavailable: {error:?}"));
         }
     });
-    let refresh = Callback::new(move |_| {
-        facts.set(match platform::read_browser_facts() {
+    let update_facts = move |trigger: &str| {
+        let observed = match platform::read_browser_facts() {
             Ok(facts) => format!("{facts:#?}"),
             Err(error) => format!("Browser facts unavailable: {error:?}"),
-        });
-    });
+        };
+        let _ = facts.try_set(format!("trigger={trigger}\n{observed}"));
+    };
+    let refresh = Callback::new(move |_| update_facts("manual"));
+    // Observe actual document focus loss, rather than calling BODY an application focus escape.
+    // No input/value is recorded, no focus is changed, and listeners belong to this workbench.
+    #[cfg(target_arch = "wasm32")]
+    for event in ["blur", "focus"] {
+        let listener =
+            leptos::leptos_dom::helpers::window_event_listener_untyped(event, move |_| {
+                update_facts(event);
+            });
+        on_cleanup(move || listener.remove());
+    }
     let export = Callback::new(move |_| {
         let browser = platform::read_browser_facts();
         let report = format!(
@@ -214,10 +226,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let text = RwSignal::new(String::new());
     let language_value = RwSignal::new("vi-VN".to_owned());
     let select_value = RwSignal::new(
-        if state == ScenarioState::MissingValue {
-            "missing"
-        } else {
-            "system"
+        match state {
+            ScenarioState::MissingValue => "missing",
+            ScenarioState::UnsupportedOption => "unavailable",
+            _ => "system",
         }
         .to_owned(),
     );
@@ -232,10 +244,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
         });
         language_value.set("vi-VN".to_owned());
         select_value.set(
-            if state == ScenarioState::MissingValue {
-                "missing"
-            } else {
-                "system"
+            match state {
+                ScenarioState::MissingValue => "missing",
+                ScenarioState::UnsupportedOption => "unavailable",
+                _ => "system",
             }
             .to_owned(),
         );

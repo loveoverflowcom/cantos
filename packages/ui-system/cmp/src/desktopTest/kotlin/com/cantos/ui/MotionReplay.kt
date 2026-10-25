@@ -95,7 +95,7 @@ internal fun replayAuthShape(recipe: MotionRecipe, reducedMotion: Boolean, leave
         lateinit var source: MutableInteractionSource
         var mounted by mutableStateOf(true)
         setContent {
-            UiRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
+            BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
                 if (mounted) {
                     source = remember { MutableInteractionSource() }
                     shape = authActionShape(source)
@@ -162,7 +162,7 @@ internal fun replayAuthButton(recipe: MotionRecipe, reducedMotion: Boolean, capt
     runDesktopComposeUiTest {
         var intents = 0
         setContent {
-            UiRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
+            BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
                 Button(
                     "Đăng nhập với Cantos ID", { intents += 1 },
                     variant = ButtonVariant.AuthPrimary,
@@ -209,6 +209,7 @@ internal fun replayAuthButton(recipe: MotionRecipe, reducedMotion: Boolean, capt
                                 viewportHeightDp = 60,
                                 hostDensity = 1f,
                                 hostFontScale = 1f,
+                                fontSource = BundledPreviewFontSource,
                                 frame = CaptureFrame(recipe.id, step.name, now, ManualClockTimebase),
                             ),
                             bitmap,

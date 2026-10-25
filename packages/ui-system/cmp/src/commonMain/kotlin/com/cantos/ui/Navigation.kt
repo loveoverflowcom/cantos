@@ -3,6 +3,11 @@ package com.cantos.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -20,6 +25,8 @@ import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +43,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.DialogProperties
 
@@ -139,6 +147,7 @@ internal fun tabKeyTarget(index: Int, count: Int, key: Key): Int? = when (key) {
  * Initial focus must refer to a mounted focusable descendant; the default is the close action.
  * Native dialog properties own Escape/Back and outside dismissal; default outside clicks stay open.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Dialog(
     open: Boolean,
@@ -153,6 +162,17 @@ fun Dialog(
 ) {
     require(title.isNotBlank() && closeLabel.isNotBlank())
     val closeFocus = remember { FocusRequester() }
+    val inheritedBringIntoView = LocalBringIntoViewSpec.current
+    val focusClearance = tokenDp("size.focusOffset") + tokenDp("size.focusWidth") + tokenDp("space.xs")
+    val focusClearancePx = with(LocalDensity.current) { focusClearance.toPx() }
+    val modalBringIntoView = remember(inheritedBringIntoView, focusClearancePx) {
+        object : BringIntoViewSpec {
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+                inheritedBringIntoView.calculateScrollDistance(
+                    offset - focusClearancePx, size + 2 * focusClearancePx, containerSize,
+                )
+        }
+    }
     var wasOpen by remember { mutableStateOf(false) }
     LaunchedEffect(open) {
         if (!open && wasOpen) returnFocus?.requestFocus()
@@ -161,7 +181,23 @@ fun Dialog(
     if (open) {
         AlertDialog(onDismissRequest = { if (open) onDismiss() },
             modifier = modifier.semantics { paneTitle = title },
-            title = { Text(title) }, text = content,
+            // Keep the close action outside the bounded scrolling region. A fixed title can
+            // consume the entire modal at large text before Material measures its text/actions.
+            title = null,
+            text = {
+                CompositionLocalProvider(LocalBringIntoViewSpec provides modalBringIntoView) {
+                    Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = focusClearance),
+                        verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                        Text(title, Modifier.semantics { heading() },
+                            color = tokenColor("color.onSurface"), style = MaterialTheme.typography.headlineSmall)
+                        // Only this modal's vertical viewport expands a focus request. Preserve
+                        // platform behavior for nested editors/scroll containers supplied by hosts.
+                        CompositionLocalProvider(LocalBringIntoViewSpec provides inheritedBringIntoView) {
+                            Box { content() }
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 Button(closeLabel, { if (open) onDismiss() }, variant = ButtonVariant.Text,
                     controlModifier = Modifier.focusRequester(closeFocus))
