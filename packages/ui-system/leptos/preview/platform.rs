@@ -9,6 +9,8 @@ pub struct BrowserFacts {
     pub viewport_height_css_px: f64,
     pub device_pixel_ratio: f64,
     pub visibility: String,
+    /// A visible document may be unfocused while keyboard focus is in browser chrome.
+    pub document_focused: Option<bool>,
     pub prefers_reduced_motion: bool,
     pub font_readiness: String,
 }
@@ -131,6 +133,7 @@ pub fn read_browser_facts() -> Result<BrowserFacts, BrowserError> {
                 _ => "unknown",
             }
             .to_owned(),
+            document_focused: document.has_focus().ok(),
             prefers_reduced_motion: motion.matches(),
             font_readiness: match document.fonts().status() {
                 FontFaceSetLoadStatus::Loaded => "loaded",

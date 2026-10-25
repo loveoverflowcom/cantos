@@ -140,7 +140,11 @@ v0.2.2 standardizes the existing shape roles instead of adding a mobile-only tok
 | `shape.container` | 16 | large; story/continue cards and large covers |
 | `shape.overlay` | 20 | extraLarge; dialogs |
 | `shape.thumbnail` | 10 | compact artwork, including mini-player; explicit requested exception |
-| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators; scoped auth actions in v0.4.0 |
+| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/indicators; scoped auth actions in v0.4.0 |
+
+Textual CMP `Badge` uses the bounded `shape.reading` radius: a proportional capsule clips
+first/last-line glyphs when Vietnamese labels wrap at large text. Chip/icon pill geometry is
+unchanged; no token value changes. See the [qualification repair](../../../docs/evidence/ui-qualification-20261025.md#resumed-qualification--confirmed-cmp-paint-defect).
 
 `CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
 slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock

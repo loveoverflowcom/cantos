@@ -194,3 +194,57 @@ Captures: `artifacts/ui-evidence/20261025-qualification-resume-paint-before` and
 `20261025-qualification-resume-paint-after`, with explicit dirty-source attribution in sidecars.
 No final receipt is renewed from these intermediate captures. Remaining runtime and admission
 obligations above stay open until checked against the final inputs.
+
+
+### Dialog reachability and focus-paint correction
+
+A new six-case real JVM modal matrix (light/dark; 320 dp at 100/200%, 840 dp at 100%)
+captures the full Compose modal root, not the Surface crop: actual bitmaps are 320/840×844.
+It drives Tab, edit, Escape, reopen, close, exact dismissal counts and return focus.
+Before the fix the large title consumes the viewport and a focused editor is not displayed.
+The matching light 320/200% before image was opened; title, zero-height content and unusable
+close geometry are visible. Log: `cmp-dialog-before-inspected.log`.
+
+The existing AlertDialog now keeps the native close action outside a bounded title/content
+scroll area. Caller-owned open/text, dismissal properties and initial/return focus remain.
+The first fix made the editor visible, but independent image review found its bottom outset
+focus stroke cut by the scroll viewport. A new token-based full-root pixel assertion reproduces
+that defect even at 320/100% (`cmp-dialog-focus-before.log`). Visibility alone was insufficient.
+
+The viewport now reserves token-based focus clearance and delegates an expanded bring-into-view
+rectangle to the inherited native policy. Only this vertical modal viewport receives the policy;
+nested caller editors/scrollers retain the inherited policy. No dependency/API changes.
+Installed Foundation 1.9.0 primary sources confirm ContentInViewNode consumes this API and its
+arguments are main-axis pixels. The unchanged paint assertion and full suite now PASS:
+252 tests / 41 suites, zero failures/errors/skips (`cmp-dialog-focus-after.log`). Independent
+review reopened matching light/dark 320/200% and normal captures: the focused editor, complete
+bottom stroke/corners and separate fixed close action are visible. Large content remains
+scrollable; a full viewport capture does not claim all long content is visible simultaneously.
+
+The before/after directories are `artifacts/ui-evidence/20261025-qualification-dialog-before-inspected`,
+`20261025-qualification-dialog-focus-before`, and `20261025-qualification-dialog-focus-after`.
+They retain truthful dirty-input labels. Current tested input digests are retained separately
+in `artifacts/agent-runs/20261025-ui-qualification/resume-tested-input-digests.json`; packaging the
+same bytes into a commit does not imply that intermediate sidecars were executed at that SHA.
+
+### Browser focus diagnosis supersedes the ambiguous BODY assertion
+
+The existing preview BrowserFacts now reads actual document focus. Owned focus/blur listeners
+refresh only this bounded metadata and are removed on cleanup; they never change focus or read
+input values. Leptos tests/WASM lint/gallery build PASS (`leptos-resume-focus-facts.log`).
+On the actual Mac browser at 15:05:31 UTC the manual observation is document_focused=true;
+after Tab from the last dialog control, a real window blur observation is false while the
+native dialog remains :modal and activeElement is BODY. BODY therefore did not demonstrate
+an application-background focus escape. This resolves that specific ambiguous finding, not
+every foreground keyboard/AT behavior. No product Dialog focus trap was patched on that basis.
+The 320×844 dark/200% Web modal was opened with complete viewport bounds and scrollable body;
+input remains reachable, Tab reaches Done, and Escape restores the opener. A 390×844 dark/200%
+ErrorState was opened in full (x16/right359, y6.84/bottom519.98); both independent recovery
+callbacks count exactly two, with complete wrapped title/body/actions and visible focus.
+
+Scoped JVM component admission may use the actually executed native renderer input/semantics
+and inspected matrices under the current shared admission contract and CMP adoption criteria.
+OS-window binding remains UNSUPPORTED and device/AT acceptance remains separate; no historical
+receipt or screenshot alone supplies a new runtime PASS. Independent review confirmed this
+scope interpretation against the current owners. Remaining admission is still not renewed at
+this intermediate checkpoint.
