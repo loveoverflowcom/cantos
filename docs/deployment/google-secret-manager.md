@@ -1,9 +1,10 @@
 # Google Cloud Secret Manager — Cantos operator setup and secret custody
 
 **Status:** the operator import helper (`cargo xtask secrets`) and the tracked inventory are
-**implemented and tested against a scripted gcloud with synthetic payloads**. Live project
-setup, IAM grants, imports, CI workload identity and runtime binding are **NOT_RUN** until an
-operator performs and records them. Tracked by [issue #446](https://github.com/loveoverflowcom/cantos/issues/446).
+**implemented and tested against a scripted gcloud with synthetic payloads**. One live read-only
+`secrets status` run has passed ([observed state](#observed-live-state)); imports, per-secret IAM
+grants, CI workload identity and runtime binding are **NOT_RUN** until an operator performs and
+records them. Tracked by [issue #446](https://github.com/loveoverflowcom/cantos/issues/446).
 This document contains **no secret values**. Committing it creates no Google Cloud resource,
 IAM grant, secret version, VPS runtime mount or CI identity.
 
@@ -77,6 +78,22 @@ Report each secret by name with exactly one of these, never with its value, size
 
 An `IMPORTED` secret is not `VERIFIED_ACCESS`; neither is `RUNTIME_BOUND`.
 
+### Observed live state
+
+Operator-reported observation of 2026-10-25, source-bound to that day and to
+`cargo xtask secrets status`; refresh it by rerunning `status`, not by editing this table.
+
+| Layer | Result | Evidence and limit |
+| --- | --- | --- |
+| gcloud account | PASS | signed in as the owner's account `manhpdbroad@gmail.com`, default project `cantos-a348b` (nonsecret) |
+| Secret Manager API | PASS | `secretmanager.googleapis.com` was already enabled; nothing was enabled by this run |
+| `secrets status --environment prod` | PASS | first live run; all 13 inventoried secrets reported `MISSING`, including both Long Van S3 secrets |
+| Imports | NOT_RUN | no version exists yet; the Long Van pair is the first planned import |
+| Per-secret IAM, `VERIFIED_ACCESS`, `RUNTIME_BOUND` | NOT_RUN | no consumer identity has read a version. Other operator machines (workstation, Mac mini) that sign in with the same account need no extra grant, but that is not verified here |
+
+A passing `status` shows that the account can list version metadata. It does not show that any
+value is correct, that a consumer can read it, or that the S3 pair works against Long Van.
+
 ## Identities and least-privilege IAM
 
 Separate writers from readers. Grant on the **individual secret**, never project-wide, except
@@ -146,6 +163,19 @@ for each new immutable value.
    `artifacts/secrets/import-ledger.ndjson` keeps project, secret, account, action, result,
    version and time; never a payload, size, hash or path.
 5. Remove the plaintext input with the operator's own secure process.
+
+For a short value that never needs a file, read it at a hidden prompt and pipe it, so it is
+neither echoed nor kept in shell history (the first import of a secret passes `--expect-latest
+none`; the helper creates the secret then):
+
+```sh
+read -rs V && printf '%s' "$V" | cargo xtask secrets import --project cantos-a348b \
+  --account OPERATOR_EMAIL --secret cantos-prod-server-s3-access-key-id --stdin \
+  --expect-latest none; unset V
+```
+
+A successful run ends with `PASS add-version added v1 (IMPORTED)`; confirm with `secrets status`
+(`IMPORTED latest v1`). `UNCERTAIN` follows the no-retry rule above.
 
 If the add result is `UNCERTAIN` (transport failure, timeout, killed, unreadable output), do
 **not** retry. Run `secrets status`: a version above the fence is this upload; otherwise rerun
