@@ -36,10 +36,12 @@ def git(root, *args):
 
 
 def repository(root):
-    files = {"rust-toolchain.toml": b"[toolchain]\nchannel='1.98.1'\n",
+    files = {"services/cantos-server/src/platform/turso/mod.rs": b"pub const SERVER_EPOCH: u32 = 1;\n    version: 1,\n",
+             "services/cantos-identity/src/persistence/mod.rs": b"    version: 1,\n",
+             "rust-toolchain.toml": b"[toolchain]\nchannel='1.98.1'\n",
              "Cargo.lock": b'[[package]]\nname = "turso"\nversion = "0.8.3"\n',
-             build.COMPATIBILITY: json.dumps({"rpc": "rpc-v1", "server_schema": "server-v1",
-                                              "identity_schema": "identity-v1",
+             build.COMPATIBILITY: json.dumps({"rpc": "rpc-v1", "server_schema": "server-turso-epoch-1-v1",
+                                              "identity_schema": "identity-migrations-v1",
                                               "security_state": "security-v1"}).encode(),
              "scripts/release_oci_build.py": b"#", "scripts/release_oci.py": b"#",
              "scripts/release_oci_registry.py": b"#", ".github/workflows/native-oci-publish.yml": b"#",
@@ -87,6 +89,15 @@ class ProducerContract(unittest.TestCase):
         (self.root / "infra/oci/cantos-server/Containerfile").write_bytes(b"FROM scratch\n# new base pin\n")
         git(self.root, "-c", "user.name=Fixture", "-c", "user.email=f@example.invalid", "commit", "-aqm", "pin")
         self.assertNotEqual(base, build.configuration_identity(self.root, git(self.root, "rev-parse", "HEAD"), PLATFORM))
+
+    def test_schema_declaration_drift_is_refused_before_build(self):
+        path = self.root / build.COMPATIBILITY
+        declared = json.loads(path.read_text())
+        declared['server_schema'] = 'server-turso-epoch-1-v23'
+        path.write_text(json.dumps(declared))
+        git(self.root, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid', 'commit', '-aqm', 'drift')
+        with self.assertRaisesRegex(ValueError, 'differs from source registry'):
+            build.compatibility(self.root, git(self.root, 'rev-parse', 'HEAD'))
 
     def test_host_bundle_has_only_committed_host_assets_with_git_modes(self):
         names = {name: mode for name, _, mode in build.host_members(self.root, self.sha)}

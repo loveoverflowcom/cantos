@@ -177,6 +177,18 @@ pub enum Action {
         #[arg(long, requires = "registry_readback")]
         authfile: Option<PathBuf>,
     },
+    /// Existing NATIVE_READY rootful host only. Default is offline validation; execution
+    /// requires admitted exact pairs and never bootstraps, migrates, or connects over SSH.
+    NativeUpgrade {
+        #[arg(long)]
+        request: PathBuf,
+        #[arg(long)]
+        request_digest: String,
+        #[arg(long)]
+        execute: bool,
+        #[arg(long)]
+        rollback_attempt: Option<String>,
+    },
     /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
     /// it to GHCR and write an unadmitted candidate. Never activates a host or marks it eligible.
     OciBuild {
@@ -208,6 +220,27 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "-p",
             "test_release*.py",
         ]);
+    }
+    if let Action::NativeUpgrade {
+        request,
+        request_digest,
+        execute,
+        rollback_attempt,
+    } = action
+    {
+        let mut command = command
+            .args([
+                "scripts/release_native.py".into(),
+                "--request".into(),
+                request.display().to_string(),
+                "--request-digest".into(),
+                request_digest.clone(),
+            ])
+            .arg_if(*execute, "--execute");
+        if let Some(attempt) = rollback_attempt {
+            command = command.args(["--rollback-attempt", attempt]);
+        }
+        return command;
     }
     if let Action::OciVerify {
         manifest,
@@ -353,7 +386,10 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "--transfer".into(),
             transfer.display().to_string(),
         ]),
-        Action::SelfTest | Action::OciVerify { .. } | Action::OciBuild { .. } => {
+        Action::SelfTest
+        | Action::OciVerify { .. }
+        | Action::OciBuild { .. }
+        | Action::NativeUpgrade { .. } => {
             unreachable!("handled above")
         }
     }
@@ -504,6 +540,45 @@ mod tests {
                 "auth.json"
             ]
         );
+    }
+
+    #[test]
+    fn native_upgrade_is_explicit_and_does_not_enter_legacy_deploy() {
+        let base = [
+            "xtask",
+            "release",
+            "native-upgrade",
+            "--request",
+            "request.json",
+            "--request-digest",
+            "digest",
+        ];
+        assert!(Cli::try_parse_from(base).is_ok());
+        assert!(Cli::try_parse_from(&base[..5]).is_err());
+        let action = Action::NativeUpgrade {
+            request: "request.json".into(),
+            request_digest: "digest".into(),
+            execute: false,
+            rollback_attempt: None,
+        };
+        let cmd = command(&Workspace::discover().unwrap(), &action);
+        assert_eq!(
+            cmd.args,
+            [
+                "scripts/release_native.py",
+                "--request",
+                "request.json",
+                "--request-digest",
+                "digest"
+            ]
+        );
+        assert!(!cmd.args.iter().any(|arg| arg == "--execute"));
+        assert!(Cli::try_parse_from(base.into_iter().chain([
+            "--execute",
+            "--rollback-attempt",
+            "attempt-abc"
+        ]))
+        .is_ok());
     }
 
     #[test]
