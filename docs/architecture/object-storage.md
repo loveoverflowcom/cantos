@@ -14,15 +14,15 @@ approval or publication is authoritative.
 
 | Content | Authority and current persistence | Retrieval boundary |
 | --- | --- | --- |
-| Work/content-unit metadata, ordering and owner | Catalog; existing PostgreSQL aggregates/history | Existing authorized Catalog queries and cursor contracts |
-| Canonical manuscript text | Catalog `ContentRevision`; bounded `ManuscriptText` (65,536 UTF-8 bytes) in PostgreSQL | Exact authorized unit/revision lookup; a head is a separate request |
-| Original manuscript file and import receipt | Ingestion; bounded immutable original bytes and checksum in PostgreSQL | Independently authorized Ingestion owner read |
-| Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in PostgreSQL | Exact authorized script/revision read |
-| Verified audio rendition and admission receipt | Media; immutable PostgreSQL metadata and bytes at the recorded private filesystem/S3 target | Media owner authorization, exact location and byte verification |
+| Work/content-unit metadata, ordering and owner | Catalog; Server-owned Turso aggregates/history | Existing authorized Catalog queries and cursor contracts |
+| Canonical manuscript text | Catalog `ContentRevision`; bounded `ManuscriptText` (65,536 UTF-8 bytes) in Server-owned Turso | Exact authorized unit/revision lookup; a head is a separate request |
+| Original manuscript file and import receipt | Ingestion; bounded immutable original bytes and checksum in Server-owned Turso | Independently authorized Ingestion owner read |
+| Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in Server-owned Turso | Exact authorized script/revision read |
+| Verified audio rendition and admission receipt | Media; immutable Turso metadata and bytes at the recorded private filesystem/S3 target | Media owner authorization, exact location and byte verification |
 | Private Work cover and selection history | Media sidecar; immutable PNG/JPEG facts and recorded target/key/SHA/length, Catalog-owned Work revision CAS | Current active owner, exact accepted asset and shared verified private read; no public image projection |
 | Published text/audio projection | Publication core; real delivery acceptance gated | Approved immutable manifest plus separate listener authorization; private storage grants no release access |
 
-Bounded text, sources and Script IR stay in PostgreSQL. A later large original/export may gain
+Bounded text, sources and Script IR stay in Server-owned Turso. A later large original/export may gain
 a private revision-bound location through its owning context; it must not duplicate Catalog,
 Ingestion or Editorial authority. Catalog navigation links and caller-declared checksums do
 not replace pinned revisions. See [Content Identity](../decisions/0019-content-identity.md),
@@ -38,18 +38,19 @@ flowchart BT
     FS[Owned private filesystem adapter] --> Port
     S3[Generic S3-compatible adapter] --> Port
     Port --> Domain
-    PG[Media PostgreSQL adapter] --> Domain
+    DB[Media Turso adapter] --> Domain
 ```
 
 Arrows denote dependencies. Domain values contain no endpoint, URL, bucket, credential, SDK,
-HTTP response or PostgreSQL client. Media owns this port because private audio intake and
+HTTP response or database client. Media owns this port because private audio intake and
 preview are its concrete consumers; there is no new crate, service or generic repository.
 
 The concrete `Store` and aggregate `StoreError` are owned by `src/application.rs`. This handle
-joins the PostgreSQL pool and Media's registry for owning application use cases.
-`platform/postgres` retains compatibility reexports and connection/session plumbing, with no
-Media import. The Media read application facade owns authorization, storage effects and the
-authorization recheck; HTTP never selects providers or arbitrary internal locations.
+joins the single `ServerDatabase` owner and Media's registry for owning application use cases.
+`platform/store` owns the native statement facade; `platform/turso` owns the immutable registry.
+The [native checkpoint](server-turso-porting.md#checkpoint-boundary) takes precedence over
+PostgreSQL-era migration and acceptance records. The Media read application facade owns
+authorization, storage effects and the authorization recheck; HTTP never selects providers or arbitrary internal locations.
 
 `PrivateStorage` exposes `put_if_absent`, `verify`, `open_verified` and optional
 `temporary_read`. S3 verification hashes an actual bounded `GET` body. There is no `HEAD`
@@ -92,13 +93,15 @@ ownership, not a hard decoder/process CPU or total-RSS guarantee. See the
   targets are unavailable, with no default fallback. Target IDs are private location metadata,
   separate from public Work/Unit/ContentRevision/Script/Rendition identities.
 
-Migration `0015_media_storage_targets.sql` adds `storage_target_id` outside immutable snapshot
+Historical PostgreSQL migration `0015_media_storage_targets.sql` added `storage_target_id` outside immutable snapshot
 bodies, on `audio_intake_receipts` and `audio_renditions`. Existing records receive
 `legacy-filesystem`; new writes supply their target explicitly. Snapshot bytes/digests and
 legacy basenames remain unchanged. Keep that target bound to the original root after switching
 new writes. The default permits the preceding filesystem-only version to write compatible
 local rows, but that older version cannot read new S3 locations; rollback after remote writes
-needs compatible readers.
+needs compatible readers. Current Turso version 20 (`private_media.sql`) persists the target,
+object key and immutable receipt bytes/digest. `audio_intake_turso` tests migration replay and
+historical target switching on real files; no old migration is edited.
 
 ## Adapter behavior
 
@@ -128,7 +131,7 @@ A provider ETag is a transport validator, never the accepted checksum. Range del
 declared support and exact `206`, length and Content-Range; it has no unsafe fallback.
 
 Persisted identity is the original target, content-addressed key, accepted SHA-256 and length.
-The provider version observed at admission is not retained in PostgreSQL. Each read verifies
+The provider version observed at admission is not retained in Server-owned Turso. Each read verifies
 current bytes before selecting its version/ETag pin; different bytes are rejected, while
 recreated identical bytes remain eligible. Retrieving a noncurrent historical S3 version after
 deletion of the current object requires a separate retained-version capability. Per-read pinning
@@ -138,7 +141,7 @@ does not establish that capability or provider retention.
 
 `CANTOS_STORAGE_CONFIG` is an absolute path to a non-secret TOML topology. The
 [example](../../services/cantos-server/config/storage.example.toml) and
-[API guide](../../services/cantos-server/README.md#private-audio-storage) describe setup.
+[Server guide](../../services/cantos-server/README.md#private-audio-storage) describe setup.
 The existing `CANTOS_AUDIO_ROOT` setting selects `legacy-filesystem`. Setting both is a
 startup error. Leaving both unset preserves existing editorial/static behavior and makes
 private audio storage unavailable. Either storage setting disables same-process static serving;
@@ -224,12 +227,14 @@ Accepted format inspection implies neither rights clearance, named listening nor
 
 Binary responses remain separate from JSON/MessagePack metadata. Full GET is `200`; a
 satisfiable single closed/open/suffix range is `206` with exact interval length/Content-Range;
-an unsatisfiable range is `416` with `bytes */<length>`. Malformed/multiple/overflow byte ranges
-are `400`. Unknown units and mismatching If-Range use full delivery; HEAD ignores Range and
+an unsatisfiable range is `416` with `bytes */<length>`. Malformed/overflow byte ranges are
+`400`; a valid multiple-range request is ignored and returns full `200`. Unknown units and
+mismatching If-Range use full delivery; HEAD ignores Range and
 has no body. The [read contract](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md) owns
 the supported conditional subset and safe error responses.
 
-The API ETag is accepted SHA-256; responses are `audio/ogg`, uncompressed and `no-store`.
+The API ETag is accepted SHA-256; responses are `audio/ogg`, uncompressed and
+`Cache-Control: private, no-store, no-transform`.
 Streams enforce exact length, a 60-second wall-clock bound and four request lanes. Registry
 operations separately have four lanes, retained through returned streams until completion/drop.
 Cancellation drops the stream/transport; blocking filesystem work retains its own permit until
@@ -268,15 +273,22 @@ Long Vân, R2 and B2 are configuration targets, not domain variants. This slice 
 acceptance for any of them. The [Long Vân profile](../../services/cantos-server/config/storage.longvan.example.toml)
 and the operator-run live-acceptance harness are recorded in the
 [Long Vân evidence](../evidence/longvan-s3-acceptance.md); until that harness passes against the
-real account, the profile is a declaration, not acceptance. A one-bucket plan that cannot isolate future publication policy
+real account, the profile is a declaration, not acceptance. The recorded anonymous exact-URL
+cache exposure remains a blocker until fresh passing evidence. Follow privacy remediation/recheck
+→ separately approved secret custody/access → full provider harness → isolated Server/Turso
+intake acceptance; offline tests cannot advance these live gates. The
+[filesystem-first decision #309](https://github.com/loveoverflowcom/cantos/issues/309) remains
+in force. A one-bucket plan that cannot isolate future publication policy
 from private drafts cannot host that publication model; retain private-only intake or choose
 separate delivery storage. Never loosen private access for a bucket limit.
 
 ## Verification and deferred acceptance
 
 The independent [L1–L5 ledger](../evidence/provider-independent-storage.md) separates domain,
-named fake-registry orchestration, controlled S3 HTTP boundaries, real PostgreSQL/HTTP and actual
-filesystem evidence. Mocked responses establish no vendor durability, privacy or performance.
+named fake-registry orchestration, controlled S3 HTTP boundaries and historical PostgreSQL/HTTP
+evidence. Current real-file Turso/filesystem coverage and the binary-to-read composition trace
+are inventoried in the [Long Vân handoff](../evidence/longvan-s3-acceptance.md#native-server-local-handoff-26-october-2026).
+Mocked responses establish no vendor durability, privacy or performance.
 
 Live provider acceptance needs explicit operator authorization/credentials and disposable owned
 keys. An ignored, operator-run test over this adapter (`live_private_bucket_acceptance`, never part
