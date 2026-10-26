@@ -24,8 +24,8 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, Announcement, BackButton, Button, ButtonVariant, Container, ContainerWidth,
-    Density, FieldLabel, IconName, Logo, LogoTone, LogoVariant, Select, SelectDensity,
-    SelectLabelPlacement, SelectOption, Status as UiStatus, Theme, UiRoot,
+    Density, FieldLabel, IconName, Logo, LogoTone, LogoVariant, Status as UiStatus, Theme,
+    ThemeCycleButton, Tooltip, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -744,37 +744,31 @@ pub fn Studio() -> impl IntoView {
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Light class="studio-logo-light"/>
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
-                <div class="toolbar">
-                    <Select id="studio-language" class="studio-toolbar-field"
-                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                        label=Signal::derive(move || copy().language.to_owned())
-                        value=Signal::derive(move || locale.get().lang().to_owned())
-                        options=Signal::derive(|| Locale::ALL.into_iter().map(|option| SelectOption {
-                            lang: Some(option.lang().to_owned()),
-                            ..SelectOption::new(option.lang(), option.autonym())
-                        }).collect::<Vec<_>>())
-                        on_input=Callback::new(move |value: String| { if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); } })/>
-                    <Select id="theme-select" class="studio-toolbar-field"
-                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                        label=Signal::derive(move || copy().theme.to_owned())
-                        value=Signal::derive(move || theme.get().as_str().to_owned())
-                        options=Signal::derive(move || vec![
-                            SelectOption::new("system", copy().system).with_icon(IconName::Settings),
-                            SelectOption::new("light", copy().light).with_icon(IconName::LightMode),
-                            SelectOption::new("dark", copy().dark).with_icon(IconName::DarkMode),
-                        ])
-                        on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })/>
+                <div class="toolbar studio-topbar">
+                    <Tooltip text=Signal::derive(move || messages::language_toggle_tooltip(english.get()).to_string())>
+                        <button id="studio-language" type="button" class="cui-button cui-button-text studio-language-button"
+                            aria-label=move || messages::language_toggle_tooltip(english.get())
+                            on:click=move |_| locale.update(|current| *current = current.toggled())>
+                            <span class="studio-language-badge" aria-hidden="true">
+                                {move || messages::language_toggle_label(english.get())}
+                            </span>
+                            <span class="cui-sr-only">
+                                {move || messages::language_toggle_tooltip(english.get())}
+                            </span>
+                        </button>
+                    </Tooltip>
+                    <ThemeCycleButton id="theme-select" theme=theme english=english/>
                     <AccountEntry actor=authenticated_actor
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
                         open=account_menu_open
                         label=Signal::derive(move || entry_text(EntryKey::Session, english.get()).to_owned())
                         caption=Signal::derive(move || copy().actor.to_owned())>
-                        <ActionButton id="account-refresh" icon=IconName::Refresh english=english blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
+                        <ActionButton id="account-refresh" icon=IconName::Refresh english=english variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
                         <ActionButton id="account-reauthenticate" icon=IconName::Login english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
                         <Show when=move || reauth_open.get()>
                             <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Secondary blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Secondary class=Signal::derive(|| "studio-action-danger".to_string()) blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
                     </AccountEntry>
                 </div>
             </header>

@@ -93,6 +93,7 @@ pub fn AccountEntry(
     caption: Signal<String>,
     children: ChildrenFn,
 ) -> impl IntoView {
+    let _ = caption;
     let wrapper = NodeRef::<html::Div>::new();
     let trigger = NodeRef::<html::Button>::new();
     let name = Signal::derive(move || actor.get().unwrap_or_default());
@@ -137,11 +138,11 @@ pub fn AccountEntry(
                 <ActorBadge actor=actor size="medium"/>
             </button>
             <Show when=move || visible.get()>
+                <div class="studio-account-scrim" on:click=move |_| open.set(false) aria-hidden="true"></div>
                 <div id=MENU_ID class="studio-account-menu" role="group" aria-label=move || label.get()>
                     <div class="studio-account-identity">
                         <ActorBadge actor=actor size="large"/>
                         <div class="studio-account-name">
-                            <p class="studio-account-caption">{move || caption.get()}</p>
                             <p class="identity">{move || name.get()}</p>
                         </div>
                     </div>
@@ -208,10 +209,11 @@ mod tests {
                 .nth(1)
                 .expect(&html);
             assert!(html.contains("role=\"group\""), "{html}");
-            for required in ["Actor đã đăng nhập", "minh@example.test", "probe-action"] {
+            for required in ["minh@example.test", "probe-action"] {
                 assert!(menu.contains(required), "{required}: {html}");
             }
             assert!(html.matches("data-size=\"large\"").count() == 1, "{html}");
+            assert!(html.contains("class=\"studio-account-scrim\""), "{html}");
         });
     }
 

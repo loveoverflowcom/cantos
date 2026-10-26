@@ -154,6 +154,22 @@ pub fn status(status: Status, english: bool) -> &'static str {
     }
 }
 
+pub fn language_toggle_label(english: bool) -> &'static str {
+    if english {
+        "VI"
+    } else {
+        "EN"
+    }
+}
+
+pub fn language_toggle_tooltip(english: bool) -> &'static str {
+    if english {
+        "Language: English · Switch to Tiếng Việt"
+    } else {
+        "Ngôn ngữ: Tiếng Việt · Chuyển sang English"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{copy, status, Locale};

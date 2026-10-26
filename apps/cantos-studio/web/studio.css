@@ -221,10 +221,32 @@ body { margin: 0; }
 }
 /* Header toolbar: compact fields and the avatar share one 48-unit interaction row (40-unit painted
    fields and avatar), so the brand, selects and account entry sit on a single centered baseline. */
-.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-md); }
-.studio-shell .toolbar > .studio-toolbar-field { flex: 0 1 auto; min-inline-size: 8rem; }
+.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-sm); align-items: center; }
+.studio-shell .studio-language-button {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--cantos-shape-pill);
+  background: transparent;
+  color: var(--cantos-color-on-surface);
+  font-family: var(--cantos-type-family-ui);
+  font-weight: 700;
+  font-size: var(--cantos-type-label-size);
+  cursor: pointer;
+}
+.studio-shell .studio-language-badge {
+  display: inline-block;
+  text-align: center;
+  line-height: 1;
+}
 .studio-shell .studio-account { position: relative; }
 .studio-shell .studio-account[hidden] { display: none; }
+.studio-shell .studio-account-scrim { display: none; }
 .studio-shell .studio-account-trigger { display: inline-grid; place-items: center; inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border: 0; border-radius: var(--cantos-shape-pill); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .studio-shell .studio-account-trigger[aria-expanded="true"] { background: var(--cantos-color-surface-container); }
 /* Identity badge: shared initials and tone contracts (avatar tokens) with Studio-owned geometry. */
@@ -258,9 +280,12 @@ body { margin: 0; }
 }
 .studio-shell .studio-account-menu p { margin: 0; }
 .studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
+.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; }
 .studio-shell .studio-account-caption { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
+.studio-shell .studio-action-danger { color: var(--cantos-color-error); }
+.studio-shell .studio-action-danger:hover { background: var(--cantos-color-error-container); color: var(--cantos-color-on-error-container); }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 .studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); padding: var(--cantos-space-xl); }
@@ -307,12 +332,27 @@ body { margin: 0; }
   .studio-shell .entry-form { padding: var(--cantos-space-sm); }
   .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .studio-shell .dashboard-resume { grid-column: auto; }
-  .studio-shell .studio-header { align-items: start; margin-block-end: var(--cantos-space-lg); }
-  .studio-shell .studio-header > .toolbar { flex: 1 1 100%; position: relative; }
-  .studio-shell .toolbar > .studio-toolbar-field { flex: 1 1 14rem; min-inline-size: 0; }
-  /* The avatar is not at the edge here: anchor the popover to the toolbar's full width. */
-  .studio-shell .studio-account { position: static; margin-inline-start: auto; }
-  .studio-shell .studio-account-menu { inset-inline: 0; inline-size: auto; }
+  .studio-shell .studio-header { align-items: center; margin-block-end: var(--cantos-space-lg); gap: var(--cantos-space-sm); }
+  .studio-shell .studio-header > .toolbar { flex: 0 0 auto; gap: var(--cantos-space-xs); }
+  .studio-shell .studio-account { position: static; }
+  .studio-shell .studio-account-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .studio-shell .studio-account-menu {
+    position: fixed;
+    z-index: 41;
+    inset-block-start: auto;
+    inset-block-end: 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    max-block-size: 85vh;
+    border-radius: var(--cantos-shape-overlay) var(--cantos-shape-overlay) 0 0;
+    box-shadow: var(--cantos-elevation-overlay);
+  }
   .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
 }
 

@@ -1,6 +1,7 @@
 use cantos_ui::{
     AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, EmptyAccessibleName,
-    FilterChip, IconButton, IconName, InvalidLinkHref, Link, LinkHref, NavItem, NavTabs,
+    FilterChip, IconButton, IconName, InvalidLinkHref, Link, LinkHref, NavItem, NavTabs, Theme,
+    ThemeCycleButton,
 };
 use leptos::prelude::*;
 
@@ -288,5 +289,99 @@ fn chip_selection_is_controlled_and_blocking_does_not_erase_selection() {
         assert!(second.contains("Tải dữ liệu trước khi đổi bộ lọc"), "{second}");
         assert!(second.contains("Truyện đã đánh dấu"), "{second}");
         assert!(!second.contains("aria-label="), "{second}");
+    });
+}
+
+#[test]
+fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
+    assert_eq!(Theme::Dark.cycle(), Theme::Light);
+    assert_eq!(Theme::Light.cycle(), Theme::System);
+    assert_eq!(Theme::System.cycle(), Theme::Dark);
+
+    let owner = Owner::new();
+    owner.with(|| {
+        let theme = RwSignal::new(Theme::Dark);
+
+        let dark_html = view! {
+            <ThemeCycleButton id="theme-btn" theme=theme/>
+        }
+        .to_html();
+        assert!(dark_html.contains("id=\"theme-btn\""), "{dark_html}");
+        assert!(dark_html.contains("cui-theme-cycle-button"), "{dark_html}");
+        assert!(dark_html.contains("data-theme=\"dark\""), "{dark_html}");
+        assert!(
+            dark_html.contains("aria-label=\"Tối · Chuyển sang Sáng\""),
+            "{dark_html}"
+        );
+        assert!(dark_html.contains("role=\"tooltip\""), "{dark_html}");
+        assert!(dark_html.contains("Tối · Chuyển sang Sáng"), "{dark_html}");
+        assert!(dark_html.contains("M9.37"), "{dark_html}");
+
+        theme.set(Theme::Light);
+        let light_html = view! {
+            <ThemeCycleButton id="theme-btn" theme=theme/>
+        }
+        .to_html();
+        assert!(light_html.contains("data-theme=\"light\""), "{light_html}");
+        assert!(
+            light_html.contains("aria-label=\"Sáng · Chuyển sang Hệ thống\""),
+            "{light_html}"
+        );
+        assert!(
+            light_html.contains("Sáng · Chuyển sang Hệ thống"),
+            "{light_html}"
+        );
+        assert!(light_html.contains("M12,9"), "{light_html}");
+
+        theme.set(Theme::System);
+        let system_html = view! {
+            <ThemeCycleButton id="theme-btn" theme=theme/>
+        }
+        .to_html();
+        assert!(
+            system_html.contains("data-theme=\"system\""),
+            "{system_html}"
+        );
+        assert!(
+            system_html.contains("aria-label=\"Hệ thống · Chuyển sang Tối\""),
+            "{system_html}"
+        );
+        assert!(
+            system_html.contains("Hệ thống · Chuyển sang Tối"),
+            "{system_html}"
+        );
+        assert!(
+            system_html.contains("cui-theme-icon-system"),
+            "{system_html}"
+        );
+
+        let en_html = view! {
+            <ThemeCycleButton id="theme-btn-en" theme=theme english=Signal::derive(|| true)/>
+        }
+        .to_html();
+        assert!(
+            en_html.contains("aria-label=\"System · Switch to Dark\""),
+            "{en_html}"
+        );
+        assert!(en_html.contains("System · Switch to Dark"), "{en_html}");
+    });
+}
+
+#[test]
+fn icon_button_renders_accessible_tooltip_and_keeps_accessible_name() {
+    let owner = Owner::new();
+    owner.with(|| {
+        let name = AccessibleName::new("Đóng bảng").unwrap();
+        let html = view! {
+            <IconButton id="test-close" name=name icon=IconName::Close/>
+        }
+        .to_html();
+        assert!(html.contains("id=\"test-close\""), "{html}");
+        assert!(html.contains("id=\"test-close-tooltip\""), "{html}");
+        assert!(html.contains("role=\"tooltip\""), "{html}");
+        assert!(html.contains("class=\"cui-tooltip\""), "{html}");
+        assert!(html.contains("hidden"), "{html}");
+        assert!(html.contains("cui-sr-only"), "{html}");
+        assert!(html.contains("Đóng bảng"), "{html}");
     });
 }

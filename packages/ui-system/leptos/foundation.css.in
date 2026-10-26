@@ -70,11 +70,35 @@
   fill: currentColor;
   vertical-align: middle;
 }
-:where(.cantos-ui) .cui-button-field {
+:where(.cantos-ui) .cui-button-field,
+:where(.cantos-ui) .cui-tooltip-anchor {
+  position: relative;
   display: inline-grid;
   justify-items: start;
   gap: var(--cantos-space-xs);
   min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-tooltip {
+  position: absolute;
+  z-index: 50;
+  inset-block-start: calc(100% + var(--cantos-space-xs));
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding: var(--cantos-space-xs) var(--cantos-space-sm);
+  border-radius: var(--cantos-web-shape-reading);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  font-weight: 400;
+  white-space: nowrap;
+  box-shadow: var(--cantos-elevation-overlay);
+  pointer-events: auto;
+}
+:where(.cantos-ui) .cui-tooltip[hidden] {
+  display: none !important;
 }
 :where(.cantos-ui) .cui-button {
   box-sizing: border-box;
@@ -259,6 +283,25 @@
 }
 :where(.cantos-ui) .cui-icon-button {
   padding: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-theme-cycle-button {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--cantos-shape-pill);
+}
+:where(.cantos-ui) .cui-theme-icon-system {
+  display: inline-block;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  flex-shrink: 0;
+  fill: currentColor;
+  vertical-align: middle;
 }
 /* Issue 127: opt-in auth/account roles. Ordinary controls retain the Web mapping above.
    Native :active and focus interrupt without a timer; this is a CSS transition, not a spring. */

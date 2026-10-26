@@ -88,6 +88,13 @@ fun ThemeMode.resolve(systemIsDark: Boolean): Theme = when (this) {
     ThemeMode.Dark -> Theme.Dark
     ThemeMode.System -> if (systemIsDark) Theme.Dark else Theme.Light
 }
+
+/** Pure cycle transition: Dark → Light → System → Dark. */
+fun ThemeMode.cycle(): ThemeMode = when (this) {
+    ThemeMode.Dark -> ThemeMode.Light
+    ThemeMode.Light -> ThemeMode.System
+    ThemeMode.System -> ThemeMode.Dark
+}
 enum class StackDirection { Vertical, Horizontal, Wrap }
 enum class SurfaceTone { Surface, Container, Raised, Reading, PrimaryContainer }
 enum class SurfaceVariant { Regular, Auth, Profile, Membership, AccountGroup }
