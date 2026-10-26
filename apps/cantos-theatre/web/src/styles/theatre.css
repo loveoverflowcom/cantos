@@ -430,6 +430,18 @@ body { margin: 0; }
 .theatre-live-app .theatre-topbar { padding-inline: 0; padding-block: var(--cantos-space-md); }
 /* The locale field keeps a readable width; the context label yields first and the row wraps. */
 .theatre-live-app .theatre-locale-field { min-inline-size: 8rem; }
+/* Topbar utility role (Controls v3): a compact tonal pill with value and chevron centered as one group.
+   App-local composition of canonical roles until the shared Theatre expression is admitted; the labelled
+   form Select keeps its field radius, and the shared control still owns focus, hit target and popup. */
+.theatre-live-app .theatre-locale-field.cui-select-field .cui-field-control {
+  border-radius: var(--cantos-shape-pill);
+  background-color: var(--cantos-color-surface-container);
+}
+.theatre-live-app .theatre-locale-field.cui-select-field .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
+}
+.theatre-live-app .theatre-locale-field.cui-select-field .cui-select-trigger { justify-content: center; }
+.theatre-live-app .theatre-locale-field.cui-select-field .cui-select-value { flex: 0 1 auto; }
 .theatre-topbar-context { flex: 1 1 6rem; margin: 0; font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
@@ -524,7 +536,12 @@ body { margin: 0; }
   :where(.cantos-ui[data-theme="system"]) .theatre-empty-artwork-light { display: none; }
   :where(.cantos-ui[data-theme="system"]) .theatre-empty-artwork-dark { display: block; }
 }
-.theatre-public-empty .theatre-empty-artwork { margin-block-end: var(--cantos-space-lg); }
+/* Completed-empty and no-results are one centered group (artwork, heading, help, action); the height
+   stays content-driven and the artwork opts out of the row-oriented flex-basis it uses elsewhere. */
+.theatre-public-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--cantos-space-sm); padding-block: var(--cantos-space-xl); text-align: center; }
+.theatre-public-empty > .theatre-empty-artwork { flex: 0 0 auto; margin-block-end: var(--cantos-space-sm); }
+.theatre-public-empty :where(h3, p) { margin: 0; max-inline-size: 60ch; }
+.theatre-public-empty > .cui-button { margin-block-start: var(--cantos-space-sm); }
 /* Live Library composition; one global illustration, with quiet completed-empty summaries. */
 .theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
 .theatre-library-tools p { margin: 0; }

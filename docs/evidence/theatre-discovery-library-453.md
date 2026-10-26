@@ -175,3 +175,30 @@ populated/Library artwork and cards are not accepted by native HTML tests or JVM
 Review and layer results do not complete #453, close #416/#417, grant merge through failed gates
 or authorize #454. The source increment remains reviewable in Draft until required gates and
 the deferred admission/acceptance obligations permit completion.
+
+## Follow-up #467: centered empty group, pill locale, Avatar deferred
+
+Source base `bc0cc7b0`. The Web-only delta is app CSS plus focused regressions; it adds no shared
+source, token, catalog or admission change.
+
+- **Empty group.** `.theatre-public-empty` is one centered flex column (artwork, heading, help,
+  Refresh) with content-driven height. The artwork resets its row-oriented `flex` basis, which
+  would otherwise become a 16rem column height. Completed-empty and filtered no-results share it;
+  loading, incomplete, expired and failed regions do not.
+- **Locale pill.** The topbar `Select` keeps the admitted compact/inline API. App CSS scoped to
+  `.theatre-locale-field` gives the control `--cantos-shape-pill` and the tonal
+  `surface-container` role, and centers value and chevron as one group. The shared Theatre
+  expression that already styles this role is unqualified and is not enabled globally; labelled
+  form selects keep the field radius. Retire the local rule when the expression is admitted.
+- **Avatar deferred.** Shared `Avatar` is still `registered` (Leptos) and `implemented-unverified`
+  (CMP) with no two-renderer qualification record, so the account entry keeps the app-private
+  `PersonGlyph`. Initials, the guest `C` and image-error fallback bind only after admission
+  (#452/#459 owner); the component is not copied. Resume: Avatar qualification receipts at the
+  current catalog digest, then bind a resolved display name or the guest fallback.
+- **Observed** (Trunk dev server, Chromium pane, dark, real shell and stylesheet): the empty
+  markup was substituted into the live region because no API was running, so this is a
+  presentation observation, not an API-backed one. At 390 and 1280 the artwork, heading, help and
+  button centerlines equal the panel centerline (195 / 740.5 ± 0.5); no horizontal overflow at
+  390. The locale trigger measured 134×48, radius 999px, value + chevron centered in the trigger.
+  A light-scheme capture showed the pill. 320, 200% text, EN long labels, keyboard/typeahead on
+  the pill and production deployment are `NOT_RUN`.

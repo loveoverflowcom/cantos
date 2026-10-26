@@ -852,6 +852,61 @@ mod tests {
         }
     }
 
+    /// The completed-empty and no-results regions are one centered visual group; the other
+    /// regions never borrow the empty composition.
+    #[test]
+    fn empty_regions_render_one_group_that_the_stylesheet_centers_without_a_fixed_height() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        let group = rule(".theatre-public-empty");
+        for declaration in [
+            "display: flex",
+            "flex-direction: column",
+            "align-items: center",
+            "justify-content: center",
+            "text-align: center",
+        ] {
+            assert!(group.contains(declaration), "{declaration}");
+        }
+        assert!(!group.contains("block-size") && !group.contains("height"));
+        // The shared artwork basis (16rem) would otherwise become a column height.
+        assert!(rule(".theatre-public-empty > .theatre-empty-artwork").contains("flex: 0 0 auto"));
+        let query = DiscoveryQuery::new("không khớp", None, "").unwrap();
+        for applied in [DiscoveryQuery::default(), query] {
+            let html = render_with(
+                answered(applied.clone(), Ok(page(vec![], None))),
+                applied,
+                Locale::Vietnamese,
+            );
+            let start = html.find("theatre-public-empty").unwrap();
+            let group = &html[start..];
+            let end = group.find("</div></div>").unwrap_or(group.len());
+            let group = &group[..end];
+            for part in [
+                "data-artwork=\"works\"",
+                "<h3>",
+                "<p>",
+                "id=\"theatre-home-refresh\"",
+            ] {
+                assert_eq!(group.matches(part).count(), 1, "{part}");
+            }
+        }
+        for state in [
+            PublicDiscoveryState::default(),
+            answered(
+                DiscoveryQuery::default(),
+                Err(DiscoveryReadError::Unavailable),
+            ),
+        ] {
+            assert!(!render(state, Locale::Vietnamese).contains("theatre-public-empty"));
+        }
+    }
+
     #[test]
     fn work_action_uses_interface_language_and_only_the_visible_title_uses_content_language() {
         for (locale, content_language, title, action) in [

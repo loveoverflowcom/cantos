@@ -1142,6 +1142,31 @@ mod tests {
     }
 
     #[test]
+    fn topbar_locale_select_is_a_tonal_pill_from_canonical_roles_and_form_selects_keep_their_radius(
+    ) {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        let scope = ".theatre-live-app .theatre-locale-field.cui-select-field";
+        let control = rule(&format!("{scope} .cui-field-control"));
+        assert!(control.contains("border-radius: var(--cantos-shape-pill)"));
+        assert!(control.contains("background-color: var(--cantos-color-surface-container)"));
+        assert!(!control.contains('#') && !control.contains("rgb"));
+        assert!(rule(&format!("{scope} .cui-select-trigger")).contains("justify-content: center"));
+        // The pill is scoped to the topbar locale field; no unscoped field or select override exists.
+        assert_eq!(
+            css.matches(".cui-select-field .cui-field-control {")
+                .count(),
+            1
+        );
+        assert!(!css.contains(".cui-field-control { border-radius"));
+    }
+
+    #[test]
     fn sync_admission_does_not_retrigger_reads_for_projection_updates() {
         use crate::features::auth_preview::{signed_in, PreviewActor};
         use std::sync::{
