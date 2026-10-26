@@ -14626,30 +14626,6 @@
         }
       }
     },
-    "studio.root.language_toggle_label": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "EN"
-        },
-        "en": {
-          "text": "VI"
-        }
-      }
-    },
-    "studio.root.language_toggle_tooltip": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Ngôn ngữ: Tiếng Việt · Chuyển sang English"
-        },
-        "en": {
-          "text": "Language: English · Switch to Tiếng Việt"
-        }
-      }
-    },
     "studio.root.import_copy_title": {
       "args": {},
       "exposure": "production",

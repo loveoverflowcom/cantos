@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "e09ac670c14ce8abe3094638830347f91adb8e91bfb039eec1d2d30be81441c0",
+  "catalogSha256": "6fe3ebdbf8f969b6e4cabd3576e5e349ca5bb9c194fd440b733b383e14284849",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1123,8 +1123,6 @@
     "studio.root.import_status_stored": {},
     "studio.root.import_status_unauthenticated": {},
     "studio.root.import_status_unavailable": {},
-    "studio.root.language_toggle_label": {},
-    "studio.root.language_toggle_tooltip": {},
     "studio.root.status_corrupt_revision": {},
     "studio.root.status_dirty": {},
     "studio.root.status_draft_preserved": {},

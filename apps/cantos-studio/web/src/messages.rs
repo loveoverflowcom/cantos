@@ -105,14 +105,6 @@ pub fn status(status: Status, locale: crate::localization::Locale) -> &'static s
     }
 }
 
-pub fn language_toggle_label(locale: crate::localization::Locale) -> &'static str {
-    resources::text(resources::Key::LanguageToggleLabel, locale)
-}
-
-pub fn language_toggle_tooltip(locale: crate::localization::Locale) -> &'static str {
-    resources::text(resources::Key::LanguageToggleTooltip, locale)
-}
-
 #[cfg(test)]
 mod tests {
     use super::{copy, status, Locale};
