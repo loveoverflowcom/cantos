@@ -52,35 +52,63 @@ class CoverImagesTest {
         CoverImages(source, decode, { now }, budgetBytes = budget, freshForMs = 100, maxConcurrent = concurrent)
 
     @Test
-    fun a_verified_cover_decodes_and_is_reused_only_while_fresh_for_the_exact_url() = runTest {
+    fun every_use_revalidates_the_exact_url_while_fresh_decoded_pixels_may_be_reused() = runTest {
         val source = Source()
-        val loader = images(source)
+        var decodes = 0
+        val loader = images(source, decode = { _, _ -> decodes += 1; ImageBitmap(2, 2) })
         val first = assertIs<CoverLoad.Ready>(loader.load(cover(1)))
         assertSame(first.bitmap, assertIs<CoverLoad.Ready>(loader.load(cover(1))).bitmap)
-        assertEquals(1, source.requests.size)
+        assertEquals(2, source.requests.size, "no-cache requires a new read before every use")
+        assertEquals(1, decodes, "fresh verified bytes may reuse the decoded pixels")
         // The same digest under another Work is another authorization: it is read, not borrowed.
         assertIs<CoverLoad.Ready>(loader.load(cover(1, work = 2)))
-        assertEquals(2, source.requests.size)
-        // no-cache: past the freshness window the Server is asked again, so revocation takes effect.
+        assertEquals(3, source.requests.size)
+        assertEquals(2, decodes)
+        // The local freshness window controls decoding only, never whether the Server is asked.
         now += 100
         assertIs<CoverLoad.Ready>(loader.load(cover(1)))
-        assertEquals(3, source.requests.size)
+        assertEquals(4, source.requests.size)
+        assertEquals(3, decodes)
     }
 
     @Test
-    fun a_revoked_cover_is_unavailable_and_stable_but_other_failures_may_retry() = runTest {
+    fun revocation_or_refusal_is_observed_before_reusing_a_cached_bitmap() = runTest {
+        for (failure in listOf(CoverBytes.NotFound, CoverBytes.Refused, CoverBytes.Unavailable)) {
+            val source = Source()
+            val loader = images(source)
+            assertIs<CoverLoad.Ready>(loader.load(cover(1)))
+            source.outcome = { failure }
+            assertEquals(CoverLoad.Unavailable, loader.load(cover(1)), "the prior image grants no new use")
+            assertEquals(2, source.requests.size, "revalidation cannot wait for a local freshness window")
+        }
+    }
+
+    @Test
+    fun a_not_found_response_is_not_retained_when_the_same_url_becomes_available() = runTest {
         val source = Source { CoverBytes.NotFound }
         val loader = images(source)
         assertEquals(CoverLoad.Unavailable, loader.load(cover(1)))
-        assertEquals(CoverLoad.Unavailable, loader.load(cover(1)))
-        assertEquals(1, source.requests.size, "a 404 on a digest-pinned URL is remembered")
-        source.outcome = { CoverBytes.Unavailable }
-        assertEquals(CoverLoad.Unavailable, loader.load(cover(2)))
         source.outcome = { CoverBytes.Verified(byteArrayOf(1, 2, 3, 4)) }
-        assertIs<CoverLoad.Ready>(loader.load(cover(2)))
-        assertEquals(3, source.requests.size, "an unavailable cover is read again later")
-        source.outcome = { CoverBytes.Refused }
-        assertEquals(CoverLoad.Unavailable, loader.load(cover(3)))
+        assertIs<CoverLoad.Ready>(loader.load(cover(1)))
+        assertEquals(2, source.requests.size, "errors are no-store, not permanent URL decisions")
+    }
+
+    @Test
+    fun a_cached_url_still_checks_the_current_disclosed_request_facts() = runTest {
+        val source = Source { request ->
+            if (request.byteLength == 4 && request.contentType == "image/png") CoverBytes.Verified(byteArrayOf(1, 2, 3, 4))
+            else CoverBytes.Refused
+        }
+        val loader = images(source)
+        assertIs<CoverLoad.Ready>(loader.load(cover(1)))
+        val changed = cover(1).copy(byteLength = 6, mime = "image/jpeg")
+        assertEquals(CoverLoad.Unavailable, loader.load(changed))
+        assertEquals(2, source.requests.size)
+        val sent = source.requests.last()
+        assertEquals(changed.url, sent.url)
+        assertEquals(changed.sha256, sent.sha256)
+        assertEquals(6, sent.byteLength)
+        assertEquals("image/jpeg", sent.contentType)
     }
 
     @Test
@@ -103,19 +131,26 @@ class CoverImagesTest {
     @Test
     fun decoded_memory_is_bounded_and_least_recently_used_goes_first() = runTest {
         val source = Source()
+        var decodes = 0
         // Each 2x2 bitmap is 16 bytes: room for two.
-        val loader = images(source, budget = 32)
+        val loader = images(source, decode = { _, _ -> decodes += 1; ImageBitmap(2, 2) }, budget = 32)
         loader.load(cover(1)); loader.load(cover(2))
         loader.load(cover(1)) // touch 1 so 2 is the oldest
         loader.load(cover(3)) // evicts 2
-        assertEquals(3, source.requests.size)
+        assertEquals(4, source.requests.size)
+        assertEquals(3, decodes)
         loader.load(cover(1)); loader.load(cover(3))
-        assertEquals(3, source.requests.size, "1 and 3 are retained")
+        assertEquals(6, source.requests.size, "retained pixels still require revalidation")
+        assertEquals(3, decodes, "1 and 3 are retained")
         loader.load(cover(2))
-        assertEquals(4, source.requests.size, "2 was evicted")
+        assertEquals(7, source.requests.size)
+        assertEquals(4, decodes, "2 was evicted")
         // An image larger than the whole budget is shown but never retained.
-        val tiny = images(Source(), budget = 8)
+        var tinyDecodes = 0
+        val tiny = images(Source(), decode = { _, _ -> tinyDecodes += 1; ImageBitmap(2, 2) }, budget = 8)
         assertIs<CoverLoad.Ready>(tiny.load(cover(1)))
+        assertIs<CoverLoad.Ready>(tiny.load(cover(1)))
+        assertEquals(2, tinyDecodes)
     }
 
     @Test

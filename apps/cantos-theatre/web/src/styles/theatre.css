@@ -434,7 +434,7 @@ body { margin: 0; }
   display: grid;
   gap: var(--cantos-space-md);
   padding: var(--cantos-space-md);
-  border-radius: var(--cantos-shape-overlay);
+  border-radius: var(--cantos-web-shape-overlay);
   background: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
   box-shadow: var(--cantos-elevation-overlay);
@@ -455,7 +455,7 @@ body { margin: 0; }
   display: flex; align-items: center; gap: var(--cantos-space-md);
   box-sizing: border-box; inline-size: 100%; min-block-size: var(--cantos-size-control);
   padding: var(--cantos-space-sm) var(--cantos-space-md);
-  border: 0; border-radius: var(--cantos-shape-control);
+  border: 0; border-radius: var(--cantos-web-shape-control);
   background: transparent; color: inherit; font: inherit; text-align: start; text-decoration: none; cursor: pointer;
 }
 .theatre-account-menu-row .cui-icon, .theatre-account-menu-row svg { flex: none; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }

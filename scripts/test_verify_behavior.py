@@ -123,7 +123,7 @@ class BehaviorContracts(unittest.TestCase):
         expected = {
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
-            "cantos.media.public-cover-projection": (16, 6, 12),
+            "cantos.media.public-cover-projection": (17, 6, 12),
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
             "cantos.presentation.discovery-retired-language": (4, 4, 3),

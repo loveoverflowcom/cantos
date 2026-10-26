@@ -14,7 +14,7 @@ class CoverRequest(val url: String, val sha256: String, val byteLength: Int, val
 sealed interface CoverBytes {
     /** Status 200, the exact pinned type and length, and a SHA-256 equal to the disclosed one. */
     class Verified(val bytes: ByteArray) : CoverBytes
-    /** 404 `not_found`: stale, revoked, expired, withdrawn or uncomposed. Stable for this exact URL. */
+    /** Current 404 denial: stale, revoked, expired, withdrawn or uncomposed. Never retained. */
     data object NotFound : CoverBytes
     /** 5xx, timeout or no response: keep the fallback; a later composition may retry. */
     data object Unavailable : CoverBytes
