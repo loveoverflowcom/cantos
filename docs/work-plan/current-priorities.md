@@ -29,6 +29,9 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
   ICU4X Kotlin/native targets before moving the preserved numeric consumers. Text generation,
   JVM interaction and Android artifacts do not establish iOS/device or screen-reader acceptance.
   Preserve typed errors, saved-preference refusal/retry and arbitrary content-language tags.
+  The [three-PR integration review](../evidence/localization-review-511-513.md) records bounded
+  generator repairs stacked on the unmerged CMP branch; retain its dependency before eventual
+  `develop` integration and the separate native/release acceptance checks.
 
 - Studio CMS acceptance: preserve the [combined authoring, private-audio and publication
   boundary](../evidence/studio-cms-editorial-20261023.md) and qualify the remaining browser,

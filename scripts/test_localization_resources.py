@@ -51,6 +51,15 @@ class ResourceTests(unittest.TestCase):
         output=next(iter(resources.projections(resources.validate(self.source)).values()))
         self.assertIn('pub enum Message {',output)
         self.assertNotIn("Message<'a>",output)
+    def test_plain_keys_decode_original_template_braces(self):
+        message = self.source['messages']['common.probe.language']
+        for pattern in message['translations'].values():
+            pattern['text'] = 'Literal {{title}} and {{time}}'
+        outputs = resources.projections(resources.validate(self.source), include_test=True)
+        for output in outputs.values():
+            if 'pub enum Locale' in output:
+                self.assertIn('=> "Literal {title} and {time}",', output)
+                self.assertNotIn('Literal {{title}}', output)
     def test_reserved_symbols_and_unbound_generated_owners_fail(self):
         import check_localization
         source=deepcopy(self.source);source['locales'][0]['symbol']='Self';self.rejects(source)
