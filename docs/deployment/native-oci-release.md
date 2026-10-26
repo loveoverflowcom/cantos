@@ -21,9 +21,14 @@ actual publish, exact-image pair qualification and native host activation requir
 evidence. Producer identities are inputs, never proof that either ran. No production release can be made from this verifier alone. Legacy
 `deploy vps` is a hidden retired refusal, not an archive-transfer or native activation lane.
 
+The [exact-image Linux fixture](../assurance/native-oci-qualification.md) now owns execution of
+the four qualification records after the manual Actions producer. It preserves the original
+candidate, writes a separate bound result and never creates an operator admission.
+
 The `cantos-identity` executable (`migrate`/`serve`, private authenticated Unix-socket RPC) exists
 behind the crate's `service` feature; Server now composes embedded Turso foundation/sessions,
-with business schema/SQL incomplete. There is no full two-production-binary HTTP acceptance. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
+with business schema/SQL incomplete. The fixture's synthetic HTTP/auth and same-schema restore
+scope does not accept all business journeys or a live host. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
 recovery resources until #332–#336 provide actual accepted native journeys and recovery.
 Source review or an offline plan cannot classify a real host as `NEW`, `LEGACY` or `NATIVE_READY`.
 An inaccessible host or missing inventory is `UNKNOWN` and blocks live mutation.
@@ -124,9 +129,9 @@ workflow (`workflow_dispatch` only; it never runs on push/PR and never deploys).
 | Candidate | `manifest.json`, `runtime.tar` (committed host assets with Git modes, deterministic) and `evidence.json` plus `gate-records/*.json`, written once under `artifacts/release-build/oci/SHA/CONFIG/ATTEMPT/candidate/` and re-verified against `release_oci` |
 
 Without `--publish` the command builds and checks locally, prints `BUILD_ONLY` and writes nothing.
-The **candidate is never eligible**: all four gates (`native-isolation`, `native-e2e`,
+The **producer candidate is never eligible**: all four gates (`native-isolation`, `native-e2e`,
 `migration-restore`, `image-pair`) are recorded `NOT_RUN`, so `release oci-verify` refuses it with
-"producer gate did not PASS" until real gate records replace them and an operator admits the
+"producer gate did not PASS" until a separate result supplies real records and an operator admits the
 producer. Nothing a producer writes is an admission, and labels or a pushed tag prove no provenance.
 
 `infra/oci/compatibility.json` holds the declared RPC, Server schema, Identity schema and

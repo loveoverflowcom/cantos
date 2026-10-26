@@ -80,8 +80,8 @@ def producer(value):
         raise ValueError("producer must be local or github-actions; existing is a consumer lane")
 
 
-def manifest_plan(manifest, admission, *, manifest_digest, source_sha, configuration_digest, platform):
-    """Pure identity/trust decision; performs no I/O and returns no activation authority."""
+def candidate_plan(manifest, *, manifest_digest, source_sha, configuration_digest, platform):
+    """Validate candidate identity without inventing an operator admission."""
     fields(manifest, "schema_version kind repository source_sha configuration_sha256 platform producer "
            "compatibility images runtime_bundle evidence", "unsupported native OCI manifest fields")
     contract.require(type(manifest["schema_version"]) is int and manifest["schema_version"] == 1 and
@@ -93,10 +93,6 @@ def manifest_plan(manifest, admission, *, manifest_digest, source_sha, configura
                      "configuration identity mismatch")
     contract.require(platform in PLATFORMS and manifest["platform"] == platform, "platform mismatch or unsupported")
     producer(manifest["producer"])
-    fields(admission, "schema_version manifest_sha256 producer", "invalid producer admission fields")
-    contract.require(type(admission["schema_version"]) is int and admission["schema_version"] == 1 and
-                     admission["manifest_sha256"] == manifest_digest and
-                     admission["producer"] == manifest["producer"], "producer admission mismatch")
     compatibility = manifest["compatibility"]
     fields(compatibility, "rpc server_schema identity_schema security_state turso", "incomplete compatibility identity")
     for value in compatibility.values():
@@ -147,6 +143,16 @@ def manifest_plan(manifest, admission, *, manifest_digest, source_sha, configura
             "manifest_sha256": manifest_digest, "images": {s: images[s]["ref"] for s in SERVICES},
             "gates": {"offline-contract": "PASS", "registry-access": "NOT_RUN",
                       "native-qualification": "NOT_RUN", "activation": "NOT_RUN", "cleanup": "NOT_RUN"}}
+
+
+def manifest_plan(manifest, admission, **pins):
+    """Admission remains mandatory for every existing release/host consumer."""
+    plan = candidate_plan(manifest, **pins)
+    fields(admission, "schema_version manifest_sha256 producer", "invalid producer admission fields")
+    contract.require(type(admission["schema_version"]) is int and admission["schema_version"] == 1 and
+                     admission["manifest_sha256"] == pins["manifest_digest"] and
+                     admission["producer"] == manifest["producer"], "producer admission mismatch")
+    return plan
 
 
 def git(root, *args):
