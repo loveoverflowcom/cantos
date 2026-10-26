@@ -13,8 +13,10 @@ use crate::{
         self,
         workspace::{text, Key},
     },
+    ui::{ActionButton, BlockReason},
     view::operation_id,
 };
+use cantos_ui::ButtonVariant;
 use leptos::{prelude::*, task::spawn_local};
 
 fn set_inspector(
@@ -191,21 +193,21 @@ pub fn RevisionInspector(
                         <dt>{move || copy().script}</dt><dd>{move || inspector.with(|inspector| inspector.pending.as_ref().map(|intent| intent.snapshot.script.clone()).unwrap_or_default())}</dd>
                         <dt>{move || copy().base}</dt><dd>{move || inspector.with(|inspector| inspector.pending.as_ref().map(|intent| intent.request.revision.to_string()).unwrap_or_default())}</dd>
                     </dl>
-                    <button class="cui-button" data-variant="secondary" type="button" disabled=move || inspector.with(|inspector| !inspector.can_retry()) aria-describedby="inspector-pending-help inspector-permission-help" on:click=move |_| {
+                    <ActionButton id="inspector-retry" english=english variant=ButtonVariant::Secondary reason=BlockReason::Pending blocked=Signal::derive(move || inspector.with(|inspector| !inspector.can_retry())) described_by="inspector-pending-help inspector-permission-help" on_press=Callback::new(move |_| {
                         let current = state.get_untracked();
                         let Some((sending, intent)) = inspector.get_untracked().observe(&current).retry() else { return; };
                         set_inspector(inspector, activity, sending);
                         review(inspector, state, activity, api, intent);
-                    }>{move || copy().retry}</button>
+                    })>{move || copy().retry}</ActionButton>
                 </section>
             </Show>
             <section aria-labelledby="inspector-source-title">
                 <h3 id="inspector-source-title">{move || workspace(Key::Source)}</h3>
                 <p id="inspector-source-help" class="help">{move || workspace(Key::SourceHelp)}</p>
-                <button class="cui-button" data-variant="secondary" type="button" disabled=move || read_blocked() || remote.get().is_none_or(|remote| source_ids(&remote.script_json).is_empty()) aria-describedby="inspector-source-help inspector-permission-help inspector-pending-help" on:click=move |_| {
+                <ActionButton id="inspector-open-source" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(move || read_blocked() || remote.get().is_none_or(|remote| source_ids(&remote.script_json).is_empty())) described_by="inspector-source-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     let Some(remote) = remote.get_untracked() else { return; };
                     read(inspector, state, activity, api, ReadKind::Sources { ids: source_ids(&remote.script_json) });
-                }>{move || workspace(Key::OpenSource)}</button>
+                })>{move || workspace(Key::OpenSource)}</ActionButton>
                 <For each=move || sources.with(|sources| sources.iter().map(|source| source.id.clone()).collect::<Vec<_>>()) key=|id| id.clone() let:id>
                     {
                         let id = StoredValue::new(id);
@@ -226,13 +228,13 @@ pub fn RevisionInspector(
                 <h3 id="inspector-history-title">{move || workspace(Key::History)}</h3>
                 <p id="inspector-history-help" class="help">{move || workspace(Key::HistoryHelp)}</p>
                 <div class="toolbar">
-                    <button class="cui-button" data-variant="secondary" type="button" disabled=read_blocked aria-describedby="inspector-history-help inspector-permission-help inspector-pending-help" on:click=move |_| read(inspector, state, activity, api, ReadKind::History { after: 0 })>{move || workspace(Key::LoadHistory)}</button>
+                    <ActionButton id="inspector-load-history" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::History { after: 0 }))>{move || workspace(Key::LoadHistory)}</ActionButton>
                     <Show when=move || history.get().is_some_and(|history| history.next_after.is_some())>
-                        <button class="cui-button" data-variant="secondary" type="button" disabled=read_blocked aria-describedby="inspector-history-help inspector-permission-help" on:click=move |_| {
+                        <ActionButton id="inspector-more-history" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| {
                             if let Some(after) = history.get_untracked().and_then(|history| history.next_after) {
                                 read(inspector, state, activity, api, ReadKind::History { after });
                             }
-                        }>{move || workspace(Key::MoreHistory)}</button>
+                        })>{move || workspace(Key::MoreHistory)}</ActionButton>
                     </Show>
                 </div>
                 <Show when=move || history.get().is_none()><p class="help">{move || workspace(Key::NoHistory)}</p></Show>
@@ -245,7 +247,7 @@ pub fn RevisionInspector(
                                 <li>
                                     <p class="identity">{revision.with_value(|revision| format!("{} / {} · {} · {}", revision.script_id, revision.revision, revision.accepted_by, revision.accepted_at))}</p>
                                     <code>{revision.with_value(|revision| revision.export_digest.clone())}</code>
-                                    <button class="cui-button" data-variant="secondary" type="button" disabled=read_blocked aria-describedby="inspector-history-help inspector-permission-help" on:click=move |_| read(inspector, state, activity, api, ReadKind::Revision { revision: version })>{move || workspace(Key::OpenVersion)}" "{version}</button>
+                                    <ActionButton id=format!("inspector-open-version-{version}") english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::Revision { revision: version }))>{move || workspace(Key::OpenVersion)}" "{version}</ActionButton>
                                     {move || history.get().map(|history| history.reviews.into_iter().filter(|review| review.revision == version).map(|review| view! { <ReviewDetails review=review english=english /> }).collect_view())}
                                 </li>
                             }
@@ -257,9 +259,9 @@ pub fn RevisionInspector(
             <section aria-labelledby="inspector-saved-title">
                 <h3 id="inspector-saved-title">{move || copy().preview}</h3>
                 {move || remote.get().map(|revision| view! { <RevisionDetails revision=revision english=english /> })}
-                <button class="cui-button" data-variant="secondary" type="button" disabled=rebase_blocked aria-describedby="inspector-history-help inspector-permission-help inspector-pending-help" on:click=move |_| {
+                <ActionButton id="inspector-rebase" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(rebase_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     if !rebase_blocked() { state.update(|editor| *editor = editor.rebase()); }
-                }>{move || copy().rebase}</button>
+                })>{move || copy().rebase}</ActionButton>
                 <p id="inspector-review-help" class="help">{move || workspace(Key::ReviewHelp)}</p>
                 <crate::ui::ReviewCheckbox id="inspector-review-confirm" english=english
                     label=Signal::derive(move ||workspace(Key::ReviewSavedConfirm).to_owned())
@@ -270,7 +272,7 @@ pub fn RevisionInspector(
                         update_inspector(inspector,state,activity,|inspector,editor|inspector.observe_workspace(editor,draft_active()).confirm(editor,checked && !draft_active()));
                     })/>
 
-                <button class="cui-button" data-variant="secondary" type="button" disabled=review_blocked aria-describedby="inspector-review-help inspector-permission-help inspector-pending-help" on:click=move |_| {
+                <ActionButton id="inspector-review-version" english=english variant=ButtonVariant::Secondary reason=BlockReason::SaveReview blocked=Signal::derive(review_blocked) described_by="inspector-review-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     if review_blocked() { return; }
                     match operation_id() {
                         Ok(operation) => {
@@ -282,7 +284,7 @@ pub fn RevisionInspector(
                         }
                         Err(error) => update_inspector(inspector, state, activity, |inspector, _| inspector.local_error(&error)),
                     }
-                }>{move || workspace(Key::ReviewVersion)}</button>
+                })>{move || workspace(Key::ReviewVersion)}</ActionButton>
                 {move || reviewed.get().map(|review| view! { <ReviewDetails review=review english=english /> })}
             </section>
         </div>
