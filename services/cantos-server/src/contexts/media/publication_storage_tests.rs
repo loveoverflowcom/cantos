@@ -174,3 +174,55 @@ fn concurrent_open_cannot_admit_one_root_into_both_storage_classes() {
     let public = public.join().unwrap();
     assert_ne!(private, public);
 }
+
+/// Studio readiness/active-release/publish observations inspect bytes with external decoders for
+/// seconds. Holding every admission lane must not refuse a listener read, and listener reads
+/// holding every read lane must not fail an admission observation. Each pool keeps its bound.
+#[tokio::test]
+async fn admission_inspection_and_listener_reads_cannot_exhaust_each_others_lanes() {
+    let root = Root::new();
+    let bytes: Vec<_> = (0..=255_u8).collect();
+    let storage = FilesystemPublicationStorage::new(&root.0).unwrap();
+    storage
+        .inner
+        .inject_test_bytes(&bytes, &hash(&bytes))
+        .unwrap();
+    // The host shares one value between publication admission and origin playback.
+    let listener = storage.clone();
+    let admission = storage
+        .admission
+        .clone()
+        .acquire_many_owned(ADMISSION_LANES as u32)
+        .await
+        .unwrap();
+    assert_eq!(
+        body(listener.open(object(&bytes), None).await.unwrap()).await,
+        bytes
+    );
+    let missing = PublicationObject {
+        rendition_id: RENDITION.into(),
+        sha256: Sha256::parse(&hash(b"missing")).unwrap(),
+        byte_length: 7,
+        profile_id: "opus-mono-24-v1".into(),
+    };
+    assert_eq!(
+        storage.observe(missing.clone()).await,
+        Err(PublicationDependencyError::Unavailable)
+    );
+    drop(admission);
+    let reads = listener
+        .reads
+        .clone()
+        .acquire_many_owned(READ_LANES as u32)
+        .await
+        .unwrap();
+    assert_eq!(
+        storage.observe(missing).await.unwrap(),
+        DeliveryObservation::Missing
+    );
+    assert!(matches!(
+        listener.open(object(&bytes), None).await,
+        Err(StorageError::Unavailable)
+    ));
+    drop(reads);
+}
