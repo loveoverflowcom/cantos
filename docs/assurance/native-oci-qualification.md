@@ -51,6 +51,17 @@ VPS backup/restore, Quadlet/systemd/reboot, real-provider mailbox delivery, brow
 Kani, full token/proof expiry elapsed in wall time, or unported business journeys. No expiry/auth
 policy, clock override or preseeded credential is introduced. These limits remain separate work.
 
+The serve-before-migrate negative control allows only the owner's empty 0600 `.db.owner` lock
+with the exact service UID/GID. The owner acquires that advisory lock before observing/refusing
+a missing database. Creating a DB, WAL, unknown file, nonempty lock or permissive/foreign lock
+still fails; refusing an uninitialized DB does not require removal of the ownership sidecar.
+
+Peer-UID reconfiguration removes the owned Server before Identity because Server joins
+Identity's network namespace. Both are recreated in the driver's retained private namespace;
+correct credentials must work again after the negative control. No recursive dependent-removal
+or broad cleanup option is used. Podman failures identify the operation and exit code without
+echoing command arguments or remote stderr.
+
 The all-layer policy includes files deleted by later layers. It rejects database/audio assets,
 credential paths/files and private-key payload markers, and checks the exact service binary set.
 CA certificates and executable parser strings are allowed. This disclosed policy is not a
