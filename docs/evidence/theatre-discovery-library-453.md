@@ -90,7 +90,7 @@ Library uses the transparent **1374 × 1145 raster PNG**, SHA-256
 Works and History use the supplied light/dark SVGs on Web and actual Compose-resource XML on
 CMP. The XML compiled and rendered on the JVM; this does not establish Android/iOS rendering.
 All images are decorative, untinted, preserve aspect ratio and use app preferences for theme.
-Web [asset provenance](../../apps/cantos-theatre/web/assets/empty/README.md) and CMP's bundled JSON
+Web [asset provenance](../../apps/cantos-theatre/web/empty-artwork.md) and CMP's bundled JSON
 retain exact source hashes. No sample cover, manuscript, audio or runtime Drive fetch was added.
 
 ## Invariants and state coverage

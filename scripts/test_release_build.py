@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import tarfile
 import tempfile
 import unittest
@@ -109,6 +110,21 @@ class ReleaseBuildTests(unittest.TestCase):
             (dist / ".env").write_text("secret fixture")
             with self.assertRaisesRegex(ValueError, "unexpected Web asset"):
                 release.web_archive(dist, output / "invalid.tar.gz")
+
+    def test_checked_in_theatre_assets_package_without_source_documentation(self):
+        root = Path(__file__).resolve().parents[1]
+        assets = root / "apps/cantos-theatre/web/assets"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            dist = output / "dist"
+            shutil.copytree(assets, dist / "assets")
+            (dist / "index.html").write_text("<html>Truyện</html>")
+            release.web_archive(dist, output / "bundle.tar.gz")
+            with tarfile.open(output / "bundle.tar.gz") as archive:
+                names = archive.getnames()
+            self.assertIn("assets/empty/library-expressive.png", names)
+            self.assertIn("assets/empty/light/cantos-empty-works.svg", names)
+            self.assertFalse(any(name.endswith(".md") for name in names))
 
     @patch.dict("os.environ", {}, clear=True)
     def test_dirty_source_or_circle_sha_mismatch_is_refused(self):
