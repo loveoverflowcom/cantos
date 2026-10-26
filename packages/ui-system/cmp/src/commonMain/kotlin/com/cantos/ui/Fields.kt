@@ -1,6 +1,5 @@
 package com.cantos.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,12 +75,11 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
         TextFieldVariant.Floating -> Modifier.cantosInsetPerimeter(FloatingFieldRadius, invalid = messages.error != null)
         // A capsule is a radius of half the shortest side; Skia scales an oversized radius to it.
         TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(Dp(999f), invalid = messages.error != null)
-        TextFieldVariant.AuthTonal, TextFieldVariant.Regular -> Modifier.cantosFocus(
-            if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
-            restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
-                BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error"))
-            } else null,
-        )
+        // The auth shell is painted, so it gets the same Fields v4 perimeter on its own shape.
+        TextFieldVariant.AuthTonal -> Modifier.cantosInsetPerimeter(CantosShapes.authField, invalid = messages.error != null)
+        // Regular is the Standard expression's field (its error is an underline indicator); no Theatre
+        // surface uses it, so it keeps the outset ring.
+        TextFieldVariant.Regular -> Modifier.cantosFocus("shape.field")
     })
     .semantics {
         if (variant == TextFieldVariant.AuthTonal) contentDescription = label
