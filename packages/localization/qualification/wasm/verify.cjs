@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const api = require('./generated/cantos_localization_wasm_qualification.js');
+assert.equal(api.decimal('vi-VN', '1234.50'), '1234,50');
+assert.equal(api.decimal('en', '1234.50'), '1234.50');
+assert.equal(api.cardinal('en', '1'), 'One');
+assert.equal(api.cardinal('en', '1.0'), 'Other');
+assert.equal(api.cardinal('vi-VN', '1'), 'Other');
+assert.equal(api.cardinal('ja', '2'), 'Other');
+assert.equal(api.cardinal('ar', '3'), 'Few');
+assert.equal(api.money('en', '18446744073709551615', 'USD'), 'USD\u00a0184,467,440,737,095,516.15');
+assert.equal(api.money('vi-VN', '1234', 'VND'), '1.234\u00a0VND');
+assert.equal(api.instant('en', '-1', 0), 'Dec 31, 1969, 23:59 UTC');
+assert.equal(api.instant('vi-VN', '0', 420), '07:00 1 thg 1, 1970 UTC+07:00');
+assert.equal(api.clock('en', 3723), '1:02:03');
+assert.throws(() => api.decimal('en', 'NaN'), value => value === 'InvalidDecimal');
+assert.throws(() => api.money('en', '1', 'ZZZ'), value => value === 'UnsupportedCurrency');
+assert.throws(() => api.instant('en', '0', 1081), value => value === 'UnsupportedTimeZone');
+console.log('PASS: 15 exact WASM/Node formatter vectors and typed refusals; no DOM or native-binding claim');

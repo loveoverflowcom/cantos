@@ -766,28 +766,63 @@ fn server_replies_preserve_preview_handle_until_lifecycle_retires_it_once() {
 fn artwork_named_facts_preserve_literal_braces_and_localize_units() {
     let name = "Lời hẹn {time}.png";
     assert_eq!(
-        copy::media_facts(1, 1, 1, "image/png", true),
+        copy::media_facts(1, 1, 1, "image/png", crate::localization::Locale::English),
         "1 byte · 1 × 1 px · image/png"
     );
-    assert_eq!(copy::transferred_bytes(0, 1, true), "0 / 1 byte");
     assert_eq!(
-        copy::file_facts(name, 128, 320, 240, "image/png", false),
+        copy::transferred_bytes(0, 1, crate::localization::Locale::English),
+        "0 / 1 byte"
+    );
+    assert_eq!(
+        copy::file_facts(
+            name,
+            128,
+            320,
+            240,
+            "image/png",
+            crate::localization::Locale::Vietnamese
+        ),
         "Lời hẹn {time}.png · 128 byte · 320 × 240 px · image/png"
     );
     assert_eq!(
-        copy::file_facts(name, 128, 320, 240, "image/png", true),
+        copy::file_facts(
+            name,
+            128,
+            320,
+            240,
+            "image/png",
+            crate::localization::Locale::English
+        ),
         "Lời hẹn {time}.png · 128 bytes · 320 × 240 px · image/png"
     );
     assert_eq!(
-        copy::media_facts(128, 320, 240, "image/png", false),
+        copy::media_facts(
+            128,
+            320,
+            240,
+            "image/png",
+            crate::localization::Locale::Vietnamese
+        ),
         "128 byte · 320 × 240 px · image/png"
     );
     assert_eq!(
-        copy::media_facts(128, 320, 240, "image/png", true),
+        copy::media_facts(
+            128,
+            320,
+            240,
+            "image/png",
+            crate::localization::Locale::English
+        ),
         "128 bytes · 320 × 240 px · image/png"
     );
-    assert_eq!(copy::transferred_bytes(64, 128, false), "64 / 128 byte");
-    assert_eq!(copy::transferred_bytes(64, 128, true), "64 / 128 bytes");
+    assert_eq!(
+        copy::transferred_bytes(64, 128, crate::localization::Locale::Vietnamese),
+        "64 / 128 byte"
+    );
+    assert_eq!(
+        copy::transferred_bytes(64, 128, crate::localization::Locale::English),
+        "64 / 128 bytes"
+    );
 }
 
 #[test]
@@ -797,7 +832,7 @@ fn artwork_locale_projection_updates_labels_errors_and_accessible_names_without_
     owner.with(|| {
         let original = Draft { alt: "Lời hẹn {time}".into(), provenance: "Bản vẽ gốc".into(), rights: "rights_1".into() };
         let draft = RwSignal::new(original.clone());
-        let english = RwSignal::new(false);
+        let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
         let model = Projection {
             local: Some(LocalImage { name: "Lời hẹn {time}.png".into(), ..local_image() }),
             problem: Some(Problem::Alt),
@@ -805,13 +840,13 @@ fn artwork_locale_projection_updates_labels_errors_and_accessible_names_without_
             ..Projection::default()
         };
         for (en, title, label, error, action) in [
-            (false, "Ảnh bìa của tác phẩm", "Mô tả thay thế", "Mô tả không được trống", "Bỏ chọn tệp local"),
-            (true, "Work cover artwork", "Alternative description", "Alt text must be nonblank", "Discard local selection"),
+            (crate::localization::Locale::Vietnamese, "Ảnh bìa của tác phẩm", "Mô tả thay thế", "Mô tả không được trống", "Bỏ chọn tệp local"),
+            (crate::localization::Locale::English, "Work cover artwork", "Alternative description", "Alt text must be nonblank", "Discard local selection"),
         ] {
-            english.set(en);
+            locale.set(en);
             let model = model.clone();
             let html = view! { <form::ArtworkForm model=Signal::derive(move ||model.clone()) draft=draft
-                english=Signal::derive(move ||english.get()) owner=Signal::derive(||true) blocked=Signal::derive(||false)
+                locale=Signal::derive(move ||locale.get()) owner=Signal::derive(||true) blocked=Signal::derive(||false)
                 on_intent=Callback::new(|_|{}) on_file=Callback::new(|_|{}) clear_open=RwSignal::new(false)/>
             }.to_html();
             for expected in [title, label, error, action, "Lời hẹn {time}", "Bản vẽ gốc", "rights_1"] {

@@ -38,13 +38,10 @@ fn ProgressMeter(ctx: TheatreContext, position_ms: Signal<u32>, duration: u32) -
         <div class="theatre-progress-row">
             <div class="theatre-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
                 aria-valuenow=move || percent().to_string()
-                aria-label=move || ctx.format(Key::ProgressName, &[
-                    ("time", clock(position_ms.get() / 1000)),
-                    ("total", clock(duration)),
-                ])>
+                aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellProgressName { arg_time: &(clock(ctx.locale.get(), position_ms.get() / 1000)), arg_total: &(clock(ctx.locale.get(), duration)) })>
                 <span style=move || format!("--theatre-progress: {}%", percent())></span>
             </div>
-            <p class="theatre-time">{move || clock(position_ms.get() / 1000)}<span aria-hidden="true">" / "</span>{clock(duration)}</p>
+            <p class="theatre-time">{move || clock(ctx.locale.get(), position_ms.get() / 1000)}<span aria-hidden="true">" / "</span>{clock(ctx.locale.get(), duration)}</p>
         </div>
     }
 }
@@ -62,7 +59,7 @@ fn OpenPositionButton(
 ) -> impl IntoView {
     view! {
         <button type="button" class=if tonal { "theatre-action theatre-action-tonal" } else { "theatre-action" }
-            aria-label=move || ctx.format(Key::ResumeSampleName, &[("title", episode.title.to_owned()), ("time", clock(position_ms.get() / 1000))])
+            aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellResumeSampleName { arg_title: episode.title, arg_time: &(clock(ctx.locale.get(), position_ms.get() / 1000)) })
             on:click=move |_| { if from_history { ctx.resume_episode(id); } else { ctx.resume_progress(id); } }>
             {icon("replay")}<span class="cui-control-label">{move || ctx.text(Key::ResumeSample)}</span>
         </button>
@@ -273,14 +270,14 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
         .unwrap_or_default();
     view! {
         <li class="theatre-bookmark-row">
-            <div><h3 lang="vi-VN">{title}</h3><p>{clock(mark.position_ms / 1000)}</p></div>
+            <div><h3 lang="vi-VN">{title}</h3><p>{clock(ctx.locale.get(), mark.position_ms / 1000)}</p></div>
             <button type="button" class="theatre-action theatre-action-tonal"
-                aria-label=move || ctx.format(Key::BookmarkName, &[("title", title.to_owned()), ("time", clock(mark.position_ms / 1000))])
+                aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellBookmarkName { arg_title: title, arg_time: &(clock(ctx.locale.get(), mark.position_ms / 1000)) })
                 on:click=move |_| ctx.resume_bookmark(mark)>
                 {icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(Key::Continue)}</span>
             </button>
             <button type="button" class="theatre-action theatre-action-text"
-                aria-label=move || ctx.format(Key::RemoveBookmarkName, &[("title", title.to_owned()), ("time", clock(mark.position_ms / 1000))])
+                aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellRemoveBookmarkName { arg_title: title, arg_time: &(clock(ctx.locale.get(), mark.position_ms / 1000)) })
                 on:click=move |_| { ctx.remove_bookmark(mark); platform::focus_main(ctx.main); }>{icon("delete_outline")}<span class="cui-control-label">{move || ctx.text(Key::RemoveBookmark)}</span></button>
         </li>
     }

@@ -33,7 +33,7 @@ fn dispatch_import(state: RwSignal<ImportEditor>, api: StudioHttp, intent: Impor
 #[component]
 pub fn ManuscriptImport(
     actor: Signal<String>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     session_pending: Signal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
@@ -41,7 +41,7 @@ pub fn ManuscriptImport(
     let state = RwSignal::new(ImportEditor::default());
     let api = expect_context::<StudioContext>().api;
     let file_input = NodeRef::<leptos::html::Input>::new();
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     Effect::new(move |_| {
         let actor = actor.get();
         let previous = state.get_untracked();
@@ -113,7 +113,7 @@ pub fn ManuscriptImport(
                         }
                     } />
                 <p class="identity">{move || copy().file_name}<output id="import-selected-file">{move || state.with(|editor| editor.visible_metadata().map(|metadata|metadata.file_name.clone()).unwrap_or_default())}</output></p>
-                <super::fields::MetadataFields state=state english=english session_pending=session_pending/>
+                <super::fields::MetadataFields state=state locale=locale session_pending=session_pending/>
                 <div class="toolbar">
                     <button class="cui-button" data-variant="primary" type="submit" disabled=save_blocked aria-describedby="import-reason">{move || copy().save}</button>
                     <Show when=move || state.with(|editor| editor.pending.is_some() && !editor.busy)>
@@ -159,7 +159,7 @@ pub fn ManuscriptImport(
                     <button class="cui-button" data-variant="secondary" type="submit" disabled=read_blocked aria-describedby="import-reason">{move || copy().open}</button>
                 </div>
             </form>
-            <p id="import-status" class="status" role="status" aria-live="polite">{move || state.with(|editor| messages::import_status(&editor.status, english.get()))}</p>
+            <p id="import-status" class="status" role="status" aria-live="polite">{move || state.with(|editor| messages::import_status(&editor.status, locale.get()))}</p>
             <div id="import-field-findings">
                 <Show when=move || state.with(|editor| !editor.issues.is_empty())>
                     <ul class="import-warnings">
@@ -167,8 +167,8 @@ pub fn ManuscriptImport(
                             let issue = StoredValue::new(issue);
                             view! {
                                 <li>
-                                    <strong>{move || issue.with_value(|issue| messages::import_field(&issue.path, english.get()))}</strong>
-                                    <p>{move || issue.with_value(|issue| messages::import_field_rule(&issue.rule, english.get()))}</p>
+                                    <strong>{move || issue.with_value(|issue| messages::import_field(&issue.path, locale.get()))}</strong>
+                                    <p>{move || issue.with_value(|issue| messages::import_field_rule(&issue.rule, locale.get()))}</p>
                                     <small><code>{issue.with_value(|issue| issue.path.clone())}</code>" · "<code>{issue.with_value(|issue| issue.rule.clone())}</code></small>
                                 </li>
                             }
@@ -176,7 +176,7 @@ pub fn ManuscriptImport(
                     </ul>
                 </Show>
             </div>
-            {move || state.with(|editor| editor.stored.clone()).map(|record| view! { <SourcePreview record=record english=english session_pending=session_pending /> })}
+            {move || state.with(|editor| editor.stored.clone()).map(|record| view! { <SourcePreview record=record locale=locale session_pending=session_pending /> })}
         </section>
     }
 }
@@ -184,18 +184,18 @@ pub fn ManuscriptImport(
 #[component]
 fn SourcePreview(
     record: ImportResponse,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     session_pending: Signal<bool>,
 ) -> impl IntoView {
     let record = StoredValue::new(record);
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     view! {
         <section aria-labelledby="import-stored-title" class="import-stored">
             <h3 id="import-stored-title">{move || copy().stored}</h3>
             <dl class="source-identity">
                 <dt>{move || copy().source_id}</dt><dd>{record.with_value(|record| record.id.clone())}</dd>
                 <dt>{move || copy().file_name}</dt><dd>{record.with_value(|record| record.metadata.file_name.clone())}</dd>
-                <dt>{move || copy().format}</dt><dd>{move || record.with_value(|record| messages::import_format(record.metadata.format, english.get()))}</dd>
+                <dt>{move || copy().format}</dt><dd>{move || record.with_value(|record| messages::import_format(record.metadata.format, locale.get()))}</dd>
                 <dt>{move || copy().reference}</dt><dd>{record.with_value(|record| record.metadata.reference.clone())}</dd>
                 <dt>{move || copy().rights_holder}</dt><dd>{move || record.with_value(|record| record.metadata.rights_holder.clone().unwrap_or_else(|| copy().absent.into()))}</dd>
                 <dt>{move || copy().permission_evidence}</dt><dd>{move || record.with_value(|record| record.metadata.permission_evidence.clone().unwrap_or_else(|| copy().absent.into()))}</dd>
@@ -211,19 +211,19 @@ fn SourcePreview(
                     <h3 id="import-original-title">{move || copy().original}</h3>
                     {record.with_value(|record| record.original_text.clone()).map(|text| view! { <pre tabindex="0" lang="vi-VN">{text}</pre> })}
                     <Show when=move || record.with_value(|record| record.original_text.is_none())><p>{move || copy().binary}</p></Show>
-                    <crate::download::DownloadOriginal namespace="import" id=record.with_value(|r|r.id.clone()) file_name=record.with_value(|r|r.metadata.file_name.clone()) sha256=record.with_value(|r|r.sha256.clone()) english blocked=session_pending/>
+                    <crate::download::DownloadOriginal namespace="import" id=record.with_value(|r|r.id.clone()) file_name=record.with_value(|r|r.metadata.file_name.clone()) sha256=record.with_value(|r|r.sha256.clone()) locale blocked=session_pending/>
 
                 </section>
                 <section aria-labelledby="import-parsed-title">
                     <h3 id="import-parsed-title">{move || copy().parsed}</h3>
                     <p class="help">{move || copy().parsed_help}</p>
                     {match record.with_value(|record| record.outcome.clone()) {
-                        ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction english=english /> }.into_any(),
+                        ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction locale=locale /> }.into_any(),
                         ImportOutcome::Failed { error } => {
                             let code = StoredValue::new(error.code);
                             view! {
                                 <p>{move || copy().failed}</p>
-                                <p>{move || code.with_value(|code| messages::import_diagnostic(code, english.get()))}</p>
+                                <p>{move || code.with_value(|code| messages::import_diagnostic(code, locale.get()))}</p>
                                 <p>{move || copy().support_code}" · "<code>{code.get_value()}</code></p>
                                 {error.offset.map(|offset| view! { <p>{move || copy().byte_offset}<output>{offset}</output></p> })}
                             }.into_any()
@@ -238,13 +238,13 @@ fn SourcePreview(
 #[component]
 pub(crate) fn ExtractionPreview(
     extraction: Extraction,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     #[prop(into, default = "import".to_owned())] namespace: String,
 ) -> impl IntoView {
     let total = extraction.blocks.len();
     let page = RwSignal::new(0usize);
     let extraction = StoredValue::new(extraction);
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     let range_id = StoredValue::new(format!("{namespace}-block-range"));
     view! {
         <p class="identity">{move || copy().extractor}<output>{extraction.with_value(|extraction| extraction.extractor_version.clone())}</output></p>
@@ -254,7 +254,7 @@ pub(crate) fn ExtractionPreview(
                 if page_bounds(page.get_untracked(), total).end < total { page.update(|page| *page += 1); }
             }>{move || copy().next_blocks}</button>
         </div>
-        <p id=move || range_id.get_value() role="status" aria-live="polite">{move || messages::import_block_range(page.get(), total, english.get())}</p>
+        <p id=move || range_id.get_value() role="status" aria-live="polite">{move || messages::import_block_range(page.get(), total, locale.get())}</p>
         <h4>{move || copy().warnings}</h4>
         <Show when=move || extraction.with_value(|extraction| !extraction.warnings.iter().any(|warning| warning_on_page(warning.block, page.get(), total)))><p>{move || copy().no_warnings}</p></Show>
         <ul class="import-warnings">
@@ -262,7 +262,7 @@ pub(crate) fn ExtractionPreview(
                 let code = StoredValue::new(warning.code);
                 view! {
                     <li>
-                        <p>{move || code.with_value(|code| messages::import_diagnostic(code, english.get()))}</p>
+                        <p>{move || code.with_value(|code| messages::import_diagnostic(code, locale.get()))}</p>
                         <small>{move || copy().support_code}" · "<code>{code.get_value()}</code></small>
                         {warning.block.map(|block| view! { <small>" · "{move || copy().block}" "{block}</small> })}
                     </li>
@@ -274,12 +274,12 @@ pub(crate) fn ExtractionPreview(
                 let block = StoredValue::new(block);
                 view! {
                     <li>
-                        <p class="block-kind">{move || block.with_value(|block| messages::import_kind(block.kind, english.get()))}<small>" · "{move || copy().block}" "{block.with_value(|block| block.index)}</small></p>
+                        <p class="block-kind">{move || block.with_value(|block| messages::import_kind(block.kind, locale.get()))}<small>" · "{move || copy().block}" "{block.with_value(|block| block.index)}</small></p>
                         <p class="block-text" lang="vi-VN">{block.with_value(|block| block.text.clone())}</p>
                         <dl class="block-metadata">
-                            <dt>{move || copy().speaker}</dt><dd lang=move || block.with_value(|block| if block.speaker.is_some() || !english.get() { "vi-VN" } else { "en" })>{move || block.with_value(|block| block.speaker.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
-                            <dt>{move || copy().scene}</dt><dd lang=move || block.with_value(|block| if block.scene.is_some() || !english.get() { "vi-VN" } else { "en" })>{move || block.with_value(|block| block.scene.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
-                            <dt>{move || copy().cue}</dt><dd>{move || block.with_value(|block| block.cue_kind.map(|kind| messages::import_cue(kind, english.get())).unwrap_or(copy().unknown))}</dd>
+                            <dt>{move || copy().speaker}</dt><dd lang=move || block.with_value(|block| if block.speaker.is_some() { "" } else { locale.get().lang() })>{move || block.with_value(|block| block.speaker.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
+                            <dt>{move || copy().scene}</dt><dd lang=move || block.with_value(|block| if block.scene.is_some() { "" } else { locale.get().lang() })>{move || block.with_value(|block| block.scene.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
+                            <dt>{move || copy().cue}</dt><dd>{move || block.with_value(|block| block.cue_kind.map(|kind| messages::import_cue(kind, locale.get())).unwrap_or(copy().unknown))}</dd>
                         </dl>
                     </li>
                 }

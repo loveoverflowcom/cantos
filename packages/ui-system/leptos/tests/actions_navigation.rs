@@ -301,9 +301,17 @@ fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
     let owner = Owner::new();
     owner.with(|| {
         let theme = RwSignal::new(Theme::Dark);
+        let labels = RwSignal::new(cantos_ui::ThemeCycleLabels {
+            dark_mode: "Tối",
+            dark_next: "Chuyển sang Sáng",
+            light_mode: "Sáng",
+            light_next: "Chuyển sang Hệ thống",
+            system_mode: "Hệ thống",
+            system_next: "Chuyển sang Tối",
+        });
 
         let dark_html = view! {
-            <ThemeCycleButton id="theme-btn" theme=theme/>
+            <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/>
         }
         .to_html();
         assert!(dark_html.contains("id=\"theme-btn\""), "{dark_html}");
@@ -319,7 +327,7 @@ fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
 
         theme.set(Theme::Light);
         let light_html = view! {
-            <ThemeCycleButton id="theme-btn" theme=theme/>
+            <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/>
         }
         .to_html();
         assert!(light_html.contains("data-theme=\"light\""), "{light_html}");
@@ -335,7 +343,7 @@ fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
 
         theme.set(Theme::System);
         let system_html = view! {
-            <ThemeCycleButton id="theme-btn" theme=theme/>
+            <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/>
         }
         .to_html();
         assert!(
@@ -355,8 +363,16 @@ fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
             "{system_html}"
         );
 
+        labels.set(cantos_ui::ThemeCycleLabels {
+            dark_mode: "Dark",
+            dark_next: "Switch to Light",
+            light_mode: "Light",
+            light_next: "Switch to System",
+            system_mode: "System",
+            system_next: "Switch to Dark",
+        });
         let en_html = view! {
-            <ThemeCycleButton id="theme-btn-en" theme=theme english=Signal::derive(|| true)/>
+            <ThemeCycleButton id="theme-btn-en" theme=theme labels=labels.into()/>
         }
         .to_html();
         assert!(

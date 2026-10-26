@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.cc/schemas/localization/v1",
+  "title": "Cantos semantic presentation catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "icu4x",
+    "cldr",
+    "fallback",
+    "locales",
+    "messages"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "icu4x": {
+      "const": "2.3"
+    },
+    "cldr": {
+      "const": "48.2.1"
+    },
+    "fallback": {
+      "type": "string"
+    },
+    "locales": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/locale"
+      }
+    },
+    "messages": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^(common|studio|theatre)\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/message"
+      }
+    }
+  },
+  "$defs": {
+    "locale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag",
+        "symbol",
+        "autonym",
+        "aliases",
+        "testOnly",
+        "dir",
+        "cardinalCategories"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "autonym": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "testOnly": {
+          "type": "boolean"
+        },
+        "dir": {
+          "enum": [
+            "ltr",
+            "rtl"
+          ]
+        },
+        "cardinalCategories": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "zero",
+              "one",
+              "two",
+              "few",
+              "many",
+              "other"
+            ]
+          },
+          "uniqueItems": true,
+          "contains": {
+            "const": "other"
+          }
+        }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "args",
+        "translations",
+        "exposure"
+      ],
+      "properties": {
+        "args": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
+            "enum": [
+              "text",
+              "count"
+            ]
+          }
+        },
+        "exposure": {
+          "enum": [
+            "production",
+            "preview"
+          ]
+        },
+        "translations": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "plural",
+                  "forms"
+                ],
+                "properties": {
+                  "plural": {
+                    "type": "string"
+                  },
+                  "forms": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

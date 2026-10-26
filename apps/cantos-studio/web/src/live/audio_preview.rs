@@ -177,7 +177,7 @@ mod browser {
         actor: Signal<String>,
         active: Signal<bool>,
         session_pending: Signal<bool>,
-        english: Signal<bool>,
+        locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
     ) -> impl IntoView {
         let loaded = RwSignal::new(None::<Loaded>);
@@ -255,17 +255,17 @@ mod browser {
             }
         });
         view! {<section class="live-section" aria-labelledby="live-audio-preview-title">
-            <h4 id="live-audio-preview-title">{move ||text(Key::AudioPreview,english.get())}</h4>
-            <p class="help">{move ||text(Key::AudioPreviewHelp,english.get())}</p>
-            <ActionButton id="live-load-audio-preview" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get() || !usable.get()) on_press=Callback::new(move |_| {
+            <h4 id="live-audio-preview-title">{move ||text(Key::AudioPreview,locale.get())}</h4>
+            <p class="help">{move ||text(Key::AudioPreviewHelp,locale.get())}</p>
+            <ActionButton id="live-load-audio-preview" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get() || !usable.get()) on_press=Callback::new(move |_| {
                 if blocked.get_untracked() || !usable.get_untracked() { return; }
                 if let Some(subject) = subject.get_untracked() { failed.set(false); dispatch.send(Command::PreviewAudio {subject}); }
-            })>{move ||text(Key::LoadAudioPreview,english.get())}</ActionButton>
+            })>{move ||text(Key::LoadAudioPreview,locale.get())}</ActionButton>
             <Show when=move || usable.get() && loaded.with(Option::is_some)>
-                <audio node_ref=audio controls preload="none" src=move ||loaded.with(|value|value.as_ref().map(|value|value.url.clone())) aria-label=move ||text(Key::AudioPreview,english.get()) on:error=move |_|failed.set(true)/>
-                <ActionButton id="live-clear-audio-preview" english=english on_press=Callback::new(move |_|clear())>{move ||text(Key::ClearAudioPreview,english.get())}</ActionButton>
+                <audio node_ref=audio controls preload="none" src=move ||loaded.with(|value|value.as_ref().map(|value|value.url.clone())) aria-label=move ||text(Key::AudioPreview,locale.get()) on:error=move |_|failed.set(true)/>
+                <ActionButton id="live-clear-audio-preview" locale=locale on_press=Callback::new(move |_|clear())>{move ||text(Key::ClearAudioPreview,locale.get())}</ActionButton>
             </Show>
-            <p role="status">{move ||if failed.get() {text(Key::AudioPreviewFailed,english.get())} else {""}}</p>
+            <p role="status">{move ||if failed.get() {text(Key::AudioPreviewFailed,locale.get())} else {""}}</p>
         </section>}
     }
 }

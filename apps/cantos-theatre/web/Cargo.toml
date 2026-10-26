@@ -13,6 +13,7 @@ publish = false
 preview = []
 
 [dependencies]
+cantos-localization = { path = "../../../packages/localization/rust" }
 cantos-web-auth = { path = "../../../packages/web-auth" }
 uuid = { version = "=1.18.1", default-features = false, features = ["std"] }
 serde = { version = "=1.0.228", features = ["derive"] }

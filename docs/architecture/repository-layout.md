@@ -81,6 +81,7 @@ infra/                     Deployment/runtime assets; no application domain logi
     app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
     auth-emulator/         Launcher primitive used by `cargo xtask run`; not a deploy input
 packages/                  No contract package: canonical contracts belong to their service (ADR 0046)
+  localization/            Accepted semantic resource source and bounded ICU4X core; app-owned projections (Web implemented, CMP qualification pending)
   web-auth/                Shared Identity v1 cookie-session owner, its session wire and browser API addressing IMPLEMENTED
   store-turso/             Single-owner embedded Turso foundation IMPLEMENTED (Server and Identity persistence)
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
@@ -244,6 +245,7 @@ The root `Cargo.toml` lists the members below and one `Cargo.lock`. Each builds 
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/store-turso` | `cantos-store-turso` | native; file-backed tests, a capability-report binary behind the `testing` feature and `cargo xtask verify turso` |
+| `packages/localization/rust` | `cantos-localization` | native formatter tests and actual WASM/Node probe; Web adapters, no qualified native mobile binding |
 | `packages/web-auth` | `cantos-web-auth` | native core tests and WASM browser adapter |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
 | `xtask` | `xtask` | native developer tool; never a dependency of another member |

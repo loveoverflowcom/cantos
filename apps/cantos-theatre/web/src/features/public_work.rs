@@ -458,10 +458,11 @@ fn ReadyWork(
             .map(ButtonState::Disabled)
             .unwrap_or_default(),
         Some(row) if listen.state_of(&row) == RowListen::Preparing => {
-            DisabledReason::new(messages::format(
-                Key::ListenUnitPreparing,
+            DisabledReason::new(messages::message(
                 locale.get(),
-                &[("title", row.title.clone())],
+                crate::localization::generated::Message::TheatreShellListenUnitPreparing {
+                    arg_title: &(row.title.clone()),
+                },
             ))
             .map(ButtonState::Loading)
             .unwrap_or_default()
@@ -475,10 +476,6 @@ fn ReadyWork(
     let description = (!work.description.trim().is_empty()).then(|| work.description.clone());
     // The server's count of currently public units, not the length of the loaded page.
     let unit_count = work.unit_count;
-    let count_key = match kind {
-        WorkKind::Podcast => Key::PublicWorkUnitCountEpisodes,
-        WorkKind::Novel | WorkKind::Story => Key::PublicWorkUnitCountChapters,
-    };
     let fallback_lang = lang.clone();
     let fallback_title = work.title.clone();
     view! {
@@ -493,7 +490,7 @@ fn ReadyWork(
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
                 {description.map(|text| view! { <p class="theatre-synopsis" lang=lang.clone()>{text}</p> })}
                 <p class="theatre-muted theatre-public-work-count" data-unit-count=unit_count.to_string()>
-                    {move || messages::format(count_key, locale.get(), &[("count", unit_count.to_string())])}
+                    {move || messages::public_unit_count(kind, locale.get(), unit_count)}
                 </p>
                 <div class="theatre-actions">
                     <Button id="theatre-public-work-listen" state=listen_state
@@ -604,10 +601,11 @@ fn UnitRow(
         RowListen::Preparing => row
             .with(|r| {
                 r.as_ref().and_then(|r| {
-                    DisabledReason::new(messages::format(
-                        Key::ListenUnitPreparing,
+                    DisabledReason::new(messages::message(
                         locale.get(),
-                        &[("title", r.row.title.clone())],
+                        crate::localization::generated::Message::TheatreShellListenUnitPreparing {
+                            arg_title: &(r.row.title.clone()),
+                        },
                     ))
                     .ok()
                 })
@@ -636,10 +634,12 @@ fn UnitRow(
         let rec = unit_progress()?;
         let pos_sec = u32::try_from(rec.position_ms / 1000).unwrap_or(u32::MAX);
         let total_sec = u32::try_from(rec.audio.duration_ms / 1000).unwrap_or(u32::MAX);
-        let line = messages::format(
-            Key::LivePosition,
+        let line = messages::message(
             locale.get(),
-            &[("position", clock(pos_sec)), ("total", clock(total_sec))],
+            crate::localization::generated::Message::TheatreShellLivePosition {
+                arg_position: &(clock(locale.get(), pos_sec)),
+                arg_total: &(clock(locale.get(), total_sec)),
+            },
         );
         Some(if rec.completion == Completion::Completed {
             format!("{line} · {}", text(Key::LiveResumeCompleted, locale.get()))
@@ -655,10 +655,11 @@ fn UnitRow(
                 ResumeAttemptState::Restored {
                     publication_id,
                     position_ms,
-                } if publication_id == &r.row.publication_id => Some(messages::format(
-                    Key::LiveResumeRestored,
+                } if publication_id == &r.row.publication_id => Some(messages::message(
                     locale.get(),
-                    &[("time", clock(position_ms / 1000))],
+                    crate::localization::generated::Message::TheatreShellLiveResumeRestored {
+                        arg_time: &(clock(locale.get(), position_ms / 1000)),
+                    },
                 )),
                 ResumeAttemptState::Refused {
                     publication_id,
@@ -700,7 +701,7 @@ fn UnitRow(
                 data-unavailable=move || row.with(|r| r.as_ref().is_some_and(|r| r.unavailable)).then_some("true")>
                 <div class="theatre-episode-copy">
                     <p class="theatre-eyebrow" data-ordinal=move || row.with(|r| r.as_ref().map(|r| r.row.ordinal.to_string()))>
-                        {move || row.with(|r| r.as_ref().map(|r| messages::format(Key::PublicWorkUnitLabel, locale.get(), &[("kind", text(unit_label(r.row.kind), locale.get()).to_owned()), ("ordinal", r.row.ordinal.to_string())])))}
+                        {move || row.with(|r| r.as_ref().map(|r| messages::message(locale.get(), crate::localization::generated::Message::TheatreShellPublicWorkUnitLabel { arg_kind: text(unit_label(r.row.kind), locale.get()), arg_ordinal: r.row.ordinal })))}
                     </p>
                     <h3 node_ref=heading id=unit_heading_id(&id.get_value()) tabindex="-1" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</h3>
                     <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| !r.row.description.trim().is_empty()))>
@@ -708,8 +709,8 @@ fn UnitRow(
                     </Show>
                     <p class="theatre-muted theatre-public-unit-duration">
                         <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.row.duration_ms > 0)) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
-                            <span aria-hidden="true">{move || clock(seconds())}</span>
-                            <span class="cui-sr-only">{move || messages::format(Key::PublicWorkDurationDescription, locale.get(), &[("duration", messages::spoken_time(locale.get(), seconds()))])}</span>
+                            <span aria-hidden="true">{move || clock(locale.get(), seconds())}</span>
+                            <span class="cui-sr-only">{move || messages::message(locale.get(), crate::localization::generated::Message::TheatreShellPublicWorkDurationDescription { arg_duration: &(messages::spoken_time(locale.get(), seconds())) })}</span>
                         </Show>
                     </p>
                     {move || unit_progress_text().map(|line| view! { <p class="theatre-muted theatre-public-unit-progress">{line}</p> })}
@@ -1094,7 +1095,7 @@ mod tests {
 
     #[test]
     fn listen_is_blocked_with_a_reason_until_the_list_offers_a_unit() {
-        for locale in Locale::ALL {
+        for locale in Locale::supported() {
             let (loading, _) = opened(fixture_work());
             let html = render(loading, locale);
             let cta = html
@@ -1401,7 +1402,7 @@ mod tests {
 
     #[test]
     fn copy_is_complete_and_nonblank_in_both_locales() {
-        for locale in Locale::ALL {
+        for locale in Locale::supported() {
             for key in [
                 Key::PublicWorkLoading,
                 Key::AboutWork,
@@ -1434,7 +1435,6 @@ mod tests {
                 Key::PublicWorkMoreEpisodes,
                 Key::PublicWorkLoadingMore,
                 Key::PublicWorkRetryPage,
-                Key::PublicWorkDurationDescription,
                 Key::PublicWorkDurationUnknown,
                 Key::PublicWorkRowUnavailable,
             ] {

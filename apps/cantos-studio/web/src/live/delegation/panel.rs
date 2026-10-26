@@ -95,7 +95,7 @@ fn select_token() {
 pub fn DelegationPanel(
     actor: Signal<String>,
     work: Signal<Option<CatalogWork>>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     session_pending: Signal<bool>,
     /// True while a delegation write is in flight or unresolved; the workspace keeps the Work.
     unresolved: RwSignal<bool>,
@@ -356,25 +356,25 @@ pub fn DelegationPanel(
     view! {
         <section id="delegation-panel" class="live-section delegation-panel" aria-labelledby="delegation-title"
             hidden=move || work_id.get().is_empty() inert=move || work_id.get().is_empty()>
-            <h3 id="delegation-title" tabindex="-1">{move || text(Key::Title, english.get())}</h3>
+            <h3 id="delegation-title" tabindex="-1">{move || text(Key::Title, locale.get())}</h3>
             <p class="delegation-member" hidden=move || owner.get() && !grants.with(|g| g.forbidden)>
-                {move || text(if grants.with(|g| g.forbidden) { Key::ForbiddenHelp } else { Key::MemberOnly }, english.get())}
+                {move || text(if grants.with(|g| g.forbidden) { Key::ForbiddenHelp } else { Key::MemberOnly }, locale.get())}
             </p>
             <div hidden=move || !owner.get() || grants.with(|g| g.forbidden)
                 inert=move || !owner.get() || grants.with(|g| g.forbidden)>
-                <p>{move || text(Key::Intro, english.get())}</p>
+                <p>{move || text(Key::Intro, locale.get())}</p>
                 <div class="live-status delegation-status">
                     <div id=STATUS tabindex="-1" role="status" aria-live="polite">
-                        <p>{move || state.with(progress).map(|key| text(key, english.get())).unwrap_or_default()}</p>
+                        <p>{move || state.with(progress).map(|key| text(key, locale.get())).unwrap_or_default()}</p>
                         <ul class="delegation-problems">
                             {move || state.with(|s| s.error().map(problems).unwrap_or_default()).into_iter()
-                                .map(|problem| view! { <li>{copy::problem(&problem, english.get())}</li> }).collect_view()}
+                                .map(|problem| view! { <li>{copy::problem(&problem, locale.get())}</li> }).collect_view()}
                         </ul>
-                        <p hidden=move || !dialog_failed.get()>{move || text(Key::DialogFailed, english.get())}</p>
+                        <p hidden=move || !dialog_failed.get()>{move || text(Key::DialogFailed, locale.get())}</p>
                     </div>
                     <Show when=move || state.with(|s| s.phase() == Phase::Pending)>
                         <div class="toolbar">
-                            <ActionButton id="delegation-cancel" english=english blocked=Signal::derive(|| false)
+                            <ActionButton id="delegation-cancel" locale=locale blocked=Signal::derive(|| false)
                                 variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                                 dispatch.cancel();
                                 focus_later(if state.with_untracked(|s| s.phase() == Phase::Ambiguous) {
@@ -383,64 +383,64 @@ pub fn DelegationPanel(
                                     STATUS
                                 }.to_owned());
                             })>
-                                {move || text(Key::Cancel, english.get())}
+                                {move || text(Key::Cancel, locale.get())}
                             </ActionButton>
                         </div>
                     </Show>
                     <Show when=move || state.with(|s| s.phase() == Phase::Ambiguous)>
                         <div class="toolbar">
-                            <ActionButton id=RETRY english=english variant=ButtonVariant::Tonal
+                            <ActionButton id=RETRY locale=locale variant=ButtonVariant::Tonal
                                 blocked=Signal::derive(move || session_pending.get() || state.with(|s| !s.can_retry()))
                                 on_press=Callback::new(move |_| dispatch.retry())>
-                                {move || text(Key::Retry, english.get())}
+                                {move || text(Key::Retry, locale.get())}
                             </ActionButton>
-                            <ActionButton id="delegation-abandon" english=english variant=ButtonVariant::Text
+                            <ActionButton id="delegation-abandon" locale=locale variant=ButtonVariant::Text
                                 described_by="delegation-abandon-help" blocked=session_pending on_press=abandon>
-                                {move || text(Key::Abandon, english.get())}
+                                {move || text(Key::Abandon, locale.get())}
                             </ActionButton>
                         </div>
-                        <p id="delegation-abandon-help" class="cui-field-help">{move || text(Key::AbandonHelp, english.get())}</p>
+                        <p id="delegation-abandon-help" class="cui-field-help">{move || text(Key::AbandonHelp, locale.get())}</p>
                     </Show>
                 </div>
                 {move || reveal.get().map(|reveal| view! {
-                    <TokenReveal reveal=reveal english=english copy_state=copy_state.into() on_copy=on_copy on_dismiss=on_dismiss/>
+                    <TokenReveal reveal=reveal locale=locale copy_state=copy_state.into() on_copy=on_copy on_dismiss=on_dismiss/>
                 })}
                 {move || unrecoverable.get().map(|grant| view! {
-                    <UnrecoverableNotice grant=grant english=english blocked=blocked on_revoke=open_revoke/>
+                    <UnrecoverableNotice grant=grant locale=locale blocked=blocked on_revoke=open_revoke/>
                 })}
-                <IssueForm draft=draft problems=issue_problems english=english blocked=blocked archived=archived
+                <IssueForm draft=draft problems=issue_problems locale=locale blocked=blocked archived=archived
                     secret_visible=Signal::derive(move || reveal.with(Option::is_some)) on_submit=issue/>
                 <section class="delegation-list" aria-labelledby=LIST_HEADING>
-                    <h4 id=LIST_HEADING tabindex="-1">{move || text(Key::ListTitle, english.get())}</h4>
+                    <h4 id=LIST_HEADING tabindex="-1">{move || text(Key::ListTitle, locale.get())}</h4>
                     <div class="toolbar">
-                        <ActionButton id="delegation-refresh" english=english variant=ButtonVariant::Secondary blocked=blocked
-                            on_press=Callback::new(move |_| refresh())>{move || text(Key::Refresh, english.get())}</ActionButton>
+                        <ActionButton id="delegation-refresh" locale=locale variant=ButtonVariant::Secondary blocked=blocked
+                            on_press=Callback::new(move |_| refresh())>{move || text(Key::Refresh, locale.get())}</ActionButton>
                         <Show when=move || grants.with(|g| g.next_after.is_some())>
-                            <ActionButton id="delegation-more" english=english variant=ButtonVariant::Secondary blocked=blocked
+                            <ActionButton id="delegation-more" locale=locale variant=ButtonVariant::Secondary blocked=blocked
                                 on_press=Callback::new(move |_| dispatch.send(Command::Delegations {
                                     work: work_id.get_untracked(),
                                     after: grants.with_untracked(|g| g.next_after.clone()),
-                                }))>{move || text(Key::More, english.get())}</ActionButton>
+                                }))>{move || text(Key::More, locale.get())}</ActionButton>
                         </Show>
                     </div>
                     <Show when=move || grants.with(|g| g.loaded && g.items.is_empty())>
-                        <p>{move || text(Key::Empty, english.get())}</p>
-                        <p class="cui-field-help">{move || text(Key::EmptyHint, english.get())}</p>
+                        <p>{move || text(Key::Empty, locale.get())}</p>
+                        <p class="cui-field-help">{move || text(Key::EmptyHint, locale.get())}</p>
                     </Show>
-                    <p class="cui-field-help" hidden=move || grants.with(|g| g.loaded)>{move || text(Key::NotLoaded, english.get())}</p>
+                    <p class="cui-field-help" hidden=move || grants.with(|g| g.loaded)>{move || text(Key::NotLoaded, locale.get())}</p>
                     <ul class="delegation-grants">
                         <For each=move || grants.with(|g| g.items.iter().map(|grant| (grant.clone(), g.revoked_here(&grant.id), clock.get())).collect::<Vec<_>>())
                             key=|(grant, here, now)| (grant.id.clone(), grant.revoked_at, *here, *now >= grant.expires_at)
                             children=move |(grant, here, now)| view! {
-                                <GrantItem grant=grant revoked_here=here now_ms=now english=english blocked=blocked on_revoke=open_revoke/>
+                                <GrantItem grant=grant revoked_here=here now_ms=now locale=locale blocked=blocked on_revoke=open_revoke/>
                             }/>
                     </ul>
                 </section>
-                <DelegationRevokeDialog open=revoke_open english=english blocked=blocked on_confirm=confirm_revoke
+                <DelegationRevokeDialog open=revoke_open locale=locale blocked=blocked on_confirm=confirm_revoke
                     on_error=Callback::new(move |_| { dialog_failed.set(true); revoke_open.set(false); })
                     details=Signal::derive(move || revoke_target.with(|t| t.as_ref().map(|g| format!(
-                        "{}: {} · {}: {}", text(Key::DelegateLabel, english.get()), g.delegate_actor_id,
-                        text(Key::WorkLabel, english.get()), work_title.get())).unwrap_or_default()))/>
+                        "{}: {} · {}: {}", text(Key::DelegateLabel, locale.get()), g.delegate_actor_id,
+                        text(Key::WorkLabel, locale.get()), work_title.get())).unwrap_or_default()))/>
             </div>
         </section>
     }

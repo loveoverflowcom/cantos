@@ -4,12 +4,15 @@ use crate::contract::FieldIssue;
 use leptos::prelude::*;
 
 #[component]
-pub(super) fn FieldIssues(issues: Signal<Vec<FieldIssue>>, english: Signal<bool>) -> impl IntoView {
+pub(super) fn FieldIssues(
+    issues: Signal<Vec<FieldIssue>>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     view! {
         <ul>{move || issues.get().into_iter().map(|issue| {
             let key = copy::field_rule_key(&issue.rule);
             view! {
-                <li><p>{move || copy::text(key, english.get())}</p>
+                <li><p>{move || copy::text(key, locale.get())}</p>
                     <code>{copy::diagnostic(&issue.path, &issue.rule)}</code></li>
             }
         }).collect_view()}</ul>
@@ -27,12 +30,17 @@ mod tests {
                 path: "details.title".into(),
                 rule: "required".into(),
             }]);
-            for (english, guidance) in [
-                (false, "Điền trường bắt buộc này."),
-                (true, "Fill in this required field."),
+            for (choice, guidance) in [
+                (
+                    crate::localization::Locale::Vietnamese,
+                    "Điền trường bắt buộc này.",
+                ),
+                (
+                    crate::localization::Locale::English,
+                    "Fill in this required field.",
+                ),
             ] {
-                let html =
-                    view! { <FieldIssues issues english=Signal::stored(english)/> }.to_html();
+                let html = view! { <FieldIssues issues locale=Signal::stored(choice)/> }.to_html();
                 assert!(html.contains(guidance), "{html}");
                 assert!(
                     html.contains("<code>details.title · required</code>"),
@@ -50,11 +58,11 @@ mod tests {
                 path: "details.<title>{time}".into(),
                 rule: "future_rule_<script>&{title}".into(),
             }]);
-            for (english, guidance) in [
-                (false, "Kiểm tra trường này và mã chẩn đoán."),
-                (true, "Review this field and its diagnostic code."),
+            for (choice, guidance) in [
+                (crate::localization::Locale::Vietnamese, "Kiểm tra trường này và mã chẩn đoán."),
+                (crate::localization::Locale::English, "Review this field and its diagnostic code."),
             ] {
-                let html = view! { <FieldIssues issues english=Signal::stored(english)/> }.to_html();
+                let html = view! { <FieldIssues issues locale=Signal::stored(choice)/> }.to_html();
                 assert!(html.contains(guidance), "{html}");
                 assert!(html.contains("<code>details.&lt;title&gt;{time} · future_rule_&lt;script&gt;&amp;{title}</code>"), "{html}");
                 assert!(!html.contains("<script>"), "{html}");
@@ -71,24 +79,24 @@ mod tests {
                 rule: "language_tag".into(),
             }]);
             let original = issues.get_untracked();
-            let english = RwSignal::new(false);
-            for (locale, guidance) in [
+            let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
+            for (choice, guidance) in [
                 (
-                    false,
+                    crate::localization::Locale::Vietnamese,
                     "Nhập mã ngôn ngữ nội dung hợp lệ, ví dụ vi-VN hoặc zh-Hant.",
                 ),
                 (
-                    true,
+                    crate::localization::Locale::English,
                     "Enter a valid content language tag, such as vi-VN or zh-Hant.",
                 ),
                 (
-                    false,
+                    crate::localization::Locale::Vietnamese,
                     "Nhập mã ngôn ngữ nội dung hợp lệ, ví dụ vi-VN hoặc zh-Hant.",
                 ),
             ] {
-                english.set(locale);
+                locale.set(choice);
                 let html =
-                    view! { <FieldIssues issues=issues.into() english=english.into()/> }.to_html();
+                    view! { <FieldIssues issues=issues.into() locale=locale.into()/> }.to_html();
                 assert!(html.contains(guidance), "{html}");
                 assert!(
                     html.contains("<code>details.language · language_tag</code>"),
@@ -97,8 +105,7 @@ mod tests {
                 assert_eq!(issues.get_untracked(), original);
             }
             issues.set(vec![]);
-            let html =
-                view! { <FieldIssues issues=issues.into() english=english.into()/> }.to_html();
+            let html = view! { <FieldIssues issues=issues.into() locale=locale.into()/> }.to_html();
             assert!(!html.contains("<li>"), "{html}");
         });
     }

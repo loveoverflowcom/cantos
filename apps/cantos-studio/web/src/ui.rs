@@ -34,11 +34,11 @@ mod content_text_tests {
             let source = document.to_json();
             let baseline = RwSignal::new(baseline);
             let document = RwSignal::new(document);
-            let english = RwSignal::new(false);
-            for en in [false, true] {
-                english.set(en);
+            let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
+            for en in crate::localization::Locale::supported() {
+                locale.set(en);
                 let html = view! {
-                    <h3>{move ||crate::messages::copy(english.get()).theme}</h3>
+                    <h3>{move ||crate::messages::copy(locale.get()).theme}</h3>
                     <ContentText language=Signal::derive(move ||Some(baseline.get().metadata().language))
                         text=Signal::derive(move ||baseline.get().metadata().work_title)/>
                     <ContentText language=Signal::derive(move ||Some(document.get().metadata().language))
@@ -46,7 +46,7 @@ mod content_text_tests {
                 }.to_html();
                 assert!(html.contains("<span lang=\"en\">Lời hẹn {time}</span>"), "{html}");
                 assert!(html.contains("<span lang=\"vi-VN\">Ánh đèn cuối sân khấu</span>"), "{html}");
-                assert!(html.contains(if en { "Appearance" } else { "Giao diện" }), "{html}");
+                assert!(html.contains(if en == crate::localization::Locale::English { "Appearance" } else { "Giao diện" }), "{html}");
                 assert_eq!(document.get_untracked().to_json(), source);
             }
         });
@@ -55,8 +55,11 @@ mod content_text_tests {
 
 /// App-owned options share the exact value used by the CreateWork DTO.
 #[component]
-pub fn WorkKindOptions(value: RwSignal<String>, english: Signal<bool>) -> impl IntoView {
-    view! { <option value="novel" selected=move || value.get()=="novel">{move || crate::live::copy::work_kind("novel", english.get())}</option><option value="story" selected=move || value.get()=="story">{move || crate::live::copy::work_kind("story", english.get())}</option><option value="podcast" selected=move || value.get()=="podcast">{move || crate::live::copy::work_kind("podcast", english.get())}</option> }
+pub fn WorkKindOptions(
+    value: RwSignal<String>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
+    view! { <option value="novel" selected=move || value.get()=="novel">{move || crate::live::copy::work_kind("novel", locale.get())}</option><option value="story" selected=move || value.get()=="story">{move || crate::live::copy::work_kind("story", locale.get())}</option><option value="podcast" selected=move || value.get()=="podcast">{move || crate::live::copy::work_kind("podcast", locale.get())}</option> }
 }
 
 #[cfg(test)]
@@ -68,7 +71,7 @@ mod work_kind_tests {
         owner.with(|| {
             let kind = RwSignal::new(crate::live::DEFAULT_WORK_KIND.to_owned());
             let html =
-                view! { <WorkKindOptions value=kind english=Signal::derive(|| false)/> }.to_html();
+                view! { <WorkKindOptions value=kind locale=Signal::derive(|| crate::localization::Locale::Vietnamese)/> }.to_html();
             assert!(html.contains(">Tiểu thuyết</option>"), "{html}");
             assert!(html.contains(">Truyện</option>"), "{html}");
         });
@@ -87,10 +90,10 @@ mod work_kind_tests {
                 crate::live::DEFAULT_WORK_KIND,
             ] {
                 kind.set(value.to_owned());
-                let english = RwSignal::new(false);
-                for (locale, expected) in [(false, ["Tiểu thuyết", "Truyện", "Podcast"]), (true, ["Novel", "Story", "Podcast"])] {
-                    english.set(locale);
-                    let html = view! { <WorkKindOptions value=kind english=Signal::derive(move || english.get())/> }.to_html();
+                let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
+                for (choice, expected) in [(crate::localization::Locale::Vietnamese, ["Tiểu thuyết", "Truyện", "Podcast"]), (crate::localization::Locale::English, ["Novel", "Story", "Podcast"])] {
+                    locale.set(choice);
+                    let html = view! { <WorkKindOptions value=kind locale=Signal::derive(move || locale.get())/> }.to_html();
                     let chosen = format!("value=\"{value}\" selected");
                     assert!(html.contains(&chosen), "{html}");
                     assert_eq!(html.matches(" selected").count(), 1, "{html}");
@@ -166,18 +169,16 @@ impl WorkspacePane {
         }
     }
 
-    pub fn label(self, english: bool) -> &'static str {
+    pub fn label(self, locale: crate::localization::Locale) -> &'static str {
         match self {
             Self::Dashboard => {
-                crate::messages::entry::text(crate::messages::entry::Key::Dashboard, english)
+                crate::messages::entry::text(crate::messages::entry::Key::Dashboard, locale)
             }
-            Self::Content => crate::live::copy::text(crate::live::copy::Key::Pane, english),
-            Self::Import => text(Key::Import, english),
-            Self::Proposal => text(Key::Proposal, english),
-            Self::Revisions => text(Key::Revisions, english),
-            Self::Production => {
-                messages::production::text(messages::production::Key::Pane, english)
-            }
+            Self::Content => crate::live::copy::text(crate::live::copy::Key::Pane, locale),
+            Self::Import => text(Key::Import, locale),
+            Self::Proposal => text(Key::Proposal, locale),
+            Self::Revisions => text(Key::Revisions, locale),
+            Self::Production => messages::production::text(messages::production::Key::Pane, locale),
         }
     }
 }
@@ -200,9 +201,12 @@ fn pane_href(pane: WorkspacePane) -> Option<LinkHref> {
 /// One set of links serves every width: a column in the rail, a wrapped row below 64rem and a
 /// horizontally scrollable strip below 45rem, always with icon and label.
 #[component]
-pub fn WorkspaceNavigation(panel: RwSignal<WorkspacePane>, english: Signal<bool>) -> impl IntoView {
+pub fn WorkspaceNavigation(
+    panel: RwSignal<WorkspacePane>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     view! {
-        <nav class="workspace-nav" aria-label=move || text(Key::Workspace, english.get())>
+        <nav class="workspace-nav" aria-label=move || text(Key::Workspace, locale.get())>
             <div class="workspace-nav-list">
             {WorkspacePane::ALL.into_iter().filter_map(|pane| pane_href(pane).map(|href| view! {
                 <NavItem id=format!("{}-control", pane.id()) href=href
@@ -213,7 +217,7 @@ pub fn WorkspaceNavigation(panel: RwSignal<WorkspacePane>, english: Signal<bool>
                             pane_selection(panel, pane).run(true);
                         }
                     })>
-                    {move || pane.label(english.get())}
+                    {move || pane.label(locale.get())}
                 </NavItem>
             })).collect_view()}
             </div>
@@ -239,49 +243,45 @@ pub enum BlockReason {
 }
 
 impl BlockReason {
-    pub fn text(self, english: bool) -> &'static str {
-        let copy = messages::copy(english);
+    pub fn text(self, locale: crate::localization::Locale) -> &'static str {
+        let copy = messages::copy(locale);
         match self {
             #[cfg(debug_assertions)]
-            Self::Forge(key) => crate::messages::forge::text(key, english),
-            Self::Artwork(key) => crate::live::artwork::copy::text(key, english),
+            Self::Forge(key) => crate::messages::forge::text(key, locale),
+            Self::Artwork(key) => crate::live::artwork::copy::text(key, locale),
             Self::Busy => copy.busy,
-            Self::ContextReady => text(Key::ControlBlocked, english),
+            Self::ContextReady => text(Key::ControlBlocked, locale),
             Self::PageNavigation => {
-                crate::live::copy::text(crate::live::copy::Key::PageUnavailable, english)
+                crate::live::copy::text(crate::live::copy::Key::PageUnavailable, locale)
             }
-            Self::SaveReview => text(Key::ValidateFirst, english),
+            Self::SaveReview => text(Key::ValidateFirst, locale),
             Self::Pending => copy.pending,
-            Self::ReadOnly => text(Key::ControlReadOnly, english),
-            Self::ScriptReadOnly => messages::authoring::authoring_copy(english).readonly_choice,
+            Self::ReadOnly => text(Key::ControlReadOnly, locale),
+            Self::ScriptReadOnly => messages::authoring::authoring_copy(locale).readonly_choice,
             Self::ProductionReview => {
-                messages::production::text(messages::production::Key::ValidationHelp, english)
+                messages::production::text(messages::production::Key::ValidationHelp, locale)
             }
         }
     }
 }
 
-/// Validate both locales at mount. Invalid catalog text removes the control, never enables it.
+/// Validate every generated locale at mount. Invalid copy never enables the control.
 #[derive(Clone)]
 pub(crate) struct LocalizedReason {
-    vi: DisabledReason,
-    en: DisabledReason,
+    values: crate::localization::generated::LocaleMap<DisabledReason>,
 }
 
 impl LocalizedReason {
     pub(crate) fn new(reason: BlockReason) -> Result<Self, cantos_ui::EmptyDisabledReason> {
         Ok(Self {
-            vi: DisabledReason::new(reason.text(false))?,
-            en: DisabledReason::new(reason.text(true))?,
+            values: crate::localization::generated::LocaleMap::try_new(|locale| {
+                DisabledReason::new(reason.text(locale))
+            })?,
         })
     }
 
-    pub(crate) fn get(&self, english: bool) -> DisabledReason {
-        if english {
-            self.en.clone()
-        } else {
-            self.vi.clone()
-        }
+    pub(crate) fn get(&self, locale: crate::localization::Locale) -> DisabledReason {
+        self.values.get(locale).clone()
     }
 }
 
@@ -299,7 +299,7 @@ pub(crate) fn action_state(blocked: bool, busy: bool, reason: DisabledReason) ->
 #[component]
 pub fn ActionButton(
     #[prop(into)] id: String,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     children: Children,
     on_press: Callback<MouseEvent>,
     #[prop(optional)] focus_on_press: bool,
@@ -314,14 +314,14 @@ pub fn ActionButton(
         LocalizedReason::new(reason),
         LocalizedReason::new(BlockReason::Busy),
     ) else {
-        return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
+        return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp, locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reasons = StoredValue::new((reason, loading));
     view! {
         <Button id=id variant=variant nostrip:icon=icon described_by=described_by on_press=on_press focus_on_press=focus_on_press
             state=Signal::derive(move || {
                 let busy = busy.get();
-                let reason = reasons.with_value(|(blocked, loading)| if busy { loading } else { blocked }.get(english.get()));
+                let reason = reasons.with_value(|(blocked, loading)| if busy { loading } else { blocked }.get(locale.get()));
                 action_state(blocked.get(), busy, reason)
             })>{children()}</Button>
     }.into_any()
@@ -335,19 +335,19 @@ pub fn ReviewCheckbox(
     #[prop(into)] label: Signal<String>,
     #[prop(into)] checked: Signal<bool>,
     on_change: Callback<bool>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     #[prop(into, default = false.into())] blocked: Signal<bool>,
     #[prop(default = BlockReason::SaveReview)] reason: BlockReason,
     #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(reason) else {
-        return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp,english.get_untracked())}</p></ErrorState> }.into_any();
+        return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp,locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reason = StoredValue::new(reason);
     view! {
         <Checkbox id label checked on_change described_by class="review-confirmation"
             state=Signal::derive(move || if blocked.get() {
-                ChoiceState::Disabled(reason.with_value(|reason|reason.get(english.get())))
+                ChoiceState::Disabled(reason.with_value(|reason|reason.get(locale.get())))
             } else { ChoiceState::Enabled })/>
     }
     .into_any()
@@ -360,7 +360,7 @@ pub fn ReviewCheckbox(
 #[component]
 pub fn FormSubmit(
     #[prop(into)] id: String,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     blocked: Signal<bool>,
     children: Children,
     #[prop(optional)] icon: Option<ViewFn>,
@@ -368,7 +368,7 @@ pub fn FormSubmit(
     #[prop(default = ButtonVariant::Tonal)] variant: ButtonVariant,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
-        return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
+        return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp, locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reason = StoredValue::new(reason);
     let reason_id = format!("{id}-reason");
@@ -385,8 +385,8 @@ pub fn FormSubmit(
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get() && !busy.get()
                 role=move || busy.get().then_some("status")>{move || if busy.get() {
-                    BlockReason::Busy.text(english.get()).to_owned()
-                } else { reason.with_value(|r| r.get(english.get()).as_str().to_owned()) }}</span>
+                    BlockReason::Busy.text(locale.get()).to_owned()
+                } else { reason.with_value(|r| r.get(locale.get()).as_str().to_owned()) }}</span>
         </div>
     }.into_any()
 }
@@ -402,7 +402,7 @@ fn confirm_discard_request(blocked: bool, open: RwSignal<bool>, confirm: Callbac
 #[component]
 pub fn ForgeSyncDialog(
     open: Signal<bool>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     details: Signal<String>,
     on_cancel: Callback<()>,
     on_confirm: Callback<MouseEvent>,
@@ -410,19 +410,19 @@ pub fn ForgeSyncDialog(
 ) -> impl IntoView {
     use crate::messages::forge::{text as copy, Key as ForgeKey};
     move || {
-        let language = english.get();
+        let language = locale.get();
         view! {
             <Dialog id="forge-sync-dialog" title=copy(ForgeKey::Plan, language)
                 close_label=copy(ForgeKey::Close, language) open=open
                 on_close_request=Callback::new(move |_| on_cancel.run(())) on_error=on_error
                 description=copy(ForgeKey::PlanHelp, language)
                 actions=move || view! {
-                    <ActionButton id="forge-sync-cancel" english=english variant=ButtonVariant::Text
+                    <ActionButton id="forge-sync-cancel" locale=locale variant=ButtonVariant::Text
                         icon=IconName::Close on_press=Callback::new(move |_| on_cancel.run(()))>
-                        {move || copy(ForgeKey::Cancel, english.get())}
+                        {move || copy(ForgeKey::Cancel, locale.get())}
                     </ActionButton>
-                    <ActionButton id="forge-sync-confirm" english=english icon=IconName::CloudSync
-                        on_press=on_confirm>{move || copy(ForgeKey::Confirm, english.get())}</ActionButton>
+                    <ActionButton id="forge-sync-confirm" locale=locale icon=IconName::CloudSync
+                        on_press=on_confirm>{move || copy(ForgeKey::Confirm, locale.get())}</ActionButton>
                 }>
                 <p class="forge-plan-identity">{move || details.get()}</p>
             </Dialog>
@@ -442,7 +442,7 @@ pub enum DiscardTarget {
 #[component]
 pub fn DiscardDraftDialog(
     open: RwSignal<bool>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     blocked: Signal<bool>,
     on_confirm: Callback<(), bool>,
     on_error: Callback<DialogError>,
@@ -451,7 +451,7 @@ pub fn DiscardDraftDialog(
     // Structural locale/target changes remount chrome, never app draft state.
     move || {
         use crate::live::artwork::copy::{text as artwork_text, Key as ArtworkKey};
-        let language = english.get();
+        let language = locale.get();
         let (id, cancel_id, confirm_id, title, cancel, confirm, description, context, reason) =
             match target.get() {
                 DiscardTarget::Draft => (
@@ -481,7 +481,7 @@ pub fn DiscardDraftDialog(
         on_close_request=Callback::new(move |_| open.set(false)) on_error=on_error
         actions=move || view! {
             <Button id=cancel_id variant=ButtonVariant::Secondary on_press=Callback::new(move |_| open.set(false))>{cancel}</Button>
-            <ActionButton id=confirm_id english=english icon=IconName::DeleteOutline variant=ButtonVariant::Danger blocked=blocked reason=reason
+            <ActionButton id=confirm_id locale=locale icon=IconName::DeleteOutline variant=ButtonVariant::Danger blocked=blocked reason=reason
                 on_press=Callback::new(move |_| confirm_discard_request(blocked.get_untracked(), open, on_confirm))>{confirm}</ActionButton>
         }><p>{context}</p></Dialog> }
     }
@@ -496,12 +496,12 @@ pub fn ContextSelect(
     options: Signal<Vec<(String, String)>>,
     unknown_label: Signal<String>,
     on_change: Callback<String>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     readonly: Signal<bool>,
     #[prop(into, default = None.into())] error: Signal<Option<String>>,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ReadOnly) else {
-        return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
+        return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp, locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reason = StoredValue::new(reason);
     let value = Memo::new(move |_| value.get());
@@ -518,7 +518,7 @@ pub fn ContextSelect(
     });
     view! {
         <Select id=id label=label value=Signal::derive(move || value.get()) on_input=on_change error=error class="production-field"
-            state=Signal::derive(move || if readonly.get() { ChoiceState::Disabled(reason.with_value(|r| r.get(english.get()))) } else { ChoiceState::Enabled })>
+            state=Signal::derive(move || if readonly.get() { ChoiceState::Disabled(reason.with_value(|r| r.get(locale.get()))) } else { ChoiceState::Enabled })>
             {move || {
                 choices.get().into_iter().map(|(choice, label)| {
                     let choice = StoredValue::new(choice);
@@ -534,7 +534,7 @@ pub fn ContextSelect(
 #[component]
 pub fn DelegationRevokeDialog(
     open: RwSignal<bool>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     blocked: Signal<bool>,
     details: Signal<String>,
     on_confirm: Callback<MouseEvent>,
@@ -542,7 +542,7 @@ pub fn DelegationRevokeDialog(
 ) -> impl IntoView {
     use crate::live::delegation::copy::{text, Key};
     move || {
-        let language = english.get();
+        let language = locale.get();
         view! {
             <Dialog id="delegation-revoke-dialog" title=text(Key::DialogTitle, language)
                 close_label=text(Key::DialogClose, language) open=open
@@ -550,15 +550,15 @@ pub fn DelegationRevokeDialog(
                 actions=move || view! {
                     <Button id="delegation-revoke-keep" variant=ButtonVariant::Secondary
                         on_press=Callback::new(move |_| open.set(false))>
-                        {move || text(Key::DialogKeep, english.get())}
+                        {move || text(Key::DialogKeep, locale.get())}
                     </Button>
-                    <ActionButton id="delegation-revoke-confirm" english=english icon=IconName::Close variant=ButtonVariant::Danger
+                    <ActionButton id="delegation-revoke-confirm" locale=locale icon=IconName::Close variant=ButtonVariant::Danger
                         blocked=blocked on_press=on_confirm>
-                        {move || text(Key::DialogConfirm, english.get())}
+                        {move || text(Key::DialogConfirm, locale.get())}
                     </ActionButton>
                 }>
                 <p>{move || details.get()}</p>
-                <p>{move || text(Key::DialogBody, english.get())}</p>
+                <p>{move || text(Key::DialogBody, locale.get())}</p>
             </Dialog>
         }
     }
@@ -574,12 +574,12 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let calls = RwSignal::new(0);
-            for english in [false, true] {
-                let label = if english { "Sign in to Cantos Studio" } else { "Đăng nhập Cantos Studio" };
+            for locale in crate::localization::Locale::supported() {
+                let label = if locale == crate::localization::Locale::English { "Sign in to Cantos Studio" } else { "Đăng nhập Cantos Studio" };
                 for blocked in [false, true] {
                     let html = view! {
                         <form>
-                            <FormSubmit id="login-fixture" english=Signal::stored(english)
+                            <FormSubmit id="login-fixture" locale=Signal::stored(locale)
                                 blocked=Signal::stored(blocked)
                                 icon=ViewFn::from(|| view! { <span data-fixture="decorative-slot"></span> })>{label}</FormSubmit>
                         </form>
@@ -594,7 +594,7 @@ mod tests {
                 }
                 for busy in [false, true] {
                     let html = view! {
-                        <ActionButton id="action-fixture" english=Signal::stored(english) icon=IconName::Save
+                        <ActionButton id="action-fixture" locale=Signal::stored(locale) icon=IconName::Save
                             busy=Signal::stored(busy) on_press=Callback::new(move |_| calls.update(|value| *value += 1))>{label}</ActionButton>
                     }.to_html();
                     assert_eq!(html.contains("aria-busy=\"true\""), busy, "{html}");
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn busy_and_blocked_actions_never_dispatch_and_keep_localized_reason() {
-        for english in [false, true] {
+        for locale in crate::localization::Locale::supported() {
             for block in [
                 BlockReason::Busy,
                 BlockReason::ContextReady,
@@ -618,12 +618,12 @@ mod tests {
                 BlockReason::ReadOnly,
                 BlockReason::ProductionReview,
             ] {
-                let reason = LocalizedReason::new(block).unwrap().get(english);
+                let reason = LocalizedReason::new(block).unwrap().get(locale);
                 for (blocked, busy) in [(true, false), (false, true), (true, true)] {
                     let state = action_state(blocked, busy, reason.clone());
                     assert!(!state.can_press());
                     assert_eq!(state.is_busy(), busy);
-                    assert_eq!(state.reason().unwrap().as_str(), block.text(english));
+                    assert_eq!(state.reason().unwrap().as_str(), block.text(locale));
                 }
                 assert_eq!(action_state(false, false, reason), ButtonState::Enabled);
             }
@@ -635,8 +635,8 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let panel = RwSignal::new(WorkspacePane::Proposal);
-            let english = Signal::stored(false);
-            let html = view! { <WorkspaceNavigation panel=panel english=english/> }.to_html();
+            let locale = Signal::stored(crate::localization::Locale::Vietnamese);
+            let html = view! { <WorkspaceNavigation panel=panel locale=locale/> }.to_html();
             assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
             assert_eq!(html.matches("<a ").count(), WorkspacePane::ALL.len());
             assert_eq!(html.matches("cui-icon").count(), WorkspacePane::ALL.len());
@@ -690,7 +690,7 @@ mod tests {
             let events = RwSignal::new(Vec::<String>::new());
             let render = |readonly| view! { <ContextSelect id="casting-voice" label=Signal::derive(|| "Giọng người dẫn chuyện".to_owned())
                 value=value.into() options=options.into() unknown_label=Signal::derive(|| "Chưa có trong catalog".to_owned())
-                on_change=Callback::new(move |raw| events.update(|events| events.push(raw))) english=Signal::stored(false) readonly=Signal::derive(move || readonly) error=Signal::derive(|| Some("Giá trị 0 được giữ · chưa có trong profile".to_owned()))/> }.to_html();
+                on_change=Callback::new(move |raw| events.update(|events| events.push(raw))) locale=Signal::stored(crate::localization::Locale::Vietnamese) readonly=Signal::derive(move || readonly) error=Signal::derive(|| Some("Giá trị 0 được giữ · chưa có trong profile".to_owned()))/> }.to_html();
             let missing = render(false);
             assert!(missing.contains("value=\"0\" selected"));
             assert!(missing.contains("Chưa có trong catalog · 0"));
@@ -715,12 +715,12 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let events = RwSignal::new(0usize);
-            let html = view! { <ActionButton id="revision-test-save" english=Signal::stored(false) blocked=true reason=BlockReason::SaveReview
+            let html = view! { <ActionButton id="revision-test-save" locale=Signal::stored(crate::localization::Locale::Vietnamese) blocked=true reason=BlockReason::SaveReview
                 on_press=Callback::new(move |_| events.update(|count| *count += 1))>"Lưu bản sửa đổi bất biến mới"</ActionButton> }.to_html();
             assert!(html.contains("type=\"button\""));
             assert!(html.contains(" disabled"));
             assert!(html.contains("revision-test-save-reason"));
-            assert!(html.contains(text(Key::ValidateFirst, false)));
+            assert!(html.contains(text(Key::ValidateFirst, crate::localization::Locale::Vietnamese)));
             assert_eq!(events.get_untracked(), 0);
         });
     }
@@ -754,16 +754,16 @@ mod tests {
 
     #[test]
     fn discard_dialog_has_safe_cancel_and_separate_confirmation_without_render_effects() {
-        for english in [false, true] {
+        for locale in crate::localization::Locale::supported() {
             let owner = Owner::new();
             owner.with(|| {
                 let calls = RwSignal::new(0usize);
-                let html = view! { <DiscardDraftDialog open=RwSignal::new(true) english=Signal::stored(english) blocked=Signal::derive(|| false)
+                let html = view! { <DiscardDraftDialog open=RwSignal::new(true) locale=Signal::stored(locale) blocked=Signal::derive(|| false)
                     on_confirm=Callback::new(move |()| { calls.update(|n| *n += 1); true }) on_error=Callback::new(|_| {})/> }.to_html();
                 assert!(html.contains("<dialog"));
                 assert!(!html.split("<dialog").nth(1).unwrap().split('>').next().unwrap().contains(" open"));
                 assert!(html.contains("autofocus"));
-                assert!(html.contains(text(Key::Cancel, english)));
+                assert!(html.contains(text(Key::Cancel, locale)));
                 assert!(html.contains("revision-discard-confirm"));
                 assert!(html.contains("cui-dialog-actions"));
                 assert_eq!(calls.get_untracked(), 0);
@@ -775,12 +775,12 @@ mod tests {
         for blocked in [false, true] {
             let owner = Owner::new();
             owner.with(|| {
-                let html = view! { <FormSubmit id="session-submit" english=Signal::stored(false) blocked=Signal::derive(move || blocked)>"Đăng nhập"</FormSubmit> }.to_html();
+                let html = view! { <FormSubmit id="session-submit" locale=Signal::stored(crate::localization::Locale::Vietnamese) blocked=Signal::derive(move || blocked)>"Đăng nhập"</FormSubmit> }.to_html();
                 assert!(html.contains("type=\"submit\""));
                 assert!(html.contains("data-variant=\"tonal\""), "secondary forms stay tonal: {html}");
                 assert_eq!(html.contains(" disabled"), blocked);
                 assert_eq!(html.contains("aria-describedby=\"session-submit-reason\""), blocked);
-                assert!(html.contains(text(Key::ControlBlocked, false)));
+                assert!(html.contains(text(Key::ControlBlocked, crate::localization::Locale::Vietnamese)));
             });
         }
     }
@@ -817,14 +817,14 @@ mod review_checkbox_tests {
         Owner::new().with(|| {
             let checked = RwSignal::new(true);
             let blocked = RwSignal::new(false);
-            let english = RwSignal::new(false);
+            let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
             let calls = RwSignal::new(0);
-            for (disabled, en) in [(false,false),(true,false),(true,true),(false,true)] {
+            for (disabled, en) in [(false,crate::localization::Locale::Vietnamese),(true,crate::localization::Locale::Vietnamese),(true,crate::localization::Locale::English),(false,crate::localization::Locale::English)] {
                 blocked.set(disabled);
-                english.set(en);
+                locale.set(en);
                 let html = view! {
-                    <ReviewCheckbox id="review-test" english=english.into()
-                        label=Signal::derive(move ||text(Key::ReviewBeforeSave,english.get()).to_owned())
+                    <ReviewCheckbox id="review-test" locale=locale.into()
+                        label=Signal::derive(move ||text(Key::ReviewBeforeSave,locale.get()).to_owned())
                         checked blocked described_by=Some("review-help".to_owned())
                         on_change=Callback::new(move |value|{checked.set(value);calls.update(|n|*n+=1);})/>
                 }.to_html();

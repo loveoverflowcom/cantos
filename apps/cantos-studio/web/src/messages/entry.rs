@@ -1,5 +1,6 @@
 //! Login-only Studio resources; independent of Theatre authentication and membership copy.
 use crate::entry::Entry;
+use crate::localization::generated::entry as resources;
 
 #[derive(Clone, Copy)]
 pub enum Key {
@@ -51,53 +52,32 @@ pub fn help(entry: Entry) -> Key {
     }
 }
 
-pub fn text(key: Key, english: bool) -> &'static str {
-    match (key, english) {
-        (Key::CleanupPending,false)=>"Đang thu hồi phiên trước khi tiếp tục đăng nhập…",
-        (Key::CleanupPending,true)=>"Revoking the previous session before sign-in continues…",
-        (Key::MemoryHelp,false)=>"Bản nháp chưa lưu chỉ còn trong tab này.",
-        (Key::MemoryHelp,true)=>"Unsaved drafts live only in this tab.",
-        (Key::SignInUnavailable,false)=>"Đăng nhập Studio chưa khả dụng",
-        (Key::SignInUnavailable,true)=>"Studio sign-in is not available",
-        (Key::SignInUnavailableHelp,false)=>"Máy chủ chưa cấu hình đăng nhập Studio hoặc chưa có danh sách tài khoản được phép, và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên. Bản nháp đang giữ trong phiên này vẫn còn.",
-        (Key::SignInUnavailableHelp,true)=>"The server has no Studio sign-in or no list of allowed accounts configured, and there is no alternative sign-in. Contact an administrator. Drafts retained in this session are still here.",
-        (Key::Reauthenticate,false)=>"Xác thực lại cho thao tác nhạy cảm",
-        (Key::Reauthenticate,true)=>"Authenticate again for sensitive actions",
-        (Key::LoginTitle, false) => "Đăng nhập Cantos Studio",
-        (Key::LoginTitle, true) => "Sign in to Cantos Studio",
-        (Key::LoginHelp, false) => "Chỉ tài khoản được cấp quyền.",
-        (Key::LoginHelp, true) => "Only accounts with granted access.",
-        (Key::Welcome, false) => "Nơi câu chuyện thành tiếng nói.",
-        (Key::Welcome, true) => "Where stories find their voice.",
-        (Key::WelcomeHelp, false) => "Một không gian yên tĩnh cho bản thảo, tác phẩm và audio bàn giao.",
-        (Key::WelcomeHelp, true) => "A quiet space for manuscripts, works and delivered audio.",
-        (Key::Checking, false) => "Đang kiểm tra phiên Studio…",
-        (Key::Checking, true) => "Checking your Studio session…",
-        (Key::Denied, false) => "Không vào được Studio bằng tài khoản này",
-        (Key::Denied, true) => "This account cannot enter Studio",
-        (Key::DeniedHelp, false) => "Yêu cầu bị từ chối. Hãy đăng nhập bằng tài khoản đã được cấp quyền Cantos Studio và mở Studio từ địa chỉ chính thức.",
-        (Key::DeniedHelp, true) => "The request was refused. Sign in with an account that has Cantos Studio access, and open Studio from its official address.",
-        (Key::Unavailable, false) => "Chưa thể xác nhận phiên Studio",
-        (Key::Unavailable, true) => "Your Studio session could not be confirmed",
-        (Key::UnavailableHelp, false) => "Kiểm tra kết nối rồi thử lại. Bản nháp đang giữ trong phiên này vẫn còn.",
-        (Key::UnavailableHelp, true) => "Check your connection and try again. Drafts retained in this session are still here.",
-        (Key::Retained, false) => "Bản nháp thuộc tài khoản trước",
-        (Key::Retained, true) => "Your draft belongs to the previous account",
-        (Key::RetainedHelp, false) => "Đăng nhập lại bằng tài khoản đã mở bản nháp để tiếp tục. Nội dung riêng vẫn được ẩn.",
-        (Key::RetainedHelp, true) => "Sign in with the account that opened the draft to continue. Private content stays hidden.",
-        (Key::Dashboard, false) => "Bàn viết",
-        (Key::Dashboard, true) => "Writing desk",
-        (Key::Import, false) => "Nhập bản thảo",
-        (Key::Import, true) => "Import manuscript",
-        (Key::Back, false) => "Về Bàn viết",
-        (Key::Back, true) => "Back to writing desk",
-        (Key::Cancel, false) => "Về đăng nhập Studio",
-        (Key::Cancel, true) => "Return to Studio sign-in",
-        (Key::Retry, false) => "Thử lại",
-        (Key::Retry, true) => "Try again",
-        (Key::Session, false) => "Tài khoản Studio",
-        (Key::Session, true) => "Studio account",
-        (Key::CloseAccount, false) => "Đóng menu tài khoản",
-        (Key::CloseAccount, true) => "Close account menu",
+pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
+    match key {
+        Key::CleanupPending => resources::text(resources::Key::CleanupPending, locale),
+        Key::MemoryHelp => resources::text(resources::Key::MemoryHelp, locale),
+        Key::SignInUnavailable => resources::text(resources::Key::SignInUnavailable, locale),
+        Key::SignInUnavailableHelp => {
+            resources::text(resources::Key::SignInUnavailableHelp, locale)
+        }
+        Key::Reauthenticate => resources::text(resources::Key::Reauthenticate, locale),
+        Key::LoginTitle => resources::text(resources::Key::LoginTitle, locale),
+        Key::LoginHelp => resources::text(resources::Key::LoginHelp, locale),
+        Key::Welcome => resources::text(resources::Key::Welcome, locale),
+        Key::WelcomeHelp => resources::text(resources::Key::WelcomeHelp, locale),
+        Key::Checking => resources::text(resources::Key::Checking, locale),
+        Key::Denied => resources::text(resources::Key::Denied, locale),
+        Key::DeniedHelp => resources::text(resources::Key::DeniedHelp, locale),
+        Key::Unavailable => resources::text(resources::Key::Unavailable, locale),
+        Key::UnavailableHelp => resources::text(resources::Key::UnavailableHelp, locale),
+        Key::Retained => resources::text(resources::Key::Retained, locale),
+        Key::RetainedHelp => resources::text(resources::Key::RetainedHelp, locale),
+        Key::Dashboard => resources::text(resources::Key::Dashboard, locale),
+        Key::Import => resources::text(resources::Key::Import, locale),
+        Key::Back => resources::text(resources::Key::Back, locale),
+        Key::Cancel => resources::text(resources::Key::Cancel, locale),
+        Key::Retry => resources::text(resources::Key::Retry, locale),
+        Key::Session => resources::text(resources::Key::Session, locale),
+        Key::CloseAccount => resources::text(resources::Key::CloseAccount, locale),
     }
 }

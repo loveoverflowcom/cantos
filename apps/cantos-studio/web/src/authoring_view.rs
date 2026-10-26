@@ -23,7 +23,7 @@ use leptos::{wasm_bindgen::JsCast, web_sys::HtmlElement};
 struct AuthoringContext {
     document: Memo<Option<Document>>,
     apply: Callback<Document, bool>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     readonly: Signal<bool>,
     issues: Signal<Vec<FieldIssue>>,
     activity: RwSignal<bool>,
@@ -243,7 +243,7 @@ fn collection(document: &Document, target: &Target) -> Vec<String> {
 pub fn StructuredEditor(
     draft: Signal<String>,
     on_change: Callback<String>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     readonly: Signal<bool>,
     namespace: &'static str,
     baseline: Signal<String>,
@@ -308,7 +308,7 @@ pub fn StructuredEditor(
     let ctx = AuthoringContext {
         document,
         apply,
-        english,
+        locale,
         readonly,
         issues,
         activity,
@@ -317,7 +317,7 @@ pub fn StructuredEditor(
         movement,
         namespace,
     };
-    let copy = move || authoring_copy(english.get());
+    let copy = move || authoring_copy(locale.get());
     let move_history = move |redo: bool| {
         if readonly.get_untracked() || activity.get_untracked() {
             return;
@@ -344,7 +344,7 @@ pub fn StructuredEditor(
                 </div>
             </div>
             <p class="help" id=format!("{namespace}-history-help")>{move || copy().history_help}</p>
-            <p class="authoring-action-status" role="status" aria-live="polite">{move || movement.get().map(|(id, position, group)| crate::messages::authoring::item_moved(&id, position, &group, english.get())).unwrap_or_default()}</p>
+            <p class="authoring-action-status" role="status" aria-live="polite">{move || movement.get().map(|(id, position, group)| crate::messages::authoring::item_moved(&id, position, &group, locale.get())).unwrap_or_default()}</p>
             <Show when=move || activity.get()><p class="help authoring-buffered">{move || copy().buffered}</p></Show>
             <Show when=move || readonly.get()><p class="mode">{move || copy().readonly}</p></Show>
             <Show when=move || notice.get().is_some()>
@@ -383,7 +383,7 @@ pub fn StructuredEditor(
                         } />
                         <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("act") {
-                                if ctx.structural_change(|document| document.insert_act(&id, authoring_copy(document.metadata().language.starts_with("en")).new_act)) { selected.set(Some(Target::Act(id))); }
+                                if ctx.structural_change(|document| document.insert_act(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Act))) { selected.set(Some(Target::Act(id))); }
                             }
                         }>{move || copy().add_act}</button>
                         <h3>{move || copy().characters}</h3>
@@ -397,7 +397,7 @@ pub fn StructuredEditor(
                         } />
                         <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("character") {
-                                if ctx.structural_change(|document| document.insert_character(&id, authoring_copy(document.metadata().language.starts_with("en")).new_character, "character", "")) { selected.set(Some(Target::Character(id))); }
+                                if ctx.structural_change(|document| document.insert_character(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Character), "character", "")) { selected.set(Some(Target::Character(id))); }
                             }
                         }>{move || copy().add_character}</button>
                         <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); } }>{move || copy().metadata}</button>
@@ -427,7 +427,7 @@ pub fn StructuredEditor(
                                         } else {
                                             leptos::leptos_dom::helpers::request_animation_frame(move || focus_field(&format!("{namespace}-json")));
                                         }
-                                    }><span>{validation_rule(&issue.rule, english.get())}</span><code>{issue.path}</code></button><code>{issue.rule}</code></li>
+                                    }><span>{validation_rule(&issue.rule, locale.get())}</span><code>{issue.path}</code></button><code>{issue.rule}</code></li>
                                 }
                             }).collect_view()}</ul>
                         </Show>
@@ -610,10 +610,10 @@ fn BufferedText(
     }
 }
 
-fn findings_text(issues: Vec<FieldIssue>, english: bool) -> String {
+fn findings_text(issues: Vec<FieldIssue>, locale: crate::localization::Locale) -> String {
     issues
         .into_iter()
-        .map(|issue| validation_rule(&issue.rule, english))
+        .map(|issue| validation_rule(&issue.rule, locale))
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -634,15 +634,15 @@ fn choice_projection(
     field: Field,
     choices: Vec<(String, String)>,
     issues: &[FieldIssue],
-    english: bool,
+    locale: crate::localization::Locale,
     content: bool,
 ) -> ChoiceProjection {
     let value = document.field(target, field).unwrap_or_default();
     let known = choices.iter().any(|(choice, _)| *choice == value);
     let unresolved = if field == Field::Speaker {
-        authoring_copy(english).unresolved
+        authoring_copy(locale).unresolved
     } else {
-        choice("unknown", english)
+        choice("unknown", locale)
     };
     let language = content.then(|| document.metadata().language);
     let options = selected_choices(&value, choices, unresolved)
@@ -665,7 +665,7 @@ fn choice_projection(
             .filter(|issue| matching_issue(document, target, field, issue))
             .cloned()
             .collect();
-        findings_text(findings, english)
+        findings_text(findings, locale)
     } else {
         unresolved.to_owned()
     };
@@ -699,7 +699,7 @@ fn TextField(
             .unwrap_or_default()
     });
     let error = Signal::derive(move || {
-        findings_text(findings.try_get().unwrap_or_default(), ctx.english.get())
+        findings_text(findings.try_get().unwrap_or_default(), ctx.locale.get())
     });
     view! {
         <BufferedText id=id label=label value=Signal::derive(move || ctx.document.get().and_then(|document| document.field(&target.get_value(), field).ok()).unwrap_or_default())
@@ -722,7 +722,7 @@ fn ChoiceField(
 ) -> impl IntoView {
     let ctx = context();
     let Ok(reason) = LocalizedReason::new(BlockReason::ScriptReadOnly) else {
-        return view! { <ErrorState title=workspace_text(WorkspaceKey::ControlUnavailable, ctx.english.get_untracked())><p>{workspace_text(WorkspaceKey::PermissionHelp, ctx.english.get_untracked())}</p></ErrorState> }.into_any();
+        return view! { <ErrorState title=workspace_text(WorkspaceKey::ControlUnavailable, ctx.locale.get_untracked())><p>{workspace_text(WorkspaceKey::PermissionHelp, ctx.locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reason = StoredValue::new(reason);
     let target = StoredValue::new(target);
@@ -739,7 +739,7 @@ fn ChoiceField(
                     field,
                     options.get(),
                     &ctx.issues.get(),
-                    ctx.english.get(),
+                    ctx.locale.get(),
                     content,
                 ),
                 None => previous.cloned().unwrap_or_default(),
@@ -750,7 +750,7 @@ fn ChoiceField(
     let error = Memo::new(move |_| projection.with(|projection| projection.error.clone()));
     let state = Memo::new(move |_| {
         if ctx.readonly.get() {
-            ChoiceState::Disabled(reason.with_value(|reason| reason.get(ctx.english.get())))
+            ChoiceState::Disabled(reason.with_value(|reason| reason.get(ctx.locale.get())))
         } else {
             ChoiceState::Enabled
         }
@@ -764,12 +764,12 @@ fn ChoiceField(
 
 fn choices(
     values: &'static [&'static str],
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
 ) -> Signal<Vec<(String, String)>> {
     Signal::derive(move || {
         values
             .iter()
-            .map(|value| (value.to_string(), choice(value, english.get()).to_string()))
+            .map(|value| (value.to_string(), choice(value, locale.get()).to_string()))
             .collect()
     })
 }
@@ -855,21 +855,21 @@ fn ItemActions(target: Target) -> impl IntoView {
     };
     view! {
         <div class="authoring-actions">
-            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::MoveUp, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(true) on:click=move |_| movement(true)>{move || authoring_copy(ctx.english.get()).move_up}</button>
-            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::MoveDown, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(false) on:click=move |_| movement(false)>{move || authoring_copy(ctx.english.get()).move_down}</button>
-            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::Remove, target_id(&target.get_value()), ctx.english.get()) node_ref=trigger disabled=move || ctx.readonly.get() on:click=move |_| confirm.set(true)>{move || authoring_copy(ctx.english.get()).remove}</button>
+            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::MoveUp, target_id(&target.get_value()), ctx.locale.get()) disabled=move || ctx.readonly.get() || at_edge(true) on:click=move |_| movement(true)>{move || authoring_copy(ctx.locale.get()).move_up}</button>
+            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::MoveDown, target_id(&target.get_value()), ctx.locale.get()) disabled=move || ctx.readonly.get() || at_edge(false) on:click=move |_| movement(false)>{move || authoring_copy(ctx.locale.get()).move_down}</button>
+            <button class="cui-button" data-variant="text" type="button" aria-label=move || item_action(ItemAction::Remove, target_id(&target.get_value()), ctx.locale.get()) node_ref=trigger disabled=move || ctx.readonly.get() on:click=move |_| confirm.set(true)>{move || authoring_copy(ctx.locale.get()).remove}</button>
             <Show when=move || confirm.get()>
-                <div class="authoring-remove-confirm" role="group" aria-label=move || authoring_copy(ctx.english.get()).confirm_remove on:keydown=move |event| { if event.key() == "Escape" { event.stop_propagation(); cancel(); } }>
-                    <p>{move || authoring_copy(ctx.english.get()).remove_help}</p><code>{move || target_id(&target.get_value()).to_string()}</code>
-                    <button class="cui-button" data-variant="danger" type="button" aria-label=move || item_action(ItemAction::ConfirmRemove, target_id(&target.get_value()), ctx.english.get()) node_ref=confirmation disabled=move || ctx.readonly.get() on:click=move |_| {
+                <div class="authoring-remove-confirm" role="group" aria-label=move || authoring_copy(ctx.locale.get()).confirm_remove on:keydown=move |event| { if event.key() == "Escape" { event.stop_propagation(); cancel(); } }>
+                    <p>{move || authoring_copy(ctx.locale.get()).remove_help}</p><code>{move || target_id(&target.get_value()).to_string()}</code>
+                    <button class="cui-button" data-variant="danger" type="button" aria-label=move || item_action(ItemAction::ConfirmRemove, target_id(&target.get_value()), ctx.locale.get()) node_ref=confirmation disabled=move || ctx.readonly.get() on:click=move |_| {
                         if ctx.structural_change(|document| document.remove(&target.get_value())) {
                             confirm.set(false);
                             if let Some(element) = leptos::leptos_dom::helpers::document().get_element_by_id(&format!("{}-canvas", ctx.namespace)) {
                                 if let Some(element) = element.dyn_ref::<HtmlElement>() { let _ = element.focus(); }
                             }
                         }
-                    }>{move || authoring_copy(ctx.english.get()).confirm_remove}</button>
-                    <button class="cui-button" data-variant="text" type="button" on:click=move |_| cancel()>{move || authoring_copy(ctx.english.get()).cancel}</button>
+                    }>{move || authoring_copy(ctx.locale.get()).confirm_remove}</button>
+                    <button class="cui-button" data-variant="text" type="button" on:click=move |_| cancel()>{move || authoring_copy(ctx.locale.get()).cancel}</button>
                 </div>
             </Show>
         </div>
@@ -879,12 +879,12 @@ fn ItemActions(target: Target) -> impl IntoView {
 #[component]
 fn MetadataEditor() -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     view! {
         <h3>{move || copy().metadata}</h3>
         <TextField target=Target::Work field=Field::Title label=Signal::derive(move || copy().work_title) />
         <TextField target=Target::Episode field=Field::Title label=Signal::derive(move || copy().episode_title) />
-        <ChoiceField target=Target::Adaptation field=Field::Language label=Signal::derive(move || copy().language) options=choices(&["vi", "vi-VN", "en", "en-US"], ctx.english) />
+        <ChoiceField target=Target::Adaptation field=Field::Language label=Signal::derive(move || copy().language) options=choices(&["vi", "vi-VN", "en", "en-US"], ctx.locale) />
         <p class="help">{move || copy().metadata_help}</p>
     }
 }
@@ -892,12 +892,12 @@ fn MetadataEditor() -> impl IntoView {
 #[component]
 fn CharacterEditor(id: String) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let target = Target::Character(id.clone());
     view! {
         <h3>{move || copy().characters}</h3><code class="authoring-id">{id}</code>
         <TextField target=target.clone() field=Field::Name label=Signal::derive(move || copy().character_name) />
-        <ChoiceField target=target.clone() field=Field::Role label=Signal::derive(move || copy().role) options=choices(&["narrator", "character"], ctx.english) />
+        <ChoiceField target=target.clone() field=Field::Role label=Signal::derive(move || copy().role) options=choices(&["narrator", "character"], ctx.locale) />
         <TextField target=target.clone() field=Field::Personality label=Signal::derive(move || copy().personality) multiline=true />
         <ItemActions target=target />
     }
@@ -906,7 +906,7 @@ fn CharacterEditor(id: String) -> impl IntoView {
 #[component]
 fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let saved_id = StoredValue::new(id.clone());
     view! {
         <h3>{move || copy().act}</h3><code class="authoring-id">{id.clone()}</code>
@@ -914,7 +914,7 @@ fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
         <ItemActions target=Target::Act(id) />
         <button class="cui-button" data-variant="tonal" type="button" disabled=move || ctx.readonly.get() on:click=move |_| {
             if let Ok(id) = minted_id("scene") {
-                if ctx.structural_change(|document| document.insert_scene(&saved_id.get_value(), &id, authoring_copy(document.metadata().language.starts_with("en")).new_scene)) { selected.set(Some(Target::Scene(id))); }
+                if ctx.structural_change(|document| document.insert_scene(&saved_id.get_value(), &id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Scene))) { selected.set(Some(Target::Scene(id))); }
             }
         }>{move || copy().add_scene}</button>
     }
@@ -923,7 +923,7 @@ fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
 #[component]
 fn SceneEditor(id: String) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let saved_id = StoredValue::new(id.clone());
     let add_dialogue = move |narration: bool| {
         if let Ok(id) = minted_id("dialogue") {
@@ -966,7 +966,7 @@ fn SceneEditor(id: String) -> impl IntoView {
 #[component]
 fn DialogueEditor(id: String) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let saved_id = StoredValue::new(id.clone());
     let target = Target::Dialogue(id.clone());
     let is_narrator = move || {
@@ -990,7 +990,7 @@ fn DialogueEditor(id: String) -> impl IntoView {
             <details class="authoring-performance">
                 <summary>{move || copy().performance}</summary>
                 <div class="authoring-fields">
-                    <ChoiceField target=target.clone() field=Field::Emotion label=Signal::derive(move || copy().emotion) options=choices(&["neutral", "calm", "hopeful", "warm", "sad", "angry"], ctx.english) />
+                    <ChoiceField target=target.clone() field=Field::Emotion label=Signal::derive(move || copy().emotion) options=choices(&["neutral", "calm", "hopeful", "warm", "sad", "angry"], ctx.locale) />
                     <TextField target=target.clone() field=Field::Intensity label=Signal::derive(move || copy().intensity) />
                 </div>
                 <h5>{move || copy().pronunciation}</h5><p class="help">{move || copy().pronunciation_help}</p>
@@ -1005,13 +1005,13 @@ fn DialogueEditor(id: String) -> impl IntoView {
 #[component]
 fn PronunciationEditor(dialogue_id: String, index: usize) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let id = StoredValue::new(dialogue_id.clone());
     view! {
         <div class="authoring-pronunciation authoring-fields">
             <PronunciationText dialogue_id=dialogue_id.clone() index=index field=PronunciationField::Surface />
             <PronunciationText dialogue_id=dialogue_id index=index field=PronunciationField::Replacement />
-            <button class="cui-button" data-variant="text" type="button" aria-label=move || pronunciation_remove(&id.get_value(), index, ctx.english.get()) disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.remove_pronunciation(&id.get_value(), index)); }>{move || copy().remove}</button>
+            <button class="cui-button" data-variant="text" type="button" aria-label=move || pronunciation_remove(&id.get_value(), index, ctx.locale.get()) disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.remove_pronunciation(&id.get_value(), index)); }>{move || copy().remove}</button>
         </div>
     }
 }
@@ -1074,10 +1074,10 @@ fn PronunciationText(
             .unwrap_or_default()
     });
     let error = Signal::derive(move || {
-        findings_text(findings.try_get().unwrap_or_default(), ctx.english.get())
+        findings_text(findings.try_get().unwrap_or_default(), ctx.locale.get())
     });
     view! {
-        <BufferedText id=input_id label=Signal::derive(move || match field { PronunciationField::Surface => authoring_copy(ctx.english.get()).surface, PronunciationField::Replacement => authoring_copy(ctx.english.get()).replacement }) value=value readonly=ctx.readonly activity=ctx.activity error=error
+        <BufferedText id=input_id label=Signal::derive(move || match field { PronunciationField::Surface => authoring_copy(ctx.locale.get()).surface, PronunciationField::Replacement => authoring_copy(ctx.locale.get()).replacement }) value=value readonly=ctx.readonly activity=ctx.activity error=error
             on_commit=Callback::new(move |text: String| ctx.change(|document| document.set_pronunciation(&id.get_value(), index, field, &text))) />
     }
 }
@@ -1085,17 +1085,17 @@ fn PronunciationText(
 #[component]
 fn CueEditor(id: String, scene_id: String) -> impl IntoView {
     let ctx = context();
-    let copy = move || authoring_copy(ctx.english.get());
+    let copy = move || authoring_copy(ctx.locale.get());
     let scene_id = StoredValue::new(scene_id);
     let saved_id = StoredValue::new(id.clone());
     let target = Target::Cue(id.clone());
     view! {
         <section class="authoring-cue" data-cue-id=id.clone()>
             <code class="authoring-id">{id.clone()}</code>
-            <ChoiceField target=target.clone() field=Field::CueKind label=Signal::derive(move || copy().cue_kind) options=choices(&["ambience", "music", "sfx"], ctx.english) />
+            <ChoiceField target=target.clone() field=Field::CueKind label=Signal::derive(move || copy().cue_kind) options=choices(&["ambience", "music", "sfx"], ctx.locale) />
             <TextField target=target.clone() field=Field::CueDescription label=Signal::derive(move || copy().description) multiline=true />
             <ChoiceField target=target.clone() field=Field::CueDialogue label=Signal::derive(move || copy().anchor) content=true options=Signal::derive(move || ctx.document.get().and_then(|document| scene(&document, &scene_id.get_value())).map(|scene| scene.dialogues.into_iter().map(|dialogue| (dialogue.id, dialogue.text)).collect()).unwrap_or_default()) />
-            <ChoiceField target=target.clone() field=Field::CueEdge label=Signal::derive(move || copy().edge) options=choices(&["start", "end"], ctx.english) />
+            <ChoiceField target=target.clone() field=Field::CueEdge label=Signal::derive(move || copy().edge) options=choices(&["start", "end"], ctx.locale) />
             <Show when=move || ctx.document.get().and_then(|document| scene(&document, &scene_id.get_value())).and_then(|scene| scene.sound_cues.into_iter().find(|cue| cue.id == saved_id.get_value())).is_some_and(|cue| cue.asset.is_some())><p class="help">{move || copy().asset_help}</p></Show>
             <ItemActions target=target />
         </section>
@@ -1178,7 +1178,7 @@ mod tests {
         owner.with(|| {
             let commits = RwSignal::new(0_usize);
             let html = view! {
-                <StructuredEditor draft=Signal::stored(document.to_json()) english=Signal::stored(false)
+                <StructuredEditor draft=Signal::stored(document.to_json()) locale=Signal::stored(crate::localization::Locale::Vietnamese)
                     readonly=Signal::stored(readonly) namespace="test" baseline=Signal::stored(FIXTURE.to_owned())
                     issues=Signal::stored(issues) activity=RwSignal::new(false)
                     on_change=Callback::new(move |_: String| commits.update(|count| *count += 1))>
@@ -1203,7 +1203,7 @@ mod tests {
             let ctx = AuthoringContext {
                 document: Memo::new(move |_| Document::parse(&draft.get()).ok()),
                 apply: Callback::new(|_| false),
-                english: Signal::stored(false),
+                locale: Signal::stored(crate::localization::Locale::Vietnamese),
                 readonly: Signal::stored(readonly),
                 issues: Signal::stored(issues),
                 activity: RwSignal::new(false),
@@ -1264,7 +1264,10 @@ mod tests {
             "{wrapper}"
         );
         assert!(
-            wrapper.contains(validation_rule("empty_text", false)),
+            wrapper.contains(validation_rule(
+                "empty_text",
+                crate::localization::Locale::Vietnamese
+            )),
             "{wrapper}"
         );
         assert!(tag(&html, "test-episode-Title").contains("aria-invalid=\"false\""));
@@ -1294,7 +1297,7 @@ mod tests {
         // SSR keeps the native fallback; the menu trigger enhances it in a supporting browser.
         assert!(tag(&html, "test-dialogue-03-Speaker").contains("aria-invalid=\"true\""));
         assert!(tag(&html, "test-dialogue-03-Speaker-trigger").contains(" hidden"));
-        let unresolved = authoring_copy(false).unresolved;
+        let unresolved = authoring_copy(crate::localization::Locale::Vietnamese).unresolved;
         assert!(
             speaker.contains(&format!(
                 "<option value=\"minh-cu\" disabled selected>{unresolved}</option>"
@@ -1336,7 +1339,10 @@ mod tests {
         assert!(speaker.contains("data-state=\"disabled\""), "{speaker}");
         assert!(tag(&html, "test-dialogue-01-Speaker").contains(" disabled"));
         assert!(
-            speaker.contains(&format!(">{}</p>", authoring_copy(false).readonly_choice)),
+            speaker.contains(&format!(
+                ">{}</p>",
+                authoring_copy(crate::localization::Locale::Vietnamese).readonly_choice
+            )),
             "{speaker}"
         );
     }
@@ -1350,7 +1356,7 @@ mod tests {
             || view! { <SceneEditor id="scene-01".to_owned()/> },
         );
         assert!(!html.contains("data-variant=\"secondary\""), "{html}");
-        let copy = authoring_copy(false);
+        let copy = authoring_copy(crate::localization::Locale::Vietnamese);
         for label in [
             copy.add_dialogue,
             copy.add_narration,
@@ -1386,7 +1392,7 @@ mod tests {
             Field::Speaker,
             characters.clone(),
             &[],
-            false,
+            crate::localization::Locale::Vietnamese,
             true,
         );
         assert_eq!(known.value, "an");
@@ -1408,12 +1414,15 @@ mod tests {
             Field::Speaker,
             characters.clone(),
             &[finding],
-            true,
+            crate::localization::Locale::English,
             true,
         );
         assert_eq!(
             flagged.error.as_deref(),
-            Some(validation_rule("unknown_speaker", true))
+            Some(validation_rule(
+                "unknown_speaker",
+                crate::localization::Locale::English
+            ))
         );
 
         let unknown = document
@@ -1425,7 +1434,7 @@ mod tests {
             Field::Speaker,
             characters,
             &[],
-            false,
+            crate::localization::Locale::Vietnamese,
             true,
         );
         assert_eq!(unresolved.value, "minh-cu");
@@ -1437,7 +1446,7 @@ mod tests {
         );
         assert_eq!(
             unresolved.error.as_deref(),
-            Some(authoring_copy(false).unresolved)
+            Some(authoring_copy(crate::localization::Locale::Vietnamese).unresolved)
         );
         assert_eq!(
             unresolved
@@ -1462,7 +1471,7 @@ mod tests {
             Field::CueDialogue,
             vec![("dialogue-01".into(), "Người dẫn chuyện mở màn.".into())],
             &[],
-            false,
+            crate::localization::Locale::Vietnamese,
             true,
         );
         assert_eq!(projected.value, "dialogue-missing");
@@ -1471,7 +1480,7 @@ mod tests {
             vec![
                 SelectOption {
                     value: "dialogue-missing".into(),
-                    label: choice("unknown", false).into(),
+                    label: choice("unknown", crate::localization::Locale::Vietnamese).into(),
                     disabled: true,
                     lang: None,
                     icon: None,
@@ -1482,7 +1491,10 @@ mod tests {
                 },
             ]
         );
-        assert_eq!(projected.error.as_deref(), Some(choice("unknown", false)));
+        assert_eq!(
+            projected.error.as_deref(),
+            Some(choice("unknown", crate::localization::Locale::Vietnamese))
+        );
         assert_eq!(document.to_json(), original);
     }
 

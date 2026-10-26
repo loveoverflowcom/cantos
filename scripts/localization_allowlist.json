@@ -3,77 +3,77 @@
     {
       "path": "apps/cantos-theatre/web/src/messages.rs",
       "mode": "bilingual",
-      "reason": "Existing Theatre root typed resource catalog; public catalog keys extend this owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-theatre/web/src/features/auth_copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Theatre authentication typed resource owner, retained pending #167/#168."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-theatre/web/src/membership_preview/copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Theatre membership preview typed resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio root resource owner; legacy struct API remains pending #168."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/adaptation.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio adaptation resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/authoring.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio authoring resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/entry.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio entry typed resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/signin.rs",
       "mode": "bilingual",
-      "reason": "Studio email/password sign-in typed resource owner; replaces the removed popup copy."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/forge.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio Forge mock typed resource owner; no feature-local replacement."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/production.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio production typed resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/messages/workspace.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio workspace typed resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/live/copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio live workspace resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/live/dashboard_copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio dashboard resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/live/delegation/copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio delegation resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-studio/web/src/live/artwork/copy.rs",
       "mode": "bilingual",
-      "reason": "Existing Studio private artwork resource owner."
+      "reason": "App-owned semantic adapter over the accepted generated catalog; source translations and typed parameters are checked by the whole-resource guard."
     },
     {
       "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellCopy.kt",
@@ -114,13 +114,23 @@
       "path": "apps/cantos-theatre/mobile/preview-sandbox/src/desktopMain/kotlin/com/cantos/theatre/app/workbench/TheatreWorkbench.kt",
       "mode": "fixed-english-tool",
       "reason": "Desktop-only Preview workbench controls and notes use fixed English; the previewed app's locale is a workbench setting. It is never reachable from a product build."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/localization/generated.rs",
+      "mode": "generated",
+      "reason": "ADR0050 accepted resource projection; whole-catalog validation and byte drift are mandatory in this same gate."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/localization/generated.rs",
+      "mode": "generated",
+      "reason": "ADR0050 accepted resource projection; whole-catalog validation and byte drift are mandatory in this same gate."
     }
   ],
   "exceptions": [
     {
       "path": "apps/cantos-studio/web/src/live/artwork/form.rs",
       "literal": "r{} · {}",
-      "context": "}}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),english.get())}</p>})}<small>{format!(\"r{} · {}\",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),",
+      "context": "}}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}<small>{format!(\"r{} · {}\",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),",
       "reason": "Immutable revision/asset-ID notation; punctuation is identical in both locales."
     },
     {
@@ -150,25 +160,25 @@
     {
       "path": "apps/cantos-studio/web/src/live/dashboard.rs",
       "literal": " · ",
-      "context": "<p>{move || text(Key::SelectedUnit, english.get())}\" · \"<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>",
+      "context": "<p>{move || text(Key::SelectedUnit, locale.get())}\" · \"<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>",
       "reason": "Punctuation separates immutable IDs or already-localized labels; no translatable words."
     },
     {
       "path": "apps/cantos-studio/web/src/ui.rs",
       "literal": "novel",
-      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", locale.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", locale.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", locale.get())}</option> }",
       "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
     },
     {
       "path": "apps/cantos-studio/web/src/ui.rs",
       "literal": "story",
-      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", locale.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", locale.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", locale.get())}</option> }",
       "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
     },
     {
       "path": "apps/cantos-studio/web/src/ui.rs",
       "literal": "podcast",
-      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", locale.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", locale.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", locale.get())}</option> }",
       "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
     },
     {
@@ -306,7 +316,7 @@
     {
       "path": "apps/cantos-studio/web/src/forge/view.rs",
       "literal": "Cantos Studio",
-      "context": "<header class=\"forge-heading\"><div><p class=\"forge-brand\">\"Cantos Studio\"</p><h1>{move ||text(Key::Title,english.get())}</h1><p>{move ||text(Key::Intro,english.get())}</p></div></header>",
+      "context": "<header class=\"forge-heading\"><div><p class=\"forge-brand\">\"Cantos Studio\"</p><h1>{move ||text(Key::Title,locale.get())}</h1><p>{move ||text(Key::Intro,locale.get())}</p></div></header>",
       "reason": "Product proper name; retained untranslated in both locales."
     },
     {
@@ -342,7 +352,7 @@
     {
       "path": "apps/cantos-studio/web/src/forge/view.rs",
       "literal": "{} · r{} · {}",
-      "context": "<p class=\"forge-revision\" role=\"status\">{move ||format!(\"{} · r{} · {}\",text(Key::Revision,english.get()),model.with(|m|m.current.as_ref().and_then(|d|d.revisions.last().map(|r|r.number)).unwrap_or(0)),text(if unsaved.get(){Key::Dirty}else{Key::Saved},english.get()))}</p>",
+      "context": "<p class=\"forge-revision\" role=\"status\">{move ||format!(\"{} · r{} · {}\",text(Key::Revision,locale.get()),model.with(|m|m.current.as_ref().and_then(|d|d.revisions.last().map(|r|r.number)).unwrap_or(0)),text(if unsaved.get(){Key::Dirty}else{Key::Saved},locale.get()))}</p>",
       "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
     },
     {
@@ -354,13 +364,13 @@
     {
       "path": "apps/cantos-studio/web/src/forge/view.rs",
       "literal": "{} {id} · r{}",
-      "context": "<h4>{move ||format!(\"{} {id} · r{}\",text(Key::Take,english.get()),take.with(|t|t.as_ref().map(|t|t.revision).unwrap_or(0)))}</h4>",
+      "context": "<h4>{move ||format!(\"{} {id} · r{}\",text(Key::Take,locale.get()),take.with(|t|t.as_ref().map(|t|t.revision).unwrap_or(0)))}</h4>",
       "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
     },
     {
       "path": "apps/cantos-studio/web/src/forge/view.rs",
       "literal": "{}: {}",
-      "context": "<p>{move ||format!(\"{}: {}\",text(Key::Storage,english.get()),text(if take.with(|t|t.as_ref().is_some_and(|t|t.storage==StorageState::Retained)){Key::RetainedStorage}else{Key::FailedStorage},english.get()))}</p>",
+      "context": "<p>{move ||format!(\"{}: {}\",text(Key::Storage,locale.get()),text(if take.with(|t|t.as_ref().is_some_and(|t|t.storage==StorageState::Retained)){Key::RetainedStorage}else{Key::FailedStorage},locale.get()))}</p>",
       "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
     },
     {
@@ -410,6 +420,120 @@
       "literal": "Lưu · ${variant.name}",
       "context": "Button(\"Lưu · ${variant.name}\", onPress, state = buttonState, variant = variant, icon = \"save\",",
       "reason": "Preserved Vietnamese Button typography/accessibility specimen plus technical variant name; independent from fixed English preview tool shell."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/import/browser.rs",
+      "literal": " · ",
+      "context": "<p class=\"block-kind\">{move || block.with_value(|block| messages::import_kind(block.kind, locale.get()))}<small>\" · \"{move || copy().block}\" \"{block.with_value(|block| block.index)}</small></p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/inspector/browser.rs",
+      "literal": " · ",
+      "context": "<p><code>{source.id}</code>\" · \"{move || messages::status(error_status(&error), locale.get())}</p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/inspector/browser.rs",
+      "literal": " · ",
+      "context": "<summary>{move || text(Key::Stored, locale.get())}\" · \"{revision.with_value(|revision| revision.revision)}</summary>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/inspector/browser.rs",
+      "literal": " · ",
+      "context": "<p class=\"review-record\">{move || text(Key::Reviewed, locale.get())}\" \"{review.with_value(|review| review.revision)}\" · \"{review.with_value(|review| review.reviewed_by.clone())}\" · \"{review.with_value(|review| review.reviewed_at.clone())}</p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/dashboard.rs",
+      "literal": "{} · {} · r{}",
+      "context": "<p class=\"dashboard-work-meta\">{move || format!(\"{} · {} · r{}\", work_kind(&work.kind, locale.get()), lifecycle(&work.lifecycle, locale.get()), work.revision)}</p>",
+      "reason": "Locale-neutral technical identity/revision notation joining localized labels and immutable IDs; no arbitrary server prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/view.rs",
+      "literal": ": ",
+      "context": "{move || text(Key::GrantId, locale.get())}\": \"<code>{id.clone()}</code></p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/view.rs",
+      "literal": " · ",
+      "context": "<p>{move || text(Key::DelegateLabel, locale.get())}\": \"<strong>{delegate.clone()}</strong>\" · \"",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/view.rs",
+      "literal": ": ",
+      "context": "<p>{move || text(Key::DelegateLabel, locale.get())}\": \"<strong>{delegate.clone()}</strong>\" · \"",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/view.rs",
+      "literal": "{} ({})",
+      "context": "<span class=\"cui-field-label\">{move || format!(\"{} ({})\", copy::action(action, locale.get()), copy::action_label(action))}</span>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "literal": "{} · {units} {} · {reference} / {version}",
+      "context": "view! { <dl class=\"source-identity production-cost\"><dt>{move || text(Key::Estimate, locale.get())}</dt><dd>{move || value.as_ref().map(|(currency,minor,units,reference,version)|format!(\"{} · {units} {} · {reference} / {version}\",format_money(*currency,*minor,locale.get()),text(Key::UnicodeUnits,locale.get()))).unwrap_or_else(|| text(Key::UnknownEstimate, locale.get()).into())}</dd>",
+      "reason": "Locale-neutral technical identity/revision notation joining localized labels and immutable IDs; no arbitrary server prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "literal": "{} · {}",
+      "context": "<dl class=\"source-identity\"><dt>{move || text(Key::Revision, locale.get())}</dt><dd><code>{move || state.with(|s| format!(\"{} · {}\", s.context.script, s.context.revision))}</code></dd>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "literal": " · ",
+      "context": "<p>{move || text(Key::Stored,locale.get())}\" · \"<output>{saved_version}</output>\" · \"{move || if state.with(Production::is_dirty) { text(Key::Unsaved,locale.get()) } else { \"\" }}</p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "literal": " · ",
+      "context": "<ul class=\"production-rights-list\">{move ||state.with(|s|s.stored.as_ref().map(|s|s.rights.clone()).unwrap_or_default()).into_iter().map(|r|view!{<li><strong>{r.claim.declaration.record_id}</strong>\" · \"{move ||messages::production::rights_status(r.claim.declaration.status,locale.get())}\" · \"{r.claim.version}<small>{r.recorded_by}\" · \"{r.recorded_at}\" · \"{r.claim.declaration.reference}</small></li>}).collect_view()}</ul>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "literal": "{} · {} · {}",
+      "context": "<dt>{move || text(Key::Approval,locale.get())}</dt><dd>{snapshot.approval.map(|a| format!(\"{} · {} · {}\", a.approved_by,a.approved_at,a.input_digest)).unwrap_or_else(||text(Key::NoApproval,locale.get_untracked()).into())}</dd>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/library.rs",
+      "literal": " / ",
+      "context": "<p class=\"theatre-time\">{move || clock(ctx.locale.get(), position_ms.get() / 1000)}<span aria-hidden=\"true\">\" / \"</span>{clock(ctx.locale.get(), duration)}</p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/player_timeline.rs",
+      "literal": "{} / {}",
+      "context": "<p class=\"theatre-time\">{move || format!(\"{} / {}\", super::common::clock(panel.locale.get(), position.get() / 1000), super::common::clock(panel.locale.get(), duration() / 1000))}</p>",
+      "reason": "Fixed punctuation joining already-localized labels or opaque content; no words or locale-dependent numeric formatting."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/queue.rs",
+      "literal": "play_arrow",
+      "context": "aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellPlayName { arg_title: title })>{icon(\"play_arrow\")}<span class=\"cui-control-label\">{move || ctx.text(Key::Begin)}</span></button>",
+      "reason": "Registered decorative icon name; the adjacent accessible action name comes from generated resources."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/queue.rs",
+      "literal": "delete_outline",
+      "context": "aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellQueueRemoveName { arg_title: title })>{icon(\"delete_outline\")}<span class=\"cui-control-label\">{move || ctx.text(Key::QueueRemove)}</span></button>",
+      "reason": "Registered decorative icon name; the adjacent accessible action name comes from generated resources."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/view.rs",
+      "literal": ": ",
+      "context": "<h5 id=heading><span class=\"cui-sr-only\">{move || text(Key::DelegateLabel, locale.get())}\": \"</span>{delegate}</h5>",
+      "reason": "Fixed punctuation joining already-localized labels and opaque grant identity; no translatable words."
     }
   ]
 }

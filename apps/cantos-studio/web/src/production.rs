@@ -875,16 +875,20 @@ pub fn error(code: ErrorCode) -> ApiError {
     }
 }
 
-pub fn format_money(currency: ProductionCurrency, minor: u64, english: bool) -> String {
-    match currency {
-        ProductionCurrency::USD => format!(
-            "USD {}{}{:02}",
-            minor / 100,
-            if english { "." } else { "," },
-            minor % 100
-        ),
-        ProductionCurrency::VND => format!("VND {minor}"),
-    }
+pub fn format_money(
+    currency: ProductionCurrency,
+    minor: u64,
+    locale: crate::localization::Locale,
+) -> String {
+    let currency = match currency {
+        ProductionCurrency::USD => cantos_localization::Currency::Usd,
+        ProductionCurrency::VND => cantos_localization::Currency::Vnd,
+    };
+    crate::localization::present(
+        cantos_localization::Formatter::try_new(locale.lang())
+            .and_then(|formatter| formatter.currency(minor, currency)),
+        locale,
+    )
 }
 
 /// Derive permission IDs from the complete saved export, including sound assets and provenance.
@@ -1567,15 +1571,37 @@ mod tests {
 
     #[test]
     fn money_display_uses_currency_exponent_without_float_rounding() {
-        assert_eq!(format_money(ProductionCurrency::USD, 3, true), "USD 0.03");
-        assert_eq!(format_money(ProductionCurrency::USD, 3, false), "USD 0,03");
         assert_eq!(
-            format_money(ProductionCurrency::VND, 18_500, false),
-            "VND 18500"
+            format_money(
+                ProductionCurrency::USD,
+                3,
+                crate::localization::Locale::English
+            ),
+            "USD\u{a0}0.03"
         );
         assert_eq!(
-            format_money(ProductionCurrency::USD, u64::MAX, true),
-            "USD 184467440737095516.15"
+            format_money(
+                ProductionCurrency::USD,
+                3,
+                crate::localization::Locale::Vietnamese
+            ),
+            "0,03\u{a0}USD"
+        );
+        assert_eq!(
+            format_money(
+                ProductionCurrency::VND,
+                18_500,
+                crate::localization::Locale::Vietnamese
+            ),
+            "18.500\u{a0}VND"
+        );
+        assert_eq!(
+            format_money(
+                ProductionCurrency::USD,
+                u64::MAX,
+                crate::localization::Locale::English
+            ),
+            "USD\u{a0}184,467,440,737,095,516.15"
         );
     }
 

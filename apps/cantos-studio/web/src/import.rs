@@ -720,12 +720,16 @@ mod source_id_tests {
         };
         assert!(!warning_on_page(warning.block, 0, 200));
         assert!(warning_on_page(warning.block, 1, 200));
-        assert!(crate::messages::import_copy(true)
-            .no_warnings
-            .contains("Other pages may have warnings"));
-        assert!(crate::messages::import_copy(false)
-            .no_warnings
-            .contains("Các trang khác vẫn có thể có cảnh báo"));
+        assert!(
+            crate::messages::import_copy(crate::localization::Locale::English)
+                .no_warnings
+                .contains("Other pages may have warnings")
+        );
+        assert!(
+            crate::messages::import_copy(crate::localization::Locale::Vietnamese)
+                .no_warnings
+                .contains("Các trang khác vẫn có thể có cảnh báo")
+        );
     }
 
     #[test]

@@ -51,7 +51,7 @@ fn render(state: AccountViewState, locale: Locale) -> String {
 
 #[test]
 fn terminal_empty_library_has_one_expressive_illustration_quiet_summaries_and_one_refresh() {
-    for locale in Locale::ALL {
+    for locale in Locale::supported() {
         let html = render(ready_empty(), locale);
         assert_eq!(html.matches("href=\"#discover\"").count(), 1);
         assert!(html.contains("theatre-library-empty-title"));
@@ -120,7 +120,7 @@ fn contextual_history_art_requires_its_own_completed_read_and_keeps_other_rows()
     state
         .finish_page(&retry, Ok(empty_page(Section::History, false)))
         .unwrap();
-    for locale in Locale::ALL {
+    for locale in Locale::supported() {
         let html = render(state.clone(), locale);
         assert!(html.contains("Ánh đèn cuối sân khấu"));
         assert_eq!(html.matches("data-artwork=\"history\"").count(), 1);
@@ -220,7 +220,7 @@ fn refresh_plans_one_restart_per_section_and_refuses_pending_or_signed_out() {
 fn pending_refresh_is_focusable_and_exposes_its_busy_reason() {
     let mut state = ready_empty();
     state.begin_library(Section::Continue, true).unwrap();
-    for locale in Locale::ALL {
+    for locale in Locale::supported() {
         let html = render(state.clone(), locale);
         let trigger = html
             .split("id=\"theatre-library-refresh\"")

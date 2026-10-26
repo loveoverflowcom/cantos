@@ -337,7 +337,17 @@ def repository_failures(root=ROOT):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="check whole fixture and generated drift without writes")
+    parser.add_argument("--resources", action="store_true", help="generate/check the accepted production resource projections")
     args = parser.parse_args()
+    if args.resources:
+        import localization_resources
+        if args.check:
+            errors = localization_resources.repository_failures()
+            for error in errors:
+                print(error)
+            return bool(errors)
+        localization_resources.write()
+        return 0
     if args.check:
         errors = repository_failures()
         for error in errors:

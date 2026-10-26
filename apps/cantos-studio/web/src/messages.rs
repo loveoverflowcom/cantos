@@ -1,5 +1,6 @@
 //! Typed resource catalog; vi-VN and en are exhaustive, with no view literals.
 use crate::editor::Status;
+use crate::localization::generated::root as resources;
 
 mod adaptation;
 pub use adaptation::*;
@@ -11,51 +12,7 @@ pub mod production;
 pub mod signin;
 pub mod workspace;
 
-/// Interface locale owned by the Studio root. Namespaces that still take `english: bool` read it
-/// through the [`Locale::is_english`] adapter until they move to typed copy.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Locale {
-    #[default]
-    Vietnamese,
-    English,
-}
-
-impl Locale {
-    pub const ALL: [Self; 2] = [Self::Vietnamese, Self::English];
-
-    /// Exact supported tag only; an unknown tag is `None`, never a silent default.
-    pub fn from_lang(tag: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|locale| locale.lang() == tag)
-    }
-
-    /// BCP 47 tag for `lang` attributes, including the document root.
-    pub const fn lang(self) -> &'static str {
-        match self {
-            Self::Vietnamese => "vi-VN",
-            Self::English => "en",
-        }
-    }
-
-    /// The language's own name; a language switch shows it untranslated.
-    pub const fn autonym(self) -> &'static str {
-        match self {
-            Self::Vietnamese => "Tiếng Việt",
-            Self::English => "English",
-        }
-    }
-
-    pub const fn toggled(self) -> Self {
-        match self {
-            Self::Vietnamese => Self::English,
-            Self::English => Self::Vietnamese,
-        }
-    }
-
-    /// Migration adapter for copy functions that still take `english: bool`.
-    pub const fn is_english(self) -> bool {
-        matches!(self, Self::English)
-    }
-}
+pub use crate::localization::Locale;
 
 #[derive(Clone, Copy)]
 pub struct Copy {
@@ -85,89 +42,75 @@ pub struct Copy {
     pub sign_in_first: &'static str,
 }
 
-pub fn copy(english: bool) -> Copy {
-    if english {
-        Copy {
-        theme:"Appearance", language:"Language", system:"System", light:"Light", dark:"Dark", unknown:"Unknown",
-        title:"Cantos Studio", mode:"Live · local Axum / PostgreSQL · no mock data",
-        token:"Development session token", login:"Sign in", script:"Script ID (UUID)",
-        read:"Read current revision", draft:"Complete Script IR draft (JSON)",
-        save:"Save a new immutable revision", retry:"Retry the submitted snapshot",
-        base:"Base revision", preview:"Stored export · read only", rebase:"Keep my text and use this head as base",
-        help:"Paste a complete 0.1.0 export. Reading keeps any existing draft. Compare the stored export before choosing a new base. A save does not approve production or publication.",
-        busy:"Request in progress; the submitted text is retained.", pending:"Reconcile the submitted snapshot with Retry before reading or making a new save. Sign in as the original submitting actor.",
-        actor:"Signed-in actor", validation:"Validation findings", sign_in_first:"Sign in before saving.",
-    }
-    } else {
-        Copy {
-        theme:"Giao diện", language:"Ngôn ngữ", system:"Theo hệ thống", light:"Sáng", dark:"Tối", unknown:"Chưa xác định",
-        title:"Cantos Studio", mode:"Live · Axum / PostgreSQL local · không dùng dữ liệu mock",
-        token:"Token phiên phát triển", login:"Đăng nhập", script:"ID kịch bản (UUID)",
-        read:"Đọc bản sửa đổi hiện tại", draft:"Bản nháp Script IR đầy đủ (JSON)",
-        save:"Lưu bản sửa đổi bất biến mới", retry:"Thử lại snapshot đã gửi",
-        base:"Bản sửa đổi gốc", preview:"Export đã lưu · chỉ đọc", rebase:"Giữ văn bản và dùng head này làm gốc",
-        help:"Dán export 0.1.0 đầy đủ. Khi đọc, bản nháp hiện có được giữ nguyên. So sánh export đã lưu trước khi chọn gốc mới. Lưu kịch bản chưa phải duyệt sản xuất hay xuất bản.",
-        busy:"Đang xử lý; văn bản đã gửi được giữ nguyên.", pending:"Dùng Thử lại để xác định kết quả snapshot đã gửi trước khi đọc hoặc lưu lần mới. Đăng nhập đúng actor đã gửi snapshot.",
-        actor:"Actor đã đăng nhập", validation:"Các lỗi cần sửa", sign_in_first:"Đăng nhập trước khi lưu.",
-    }
-    }
-}
-
-pub fn status(status: Status, english: bool) -> &'static str {
-    match (status,english) {
-        (Status::Dirty,false) => "Có văn bản chưa lưu.",
-        (Status::Dirty,true) => "Your text has unsaved changes.",
-        (Status::Idle,false) => "Đăng nhập, rồi đọc hoặc lưu một kịch bản.",
-        (Status::Idle,true) => "Sign in, then read or save a script.",
-        (Status::Loading,false) => "Đang đọc bản đã lưu…", (Status::Loading,true) => "Reading stored revision…",
-        (Status::Saving,false) => "Đang lưu snapshot…", (Status::Saving,true) => "Saving snapshot…",
-        (Status::Loaded,false) => "Đã mở bản đã lưu.", (Status::Loaded,true) => "Stored revision opened.",
-        (Status::Saved,false) => "Đã lưu bản sửa đổi mới.", (Status::Saved,true) => "New revision saved.",
-        (Status::DraftPreserved,false) => "Đã giữ văn bản đang sửa. So sánh với export đã lưu bên dưới.",
-        (Status::DraftPreserved,true) => "Your draft is preserved. Compare it with the stored export below.",
-        (Status::SignedIn,false) => "Đăng nhập thành công.", (Status::SignedIn,true) => "Signed in.",
-        (Status::Unauthenticated,false) => "Phiên chưa hợp lệ hoặc đã hết hạn. Đăng nhập lại; văn bản được giữ nguyên.",
-        (Status::Unauthenticated,true) => "Session missing or expired. Sign in again; your text is preserved.",
-        (Status::NotFound,false) => "Không tìm thấy kịch bản trong phạm vi quyền của bạn.",
-        (Status::NotFound,true) => "Script not found within your access scope.",
-        (Status::Forbidden,false) => "Bạn không có quyền thực hiện thao tác này.", (Status::Forbidden,true) => "You do not have permission for this action.",
-        (Status::InvalidRequest,false) => "Kiểm tra ID và định dạng yêu cầu; văn bản chưa bị thay đổi.",
-        (Status::InvalidRequest,true) => "Check the ID and request format; your text has not changed.",
-        (Status::InvalidScript,false) => "Kịch bản chưa hợp lệ. Sửa các lỗi dưới đây rồi lưu lại.",
-        (Status::InvalidScript,true) => "Script invalid. Correct the findings below and save again.",
-        (Status::EvidenceUnavailable,false) => "Tham chiếu nguồn hoặc quyền chưa có trong tài khoản sở hữu. Cần đăng ký hồ sơ trước khi lưu.",
-        (Status::EvidenceUnavailable,true) => "Source or rights references are unavailable in the owner account. Register evidence before saving.",
-        (Status::StaleRevision,false) => "Có bản mới hơn. Văn bản của bạn được giữ nguyên; đọc head, so sánh rồi chọn gốc mới.",
-        (Status::StaleRevision,true) => "A newer revision exists. Your text is preserved; read the head, compare, then choose a new base.",
-        (Status::OperationReused,false) => "Operation ID đã dùng với snapshot khác. Văn bản được giữ; cần bắt đầu lần lưu mới.",
-        (Status::OperationReused,true) => "Operation ID was used with another snapshot. Text preserved; start a new save.",
-        (Status::ProposalAlreadySubmitted,false) => "Context này đã có đề xuất hợp lệ. Mở lại đề xuất đã lưu để xem và chấp nhận; không tự thay thế kết quả.",
-        (Status::ProposalAlreadySubmitted,true) => "This context already has a valid proposal. Open the saved proposal for review and acceptance; it is not silently replaced.",
-        (Status::Unavailable,false) => "Chưa xác định được kết quả. Văn bản và snapshot được giữ; thử lại khi kết nối phục hồi.",
-        (Status::Unavailable,true) => "Outcome unavailable. Text and snapshot preserved; retry after connection recovers.",
-        (Status::CorruptRevision,false) => "Không kiểm chứng được bản đã lưu. Văn bản được giữ; cần kiểm tra backend.",
-        (Status::CorruptRevision,true) => "Stored revision integrity check failed. Text preserved; inspect the backend.",
-        (Status::StaleProductionInputs, false) => "Đầu vào sản xuất đã đổi. Đọc lại thiết lập và quyền, kiểm tra rồi đóng băng snapshot mới; các giá trị hiện tại được giữ.",
-        (Status::StaleProductionInputs, true) => "Production inputs changed. Reload settings and rights, review, then freeze a new snapshot; current values are preserved.",
-        (Status::ProductionBlocked, false) => "Phê duyệt bị chặn bởi quyền, ngân sách hoặc rà soát kịch bản. Xem các điều kiện và kiểm tra lại snapshot.",
-        (Status::ProductionBlocked, true) => "Approval blocked by permissions, budget or script review. Inspect the findings and check the snapshot again.",
+pub fn copy(locale: crate::localization::Locale) -> Copy {
+    Copy {
+        theme: resources::text(resources::Key::CopyTheme, locale),
+        language: resources::text(resources::Key::CopyLanguage, locale),
+        system: resources::text(resources::Key::CopySystem, locale),
+        light: resources::text(resources::Key::CopyLight, locale),
+        dark: resources::text(resources::Key::CopyDark, locale),
+        unknown: resources::text(resources::Key::CopyUnknown, locale),
+        title: resources::text(resources::Key::CopyTitle, locale),
+        mode: resources::text(resources::Key::CopyMode, locale),
+        token: resources::text(resources::Key::CopyToken, locale),
+        login: resources::text(resources::Key::CopyLogin, locale),
+        script: resources::text(resources::Key::CopyScript, locale),
+        read: resources::text(resources::Key::CopyRead, locale),
+        draft: resources::text(resources::Key::CopyDraft, locale),
+        save: resources::text(resources::Key::CopySave, locale),
+        retry: resources::text(resources::Key::CopyRetry, locale),
+        base: resources::text(resources::Key::CopyBase, locale),
+        preview: resources::text(resources::Key::CopyPreview, locale),
+        rebase: resources::text(resources::Key::CopyRebase, locale),
+        help: resources::text(resources::Key::CopyHelp, locale),
+        busy: resources::text(resources::Key::CopyBusy, locale),
+        pending: resources::text(resources::Key::CopyPending, locale),
+        actor: resources::text(resources::Key::CopyActor, locale),
+        validation: resources::text(resources::Key::CopyValidation, locale),
+        sign_in_first: resources::text(resources::Key::CopySignInFirst, locale),
     }
 }
 
-pub fn language_toggle_label(english: bool) -> &'static str {
-    if english {
-        "VI"
-    } else {
-        "EN"
+pub fn status(status: Status, locale: crate::localization::Locale) -> &'static str {
+    match status {
+        Status::Dirty => resources::text(resources::Key::StatusDirty, locale),
+        Status::Idle => resources::text(resources::Key::StatusIdle, locale),
+        Status::Loading => resources::text(resources::Key::StatusLoading, locale),
+        Status::Saving => resources::text(resources::Key::StatusSaving, locale),
+        Status::Loaded => resources::text(resources::Key::StatusLoaded, locale),
+        Status::Saved => resources::text(resources::Key::StatusSaved, locale),
+        Status::DraftPreserved => resources::text(resources::Key::StatusDraftPreserved, locale),
+        Status::SignedIn => resources::text(resources::Key::StatusSignedIn, locale),
+        Status::Unauthenticated => resources::text(resources::Key::StatusUnauthenticated, locale),
+        Status::NotFound => resources::text(resources::Key::StatusNotFound, locale),
+        Status::Forbidden => resources::text(resources::Key::StatusForbidden, locale),
+        Status::InvalidRequest => resources::text(resources::Key::StatusInvalidRequest, locale),
+        Status::InvalidScript => resources::text(resources::Key::StatusInvalidScript, locale),
+        Status::EvidenceUnavailable => {
+            resources::text(resources::Key::StatusEvidenceUnavailable, locale)
+        }
+        Status::StaleRevision => resources::text(resources::Key::StatusStaleRevision, locale),
+        Status::OperationReused => resources::text(resources::Key::StatusOperationReused, locale),
+        Status::ProposalAlreadySubmitted => {
+            resources::text(resources::Key::StatusProposalAlreadySubmitted, locale)
+        }
+        Status::Unavailable => resources::text(resources::Key::StatusUnavailable, locale),
+        Status::CorruptRevision => resources::text(resources::Key::StatusCorruptRevision, locale),
+        Status::StaleProductionInputs => {
+            resources::text(resources::Key::StatusStaleProductionInputs, locale)
+        }
+        Status::ProductionBlocked => {
+            resources::text(resources::Key::StatusProductionBlocked, locale)
+        }
     }
 }
 
-pub fn language_toggle_tooltip(english: bool) -> &'static str {
-    if english {
-        "Language: English · Switch to Tiếng Việt"
-    } else {
-        "Ngôn ngữ: Tiếng Việt · Chuyển sang English"
-    }
+pub fn language_toggle_label(locale: crate::localization::Locale) -> &'static str {
+    resources::text(resources::Key::LanguageToggleLabel, locale)
+}
+
+pub fn language_toggle_tooltip(locale: crate::localization::Locale) -> &'static str {
+    resources::text(resources::Key::LanguageToggleTooltip, locale)
 }
 
 #[cfg(test)]
@@ -176,23 +119,24 @@ mod tests {
     use crate::editor::Status;
 
     #[test]
-    fn locale_is_typed_at_the_root_and_adapts_to_legacy_copy() {
-        assert_eq!(Locale::default(), Locale::Vietnamese);
-        for (locale, lang, autonym, english) in [
-            (Locale::Vietnamese, "vi-VN", "Tiếng Việt", false),
-            (Locale::English, "en", "English", true),
+    fn locale_registry_resolves_explicit_aliases_and_regional_lookup() {
+        assert_eq!(Locale::default().lang(), "vi-VN");
+        assert_eq!(
+            Locale::supported().map(Locale::lang).collect::<Vec<_>>(),
+            ["vi-VN", "en"]
+        );
+        for (tag, expected) in [
+            ("vi", "vi-VN"),
+            ("vi-VN", "vi-VN"),
+            ("EN", "en"),
+            ("en-GB", "en"),
         ] {
-            assert_eq!(locale.lang(), lang);
-            assert_eq!(Locale::from_lang(lang), Some(locale));
-            assert_eq!(locale.autonym(), autonym);
-            assert_eq!(locale.is_english(), english);
-            assert_ne!(locale.toggled(), locale);
-            assert_eq!(locale.toggled().toggled(), locale);
-            assert_eq!(copy(locale.is_english()).theme, copy(english).theme);
+            assert_eq!(Locale::from_lang(tag).map(Locale::lang), Some(expected));
         }
-        for unsupported in ["", "vi", "EN", "en-US", "fr"] {
-            assert_eq!(Locale::from_lang(unsupported), None, "{unsupported}");
+        for unsupported in ["", "fr", "zh-Hant", "ja"] {
+            assert_eq!(Locale::from_lang(unsupported), None);
         }
+        assert_eq!(copy(Locale::default()).theme, "Giao diện");
     }
     #[test]
     fn every_async_and_error_state_has_both_locales() {
@@ -217,11 +161,15 @@ mod tests {
             Status::Unavailable,
             Status::CorruptRevision,
         ] {
-            assert!(!status(state, false).is_empty());
-            assert!(!status(state, true).is_empty());
+            assert!(!status(state, crate::localization::Locale::Vietnamese).is_empty());
+            assert!(!status(state, crate::localization::Locale::English).is_empty());
         }
-        assert!(copy(false).mode.contains("Live"));
-        assert!(copy(true).mode.contains("no mock"));
+        assert!(copy(crate::localization::Locale::Vietnamese)
+            .mode
+            .contains("Live"));
+        assert!(copy(crate::localization::Locale::English)
+            .mode
+            .contains("no mock"));
     }
 }
 
@@ -275,86 +223,131 @@ pub struct ImportCopy {
     pub next_blocks: &'static str,
 }
 
-pub fn import_copy(english: bool) -> ImportCopy {
-    if english {
-        ImportCopy {
-            title: "Import a manuscript",
-            help: "Choose an explicit format and a nonempty source reference. Files must be 1 byte to 1 MiB. Importing stores a private immutable source and a separate extraction; it does not create an accepted script revision.",
-            file: "Manuscript file", format: "Source format", txt: "Plain text (TXT)", markdown: "Markdown", docx: "Word document (DOCX)", script_ir: "Script IR (JSON)",
-            reference: "Source reference (required)", rights_holder: "Rights holder (optional)", permission_evidence: "Permission evidence (optional)", usage_scope: "Allowed usage scope (optional)",
-            rights_help: "Publication rights remain unknown. These are recorded claims for review; importing never establishes permission to adapt, generate audio, or publish.",
-            save: "Import and save source", retry: "Retry the same import", pending: "Reconcile this submitted snapshot before changing the file or metadata. Sign in as its original submitting actor and retry the same operation.",
-            required: "Sign in, choose a file, and enter a source reference before importing.", source_id: "Stored source ID (src_…)", open: "Open stored source", stored: "Stored source · read only", original: "Original source", download: "Download exact original bytes", binary: "This original cannot be shown as UTF-8 text. Download its exact bytes for comparison; the extraction below is a separate representation.",
-            parsed: "Normalized extraction", parsed_help: "Prose labels and scene headings are source suggestions requiring review. Unknown speakers and scenes remain unresolved. No AI adaptation has run.", warnings: "Warnings for this page, including source-wide warnings", no_warnings: "There are no warnings for the displayed blocks and no source-wide warnings. Other pages may have warnings. This is not an editorial or rights approval.", failed: "Extraction failed; the original source is preserved. Correct the source or choose another format and submit a new import.",
-            speaker: "Speaker label", scene: "Scene", cue: "Cue type", unknown: "Unknown / unresolved", script_json: "Validated Script IR · source preview", checksum: "Original SHA-256", operation: "Submitted operation ID", extractor: "Extractor version", recorded_at: "Recorded at (UTC)", imported_by: "Imported by", file_name: "Original file name", byte_len: "Original bytes", block: "Block index", support_code: "Diagnostic code", absent: "Not recorded", byte_offset: "UTF-8 byte offset", previous_blocks: "Previous blocks", next_blocks: "Next blocks",
-        }
-    } else {
-        ImportCopy {
-            title: "Nhập bản thảo",
-            help: "Chọn đúng định dạng và nhập tham chiếu nguồn. Tệp cần có dung lượng từ 1 byte đến 1 MiB. Nhập bản thảo lưu nguồn riêng tư bất biến cùng bản trích xuất riêng; chưa tạo bản sửa đổi kịch bản được chấp nhận.",
-            file: "Tệp bản thảo", format: "Định dạng nguồn", txt: "Văn bản thuần (TXT)", markdown: "Markdown", docx: "Tài liệu Word (DOCX)", script_ir: "Script IR (JSON)",
-            reference: "Tham chiếu nguồn (bắt buộc)", rights_holder: "Chủ sở hữu quyền (không bắt buộc)", permission_evidence: "Bằng chứng cho phép (không bắt buộc)", usage_scope: "Phạm vi sử dụng được phép (không bắt buộc)",
-            rights_help: "Quyền xuất bản vẫn chưa xác định. Đây là thông tin được ghi nhận để rà soát; việc nhập không chứng minh quyền chuyển thể, tạo âm thanh hay xuất bản.",
-            save: "Nhập và lưu nguồn", retry: "Thử lại cùng lần nhập", pending: "Xác định kết quả snapshot đã gửi trước khi đổi tệp hoặc thông tin. Đăng nhập đúng actor đã gửi và thử lại cùng operation ID.",
-            required: "Đăng nhập, chọn tệp và nhập tham chiếu nguồn trước khi lưu.", source_id: "ID nguồn đã lưu (src_…)", open: "Mở nguồn đã lưu", stored: "Nguồn đã lưu · chỉ đọc", original: "Nguồn gốc", download: "Tải xuống đúng byte gốc", binary: "Nguồn gốc này không thể hiển thị dưới dạng văn bản UTF-8. Tải xuống đúng byte gốc để đối chiếu; bản trích xuất bên dưới là biểu diễn riêng.",
-            parsed: "Nội dung trích xuất đã chuẩn hóa", parsed_help: "Nhãn người nói và tiêu đề cảnh trong văn xuôi là gợi ý từ nguồn, cần rà soát. Người nói và cảnh chưa rõ vẫn chưa được xác định. Chưa chạy chuyển thể AI.", warnings: "Cảnh báo của trang này, gồm cảnh báo chung cho nguồn", no_warnings: "Các đoạn đang hiển thị không có cảnh báo; cũng không có cảnh báo chung cho nguồn. Các trang khác vẫn có thể có cảnh báo. Điều này chưa phải duyệt biên tập hay duyệt quyền sử dụng.", failed: "Không trích xuất được; nguồn gốc đã được giữ lại. Sửa nguồn hoặc chọn định dạng khác rồi tạo lần nhập mới.",
-            speaker: "Nhãn người nói", scene: "Cảnh", cue: "Loại cue", unknown: "Chưa rõ / chưa xác định", script_json: "Script IR đã kiểm tra · xem trước nguồn", checksum: "SHA-256 nguồn gốc", operation: "Operation ID đã gửi", extractor: "Phiên bản bộ trích xuất", recorded_at: "Thời điểm ghi nhận (UTC)", imported_by: "Actor nhập nguồn", file_name: "Tên tệp gốc", byte_len: "Số byte gốc", block: "Chỉ số đoạn", support_code: "Mã chẩn đoán", absent: "Chưa ghi nhận", byte_offset: "Vị trí byte UTF-8", previous_blocks: "Các đoạn trước", next_blocks: "Các đoạn tiếp theo",
-        }
+pub fn import_copy(locale: crate::localization::Locale) -> ImportCopy {
+    ImportCopy {
+        title: resources::text(resources::Key::ImportCopyTitle, locale),
+        help: resources::text(resources::Key::ImportCopyHelp, locale),
+        file: resources::text(resources::Key::ImportCopyFile, locale),
+        format: resources::text(resources::Key::ImportCopyFormat, locale),
+        txt: resources::text(resources::Key::ImportCopyTxt, locale),
+        markdown: resources::text(resources::Key::ImportCopyMarkdown, locale),
+        docx: resources::text(resources::Key::ImportCopyDocx, locale),
+        script_ir: resources::text(resources::Key::ImportCopyScriptIr, locale),
+        reference: resources::text(resources::Key::ImportCopyReference, locale),
+        rights_holder: resources::text(resources::Key::ImportCopyRightsHolder, locale),
+        permission_evidence: resources::text(resources::Key::ImportCopyPermissionEvidence, locale),
+        usage_scope: resources::text(resources::Key::ImportCopyUsageScope, locale),
+        rights_help: resources::text(resources::Key::ImportCopyRightsHelp, locale),
+        save: resources::text(resources::Key::ImportCopySave, locale),
+        retry: resources::text(resources::Key::ImportCopyRetry, locale),
+        pending: resources::text(resources::Key::ImportCopyPending, locale),
+        required: resources::text(resources::Key::ImportCopyRequired, locale),
+        source_id: resources::text(resources::Key::ImportCopySourceId, locale),
+        open: resources::text(resources::Key::ImportCopyOpen, locale),
+        stored: resources::text(resources::Key::ImportCopyStored, locale),
+        original: resources::text(resources::Key::ImportCopyOriginal, locale),
+        download: resources::text(resources::Key::ImportCopyDownload, locale),
+        binary: resources::text(resources::Key::ImportCopyBinary, locale),
+        parsed: resources::text(resources::Key::ImportCopyParsed, locale),
+        parsed_help: resources::text(resources::Key::ImportCopyParsedHelp, locale),
+        warnings: resources::text(resources::Key::ImportCopyWarnings, locale),
+        no_warnings: resources::text(resources::Key::ImportCopyNoWarnings, locale),
+        failed: resources::text(resources::Key::ImportCopyFailed, locale),
+        speaker: resources::text(resources::Key::ImportCopySpeaker, locale),
+        scene: resources::text(resources::Key::ImportCopyScene, locale),
+        cue: resources::text(resources::Key::ImportCopyCue, locale),
+        unknown: resources::text(resources::Key::ImportCopyUnknown, locale),
+        script_json: resources::text(resources::Key::ImportCopyScriptJson, locale),
+        checksum: resources::text(resources::Key::ImportCopyChecksum, locale),
+        operation: resources::text(resources::Key::ImportCopyOperation, locale),
+        extractor: resources::text(resources::Key::ImportCopyExtractor, locale),
+        recorded_at: resources::text(resources::Key::ImportCopyRecordedAt, locale),
+        imported_by: resources::text(resources::Key::ImportCopyImportedBy, locale),
+        file_name: resources::text(resources::Key::ImportCopyFileName, locale),
+        byte_len: resources::text(resources::Key::ImportCopyByteLen, locale),
+        block: resources::text(resources::Key::ImportCopyBlock, locale),
+        support_code: resources::text(resources::Key::ImportCopySupportCode, locale),
+        absent: resources::text(resources::Key::ImportCopyAbsent, locale),
+        byte_offset: resources::text(resources::Key::ImportCopyByteOffset, locale),
+        previous_blocks: resources::text(resources::Key::ImportCopyPreviousBlocks, locale),
+        next_blocks: resources::text(resources::Key::ImportCopyNextBlocks, locale),
     }
 }
 
-pub fn import_status(value: &crate::import::ImportStatus, english: bool) -> &'static str {
+pub fn import_status(
+    value: &crate::import::ImportStatus,
+    locale: crate::localization::Locale,
+) -> &'static str {
     use crate::contract::ErrorCode;
     use crate::import::ImportStatus;
-    match (value, english) {
-        (ImportStatus::Error(ErrorCode::StaleProductionInputs), true) => "Production input scope changed; import selection is preserved.",
-        (ImportStatus::Error(ErrorCode::StaleProductionInputs), false) => "Phạm vi đầu vào sản xuất đã đổi; tệp nhập được giữ.",
-        (ImportStatus::Error(ErrorCode::ProductionBlocked), true) => "Production inputs are blocked; import selection is preserved.",
-        (ImportStatus::Error(ErrorCode::ProductionBlocked), false) => "Đầu vào sản xuất đang bị chặn; tệp nhập được giữ.",
-        (ImportStatus::Idle, true) => "Choose a manuscript to import, or open a stored source by its ID.",
-        (ImportStatus::Idle, false) => "Chọn bản thảo để nhập hoặc mở nguồn đã lưu bằng ID.",
-        (ImportStatus::ReadingFile, true) => "Reading the selected file…",
-        (ImportStatus::ReadingFile, false) => "Đang đọc tệp đã chọn…",
-        (ImportStatus::Ready, true) => "File prepared. Review the format and source metadata, then import.",
-        (ImportStatus::Ready, false) => "Tệp đã sẵn sàng. Kiểm tra định dạng và thông tin nguồn rồi nhập.",
-        (ImportStatus::Saving, true) => "Importing and storing the source…",
-        (ImportStatus::Saving, false) => "Đang nhập và lưu nguồn…",
-        (ImportStatus::Loading, true) => "Opening the stored source…",
-        (ImportStatus::Loading, false) => "Đang mở nguồn đã lưu…",
-        (ImportStatus::Stored, true) => "Stored source opened. Compare the original with the separate extraction below.",
-        (ImportStatus::Stored, false) => "Đã mở nguồn lưu trữ. Đối chiếu nguồn gốc với bản trích xuất riêng bên dưới.",
-        (ImportStatus::FileTooLarge, true) => "File must be 1 byte to 1 MiB. Choose a smaller nonempty file; no upload was sent.",
-        (ImportStatus::FileTooLarge, false) => "Tệp cần có dung lượng từ 1 byte đến 1 MiB. Chọn tệp nhỏ hơn và có nội dung; chưa gửi tệp lên máy chủ.",
-        (ImportStatus::FileReadFailed, true) => "The browser could not read this file. Select it again; no upload was sent.",
-        (ImportStatus::FileReadFailed, false) => "Trình duyệt không đọc được tệp này. Chọn lại tệp; chưa gửi tệp lên máy chủ.",
-        (ImportStatus::Error(ErrorCode::Unauthenticated), true) => "Session missing or expired. Sign in again; the selected file and submitted snapshot are preserved.",
-        (ImportStatus::Error(ErrorCode::Unauthenticated), false) => "Phiên chưa hợp lệ hoặc đã hết hạn. Đăng nhập lại; tệp đã chọn và snapshot đã gửi được giữ nguyên.",
-        (ImportStatus::Error(ErrorCode::Forbidden), true) => "This action is unavailable for the signed-in actor. Your file is preserved; retry an unresolved import as its original actor.",
-        (ImportStatus::Error(ErrorCode::Forbidden), false) => "Actor đang đăng nhập không có quyền thao tác. Tệp được giữ nguyên; thử lại lần nhập chưa rõ kết quả bằng đúng actor đã gửi.",
-        (ImportStatus::Error(ErrorCode::NotFound), true) => "Source not found within your access scope. Check its ID and account; the chosen file is preserved.",
-        (ImportStatus::Error(ErrorCode::NotFound), false) => "Không tìm thấy nguồn trong phạm vi quyền của bạn. Kiểm tra ID và tài khoản; tệp đã chọn được giữ nguyên.",
-        (ImportStatus::Error(ErrorCode::InvalidRequest), true) => "Check the source ID, format, and metadata limits. Your selected file is preserved; correct the request and submit again.",
-        (ImportStatus::Error(ErrorCode::InvalidRequest), false) => "Kiểm tra ID nguồn, định dạng và giới hạn thông tin. Tệp đã chọn được giữ nguyên; sửa yêu cầu rồi gửi lại.",
-        (ImportStatus::Error(ErrorCode::OperationReused), true) => "This operation ID belongs to another snapshot. File preserved; review the request and submit a new import.",
-        (ImportStatus::Error(ErrorCode::OperationReused), false) => "Operation ID này thuộc snapshot khác. Tệp được giữ nguyên; kiểm tra yêu cầu rồi tạo lần nhập mới.",
-        (ImportStatus::Error(ErrorCode::Unavailable), true) => "The import outcome is unavailable. File and submitted snapshot are preserved; retry the same operation after connection recovers.",
-        (ImportStatus::Error(ErrorCode::Unavailable), false) => "Chưa xác định được kết quả nhập. Tệp và snapshot được giữ nguyên; thử lại cùng operation khi kết nối phục hồi.",
-        (ImportStatus::Error(ErrorCode::CorruptRevision), true) => "Stored source integrity could not be verified. Your file is preserved; retry the unresolved snapshot or ask the operator to inspect storage.",
-        (ImportStatus::Error(ErrorCode::CorruptRevision), false) => "Không kiểm chứng được tính toàn vẹn của nguồn đã lưu. Tệp được giữ nguyên; thử lại snapshot chưa rõ kết quả hoặc nhờ người vận hành kiểm tra lưu trữ.",
-        (ImportStatus::Error(ErrorCode::InvalidScript), true) => "Structured input was rejected. File preserved; inspect the source and submit a corrected import.",
-        (ImportStatus::Error(ErrorCode::InvalidScript), false) => "Nội dung có cấu trúc chưa hợp lệ. Tệp được giữ nguyên; kiểm tra nguồn rồi nhập bản đã sửa.",
-        (ImportStatus::Error(ErrorCode::EvidenceUnavailable), true) => "Source evidence is unavailable for this account. File preserved; check the source metadata and account.",
-        (ImportStatus::Error(ErrorCode::EvidenceUnavailable), false) => "Tài khoản này chưa có bằng chứng nguồn cần thiết. Tệp được giữ nguyên; kiểm tra thông tin nguồn và tài khoản.",
-        (ImportStatus::Error(ErrorCode::StaleRevision), true) => "The referenced revision changed. File preserved; reopen the current source before another request.",
-        (ImportStatus::Error(ErrorCode::StaleRevision), false) => "Bản sửa đổi được tham chiếu đã thay đổi. Tệp được giữ nguyên; mở lại nguồn hiện tại trước khi gửi yêu cầu mới.",
-        (ImportStatus::Error(ErrorCode::ProposalAlreadySubmitted), english) => status(Status::ProposalAlreadySubmitted, english),
-        (ImportStatus::Error(ErrorCode::InvalidCatalog | ErrorCode::AudioRejected), english) => status(Status::InvalidRequest, english),
-        (ImportStatus::Error(ErrorCode::CatalogConflict | ErrorCode::StaleCursor), english) => status(Status::StaleRevision, english),
+    match value {
+        ImportStatus::Error(ErrorCode::StaleProductionInputs) => {
+            resources::text(resources::Key::ImportStatusStaleProductionInputs, locale)
+        }
+        ImportStatus::Error(ErrorCode::ProductionBlocked) => {
+            resources::text(resources::Key::ImportStatusProductionBlocked, locale)
+        }
+        ImportStatus::Idle => resources::text(resources::Key::ImportStatusIdle, locale),
+        ImportStatus::ReadingFile => {
+            resources::text(resources::Key::ImportStatusReadingFile, locale)
+        }
+        ImportStatus::Ready => resources::text(resources::Key::ImportStatusReady, locale),
+        ImportStatus::Saving => resources::text(resources::Key::ImportStatusSaving, locale),
+        ImportStatus::Loading => resources::text(resources::Key::ImportStatusLoading, locale),
+        ImportStatus::Stored => resources::text(resources::Key::ImportStatusStored, locale),
+        ImportStatus::FileTooLarge => {
+            resources::text(resources::Key::ImportStatusFileTooLarge, locale)
+        }
+        ImportStatus::FileReadFailed => {
+            resources::text(resources::Key::ImportStatusFileReadFailed, locale)
+        }
+        ImportStatus::Error(ErrorCode::Unauthenticated) => {
+            resources::text(resources::Key::ImportStatusUnauthenticated, locale)
+        }
+        ImportStatus::Error(ErrorCode::Forbidden) => {
+            resources::text(resources::Key::ImportStatusForbidden, locale)
+        }
+        ImportStatus::Error(ErrorCode::NotFound) => {
+            resources::text(resources::Key::ImportStatusNotFound, locale)
+        }
+        ImportStatus::Error(ErrorCode::InvalidRequest) => {
+            resources::text(resources::Key::ImportStatusInvalidRequest, locale)
+        }
+        ImportStatus::Error(ErrorCode::OperationReused) => {
+            resources::text(resources::Key::ImportStatusOperationReused, locale)
+        }
+        ImportStatus::Error(ErrorCode::Unavailable) => {
+            resources::text(resources::Key::ImportStatusUnavailable, locale)
+        }
+        ImportStatus::Error(ErrorCode::CorruptRevision) => {
+            resources::text(resources::Key::ImportStatusCorruptRevision, locale)
+        }
+        ImportStatus::Error(ErrorCode::InvalidScript) => {
+            resources::text(resources::Key::ImportStatusInvalidScript, locale)
+        }
+        ImportStatus::Error(ErrorCode::EvidenceUnavailable) => {
+            resources::text(resources::Key::ImportStatusEvidenceUnavailable, locale)
+        }
+        ImportStatus::Error(ErrorCode::StaleRevision) => {
+            resources::text(resources::Key::ImportStatusStaleRevision, locale)
+        }
+        ImportStatus::Error(ErrorCode::ProposalAlreadySubmitted) => {
+            status(Status::ProposalAlreadySubmitted, locale)
+        }
+        ImportStatus::Error(ErrorCode::InvalidCatalog | ErrorCode::AudioRejected) => {
+            status(Status::InvalidRequest, locale)
+        }
+        ImportStatus::Error(ErrorCode::CatalogConflict | ErrorCode::StaleCursor) => {
+            status(Status::StaleRevision, locale)
+        }
     }
 }
 
-pub fn import_format(format: crate::contract::ImportFormat, english: bool) -> &'static str {
-    let copy = import_copy(english);
+pub fn import_format(
+    format: crate::contract::ImportFormat,
+    locale: crate::localization::Locale,
+) -> &'static str {
+    let copy = import_copy(locale);
     match format {
         crate::contract::ImportFormat::Txt => copy.txt,
         crate::contract::ImportFormat::Markdown => copy.markdown,
@@ -363,108 +356,70 @@ pub fn import_format(format: crate::contract::ImportFormat, english: bool) -> &'
     }
 }
 
-pub fn import_kind(kind: crate::contract::ImportBlockKind, english: bool) -> &'static str {
+pub fn import_kind(
+    kind: crate::contract::ImportBlockKind,
+    locale: crate::localization::Locale,
+) -> &'static str {
     use crate::contract::ImportBlockKind;
-    match (kind, english) {
-        (ImportBlockKind::Paragraph, true) => "Paragraph",
-        (ImportBlockKind::Paragraph, false) => "Đoạn văn",
-        (ImportBlockKind::Dialogue, true) => "Dialogue",
-        (ImportBlockKind::Dialogue, false) => "Lời thoại",
-        (ImportBlockKind::Narration, true) => "Narration",
-        (ImportBlockKind::Narration, false) => "Lời dẫn",
-        (ImportBlockKind::SceneCue, true) => "Scene cue",
-        (ImportBlockKind::SceneCue, false) => "Chỉ dẫn cảnh",
-        (ImportBlockKind::SoundCue, true) => "Sound cue",
-        (ImportBlockKind::SoundCue, false) => "Chỉ dẫn âm thanh",
+    match kind {
+        ImportBlockKind::Paragraph => resources::text(resources::Key::ImportKindParagraph, locale),
+        ImportBlockKind::Dialogue => resources::text(resources::Key::ImportKindDialogue, locale),
+        ImportBlockKind::Narration => resources::text(resources::Key::ImportKindNarration, locale),
+        ImportBlockKind::SceneCue => resources::text(resources::Key::ImportKindSceneCue, locale),
+        ImportBlockKind::SoundCue => resources::text(resources::Key::ImportKindSoundCue, locale),
     }
 }
 
-pub fn import_diagnostic(code: &str, english: bool) -> &'static str {
-    match (code, english) {
-        ("utf8_bom_removed", true) => "The UTF-8 byte-order marker was removed only from the extraction; original bytes are preserved.",
-        ("utf8_bom_removed", false) => "Dấu thứ tự byte UTF-8 chỉ được bỏ trong bản trích xuất; byte gốc vẫn được giữ nguyên.",
-        ("line_endings_normalized", true) => "Line endings were normalized in the extraction; the original is unchanged.",
-        ("line_endings_normalized", false) => "Dấu xuống dòng được chuẩn hóa trong bản trích xuất; nguồn gốc không bị thay đổi.",
-        ("unicode_nfc_normalized", true) => "Unicode characters were normalized to NFC in the extraction; compare with the preserved original.",
-        ("unicode_nfc_normalized", false) => "Ký tự Unicode được chuẩn hóa sang NFC trong bản trích xuất; đối chiếu với nguồn gốc đã giữ.",
-        ("paragraph_edge_whitespace_trimmed", true) => "Whitespace at paragraph edges was trimmed only in the extraction.",
-        ("paragraph_edge_whitespace_trimmed", false) => "Khoảng trắng ở đầu và cuối đoạn chỉ được bỏ trong bản trích xuất.",
-        ("markdown_list_or_dialogue_ambiguous", true) => "A Markdown list marker could also mean dialogue. The paragraph is preserved without assigning a speaker.",
-        ("markdown_list_or_dialogue_ambiguous", false) => "Dấu danh sách Markdown cũng có thể là lời thoại. Đoạn văn được giữ mà không gán người nói.",
-        ("docx_images_omitted", true) => "Images are omitted from the text extraction; they remain in the original DOCX.",
-        ("docx_images_omitted", false) => "Hình ảnh không được đưa vào bản trích xuất văn bản; chúng vẫn có trong DOCX gốc.",
-        ("docx_annotations_omitted", true) => "DOCX annotations are omitted. Review them in the preserved original.",
-        ("docx_annotations_omitted", false) => "Chú thích DOCX không được trích xuất. Rà soát chúng trong nguồn gốc đã giữ.",
-        ("docx_headers_footers_omitted", true) => "DOCX headers and footers are omitted from the extraction.",
-        ("docx_headers_footers_omitted", false) => "Đầu trang và chân trang DOCX không được đưa vào bản trích xuất.",
-        ("docx_soft_breaks_segmented", true) => "DOCX soft line breaks were split into text segments. Review the resulting paragraph boundaries.",
-        ("docx_soft_breaks_segmented", false) => "Xuống dòng mềm trong DOCX được tách thành các đoạn văn bản. Cần kiểm tra ranh giới đoạn.",
-        ("xml_processing_instruction_ignored", true) => "XML processing instructions were ignored and were not executed.",
-        ("xml_processing_instruction_ignored", false) => "Chỉ thị xử lý XML được bỏ qua và không được thực thi.",
-        ("docx_tables_flattened", true) => "DOCX table text was flattened into reading order. Review the layout in the original.",
-        ("docx_tables_flattened", false) => "Văn bản bảng DOCX được chuyển thành thứ tự đọc liên tục. Rà soát bố cục trong nguồn gốc.",
-        ("docx_textboxes_flattened", true) => "DOCX text boxes were flattened into text. Review their reading order in the original.",
-        ("docx_textboxes_flattened", false) => "Hộp văn bản DOCX được chuyển thành văn bản liên tục. Rà soát thứ tự đọc trong nguồn gốc.",
-        ("docx_field_instructions_omitted", true) => "DOCX field instructions were omitted and were not evaluated.",
-        ("docx_field_instructions_omitted", false) => "Chỉ thị trường DOCX được bỏ qua và không được thực thi.",
-        ("docx_external_content_omitted", true) => "External DOCX content was omitted; no external resource was loaded.",
-        ("docx_external_content_omitted", false) => "Nội dung DOCX bên ngoài được bỏ qua; không tải tài nguyên bên ngoài.",
-        ("docx_symbols_omitted", true) => "Some DOCX symbol glyphs were omitted. Compare the extraction with the original.",
-        ("docx_symbols_omitted", false) => "Một số ký hiệu DOCX không được trích xuất. Đối chiếu bản trích xuất với nguồn gốc.",
-        ("script_ir_full_document_preserved", true) => "The complete validated Script IR is preserved below; the block preview is only a reading aid.",
-        ("script_ir_full_document_preserved", false) => "Script IR đầy đủ đã kiểm tra được giữ bên dưới; danh sách đoạn chỉ giúp đọc nội dung.",
-        ("speaker_label_requires_review", true) => "A source speaker label needs review; it is not a resolved character identity.",
-        ("speaker_label_requires_review", false) => "Nhãn người nói từ nguồn cần rà soát; chưa phải danh tính nhân vật được xác nhận.",
-        ("speaker_unknown", true) => "The speaker is unknown and remains unresolved.",
-        ("speaker_unknown", false) => "Chưa rõ người nói; danh tính vẫn chưa được xác định.",
-        ("heading_scene_suggestion", true) => "A source heading suggests a scene; review its meaning and boundaries.",
-        ("heading_scene_suggestion", false) => "Tiêu đề nguồn gợi ý một cảnh; cần kiểm tra ý nghĩa và ranh giới cảnh.",
-        ("ambiguous_bracket_cue", true) => "Bracketed text has ambiguous cue meaning and has been preserved as source text.",
-        ("ambiguous_bracket_cue", false) => "Nội dung trong ngoặc có ý nghĩa cue chưa rõ và đã được giữ như văn bản nguồn.",
-        ("markdown_markup_preserved", true) => "Markdown syntax is preserved as source text.",
-        ("markdown_markup_preserved", false) => "Cú pháp Markdown được giữ nguyên như văn bản nguồn.",
-        ("docx_formatting_omitted", true) => "DOCX formatting is omitted from the extraction; original bytes are preserved.",
-        ("docx_formatting_omitted", false) => "Bản trích xuất không giữ định dạng DOCX; byte gốc vẫn được giữ nguyên.",
-        ("external_relationships_ignored", true) => "External relationships were ignored; no external resource was loaded.",
-        ("external_relationships_ignored", false) => "Các liên kết ngoài được bỏ qua; không tải tài nguyên bên ngoài.",
-        ("macros_ignored", true) => "Embedded macros were ignored and were not executed.",
-        ("macros_ignored", false) => "Macro nhúng được bỏ qua và không được thực thi.",
-        ("embedded_objects_ignored", true) => "Embedded objects were omitted from the extraction.",
-        ("embedded_objects_ignored", false) => "Đối tượng nhúng được bỏ qua trong bản trích xuất.",
-        ("invalid_utf8", true) => "Text is not valid UTF-8. Convert a copy to UTF-8 and import it again.",
-        ("invalid_utf8", false) => "Văn bản không phải UTF-8 hợp lệ. Chuyển một bản sao sang UTF-8 rồi nhập lại.",
-        ("empty_source", true) => "No usable source text was found.",
-        ("empty_source", false) => "Không tìm thấy văn bản nguồn có thể sử dụng.",
-        ("source_too_large" | "decoded_text_limit" | "archive_entry_limit" | "archive_expansion_limit" | "archive_ratio_limit", true) => "The source exceeds a safe extraction limit. Use a smaller chapter or a plain-text copy.",
-        ("source_too_large" | "decoded_text_limit" | "archive_entry_limit" | "archive_expansion_limit" | "archive_ratio_limit", false) => "Nguồn vượt giới hạn trích xuất an toàn. Dùng chương nhỏ hơn hoặc bản sao văn bản thuần.",
-        ("format_mismatch" | "legacy_or_encrypted_word", true) => "File content does not match the supported format. Choose the correct format or export a plain-text copy.",
-        ("format_mismatch" | "legacy_or_encrypted_word", false) => "Nội dung tệp không đúng định dạng được hỗ trợ. Chọn đúng định dạng hoặc xuất bản sao văn bản thuần.",
-        ("docx_tracked_changes_require_choice", true) => "DOCX contains tracked changes. Accept or reject them explicitly in a copy before importing.",
-        ("docx_tracked_changes_require_choice", false) => "DOCX có thay đổi được theo dõi. Chấp nhận hoặc từ chối rõ ràng trong một bản sao trước khi nhập.",
-        ("docx_legacy_encoding_requires_choice" | "unsupported_xml_encoding", true) => "The document uses an unsupported encoding. Export a UTF-8 or current DOCX copy.",
-        ("docx_legacy_encoding_requires_choice" | "unsupported_xml_encoding", false) => "Tài liệu dùng mã hóa chưa được hỗ trợ. Xuất bản sao UTF-8 hoặc DOCX hiện hành.",
-        ("unsupported_script_ir_version" | "missing_script_ir_version", true) => "This Script IR version is unsupported. Supply a supported complete export.",
-        ("unsupported_script_ir_version" | "missing_script_ir_version", false) => "Phiên bản Script IR này chưa được hỗ trợ. Dùng export đầy đủ thuộc phiên bản được hỗ trợ.",
-        ("invalid_script_ir" | "script_ir_shape_invalid" | "script_ir_semantics_invalid", true) => "Script IR did not pass validation. Correct the source export before importing again.",
-        ("invalid_script_ir" | "script_ir_shape_invalid" | "script_ir_semantics_invalid", false) => "Script IR không qua kiểm tra hợp lệ. Sửa export nguồn trước khi nhập lại.",
-        ("malformed_archive" | "malformed_or_encrypted_archive" | "duplicate_archive_entry" | "unsafe_archive_path" | "malformed_xml" | "xml_doctype_forbidden" | "unsupported_control_character", true) => "The source contains malformed or unsafe structures. Export a clean copy; the original is preserved.",
-        ("malformed_archive" | "malformed_or_encrypted_archive" | "duplicate_archive_entry" | "unsafe_archive_path" | "malformed_xml" | "xml_doctype_forbidden" | "unsupported_control_character", false) => "Nguồn có cấu trúc hỏng hoặc không an toàn. Xuất bản sao sạch; nguồn gốc đã được giữ lại.",
-        ("archive_zip64_unsupported" | "archive_multidisk_unsupported", true) => "This archive layout is unsupported. Export a smaller ordinary DOCX file or a plain-text copy.",
-        ("archive_zip64_unsupported" | "archive_multidisk_unsupported", false) => "Kiểu lưu trữ này chưa được hỗ trợ. Xuất tệp DOCX thông thường nhỏ hơn hoặc bản sao văn bản thuần.",
-        (_, true) => "The extractor recorded a diagnostic. Review the preserved source and use this code when asking the operator for help.",
-        (_, false) => "Bộ trích xuất ghi nhận một chẩn đoán. Kiểm tra nguồn đã giữ và dùng mã này khi nhờ người vận hành hỗ trợ.",
-    }
+pub fn import_diagnostic(code: &str, locale: crate::localization::Locale) -> &'static str {
+    match code {
+    "utf8_bom_removed" => resources::text(resources::Key::ImportDiagnosticUtf8BomRemoved, locale),
+    "line_endings_normalized" => resources::text(resources::Key::ImportDiagnosticLineEndingsNormalized, locale),
+    "unicode_nfc_normalized" => resources::text(resources::Key::ImportDiagnosticUnicodeNfcNormalized, locale),
+    "paragraph_edge_whitespace_trimmed" => resources::text(resources::Key::ImportDiagnosticParagraphEdgeWhitespaceTrimmed, locale),
+    "markdown_list_or_dialogue_ambiguous" => resources::text(resources::Key::ImportDiagnosticMarkdownListOrDialogueAmbiguous, locale),
+    "docx_images_omitted" => resources::text(resources::Key::ImportDiagnosticDocxImagesOmitted, locale),
+    "docx_annotations_omitted" => resources::text(resources::Key::ImportDiagnosticDocxAnnotationsOmitted, locale),
+    "docx_headers_footers_omitted" => resources::text(resources::Key::ImportDiagnosticDocxHeadersFootersOmitted, locale),
+    "docx_soft_breaks_segmented" => resources::text(resources::Key::ImportDiagnosticDocxSoftBreaksSegmented, locale),
+    "xml_processing_instruction_ignored" => resources::text(resources::Key::ImportDiagnosticXmlProcessingInstructionIgnored, locale),
+    "docx_tables_flattened" => resources::text(resources::Key::ImportDiagnosticDocxTablesFlattened, locale),
+    "docx_textboxes_flattened" => resources::text(resources::Key::ImportDiagnosticDocxTextboxesFlattened, locale),
+    "docx_field_instructions_omitted" => resources::text(resources::Key::ImportDiagnosticDocxFieldInstructionsOmitted, locale),
+    "docx_external_content_omitted" => resources::text(resources::Key::ImportDiagnosticDocxExternalContentOmitted, locale),
+    "docx_symbols_omitted" => resources::text(resources::Key::ImportDiagnosticDocxSymbolsOmitted, locale),
+    "script_ir_full_document_preserved" => resources::text(resources::Key::ImportDiagnosticScriptIrFullDocumentPreserved, locale),
+    "speaker_label_requires_review" => resources::text(resources::Key::ImportDiagnosticSpeakerLabelRequiresReview, locale),
+    "speaker_unknown" => resources::text(resources::Key::ImportDiagnosticSpeakerUnknown, locale),
+    "heading_scene_suggestion" => resources::text(resources::Key::ImportDiagnosticHeadingSceneSuggestion, locale),
+    "ambiguous_bracket_cue" => resources::text(resources::Key::ImportDiagnosticAmbiguousBracketCue, locale),
+    "markdown_markup_preserved" => resources::text(resources::Key::ImportDiagnosticMarkdownMarkupPreserved, locale),
+    "docx_formatting_omitted" => resources::text(resources::Key::ImportDiagnosticDocxFormattingOmitted, locale),
+    "external_relationships_ignored" => resources::text(resources::Key::ImportDiagnosticExternalRelationshipsIgnored, locale),
+    "macros_ignored" => resources::text(resources::Key::ImportDiagnosticMacrosIgnored, locale),
+    "embedded_objects_ignored" => resources::text(resources::Key::ImportDiagnosticEmbeddedObjectsIgnored, locale),
+    "invalid_utf8" => resources::text(resources::Key::ImportDiagnosticInvalidUtf8, locale),
+    "empty_source" => resources::text(resources::Key::ImportDiagnosticEmptySource, locale),
+    "source_too_large" | "decoded_text_limit" | "archive_entry_limit" | "archive_expansion_limit" | "archive_ratio_limit" => resources::text(resources::Key::ImportDiagnosticSourceTooLargeDecodedTextLimitArchiveEntryLimitArchiveExpansionLimitArchiveRatioLimit, locale),
+    "format_mismatch" | "legacy_or_encrypted_word" => resources::text(resources::Key::ImportDiagnosticFormatMismatchLegacyOrEncryptedWord, locale),
+    "docx_tracked_changes_require_choice" => resources::text(resources::Key::ImportDiagnosticDocxTrackedChangesRequireChoice, locale),
+    "docx_legacy_encoding_requires_choice" | "unsupported_xml_encoding" => resources::text(resources::Key::ImportDiagnosticDocxLegacyEncodingRequiresChoiceUnsupportedXmlEncoding, locale),
+    "unsupported_script_ir_version" | "missing_script_ir_version" => resources::text(resources::Key::ImportDiagnosticUnsupportedScriptIrVersionMissingScriptIrVersion, locale),
+    "invalid_script_ir" | "script_ir_shape_invalid" | "script_ir_semantics_invalid" => resources::text(resources::Key::ImportDiagnosticInvalidScriptIrScriptIrShapeInvalidScriptIrSemanticsInvalid, locale),
+    "malformed_archive" | "malformed_or_encrypted_archive" | "duplicate_archive_entry" | "unsafe_archive_path" | "malformed_xml" | "xml_doctype_forbidden" | "unsupported_control_character" => resources::text(resources::Key::ImportDiagnosticMalformedArchiveMalformedOrEncryptedArchiveDuplicateArchiveEntryUnsafeArchivePathMalformedXmlXmlDoctypeForbiddenUnsupportedControlCharacter, locale),
+    "archive_zip64_unsupported" | "archive_multidisk_unsupported" => resources::text(resources::Key::ImportDiagnosticArchiveZip64UnsupportedArchiveMultidiskUnsupported, locale),
+    _ => resources::text(resources::Key::ImportDiagnostic, locale),
+}
 }
 
-pub fn import_cue(kind: crate::contract::ImportCueKind, english: bool) -> &'static str {
+pub fn import_cue(
+    kind: crate::contract::ImportCueKind,
+    locale: crate::localization::Locale,
+) -> &'static str {
     use crate::contract::ImportCueKind;
-    match (kind, english) {
-        (ImportCueKind::Ambience, true) => "Ambience",
-        (ImportCueKind::Ambience, false) => "Âm thanh môi trường",
-        (ImportCueKind::Music, true) => "Music",
-        (ImportCueKind::Music, false) => "Nhạc",
-        (ImportCueKind::Sfx, true) => "Sound effect",
-        (ImportCueKind::Sfx, false) => "Hiệu ứng âm thanh",
+    match kind {
+        ImportCueKind::Ambience => resources::text(resources::Key::ImportCueAmbience, locale),
+        ImportCueKind::Music => resources::text(resources::Key::ImportCueMusic, locale),
+        ImportCueKind::Sfx => resources::text(resources::Key::ImportCueSfx, locale),
     }
 }
 
@@ -506,9 +461,12 @@ mod import_tests {
             states.push(ImportStatus::Error(code));
         }
         for state in states {
-            assert!(!import_status(&state, false).is_empty());
-            assert!(!import_status(&state, true).is_empty());
-            assert_ne!(import_status(&state, false), import_status(&state, true));
+            assert!(!import_status(&state, crate::localization::Locale::Vietnamese).is_empty());
+            assert!(!import_status(&state, crate::localization::Locale::English).is_empty());
+            assert_ne!(
+                import_status(&state, crate::localization::Locale::Vietnamese),
+                import_status(&state, crate::localization::Locale::English)
+            );
         }
         for kind in [
             ImportBlockKind::Paragraph,
@@ -517,14 +475,28 @@ mod import_tests {
             ImportBlockKind::SceneCue,
             ImportBlockKind::SoundCue,
         ] {
-            assert!(!import_kind(kind, false).is_empty());
-            assert!(!import_kind(kind, true).is_empty());
+            assert!(!import_kind(kind, crate::localization::Locale::Vietnamese).is_empty());
+            assert!(!import_kind(kind, crate::localization::Locale::English).is_empty());
         }
-        assert!(import_copy(true).rights_help.contains("remain unknown"));
-        assert!(import_copy(false).rights_help.contains("chưa xác định"));
-        assert!(import_diagnostic("speaker_label_requires_review", true).contains("not a resolved"));
-        assert!(import_diagnostic("future-diagnostic", true).contains("operator"));
-        assert!(import_diagnostic("future-diagnostic", false).contains("người vận hành"));
+        assert!(import_copy(crate::localization::Locale::English)
+            .rights_help
+            .contains("remain unknown"));
+        assert!(import_copy(crate::localization::Locale::Vietnamese)
+            .rights_help
+            .contains("chưa xác định"));
+        assert!(import_diagnostic(
+            "speaker_label_requires_review",
+            crate::localization::Locale::English
+        )
+        .contains("not a resolved"));
+        assert!(
+            import_diagnostic("future-diagnostic", crate::localization::Locale::English)
+                .contains("operator")
+        );
+        assert!(
+            import_diagnostic("future-diagnostic", crate::localization::Locale::Vietnamese)
+                .contains("người vận hành")
+        );
     }
 }
 
@@ -561,10 +533,10 @@ mod import_warning_tests {
             "docx_symbols_omitted",
             "script_ir_full_document_preserved",
         ] {
-            for english in [false, true] {
+            for locale in crate::localization::Locale::supported() {
                 assert_ne!(
-                    import_diagnostic(code, english),
-                    import_diagnostic("unknown-future-code", english),
+                    import_diagnostic(code, locale),
+                    import_diagnostic("unknown-future-code", locale),
                     "{code}"
                 );
             }
@@ -572,21 +544,26 @@ mod import_warning_tests {
     }
 }
 
-pub fn import_block_range(page: usize, total: usize, english: bool) -> String {
+pub fn import_block_range(
+    page: usize,
+    total: usize,
+    locale: crate::localization::Locale,
+) -> String {
     let range = crate::import::page_bounds(page, total);
     let start = if total == 0 { 0 } else { range.start + 1 };
-    if english {
-        format!("Showing blocks {start}–{} of {total}.", range.end)
-    } else {
-        format!(
-            "Đang hiển thị đoạn {start}–{} trên tổng số {total} đoạn.",
-            range.end
-        )
-    }
+    crate::localization::present(
+        crate::localization::generated::Message::StudioRootImportBlockRange {
+            arg_start: start as u64,
+            arg_end: range.end as u64,
+            arg_total: total as u64,
+        }
+        .render(locale),
+        locale,
+    )
 }
 
-pub fn import_field(path: &str, english: bool) -> &'static str {
-    let copy = import_copy(english);
+pub fn import_field(path: &str, locale: crate::localization::Locale) -> &'static str {
+    let copy = import_copy(locale);
     match path {
         "/metadata/file_name" => copy.file_name,
         "/metadata/reference" => copy.reference,
@@ -599,18 +576,15 @@ pub fn import_field(path: &str, english: bool) -> &'static str {
     }
 }
 
-pub fn import_field_rule(rule: &str, english: bool) -> &'static str {
-    match (rule, english) {
-        ("nonblank", true) => "Enter a nonempty value. The selected file is preserved.",
-        ("nonblank", false) => "Nhập giá trị có nội dung. Tệp đã chọn được giữ nguyên.",
-        ("byte_length", true) => "This file or field is outside its byte length limits. Adjust it and submit again; the selected file is preserved.",
-        ("byte_length", false) => "Tệp hoặc trường này nằm ngoài giới hạn số byte. Điều chỉnh rồi gửi lại; tệp đã chọn được giữ nguyên.",
-        ("control_character", true) => "Remove unsupported control characters. The selected file is preserved.",
-        ("control_character", false) => "Bỏ ký tự điều khiển chưa được hỗ trợ. Tệp đã chọn được giữ nguyên.",
-        ("canonical_uuid", true) => "The generated operation ID is invalid. Submit a new request; the selected file is preserved.",
-        ("canonical_uuid", false) => "Operation ID được tạo chưa hợp lệ. Gửi yêu cầu mới; tệp đã chọn được giữ nguyên.",
-        (_, true) => "Review this field and diagnostic code. The selected file is preserved.",
-        (_, false) => "Kiểm tra trường này và mã chẩn đoán. Tệp đã chọn được giữ nguyên.",
+pub fn import_field_rule(rule: &str, locale: crate::localization::Locale) -> &'static str {
+    match rule {
+        "nonblank" => resources::text(resources::Key::ImportFieldRuleNonblank, locale),
+        "byte_length" => resources::text(resources::Key::ImportFieldRuleByteLength, locale),
+        "control_character" => {
+            resources::text(resources::Key::ImportFieldRuleControlCharacter, locale)
+        }
+        "canonical_uuid" => resources::text(resources::Key::ImportFieldRuleCanonicalUuid, locale),
+        _ => resources::text(resources::Key::ImportFieldRule, locale),
     }
 }
 
@@ -629,10 +603,10 @@ mod import_field_tests {
             "/metadata/operation_id",
             "/original_bytes",
         ] {
-            for english in [false, true] {
+            for locale in crate::localization::Locale::supported() {
                 assert_ne!(
-                    import_field(path, english),
-                    import_field("future-field", english)
+                    import_field(path, locale),
+                    import_field("future-field", locale)
                 );
             }
         }
@@ -642,10 +616,10 @@ mod import_field_tests {
             "control_character",
             "canonical_uuid",
         ] {
-            for english in [false, true] {
+            for locale in crate::localization::Locale::supported() {
                 assert_ne!(
-                    import_field_rule(rule, english),
-                    import_field_rule("future-rule", english)
+                    import_field_rule(rule, locale),
+                    import_field_rule("future-rule", locale)
                 );
             }
         }

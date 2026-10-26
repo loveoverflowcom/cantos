@@ -329,8 +329,8 @@ mod panel {
         }
         value
     }
-    fn confirm(key: Key, title: &str, identity: &str, english: bool) -> bool {
-        let message = copy::publication_confirmation(key, title, identity, english);
+    fn confirm(key: Key, title: &str, identity: &str, locale: crate::localization::Locale) -> bool {
+        let message = copy::publication_confirmation(key, title, identity, locale);
         web_sys::window()
             .and_then(|window| window.confirm_with_message(&message).ok())
             .unwrap_or(false)
@@ -350,7 +350,7 @@ mod panel {
     pub(in crate::live) fn PublicationPanel(
         facts: RwSignal<Facts>,
         dispatch: Dispatch,
-        english: Signal<bool>,
+        locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
         dirty: RwSignal<bool>,
     ) -> impl IntoView {
@@ -432,7 +432,7 @@ mod panel {
                         Key::RecordRights,
                         &subject.title,
                         &format!("{}\n{}", identity(&subject, None), document(Some(&request))),
-                        english.get_untracked(),
+                        locale.get_untracked(),
                     ) {
                         return Err(ClientError::Cancelled);
                     }
@@ -476,7 +476,7 @@ mod panel {
                             identity(&subject, Some(&readiness)),
                             document(Some(&request))
                         ),
-                        english.get_untracked(),
+                        locale.get_untracked(),
                     ) {
                         return Err(ClientError::Cancelled);
                     }
@@ -511,7 +511,7 @@ mod panel {
                         Key::PublishConfirm,
                         &subject.title,
                         &identity(&subject, Some(&readiness)),
-                        english.get_untracked(),
+                        locale.get_untracked(),
                     ) {
                         return Err(ClientError::Cancelled);
                     }
@@ -556,7 +556,7 @@ mod panel {
                             "{}\n{}\n{}",
                             release.id, release.manifest.digest, active.pointer_version
                         ),
-                        english.get_untracked(),
+                        locale.get_untracked(),
                     ) {
                         return Err(ClientError::Cancelled);
                     }
@@ -606,9 +606,9 @@ mod panel {
                             "{} · r{} · {}",
                             work.id,
                             work.revision,
-                            text(displayed, english.get_untracked())
+                            text(displayed, locale.get_untracked())
                         ),
-                        english.get_untracked(),
+                        locale.get_untracked(),
                     ) {
                         return Err(ClientError::Cancelled);
                     }
@@ -628,49 +628,49 @@ mod panel {
             );
         });
         view! {<section id="live-publication-section" class="live-section" aria-labelledby="live-publication-title">
-            <h3 id="live-publication-title">{move ||text(Key::Publication,english.get())}</h3>
-            <p>{move ||text(Key::PublicationHelp,english.get())}</p>
-            <h4>{move ||text(Key::WorkVisibility,english.get())}</h4>
-            <p>{move ||facts.with(|facts|facts.work.as_ref().map(|work|copy::work_visibility(&work.details.visibility,english.get())).unwrap_or_default())}</p>
-            <Select id="live-publication-work-visibility" label=Signal::derive(move ||text(Key::WorkVisibility,english.get()).to_owned()) value=fields.visibility on_input=Callback::new(move |value|fields.visibility.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,english.get())),SelectOption::new("private",text(Key::PrivateVisibility,english.get())),SelectOption::new("public",text(Key::PublicVisibility,english.get()))]) class="live-field"/>
-            <p>{move ||text(Key::VisibilityHelp,english.get())}</p>
-            <ActionButton id="live-publication-save-visibility" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||fields.visibility.with(|value|!matches!(value.as_str(),"private"|"public"))||facts.with(|facts|facts.work.as_ref().is_none_or(|work|work.details.visibility==fields.visibility.get()))) on_press=Callback::new(move |_|save_visibility.run(()))>{move ||text(Key::SaveVisibility,english.get())}</ActionButton>
+            <h3 id="live-publication-title">{move ||text(Key::Publication,locale.get())}</h3>
+            <p>{move ||text(Key::PublicationHelp,locale.get())}</p>
+            <h4>{move ||text(Key::WorkVisibility,locale.get())}</h4>
+            <p>{move ||facts.with(|facts|facts.work.as_ref().map(|work|copy::work_visibility(&work.details.visibility,locale.get())).unwrap_or_default())}</p>
+            <Select id="live-publication-work-visibility" label=Signal::derive(move ||text(Key::WorkVisibility,locale.get()).to_owned()) value=fields.visibility on_input=Callback::new(move |value|fields.visibility.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,locale.get())),SelectOption::new("private",text(Key::PrivateVisibility,locale.get())),SelectOption::new("public",text(Key::PublicVisibility,locale.get()))]) class="live-field"/>
+            <p>{move ||text(Key::VisibilityHelp,locale.get())}</p>
+            <ActionButton id="live-publication-save-visibility" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||fields.visibility.with(|value|!matches!(value.as_str(),"private"|"public"))||facts.with(|facts|facts.work.as_ref().is_none_or(|work|work.details.visibility==fields.visibility.get()))) on_press=Callback::new(move |_|save_visibility.run(()))>{move ||text(Key::SaveVisibility,locale.get())}</ActionButton>
 
             <p><code>{move ||subject.with(|subject|subject.as_ref().map(|subject|identity(subject,None)).unwrap_or_default())}</code></p>
-            <ActionButton id="live-publication-read-readiness" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||subject.with(Option::is_none)) on_press=Callback::new(move |_|request_readiness.run(()))>{move ||text(Key::ReadReadiness,english.get())}</ActionButton>
-            <p role="status">{move ||readiness.with(|readiness|text(match readiness {None=>Key::ReadinessNotRead,Some(readiness) if readiness.blockers.is_empty()=>Key::ReadyToPublish,Some(_)=>Key::PublicationBlocked},english.get()))}</p>
-            <ul>{move ||readiness.with(|readiness|readiness.as_ref().map(|readiness|readiness.blockers.iter().map(|blocker|copy::publication_blocker(*blocker,english.get()).to_owned()).collect::<Vec<_>>()).unwrap_or_default()).into_iter().map(|label|view!{<li>{label}</li>}).collect_view()}</ul>
-            <details><summary>{move ||text(Key::InspectDocument,english.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.readiness.as_ref()))}</pre></details>
-            <h4>{move ||text(Key::DistributionRights,english.get())}</h4>
+            <ActionButton id="live-publication-read-readiness" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||subject.with(Option::is_none)) on_press=Callback::new(move |_|request_readiness.run(()))>{move ||text(Key::ReadReadiness,locale.get())}</ActionButton>
+            <p role="status">{move ||readiness.with(|readiness|text(match readiness {None=>Key::ReadinessNotRead,Some(readiness) if readiness.blockers.is_empty()=>Key::ReadyToPublish,Some(_)=>Key::PublicationBlocked},locale.get()))}</p>
+            <ul>{move ||readiness.with(|readiness|readiness.as_ref().map(|readiness|readiness.blockers.iter().map(|blocker|copy::publication_blocker(*blocker,locale.get()).to_owned()).collect::<Vec<_>>()).unwrap_or_default()).into_iter().map(|label|view!{<li>{label}</li>}).collect_view()}</ul>
+            <details><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.readiness.as_ref()))}</pre></details>
+            <h4>{move ||text(Key::DistributionRights,locale.get())}</h4>
             <div class="live-grid">
-                <Select id="live-publication-distribution-decision" label=Signal::derive(move ||text(Key::DistributionDecision,english.get()).to_owned()) value=fields.rights_decision on_input=Callback::new(move |value|fields.rights_decision.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,english.get())),SelectOption::new("cleared",text(Key::Cleared,english.get())),SelectOption::new("revoked",text(Key::DistributionRevoked,english.get()))]) class="live-field"/>
-                <TextField id="live-publication-distribution-rights" label=Signal::derive(move ||text(Key::Rights,english.get()).to_owned()) value=fields.rights on_input=Callback::new(move |value|fields.rights.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
-                <TextField id="live-publication-distribution-evidence" label=Signal::derive(move ||text(Key::Evidence,english.get()).to_owned()) value=fields.evidence on_input=Callback::new(move |value|fields.evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
-                <TextField id="live-publication-distribution-until" label=Signal::derive(move ||text(Key::ValidUntil,english.get()).to_owned()) value=fields.until on_input=Callback::new(move |value|fields.until.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
-                <TextArea id="live-publication-distribution-notes" label=Signal::derive(move ||text(Key::DistributionNotes,english.get()).to_owned()) value=fields.rights_notes on_input=Callback::new(move |value|fields.rights_notes.set(value)) class="live-field"/>
-            </div><p>{move ||text(Key::ValidUntilHelp,english.get())}</p>
-            <ActionButton id="live-publication-record-distribution" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||subject.with(Option::is_none)) on_press=Callback::new(move |_|record_rights.run(()))>{move ||text(Key::RecordRights,english.get())}</ActionButton>
-            <details><summary>{move ||text(Key::PublicationReceipt,english.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.clearance_receipt.as_ref()))}</pre></details>
-            <h4>{move ||text(Key::PublicationApproval,english.get())}</h4><div class="live-grid">
-                <Select id="live-publication-approval-decision" label=Signal::derive(move ||text(Key::Decision,english.get()).to_owned()) value=fields.approval_decision on_input=Callback::new(move |value|fields.approval_decision.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,english.get())),SelectOption::new("approved",text(Key::Approved,english.get())),SelectOption::new("withdrawn",text(Key::Withdrawn,english.get()))]) class="live-field"/>
-                <TextArea id="live-publication-approval-notes" label=Signal::derive(move ||text(Key::ApprovalNotes,english.get()).to_owned()) value=fields.approval_notes on_input=Callback::new(move |value|fields.approval_notes.set(value)) class="live-field"/>
+                <Select id="live-publication-distribution-decision" label=Signal::derive(move ||text(Key::DistributionDecision,locale.get()).to_owned()) value=fields.rights_decision on_input=Callback::new(move |value|fields.rights_decision.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,locale.get())),SelectOption::new("cleared",text(Key::Cleared,locale.get())),SelectOption::new("revoked",text(Key::DistributionRevoked,locale.get()))]) class="live-field"/>
+                <TextField id="live-publication-distribution-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=fields.rights on_input=Callback::new(move |value|fields.rights.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
+                <TextField id="live-publication-distribution-evidence" label=Signal::derive(move ||text(Key::Evidence,locale.get()).to_owned()) value=fields.evidence on_input=Callback::new(move |value|fields.evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
+                <TextField id="live-publication-distribution-until" label=Signal::derive(move ||text(Key::ValidUntil,locale.get()).to_owned()) value=fields.until on_input=Callback::new(move |value|fields.until.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
+                <TextArea id="live-publication-distribution-notes" label=Signal::derive(move ||text(Key::DistributionNotes,locale.get()).to_owned()) value=fields.rights_notes on_input=Callback::new(move |value|fields.rights_notes.set(value)) class="live-field"/>
+            </div><p>{move ||text(Key::ValidUntilHelp,locale.get())}</p>
+            <ActionButton id="live-publication-record-distribution" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||subject.with(Option::is_none)) on_press=Callback::new(move |_|record_rights.run(()))>{move ||text(Key::RecordRights,locale.get())}</ActionButton>
+            <details><summary>{move ||text(Key::PublicationReceipt,locale.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.clearance_receipt.as_ref()))}</pre></details>
+            <h4>{move ||text(Key::PublicationApproval,locale.get())}</h4><div class="live-grid">
+                <Select id="live-publication-approval-decision" label=Signal::derive(move ||text(Key::Decision,locale.get()).to_owned()) value=fields.approval_decision on_input=Callback::new(move |value|fields.approval_decision.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,locale.get())),SelectOption::new("approved",text(Key::Approved,locale.get())),SelectOption::new("withdrawn",text(Key::Withdrawn,locale.get()))]) class="live-field"/>
+                <TextArea id="live-publication-approval-notes" label=Signal::derive(move ||text(Key::ApprovalNotes,locale.get()).to_owned()) value=fields.approval_notes on_input=Callback::new(move |value|fields.approval_notes.set(value)) class="live-field"/>
             </div>
-            <ActionButton id="live-publication-record-approval" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||readiness.with(|readiness|readiness.as_ref().is_none_or(|readiness|readiness.clearance.is_none()))) on_press=Callback::new(move |_|record_approval.run(()))>{move ||text(Key::RecordApproval,english.get())}</ActionButton>
-            <details><summary>{move ||text(Key::PublicationReceipt,english.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.approval_receipt.as_ref()))}</pre></details>
-            <ActionButton id="live-publication-publish-release" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||readiness.with(|readiness|readiness.as_ref().is_none_or(|readiness|!readiness.blockers.is_empty()))) on_press=Callback::new(move |_|publish.run(()))>{move ||text(Key::PublishRelease,english.get())}</ActionButton>
-            <Show when=move ||facts.with(|facts|facts.publication.publish_receipt.is_some())><h4>{move ||text(Key::PublicationReceipt,english.get())}</h4><p>{move ||text(Key::ReceiptNotCurrent,english.get())}</p><pre>{move ||facts.with(|facts|document(facts.publication.publish_receipt.as_ref()))}</pre></Show>
-            <h4>{move ||text(Key::ActiveRelease,english.get())}</h4>
-            <ActionButton id="live-publication-read-active-release" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {if blocked.get_untracked(){return;}facts.update(|facts|facts.publication.active=None);dispatch.send(Command::ActiveRelease {unit:facts.with_untracked(Facts::unit_id)});})>{move ||text(Key::ReadActiveRelease,english.get())}</ActionButton>
-            <p role="status">{move ||facts.with(|facts|match &facts.publication.active {None=>text(Key::ActiveNotRead,english.get()).to_owned(),Some(active)=>active.release.as_ref().map(|release|copy::active_release(release,active.pointer_version)).unwrap_or_else(||text(Key::NoActiveRelease,english.get()).to_owned())})}</p>
-            <details><summary>{move ||text(Key::InspectDocument,english.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.active.as_ref()))}</pre></details>
-            <TextArea id="live-publication-withdrawal-reason" label=Signal::derive(move ||text(Key::WithdrawalReason,english.get()).to_owned()) value=fields.reason on_input=Callback::new(move |value|fields.reason.set(value)) class="live-field"/>
-            <ActionButton id="live-publication-withdraw-release" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||fields.reason.with(|reason|reason.trim().is_empty())||facts.with(|facts|facts.publication.active.as_ref().is_none_or(|active|active.release.is_none()))) on_press=Callback::new(move |_|withdraw.run(()))>{move ||text(Key::WithdrawRelease,english.get())}</ActionButton>
-            <Show when=move ||facts.with(|facts|facts.publication.withdrawal_receipt.is_some())><h4>{move ||text(Key::WithdrawalReceipt,english.get())}</h4><pre>{move ||facts.with(|facts|document(facts.publication.withdrawal_receipt.as_ref()))}</pre></Show>
-            <p>{move ||if dirty.get() {text(Key::PublicationFormDirty,english.get())}else{""}}</p>
-            <ActionButton id="live-publication-reset-form" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+            <ActionButton id="live-publication-record-approval" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||readiness.with(|readiness|readiness.as_ref().is_none_or(|readiness|readiness.clearance.is_none()))) on_press=Callback::new(move |_|record_approval.run(()))>{move ||text(Key::RecordApproval,locale.get())}</ActionButton>
+            <details><summary>{move ||text(Key::PublicationReceipt,locale.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.approval_receipt.as_ref()))}</pre></details>
+            <ActionButton id="live-publication-publish-release" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||readiness.with(|readiness|readiness.as_ref().is_none_or(|readiness|!readiness.blockers.is_empty()))) on_press=Callback::new(move |_|publish.run(()))>{move ||text(Key::PublishRelease,locale.get())}</ActionButton>
+            <Show when=move ||facts.with(|facts|facts.publication.publish_receipt.is_some())><h4>{move ||text(Key::PublicationReceipt,locale.get())}</h4><p>{move ||text(Key::ReceiptNotCurrent,locale.get())}</p><pre>{move ||facts.with(|facts|document(facts.publication.publish_receipt.as_ref()))}</pre></Show>
+            <h4>{move ||text(Key::ActiveRelease,locale.get())}</h4>
+            <ActionButton id="live-publication-read-active-release" locale=locale reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {if blocked.get_untracked(){return;}facts.update(|facts|facts.publication.active=None);dispatch.send(Command::ActiveRelease {unit:facts.with_untracked(Facts::unit_id)});})>{move ||text(Key::ReadActiveRelease,locale.get())}</ActionButton>
+            <p role="status">{move ||facts.with(|facts|match &facts.publication.active {None=>text(Key::ActiveNotRead,locale.get()).to_owned(),Some(active)=>active.release.as_ref().map(|release|copy::active_release(release,active.pointer_version)).unwrap_or_else(||text(Key::NoActiveRelease,locale.get()).to_owned())})}</p>
+            <details><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><pre>{move ||facts.with(|facts|document(facts.publication.active.as_ref()))}</pre></details>
+            <TextArea id="live-publication-withdrawal-reason" label=Signal::derive(move ||text(Key::WithdrawalReason,locale.get()).to_owned()) value=fields.reason on_input=Callback::new(move |value|fields.reason.set(value)) class="live-field"/>
+            <ActionButton id="live-publication-withdraw-release" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||fields.reason.with(|reason|reason.trim().is_empty())||facts.with(|facts|facts.publication.active.as_ref().is_none_or(|active|active.release.is_none()))) on_press=Callback::new(move |_|withdraw.run(()))>{move ||text(Key::WithdrawRelease,locale.get())}</ActionButton>
+            <Show when=move ||facts.with(|facts|facts.publication.withdrawal_receipt.is_some())><h4>{move ||text(Key::WithdrawalReceipt,locale.get())}</h4><pre>{move ||facts.with(|facts|document(facts.publication.withdrawal_receipt.as_ref()))}</pre></Show>
+            <p>{move ||if dirty.get() {text(Key::PublicationFormDirty,locale.get())}else{""}}</p>
+            <ActionButton id="live-publication-reset-form" locale=locale reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() {return;}
-                if !dirty.get_untracked() || confirm(Key::ResetPublicationConfirm,"","",english.get_untracked()) {fields.reset();ledger.set(FormLedger::default());}
-            })>{move ||text(Key::ResetPublicationForm,english.get())}</ActionButton>
+                if !dirty.get_untracked() || confirm(Key::ResetPublicationConfirm,"","",locale.get_untracked()) {fields.reset();ledger.set(FormLedger::default());}
+            })>{move ||text(Key::ResetPublicationForm,locale.get())}</ActionButton>
         </section>}
     }
 }

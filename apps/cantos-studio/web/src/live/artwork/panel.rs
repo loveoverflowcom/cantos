@@ -20,7 +20,7 @@ fn forget_urls(model: &Projection) {
 pub fn ArtworkPanel(
     actor: Signal<String>,
     work: Signal<Option<CatalogWork>>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     session_pending: Signal<bool>,
     session_epoch: Signal<u64>,
     workspace_busy: Signal<bool>,
@@ -470,7 +470,7 @@ pub fn ArtworkPanel(
             forget_urls(&m);
         }
     });
-    view! {<Show when=move ||work.with(|w|w.is_some())><super::form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft english=english owner=owner blocked=blocked on_intent=on_intent on_file=on_file clear_open=clear_open
+    view! {<Show when=move ||work.with(|w|w.is_some())><super::form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft locale=locale owner=owner blocked=blocked on_intent=on_intent on_file=on_file clear_open=clear_open
     can_reconcile=Signal::derive(move ||!session_pending.get()&&!workspace_busy.get()&&state.with(RequestState::can_reconcile))
     can_replay=Signal::derive(move ||!session_pending.get()&&!workspace_busy.get()&&state.with(RequestState::can_retry))/></Show>}
 }

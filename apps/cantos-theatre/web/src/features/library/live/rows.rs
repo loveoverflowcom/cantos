@@ -146,13 +146,12 @@ fn position_text(row: &AudioRowUi, locale: Locale) -> String {
     row.position.map_or_else(
         || messages::text(Key::LiveLibraryNoPosition, locale).to_owned(),
         |position| {
-            let base = messages::format(
-                Key::LivePosition,
+            let base = messages::message(
                 locale,
-                &[
-                    ("position", clock(position)),
-                    ("total", clock(row.audio.duration_ms)),
-                ],
+                crate::localization::generated::Message::TheatreShellLivePosition {
+                    arg_position: &(clock(locale, position)),
+                    arg_total: &(clock(locale, row.audio.duration_ms)),
+                },
             );
             if row.completion == Some(Completion::Completed) {
                 format!(
@@ -168,10 +167,11 @@ fn position_text(row: &AudioRowUi, locale: Locale) -> String {
 
 fn resume_feedback(row: &AudioRowUi, locale: Locale) -> Option<String> {
     match row.feedback {
-        ResumeAttemptState::Restored { position_ms, .. } => Some(messages::format(
-            Key::LiveResumeRestored,
+        ResumeAttemptState::Restored { position_ms, .. } => Some(messages::message(
             locale,
-            &[("time", clock(u64::from(position_ms)))],
+            crate::localization::generated::Message::TheatreShellLiveResumeRestored {
+                arg_time: &(clock(locale, u64::from(position_ms))),
+            },
         )),
         ResumeAttemptState::Refused { reason, .. } => Some(
             messages::text(
@@ -396,23 +396,24 @@ fn progress_feedback(
             server,
             ..
         }) => {
-            let prompt = messages::format(
-                Key::LiveProgressConflictPrompt,
+            let prompt = messages::message(
                 locale,
-                &[
-                    ("local", clock(local_position_ms)),
-                    ("server", clock(server.position_ms)),
-                ],
+                crate::localization::generated::Message::TheatreShellLiveProgressConflictPrompt {
+                    arg_local: &(clock(locale, local_position_ms)),
+                    arg_server: &(clock(locale, server.position_ms)),
+                },
             );
-            let keep_here = messages::format(
-                Key::LiveProgressResolveHere,
+            let keep_here = messages::message(
                 locale,
-                &[("time", clock(local_position_ms))],
+                crate::localization::generated::Message::TheatreShellLiveProgressResolveHere {
+                    arg_time: &(clock(locale, local_position_ms)),
+                },
             );
-            let keep_other = messages::format(
-                Key::LiveProgressResolveOther,
+            let keep_other = messages::message(
                 locale,
-                &[("time", clock(server.position_ms))],
+                crate::localization::generated::Message::TheatreShellLiveProgressResolveOther {
+                    arg_time: &(clock(locale, server.position_ms)),
+                },
             );
             let pub_here = pub_id.clone();
             let pub_other = pub_id.clone();
@@ -437,10 +438,11 @@ fn progress_feedback(
                         }.into_any())
         }
         ProgressCommandPhase::Conflict(ProgressConflict::KeepServer { server, .. }) => {
-            let msg = messages::format(
-                Key::LiveProgressKeepServer,
+            let msg = messages::message(
                 locale,
-                &[("time", clock(server.position_ms))],
+                crate::localization::generated::Message::TheatreShellLiveProgressKeepServer {
+                    arg_time: &(clock(locale, server.position_ms)),
+                },
             );
             Some(view! { <p class="theatre-muted" role="status">{msg}</p> }.into_any())
         }

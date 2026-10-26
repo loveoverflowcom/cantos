@@ -571,7 +571,7 @@ fn every_contract_refusal_maps_to_its_field_or_the_form() {
             rule: "invalid_uuid".into(),
         },
     ] {
-        for en in [false, true] {
+        for en in crate::localization::Locale::supported() {
             assert!(!copy::problem(&problem, en).trim().is_empty());
         }
     }
@@ -643,8 +643,14 @@ fn grant_state_prefers_server_revocation_then_expiry() {
     );
     assert_eq!(grant_state(active, true, 0), GrantState::Revoked);
     assert_eq!(grant_state(revoked, false, 0), GrantState::Revoked);
-    assert_eq!(display_time(1792195200000, false), "17/10/2026 00:00 UTC");
-    assert_eq!(display_time(-86_400_000, true), "31/12/1969 00:00 UTC");
+    assert_eq!(
+        display_time(1792195200000, crate::localization::Locale::Vietnamese),
+        "00:00 17 thg 10, 2026 UTC"
+    );
+    assert_eq!(
+        display_time(-86_400_000, crate::localization::Locale::English),
+        "Dec 31, 1969, 00:00 UTC"
+    );
 }
 
 fn render(view: impl FnOnce() -> AnyView) -> String {
@@ -658,11 +664,11 @@ fn reveal_shows_the_secret_once_read_only_with_copy_and_warning() {
         .apply(&issue(), issue().decode(201, CREATED).unwrap())
         .reveal
         .unwrap();
-    for en in [false, true] {
+    for en in crate::localization::Locale::supported() {
         let calls = RwSignal::new(0usize);
         let copy_state = RwSignal::new(CopyState::Manual);
         let html = render(|| {
-            view! { <TokenReveal reveal=reveal.clone() english=Signal::stored(en) copy_state=copy_state.into()
+            view! { <TokenReveal reveal=reveal.clone() locale=Signal::stored(en) copy_state=copy_state.into()
                 on_copy=Callback::new(move |()| calls.update(|n| *n += 1)) on_dismiss=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -704,10 +710,10 @@ fn escape(text: &str) -> String {
 #[test]
 fn grant_rows_state_text_and_named_revocation() {
     let grants = page();
-    for en in [false, true] {
+    for en in crate::localization::Locale::supported() {
         let row = |grant: DelegationGrantResponse, here: bool, now: i64| {
             render(move || {
-                view! { <GrantItem grant=grant revoked_here=here now_ms=now english=Signal::stored(en)
+                view! { <GrantItem grant=grant revoked_here=here now_ms=now locale=Signal::stored(en)
                     blocked=Signal::derive(|| false) on_revoke=Callback::new(|_| {})/> }
                 .into_any()
             })
@@ -721,13 +727,25 @@ fn grant_rows_state_text_and_named_revocation() {
         for label in ["work:read", "content:read", "content:write"] {
             assert!(active.contains(label));
         }
-        assert!(active.contains("17/10/2026 00:00 UTC") && active.contains("24/10/2026 00:00 UTC"));
+        let (created, expires, revoked_at) = match en {
+            crate::localization::Locale::Vietnamese => (
+                "00:00 17 thg 10, 2026 UTC",
+                "00:00 24 thg 10, 2026 UTC",
+                "00:00 18 thg 10, 2026 UTC",
+            ),
+            crate::localization::Locale::English => (
+                "Oct 17, 2026, 00:00 UTC",
+                "Oct 24, 2026, 00:00 UTC",
+                "Oct 18, 2026, 00:00 UTC",
+            ),
+        };
+        assert!(active.contains(created) && active.contains(expires));
         let expired = row(grants.items[0].clone(), false, grants.items[0].expires_at);
         assert!(expired.contains(copy::state(GrantState::Expired, en)));
         assert!(expired.contains("delegation-revoke-"));
         let revoked = row(grants.items[1].clone(), false, 0);
         assert!(revoked.contains(copy::state(GrantState::Revoked, en)));
-        assert!(revoked.contains("18/10/2026 00:00 UTC"));
+        assert!(revoked.contains(revoked_at));
         assert!(!revoked.contains("delegation-revoke-"));
         let just = row(grants.items[0].clone(), true, 0);
         assert!(just.contains(&escape(copy::text(Key::RevokedNow, en))));
@@ -746,10 +764,10 @@ fn issue_form_projects_server_refusals_onto_their_fields() {
             ("expires_at", "invalid_expiry"),
         ],
     ));
-    for en in [false, true] {
+    for en in crate::localization::Locale::supported() {
         let html = render(|| {
             let problems = RwSignal::new(problems_found.clone());
-            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=problems english=Signal::stored(en)
+            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=problems locale=Signal::stored(en)
                 blocked=Signal::derive(|| false) archived=Signal::derive(|| false) on_submit=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -788,7 +806,7 @@ fn issue_form_projects_server_refusals_onto_their_fields() {
             "{submit}"
         );
         let archived = render(|| {
-            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=Signal::stored(en)
+            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) locale=Signal::stored(en)
                 blocked=Signal::derive(|| false) archived=Signal::derive(|| true) on_submit=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -801,13 +819,13 @@ fn issue_form_projects_server_refusals_onto_their_fields() {
 
 #[test]
 fn issue_form_freezes_pending_fields_and_requires_saving_the_visible_secret() {
-    for en in [false, true] {
+    for en in crate::localization::Locale::supported() {
         assert!(!copy::text(Key::SaveTokenFirst, en).trim().is_empty());
         for pending in [false, true] {
             for visible in [false, true] {
                 let html = render(|| {
                     view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![])
-                        english=Signal::stored(en) blocked=Signal::derive(move || pending)
+                        locale=Signal::stored(en) blocked=Signal::derive(move || pending)
                         archived=Signal::derive(|| false) secret_visible=Signal::derive(move || visible)
                         on_submit=Callback::new(|()| {})/> }
                     .into_any()
@@ -838,9 +856,9 @@ fn issue_form_freezes_pending_fields_and_requires_saving_the_visible_secret() {
 #[test]
 fn replay_notice_explains_the_lost_secret_and_offers_revocation() {
     let grant = page().items.remove(0);
-    for en in [false, true] {
+    for en in crate::localization::Locale::supported() {
         let html = render(|| {
-            view! { <UnrecoverableNotice grant=grant.clone() english=Signal::stored(en) blocked=Signal::derive(|| false)
+            view! { <UnrecoverableNotice grant=grant.clone() locale=Signal::stored(en) blocked=Signal::derive(|| false)
                 on_revoke=Callback::new(|_| {})/> }
             .into_any()
         });
@@ -901,7 +919,7 @@ fn lost_focus_returns_to_the_field_retry_or_status_that_explains_the_outcome() {
     );
     // Every target exists in the rendered form or panel markup.
     let html = render(|| {
-        view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=Signal::stored(false)
+        view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) locale=Signal::stored(crate::localization::Locale::Vietnamese)
             blocked=Signal::derive(|| false) archived=Signal::derive(|| false) on_submit=Callback::new(|()| {})/> }
         .into_any()
     });
