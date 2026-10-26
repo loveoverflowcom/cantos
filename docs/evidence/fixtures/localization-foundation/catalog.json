@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "status": "proposal-fixture",
+  "fallback": "vi-VN",
+  "cldr": "48/integer-cardinal-subset",
+  "locales": [
+    {
+      "tag": "vi-VN",
+      "autonym": "Tiếng Việt",
+      "aliases": [
+        "vi"
+      ],
+      "testOnly": false,
+      "integerOne": []
+    },
+    {
+      "tag": "en",
+      "autonym": "English",
+      "aliases": [],
+      "testOnly": false,
+      "integerOne": [
+        1
+      ]
+    },
+    {
+      "tag": "ja",
+      "autonym": "日本語",
+      "aliases": [],
+      "testOnly": true,
+      "integerOne": []
+    }
+  ],
+  "messages": {
+    "common.cancel": {
+      "args": {},
+      "translations": {
+        "vi-VN": {
+          "text": "Hủy"
+        },
+        "en": {
+          "text": "Cancel"
+        },
+        "ja": {
+          "text": "キャンセル"
+        }
+      }
+    },
+    "common.error.unavailable": {
+      "args": {},
+      "translations": {
+        "vi-VN": {
+          "text": "Dịch vụ đang tạm thời gián đoạn. Hãy thử lại."
+        },
+        "en": {
+          "text": "The service is temporarily unavailable. Try again."
+        },
+        "ja": {
+          "text": "一時的に利用できません。もう一度お試しください。"
+        }
+      }
+    },
+    "theatre.player.bookmark.add": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "translations": {
+        "vi-VN": {
+          "text": "Thêm dấu trang cho {title} lúc {time}"
+        },
+        "en": {
+          "text": "At {time}, add bookmark for {title}"
+        },
+        "ja": {
+          "text": "{title} の {time} にブックマークを追加"
+        }
+      }
+    },
+    "theatre.library.episode_count": {
+      "args": {
+        "count": "count"
+      },
+      "translations": {
+        "vi-VN": {
+          "plural": "count",
+          "forms": {
+            "other": "{count} tập"
+          }
+        },
+        "en": {
+          "plural": "count",
+          "forms": {
+            "one": "{count} episode",
+            "other": "{count} episodes"
+          }
+        },
+        "ja": {
+          "plural": "count",
+          "forms": {
+            "other": "{count} 話"
+          }
+        }
+      }
+    },
+    "studio.publication.state": {
+      "args": {
+        "state": [
+          "draft",
+          "ready"
+        ]
+      },
+      "translations": {
+        "vi-VN": {
+          "select": "state",
+          "forms": {
+            "draft": "Bản nháp",
+            "ready": "Sẵn sàng"
+          }
+        },
+        "en": {
+          "select": "state",
+          "forms": {
+            "draft": "Draft",
+            "ready": "Ready"
+          }
+        },
+        "ja": {
+          "select": "state",
+          "forms": {
+            "draft": "下書き",
+            "ready": "準備完了"
+          }
+        }
+      }
+    }
+  }
+}

@@ -27,6 +27,15 @@ The architecture follows VOT Workspace's xtask (typed targets, plan-then-execute
 changed-path selector, one CI contract), scaled down to what Cantos actually implements.
 The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surface.md).
 
+The existing `repository` gate also validates the whole
+[pre-ADR localization fixture](../docs/evidence/fixtures/localization-foundation/README.md),
+its hand-authored vectors and deterministic Rust/Kotlin projection drift through
+`scripts/check_localization.py`. Existing raw UI/error and paired-catalog checks remain.
+`scripts/localization_catalog.py [--check]` is its generation/check primitive, not a new
+gate or application runtime; [ADR 0050](../docs/decisions/0050-localization-semantic-catalog.md)
+remains proposed. Optional Kotlin compiler evidence is separate from ordinary CI's Python/Rust
+fixture tests and never establishes Compose or device acceptance.
+
 ## Ownership boundaries
 
 | Layer | Owns |

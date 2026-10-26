@@ -1,0 +1,50 @@
+{
+  "catalogSha256": "66acf31636e42d69184401c5a3d8bfefc82e5848dc34cc705bfa36e539fbea32",
+  "fallback": "vi-VN",
+  "locales": [
+    {
+      "aliases": [
+        "vi"
+      ],
+      "autonym": "Tiếng Việt",
+      "integerOne": [],
+      "tag": "vi-VN",
+      "testOnly": false
+    },
+    {
+      "aliases": [],
+      "autonym": "English",
+      "integerOne": [
+        1
+      ],
+      "tag": "en",
+      "testOnly": false
+    },
+    {
+      "aliases": [],
+      "autonym": "日本語",
+      "integerOne": [],
+      "tag": "ja",
+      "testOnly": true
+    }
+  ],
+  "messages": {
+    "common.cancel": {},
+    "common.error.unavailable": {},
+    "studio.publication.state": {
+      "state": [
+        "draft",
+        "ready"
+      ]
+    },
+    "theatre.library.episode_count": {
+      "count": "count"
+    },
+    "theatre.player.bookmark.add": {
+      "time": "text",
+      "title": "text"
+    }
+  },
+  "status": "proposal-fixture",
+  "version": 1
+}

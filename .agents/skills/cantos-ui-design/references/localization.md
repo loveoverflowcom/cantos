@@ -19,6 +19,12 @@ and all replacement approaches as candidates pending
 
 ## 0. Current owners, interim rules and open choices
 
+The [ADR 0050 proposal](../../../../docs/decisions/0050-localization-semantic-catalog.md)
+and [#505 fixture/audit](../../../../docs/evidence/localization-foundation-505.md) exercise a
+resource-derived locale registry and deterministic typed Rust/Kotlin projections outside the
+application graphs. They remain an experiment pending #167 acceptance; the production owners
+and transitional rules below still apply. #506/#507 own the later Web/CMP migrations.
+
 | Surface | Existing source of UI copy | Known gap |
 |---|---|---|
 | Theatre Web | [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs) (`Locale`, `resources!`, public catalog and auth-diagnostic keys, single-pass formatting tests), [`features/auth_copy.rs`](../../../../apps/cantos-theatre/web/src/features/auth_copy.rs), [`membership_preview/copy.rs`](../../../../apps/cantos-theatre/web/src/membership_preview/copy.rs) | Multiple existing macros; locale is session memory; catalog/runtime unification remains open |

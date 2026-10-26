@@ -3,6 +3,9 @@
 
 Only added lines in the five UI scopes are linted for displayed literals, locale
 maps and raw error sinks. Changed bilingual catalogs are checked as whole files.
+The independent pre-ADR semantic fixture is also validated in full, including
+its resource-derived locale registry and deterministic Rust/Kotlin projections.
+Legacy pair-shaped application owners retain their existing checks until #167.
 This is a token/context check, not Rust/Kotlin type checking or runtime evidence:
 indirect data flow, arbitrary wrapper components and mapping completeness still
 need exhaustive compiler matches and renderer/resource tests. No dependencies.
@@ -545,10 +548,12 @@ def changed_sources(root, base=None):
 
 
 def repository_failures(root=ROOT, base=None):
+    from localization_catalog import repository_failures as catalog_failures
+
     policy = json.loads((root / "scripts/localization_allowlist.json").read_text(encoding="utf-8"))
     errors = validate_policy(policy)
     if errors:
         return errors
     for name, lines in changed_sources(root, base).items():
         errors += check_source(name, (root / name).read_text(encoding="utf-8"), lines, policy)
-    return errors
+    return errors + catalog_failures(root)
