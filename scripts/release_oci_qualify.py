@@ -107,6 +107,33 @@ def inspect_identity(service, image, manifest, inspection):
     require(image["ref"] in inspection.get("RepoDigests", []), "PULLED_REGISTRY_DIGEST_MISMATCH")
 
 
+def check_runtime_environment(service, entries, identity_server_uid=10001):
+    observed = {}
+    for entry in entries:
+        key, separator, value = entry.partition("=")
+        require(separator and key not in observed, "RUNNING_ENVIRONMENT_AMBIGUOUS")
+        observed[key] = value
+    expected = SERVER_ENV if service == "cantos-server" else {
+        **IDENTITY_ENV, "CANTOS_IDENTITY_SERVER_UIDS": str(identity_server_uid)}
+    require(all(observed.get(key) == value for key, value in expected.items()), "RUNNING_ENVIRONMENT_MISMATCH")
+
+
+def peer_refusal_events(data):
+    """Return only whitelisted static events, never raw logs or request values."""
+    require(len(data) <= 65536, "IDENTITY_EVENT_LIMIT")
+    found = set()
+    for line in data.splitlines():
+        if not line.startswith(b"{"):
+            continue
+        value = registry.bounded_json(line)
+        if value == {"event": "ready", "mail": "configured"}:
+            found.add("ready")
+        if value == {"event": "connection_refused", "detail": "peer is not an allowed caller"}:
+            found.add("connection_refused")
+    require(found == {"ready", "connection_refused"}, "IDENTITY_PEER_REFUSAL_NOT_OBSERVED")
+    return ["identity-ready-event", "identity-connection-refused-event"]
+
+
 def scan_layer(stream):
     """Bounded content policy over *every* layer, including files deleted by a later layer.
 
@@ -199,16 +226,17 @@ class Fixture:
         self.socket_dir.chmod(0o2750)
         self.databases = self.new_databases("initial")
 
-    def sh(self, args, expected=0, timeout=120):
+    def sh(self, args, expected=0, timeout=120, *, include_stderr=False):
         result = subprocess.run(args, cwd=self.root, env=self.env, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
         require(result.returncode == expected, "COMMAND_" + Path(args[0]).name + "_EXIT_" + str(result.returncode))
-        require(len(result.stdout) <= 4 * 1024**2, "COMMAND_OUTPUT_LIMIT")
-        return result.stdout
+        output = result.stdout + (b"\n" + result.stderr if include_stderr else b"")
+        require(len(output) <= 4 * 1024**2, "COMMAND_OUTPUT_LIMIT")
+        return output
 
-    def pod(self, *args, expected=0, timeout=120):
+    def pod(self, *args, expected=0, timeout=120, include_stderr=False):
         try:
-            return self.sh([*self.podman, *map(str, args)], expected, timeout)
+            return self.sh([*self.podman, *map(str, args)], expected, timeout, include_stderr=include_stderr)
         except ValueError as error:
             # Identify the operation without logging arguments, auth paths or remote stderr.
             prefix = "COMMAND_podman_EXIT_"
@@ -272,6 +300,7 @@ class Fixture:
                     self.manifest["images"][service]["config_digest"],
                     "RUNNING_EXACT_IMAGE_REQUIRED")
             require(observed["Config"]["User"] == f"{UIDS[service]}:{UIDS[service]}", "RUNNING_UID_MISMATCH")
+            check_runtime_environment(service, observed["Config"]["Env"], identity_server_uid)
             process = Path(f"/proc/{observed['State']['Pid']}/status").read_text()
             namespaces.append(os.readlink(f"/proc/{observed['State']['Pid']}/ns/net"))
             facts = dict(line.split(":", 1) for line in process.splitlines() if ":" in line)
@@ -383,6 +412,7 @@ class Fixture:
         self.stop()
         self.start(identity_server_uid=10003)
         checks += self.call("denied_peer")["checks"]
+        checks += peer_refusal_events(self.pod("logs", self.identity, include_stderr=True))
         self.stop()
         self.restart()
         checks += self.call("persisted")["checks"]

@@ -187,8 +187,10 @@ class Journey:
         return ["identity-unavailable-fails-closed"]
 
     def denied_peer(self):
-        self.http("POST", self.base + "login", 401, self.login)
-        return ["identity-peer-uid-denied"]
+        # Identity drops a disallowed OS peer before reading RPC bytes. That closed
+        # transport maps to Unavailable/503, rather than an RPC password denial/401.
+        self.http("POST", self.base + "login", 503, self.login)
+        return ["identity-peer-transport-fails-closed"]
 
 
 def main():
