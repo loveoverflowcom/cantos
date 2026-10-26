@@ -210,6 +210,19 @@ class QualificationContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "CONFIG_DIGEST"):
             qualify.check_archive(path, "cantos-server", {"config_digest": "sha256:" + "e" * 64})
 
+    def test_serve_refusal_allows_only_the_private_empty_owner_lock_and_no_database(self):
+        for service, uid in qualify.UIDS.items():
+            owner = service.removeprefix("cantos-") + ".db.owner"
+            record = {"bytes": 0, "sha256": qualify.sha(b""), "mode": 0o600, "uid": uid, "gid": uid}
+            qualify.check_unmigrated_layout(service, {})
+            qualify.check_unmigrated_layout(service, {owner: record})
+            for field, wrong in (("bytes", 1), ("mode", 0o644), ("uid", 0), ("gid", 0)):
+                with self.subTest(service=service, field=field), self.assertRaisesRegex(ValueError, "OWNER_LOCK_LAYOUT"):
+                    qualify.check_unmigrated_layout(service, {owner: {**record, field: wrong}})
+            for name in (owner.removesuffix(".owner"), "server.db-wal", "unknown"):
+                with self.subTest(service=service, file=name), self.assertRaisesRegex(ValueError, "CREATED_DATABASE"):
+                    qualify.check_unmigrated_layout(service, {owner: record, name: record})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -387,7 +387,7 @@ class Fixture:
                 self.driver.wait(timeout=5)
 
 
-def directory_record(path):
+def directory_record(path, *, allow_empty=False):
     records = {}
     for entry in sorted(path.rglob("*")):
         info = entry.lstat()
@@ -395,8 +395,23 @@ def directory_record(path):
         records[str(entry.relative_to(path))] = {"sha256": sha(entry.read_bytes()), "bytes": info.st_size,
                                                "uid": info.st_uid, "gid": info.st_gid,
                                                "mode": stat.S_IMODE(info.st_mode)}
-    require(records and len(records) <= 4096, "BACKUP_FILE_COUNT")
+    require((records or allow_empty) and len(records) <= 4096, "BACKUP_FILE_COUNT")
     return records
+
+
+def check_unmigrated_layout(service, files):
+    """Serve may acquire the owner's empty lock, but must never initialize database bytes.
+
+    OwnedDatabase::open deliberately takes OwnerLock before observing/refusing an absent DB.
+    The lock is not schema or persistence initialization; retain its exact private layout.
+    """
+    database = service.removeprefix("cantos-") + ".db"
+    owner = database + ".owner"
+    require(set(files) <= {owner}, "SERVE_CREATED_DATABASE")
+    if owner in files:
+        record = files[owner]
+        require(record["bytes"] == 0 and record["uid"] == UIDS[service] and record["gid"] == UIDS[service]
+                and record["mode"] == 0o600, "SERVE_OWNER_LOCK_LAYOUT")
 
 
 def cold_copy(source, destination, expected=None):
@@ -429,7 +444,7 @@ def run_gates(fixture, manifest, plan):
     for service in oci.SERVICES:
         f.pod("run", "--rm", "--network=none", *f.options(service), f.image(service),
               *(["serve"] if service == "cantos-identity" else []), expected=1)
-        require(not list(f.databases[service].iterdir()), "SERVE_CREATED_DATABASE")
+        check_unmigrated_layout(service, directory_record(f.databases[service], allow_empty=True))
     f.migrate()
     f.start()
     yield "image-pair", {"checks": ["registry-manifest-config", "exact-running-configs-uids-mounts",
