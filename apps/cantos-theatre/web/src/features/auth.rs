@@ -15,8 +15,8 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, FieldState,
-    IconName, Logo, LogoTone, LogoVariant, Space, StatusTone, Surface, SurfaceTone, SurfaceVariant,
-    TextField, TextFieldKind, TextFieldVariant,
+    IconButton, IconName, Logo, LogoTone, LogoVariant, Space, StatusTone, Surface, SurfaceTone,
+    SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -176,6 +176,8 @@ fn LoginForm(
     let ui = account_ui(state);
     let email = RwSignal::new(String::new());
     let password = RwSignal::new(String::new());
+    // The eye only swaps the native `type` of the same input; it owns no secret.
+    let revealed = RwSignal::new(false);
     let field_state = Signal::derive(move || {
         if ui.get().can_authenticate {
             FieldState::Editable
@@ -194,6 +196,7 @@ fn LoginForm(
         }
         // The editable copy is cleared before any I/O; the moved String is the only one left.
         password.set(String::new());
+        revealed.set(false);
         on_submit.run((address, secret));
     };
     view! {
@@ -207,18 +210,27 @@ fn LoginForm(
                     submit();
                 }
             }>
-            <TextField id="theatre-login-email" kind=TextFieldKind::Email variant=TextFieldVariant::AuthTonal
+            <TextField id="theatre-login-email" kind=TextFieldKind::Email variant=TextFieldVariant::Floating
                 label=Signal::derive(move || auth_copy::text(CopyKey::LoginEmail, locale.get()).to_owned())
                 value=email
                 autocomplete="username" required=true
                 state=field_state
                 on_input=Callback::new(move |value| email.set(value))/>
-            <TextField id="theatre-login-password" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
+            <TextField id="theatre-login-password" variant=TextFieldVariant::Floating
+                kind=Signal::derive(move || if revealed.get() { TextFieldKind::Text } else { TextFieldKind::Password })
                 label=Signal::derive(move || auth_copy::text(CopyKey::LoginPassword, locale.get()).to_owned())
                 value=password
                 autocomplete="current-password" required=true
                 state=field_state
-                on_input=Callback::new(move |value| password.set(value))/>
+                on_input=Callback::new(move |value| password.set(value))
+                trailing=move || view! {
+                    <IconButton id="theatre-login-password-eye"
+                        name=Signal::derive(move || AccessibleName::new(auth_copy::text(
+                            if revealed.get() { CopyKey::LoginHidePassword } else { CopyKey::LoginShowPassword },
+                            locale.get())).unwrap_or_else(|_| AccessibleName::new("Password").expect("static name")))
+                        icon=Signal::derive(move || if revealed.get() { IconName::VisibilityOff } else { IconName::Visibility })
+                        on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
+                }/>
             {move || availability.get().map(|availability| view! {
                 <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login state=availability
                     on_press=Callback::new(move |_| submit())>
@@ -312,7 +324,6 @@ pub(crate) fn AuthPage(
                                         {label(locale, CopyKey::CreateAccount)}
                                     </Button>
                                 })}
-                                <p class="theatre-auth-helper theatre-muted">{label(locale, CopyKey::LoginPrivacy)}</p>
                             </Show>
                             <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                                 <p>{label(locale, CopyKey::SignedInActionHelp)}</p>
@@ -548,11 +559,7 @@ mod tests {
             guest(),
             Locale::English,
         );
-        for expected in [
-            "Sign in with your email and password",
-            "Password",
-            "never stored or logged",
-        ] {
+        for expected in ["Sign in with your email and password", "Password"] {
             assert!(en.contains(expected), "{expected}");
         }
         for html in [
@@ -566,6 +573,35 @@ mod tests {
             for forbidden in ["Cantos ID", "provider", "popup", "window"] {
                 assert!(!html.contains(forbidden), "{forbidden}");
             }
+        }
+    }
+
+    #[test]
+    fn login_has_no_privacy_footnote_and_uses_floating_fields_with_an_independent_eye() {
+        for language in [Locale::Vietnamese, Locale::English] {
+            let html = render(AuthRoute::login(ReturnDestination::Home), guest(), language);
+            for gone in [
+                "never stored or logged",
+                "Mật khẩu không được lưu hay ghi lại",
+                "theatre-auth-helper",
+                "data-variant=\"auth-tonal\"",
+            ] {
+                assert!(!html.contains(gone), "{gone}");
+            }
+            assert_eq!(html.matches("data-variant=\"floating\"").count(), 2);
+            let password = control(&html, "theatre-login-password");
+            assert!(password.contains("type=\"password\""), "masked by default");
+            let eye = native_button_name(&html, "theatre-login-password-eye");
+            assert_eq!(eye, auth_copy::text(CopyKey::LoginShowPassword, language));
+            // The eye is inside the password field's shell, not a form submit control.
+            assert!(
+                html.find("theatre-login-password\"").unwrap()
+                    < html.find("theatre-login-password-eye").unwrap()
+            );
+            assert!(
+                html.find("theatre-login-password-eye").unwrap()
+                    < html.find("theatre-auth-login").unwrap()
+            );
         }
     }
 
