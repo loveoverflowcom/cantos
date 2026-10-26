@@ -26,6 +26,10 @@ enum class CatalogViolation {
     UnitKindMismatch,
     WorkMismatch,
     DuplicateWork,
+    InvalidUnitCount,
+    InvalidCover,
+    CoverUrlMismatch,
+    CoverWorkMismatch,
     DuplicateUnit,
     DuplicatePublication,
     PageTooLarge,
@@ -95,6 +99,74 @@ val PublicWorkKind.unitKind: PublicUnitKind
         PublicWorkKind.Podcast -> PublicUnitKind.Episode
     }
 
+/** The only two image types the Server admits for a public cover. */
+enum class CoverContentType(val mime: String) { Png("image/png"), Jpeg("image/jpeg") }
+
+/** Bounds the Server enforces on every cover (private Artwork v1 admission); no resize exists. */
+const val MaxCoverDimensionPx: Long = 4096
+const val MaxCoverBytes: Long = 8_388_608
+const val MaxCoverAltTextBytes: Int = 1024
+
+private val sha256Hex = Regex("^[0-9a-f]{64}$")
+
+/**
+ * The public cover the Server authorized for exactly one [work] (Discovery v1.2, ADR 0033).
+ *
+ * [url] is used exactly as given: it is accepted only when it is the HTTPS cover route of this
+ * Work for this [sha256] (no userinfo, query or fragment), and no other URL is ever derived. The
+ * value carries no asset ID, rights, provenance or storage facts because the contract has none.
+ * A revoked, expired or republished image is a 404 at [url], never a state of this value.
+ */
+class PublicCover private constructor(
+    val work: PublicWorkId,
+    val url: String,
+    val sha256: String,
+    val contentType: CoverContentType,
+    val widthPx: Int,
+    val heightPx: Int,
+    val byteLength: Int,
+    val altText: String,
+) {
+    override fun equals(other: Any?): Boolean = other is PublicCover && work == other.work && url == other.url &&
+        sha256 == other.sha256 && contentType == other.contentType && widthPx == other.widthPx &&
+        heightPx == other.heightPx && byteLength == other.byteLength && altText == other.altText
+
+    override fun hashCode(): Int = listOf(work, url, sha256, contentType, widthPx, heightPx, byteLength, altText).hashCode()
+    override fun toString(): String = "PublicCover(work=${work.value}, sha256=$sha256, $contentType ${widthPx}x$heightPx)"
+
+    companion object {
+        fun of(
+            work: PublicWorkId,
+            url: String,
+            sha256: String,
+            contentType: CoverContentType,
+            widthPx: Long,
+            heightPx: Long,
+            byteLength: Long,
+            altText: String,
+        ): CatalogCheck<PublicCover> = when {
+            !sha256Hex.matches(sha256) || widthPx !in 1..MaxCoverDimensionPx || heightPx !in 1..MaxCoverDimensionPx ||
+                byteLength !in 1..MaxCoverBytes || altText.isBlank() ||
+                altText.encodeToByteArray().size > MaxCoverAltTextBytes -> CatalogCheck.Invalid(CatalogViolation.InvalidCover)
+            !isCoverRoute(url, work, sha256) -> CatalogCheck.Invalid(CatalogViolation.CoverUrlMismatch)
+            else -> CatalogCheck.Valid(
+                PublicCover(work, url, sha256, contentType, widthPx.toInt(), heightPx.toInt(), byteLength.toInt(), altText),
+            )
+        }
+
+        /** `https://{authority}/api/v1/theatre/works/{work}/cover/{sha256}` and nothing else. */
+        private fun isCoverRoute(url: String, work: PublicWorkId, sha256: String): Boolean {
+            if (url.length > 4096 || !url.startsWith("https://")) return false
+            val rest = url.removePrefix("https://")
+            val slash = rest.indexOf('/')
+            if (slash <= 0) return false
+            val authority = rest.substring(0, slash)
+            if (authority.any { it.isWhitespace() || it.isISOControl() || it == '?' || it == '#' || it == '@' || it == '\\' }) return false
+            return rest.substring(slash) == "/api/v1/theatre/works/${work.value}/cover/$sha256"
+        }
+    }
+}
+
 class PublicWork private constructor(
     val id: PublicWorkId,
     val kind: PublicWorkKind,
@@ -102,12 +174,14 @@ class PublicWork private constructor(
     val description: String,
     val language: String,
     val firstPublishedAtMs: Long,
+    /** The Server-authorized cover, or null: the one legitimate no-cover state (never a reason). */
+    val cover: PublicCover?,
 ) {
     override fun equals(other: Any?): Boolean = other is PublicWork && id == other.id && kind == other.kind &&
         title == other.title && description == other.description && language == other.language &&
-        firstPublishedAtMs == other.firstPublishedAtMs
+        firstPublishedAtMs == other.firstPublishedAtMs && cover == other.cover
 
-    override fun hashCode(): Int = listOf(id, kind, title, description, language, firstPublishedAtMs).hashCode()
+    override fun hashCode(): Int = listOf(id, kind, title, description, language, firstPublishedAtMs, cover).hashCode()
     override fun toString(): String = "PublicWork(id=${id.value}, kind=$kind)"
 
     companion object {
@@ -118,10 +192,12 @@ class PublicWork private constructor(
             description: String,
             language: String,
             firstPublishedAtMs: Long,
+            cover: PublicCover? = null,
         ): CatalogCheck<PublicWork> = when {
             title.isBlank() -> CatalogCheck.Invalid(CatalogViolation.BlankTitle)
             firstPublishedAtMs !in 0..MaxSafeMillis -> CatalogCheck.Invalid(CatalogViolation.TimestampOutOfRange)
-            else -> CatalogCheck.Valid(PublicWork(id, kind, title, description, language, firstPublishedAtMs))
+            cover != null && cover.work != id -> CatalogCheck.Invalid(CatalogViolation.CoverWorkMismatch)
+            else -> CatalogCheck.Valid(PublicWork(id, kind, title, description, language, firstPublishedAtMs, cover))
         }
     }
 }

@@ -1,8 +1,9 @@
 //! Anonymous JSON discovery reads of the Work list. No identity cookie, credential, write or
 //! player effect. The request is always the one canonical `GET /works` with the opt-in
-//! presentation capability, so every row carries its public `unit_count`.
+//! `presentation=2` capability (Discovery v1.2), so every row carries its public `unit_count` and
+//! its required-nullable public `cover`.
 use super::public_work::{classify_error, is_json};
-use crate::contract::discovery::PresentedWorkPage;
+use crate::contract::discovery::CoveredWorkPage;
 use crate::{
     application::{
         public_discovery::{DiscoveryQuery, DiscoveryReadError, PUBLIC_WORK_PAGE_LIMIT},
@@ -25,7 +26,7 @@ pub fn works_path(query: &DiscoveryQuery, cursor: Option<&str>) -> String {
         serializer.append_pair(name, &value);
     }
     serializer.append_pair("limit", &PUBLIC_WORK_PAGE_LIMIT.to_string());
-    serializer.append_pair("presentation", "1");
+    serializer.append_pair("presentation", "2");
     if let Some(cursor) = cursor {
         serializer.append_pair("cursor", cursor);
     }
@@ -38,7 +39,7 @@ pub fn decode_response(
     content_type: Option<&str>,
     body: &[u8],
     cursor_sent: bool,
-) -> Result<PresentedWorkPage, DiscoveryReadError> {
+) -> Result<CoveredWorkPage, DiscoveryReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
             CatalogReadError::Diagnostic(kind) => DiscoveryReadError::Diagnostic(kind),
@@ -54,12 +55,13 @@ pub fn decode_response(
     if body.len() > MAX_RESPONSE_BYTES || !is_json(content_type) {
         return Err(DiscoveryReadError::Protocol);
     }
-    let page: PresentedWorkPage =
+    let page: CoveredWorkPage =
         serde_json::from_slice(body).map_err(|_| DiscoveryReadError::Protocol)?;
     let mut ids = BTreeSet::new();
     if page.items.len() > PUBLIC_WORK_PAGE_LIMIT
         || page.items.iter().any(|work| {
-            PublicWorkId::parse(&work.work_id).is_none()
+            PublicWorkId::parse(&work.work_id)
+                .is_none_or(|id| !crate::application::public_cover::work_is_admitted(work, id))
                 || !ids.insert(work.work_id.as_str())
                 || work.title.trim().is_empty()
                 || work.language.trim().is_empty()
@@ -73,7 +75,7 @@ pub fn decode_response(
 #[cfg(target_arch = "wasm32")]
 pub async fn load(
     ticket: &crate::application::public_discovery::DiscoveryTicket,
-) -> Result<PresentedWorkPage, DiscoveryReadError> {
+) -> Result<CoveredWorkPage, DiscoveryReadError> {
     let path = works_path(ticket.query(), ticket.cursor());
     let (status, content_type, body) = super::public_work::get(&path, MAX_RESPONSE_BYTES)
         .await
@@ -93,10 +95,10 @@ pub async fn load(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
+    use crate::contract::discovery::{CoverImage, CoverMime, CoveredWorkSummary, WorkKind};
 
     const PAGE: &[u8] = include_bytes!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
     );
     const EMPTY: &[u8] = include_bytes!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/empty.json"
@@ -115,7 +117,7 @@ mod tests {
     );
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
-    fn decode(body: &[u8]) -> Result<PresentedWorkPage, DiscoveryReadError> {
+    fn decode(body: &[u8]) -> Result<CoveredWorkPage, DiscoveryReadError> {
         decode_response(200, JSON, body, false)
     }
     fn query(text: &str, kind: Option<WorkKind>, language: &str) -> DiscoveryQuery {
@@ -123,14 +125,14 @@ mod tests {
     }
 
     #[test]
-    fn every_read_is_the_one_canonical_presented_works_request() {
+    fn every_read_is_the_one_canonical_covered_works_request() {
         assert_eq!(
             works_path(&DiscoveryQuery::default(), None),
-            "/api/v1/theatre/works?limit=20&presentation=1"
+            "/api/v1/theatre/works?limit=20&presentation=2"
         );
         assert_eq!(
             works_path(&query("Ánh đèn & ma", Some(WorkKind::Story), "VI-vn"), None),
-            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20&presentation=1"
+            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20&presentation=2"
         );
     }
 
@@ -139,7 +141,7 @@ mod tests {
         let path = works_path(&query("đèn", None, ""), Some("lc1_a+b/c=&d"));
         assert_eq!(
             path,
-            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&presentation=1&cursor=lc1_a%2Bb%2Fc%3D%26d"
+            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&presentation=2&cursor=lc1_a%2Bb%2Fc%3D%26d"
         );
         // Decoding the query string returns exactly the typed values: nothing was lost or merged.
         let pairs: Vec<(String, String)> =
@@ -151,7 +153,7 @@ mod tests {
             [
                 ("q", "đèn"),
                 ("limit", "20"),
-                ("presentation", "1"),
+                ("presentation", "2"),
                 ("cursor", "lc1_a+b/c=&d")
             ]
             .map(|(n, v)| (n.to_owned(), v.to_owned()))
@@ -167,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn presented_response_is_decoded_once_and_retains_identity_and_unit_count() {
+    fn covered_response_is_decoded_once_and_retains_identity_unit_count_and_cover() {
         let page = decode_response(200, JSON, PAGE, false).unwrap();
         assert_eq!(page.items[0].title, "Ánh đèn cuối sân khấu");
         assert_eq!(
@@ -175,7 +177,8 @@ mod tests {
             "10000000-0000-4000-8000-000000000001"
         );
         assert_eq!(page.items[0].unit_count, 3);
-        assert_eq!(page.next_cursor, None);
+        assert!(page.items[0].cover.is_some() && page.items[1].cover.is_none());
+        assert!(page.next_cursor.is_some());
         assert_eq!(decode(EMPTY).unwrap().items.len(), 0);
     }
 
@@ -204,6 +207,105 @@ mod tests {
             assert_eq!(
                 decode(&serde_json::to_vec(&value).unwrap()),
                 Err(DiscoveryReadError::Protocol)
+            );
+        }
+    }
+
+    const COVER_WORK: &str = "10000000-0000-4000-8000-000000000001";
+    const COVER_SHA: &str = "a3c1f0e2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8";
+
+    /// The Server's cover fixture with one mutation applied to the first Work's `cover` object.
+    fn with_cover(mutate: impl FnOnce(&mut serde_json::Value)) -> Vec<u8> {
+        let mut value: serde_json::Value = serde_json::from_slice(PAGE).unwrap();
+        mutate(&mut value["items"][0]["cover"]);
+        serde_json::to_vec(&value).unwrap()
+    }
+
+    #[test]
+    fn a_null_cover_is_a_legitimate_work_but_a_missing_one_is_a_protocol_error() {
+        assert!(decode(PAGE).unwrap().items[1].cover.is_none());
+        let mut value: serde_json::Value = serde_json::from_slice(PAGE).unwrap();
+        value["items"][1].as_object_mut().unwrap().remove("cover");
+        assert_eq!(
+            decode(&serde_json::to_vec(&value).unwrap()),
+            Err(DiscoveryReadError::Protocol)
+        );
+        // The earlier presentation levels are not a v1.2 page, so a stale cache or proxy answer
+        // never decodes as "no cover".
+        for earlier in [
+            include_bytes!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json").as_slice(),
+            include_bytes!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/works.json").as_slice(),
+        ] {
+            assert_eq!(decode(earlier), Err(DiscoveryReadError::Protocol));
+        }
+    }
+
+    #[test]
+    fn a_malformed_or_unauthorized_cover_refuses_the_whole_page() {
+        type Mutation = Box<dyn FnOnce(&mut serde_json::Value)>;
+        let cases: [(&str, Mutation); 12] = [
+            ("unknown field", Box::new(|c| c["asset_id"] = "x".into())),
+            ("sha256 shape", Box::new(|c| c["sha256"] = "ABC".into())),
+            (
+                "another work",
+                Box::new(|c| {
+                    c["url"] = format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000002/cover/{COVER_SHA}").into();
+                }),
+            ),
+            (
+                "another digest",
+                Box::new(|c| {
+                    c["url"] = format!(
+                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{}",
+                        "b".repeat(64)
+                    )
+                    .into();
+                }),
+            ),
+            (
+                "insecure scheme",
+                Box::new(|c| {
+                    c["url"] = format!(
+                        "http://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{COVER_SHA}"
+                    )
+                    .into();
+                }),
+            ),
+            (
+                "studio route",
+                Box::new(|c| {
+                    c["url"] = format!(
+                        "https://api.cantos.example/api/v1/studio/works/{COVER_WORK}/cover/{COVER_SHA}"
+                    )
+                    .into();
+                }),
+            ),
+            (
+                "query",
+                Box::new(|c| {
+                    c["url"] = format!(
+                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{COVER_SHA}?x=1"
+                    )
+                    .into();
+                }),
+            ),
+            (
+                "content type",
+                Box::new(|c| c["content_type"] = "image/gif".into()),
+            ),
+            ("width", Box::new(|c| c["width_px"] = 4097.into())),
+            ("height", Box::new(|c| c["height_px"] = 0.into())),
+            (
+                "length",
+                Box::new(|c| c["byte_length"] = 8_388_609_u64.into()),
+            ),
+            ("blank alt", Box::new(|c| c["alt_text"] = "  ".into())),
+        ];
+        for (name, mutate) in cases {
+            assert_eq!(
+                decode(&with_cover(mutate)),
+                Err(DiscoveryReadError::Protocol),
+                "{name}"
             );
         }
     }
@@ -326,16 +428,32 @@ mod tests {
 
     #[test]
     fn twenty_maximum_length_legal_catalog_records_fit_the_bounded_response() {
-        let page = PresentedWorkPage {
+        let page = CoveredWorkPage {
             items: (1..=20)
-                .map(|id| PresentedWorkSummary {
-                    work_id: uuid::Uuid::from_u128(id).to_string(),
-                    kind: WorkKind::Story,
-                    title: "T".repeat(512),
-                    description: "\"".repeat(16_384),
-                    language: format!("vi-x{}-abcd", "-abcdefgh".repeat(6)),
-                    first_published_at_ms: 1,
-                    unit_count: 9_007_199_254_740_991,
+                .map(|id| {
+                    let work_id = uuid::Uuid::from_u128(id).to_string();
+                    let sha256 = "a".repeat(64);
+                    CoveredWorkSummary {
+                        cover: Some(CoverImage {
+                            url: format!(
+                                "https://{}.example/api/v1/theatre/works/{work_id}/cover/{sha256}",
+                                "a".repeat(200)
+                            ),
+                            sha256,
+                            content_type: CoverMime::Jpeg,
+                            width_px: 4096,
+                            height_px: 4096,
+                            byte_length: 8_388_608,
+                            alt_text: "\"".repeat(1024),
+                        }),
+                        work_id,
+                        kind: WorkKind::Story,
+                        title: "T".repeat(512),
+                        description: "\"".repeat(16_384),
+                        language: format!("vi-x{}-abcd", "-abcdefgh".repeat(6)),
+                        first_published_at_ms: 1,
+                        unit_count: 9_007_199_254_740_991,
+                    }
                 })
                 .collect(),
             next_cursor: None,

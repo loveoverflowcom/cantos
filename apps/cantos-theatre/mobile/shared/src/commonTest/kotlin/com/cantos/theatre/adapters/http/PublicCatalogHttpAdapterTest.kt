@@ -14,9 +14,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class PublicCatalogHttpAdapterTest {
     private val corpus = CanonicalDiscoveryCorpus.fixtureJsonByFile
+    /** Two covered Works (a shown cover, then null) and one covered detail: the v1.2 reads. */
+    private val works = corpus.getValue("cover/covered_works.json")
+    private val detail = corpus.getValue("cover/covered_work.json")
     private val origin = ApiOrigin.parse("https://api.cantos.example")
 
     private class Scripted(var respond: (CatalogHttpRequest) -> CatalogHttpResponse) : CatalogHttpTransport {
@@ -34,21 +38,22 @@ class PublicCatalogHttpAdapterTest {
 
     @Test
     fun requests_only_anonymous_theatre_routes_with_explicit_limit_and_opaque_cursor() = runTest {
-        val transport = Scripted { json(200, corpus.getValue("works.json")) }
+        val transport = Scripted { json(200, works) }
         val adapter = PublicCatalogHttpAdapter(origin, transport)
         assertIs<PublicCatalogRead.Ready<*>>(adapter.works(null))
         adapter.works(cursor(1))
-        transport.respond = { json(200, corpus.getValue("works.json").let { page -> page.substringAfter("[").substringBeforeLast("]").trim() }) }
+        transport.respond = { json(200, detail) }
         val story = work(1, PublicWorkKind.Story)
-        assertIs<PublicCatalogRead.Ready<*>>(adapter.work(story.id))
+        assertIs<PublicCatalogRead.Ready<*>>(adapter.work(workId(3)))
         transport.respond = { json(200, corpus.getValue("units.json")) }
         assertIs<PublicCatalogRead.Ready<*>>(adapter.units(story, null))
         adapter.units(story, cursor(2))
         assertEquals(
             listOf(
-                "https://api.cantos.example/api/v1/theatre/works?limit=20",
-                "https://api.cantos.example/api/v1/theatre/works?limit=20&cursor=${cursor(1).value}",
-                "https://api.cantos.example/api/v1/theatre/works/${story.id.value}",
+                // Work reads opt in to the cover (presentation=2); unit reads stay on default v1.
+                "https://api.cantos.example/api/v1/theatre/works?limit=20&presentation=2",
+                "https://api.cantos.example/api/v1/theatre/works?limit=20&cursor=${cursor(1).value}&presentation=2",
+                "https://api.cantos.example/api/v1/theatre/works/${workId(3).value}?presentation=2",
                 "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20",
                 "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20&cursor=${cursor(2).value}",
             ),
@@ -59,24 +64,25 @@ class PublicCatalogHttpAdapterTest {
 
     @Test
     fun search_and_filter_go_to_server_and_encode_unicode_and_query_delimiters() = runTest {
-        val transport = Scripted { json(200, corpus.getValue("works.json")) }
+        val transport = Scripted { json(200, works) }
         val adapter = PublicCatalogHttpAdapter(origin, transport)
         val query = assertIs<CatalogCheck.Valid<PublicCatalogQuery>>(PublicCatalogQuery.of("á &?#", PublicWorkKind.Podcast)).value
         adapter.works(null, query)
         adapter.works(cursor(2), query)
         adapter.works(null, assertIs<CatalogCheck.Valid<PublicCatalogQuery>>(PublicCatalogQuery.of("", PublicWorkKind.Story)).value)
         assertEquals(listOf(
-            "https://api.cantos.example/api/v1/theatre/search?limit=20&q=%C3%A1%20%26%3F%23&kind=podcast",
-            "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&q=%C3%A1%20%26%3F%23&kind=podcast",
-            "https://api.cantos.example/api/v1/theatre/works?limit=20&kind=story",
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&presentation=2&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&presentation=2&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/works?limit=20&presentation=2&kind=story",
         ), transport.urls)
     }
 
     @Test
     fun work_detail_must_be_the_requested_identity() = runTest {
-        val body = corpus.getValue("works.json").substringAfter("[").substringBeforeLast("]").trim()
-        val adapter = PublicCatalogHttpAdapter(origin, Scripted { json(200, body) })
+        val adapter = PublicCatalogHttpAdapter(origin, Scripted { json(200, detail) })
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid), adapter.work(workId(2)))
+        val ready = assertIs<PublicCatalogRead.Ready<com.cantos.theatre.domain.catalog.PublicWork>>(adapter.work(workId(3)))
+        assertEquals(workId(3), ready.value.cover?.work)
     }
 
     @Test
@@ -91,7 +97,7 @@ class PublicCatalogHttpAdapterTest {
     @Test
     fun status_code_and_envelope_follow_the_exact_v1_error_table() = runTest {
         fun outcome(response: CatalogHttpResponse, sentCursor: Boolean = true) =
-            classifyCatalogResponse(response, sentCursor, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+            classifyCatalogResponse(response, sentCursor, CoveredWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
         val error = { name: String -> corpus.getValue(name) }
         assertEquals(PublicCatalogRead.NotFound, outcome(json(404, error("not_found.json"))))
         assertEquals(PublicCatalogRead.InvalidCursor, outcome(json(400, error("invalid_cursor.json"))))
@@ -117,8 +123,7 @@ class PublicCatalogHttpAdapterTest {
     @Test
     fun success_requires_json_utf8_strict_shape_and_valid_values() = runTest {
         fun outcome(response: CatalogHttpResponse) =
-            classifyCatalogResponse(response, false, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
-        val works = corpus.getValue("works.json")
+            classifyCatalogResponse(response, false, CoveredWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
         assertIs<PublicCatalogRead.Ready<*>>(outcome(json(200, works, "application/json; charset=utf-8")))
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.ContentType), outcome(json(200, works, "text/plain")))
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.ContentType), outcome(json(200, works, null)))
@@ -129,9 +134,61 @@ class PublicCatalogHttpAdapterTest {
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid),
             outcome(json(200, works.replace("10000000-0000-4000-8000-000000000001", "10000000-0000-4000-8000-00000000000A"))))
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid),
-            outcome(json(200, works.replace("\"next_cursor\": null", "\"next_cursor\": \"lc1_not-hex\""))))
+            outcome(json(200, works.replace("lc1_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "lc1_not-hex"))))
         assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Oversized),
             outcome(CatalogHttpResponse(200, "application/json", ByteArray(CatalogBodyLimitBytes + 1))))
+    }
+
+    private fun covered(body: String) =
+        classifyCatalogResponse(json(200, body), false, CoveredWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+
+    @Test
+    fun a_default_or_presentation_one_body_is_refused_never_read_as_no_cover() {
+        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(corpus.getValue("works.json")))
+        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(corpus.getValue("presented_works.json")))
+        // Even a v1.2 body that merely drops the required-nullable key is a protocol fault.
+        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(Regex(""",\s*"cover": null""").replace(works, "")))
+        assertIs<PublicCatalogRead.Ready<*>>(covered(works))
+    }
+
+    @Test
+    fun an_unusable_cover_refuses_the_whole_page_instead_of_hiding_the_fault() {
+        val sha = "a3c1f0e2b4d6a8c0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8"
+        val workUrl = "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/$sha"
+        fun mutated(from: String, to: String): String {
+            assertTrue(works.contains(from), from)
+            return works.replace(from, to)
+        }
+        val invalid = listOf(
+            mutated("\"sha256\": \"$sha\"", "\"sha256\": \"${sha.uppercase()}\""),
+            mutated("\"sha256\": \"$sha\"", "\"sha256\": \"${sha.drop(1)}\""),
+            // The url must name this summary's own Work and the disclosed digest, exactly.
+            mutated(workUrl, workUrl.replace("000000000001/", "000000000002/")),
+            mutated(workUrl, workUrl.dropLast(1) + "0"),
+            mutated(workUrl, workUrl.replace("https://", "http://")),
+            mutated(workUrl, workUrl.replace("api.cantos.example", "user@api.cantos.example")),
+            mutated(workUrl, "$workUrl?x=1"),
+            mutated(workUrl, "$workUrl#top"),
+            mutated(workUrl, workUrl.replace("/api/v1/theatre/works/", "/api/v1/studio/works/")),
+            mutated(workUrl, workUrl.replace("api.cantos.example", " ")),
+            mutated(workUrl, workUrl.replace("https://api.cantos.example", "https://")),
+            mutated("\"width_px\": 1200", "\"width_px\": 4097"),
+            mutated("\"height_px\": 1800", "\"height_px\": 0"),
+            mutated("\"byte_length\": 245760", "\"byte_length\": 8388609"),
+            mutated("\"byte_length\": 245760", "\"byte_length\": 0"),
+            mutated("\"alt_text\": \"Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống.\"", "\"alt_text\": \"   \""),
+            mutated("\"alt_text\": \"Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống.\"", "\"alt_text\": \"${"ế".repeat(342)}\""),
+            mutated("\"unit_count\": 3", "\"unit_count\": 0"),
+        )
+        invalid.forEach { body -> assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid), covered(body), body) }
+        // The type is a closed wire enum: an unknown one is malformed before the domain sees it.
+        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(mutated("image/jpeg", "image/gif")))
+        // The same facts at the schema's limits are accepted: 4096 px, 8 MiB and 1024 alt-text bytes.
+        assertIs<PublicCatalogRead.Ready<*>>(covered(
+            mutated("\"width_px\": 1200", "\"width_px\": 4096")
+                .replace("\"byte_length\": 245760", "\"byte_length\": 8388608")
+                .replace("\"alt_text\": \"Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống.\"", "\"alt_text\": \"${"ế".repeat(341)}a\""),
+        ))
     }
 
     @Test

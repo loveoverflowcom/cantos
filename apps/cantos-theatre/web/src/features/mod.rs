@@ -15,6 +15,7 @@ pub(crate) mod live_player;
 #[cfg(feature = "preview")]
 pub(crate) mod player;
 mod player_timeline;
+pub(crate) mod public_cover;
 pub(crate) mod public_home;
 pub(crate) mod public_work;
 #[cfg(feature = "preview")]

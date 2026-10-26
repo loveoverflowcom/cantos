@@ -85,4 +85,28 @@ class PublicCatalogTest {
         source += work(2)
         assertEquals(listOf(work(1)), page.items)
     }
+
+    private fun cover(work: PublicWorkId = workId(1), sha: String = "a".repeat(64), url: String? = null) = PublicCover.of(
+        work, url ?: "https://api.cantos.example/api/v1/theatre/works/${work.value}/cover/$sha", sha,
+        CoverContentType.Png, 1024, 1024, 4096, "Bìa Ánh đèn cuối sân khấu",
+    )
+
+    @Test
+    fun a_cover_binds_one_work_one_digest_and_the_exact_cover_route() {
+        val shown = cover().valid()
+        assertEquals(workId(1), shown.work)
+        assertRefused(CatalogViolation.CoverUrlMismatch, cover(url = "https://api.cantos.example/cover/${"a".repeat(64)}"))
+        assertRefused(CatalogViolation.CoverUrlMismatch, cover(sha = "b".repeat(64), url = cover().valid().url))
+        assertRefused(CatalogViolation.InvalidCover, cover(sha = "A".repeat(64)))
+        // A cover is part of the Work's value: another Work's cover can never be attached to it.
+        assertRefused(CatalogViolation.CoverWorkMismatch,
+            PublicWork.of(workId(2), PublicWorkKind.Story, "Tên", "", "vi-VN", 5_000, shown))
+        val withCover = PublicWork.of(workId(1), PublicWorkKind.Story, "Tên", "", "vi-VN", 5_000, shown).valid()
+        assertEquals(shown, withCover.cover)
+        // A changed digest is a different Work value, so a refreshed list replaces the cached one.
+        val other = PublicWork.of(workId(1), PublicWorkKind.Story, "Tên", "", "vi-VN", 5_000, cover(sha = "c".repeat(64)).valid()).valid()
+        assertEquals(false, withCover == other)
+        assertEquals(false, withCover == work(1, title = "Tên", description = ""))
+        assertEquals(null, work(1).cover)
+    }
 }

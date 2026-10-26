@@ -36,6 +36,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -402,7 +403,7 @@ private fun WorkSummary(
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-                WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
+                WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail, cover = work.cover)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                     Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -501,7 +502,8 @@ private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (
 
 @Composable
 private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
-    WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f))
+    // A cover is shown whole (portrait or square) on the tonal surface; the detail never crops it.
+    WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f), cover = work.cover, contentScale = ContentScale.Fit)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Text(work.category, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
         Text(work.title, style = MaterialTheme.typography.headlineLarge,

@@ -4,6 +4,10 @@ import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
+import com.cantos.theatre.domain.catalog.CatalogViolation
+import com.cantos.theatre.domain.catalog.CoverContentType
+import com.cantos.theatre.domain.catalog.MaxSafeMillis
+import com.cantos.theatre.domain.catalog.PublicCover
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicUnitId
 import com.cantos.theatre.domain.catalog.PublicUnitKind
@@ -87,18 +91,44 @@ internal enum class UnitKindWire {
 }
 
 @Serializable
-internal data class WorkSummaryWire(
+internal enum class CoverContentTypeWire {
+    @SerialName("image/png") Png,
+    @SerialName("image/jpeg") Jpeg,
+}
+
+/** `CoverImage` of Discovery v1.2; every field is required and nothing else is admitted. */
+@Serializable
+internal data class CoverImageWire(
+    @SerialName("url") val url: String,
+    @SerialName("sha256") val sha256: String,
+    @SerialName("content_type") val contentType: CoverContentTypeWire,
+    @SerialName("width_px") @Serializable(with = StrictJsonLong::class) val widthPx: Long,
+    @SerialName("height_px") @Serializable(with = StrictJsonLong::class) val heightPx: Long,
+    @SerialName("byte_length") @Serializable(with = StrictJsonLong::class) val byteLength: Long,
+    @SerialName("alt_text") val altText: String,
+)
+
+/**
+ * `CoveredWorkSummary` (`presentation=2`): the Work's own fields, its `unit_count` and a
+ * **required nullable** `cover`. Omitting `cover` fails decoding (explicitNulls), exactly like a
+ * missing `next_cursor`; a default or `presentation=1` body is therefore refused, never read as
+ * "no cover".
+ */
+@Serializable
+internal data class CoveredWorkSummaryWire(
     @SerialName("work_id") val workId: String,
     @SerialName("kind") val kind: WorkKindWire,
     @SerialName("title") val title: String,
     @SerialName("description") val description: String,
     @SerialName("language") val language: String,
     @SerialName("first_published_at_ms") @Serializable(with = StrictJsonLong::class) val firstPublishedAtMs: Long,
+    @SerialName("unit_count") @Serializable(with = StrictJsonLong::class) val unitCount: Long,
+    @SerialName("cover") val cover: CoverImageWire?,
 )
 
 @Serializable
-internal data class WorkPageWire(
-    @SerialName("items") val items: List<WorkSummaryWire>,
+internal data class CoveredWorkPageWire(
+    @SerialName("items") val items: List<CoveredWorkSummaryWire>,
     @SerialName("next_cursor") val nextCursor: String?,
 )
 
@@ -181,8 +211,23 @@ private fun UnitKindWire.toDomain(): PublicUnitKind = when (this) {
 private fun String?.toCursor(): CatalogCheck<CatalogCursor?> =
     if (this == null) CatalogCheck.Valid(null) else CatalogCursor.parse(this)
 
-internal fun WorkSummaryWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
-    PublicWork.of(id, kind.toDomain(), title, description, language, firstPublishedAtMs)
+private fun CoverContentTypeWire.toDomain(): CoverContentType = when (this) {
+    CoverContentTypeWire.Png -> CoverContentType.Png
+    CoverContentTypeWire.Jpeg -> CoverContentType.Jpeg
+}
+
+private fun CoverImageWire?.toCover(work: PublicWorkId): CatalogCheck<PublicCover?> =
+    if (this == null) CatalogCheck.Valid(null)
+    else PublicCover.of(work, url, sha256, contentType.toDomain(), widthPx, heightPx, byteLength, altText).then {
+        CatalogCheck.Valid(it)
+    }
+
+/** `unit_count` is validated (positive, JSON-safe) but not modelled: no screen shows the server count. */
+internal fun CoveredWorkSummaryWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
+    if (unitCount !in 1..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
+    else cover.toCover(id).then { checked ->
+        PublicWork.of(id, kind.toDomain(), title, description, language, firstPublishedAtMs, checked)
+    }
 }
 
 internal fun UnitSummaryWire.toDomain(): CatalogCheck<PublicUnit> = PublicUnitId.parse(unitId).then { id ->
@@ -191,7 +236,7 @@ internal fun UnitSummaryWire.toDomain(): CatalogCheck<PublicUnit> = PublicUnitId
     }
 }
 
-internal fun WorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain() }.then { works ->
+internal fun CoveredWorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain() }.then { works ->
     nextCursor.toCursor().then { next -> PublicWorkPage.of(works, next) }
 }
 
@@ -214,11 +259,14 @@ internal fun <T> CatalogCheck<T>.acceptedOrNull(): T? = (this as? CatalogCheck.V
  */
 const val CatalogBodyLimitBytes: Int = 4 * 1024 * 1024
 
+/** Discovery v1.2 `presentation` level that adds the required-nullable public `cover`. */
+const val CoverPresentation: Int = 2
+
 /** Explicit page size (the server default); a cursor is bound to the limit it was issued for. */
 const val CatalogPageLimit: Int = 20
 
 /** Closed anonymous GET plan, built only from a validated origin, IDs and cursors. */
-class CatalogHttpRequest internal constructor(val url: String, val maxBodyBytes: Int)
+class CatalogHttpRequest internal constructor(val url: String, val maxBodyBytes: Int, val accept: String = "application/json")
 
 class CatalogHttpResponse(val status: Int, val contentType: String?, val body: ByteArray)
 
@@ -247,14 +295,15 @@ class PublicCatalogHttpAdapter(
         // /search and /works share the v1 query/response contract. The server searches the full
         // eligible catalog, never only the pages already present on this device.
         val path = if (query.text.isEmpty()) base else "${base.removeSuffix("/works")}/search"
-        val url = pageUrl(path, cursor) +
+        // presentation=2 is the cover capability and part of cursor identity: never mixed with v1.
+        val url = pageUrl(path, cursor) + "&presentation=$CoverPresentation" +
             (if (query.text.isNotEmpty()) "&q=${query.text.queryEncoded()}" else "") +
             (query.kind?.let { "&kind=${it.name.lowercase()}" } ?: "")
-        return read(url, cursor != null, WorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+        return read(url, cursor != null, CoveredWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
     }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> =
-        read("$base/${id.value}", false, WorkSummaryWire.serializer()) { wire ->
+        read("$base/${id.value}?presentation=$CoverPresentation", false, CoveredWorkSummaryWire.serializer()) { wire ->
             wire.toDomain().acceptedOrNull()?.takeIf { it.id == id }
         }
 

@@ -127,7 +127,9 @@ val generatedDiscoveryDirectory = layout.buildDirectory.dir("generated/discovery
 val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
     val fixtures = discoveryContract.resolve("fixtures")
     val schema = discoveryContract.resolve("discovery.schema.json")
-    inputs.files(fileTree(fixtures) { include("*.json") })
+    // The v1.2 cover fixtures live in a subdirectory so the default-v1 corpus above is unchanged;
+    // they enter the same map under a `cover/` key.
+    inputs.files(fileTree(fixtures) { include("*.json", "cover/*.json") })
     inputs.file(schema)
     outputs.dir(generatedDiscoveryDirectory)
     doLast {
@@ -152,8 +154,9 @@ val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
             }
             append('"')
         }
-        val files = fixtures.listFiles()?.filter { it.isFile && it.extension == "json" }?.sortedBy { it.name }
-            ?: error("Discovery fixtures are missing")
+        fun jsonIn(directory: File) = directory.listFiles()?.filter { it.isFile && it.extension == "json" }?.sortedBy { it.name }
+            ?: error("Discovery fixtures are missing: ${directory.name}")
+        val files = jsonIn(fixtures).map { it.name to it } + jsonIn(fixtures.resolve("cover")).map { "cover/${it.name}" to it }
         check(files.isNotEmpty()) { "Discovery fixture corpus cannot be empty" }
         val output = generatedDiscoveryDirectory.get().asFile.resolve(
             "com/cantos/theatre/adapters/http/CanonicalDiscoveryCorpus.kt",
@@ -165,7 +168,7 @@ val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
             appendLine("internal object CanonicalDiscoveryCorpus {")
             appendLine("    val schemaJson: String = ${quoted(utf8(schema))}")
             appendLine("    val fixtureJsonByFile: Map<String, String> = mapOf(")
-            files.forEach { appendLine("        ${quoted(it.name)} to ${quoted(utf8(it))},") }
+            files.forEach { (key, file) -> appendLine("        ${quoted(key)} to ${quoted(utf8(file))},") }
             appendLine("    )")
             appendLine("}")
         }, Charsets.UTF_8)

@@ -11,6 +11,8 @@ import com.cantos.theatre.adapters.http.JvmCatalogTransport
 import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
+import com.cantos.theatre.adapters.http.PublicCoverHttp
+import com.cantos.theatre.adapters.image.AndroidCoverDecoder
 import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.identity.AndroidNativeHttp
 import com.cantos.theatre.adapters.identity.createAndroidNativeAccount
@@ -61,6 +63,8 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val cache = store?.let { AccountCatalogCache(it) { accountScope } }
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
+    /** Anonymous, verified cover reads; decoded images live in memory only. */
+    val coverImages = CoverImages(PublicCoverHttp(JvmCatalogTransport()), AndroidCoverDecoder, System::currentTimeMillis)
     private val account = createAndroidNativeAccount(scope, app, origin)
     private val authorizedHttp = NativeAuthorizedHttpPort(scope, origin, account, http)
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,

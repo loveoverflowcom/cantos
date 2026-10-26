@@ -201,7 +201,7 @@ fn seed_preview(state: RwSignal<AccountViewState>, discovery: RwSignal<PublicDis
         if let Some(issued) = s.begin(DiscoveryQuery::default()) {
             s.finish(
                 &issued,
-                Ok(crate::contract::discovery::PresentedWorkPage {
+                Ok(crate::contract::discovery::CoveredWorkPage {
                     items: vec![],
                     next_cursor: None,
                 }),

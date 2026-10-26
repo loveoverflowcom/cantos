@@ -51,6 +51,23 @@ data class ShellWork(
     val detailPhase: ShellDetailPhase = ShellDetailPhase.Ready,
     /** True only when the API answered `presentation:null` for a retained record and nothing else names it. */
     val unavailable: Boolean = false,
+    /** The Server-authorized public cover; null is the only no-cover state and shows the fallback. */
+    val cover: ShellCover? = null,
+)
+
+/**
+ * A public cover as the screens need it: the Server's URL exactly as given plus the facts the
+ * image read is verified against, and the alt text. Built only from a validated domain cover;
+ * a screen never derives, rewrites or substitutes another URL.
+ */
+data class ShellCover(
+    val url: String,
+    val sha256: String,
+    val byteLength: Int,
+    val mime: String,
+    val widthPx: Int,
+    val heightPx: Int,
+    val altText: String,
 )
 
 /**

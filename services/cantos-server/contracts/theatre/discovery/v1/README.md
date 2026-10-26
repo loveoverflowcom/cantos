@@ -270,8 +270,10 @@ The [schema](discovery.schema.json) defines `CoverImage`, `CoveredWorkSummary` a
 `CoveredWorkPage`; the [cover fixtures](fixtures/cover/) show a shown cover and `null`; the
 [shared Rust DTOs](../../../../src/contract/theatre/discovery.rs) round-trip them and the
 conformance tests prove that default and `presentation=1` readers reject v1.2 responses.
-The fixtures live in a subdirectory so the default-v1 CMP corpus is unchanged; Theatre Web
-and CMP adopt them under #158/#159. #171 selects no CORP/CORS header for the deployed origins
+The fixtures live in a subdirectory so the default-v1 CMP corpus is unchanged. Theatre Web
+([#158](https://github.com/loveoverflowcom/cantos/issues/158)) now sends `presentation=2` on its
+Work list, search and detail reads, admits a cover only in the exact delivery shape above and shows
+the fallback for `null` or any image failure; CMP adopts it under #159. #171 selects no CORP/CORS header for the deployed origins
 (ADR 0041): the route answers with the Theatre surface's existing CORS boundary, and an
 explicit `Cross-Origin-Resource-Policy` and any offline cover retention on CMP remain open
 decisions for the deployment owner and #159.

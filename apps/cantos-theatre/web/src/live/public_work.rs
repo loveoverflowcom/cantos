@@ -1,7 +1,7 @@
 //! Anonymous public Work detail and unit-page reads. No identity cookie, credential, write,
 //! playback authorization or player effect. Decoding is pure and strict over the shared DTOs.
 use crate::contract::discovery::{
-    ListenerError, ListenerErrorCode, PresentedUnitPage, PresentedWorkSummary, UnitKind,
+    CoveredWorkSummary, ListenerError, ListenerErrorCode, PresentedUnitPage, UnitKind,
 };
 use crate::{
     application::public_work::{validate_page, validate_work, CatalogReadError, UNIT_PAGE_LIMIT},
@@ -16,10 +16,11 @@ const MAX_WORK_BYTES: usize = 262_144;
 const MAX_PAGE_BYTES: usize = 2_097_152;
 const MAX_ERROR_BYTES: usize = 4_096;
 
-/// Both reads opt in to the presentation capability, so the Work carries its public
-/// `unit_count` and every unit its `ordinal`; the strict v1 DTOs are never extended.
+/// The Work read opts in to `presentation=2` (public `unit_count` and the required-nullable
+/// `cover`); the unit read stays on `presentation=1` (each unit's `ordinal`, identical at v1.2).
+/// The strict v1 DTOs are never extended.
 pub fn work_path(work: PublicWorkId) -> String {
-    format!("{THEATRE_BASE}/works/{work}?presentation=1")
+    format!("{THEATRE_BASE}/works/{work}?presentation=2")
 }
 
 /// The cursor is opaque: it is only form-encoded, never parsed or persisted.
@@ -81,7 +82,7 @@ pub fn decode_work(
     content_type: Option<&str>,
     body: &[u8],
     expected: PublicWorkId,
-) -> Result<PresentedWorkSummary, CatalogReadError> {
+) -> Result<CoveredWorkSummary, CatalogReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
             // The detail read sends no cursor.
@@ -92,7 +93,7 @@ pub fn decode_work(
     if body.len() > MAX_WORK_BYTES || !is_json(content_type) {
         return Err(CatalogReadError::Protocol);
     }
-    let work: PresentedWorkSummary =
+    let work: CoveredWorkSummary =
         serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
     if !validate_work(&work, expected) {
         return Err(CatalogReadError::Protocol);
@@ -167,7 +168,7 @@ pub(super) async fn get(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn load_work(work: PublicWorkId) -> Result<PresentedWorkSummary, CatalogReadError> {
+pub async fn load_work(work: PublicWorkId) -> Result<CoveredWorkSummary, CatalogReadError> {
     let (status, content_type, body) = get(&work_path(work), MAX_WORK_BYTES).await?;
     decode_work(status, content_type.as_deref(), &body, work)
 }
@@ -194,7 +195,7 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const WORKS: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
     );
     const UNITS: &str = include_str!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
@@ -271,7 +272,7 @@ mod tests {
     fn paths_use_the_theatre_group_canonical_id_and_an_encoded_opaque_cursor() {
         assert_eq!(
             work_path(work()),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=1"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=2"
         );
         assert_eq!(
             units_path(work(), None),
@@ -300,6 +301,38 @@ mod tests {
         ] {
             assert_eq!(
                 decode_work(200, kind, &body, work()),
+                Err(CatalogReadError::Protocol)
+            );
+        }
+    }
+
+    #[test]
+    fn the_detail_cover_is_required_nullable_and_bound_to_the_route_work() {
+        let mut value: serde_json::Value = serde_json::from_slice(&work_body()).unwrap();
+        assert!(decode_work(200, JSON, &work_body(), work())
+            .unwrap()
+            .cover
+            .is_some());
+        value["cover"] = serde_json::Value::Null;
+        let no_cover = serde_json::to_vec(&value).unwrap();
+        assert!(decode_work(200, JSON, &no_cover, work())
+            .unwrap()
+            .cover
+            .is_none());
+        value.as_object_mut().unwrap().remove("cover");
+        let missing = serde_json::to_vec(&value).unwrap();
+        // A cover of the right shape for a different Work is not this Work's cover.
+        let mut foreign: serde_json::Value = serde_json::from_slice(&work_body()).unwrap();
+        let url = foreign["cover"]["url"]
+            .as_str()
+            .unwrap()
+            .replace("0001/cover", "0002/cover");
+        foreign["cover"]["url"] = url.into();
+        let foreign = serde_json::to_vec(&foreign).unwrap();
+        // The presentation=1 detail has no `cover` key at all.
+        for body in [missing, foreign] {
+            assert_eq!(
+                decode_work(200, JSON, &body, work()),
                 Err(CatalogReadError::Protocol)
             );
         }

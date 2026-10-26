@@ -31,10 +31,50 @@ pub enum UnitKind {
     Chapter,
     Episode,
 }
-/// Opt-in presentation v1.1; the default v1 summary remains unchanged.
+fn cover_bound<'de, D: Deserializer<'de>, const MAX: u64>(
+    deserializer: D,
+) -> Result<u64, D::Error> {
+    let value = u64::deserialize(deserializer)?;
+    if (1..=MAX).contains(&value) {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom(
+            "expected an integer within the cover bounds",
+        ))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum CoverMime {
+    #[serde(rename = "image/png")]
+    Png,
+    #[serde(rename = "image/jpeg")]
+    Jpeg,
+}
+
+/// Public image facts only (Discovery v1.2, ADR 0033): no asset ID, rights, provenance, owner or
+/// storage key. `url` is used exactly as given; the application layer admits only the shape the
+/// contract promises (see `application::public_cover`).
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct PresentedWorkSummary {
+pub struct CoverImage {
+    pub url: String,
+    pub sha256: String,
+    pub content_type: CoverMime,
+    #[serde(deserialize_with = "cover_bound::<_, 4096>")]
+    pub width_px: u64,
+    #[serde(deserialize_with = "cover_bound::<_, 4096>")]
+    pub height_px: u64,
+    #[serde(deserialize_with = "cover_bound::<_, 8_388_608>")]
+    pub byte_length: u64,
+    pub alt_text: String,
+}
+
+/// Discovery v1.2 (`presentation=2`): every presentation v1.1 field plus a **required nullable**
+/// `cover`. `null` is the only no-cover state; a missing `cover` key is a protocol error.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CoveredWorkSummary {
     pub work_id: String,
     pub kind: WorkKind,
     pub title: String,
@@ -44,11 +84,13 @@ pub struct PresentedWorkSummary {
     /// Currently eligible public units, not editorial/draft units or an authored total.
     #[serde(deserialize_with = "positive_safe_integer")]
     pub unit_count: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub cover: Option<CoverImage>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct PresentedWorkPage {
-    pub items: Vec<PresentedWorkSummary>,
+pub struct CoveredWorkPage {
+    pub items: Vec<CoveredWorkSummary>,
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }

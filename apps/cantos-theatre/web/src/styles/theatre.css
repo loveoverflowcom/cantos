@@ -448,6 +448,14 @@ body { margin: 0; }
 .theatre-public-cover-glyph { display: inline-flex; inline-size: 2.5rem; block-size: 2.5rem; }
 .theatre-public-cover-glyph .theatre-icon { inline-size: 100%; block-size: 100%; }
 .theatre-public-cover small { padding: 0; }
+/* The fallback frame is decorative markup that behaves as if it were the frame's own children. */
+.theatre-cover-fallback { display: contents; }
+/* A Server-authorized cover fills the frame in its own declared ratio; a load failure removes the
+   image, so the frame keeps the fallback and its minimum size. */
+.theatre-cover[data-cover="loading"], .theatre-cover[data-cover="shown"] { padding: 0; }
+.theatre-cover[data-cover="shown"] > .theatre-cover-fallback { visibility: hidden; }
+.theatre-public-cover[data-cover="loading"], .theatre-public-cover[data-cover="shown"] { max-block-size: 12rem; min-block-size: 3.5rem; }
+.theatre-public-work-cover[data-cover="loading"], .theatre-public-work-cover[data-cover="shown"] { max-block-size: 32rem; min-block-size: 0; }
 .theatre-public-skeleton { min-block-size: 11rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
 /* The title link is the card's one named target; its hit area covers the card. */
 .theatre-public-work-link { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cantos-space-sm); text-decoration: none; }

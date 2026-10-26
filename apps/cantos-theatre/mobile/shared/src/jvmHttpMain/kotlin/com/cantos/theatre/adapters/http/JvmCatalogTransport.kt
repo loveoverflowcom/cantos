@@ -34,7 +34,7 @@ class JvmCatalogTransport(
                 connection.connectTimeout = connectTimeoutMs
                 connection.readTimeout = readTimeoutMs
                 connection.requestMethod = "GET"
-                connection.setRequestProperty("Accept", "application/json")
+                connection.setRequestProperty("Accept", request.accept)
                 connection.setRequestProperty("Cookie", "")
                 val status = connection.responseCode
                 if (connection.contentLengthLong > request.maxBodyBytes) throw CatalogResponseTooLargeException()

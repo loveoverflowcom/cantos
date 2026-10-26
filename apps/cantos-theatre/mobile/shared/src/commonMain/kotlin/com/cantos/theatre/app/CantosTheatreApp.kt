@@ -38,6 +38,8 @@ import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
+import com.cantos.theatre.features.shell.presentation.CoverImageSource
+import com.cantos.theatre.features.shell.presentation.LocalCoverImages
 import com.cantos.theatre.features.shell.presentation.LocalShellCapabilities
 import com.cantos.theatre.features.shell.presentation.LocalShellCopyOverrides
 import com.cantos.theatre.features.shell.presentation.LocalShellLibraryHeader
@@ -73,6 +75,8 @@ fun CantosTheatreApp(
     cache: CatalogCachePort? = null,
     density: Density = Density.Comfortable,
     motionPreference: MotionPreference = MotionPreference.Reduced,
+    /** The host's verified cover pipeline; none means every cover keeps its accessible fallback. */
+    coverImages: CoverImageSource? = null,
 ) {
     val navigation by shell.navigation.collectAsState()
     val catalog by shell.catalog.state.collectAsState()
@@ -128,6 +132,7 @@ fun CantosTheatreApp(
     }
     CompositionLocalProvider(
         LocalShellCopyOverrides provides TheatreShellCopyOverrides,
+        LocalCoverImages provides coverImages,
         // Real bookmarks exist when the durable Library owner does; a guest is guided to sign in, not shown a fake save.
         LocalShellCapabilities provides ShellCapabilities(bookmarks = shell.runtime.library != null),
         LocalShellNotice provides { _, copy -> CatalogNotice(cacheStatus, copy, dispatch) },

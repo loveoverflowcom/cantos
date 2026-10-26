@@ -3,7 +3,7 @@
 //! This is the Khám phá screen: the intro, the search/filter form and the public Work list. The
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches.
-use crate::contract::discovery::{PresentedWorkSummary, WorkKind};
+use crate::contract::discovery::{CoverImage, CoveredWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
     application::public_discovery::{
@@ -15,6 +15,7 @@ use crate::{
         auth_copy::{self, CopyKey},
         common::{icon, EmptyArtwork, EmptyArtworkKind},
         discovery_language,
+        public_cover::PublicCover,
     },
     messages::{self, text, Key, Locale},
 };
@@ -124,20 +125,26 @@ fn feature_meta(kind: WorkKind, language: &str, count: u64, locale: Locale) -> S
     )
 }
 
-/// The public contract carries no cover yet (#157/#171), so every Work shows this deliberate
-/// fallback: decoration plus the kind. It invents no artwork and borrows no other Work's image.
+/// The Work's authorized public cover over the deliberate fallback: decoration plus the kind. The
+/// fallback invents no artwork and borrows no other Work's image; it stays for `cover: null` and
+/// for any image that cannot be shown.
 #[component]
-fn WorkCover(kind: WorkKind, locale: RwSignal<Locale>) -> impl IntoView {
+fn WorkCover(
+    kind: WorkKind,
+    cover: Option<CoverImage>,
+    lang: String,
+    locale: RwSignal<Locale>,
+) -> impl IntoView {
     let glyph = match kind {
         WorkKind::Podcast => icon("headphones"),
         WorkKind::Novel | WorkKind::Story => icon("library_books"),
     };
     view! {
-        <div class="theatre-cover theatre-public-cover" data-kind=kind_name(kind) aria-hidden="true">
+        <PublicCover cover lang kind=kind_name(kind) class="theatre-public-cover">
             <span class="theatre-cover-moon"></span>
             <span class="theatre-public-cover-glyph">{glyph}</span>
             <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
-        </div>
+        </PublicCover>
     }
 }
 
@@ -229,7 +236,7 @@ fn SearchForm(
 
 #[component]
 fn WorkCard(
-    work: PresentedWorkSummary,
+    work: CoveredWorkSummary,
     locale: RwSignal<Locale>,
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
@@ -242,7 +249,7 @@ fn WorkCard(
     let arrow = icon("arrow_back");
     view! {
         <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=work.work_id.clone()>
-            <WorkCover kind locale/>
+            <WorkCover kind cover=work.cover.clone() lang=work.language.clone() locale/>
             <div class="theatre-public-work-body">
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h3>{match PublicWorkId::parse(&work.work_id) {
@@ -441,7 +448,7 @@ pub(crate) fn PublicHome(
 mod tests {
     use super::*;
     use crate::application::public_discovery::DiscoveryReadError;
-    use crate::contract::discovery::PresentedWorkPage;
+    use crate::contract::discovery::CoveredWorkPage;
 
     fn render_with(state: PublicDiscoveryState, applied: DiscoveryQuery, locale: Locale) -> String {
         Owner::new().with(|| {
@@ -458,8 +465,8 @@ mod tests {
     fn render(state: PublicDiscoveryState, locale: Locale) -> String {
         render_with(state, DiscoveryQuery::default(), locale)
     }
-    fn work(title: &str) -> PresentedWorkSummary {
-        PresentedWorkSummary {
+    fn work(title: &str) -> CoveredWorkSummary {
+        CoveredWorkSummary {
             work_id: "00000000-0000-0000-0000-000000000001".into(),
             kind: WorkKind::Story,
             title: title.into(),
@@ -467,19 +474,20 @@ mod tests {
             language: "vi-VN".into(),
             first_published_at_ms: 1,
             unit_count: 3,
+            cover: None,
         }
     }
     fn answered(
         query: DiscoveryQuery,
-        result: Result<PresentedWorkPage, DiscoveryReadError>,
+        result: Result<CoveredWorkPage, DiscoveryReadError>,
     ) -> PublicDiscoveryState {
         let mut state = PublicDiscoveryState::default();
         let ticket = state.begin(query).unwrap();
         state.finish(&ticket, result);
         state
     }
-    fn page(items: Vec<PresentedWorkSummary>, next: Option<&str>) -> PresentedWorkPage {
-        PresentedWorkPage {
+    fn page(items: Vec<CoveredWorkSummary>, next: Option<&str>) -> CoveredWorkPage {
+        CoveredWorkPage {
             items,
             next_cursor: next.map(str::to_owned),
         }
@@ -716,11 +724,50 @@ mod tests {
         (&html[start..=end], &html[end + 1..content_end])
     }
 
-    fn work_with(id: u8, title: &str) -> PresentedWorkSummary {
-        PresentedWorkSummary {
+    fn work_with(id: u8, title: &str) -> CoveredWorkSummary {
+        CoveredWorkSummary {
             work_id: format!("00000000-0000-0000-0000-{id:012}"),
             ..work(title)
         }
+    }
+
+    #[test]
+    fn a_card_shows_its_own_authorized_cover_and_a_null_cover_keeps_the_kind_fallback() {
+        let covered: CoveredWorkPage = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+        ))
+        .unwrap();
+        let cover = covered.items[0].cover.clone().unwrap();
+        let state = answered(DiscoveryQuery::default(), Ok(covered));
+        let html = render(state, Locale::Vietnamese);
+        assert_eq!(html.matches("<img").count(), 1, "{html}");
+        assert!(html.contains(&format!("src=\"{}\"", cover.url)), "{html}");
+        assert!(
+            html.contains(&format!("alt=\"{}\"", cover.alt_text)),
+            "{html}"
+        );
+        assert_eq!(html.matches("data-cover=\"loading\"").count(), 1, "{html}");
+        assert_eq!(html.matches("data-cover=\"none\"").count(), 1, "{html}");
+        // The covered card's image is not the link: navigation stays on the one named title link,
+        // and the card without a cover still shows the decorative kind glyph.
+        assert!(html.matches("theatre-public-work-link").count() >= 2);
+        assert!(html.contains("theatre-public-cover-glyph"), "{html}");
+        // An image never carries another card's text or a private field.
+        for private in ["asset_id", "rights", "provenance", "storage_key"] {
+            assert!(!html.contains(private), "{private}");
+        }
+    }
+
+    #[test]
+    fn a_page_without_any_cover_renders_no_image_and_never_mock_artwork() {
+        let state = answered(
+            DiscoveryQuery::default(),
+            Ok(page(vec![work_with(1, "Một"), work_with(2, "Hai")], None)),
+        );
+        let html = render(state, Locale::Vietnamese);
+        assert!(!html.contains("<img"), "{html}");
+        assert!(!html.contains("assets/artwork"), "{html}");
+        assert_eq!(html.matches("data-cover=\"none\"").count(), 2, "{html}");
     }
 
     #[test]
