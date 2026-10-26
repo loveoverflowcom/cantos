@@ -31,7 +31,7 @@ fn selected_format(value: &str) -> ImportFormat {
 fn field_error(
     state: RwSignal<ImportEditor>,
     path: &'static str,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
 ) -> Signal<Option<String>> {
     Signal::derive(move || {
         state.with(|editor| {
@@ -39,7 +39,7 @@ fn field_error(
                 .issues
                 .iter()
                 .filter(|issue| issue.path == path)
-                .map(|issue| messages::import_field_rule(&issue.rule, english.get()))
+                .map(|issue| messages::import_field_rule(&issue.rule, locale.get()))
                 .collect::<Vec<_>>();
             (!messages.is_empty()).then(|| messages.join(" "))
         })
@@ -49,10 +49,10 @@ fn field_error(
 #[component]
 pub(super) fn MetadataFields(
     state: RwSignal<ImportEditor>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     session_pending: Signal<bool>,
 ) -> impl IntoView {
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     let blocked = move || session_pending.get() || state.with(ImportEditor::blocked);
     let reason = crate::ui::LocalizedReason::new(crate::ui::BlockReason::Pending);
     let Ok(reason) = reason else {
@@ -61,39 +61,39 @@ pub(super) fn MetadataFields(
     let reason = StoredValue::new(reason);
     let field_state = Signal::derive(move || {
         if blocked() {
-            cantos_ui::FieldState::Disabled(reason.with_value(|reason| reason.get(english.get())))
+            cantos_ui::FieldState::Disabled(reason.with_value(|reason| reason.get(locale.get())))
         } else {
             cantos_ui::FieldState::Editable
         }
     });
     let choice_state = Signal::derive(move || {
         if blocked() {
-            cantos_ui::ChoiceState::Disabled(reason.with_value(|reason| reason.get(english.get())))
+            cantos_ui::ChoiceState::Disabled(reason.with_value(|reason| reason.get(locale.get())))
         } else {
             cantos_ui::ChoiceState::Enabled
         }
     });
     view! {
         <div class="import-fields">
-        <Select id="import-format" error=field_error(state,FORMAT_PATH,english) label=Signal::derive(move ||copy().format.to_owned())
+        <Select id="import-format" error=field_error(state,FORMAT_PATH,locale) label=Signal::derive(move ||copy().format.to_owned())
             value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().map(|metadata|format_value(metadata.format)).unwrap_or("txt").to_owned()))
             state=choice_state described_by=Some("import-field-findings".to_owned())
             options=Signal::derive(move ||vec![SelectOption::new("txt",copy().txt),SelectOption::new("markdown",copy().markdown),SelectOption::new("docx",copy().docx),SelectOption::new("script_ir",copy().script_ir)])
             on_input=Callback::new(move |value:String|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.format=selected_format(&value))))/>
-        <TextField id="import-reference" error=field_error(state,REFERENCE_PATH,english) label=Signal::derive(move ||copy().reference.to_owned()) variant=TextFieldVariant::Floating
+        <TextField id="import-reference" error=field_error(state,REFERENCE_PATH,locale) label=Signal::derive(move ||copy().reference.to_owned()) variant=TextFieldVariant::Floating
             state=field_state required=true maxlength=2048 autocomplete="off" described_by=Some("import-field-findings".to_owned())
             value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().map(|metadata|metadata.reference.clone()).unwrap_or_default()))
             on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.reference=value)))/>
         <div class="import-metadata">
-            <TextField id="import-rights-holder" error=field_error(state,RIGHTS_HOLDER_PATH,english) label=Signal::derive(move ||copy().rights_holder.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-rights-holder" error=field_error(state,RIGHTS_HOLDER_PATH,locale) label=Signal::derive(move ||copy().rights_holder.to_owned()) variant=TextFieldVariant::Floating
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.rights_holder.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.rights_holder=optional_metadata(value))))/>
-            <TextField id="import-permission" error=field_error(state,PERMISSION_EVIDENCE_PATH,english) label=Signal::derive(move ||copy().permission_evidence.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-permission" error=field_error(state,PERMISSION_EVIDENCE_PATH,locale) label=Signal::derive(move ||copy().permission_evidence.to_owned()) variant=TextFieldVariant::Floating
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.permission_evidence.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.permission_evidence=optional_metadata(value))))/>
-            <TextField id="import-usage" error=field_error(state,USAGE_SCOPE_PATH,english) label=Signal::derive(move ||copy().usage_scope.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-usage" error=field_error(state,USAGE_SCOPE_PATH,locale) label=Signal::derive(move ||copy().usage_scope.to_owned()) variant=TextFieldVariant::Floating
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.usage_scope.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.usage_scope=optional_metadata(value))))/>
@@ -119,11 +119,11 @@ mod tests {
                 m.usage_scope = Some("Bản thử nội bộ".into());
             });
             let state = RwSignal::new(editor.clone());
-            let english = RwSignal::new(false);
+            let locale = RwSignal::new(crate::localization::Locale::Vietnamese);
             let pending = RwSignal::new(false);
-            for en in [false, true] {
-                english.set(en);
-                let html = view! { <MetadataFields state english=english.into() session_pending=pending.into()/> }.to_html();
+            for en in crate::localization::Locale::supported() {
+                locale.set(en);
+                let html = view! { <MetadataFields state locale=locale.into() session_pending=pending.into()/> }.to_html();
                 assert!(html.contains("cui-select-trigger"), "{html}");
                 assert_eq!(html.matches(r#"data-variant="floating""#).count(), 4, "{html}");
                 assert_eq!(html.matches(r#"maxlength="2048""#).count(), 4, "{html}");
@@ -147,10 +147,10 @@ mod tests {
             });
             let state=RwSignal::new(editor.clone());
             let pending=RwSignal::new(true);
-            let english=RwSignal::new(false);
-            for en in [false,true] {
-                english.set(en);
-                let html=view!{<MetadataFields state english=english.into() session_pending=pending.into()/>}.to_html();
+            let locale=RwSignal::new(crate::localization::Locale::Vietnamese);
+            for en in crate::localization::Locale::supported() {
+                locale.set(en);
+                let html=view!{<MetadataFields state locale=locale.into() session_pending=pending.into()/>}.to_html();
                 let start=html.find("<input id=\"import-reference\"").unwrap();
                 let control=&html[start..start+html[start..].find('>').unwrap()];
                 assert!(control.contains(" disabled"),"{control}");
@@ -162,7 +162,7 @@ mod tests {
                 assert_eq!(state.get_untracked().issues,editor.issues);
             }
             pending.set(false);
-            let html=view!{<MetadataFields state english=english.into() session_pending=pending.into()/>}.to_html();
+            let html=view!{<MetadataFields state locale=locale.into() session_pending=pending.into()/>}.to_html();
             assert!(!html.contains(" disabled"),"{html}");
             assert!(state.get_untracked().has_unsaved());
         });

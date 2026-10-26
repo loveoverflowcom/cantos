@@ -217,7 +217,7 @@ mod view {
     #[component]
     pub fn BriefDocument(
         brief: Signal<Option<ProductionBriefResponse>>,
-        english: Signal<bool>,
+        locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
     ) -> impl IntoView {
         let copied = RwSignal::new(None::<bool>);
@@ -227,10 +227,10 @@ mod view {
             copied.set(None);
         });
         view! {
-            <p role="status">{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_freshness(b.freshness.clone(),english.get())).unwrap_or_default())}</p>
+            <p role="status">{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_freshness(b.freshness.clone(),locale.get())).unwrap_or_default())}</p>
             <p><code>{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_binding(&b.brief)).unwrap_or_default())}</code></p>
-            <p class="help">{move ||text(Key::CopyBriefHelp,english.get())}</p>
-            <ActionButton id="live-copy-brief" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
+            <p class="help">{move ||text(Key::CopyBriefHelp,locale.get())}</p>
+            <ActionButton id="live-copy-brief" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
                 if blocked.get_untracked() || copying.get_untracked() { return; }
                 let Some(snapshot)=brief.get_untracked() else {return;};
                 let Ok(value)=serde_json::to_string_pretty(&snapshot.brief) else {copied.set(Some(false));return;};
@@ -250,9 +250,9 @@ mod view {
                     }
                     let _=copying.try_set(false);
                 });
-            })>{move ||text(Key::CopyBrief,english.get())}</ActionButton>
-            <p role="status">{move ||copied.get().map(|success|text(if success{Key::CopiedBrief}else{Key::CopyBriefFailed},english.get())).unwrap_or_default()}</p>
-            <details open=move ||copied.get()==Some(false)><summary>{move ||text(Key::InspectDocument,english.get())}</summary><textarea id="live-brief-document" class="cui-field-control" readonly aria-label=move ||text(Key::Brief,english.get()) prop:value=move ||brief.with(|b|b.as_ref().and_then(|b|serde_json::to_string_pretty(&b.brief).ok()).unwrap_or_default())/></details>
+            })>{move ||text(Key::CopyBrief,locale.get())}</ActionButton>
+            <p role="status">{move ||copied.get().map(|success|text(if success{Key::CopiedBrief}else{Key::CopyBriefFailed},locale.get())).unwrap_or_default()}</p>
+            <details open=move ||copied.get()==Some(false)><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><textarea id="live-brief-document" class="cui-field-control" readonly aria-label=move ||text(Key::Brief,locale.get()) prop:value=move ||brief.with(|b|b.as_ref().and_then(|b|serde_json::to_string_pretty(&b.brief).ok()).unwrap_or_default())/></details>
         }
     }
 }

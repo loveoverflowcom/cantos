@@ -1,6 +1,6 @@
 # ADR 0050: Resource-driven semantic localization contract
 
-- Status: proposed; reversible fixture implemented, no production adoption
+- Status: accepted architectural direction; production adoption requires target-specific qualification
 - Date: 2026-10-26
 - Decision owner: repository owner via [#167](https://github.com/loveoverflowcom/cantos/issues/167)
 - Related issues: [#505](https://github.com/loveoverflowcom/cantos/issues/505),
@@ -8,13 +8,37 @@
   [CMP #507](https://github.com/loveoverflowcom/cantos/issues/507)
 - Supersedes: N/A
 
-## Context
+## Owner acceptance — 26 October 2026
+
+At 16:26 UTC the repository owner approved the concrete direction presented at 16:12 UTC:
+"Duyệt hướng trên, làm tiếp đi" (conversation message
+`Sentinel_e5fd476bc7fc8191b0647efa4e9b9a6f`, forwarded in the #506 task).
+The accepted choice is one versioned JSON source with app-owned generated Rust/Kotlin APIs,
+a common pinned ICU4X core and CLDR data strategy, release UI locales `vi-VN` and `en`,
+test-only `ja`, saved supported preference before the `vi-VN` default, and no automatic
+browser/device negotiation. Missing translations must fail validation.
+
+The implementation placement is `packages/localization/catalog/v1`; schema-breaking changes
+use a new major directory/version, while content changes update the deterministic digest.
+This is a presentation resource owner, not a service contract or an application import.
+Each app keeps its own generated representation. UI-system components still receive copy
+from their callers.
+
+Acceptance selects the architecture, not working bindings or formatter coverage. Qualify each
+affected formatter and target before migrating its production consumers. Web/WASM or native
+Rust evidence cannot establish Kotlin/Compose, Android or iOS readiness. Native adapters and
+#507 adoption remain separate. Unsupported formatting returns typed errors; it must not
+substitute English, ISO strings or hand-built localized output. Retain the existing owner for
+a namespace until its replacement passes. The original #505 fixture remains bounded historical
+evidence, including its deliberately incomplete integer plural schema.
+
+## Original #505 context (historical)
 
 The owner requires adding UI languages through resources and generation/validation without
 new `english: bool` branches in consumers. That direction does not select a runtime or format.
 At base `645a060ddec5bffa8975cc8d94ca9266a498a390`, #167 is OPEN/RFC, with no decision
 comment. #168/#169 delivered bounded changes and candidate evidence, not broad adoption.
-This proposal follows #505's explicit pending-ADR branch. Merging its fixture does not accept
+The original proposal followed #505's explicit pending-ADR branch. Merging that fixture did not accept
 this ADR or complete #167/#505's production acceptance checklist.
 
 Reuse the [Leptos spike](../evidence/leptos-localization-spike.md) and
@@ -23,17 +47,20 @@ their named source/tool/environment; this PR does not remeasure those candidates
 The new [fixture and audit](../evidence/localization-foundation-505.md) isolate the contract
 questions without installing another application runtime or upgrading Leptos/Kotlin/Compose.
 
-## Proposed decision
+## Selected direction and original fixture contract
 
 Use a renderer-neutral, versioned semantic catalog and locale registry as generation inputs,
 with each application owning its generated projection and presentation adapter. Prefer a
 small JSON schema with explicit named argument and plural/select nodes over boolean pairs.
-The executable draft schema is [the fixture validator](../../scripts/localization_catalog.py);
+The original executable draft schema was [the fixture validator](../../scripts/localization_catalog.py);
 the [fixture catalog](../evidence/fixtures/localization-foundation/catalog.json) is experiment
-input, not the production canonical source. The eventual accepted resource placement and
-versioned schema must be recorded here before moving it out of `docs/evidence/fixtures`.
+input, not the production canonical source. The accepted production source is now [catalog/v1](../../packages/localization/catalog/v1/catalog.json),
+with its [structural schema](../../packages/localization/catalog/v1/schema.json), strict validator
+and [runtime contract](../../packages/localization/README.md). The original fixture stays in place.
 
-The proposal's contract is:
+The original fixture contract below describes that bounded experiment. The owner acceptance
+and production runtime contract above supersede its unresolved policy statements:
+
 
 - Semantic namespaces are `common`, `studio`, `theatre`. Keys name stable meanings. Reuse
   needs identical semantics; platform-specific variants stay explicit. Shared UI-system
@@ -51,9 +78,9 @@ The proposal's contract is:
   `en-GB` resolves to `en`, explicit `vi` alias to `vi-VN`. Unsupported requests return a
   diagnostic naming the proposed fallback `vi-VN`; applying that fallback is an explicit
   outer policy, never a silent lookup result. This experiment is not a full IANA tag validator.
-- Proposed preference precedence is saved supported choice, then an explicitly approved
-  browser/device negotiation, then `vi-VN`. No browser/device negotiation or storage policy
-  changes in this PR. Keep the already implemented CMP saved-preference behavior.
+- Accepted Web precedence is saved supported choice, then `vi-VN`, with visible unsupported/storage
+  notices and no automatic browser/device negotiation. Preserve the existing CMP controller
+  until its separately qualified #507 migration.
 - Every supported locale must contain every key, argument and required plural/select form.
   Missing keys, blank strings, unknown/missing arguments, selector drift and generated-file
   drift fail validation. A missing translation never becomes backend prose or a key on screen.
@@ -69,7 +96,8 @@ The proposal's contract is:
   into a handwritten all-language runtime; select/review the full CLDR adapter before adoption.
 - Number/date/duration/currency formatting requires explicit typed requests and a reviewed
   locale-aware adapter: decimal value; instant plus time zone; duration plus clock/spoken
-  style; integer minor units plus currency. No adapter is selected or implemented here.
+  style; integer minor units plus currency. The original fixture implemented no such adapter; #506 now owns the bounded
+  [ICU4X Web qualification](../evidence/web-localization-506.md).
   Unavailable formatting must be a typed refusal, never an ISO string, English fallback or
   manually concatenated number presented as localized. Fixture count `to_string` and supplied
   `time: text` are interpolation examples, not locale-aware formatters.
@@ -78,13 +106,13 @@ The proposal's contract is:
   of changed-line literal checks. The existing repository gate runs both. Native compiler
   checks provide distinct evidence from byte drift/parity.
 
-## Alternatives and evidence
+## Alternatives considered and original evidence
 
 | Architecture | Benefits / observed evidence | Costs / limitations | Proposal disposition |
 | --- | --- | --- | --- |
-| Canonical semantic catalog + generated typed projections | One key/argument/translation source; reversible fixture now demonstrates Rust/Kotlin parity and a resource-only third locale; baseline typed Rust spike adds no runtime | Own schema/versioning/generation; full CLDR and formatting adapters still need target evidence; translator workflow unmeasured | Preferred proposal for contract ownership; production runtime remains unresolved |
+| Canonical semantic catalog + generated typed projections | One key/argument/translation source; reversible fixture now demonstrates Rust/Kotlin parity and a resource-only third locale; baseline typed Rust spike adds no runtime | Own schema/versioning/generation; full CLDR and formatting adapters still need target evidence; translator workflow unmeasured | Selected contract ownership; ICU4X target qualification remains required |
 | Renderer-native resources + parity manifest | Compose Resources already serves launch/assets; retained Compose and moko JVM fixtures pass; preserves native tooling | Duplicate catalogs/translations; resource varargs do not guarantee named typed arguments; Compose 1.9 app-locale override/native evidence remain bounded | Viable alternative if native integration/translator costs outweigh canonical generation |
-| Fluent/ICU common catalog + thin renderer adapters | Rich message model; Leptos spike exercises nonrecursive Fluent insertion | Historical Web fixture adds about 75–108 KB gzip for Fluent variants; `leptos-fluent` needed graph correction; CMP equivalent/native pipeline unproven | Keep open; no new runtime dependency selected |
+| Fluent/ICU common catalog + thin renderer adapters | Rich message model; Leptos spike exercises nonrecursive Fluent insertion | Historical Web fixture adds about 75–108 KB gzip for Fluent variants; `leptos-fluent` needed graph correction; CMP equivalent/native pipeline unproven | Not selected for this migration |
 
 `leptos_i18n` JSON is another realization of canonical generation: the retained 0.5.11 spike
 resolves against Leptos 0.7.8, adds 61,273 optimized gzip bytes in that tiny fixture and exposes
@@ -107,26 +135,27 @@ confirmed presentation gaps separately from backend defects. No backend defect w
 
 - User impact now: none; fixture sources are outside Cargo/Gradle application graphs.
 - Compatibility: no HTTP/auth/proto/schema/migration, content, audio, rights or provider changes.
-- Cost: offline source generation and tests only; no production operation.
-- Adoption requires the owner to accept a concrete schema/runtime/formatting and fallback
-  choice in #167/this ADR. Then #506/#507 migrate one coherent namespace at a time, preserving
+- Cost: local generation, builds and verification; no deployment or service operation.
+- Owner acceptance is recorded above. #506/#507 migrate one coherent namespace at a time, preserving
   interpolation, document language, saved preference and mounted form/player/account state.
 - Before each adoption, establish registry-to-renderer adapter behavior, HTML/semantics safety,
   full formatter vectors, missing-key diagnostics and native target evidence. Never mount both
   the old and new locale authorities. Retain the old namespace until the replacement passes.
-- Rollback for this slice removes fixture/tooling guard only. Later migration PRs must preserve
-  a reversible namespace adapter and restore prior resources without touching content/state.
+- Web rollback reverts the generated-resource/adapters commit as a unit; it never rewrites
+  content, playback or credentials. The original fixture remains independently reproducible.
 
-## Validation and approval needed
+## Qualification boundary
 
 The [fixture README](../evidence/fixtures/localization-foundation/README.md) owns reproducible
-generation, validation, native compile tests and exact limits. This PR proves only the bounded
+generation, validation, native compile tests and exact limits. That original fixture proves only its bounded
 contract with independent hand-authored vectors. Leptos CSR/WASM, Compose resource environments,
 Android/iOS builds/runtime, text expansion, screen readers and full CLDR formatters remain
 unverified by this fixture. Existing spikes retain their own separate evidence.
 
-Unblock #506/#507 production migration by recording owner acceptance of the source format,
-resource placement/versioning, runtime/formatter adapters, supported/fallback policy and
-cross-target evidence plan. Revisit the preferred proposal if that evidence shows an unsuitable
-WASM/native footprint, locale override or translator workflow. No agent or merge event silently
-converts this proposed ADR into accepted policy.
+The owner acceptance above unblocks staged implementation. Actual adoption still requires the
+named target/formatter evidence; revisit an adapter if its WASM/native footprint, locale override
+or translator workflow is unsuitable. A merge or a passing fixture never establishes missing
+runtime, platform or production acceptance.
+
+#506 Web implementation and actual target results are recorded in [the Web evidence](../evidence/web-localization-506.md).
+Kotlin generation/bindings and CMP adoption remain #507 work; acceptance does not close #167/#505.

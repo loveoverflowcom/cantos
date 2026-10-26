@@ -1,0 +1,13 @@
+[package]
+name = "cantos-localization"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98.1"
+publish = false
+
+[dependencies]
+icu_decimal = "=2.3.0"
+icu_plurals = "=2.3.0"
+icu_locale = "=2.3.1"
+icu_datetime = "=2.3.0"
+icu_experimental = { version = "=0.6.0", default-features = false, features = ["compiled_data"] }

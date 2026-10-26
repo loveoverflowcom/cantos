@@ -25,7 +25,7 @@ use crate::{
 use cantos_ui::{
     AccessibleName, Announcement, BackButton, Button, ButtonVariant, Container, ContainerWidth,
     Density, FieldLabel, IconName, Logo, LogoTone, LogoVariant, Status as UiStatus, Theme,
-    ThemeCycleButton, Tooltip, UiRoot,
+    ThemeCycleButton, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -66,13 +66,14 @@ fn sync_document_language(locale: Locale) {
         .and_then(|document| document.document_element())
     {
         let _ = root.set_attribute("lang", locale.lang());
+        let _ = root.set_attribute("dir", locale.dir());
     }
 }
 
-pub(crate) fn confirm_discard(english: bool) -> bool {
+pub(crate) fn confirm_discard(locale: crate::localization::Locale) -> bool {
     web_sys::window().is_some_and(|window| {
         window
-            .confirm_with_message(text(Key::DiscardConfirm, english))
+            .confirm_with_message(text(Key::DiscardConfirm, locale))
             .unwrap_or(false)
     })
 }
@@ -124,24 +125,24 @@ pub(crate) fn ValidationControls(
     issues: RwSignal<Vec<FieldIssue>>,
     draft: Signal<String>,
     actor: Signal<String>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     disabled: Signal<bool>,
 ) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
     view! {
         <div class="validation-controls">
-            <ActionButton id=id english=english variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || disabled.get() || actor.get().is_empty()) busy=Signal::derive(move || preview.with(|p| p.busy)) on_press=Callback::new(move |_| {
+            <ActionButton id=id locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || disabled.get() || actor.get().is_empty()) busy=Signal::derive(move || preview.with(|p| p.busy)) on_press=Callback::new(move |_| {
                 if !disabled.get_untracked() { check_script(preview, issues, api, actor.get_untracked(), draft.get_untracked(), draft); }
-            })>{move || text(Key::Validate, english.get())}</ActionButton>
+            })>{move || text(Key::Validate, locale.get())}</ActionButton>
             <UiStatus announcement=Announcement::Polite>{move || preview.with(|p| {
-                if p.busy { text(Key::Validating, english.get()) }
-                else if p.is_current(&actor.get(), &draft.get()) { text(Key::Valid, english.get()) }
-                else if !p.snapshot.is_empty() && (p.snapshot != draft.get() || p.actor != actor.get()) { text(Key::Invalidated, english.get()) }
-                else if let Some(error) = &p.error { messages::status(crate::editor::error_status(error), english.get()) }
-                else if !p.snapshot.is_empty() { text(Key::Invalidated, english.get()) }
-                else { text(Key::ValidateFirst, english.get()) }
+                if p.busy { text(Key::Validating, locale.get()) }
+                else if p.is_current(&actor.get(), &draft.get()) { text(Key::Valid, locale.get()) }
+                else if !p.snapshot.is_empty() && (p.snapshot != draft.get() || p.actor != actor.get()) { text(Key::Invalidated, locale.get()) }
+                else if let Some(error) = &p.error { messages::status(crate::editor::error_status(error), locale.get()) }
+                else if !p.snapshot.is_empty() { text(Key::Invalidated, locale.get()) }
+                else { text(Key::ValidateFirst, locale.get()) }
             })}</UiStatus>
-            <p class="help">{move || text(Key::ValidateHelp, english.get())}</p>
+            <p class="help">{move || text(Key::ValidateHelp, locale.get())}</p>
         </div>
     }
 }
@@ -287,8 +288,10 @@ pub fn Studio() -> impl IntoView {
     let import_dirty = RwSignal::new(false);
     let import_activity = RwSignal::new(false);
     let selection = RwSignal::new(String::new());
-    let locale = RwSignal::new(Locale::default());
-    let english = Signal::derive(move || locale.get().is_english());
+    let preference = crate::localization::load_preference();
+    let locale_choice = RwSignal::new(preference.locale);
+    let locale_warning = RwSignal::new(preference.warning);
+    let locale = Signal::derive(move || locale_choice.get());
     let theme = RwSignal::new(Theme::System);
     let panel = RwSignal::new(WorkspacePane::from_hash(
         &web_sys::window()
@@ -475,7 +478,7 @@ pub fn Studio() -> impl IntoView {
             }
         });
     });
-    let copy = move || messages::copy(english.get());
+    let copy = move || messages::copy(locale.get());
     let blocked = move || {
         session_pending.get()
             || state.with(|e| e.busy() || e.pending().is_some())
@@ -703,7 +706,7 @@ pub fn Studio() -> impl IntoView {
         if blocked() || activity.get_untracked() || production_activity.get_untracked() {
             return;
         }
-        let discard = !current.is_dirty() || confirm_discard(english.get_untracked());
+        let discard = !current.is_dirty() || confirm_discard(locale.get_untracked());
         let Some(selected) = current.select_catalog_script(target.id.clone(), discard) else {
             return;
         };
@@ -738,37 +741,37 @@ pub fn Studio() -> impl IntoView {
     view! {
         <UiRoot class="studio-shell" theme=theme density=Density::Comfortable>
         <Container width=ContainerWidth::Fluid>
-        <main class="studio-main" lang=move || locale.get().lang()>
+        <main class="studio-main" lang=move || locale.get().lang() dir=move ||locale.get().dir()>
+            <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
             <header class="studio-header">
                 <div class="studio-brand" aria-label="Cantos Studio">
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Light class="studio-logo-light"/>
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
                 <div class="toolbar studio-topbar">
-                    <Tooltip text=Signal::derive(move || messages::language_toggle_tooltip(english.get()).to_string())>
-                        <button id="studio-language" type="button" class="cui-button cui-button-text studio-language-button"
-                            aria-label=move || messages::language_toggle_tooltip(english.get())
-                            on:click=move |_| locale.update(|current| *current = current.toggled())>
-                            <span class="studio-language-badge" aria-hidden="true">
-                                {move || messages::language_toggle_label(english.get())}
-                            </span>
-                            <span class="cui-sr-only">
-                                {move || messages::language_toggle_tooltip(english.get())}
-                            </span>
-                        </button>
-                    </Tooltip>
-                    <ThemeCycleButton id="theme-select" theme=theme english=english/>
+                    <cantos_ui::Select id="studio-language" class="studio-language-field"
+                        density=cantos_ui::SelectDensity::Compact label_placement=cantos_ui::SelectLabelPlacement::Inline
+                        label=Signal::derive(move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get()).to_owned())
+                        value=Signal::derive(move ||locale.get().lang().to_owned())
+                        options={Locale::supported().map(|option|cantos_ui::SelectOption { lang: Some(option.lang().to_owned()), ..cantos_ui::SelectOption::new(option.lang(),option.autonym()) }).collect::<Vec<_>>()}
+                        on_input=Callback::new(move |tag:String| {
+                            if let Some(selected)=Locale::from_lang(&tag) {
+                                locale_choice.set(selected);
+                                locale_warning.set(crate::localization::save_preference(selected).err());
+                            } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
+                        })/>
+                    <ThemeCycleButton id="theme-select" theme=theme labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
                     <AccountEntry actor=authenticated_actor
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
                         open=account_menu_open
-                        label=Signal::derive(move || entry_text(EntryKey::Session, english.get()).to_owned())
-                        close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, english.get()).to_owned())>
-                        <ActionButton id="account-refresh" icon=IconName::Refresh english=english variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
-                        <ActionButton id="account-reauthenticate" icon=IconName::Login english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
+                        label=Signal::derive(move || entry_text(EntryKey::Session, locale.get()).to_owned())
+                        close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, locale.get()).to_owned())>
+                        <ActionButton id="account-refresh" icon=IconName::Refresh locale=locale variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,locale.get())}</ActionButton>
+                        <ActionButton id="account-reauthenticate" icon=IconName::Login locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,locale.get())}</ActionButton>
                         <Show when=move || reauth_open.get()>
-                            <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
+                            <SignInPanel id="account" form=account_form locale=locale blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Danger blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="account-logout" icon=IconName::Logout locale=locale variant=ButtonVariant::Danger blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,locale.get())}</ActionButton>
                     </AccountEntry>
                 </div>
             </header>
@@ -780,55 +783,55 @@ pub fn Studio() -> impl IntoView {
                     </div>
                     <div class="entry-story-copy">
                         <p class="entry-eyebrow">"Cantos Studio"</p>
-                        <h2 id="entry-story-title">{move ||entry_text(EntryKey::Welcome,english.get())}</h2>
-                        <p>{move ||entry_text(EntryKey::WelcomeHelp,english.get())}</p>
+                        <h2 id="entry-story-title">{move ||entry_text(EntryKey::Welcome,locale.get())}</h2>
+                        <p>{move ||entry_text(EntryKey::WelcomeHelp,locale.get())}</p>
                     </div>
                 </aside>
                 <div class="entry-form">
-                <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),english.get())}</h1>
-                <p class="help">{move ||entry_text(crate::messages::entry::help(entry_state.get()),english.get())}</p>
+                <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),locale.get())}</h1>
+                <p class="help">{move ||entry_text(crate::messages::entry::help(entry_state.get()),locale.get())}</p>
                 <div hidden=move ||!session.with(SessionState::pending) inert=move ||!session.with(SessionState::pending)>
-                    <UiStatus announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,english.get())}else{text(Key::SessionChecking,english.get())}}</UiStatus>
-                    <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,english.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,english.get())}</Button>
+                    <UiStatus announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,locale.get())}else{text(Key::SessionChecking,locale.get())}}</UiStatus>
+                    <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,locale.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,locale.get())}</Button>
                 </div>
                 <div hidden=move ||session.with(SessionState::pending) inert=move ||session.with(SessionState::pending)>
                 <Show when=move ||entry_state.get()!=Entry::SignInUnavailable>
-                    <SignInPanel id="session" form=entry_form english=english blocked=auth_blocked on_submit=submit_entry/>
+                    <SignInPanel id="session" form=entry_form locale=locale blocked=auth_blocked on_submit=submit_entry/>
                 </Show>
-                <p class="help" hidden=move || !unsaved.get()>{move || entry_text(EntryKey::MemoryHelp,english.get())}</p>
+                <p class="help" hidden=move || !unsaved.get()>{move || entry_text(EntryKey::MemoryHelp,locale.get())}</p>
                 <div class="entry-recovery">
                     <div hidden=move ||entry_state.get()==Entry::Login && !unsaved.get()>
-                    <ActionButton id="session-refresh" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=refresh>{move ||entry_text(EntryKey::Retry,english.get())}</ActionButton>
+                    <ActionButton id="session-refresh" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=refresh>{move ||entry_text(EntryKey::Retry,locale.get())}</ActionButton>
                     </div>
                     <div hidden=move ||authenticated_actor.get().is_none()>
-                        <ActionButton id="session-logout" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=logout>{move ||text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="session-logout" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=logout>{move ||text(Key::SessionLogout,locale.get())}</ActionButton>
                     </div>
                 </div>
                 </div>
-                <p class="help" hidden=move || !unsaved.get()>{move ||text(Key::SessionRetained,english.get())}</p>
+                <p class="help" hidden=move || !unsaved.get()>{move ||text(Key::SessionRetained,locale.get())}</p>
                 </div>
             </section>
             <div id="studio-private-workspaces" hidden=move ||session_pending.get() inert=move ||session_pending.get()>
             <div class="studio-workbench">
-            <WorkspaceNavigation panel=panel english=english/>
+            <WorkspaceNavigation panel=panel locale=locale/>
             <div class="studio-workbench-content">
             <div class="studio-pane-heading" hidden=move ||panel.get()==WorkspacePane::Dashboard>
-                <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(english.get())}</h2>
-                {move || AccessibleName::new(entry_text(EntryKey::Back,english.get())).ok().map(|name| view! {
+                <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(locale.get())}</h2>
+                {move || AccessibleName::new(entry_text(EntryKey::Back,locale.get())).ok().map(|name| view! {
                     <BackButton id="studio-back-desk" name=name on_back=Callback::new(move |_|panel.set(WorkspacePane::Dashboard))/>
                 })}
             </div>
-            <div hidden=move || !matches!(panel.get(),WorkspacePane::Content|WorkspacePane::Dashboard)><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||!session_pending.get()) dashboard=Signal::derive(move ||panel.get()==WorkspacePane::Dashboard) on_import=open_import on_editor=open_editor editor_script=editor_script on_open_content=open_content session_epoch=session_epoch session_pending=session_pending activity=content_activity busy=content_busy dirty=content_dirty/></div>
-            <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english session_pending=session_pending dirty=import_dirty activity=import_activity /></div>
-            <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor english=english session_pending=session_pending dirty=proposal_dirty activity=proposal_activity /></div>
-            <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state english=english session_pending=session_pending script_activity=activity dirty=production_dirty activity=production_activity /></div>
+            <div hidden=move || !matches!(panel.get(),WorkspacePane::Content|WorkspacePane::Dashboard)><crate::live::workspace::ContentWorkspace actor=actor locale=locale active=Signal::derive(move ||!session_pending.get()) dashboard=Signal::derive(move ||panel.get()==WorkspacePane::Dashboard) on_import=open_import on_editor=open_editor editor_script=editor_script on_open_content=open_content session_epoch=session_epoch session_pending=session_pending activity=content_activity busy=content_busy dirty=content_dirty/></div>
+            <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor locale=locale session_pending=session_pending dirty=import_dirty activity=import_activity /></div>
+            <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor locale=locale session_pending=session_pending dirty=proposal_dirty activity=proposal_activity /></div>
+            <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state locale=locale session_pending=session_pending script_activity=activity dirty=production_dirty activity=production_activity /></div>
             <section id="workspace-revisions" hidden=move || panel.get() != WorkspacePane::Revisions aria-labelledby="revision-title">
-                <h2 id="revision-title">{move || text(Key::Revisions, english.get())}</h2>
+                <h2 id="revision-title">{move || text(Key::Revisions, locale.get())}</h2>
                 <form on:submit=move |event| {
                     event.prevent_default(); if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
                     let target = selection.get_untracked();
                     if state.with_untracked(|e| e.script() != target) {
-                        if (state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked() || content_dirty.get_untracked() || content_activity.get_untracked()) && !confirm_discard(english.get_untracked()) { return; }
+                        if (state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked() || content_dirty.get_untracked() || content_activity.get_untracked()) && !confirm_discard(locale.get_untracked()) { return; }
                         state.update(|e| *e = e.discard_and_select(target)); issues.set(vec![]); reviewed.set(false); preview.set(ValidationPreview::default());
                     }
                     let Some((reading, ticket)) = state.get_untracked().start_read() else { return; };
@@ -841,50 +844,50 @@ pub fn Studio() -> impl IntoView {
                 }>
                     <FieldLabel for_id="script-id">{move || copy().script}</FieldLabel>
                     <div class="toolbar"><input class="cui-field-control" id="script-id" autocomplete="off" spellcheck="false" disabled=blocked prop:value=move || selection.get() on:input=move |e| selection.set(event_target_value(&e)) />
-                        <FormSubmit id="revision-read" english=english blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())>{move || copy().read}</FormSubmit></div>
+                        <FormSubmit id="revision-read" locale=locale blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())>{move || copy().read}</FormSubmit></div>
                 </form>
                 <div class="revision-strip">
                     <p class="identity"><code>{move || state.with(|e| e.script().to_owned())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(Editor::base)}</output></p>
-                    <p>{move || if state.with(Editor::is_dirty) || activity.get() { text(Key::Unsaved, english.get()) } else { text(Key::Saved, english.get()) }}</p>
+                    <p>{move || if state.with(Editor::is_dirty) || activity.get() { text(Key::Unsaved, locale.get()) } else { text(Key::Saved, locale.get()) }}</p>
                 </div>
-                <StructuredEditor draft=draft english=english activity=activity namespace="revision"
+                <StructuredEditor draft=draft locale=locale activity=activity namespace="revision"
                     readonly=Signal::derive(move || session_pending.get() || state.with(|e| e.busy() || !e.can_edit()))
                     baseline=Signal::derive(move || state.with(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default()))
                     issues=Signal::derive(move || issues.get())
                     on_change=Callback::new(move |text| { state.update(|e| *e = e.edit(text)); issues.set(vec![]); reviewed.set(false); })>
-                    <RevisionInspector state=state english=english activity=inspector_pending draft_activity=activity />
+                    <RevisionInspector state=state locale=locale activity=inspector_pending draft_activity=activity />
                 </StructuredEditor>
-                <ValidationControls id="revision-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
-                <crate::ui::ReviewCheckbox id="revision-reviewed" english=english
-                    label=Signal::derive(move ||text(Key::ReviewBeforeSave,english.get()).to_owned())
+                <ValidationControls id="revision-validate" preview=preview issues=issues draft=draft actor=actor locale=locale disabled=Signal::derive(move || blocked() || activity.get()) />
+                <crate::ui::ReviewCheckbox id="revision-reviewed" locale=locale
+                    label=Signal::derive(move ||text(Key::ReviewBeforeSave,locale.get()).to_owned())
                     checked=reviewed blocked=Signal::derive(move ||blocked() || activity.get() || !preview.with(|p|p.is_current(&actor.get(),&draft.get())))
                     on_change=Callback::new(move |checked|reviewed.set(checked))/>
 
                 <div class="toolbar">
-                    <ActionButton id="revision-save" icon=IconName::Save english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
+                    <ActionButton id="revision-save" icon=IconName::Save locale=locale blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
                         if save_blocked() { return; }
                         match operation_id() {
                             Ok(op) => if let Some((saving,intent)) = state.get_untracked().start_save(op) { state.set(saving); issues.set(vec![]); dispatch_save(state,issues,api,intent); },
                             Err(error) => state.update(|e| *e = e.failed(&error)),
                         }
                     })>{move || copy().save}</ActionButton>
-                    <Show when=move || state.with(Editor::awaits_reconciliation)><ActionButton id="revision-retry" icon=IconName::Refresh english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending().is_some_and(|i| i.actor != e.actor()))) on_press=Callback::new(move |_| {
+                    <Show when=move || state.with(Editor::awaits_reconciliation)><ActionButton id="revision-retry" icon=IconName::Refresh locale=locale variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending().is_some_and(|i| i.actor != e.actor()))) on_press=Callback::new(move |_| {
                         if session_pending.get_untracked() || activity.get_untracked() { return; }
                         if let Some((saving,intent)) = state.get_untracked().retry() { state.set(saving); dispatch_save(state,issues,api,intent); }
                     })>{move || copy().retry}</ActionButton></Show>
-                    <ActionButton id="revision-discard" icon=IconName::DeleteOutline english=english variant=ButtonVariant::Secondary
+                    <ActionButton id="revision-discard" icon=IconName::DeleteOutline locale=locale variant=ButtonVariant::Secondary
                         focus_on_press=true
                         blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
                         on_press=Callback::new(move |_| {
                             if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
                             dialog_failure.set(false); discard_open.set(true);
-                        })>{move || text(Key::Discard, english.get())}</ActionButton>
+                        })>{move || text(Key::Discard, locale.get())}</ActionButton>
                 </div>
-                <p id="request-reason" class="help">{move || state.with(|e| if e.busy() { copy().busy } else if e.pending().is_some() { copy().pending } else if e.actor().is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, english.get()) } else { "" })}</p>
+                <p id="request-reason" class="help">{move || state.with(|e| if e.busy() { copy().busy } else if e.pending().is_some() { copy().pending } else if e.actor().is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, locale.get()) } else { "" })}</p>
             </section>
-            <div hidden=move ||panel.get()!=WorkspacePane::Revisions><UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(Editor::status),english.get())}</span></UiStatus></div>
-            <Show when=move || dialog_failure.get()><UiStatus announcement=Announcement::Polite><p>{move || text(Key::DialogFailure, english.get())}</p></UiStatus></Show>
-            <DiscardDraftDialog open=discard_open english=english
+            <div hidden=move ||panel.get()!=WorkspacePane::Revisions><UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(Editor::status),locale.get())}</span></UiStatus></div>
+            <Show when=move || dialog_failure.get()><UiStatus announcement=Announcement::Polite><p>{move || text(Key::DialogFailure, locale.get())}</p></UiStatus></Show>
+            <DiscardDraftDialog open=discard_open locale=locale
                 blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
                 on_error=Callback::new(move |_| { dialog_failure.set(true); discard_open.set(false); })
                 on_confirm=Callback::new(move |()| {

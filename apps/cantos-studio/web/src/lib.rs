@@ -33,3 +33,4 @@ mod navigation;
 pub mod view;
 
 pub mod live;
+pub mod localization;

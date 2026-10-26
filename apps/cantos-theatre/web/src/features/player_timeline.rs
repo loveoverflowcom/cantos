@@ -217,7 +217,7 @@ pub(super) fn PlayerTimeline(panel: PlayerPanel) -> impl IntoView {
                 }
                 on:blur=move |_| control.blur(input, position)/>
         </label>
-        <p class="theatre-time">{move || format!("{} / {}", super::common::clock(position.get() / 1000), super::common::clock(duration() / 1000))}</p>
+        <p class="theatre-time">{move || format!("{} / {}", super::common::clock(panel.locale.get(), position.get() / 1000), super::common::clock(panel.locale.get(), duration() / 1000))}</p>
         <p id="theatre-timeline-help" class="theatre-muted">{move || panel.text(panel.copy.help)}</p>
     }
 }

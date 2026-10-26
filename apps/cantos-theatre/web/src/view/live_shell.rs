@@ -296,7 +296,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     // RAM-only notice for the sign-in page after a finished signup. It is never a session.
     let account_created = RwSignal::new(false);
     let work_detail = RwSignal::new(WorkDetailState::default());
-    let locale = RwSignal::new(Locale::Vietnamese);
+    let preference = crate::localization::load_preference();
+    let locale = RwSignal::new(preference.locale);
+    let locale_warning = RwSignal::new(preference.warning);
     let theme = RwSignal::new(Theme::System);
     let main = NodeRef::<leptos::html::Main>::new();
     // One owner for the page: the player, the listener's intent and the display facts of what
@@ -699,35 +701,32 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let title = match route {
             Route::PublicWork(id) => work_detail.with(|s| match s.phase() {
                 WorkDetailPhase::Ready { work, .. } if s.work_id() == Some(id) => {
-                    Some(messages::format(
-                        Key::PageTitle,
+                    Some(messages::message(
                         locale.get(),
-                        &[("page", work.title.clone())],
+                        crate::localization::generated::Message::TheatreShellPageTitle {
+                            arg_page: &(work.title.clone()),
+                        },
                     ))
                 }
                 _ => None,
             }),
-            Route::NotFound | Route::Work(_) => Some(messages::format(
-                Key::PageTitle,
+            Route::NotFound | Route::Work(_) => Some(messages::message(
                 locale.get(),
-                &[(
-                    "page",
-                    messages::text(Key::LiveNotFound, locale.get()).to_owned(),
-                )],
+                crate::localization::generated::Message::TheatreShellPageTitle {
+                    arg_page: messages::text(Key::LiveNotFound, locale.get()),
+                },
             )),
-            Route::Queue => Some(messages::format(
-                Key::PageTitle,
+            Route::Queue => Some(messages::message(
                 locale.get(),
-                &[(
-                    "page",
-                    messages::text(Key::LiveRouteUnavailable, locale.get()).to_owned(),
-                )],
+                crate::localization::generated::Message::TheatreShellPageTitle {
+                    arg_page: messages::text(Key::LiveRouteUnavailable, locale.get()),
+                },
             )),
             _ => None,
         };
         platform::set_title(&title.unwrap_or_else(|| messages::page_title(locale.get(), route)));
     });
-    Effect::new(move |_| platform::set_document_language(locale.get().lang()));
+    Effect::new(move |_| platform::set_document_locale(locale.get().lang(), locale.get().dir()));
     let on_login = Callback::new(move |()| {
         crate::live::signup::leave(signup, preview);
         nav.open_auth(AuthRoute::login(nav.origin()));
@@ -968,7 +967,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         <super::LiveFrame theme>
             <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
             <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
-            <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang()>
+            <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <aside class="theatre-rail">
                     <LiveBrand/>
@@ -987,17 +986,18 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                 label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
                                 value=Signal::derive(move || locale.get().lang().to_owned())
-                                options={Locale::ALL.into_iter().map(|option| SelectOption {
+                                options={Locale::supported().map(|option| SelectOption {
                                     lang: Some(option.lang().to_owned()),
                                     ..SelectOption::new(option.lang(), option.autonym())
                                 }).collect::<Vec<_>>()}
                                 on_input=Callback::new(move |value: String| {
-                                    if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); }
+                                    if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); locale_warning.set(crate::localization::save_preference(selected).err()); } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
                                 })/>
                             <crate::features::account_menu::AccountEntry state=state.read_only() locale route=nav.route on_logout/>
                         </div>
                     </header>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
+                            <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
                             } else { match nav.route.get() {
@@ -1099,7 +1099,7 @@ fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl Int
                 <ThemeCycleButton
                     id="theatre-settings-theme"
                     theme=theme
-                    english=Signal::derive(move || locale.get() == Locale::English)
+                    labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))
                 />
             </div>
             <a class="theatre-text-link" href="#account">{move || messages::text(Key::Account,locale.get())}</a>

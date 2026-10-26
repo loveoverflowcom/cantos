@@ -20,9 +20,9 @@ pub(crate) fn Queue(ctx: TheatreContext) -> impl IntoView {
                 view! {
                     <li class="theatre-bookmark-row"><div><h2 lang="vi-VN">{title}</h2><p lang="vi-VN">{ctx.work(id.work).title}</p></div>
                         <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.open_episode(id)
-                            aria-label=move || ctx.format(Key::PlayName, &[("title", title.to_owned())])>{icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(Key::Begin)}</span></button>
+                            aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellPlayName { arg_title: title })>{icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(Key::Begin)}</span></button>
                         <button type="button" class="theatre-action theatre-action-text" on:click=move |_| { ctx.remove_queue(id); platform::focus_main(ctx.main); }
-                            aria-label=move || ctx.format(Key::QueueRemoveName, &[("title", title.to_owned())])>{icon("delete_outline")}<span class="cui-control-label">{move || ctx.text(Key::QueueRemove)}</span></button>
+                            aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellQueueRemoveName { arg_title: title })>{icon("delete_outline")}<span class="cui-control-label">{move || ctx.text(Key::QueueRemove)}</span></button>
                     </li>
                 }
             }/></ol>

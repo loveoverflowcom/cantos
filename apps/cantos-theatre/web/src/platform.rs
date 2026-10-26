@@ -253,17 +253,18 @@ pub(crate) fn prepare_error_focus() -> Result<(), ()> {
 /// Mirrors the interface locale onto `<html lang>` so the whole document, including browser UI
 /// and content outside the app root, is announced in the chosen language.
 #[cfg(target_arch = "wasm32")]
-pub fn set_document_language(tag: &str) {
+pub fn set_document_locale(tag: &str, direction: &str) {
     if let Some(root) = leptos::web_sys::window()
         .and_then(|window| window.document())
         .and_then(|document| document.document_element())
     {
         let _ = root.set_attribute("lang", tag);
+        let _ = root.set_attribute("dir", direction);
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn set_document_language(_tag: &str) {}
+pub fn set_document_locale(_tag: &str, _direction: &str) {}
 
 #[cfg(target_arch = "wasm32")]
 pub fn set_title(title: &str) {

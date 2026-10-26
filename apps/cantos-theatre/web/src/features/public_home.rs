@@ -89,13 +89,6 @@ fn region(phase: PublicDiscoveryPhase) -> Region {
     }
 }
 
-const fn unit_count_key(kind: WorkKind) -> Key {
-    match kind {
-        WorkKind::Podcast => Key::PublicWorkUnitCountEpisodes,
-        WorkKind::Novel | WorkKind::Story => Key::PublicWorkUnitCountChapters,
-    }
-}
-
 const fn query_error_key(error: QueryError) -> Key {
     match error {
         QueryError::SearchTooLong => Key::DiscoverySearchTooLong,
@@ -106,22 +99,14 @@ const fn query_error_key(error: QueryError) -> Key {
 
 /// "Truyện · Tiếng Việt · Chương đã công bố: 12", the card's server-supplied facts.
 fn feature_meta(kind: WorkKind, language: &str, count: u64, locale: Locale) -> String {
-    let units = messages::format(
-        unit_count_key(kind),
+    let units = messages::public_unit_count(kind, locale, count);
+    messages::message(
         locale,
-        &[("count", count.to_string())],
-    );
-    messages::format(
-        Key::PublicHomeFeatureMeta,
-        locale,
-        &[
-            (
-                "kind",
-                text(messages::work_kind_key(kind), locale).to_owned(),
-            ),
-            ("language", language.to_owned()),
-            ("units", units),
-        ],
+        crate::localization::generated::Message::TheatreShellPublicHomeFeatureMeta {
+            arg_kind: text(messages::work_kind_key(kind), locale),
+            arg_language: language,
+            arg_units: &(units),
+        },
     )
 }
 
@@ -306,15 +291,17 @@ pub(crate) fn PublicHome(
     let tail = Memo::new(move |_| state.with(|s| s.tail()));
     let count = move || state.with(|s| s.rows().len());
     let status_line = move || match tail.get() {
-        Tail::End => messages::format(
-            Key::DiscoveryComplete,
+        Tail::End => messages::message(
             locale.get(),
-            &[("count", count().to_string())],
+            crate::localization::generated::Message::TheatreShellDiscoveryComplete {
+                arg_count: (count()) as u64,
+            },
         ),
-        Tail::More | Tail::Loading => messages::format(
-            Key::DiscoveryShowing,
+        Tail::More | Tail::Loading => messages::message(
             locale.get(),
-            &[("count", count().to_string())],
+            crate::localization::generated::Message::TheatreShellDiscoveryShowing {
+                arg_count: (count()) as u64,
+            },
         ),
         Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => {
             text(crate::messages::error_key(kind), locale.get()).to_owned()
@@ -829,7 +816,7 @@ mod tests {
 
     #[test]
     fn completed_empty_catalog_and_no_results_have_decorative_art_without_self_navigation() {
-        for locale in Locale::ALL {
+        for locale in Locale::supported() {
             let query = DiscoveryQuery::new("không khớp", None, "").unwrap();
             for applied in [DiscoveryQuery::default(), query] {
                 let html = render_with(
@@ -1030,7 +1017,7 @@ mod tests {
 
     #[test]
     fn bounded_hero_keeps_one_docked_visible_search_action_and_filters_before_results() {
-        for locale in Locale::ALL {
+        for locale in Locale::supported() {
             let html = render(PublicDiscoveryState::default(), locale);
             let hero = html.find("theatre-discovery-search-hero").unwrap();
             let intro = html.find("theatre-discover-intro").unwrap();

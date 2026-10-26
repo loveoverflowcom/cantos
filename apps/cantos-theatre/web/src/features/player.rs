@@ -45,13 +45,14 @@ pub(crate) fn position_label(ctx: TheatreContext) -> String {
             format!(
                 "{} / {}",
                 clock(
+                    ctx.locale.get(),
                     ctx.player
                         .pending_seek
                         .get()
                         .map(|seek| seek.position_ms / 1000)
                         .unwrap_or(player.position)
                 ),
-                clock(player.duration)
+                clock(ctx.locale.get(), player.duration)
             )
         })
         .unwrap_or_default()
@@ -65,8 +66,7 @@ pub(crate) fn TransportAction(
     view! {
         <button type="button" class="theatre-action theatre-transport" data-compact=compact
             on:click=move |_| ctx.toggle_transport() aria-describedby="theatre-demo-notice"
-            aria-label=move || ctx.format(Key::TransportEpisode, &[("action", ctx.text(transport_key(ctx)).to_owned()),
-                ("episode", current_episode(ctx).and_then(|id| ctx.episode(id)).map(|episode| episode.title).unwrap_or_default().to_owned())])>
+            aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellTransportEpisode { arg_action: ctx.text(transport_key(ctx)), arg_episode: current_episode(ctx).and_then(|id| ctx.episode(id)).map(|episode| episode.title).unwrap_or_default() })>
             {move || icon(if transport_key(ctx) == Key::Pause { "pause" } else { "play_arrow" })}
             <span class="cui-control-label">{move || ctx.text(transport_key(ctx))}</span>
         </button>

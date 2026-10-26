@@ -161,15 +161,10 @@ mod browser {
     use cantos_ui::{ButtonVariant, FieldState, IconName, TextArea, TextField, TextFieldVariant};
     use leptos::prelude::*;
 
-    fn confirm(key: Key, title: &str, revision: u64, english: bool) -> bool {
+    fn confirm(key: Key, title: &str, revision: u64, locale: crate::localization::Locale) -> bool {
         web_sys::window().is_some_and(|window| {
             window
-                .confirm_with_message(&format!(
-                    "{}\n{} · r{}",
-                    text(key, english),
-                    title,
-                    revision
-                ))
+                .confirm_with_message(&format!("{}\n{} · r{}", text(key, locale), title, revision))
                 .unwrap_or(false)
         })
     }
@@ -178,7 +173,7 @@ mod browser {
     pub(in crate::live) fn WorkControls(
         facts: RwSignal<Facts>,
         dispatch: Dispatch,
-        english: Signal<bool>,
+        locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
         unsaved: Signal<bool>,
         dirty: RwSignal<bool>,
@@ -224,24 +219,24 @@ mod browser {
         let reason = StoredValue::new(reason);
         let field_state = Signal::derive(move || {
             if cannot_edit.get() {
-                FieldState::Disabled(reason.with_value(|reason| reason.get(english.get())))
+                FieldState::Disabled(reason.with_value(|reason| reason.get(locale.get())))
             } else {
                 FieldState::Editable
             }
         });
         view! {
-            <details id="live-work-metadata"><summary>{move || text(Key::EditWork, english.get())}</summary>
+            <details id="live-work-metadata"><summary>{move || text(Key::EditWork, locale.get())}</summary>
                 <div class="live-grid">
-                    <TextField id="live-edit-work-title" label=Signal::derive(move ||text(Key::Title,english.get()).to_owned())
+                    <TextField id="live-edit-work-title" label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned())
                         variant=TextFieldVariant::Floating state=field_state class="live-field"
                         value=Signal::derive(move ||draft.with(|draft|draft.title.clone()))
                         on_input=Callback::new(move |value|draft.update(|draft|draft.title=value))/>
-                    <TextArea id="live-edit-work-synopsis" label=Signal::derive(move ||text(Key::Synopsis,english.get()).to_owned())
+                    <TextArea id="live-edit-work-synopsis" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned())
                         state=field_state class="live-field" value=Signal::derive(move ||draft.with(|draft|draft.synopsis.clone()))
                         on_input=Callback::new(move |value|draft.update(|draft|draft.synopsis=value))/>
 
                 </div>
-                <ActionButton id="live-patch-work" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
+                <ActionButton id="live-patch-work" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() { return; }
                     dispatch.build((|| {
                         let work=facts.with_untracked(|facts|facts.work.clone()).ok_or(ClientError::InvalidInput)?;
@@ -251,29 +246,29 @@ mod browser {
                         draft.set(snapshot.submitted());
                         Ok(command)
                     })());
-                })>{move ||text(Key::SaveMetadata,english.get())}</ActionButton>
+                })>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
             </details>
-            <ActionButton id="live-read-work" english=english variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+            <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) { dispatch.send(Command::Work {id:work.id}); }
-            })>{move ||text(Key::ReadWork,english.get())}</ActionButton>
-            <ActionButton id="live-reload-work-metadata" english=english variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+            })>{move ||text(Key::ReadWork,locale.get())}</ActionButton>
+            <ActionButton id="live-reload-work-metadata" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {
-                    if !draft.with_untracked(WorkDraft::is_dirty) || confirm(Key::ReloadWorkConfirm,&work.details.title,work.revision,english.get_untracked()) {
+                    if !draft.with_untracked(WorkDraft::is_dirty) || confirm(Key::ReloadWorkConfirm,&work.details.title,work.revision,locale.get_untracked()) {
                         draft.update(|draft| *draft=draft.reload(&work));
                     }
                 }
-            })>{move ||text(Key::ReloadWorkMetadata,english.get())}</ActionButton>
-            <ActionButton id="live-archive-work" english=english variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+            })>{move ||text(Key::ReloadWorkMetadata,locale.get())}</ActionButton>
+            <ActionButton id="live-archive-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                 if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {
-                    if confirm(Key::ArchiveWorkConfirm,&work.details.title,work.revision,english.get_untracked()) {
+                    if confirm(Key::ArchiveWorkConfirm,&work.details.title,work.revision,locale.get_untracked()) {
                         dispatch.build(uuid().map(|operation_id|Command::ArchiveWork {work:work.id,request:ArchiveWorkRequest {operation_id,expected_revision:work.revision}}));
                     }
                 }
-            })>{move ||text(Key::ArchiveWork,english.get())}</ActionButton>
-            <p class="help">{move ||text(Key::ArchiveHelp,english.get())}</p>
+            })>{move ||text(Key::ArchiveWork,locale.get())}</ActionButton>
+            <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
         }.into_any()
     }
 
@@ -281,7 +276,7 @@ mod browser {
     pub(in crate::live) fn UnitControls(
         facts: RwSignal<Facts>,
         dispatch: Dispatch,
-        english: Signal<bool>,
+        locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
         unsaved: Signal<bool>,
         units_complete: Signal<bool>,
@@ -333,22 +328,22 @@ mod browser {
         });
         view! {
             <div class="toolbar">
-                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Earlier).is_none()
-                }) on_press=Callback::new(move |_|reorder.run(Direction::Earlier))>{move ||text(Key::MoveEarlier,english.get())}</ActionButton>
-                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                }) on_press=Callback::new(move |_|reorder.run(Direction::Earlier))>{move ||text(Key::MoveEarlier,locale.get())}</ActionButton>
+                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Later).is_none()
-                }) on_press=Callback::new(move |_|reorder.run(Direction::Later))>{move ||text(Key::MoveLater,english.get())}</ActionButton>
-                <ActionButton id="live-archive-unit" icon=IconName::Archive english=english variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+                }) on_press=Callback::new(move |_|reorder.run(Direction::Later))>{move ||text(Key::MoveLater,locale.get())}</ActionButton>
+                <ActionButton id="live-archive-unit" icon=IconName::Archive locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                     if let Some((work,unit))=facts.with_untracked(|facts|Some((facts.work.clone()?,facts.unit.clone()?))) {
-                        if confirm(Key::ArchiveUnitConfirm,&unit.details.title,unit.revision,english.get_untracked()) {
+                        if confirm(Key::ArchiveUnitConfirm,&unit.details.title,unit.revision,locale.get_untracked()) {
                             dispatch.build(uuid().map(|operation_id|Command::ArchiveUnit {unit:unit.id,request:ArchiveContentUnitRequest {operation_id,expected_revision:unit.revision,expected_work_revision:work.revision}}));
                         }
                     }
-                })>{move ||text(Key::ArchiveUnit,english.get())}</ActionButton>
+                })>{move ||text(Key::ArchiveUnit,locale.get())}</ActionButton>
             </div>
-            <p class="help">{move ||text(Key::ReorderHelp,english.get())}</p>
+            <p class="help">{move ||text(Key::ReorderHelp,locale.get())}</p>
         }
     }
 }

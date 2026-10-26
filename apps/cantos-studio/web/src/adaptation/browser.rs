@@ -54,7 +54,7 @@ fn read_run(state: RwSignal<AdaptationReview>, api: StudioHttp, activity: RwSign
 #[component]
 pub fn ScriptAdaptation(
     actor: Signal<String>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
     session_pending: Signal<bool>,
@@ -63,7 +63,7 @@ pub fn ScriptAdaptation(
     let preview = RwSignal::new(ValidationPreview::default());
     let issues = RwSignal::new(Vec::new());
     let api = expect_context::<StudioContext>().api;
-    let copy = move || messages::adaptation_copy(english.get());
+    let copy = move || messages::adaptation_copy(locale.get());
     let signed_actor = Memo::new(move |_| actor.get());
     Effect::new(move |_| {
         state.update(|review| *review = review.signed_in_as(signed_actor.get()));
@@ -128,30 +128,30 @@ pub fn ScriptAdaptation(
             <div class="toolbar">
                 <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || activity.get() || state.with(|review| !review.can_read()) on:click=move |_| { if !session_pending.get_untracked() && !activity.get_untracked() { read_run(state, api, activity); } }>{move || copy().refresh}</button>
                 <button class="cui-button" data-variant="secondary" type="button" disabled=blocked aria-describedby="adaptation-new-help" on:click=move |_| {
-                    if blocked() || (state.with_untracked(|review| review.draft_changed) && !confirm_discard(english.get_untracked())) { return; }
+                    if blocked() || (state.with_untracked(|review| review.draft_changed) && !confirm_discard(locale.get_untracked())) { return; }
                     state.update(|review| *review = review.new_run()); preview.set(ValidationPreview::default()); issues.set(vec![]);
                 }>{move || copy().new_run}</button>
             </div>
             <p id="adaptation-new-help" class="help">{move || copy().new_help}</p>
-            <p id="adaptation-status" class="status" role="status" aria-live="polite">{move || state.with(|review| messages::adaptation_status(&review.status, english.get()))}</p>
+            <p id="adaptation-status" class="status" role="status" aria-live="polite">{move || state.with(|review| messages::adaptation_status(&review.status, locale.get()))}</p>
             <Show when=move || state.with(|review| !review.issues.is_empty())>
                 <ul class="import-warnings">{move || state.with(|review| review.issues.clone()).into_iter().map(|issue| view! { <li><code>{issue.path}</code>" · "<code>{issue.rule}</code></li> }).collect_view()}</ul>
             </Show>
             <div hidden=move || stored.get().is_none_or(|response| response_proposal(&response).is_none())>
-                <StructuredEditor draft=draft english=english activity=activity namespace="proposal"
+                <StructuredEditor draft=draft locale=locale activity=activity namespace="proposal"
                     readonly=Signal::derive(move || stored.get().is_none_or(|response| !matches!(response_status(&response), AdaptationStatus::Succeeded | AdaptationStatus::Accepted)) || state.with(|review| review.busy || review.draft_actor != review.actor))
                     baseline=Signal::derive(move || stored.get().and_then(|response| response_proposal(&response).map(|proposal| proposal.script_json.clone())).unwrap_or_default())
                     issues=Signal::derive(move || issues.get())
                     on_change=Callback::new(move |text| { state.update(|review| *review = review.edit_draft(text)); issues.set(vec![]); })>
                     <details open><summary>{move || copy().original}</summary>
-                        {move || source.get().map(|source| view! { <SourceComparison source=source english=english /> })}
+                        {move || source.get().map(|source| view! { <SourceComparison source=source locale=locale /> })}
                     </details>
                     <details><summary>{move || copy().provenance}</summary>
-                        {move || stored.get().map(|response| view! { <ReviewDetails response=response english=english /> })}
+                        {move || stored.get().map(|response| view! { <ReviewDetails response=response locale=locale /> })}
                     </details>
                 </StructuredEditor>
-                <ValidationControls id="adaptation-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
-                <crate::ui::ReviewCheckbox id="adaptation-reviewed" english=english
+                <ValidationControls id="adaptation-validate" preview=preview issues=issues draft=draft actor=actor locale=locale disabled=Signal::derive(move || blocked() || activity.get()) />
+                <crate::ui::ReviewCheckbox id="adaptation-reviewed" locale=locale
                     label=Signal::derive(move ||copy().review.to_owned())
                     checked=Signal::derive(move ||state.with(|review|review.reviewed_findings))
                     blocked=Signal::derive(move ||blocked() || activity.get() || !preview.with(|p|p.is_current(&actor.get(),&draft.get())))
@@ -167,7 +167,7 @@ pub fn ScriptAdaptation(
                 <p id="adaptation-accept-help" class="help">{move || copy().accept_help}</p>
             </div>
             {move || input_revision.get().map(|revision| view! {
-                <details><summary>{move || messages::adaptation_input_revision(english.get())}</summary>
+                <details><summary>{move || messages::adaptation_input_revision(locale.get())}</summary>
                     <p class="identity">{format!("{} / {} · {}", revision.script_id, revision.revision, revision.export_digest)}</p>
                     <pre tabindex="0" lang="vi-VN">{revision.script_json.clone()}</pre>
                 </details>
@@ -179,7 +179,7 @@ pub fn ScriptAdaptation(
                         <h3 id="adaptation-accepted-title">{move || copy().accepted}</h3>
                         <p class="identity">{revision.with_value(|revision| format!("{} / {} · {} · {}", revision.script_id, revision.revision, revision.accepted_by, revision.accepted_at))}</p>
                         <p class="identity"><code>{revision.with_value(|revision| revision.export_digest.clone())}</code></p>
-                        <details><summary>{move || crate::messages::workspace::text(crate::messages::workspace::Key::Stored, english.get())}</summary><pre tabindex="0" lang="vi-VN">{revision.with_value(|revision| revision.script_json.clone())}</pre></details>
+                        <details><summary>{move || crate::messages::workspace::text(crate::messages::workspace::Key::Stored, locale.get())}</summary><pre tabindex="0" lang="vi-VN">{revision.with_value(|revision| revision.script_json.clone())}</pre></details>
                         <button class="cui-button" data-variant="secondary" type="button" disabled=blocked on:click=move |_| {
                             if activity.get_untracked() { return; }
                             let Some(reading) = state.get_untracked().start_accepted_read() else { return; };
@@ -203,23 +203,26 @@ pub fn ScriptAdaptation(
 }
 
 #[component]
-fn ReviewDetails(response: Arc<AdaptationReviewResponse>, english: Signal<bool>) -> impl IntoView {
+fn ReviewDetails(
+    response: Arc<AdaptationReviewResponse>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let AdaptationReviewResponse::Caller { context } = response.as_ref();
-    view! { <CallerContextDetails context=Arc::new(context.as_ref().clone()) english=english /> }
+    view! { <CallerContextDetails context=Arc::new(context.as_ref().clone()) locale=locale /> }
 }
 
 #[component]
 fn CallerContextDetails(
     context: Arc<AdaptationContextResponse>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
 ) -> impl IntoView {
     let context = StoredValue::new(context);
-    let copy = move || messages::adaptation_copy(english.get());
-    let host_copy = move || messages::host_copy(english.get());
+    let copy = move || messages::adaptation_copy(locale.get());
+    let host_copy = move || messages::host_copy(locale.get());
     view! {
         <section aria-labelledby="adaptation-provenance-title">
             <h3 id="adaptation-provenance-title">{move || copy().provenance}</h3>
-            <p class="status" role="status" aria-live="polite">{move || context.with_value(|context| messages::adaptation_run_status(context.status, english.get()))}</p>
+            <p class="status" role="status" aria-live="polite">{move || context.with_value(|context| messages::adaptation_run_status(context.status, locale.get()))}</p>
             <dl class="source-identity">
                 <dt>{move || copy().run_id}</dt><dd>{context.with_value(|context| context.id.clone())}</dd>
                 <dt>{move || copy().operation}</dt><dd>{context.with_value(|context| context.request.operation_id.clone())}</dd>
@@ -234,8 +237,8 @@ fn CallerContextDetails(
                 <dt>{move || copy().records}</dt><dd>{context.with_value(|context| format!("{} / {}", context.generation_record_id, context.rights_record_id))}</dd>
                 <dt>{move || host_copy().rights_claim}</dt><dd>{move || context.with_value(|context| if context.request.rights_authorization { host_copy().authorized } else { host_copy().absent })}</dd>
             </dl>
-            {context.with_value(|context| context.latest_submission.clone()).map(|receipt| view! { <CallerReceiptDetails receipt=receipt english=english /> })}
-            {context.with_value(|context| context.proposal.clone()).map(|proposal| view! { <ProposalFindings proposal=proposal english=english /> })}
+            {context.with_value(|context| context.latest_submission.clone()).map(|receipt| view! { <CallerReceiptDetails receipt=receipt locale=locale /> })}
+            {context.with_value(|context| context.proposal.clone()).map(|proposal| view! { <ProposalFindings proposal=proposal locale=locale /> })}
         </section>
     }
 }
@@ -243,38 +246,41 @@ fn CallerContextDetails(
 #[component]
 fn CallerReceiptDetails(
     receipt: AdaptationSubmissionReceipt,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
 ) -> impl IntoView {
     let receipt = StoredValue::new(receipt);
-    let copy = move || messages::adaptation_copy(english.get());
-    let host_copy = move || messages::host_copy(english.get());
+    let copy = move || messages::adaptation_copy(locale.get());
+    let host_copy = move || messages::host_copy(locale.get());
     view! {
         <h4>{move || host_copy().submission}</h4>
         <p class="help">{move || host_copy().caller_warning}</p>
-        <p>{move || receipt.with_value(|receipt| messages::adaptation_submission_status(receipt.status, english.get()))}</p>
+        <p>{move || receipt.with_value(|receipt| messages::adaptation_submission_status(receipt.status, locale.get()))}</p>
         <dl class="source-identity">
             <dt>{move || host_copy().host_tool}</dt><dd lang="vi-VN">{receipt.with_value(|receipt| receipt.generation.host_tool.clone())}</dd>
             <dt>{move || copy().provider}</dt><dd>{move || receipt.with_value(|receipt| receipt.generation.provider.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
             <dt>{move || copy().model}</dt><dd>{move || receipt.with_value(|receipt| receipt.generation.model.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
             <dt>{move || copy().config}</dt><dd>{move || receipt.with_value(|receipt| receipt.generation.configuration_json.clone().unwrap_or_else(|| copy().unknown.into()))}</dd>
             <dt>{move || host_copy().recorded_prompt}</dt><dd>{receipt.with_value(|receipt| receipt.generation.prompt_version.clone())}</dd>
-            <dt>{move || copy().usage}</dt><dd>{move || receipt.with_value(|receipt| messages::adaptation_usage(receipt.generation.usage.as_ref(), english.get()))}</dd>
-            <dt>{move || copy().cost}</dt><dd>{move || receipt.with_value(|receipt| messages::adaptation_cost(receipt.generation.cost.as_ref(), english.get()))}</dd>
+            <dt>{move || copy().usage}</dt><dd>{move || receipt.with_value(|receipt| messages::adaptation_usage(receipt.generation.usage.as_ref(), locale.get()))}</dd>
+            <dt>{move || copy().cost}</dt><dd>{move || receipt.with_value(|receipt| messages::adaptation_cost(receipt.generation.cost.as_ref(), locale.get()))}</dd>
             <dt>{move || host_copy().submitted_by}</dt><dd>{receipt.with_value(|receipt| receipt.submitted_by.clone())}</dd>
             <dt>{move || host_copy().submitted_at}</dt><dd>{receipt.with_value(|receipt| receipt.submitted_at.clone())}</dd>
             <dt>{move || host_copy().output_checksum}</dt><dd><code>{receipt.with_value(|receipt| receipt.output_sha256.clone())}</code></dd>
             <dt>{move || copy().operation}</dt><dd>{receipt.with_value(|receipt| receipt.operation_id.clone())}</dd>
         </dl>
         {receipt.with_value(|receipt| receipt.problem.clone()).map(|problem| view! {
-            <h4>{move || copy().problem}</h4><p>{move || messages::adaptation_problem(&problem.code, english.get())}</p>
+            <h4>{move || copy().problem}</h4><p>{move || messages::adaptation_problem(&problem.code, locale.get())}</p>
             <ul>{problem.issues.into_iter().map(|issue| view! { <li><code>{issue.path}</code>" · "<code>{issue.rule}</code></li> }).collect_view()}</ul>
         })}
     }
 }
 
 #[component]
-fn ProposalFindings(proposal: AdaptationProposal, english: Signal<bool>) -> impl IntoView {
-    let copy = move || messages::adaptation_copy(english.get());
+fn ProposalFindings(
+    proposal: AdaptationProposal,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
+    let copy = move || messages::adaptation_copy(locale.get());
 
     let no_findings = proposal.findings.is_empty();
     view! {
@@ -282,15 +288,15 @@ fn ProposalFindings(proposal: AdaptationProposal, english: Signal<bool>) -> impl
         <Show when=move || no_findings><p>{move || copy().no_findings}</p></Show>
         <ul class="import-warnings">{proposal.findings.into_iter().map(|finding| {
             let finding = StoredValue::new(finding);
-            view! { <li><strong>{move || finding.with_value(|finding| messages::adaptation_finding(finding.code, english.get()))}</strong>
+            view! { <li><strong>{move || finding.with_value(|finding| messages::adaptation_finding(finding.code, locale.get()))}</strong>
                 {finding.with_value(|finding| finding.block).map(|block| view! { <p>{move || copy().block}" "{block}</p> })}
-                <p>{move || finding.with_value(|finding| messages::adaptation_finding_explanation(finding.code, english.get()))}</p>
+                <p>{move || finding.with_value(|finding| messages::adaptation_finding_explanation(finding.code, locale.get()))}</p>
                 <Show when=move || finding.with_value(|finding| finding.code == AdaptationFindingCode::SourceWarning)>
-                    <p>{move || finding.with_value(|finding| messages::import_diagnostic(&finding.detail, english.get()))}</p>
+                    <p>{move || finding.with_value(|finding| messages::import_diagnostic(&finding.detail, locale.get()))}</p>
                     <small><code>{finding.with_value(|finding| finding.detail.clone())}</code></small>
                 </Show>
                 <Show when=move || finding.with_value(|finding| messages::adaptation_has_provider_detail(finding.code))>
-                    <p class="help">{move || messages::adaptation_provider_detail(english.get())}</p>
+                    <p class="help">{move || messages::adaptation_provider_detail(locale.get())}</p>
                     <blockquote lang="vi-VN">{finding.with_value(|finding| finding.detail.clone())}</blockquote>
                 </Show>
             </li> }
@@ -309,10 +315,13 @@ fn ProposalFindings(proposal: AdaptationProposal, english: Signal<bool>) -> impl
 }
 
 #[component]
-fn SourceComparison(source: Arc<ImportResponse>, english: Signal<bool>) -> impl IntoView {
+fn SourceComparison(
+    source: Arc<ImportResponse>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let source = StoredValue::new(source);
-    let copy = move || messages::adaptation_copy(english.get());
-    let import_copy = move || messages::import_copy(english.get());
+    let copy = move || messages::adaptation_copy(locale.get());
+    let import_copy = move || messages::import_copy(locale.get());
     view! {
         <dl class="source-identity">
             <dt>{move || import_copy().reference}</dt><dd>{source.with_value(|source| source.metadata.reference.clone())}</dd>
@@ -323,11 +332,11 @@ fn SourceComparison(source: Arc<ImportResponse>, english: Signal<bool>) -> impl 
         </dl>
         {source.with_value(|source| source.original_text.clone()).map(|text| view! { <pre tabindex="0" lang="vi-VN">{text}</pre> })}
         <Show when=move || source.with_value(|source| source.original_text.is_none())><p>{move || copy().original_binary}</p></Show>
-        <crate::download::DownloadOriginal namespace="adaptation" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) english/>
+        <crate::download::DownloadOriginal namespace="adaptation" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) locale/>
 
         {match source.with_value(|source| source.outcome.clone()) {
-            ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction english=english namespace="adaptation" /> }.into_any(),
-            ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, english.get())}</p> }.into_any(),
+            ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction locale=locale namespace="adaptation" /> }.into_any(),
+            ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, locale.get())}</p> }.into_any(),
         }}
     }
 }

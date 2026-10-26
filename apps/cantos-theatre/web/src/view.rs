@@ -32,14 +32,18 @@ pub fn Theatre() -> impl IntoView {
     Effect::new(move |_| {
         let route = ctx.route.get();
         let title = match route {
-            Route::Work(id) => {
-                ctx.format(Key::PageTitle, &[("page", ctx.work(id).title.to_owned())])
-            }
+            Route::Work(id) => ctx.message(
+                crate::localization::generated::Message::TheatreShellPageTitle {
+                    arg_page: ctx.work(id).title,
+                },
+            ),
             route => messages::page_title(ctx.locale.get(), route),
         };
         platform::set_title(&title);
     });
-    Effect::new(move |_| platform::set_document_language(ctx.locale.get().lang()));
+    Effect::new(move |_| {
+        platform::set_document_locale(ctx.locale.get().lang(), ctx.locale.get().dir())
+    });
 
     view! {
         <UiRoot theme=ctx.theme density=Density::Comfortable expression=Expression::Theatre class="theatre-shell">
@@ -127,7 +131,7 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
                 <Select id="theatre-locale" label=Signal::derive(move || ctx.text(Key::Locale).to_owned())
                     value=Signal::derive(move || ctx.locale.get().lang().to_owned())
                     on_input=Callback::new(move |value: String| { if let Some(selected) = Locale::from_lang(&value) { ctx.locale.set(selected); } })>
-                    {Locale::ALL.into_iter().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}
+                    {Locale::supported().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}
                 </Select>
                 <Select id="theatre-speed" label=Signal::derive(move || ctx.text(Key::Speed).to_owned())
                     value=Signal::derive(move || ctx.player.view.get().map(|player| player.speed).unwrap_or(100).to_string())

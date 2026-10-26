@@ -515,35 +515,26 @@ pub fn recovery_focus(command: &Command, outcome: Phase, problems: &[Problem]) -
     }
 }
 
-/// Format an instant for display. The browser renders local time with `Intl`; native tests
-/// render UTC deterministically.
-#[cfg(target_arch = "wasm32")]
-pub fn display_time(ms: i64, english: bool) -> String {
-    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64));
-    let options = js_sys::Object::new();
-    let _ = js_sys::Reflect::set(&options, &"dateStyle".into(), &"medium".into());
-    let _ = js_sys::Reflect::set(&options, &"timeStyle".into(), &"short".into());
-    date.to_locale_string(if english { "en-GB" } else { "vi-VN" }, &options)
-        .into()
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn display_time(ms: i64, _english: bool) -> String {
-    // Civil-from-days (Howard Hinnant), proleptic Gregorian, UTC.
-    let seconds = ms.div_euclid(1000);
-    let (days, time) = (seconds.div_euclid(86_400), seconds.rem_euclid(86_400));
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{day:02}/{month:02}/{year} {:02}:{:02} UTC",
-        time / 3600,
-        time % 3600 / 60
-    )
+/// Format the explicit browser offset (native string-render tests use UTC). IANA lookup
+/// is unsupported in the shared adapter and never falls back to a fabricated date.
+pub fn display_time(ms: i64, locale: crate::localization::Locale) -> String {
+    #[cfg(target_arch = "wasm32")]
+    let zone = {
+        let offset =
+            js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms as f64)).get_timezone_offset();
+        if offset.is_finite() && offset.fract() == 0.0 && offset.abs() <= 1080.0 {
+            Ok(cantos_localization::TimeZone::OffsetMinutes(
+                (-offset) as i16,
+            ))
+        } else {
+            Err(cantos_localization::FormatError::InvalidInstant)
+        }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let zone: Result<_, cantos_localization::FormatError> = Ok(cantos_localization::TimeZone::Utc);
+    let result = zone.and_then(|zone| {
+        cantos_localization::Formatter::try_new(locale.lang())
+            .and_then(|formatter| formatter.date_time(ms, zone))
+    });
+    crate::localization::present(result, locale)
 }

@@ -126,15 +126,15 @@ fn review(
 #[component]
 pub fn RevisionInspector(
     state: RwSignal<Editor>,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     #[prop(optional)] activity: Option<RwSignal<bool>>,
     #[prop(optional)] draft_activity: Option<RwSignal<bool>>,
 ) -> impl IntoView {
     let inspector = RwSignal::new(Inspector::default());
     let api = expect_context::<StudioContext>().api;
-    let copy = move || messages::copy(english.get());
-    let workspace = move |key| text(key, english.get());
-    let import_copy = move || messages::import_copy(english.get());
+    let copy = move || messages::copy(locale.get());
+    let workspace = move |key| text(key, locale.get());
+    let import_copy = move || messages::import_copy(locale.get());
     let draft_active = move || draft_activity.is_some_and(|activity| activity.get());
     Effect::new(move |_| {
         let current = state.get();
@@ -178,7 +178,7 @@ pub fn RevisionInspector(
             <p class="status" role="status" aria-live="polite">
                 {move || inspector.with(|inspector| {
                     if let Some(error) = &inspector.error {
-                        messages::status(error_status(error), english.get())
+                        messages::status(error_status(error), locale.get())
                     } else if inspector.sending_review || inspector.reading.is_some() {
                         copy().busy
                     } else { "" }
@@ -193,7 +193,7 @@ pub fn RevisionInspector(
                         <dt>{move || copy().script}</dt><dd>{move || inspector.with(|inspector| inspector.pending.as_ref().map(|intent| intent.snapshot.script.clone()).unwrap_or_default())}</dd>
                         <dt>{move || copy().base}</dt><dd>{move || inspector.with(|inspector| inspector.pending.as_ref().map(|intent| intent.request.revision.to_string()).unwrap_or_default())}</dd>
                     </dl>
-                    <ActionButton id="inspector-retry" english=english variant=ButtonVariant::Secondary reason=BlockReason::Pending blocked=Signal::derive(move || inspector.with(|inspector| !inspector.can_retry())) described_by="inspector-pending-help inspector-permission-help" on_press=Callback::new(move |_| {
+                    <ActionButton id="inspector-retry" locale=locale variant=ButtonVariant::Secondary reason=BlockReason::Pending blocked=Signal::derive(move || inspector.with(|inspector| !inspector.can_retry())) described_by="inspector-pending-help inspector-permission-help" on_press=Callback::new(move |_| {
                         let current = state.get_untracked();
                         let Some((sending, intent)) = inspector.get_untracked().observe(&current).retry() else { return; };
                         set_inspector(inspector, activity, sending);
@@ -204,7 +204,7 @@ pub fn RevisionInspector(
             <section aria-labelledby="inspector-source-title">
                 <h3 id="inspector-source-title">{move || workspace(Key::Source)}</h3>
                 <p id="inspector-source-help" class="help">{move || workspace(Key::SourceHelp)}</p>
-                <ActionButton id="inspector-open-source" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(move || read_blocked() || remote.get().is_none_or(|remote| source_ids(&remote.script_json).is_empty())) described_by="inspector-source-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
+                <ActionButton id="inspector-open-source" locale=locale variant=ButtonVariant::Secondary blocked=Signal::derive(move || read_blocked() || remote.get().is_none_or(|remote| source_ids(&remote.script_json).is_empty())) described_by="inspector-source-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     let Some(remote) = remote.get_untracked() else { return; };
                     read(inspector, state, activity, api, ReadKind::Sources { ids: source_ids(&remote.script_json) });
                 })>{move || workspace(Key::OpenSource)}</ActionButton>
@@ -213,10 +213,10 @@ pub fn RevisionInspector(
                         let id = StoredValue::new(id);
                         view! {
                             {move || sources.with(|sources| sources.iter().find(|source| source.id == id.get_value()).cloned()).map(|source| match source.result {
-                                Ok(PreservedSource::Text(response)) => view! { <SourceDetails source=response english=english /> }.into_any(),
-                                Ok(PreservedSource::Imported(response)) => view! { <ImportedSourceDetails source=*response english=english /> }.into_any(),
+                                Ok(PreservedSource::Text(response)) => view! { <SourceDetails source=response locale=locale /> }.into_any(),
+                                Ok(PreservedSource::Imported(response)) => view! { <ImportedSourceDetails source=*response locale=locale /> }.into_any(),
                                 Err(error) => view! {
-                                    <p><code>{source.id}</code>" · "{move || messages::status(error_status(&error), english.get())}</p>
+                                    <p><code>{source.id}</code>" · "{move || messages::status(error_status(&error), locale.get())}</p>
                                     <Show when=move || source.import_fallback><p class="help">{move || workspace(Key::BinarySourceHelp)}</p></Show>
                                 }.into_any(),
                             })}
@@ -228,9 +228,9 @@ pub fn RevisionInspector(
                 <h3 id="inspector-history-title">{move || workspace(Key::History)}</h3>
                 <p id="inspector-history-help" class="help">{move || workspace(Key::HistoryHelp)}</p>
                 <div class="toolbar">
-                    <ActionButton id="inspector-load-history" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::History { after: 0 }))>{move || workspace(Key::LoadHistory)}</ActionButton>
+                    <ActionButton id="inspector-load-history" locale=locale variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::History { after: 0 }))>{move || workspace(Key::LoadHistory)}</ActionButton>
                     <Show when=move || history.get().is_some_and(|history| history.next_after.is_some())>
-                        <ActionButton id="inspector-more-history" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| {
+                        <ActionButton id="inspector-more-history" locale=locale variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| {
                             if let Some(after) = history.get_untracked().and_then(|history| history.next_after) {
                                 read(inspector, state, activity, api, ReadKind::History { after });
                             }
@@ -247,23 +247,23 @@ pub fn RevisionInspector(
                                 <li>
                                     <p class="identity">{revision.with_value(|revision| format!("{} / {} · {} · {}", revision.script_id, revision.revision, revision.accepted_by, revision.accepted_at))}</p>
                                     <code>{revision.with_value(|revision| revision.export_digest.clone())}</code>
-                                    <ActionButton id=format!("inspector-open-version-{version}") english=english variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::Revision { revision: version }))>{move || workspace(Key::OpenVersion)}" "{version}</ActionButton>
-                                    {move || history.get().map(|history| history.reviews.into_iter().filter(|review| review.revision == version).map(|review| view! { <ReviewDetails review=review english=english /> }).collect_view())}
+                                    <ActionButton id=format!("inspector-open-version-{version}") locale=locale variant=ButtonVariant::Secondary blocked=Signal::derive(read_blocked) described_by="inspector-history-help inspector-permission-help" on_press=Callback::new(move |_| read(inspector, state, activity, api, ReadKind::Revision { revision: version }))>{move || workspace(Key::OpenVersion)}" "{version}</ActionButton>
+                                    {move || history.get().map(|history| history.reviews.into_iter().filter(|review| review.revision == version).map(|review| view! { <ReviewDetails review=review locale=locale /> }).collect_view())}
                                 </li>
                             }
                         }
                     </For>
                 </ul>
-                {move || viewed.get().map(|revision| view! { <RevisionDetails revision=revision english=english /> })}
+                {move || viewed.get().map(|revision| view! { <RevisionDetails revision=revision locale=locale /> })}
             </section>
             <section aria-labelledby="inspector-saved-title">
                 <h3 id="inspector-saved-title">{move || copy().preview}</h3>
-                {move || remote.get().map(|revision| view! { <RevisionDetails revision=revision english=english /> })}
-                <ActionButton id="inspector-rebase" english=english variant=ButtonVariant::Secondary blocked=Signal::derive(rebase_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
+                {move || remote.get().map(|revision| view! { <RevisionDetails revision=revision locale=locale /> })}
+                <ActionButton id="inspector-rebase" locale=locale variant=ButtonVariant::Secondary blocked=Signal::derive(rebase_blocked) described_by="inspector-history-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     if !rebase_blocked() { state.update(|editor| *editor = editor.rebase()); }
                 })>{move || copy().rebase}</ActionButton>
                 <p id="inspector-review-help" class="help">{move || workspace(Key::ReviewHelp)}</p>
-                <crate::ui::ReviewCheckbox id="inspector-review-confirm" english=english
+                <crate::ui::ReviewCheckbox id="inspector-review-confirm" locale=locale
                     label=Signal::derive(move ||workspace(Key::ReviewSavedConfirm).to_owned())
                     checked=Signal::derive(move ||inspector.with(|inspector|inspector.confirmation.is_some()))
                     blocked=Signal::derive(move ||draft_active() || inspector.with(Inspector::has_activity) || state.with(|editor|editor.is_dirty() || editor.remote().is_none_or(|remote|remote.revision!=editor.base()) || editor.base()==0 || editor.actor().is_empty() || editor.busy() || editor.pending().is_some() || !editor.can_edit()))
@@ -272,7 +272,7 @@ pub fn RevisionInspector(
                         update_inspector(inspector,state,activity,|inspector,editor|inspector.observe_workspace(editor,draft_active()).confirm(editor,checked && !draft_active()));
                     })/>
 
-                <ActionButton id="inspector-review-version" english=english variant=ButtonVariant::Secondary reason=BlockReason::SaveReview blocked=Signal::derive(review_blocked) described_by="inspector-review-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
+                <ActionButton id="inspector-review-version" locale=locale variant=ButtonVariant::Secondary reason=BlockReason::SaveReview blocked=Signal::derive(review_blocked) described_by="inspector-review-help inspector-permission-help inspector-pending-help" on_press=Callback::new(move |_| {
                     if review_blocked() { return; }
                     match operation_id() {
                         Ok(operation) => {
@@ -285,18 +285,21 @@ pub fn RevisionInspector(
                         Err(error) => update_inspector(inspector, state, activity, |inspector, _| inspector.local_error(&error)),
                     }
                 })>{move || workspace(Key::ReviewVersion)}</ActionButton>
-                {move || reviewed.get().map(|review| view! { <ReviewDetails review=review english=english /> })}
+                {move || reviewed.get().map(|review| view! { <ReviewDetails review=review locale=locale /> })}
             </section>
         </div>
     }
 }
 
 #[component]
-fn RevisionDetails(revision: RevisionResponse, english: Signal<bool>) -> impl IntoView {
+fn RevisionDetails(
+    revision: RevisionResponse,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let revision = StoredValue::new(revision);
     view! {
         <details class="revision-export">
-            <summary>{move || text(Key::Stored, english.get())}" · "{revision.with_value(|revision| revision.revision)}</summary>
+            <summary>{move || text(Key::Stored, locale.get())}" · "{revision.with_value(|revision| revision.revision)}</summary>
             <p class="identity">{revision.with_value(|revision| format!("{} / {} · {} · {}", revision.script_id, revision.revision, revision.accepted_by, revision.accepted_at))}</p>
             <p class="identity"><code>{revision.with_value(|revision| revision.content_digest.clone())}</code></p>
             <p class="identity"><code>{revision.with_value(|revision| revision.export_digest.clone())}</code></p>
@@ -306,12 +309,15 @@ fn RevisionDetails(revision: RevisionResponse, english: Signal<bool>) -> impl In
 }
 
 #[component]
-fn ReviewDetails(review: ReviewResponse, english: Signal<bool>) -> impl IntoView {
+fn ReviewDetails(
+    review: ReviewResponse,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let review = StoredValue::new(review);
     view! {
-        <p class="review-record">{move || text(Key::Reviewed, english.get())}" "{review.with_value(|review| review.revision)}" · "{review.with_value(|review| review.reviewed_by.clone())}" · "{review.with_value(|review| review.reviewed_at.clone())}</p>
+        <p class="review-record">{move || text(Key::Reviewed, locale.get())}" "{review.with_value(|review| review.revision)}" · "{review.with_value(|review| review.reviewed_by.clone())}" · "{review.with_value(|review| review.reviewed_at.clone())}</p>
         <details>
-            <summary>{move || messages::import_copy(english.get()).operation}</summary>
+            <summary>{move || messages::import_copy(locale.get()).operation}</summary>
             <p class="identity"><code>{review.with_value(|review| review.id.clone())}</code>" · "<code>{review.with_value(|review| review.operation_id.clone())}</code></p>
             <p class="identity"><code>{review.with_value(|review| review.content_digest.clone())}</code></p>
             <p class="identity"><code>{review.with_value(|review| review.export_digest.clone())}</code></p>
@@ -320,9 +326,12 @@ fn ReviewDetails(review: ReviewResponse, english: Signal<bool>) -> impl IntoView
 }
 
 #[component]
-fn SourceDetails(source: SourceResponse, english: Signal<bool>) -> impl IntoView {
+fn SourceDetails(
+    source: SourceResponse,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let source = StoredValue::new(source);
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     view! {
         <details class="source-record">
             <summary>{source.with_value(|source| source.reference.clone())}</summary>
@@ -338,14 +347,17 @@ fn SourceDetails(source: SourceResponse, english: Signal<bool>) -> impl IntoView
 }
 
 #[component]
-fn ImportedSourceDetails(source: ImportResponse, english: Signal<bool>) -> impl IntoView {
+fn ImportedSourceDetails(
+    source: ImportResponse,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
     let namespace = format!("inspector-{}", source.id);
     let source = StoredValue::new(source);
-    let copy = move || messages::import_copy(english.get());
+    let copy = move || messages::import_copy(locale.get());
     view! {
         <details class="source-record">
             <summary>{source.with_value(|source| source.metadata.reference.clone())}</summary>
-            <p class="help">{move || text(Key::BinarySourceHelp, english.get())}</p>
+            <p class="help">{move || text(Key::BinarySourceHelp, locale.get())}</p>
             <dl class="source-identity">
                 <dt>{move || copy().source_id}</dt><dd><code>{source.with_value(|source| source.id.clone())}</code></dd>
                 <dt>{move || copy().reference}</dt><dd lang="vi-VN">{source.with_value(|source| source.metadata.reference.clone())}</dd>
@@ -358,11 +370,11 @@ fn ImportedSourceDetails(source: ImportResponse, english: Signal<bool>) -> impl 
             </dl>
             {source.with_value(|source| source.original_text.clone()).map(|original| view! { <pre tabindex="0" lang="vi-VN">{original}</pre> })}
             <Show when=move || source.with_value(|source| source.original_text.is_none())><p>{move || copy().binary}</p></Show>
-            <crate::download::DownloadOriginal namespace="inspector" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) english/>
+            <crate::download::DownloadOriginal namespace="inspector" id=source.with_value(|r|r.id.clone()) file_name=source.with_value(|r|r.metadata.file_name.clone()) sha256=source.with_value(|r|r.sha256.clone()) locale/>
 
             {match source.with_value(|source| source.outcome.clone()) {
-                ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction english=english namespace=namespace /> }.into_any(),
-                ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, english.get())}</p> }.into_any(),
+                ImportOutcome::Parsed { extraction } => view! { <ExtractionPreview extraction=extraction locale=locale namespace=namespace /> }.into_any(),
+                ImportOutcome::Failed { error } => view! { <p>{move || messages::import_diagnostic(&error.code, locale.get())}</p> }.into_any(),
             }}
         </details>
     }

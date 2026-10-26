@@ -11,7 +11,7 @@ pub fn DownloadOriginal(
     id: String,
     file_name: String,
     sha256: String,
-    english: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
     #[prop(optional)] blocked: Option<Signal<bool>>,
 ) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
@@ -22,7 +22,7 @@ pub fn DownloadOriginal(
     let failure = RwSignal::new(None::<crate::contract::ApiError>);
     view! {
         <div class="download-original">
-            <ActionButton id=format!("download-{namespace}-{}",id.get_value()) english variant=ButtonVariant::Text
+            <ActionButton id=format!("download-{namespace}-{}",id.get_value()) locale variant=ButtonVariant::Text
                 blocked=Signal::derive(move ||blocked.is_some_and(|blocked|blocked.get())) busy=Signal::derive(move ||busy.get())
                 on_press=Callback::new(move |_| {
                     if busy.get_untracked() || blocked.is_some_and(|blocked|blocked.get_untracked()) {return;}
@@ -35,8 +35,8 @@ pub fn DownloadOriginal(
                         }.await;
                         let _=failure.try_set(result.err());let _=busy.try_set(false);
                     });
-                })>{move || messages::import_copy(english.get()).download}</ActionButton>
-            <p class="status" role="status" aria-live="polite">{move || failure.get().map(|error|messages::status(crate::editor::error_status(&error.code),english.get()))}</p>
+                })>{move || messages::import_copy(locale.get()).download}</ActionButton>
+            <p class="status" role="status" aria-live="polite">{move || failure.get().map(|error|messages::status(crate::editor::error_status(&error.code),locale.get()))}</p>
         </div>
     }
 }

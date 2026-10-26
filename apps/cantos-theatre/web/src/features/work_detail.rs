@@ -41,10 +41,10 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
     };
     view! {
         <li class="theatre-episode-row" data-current=move || ctx.player.view.get().is_some_and(|player| player.is_episode(id))>
-            <span class="theatre-episode-number">{format!("{:02}", id.index + 1)}</span>
+            <span class="theatre-episode-number">{move || crate::messages::ordinal_label(ctx.locale.get(), id.index)}</span>
             <div class="theatre-episode-copy">
                 <h3 lang="vi-VN">{episode.title}</h3>
-                <p class="theatre-muted">{if episode.available { clock(episode.duration) } else { String::new() }}
+                <p class="theatre-muted">{if episode.available { clock(ctx.locale.get(), episode.duration) } else { String::new() }}
                     <Show when=move || ctx.player.view.get().is_some_and(|player| player.is_episode(id))>
                         <span>{move || ctx.text(Key::CurrentEpisode)}</span>
                     </Show>
@@ -53,7 +53,7 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
             </div>
             <div class="theatre-episode-actions">
                 <button type="button" class="theatre-action theatre-action-tonal" disabled=!episode.available
-                    aria-label=move || ctx.format(Key::PlayName, &[("title", episode.title.to_owned())])
+                    aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellPlayName { arg_title: episode.title })
                     aria-describedby=(!episode.available).then(|| format!("unavailable-{}-{}", id.work.slug(), id.index))
                     on:click=move |_| ctx.open_episode(id)>
                     {icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(if episode.available { Key::Begin } else { Key::Unavailable })}</span>
@@ -62,7 +62,7 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
                     <div class="theatre-queue-action">
                         <button type="button" class="theatre-action theatre-action-text"
                             disabled=move || { ctx.queue.with(|state| state.items.contains(&id)) || ctx.player.view.get().is_some_and(|player| player.is_episode(id)) }
-                            aria-label=move || ctx.format(Key::QueueName, &[("title", episode.title.to_owned())])
+                            aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellQueueName { arg_title: episode.title })
                             aria-describedby=format!("queue-reason-{}-{}", id.work.slug(), id.index)
                             on:click=move |_| ctx.enqueue(id)>
                             {icon("add")}<span class="cui-control-label">{move || ctx.text(Key::QueueAdd)}</span>

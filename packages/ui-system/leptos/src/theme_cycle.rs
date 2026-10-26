@@ -18,35 +18,7 @@ pub struct ThemeCycleLabels {
     pub system_next: &'static str,
 }
 
-impl Default for ThemeCycleLabels {
-    fn default() -> Self {
-        Self::vietnamese()
-    }
-}
-
 impl ThemeCycleLabels {
-    pub const fn vietnamese() -> Self {
-        Self {
-            dark_mode: "Tối",
-            dark_next: "Chuyển sang Sáng",
-            light_mode: "Sáng",
-            light_next: "Chuyển sang Hệ thống",
-            system_mode: "Hệ thống",
-            system_next: "Chuyển sang Tối",
-        }
-    }
-
-    pub const fn english() -> Self {
-        Self {
-            dark_mode: "Dark",
-            dark_next: "Switch to Light",
-            light_mode: "Light",
-            light_next: "Switch to System",
-            system_mode: "System",
-            system_next: "Switch to Dark",
-        }
-    }
-
     pub fn text(&self, theme: Theme) -> String {
         match theme {
             Theme::Dark => format!("{} · {}", self.dark_mode, self.dark_next),
@@ -70,7 +42,7 @@ ui_primitive! {
         #[prop(into)] theme: RwSignal<Theme>,
         #[prop(optional, into)] id: Option<String>,
         #[prop(optional, into)] class: Signal<String>,
-        #[prop(optional)] english: Option<Signal<bool>>,
+        labels: Signal<ThemeCycleLabels>,
         #[prop(optional)] on_cycle: Option<Callback<Theme>>,
         #[prop(default = ButtonVariant::Text)] variant: ButtonVariant,
     ) -> impl IntoView {
@@ -79,14 +51,6 @@ ui_primitive! {
         let tooltip_id_for_description = tooltip_id.clone();
         let tooltip_id_for_span = tooltip_id.clone();
         let tooltip_open = RwSignal::new(false);
-
-        let labels = Memo::new(move |_| {
-            if english.is_some_and(|e| e.get()) {
-                ThemeCycleLabels::english()
-            } else {
-                ThemeCycleLabels::vietnamese()
-            }
-        });
 
         let current_text = Memo::new(move |_| labels.get().text(theme.get()));
 

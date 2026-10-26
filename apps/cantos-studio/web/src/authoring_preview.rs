@@ -75,21 +75,22 @@ fn fixture(recipe: &str) -> (String, Vec<FieldIssue>, bool) {
 
 #[component]
 pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
-    let locale = RwSignal::new(Locale::default());
-    let english = Signal::derive(move || locale.get().is_english());
+    let locale_choice = RwSignal::new(Locale::default());
+    let locale = Signal::derive(move || locale_choice.get());
     let recipe = RwSignal::new(RECIPES[0].to_owned());
     let commits = RwSignal::new(0_usize);
-    let copy = move || preview_copy(english.get());
+    let copy = move || preview_copy(locale.get());
     Effect::new(move |_| {
         if let Some(root) = web_sys::window()
             .and_then(|window| window.document())
             .and_then(|document| document.document_element())
         {
             let _ = root.set_attribute("lang", locale.get().lang());
+            let _ = root.set_attribute("dir", locale.get().dir());
         }
     });
     view! {
-        <main class="studio-main" lang=move || locale.get().lang()>
+        <main class="studio-main" lang=move || locale.get().lang() dir=move || locale.get().dir()>
             <h1>{move || copy().title}</h1>
             <p class="help">{move || copy().help}</p>
             <div class="toolbar">
@@ -103,8 +104,8 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
                     <option value="light">{move || copy().light}</option><option value="dark">{move || copy().dark}</option>
                 </select>
                 <label for="preview-locale">{move || copy().locale}</label>
-                <select id="preview-locale" on:change=move |event| if let Some(selected) = Locale::from_lang(&event_target_value(&event)) { locale.set(selected); }>
-                    {Locale::ALL.map(|locale| view! { <option value=locale.lang() lang=locale.lang()>{locale.autonym()}</option> })}
+                <select id="preview-locale" on:change=move |event| if let Some(selected) = Locale::from_lang(&event_target_value(&event)) { locale_choice.set(selected); }>
+                    {Locale::supported().map(|locale| view! { <option value=locale.lang() lang=locale.lang()>{locale.autonym()}</option> }).collect_view()}
                 </select>
                 <label for="preview-commits">{move || copy().commits}</label><output id="preview-commits">{move || commits.get()}</output>
             </div>
@@ -116,7 +117,7 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
                 let activity = RwSignal::new(false);
                 // Like the revision shell, an accepted edit clears findings in the same flush.
                 view! {
-                    <StructuredEditor draft=draft.into() english=english readonly=Signal::stored(readonly) namespace="preview"
+                    <StructuredEditor draft=draft.into() locale=locale readonly=Signal::stored(readonly) namespace="preview"
                         baseline=Signal::stored(source) issues=issues.into() activity=activity
                         on_change=Callback::new(move |text: String| { draft.set(text); issues.set(vec![]); commits.update(|count| *count += 1); })>
                         <span></span>

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "icu4x": "2.3",
+  "cldr": "48.2.1",
+  "fallback": "vi-VN",
+  "locales": [
+    {
+      "tag": "vi-VN",
+      "symbol": "Vietnamese",
+      "autonym": "Tiếng Việt",
+      "aliases": [
+        "vi"
+      ],
+      "testOnly": false,
+      "dir": "ltr",
+      "cardinalCategories": [
+        "other"
+      ]
+    },
+    {
+      "tag": "en",
+      "symbol": "English",
+      "autonym": "English",
+      "aliases": [],
+      "testOnly": false,
+      "dir": "ltr",
+      "cardinalCategories": [
+        "one",
+        "other"
+      ]
+    },
+    {
+      "tag": "ja",
+      "symbol": "Japanese",
+      "autonym": "日本語",
+      "aliases": [],
+      "testOnly": true,
+      "dir": "ltr",
+      "cardinalCategories": [
+        "other"
+      ]
+    }
+  ],
+  "messages": {
+    "common.probe.language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ"
+        },
+        "en": {
+          "text": "Language"
+        },
+        "ja": {
+          "text": "言語"
+        }
+      }
+    },
+    "common.probe.bookmark": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe {title} tại {time}"
+        },
+        "en": {
+          "text": "Listen to {title} at {time}"
+        },
+        "ja": {
+          "text": "{time}に{title}を聴く"
+        }
+      }
+    },
+    "common.probe.episodes": {
+      "args": {
+        "count": "count"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "plural": "count",
+          "forms": {
+            "other": "{count} tập"
+          }
+        },
+        "en": {
+          "plural": "count",
+          "forms": {
+            "one": "{count} episode",
+            "other": "{count} episodes"
+          }
+        },
+        "ja": {
+          "plural": "count",
+          "forms": {
+            "other": "{count}話"
+          }
+        }
+      }
+    }
+  }
+}

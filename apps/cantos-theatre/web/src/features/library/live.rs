@@ -32,9 +32,8 @@ pub(crate) struct LibraryActions {
     pub on_retry_progress: Callback<String>,
 }
 
-fn clock(milliseconds: u64) -> String {
-    let seconds = milliseconds / 1000;
-    format!("{}:{:02}", seconds / 60, seconds % 60)
+fn clock(locale: Locale, milliseconds: u64) -> String {
+    messages::clock_seconds(locale, milliseconds / 1000)
 }
 fn heading(section: Section) -> Key {
     match section {
@@ -139,10 +138,11 @@ fn status(ui: Option<&SectionUi>, section: Section, locale: Locale) -> String {
             return messages::text(empty(section), locale).to_owned()
         }
         PagePhase::Ready => {
-            return messages::format(
-                Key::LiveLibraryLoaded,
+            return messages::message(
                 locale,
-                &[("count", ui.count.to_string())],
+                crate::localization::generated::Message::TheatreShellLiveLibraryLoaded {
+                    arg_count: (ui.count) as u64,
+                },
             )
         }
     };
@@ -311,7 +311,7 @@ fn LiveSection(
                 </Show>
                 <Show when=move || chrome.with(|s| s.as_ref().is_some_and(|s| s.phase == PagePhase::Ready && s.has_more))>
                     <Button id=format!("theatre-library-{}-more", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, false, true)))>
-                        {move || messages::format(Key::LiveLibraryLoadMore, locale.get(), &[("section", messages::text(heading(section), locale.get()).to_owned())])}
+                        {move || messages::message(locale.get(), crate::localization::generated::Message::TheatreShellLiveLibraryLoadMore { arg_section: messages::text(heading(section), locale.get()) })}
                     </Button>
                 </Show>
 
@@ -421,7 +421,7 @@ mod tests {
     fn three_real_sections_render_release_metadata_and_uuid_links_without_mock_or_play_effects() {
         let mut s = signed_in();
         populate(&mut s);
-        for language in Locale::ALL {
+        for language in Locale::supported() {
             let html = render(s.clone(), language);
             assert_eq!(html.matches("<h1").count(), 1);
             for section in Section::ALL {

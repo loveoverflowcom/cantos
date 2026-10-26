@@ -5,7 +5,8 @@ Only added lines in the five UI scopes are linted for displayed literals, locale
 maps and raw error sinks. Changed bilingual catalogs are checked as whole files.
 The independent pre-ADR semantic fixture is also validated in full, including
 its resource-derived locale registry and deterministic Rust/Kotlin projections.
-Legacy pair-shaped application owners retain their existing checks until #167.
+Accepted Web resource projections are validated byte-for-byte by the whole-resource guard.
+Legacy CMP pair-shaped owners retain their existing checks until #507.
 This is a token/context check, not Rust/Kotlin type checking or runtime evidence:
 indirect data flow, arbitrary wrapper components and mapping completeness still
 need exhaustive compiler matches and renderer/resource tests. No dependencies.
@@ -116,8 +117,12 @@ def validate_policy(policy):
                 continue
             if not in_scope(entry["path"]) or "*" in entry["path"] or ".." in Path(entry["path"]).parts:
                 errors.append(f"localization allow-list: exact UI path required: {entry['path']}")
-            if group == "owners" and entry["mode"] not in {"bilingual", "fixed-english-tool"}:
+            if group == "owners" and entry["mode"] not in {"bilingual", "fixed-english-tool", "generated"}:
                 errors.append(f"localization allow-list: invalid owner mode: {entry['path']}")
+            if group == "owners" and entry["mode"] == "generated":
+                from localization_resources import TARGETS
+                if Path(entry["path"]) not in TARGETS.values():
+                    errors.append(f"localization allow-list: generated owner has no drift guard: {entry['path']}")
             identity = (entry["path"], entry.get("literal"), entry.get("context"))
             if identity in seen:
                 errors.append(f"localization allow-list: duplicate {group} entry: {entry['path']}")
@@ -423,7 +428,7 @@ def check_source(path, source, changed_lines=None, policy=None):
     changed_token = lambda token: any(changed(line) for line in range(token.line, (token.last_line or token.line) + 1))
     owners = {item["path"]: item for item in policy["owners"]}
     catalog_errors = (check_catalog(path, source) if path in owners and owners[path]["mode"] == "bilingual" else [])
-    if path in owners and owners[path]["mode"] == "fixed-english-tool":
+    if path in owners and owners[path]["mode"] in {"fixed-english-tool", "generated"}:
         return []
     if path.endswith(".rs"):
         source = without_rust_tests(source)
@@ -549,6 +554,7 @@ def changed_sources(root, base=None):
 
 def repository_failures(root=ROOT, base=None):
     from localization_catalog import repository_failures as catalog_failures
+    from localization_resources import repository_failures as resource_failures
 
     policy = json.loads((root / "scripts/localization_allowlist.json").read_text(encoding="utf-8"))
     errors = validate_policy(policy)
@@ -556,4 +562,4 @@ def repository_failures(root=ROOT, base=None):
         return errors
     for name, lines in changed_sources(root, base).items():
         errors += check_source(name, (root / name).read_text(encoding="utf-8"), lines, policy)
-    return errors + catalog_failures(root)
+    return errors + catalog_failures(root) + resource_failures(root)

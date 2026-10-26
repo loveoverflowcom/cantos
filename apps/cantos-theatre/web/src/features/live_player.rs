@@ -99,7 +99,11 @@ impl LivePlayer {
                     .get()
                     .map(|seek| seek.position_ms / 1000)
                     .unwrap_or(view.position);
-                format!("{} / {}", clock(shown), clock(view.duration))
+                format!(
+                    "{} / {}",
+                    clock(self.locale.get(), shown),
+                    clock(self.locale.get(), view.duration)
+                )
             })
             .unwrap_or_default()
     }
@@ -123,13 +127,12 @@ fn Transport(live: LivePlayer, #[prop(optional)] compact: bool) -> impl IntoView
             .facts()
             .map(|facts| facts.label().unit_title.clone())
             .unwrap_or_default();
-        messages::format(
-            Key::ListenTransportName,
+        messages::message(
             live.locale.get(),
-            &[
-                ("action", live.text(live.transport_key()).to_owned()),
-                ("title", title),
-            ],
+            crate::localization::generated::Message::TheatreShellListenTransportName {
+                arg_action: live.text(live.transport_key()),
+                arg_title: &(title),
+            },
         )
     };
     let asset = move || {
@@ -243,8 +246,8 @@ pub(crate) fn LivePlayerScreen(
     }
 }
 
-fn clock_ms(ms: u64) -> String {
-    clock(u32::try_from(ms / 1000).unwrap_or(u32::MAX))
+fn clock_ms(locale: Locale, ms: u64) -> String {
+    messages::clock_seconds(locale, ms / 1000)
 }
 
 #[component]
@@ -335,32 +338,21 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
                     }.into_any(),
                     ProgressCommandPhase::Conflict(ProgressConflict::KeepServer { server, .. }) => view! {
                         <p class="theatre-meta" role="status">
-                            {messages::format(
-                                Key::LiveProgressKeepServer,
-                                live.locale.get(),
-                                &[("time", clock_ms(server.position_ms))],
-                            )}
+                            {messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressKeepServer { arg_time: &(clock_ms(live.locale.get(), server.position_ms)) })}
                         </p>
                     }.into_any(),
                     _ => ().into_any(),
                 }}
                 {move || conflict().map(|(local_ms, server)| {
-                    let local_pos = clock_ms(local_ms);
-                    let server_pos = clock_ms(server.position_ms);
+                    let local_pos = clock_ms(live.locale.get(), local_ms);
+                    let server_pos = clock_ms(live.locale.get(), server.position_ms);
                     let local_btn = local_pos.clone();
                     let server_btn = server_pos.clone();
                     view! {
                         <div class="theatre-conflict-card theatre-panel" role="region"
                             aria-label=move || live.text(Key::LiveProgressError)>
                             <p class="theatre-meta">
-                                {move || messages::format(
-                                    Key::LiveProgressConflictPrompt,
-                                    live.locale.get(),
-                                    &[
-                                        ("local", local_pos.clone()),
-                                        ("server", server_pos.clone()),
-                                    ],
-                                )}
+                                {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressConflictPrompt { arg_local: &(local_pos.clone()), arg_server: &(server_pos.clone()) })}
                             </p>
                             <div class="theatre-actions">
                                 <button type="button" class="theatre-action theatre-action-tonal"
@@ -370,11 +362,7 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
                                         }
                                     }>
                                     <span class="cui-control-label">
-                                        {move || messages::format(
-                                            Key::LiveProgressResolveHere,
-                                            live.locale.get(),
-                                            &[("time", local_btn.clone())],
-                                        )}
+                                        {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveHere { arg_time: &(local_btn.clone()) })}
                                     </span>
                                 </button>
                                 <button type="button" class="theatre-action theatre-action-tonal"
@@ -384,11 +372,7 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
                                         }
                                     }>
                                     <span class="cui-control-label">
-                                        {move || messages::format(
-                                            Key::LiveProgressResolveOther,
-                                            live.locale.get(),
-                                            &[("time", server_btn.clone())],
-                                        )}
+                                        {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveOther { arg_time: &(server_btn.clone()) })}
                                     </span>
                                 </button>
                             </div>
@@ -701,7 +685,7 @@ mod tests {
 
     #[test]
     fn no_live_status_or_control_is_labelled_as_a_simulation() {
-        for locale in Locale::ALL {
+        for locale in Locale::supported() {
             for status in [
                 Status::Idle,
                 Status::Loading,

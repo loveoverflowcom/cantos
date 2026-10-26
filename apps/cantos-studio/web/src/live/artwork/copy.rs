@@ -1,5 +1,6 @@
 //! Studio artwork locale resources (vi-VN / en).
 use super::{Problem, Stage};
+use crate::localization::generated::artwork as resources;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     NeedFile,
@@ -48,138 +49,105 @@ pub enum Key {
     PreviewLight,
     PreviewDark,
 }
-pub fn text(key: Key, en: bool) -> &'static str {
-    match (key, en) {
-        (Key::PreviewTitle, false) => "studio-artwork · xem trước được cấp dữ liệu mẫu (chỉ debug)", (Key::PreviewTitle, true) => "studio-artwork · injected preview (debug only)",
-        (Key::PreviewHelp, false) => "Recipe v1 · dữ liệu giả lập · không gọi API/storage. Chọn tình huống sẽ đặt lại trạng thái; giao diện và ngôn ngữ giữ nguyên văn bản.", (Key::PreviewHelp, true) => "Recipe v1 · synthetic fixture · no API/storage. Selecting a scenario explicitly resets its projection; theme and locale retain text.",
-        (Key::PreviewScenario, false) => "Tình huống", (Key::PreviewScenario, true) => "Scenario",
-        (Key::PreviewTheme, false) => "Giao diện", (Key::PreviewTheme, true) => "Theme",
-        (Key::PreviewLocale, false) => "Ngôn ngữ", (Key::PreviewLocale, true) => "Locale",
-        (Key::PreviewLight, false) => "Sáng", (Key::PreviewLight, true) => "Light",
-        (Key::PreviewDark, false) => "Tối", (Key::PreviewDark, true) => "Dark",
-
-        (Key::NeedFile,false)=>"Chọn ảnh hợp lệ; hoàn tất hoặc đối soát thao tác đang chờ trước khi tiếp tục.",
-        (Key::NeedFile,true)=>"Choose a valid image; finish or reconcile any pending operation first.",
-        (Key::NeedIntent,false)=>"Chuẩn bị intent còn hạn và giữ đúng tệp; hoàn tất thao tác đang chờ trước khi tải.",
-        (Key::NeedIntent,true)=>"Prepare an active intent and retain its matching file; finish pending operations first.",
-        (Key::NeedAsset,false)=>"Cần ảnh đã admission và revision tác phẩm đã tải; hoàn tất hoặc đối soát thao tác đang chờ.",
-        (Key::NeedAsset,true)=>"An admitted image and loaded Work revision are required; finish or reconcile pending operations.",
-        (Key::NeedCurrent,false)=>"Cần ảnh bìa hiện tại và phiên owner khả dụng; hoàn tất thao tác đang chờ trước khi bỏ liên kết.",
-        (Key::NeedCurrent,true)=>"A current cover and active owner session are required; finish pending operations before unlinking.",
-        (Key::NeedLocal,false)=>"Cần tệp local đã chọn; hoàn tất hoặc đối soát thao tác đang chờ trước khi bỏ chọn.",
-        (Key::NeedLocal,true)=>"Select a local file; finish or reconcile pending operations before discarding it.",
-        (Key::NeedRecovery,false)=>"Cần phiên khả dụng của đúng owner và thao tác chưa rõ kết quả.",
-        (Key::NeedRecovery,true)=>"Recovery requires the same owner's active session and an unresolved operation.",
-        (Key::NeedOwner,false)=>"Cần phiên owner khả dụng; hoàn tất hoặc đối soát thao tác đang chờ trước khi tải lại.",
-        (Key::NeedOwner,true)=>"An active owner session is required; finish or reconcile pending operations before reloading.",
-        (Key::IntentReceipt,false)=>"Thông tin intent riêng tư",(Key::IntentReceipt,true)=>"Private intent receipt",
-
-        (Key::Title, false) => "Ảnh bìa của tác phẩm", (Key::Title, true) => "Work cover artwork",
-        (Key::Private, false) => "Ảnh admitted vẫn riêng tư. Chọn ảnh bìa không xuất bản tác phẩm lên Cantos. Tệp gốc và lịch sử được giữ bất biến.",
-        (Key::Private, true) => "Admitted images stay private. Selecting a cover does not publish the Work to Cantos. Original bytes and history are preserved.",
-        (Key::Current, false) => "Ảnh bìa hiện tại", (Key::Current, true) => "Current cover",
-        (Key::Replacement, false) => "Ảnh mới · chưa gắn vào tác phẩm", (Key::Replacement, true) => "New image · not selected for this Work",
-        (Key::Empty, false) => "Chưa có ảnh bìa", (Key::Empty, true) => "No cover selected",
-        (Key::File, false) => "Chọn tệp từ máy", (Key::File, true) => "Choose a local file",
-        (Key::Bounds, false) => "PNG hoặc JPEG · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Server kiểm tra và quyết định admission.",
-        (Key::Bounds, true) => "PNG or JPEG · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server validates admission.",
-        (Key::Alt, false) => "Mô tả thay thế", (Key::Alt, true) => "Alternative description",
-        (Key::AltHelp, false) => "Bắt buộc khi chọn ảnh · tối đa 1024 byte UTF-8 · không có ký tự điều khiển hoặc ngắt dòng.",
-        (Key::AltHelp, true) => "Required when selecting · up to 1024 UTF-8 bytes · no control characters or line separators.",
-        (Key::Provenance, false) => "Nguồn / lịch sử tạo ảnh", (Key::Provenance, true) => "Image provenance",
-        (Key::ProvenanceHelp, false) => "Bắt buộc · tối đa 4096 byte UTF-8. Khai báo nguồn không đồng nghĩa quyền đã được xác minh.",
-        (Key::ProvenanceHelp, true) => "Required · up to 4096 UTF-8 bytes. A provenance claim is not verified rights.",
-        (Key::Rights, false) => "Tham chiếu quyền sử dụng", (Key::Rights, true) => "Rights evidence references",
-        (Key::RightsHelp, false) => "1–64 ID phân biệt, cách nhau bằng dấu phẩy; a–z, 0–9, _ hoặc -, tối đa 64 byte mỗi ID. Server kiểm tra cùng owner.",
-        (Key::RightsHelp, true) => "1–64 distinct IDs, comma separated; a–z, 0–9, _ or -, at most 64 bytes per ID. The server checks ownership.",
-        (Key::Prepare, false) => "1. Chuẩn bị upload", (Key::Prepare, true) => "1. Prepare upload",
-        (Key::Upload, false) => "2. Tải tệp & xác nhận admission", (Key::Upload, true) => "2. Upload & confirm admission",
-        (Key::Select, false) => "3. Gắn / thay ảnh bìa", (Key::Select, true) => "3. Select / replace cover",
-        (Key::Clear, false) => "Bỏ liên kết ảnh bìa hiện tại", (Key::Clear, true) => "Unlink the current cover",
-        (Key::Discard, false) => "Bỏ chọn tệp local", (Key::Discard, true) => "Discard local selection",
-        (Key::Refresh, false) => "Tải lại ảnh bìa & revision", (Key::Refresh, true) => "Reload cover & revision",
-        (Key::Reconcile, false) => "Đối soát đúng intent", (Key::Reconcile, true) => "Read the exact intent",
-        (Key::Replay, false) => "Gửi lại đúng operation", (Key::Replay, true) => "Replay the exact operation",
-        (Key::Confirm, false) => "Xác nhận bỏ liên kết", (Key::Confirm, true) => "Confirm unlink",
-        (Key::Cancel, false) => "Giữ ảnh bìa", (Key::Cancel, true) => "Keep the cover",
-        (Key::ClearHelp, false) => "Chỉ bỏ liên kết ảnh của tác phẩm này ở revision đang hiển thị. Không xóa tệp nguồn hoặc lịch sử.",
-        (Key::ClearHelp, true) => "Unlink this Work's cover at the displayed revision. Original bytes and history are retained.",
-        (Key::PendingHelp, false) => "Thao tác chưa hoàn tất. Giữ bản nháp và operation để đối soát; không tạo mutation mới. Bỏ chọn local không hủy thao tác đã commit.",
-        (Key::PendingHelp, true) => "Operation unfinished. Keep the draft and operation for reconciliation; do not create a new mutation. Discarding a local file cannot cancel a committed operation.",
-        (Key::Compare, false) => "Đối chiếu revision đã gửi / hiện tại", (Key::Compare, true) => "Compare submitted / current revision",
-        (Key::Owner, false) => "Chỉ owner đang hoạt động được quản lý ảnh bìa.", (Key::Owner, true) => "Only the active owner can manage this cover.",
-        (Key::UnavailablePreview, false) => "Không tải được ảnh riêng tư. Có thể tải lại; lựa chọn hiện tại vẫn được giữ.",
-        (Key::UnavailablePreview, true) => "Private preview unavailable. Reload to try again; the current selection is retained.",
-        (Key::Operation, false) => "Operation chưa xác nhận", (Key::Operation, true) => "Unacknowledged operation",
-        (Key::PreparedHelp, false) => "Intent có hạn 30 phút. Nguồn và quyền đã được pin; muốn đổi khai báo, bỏ chọn local rồi chọn lại.",
-        (Key::PreparedHelp, true) => "Intent lasts 30 minutes. Provenance and rights are pinned; discard and reselect to change declarations.",
+pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
+    match key {
+        Key::PreviewTitle => resources::text(resources::Key::PreviewTitle, locale),
+        Key::PreviewHelp => resources::text(resources::Key::PreviewHelp, locale),
+        Key::PreviewScenario => resources::text(resources::Key::PreviewScenario, locale),
+        Key::PreviewTheme => resources::text(resources::Key::PreviewTheme, locale),
+        Key::PreviewLocale => resources::text(resources::Key::PreviewLocale, locale),
+        Key::PreviewLight => resources::text(resources::Key::PreviewLight, locale),
+        Key::PreviewDark => resources::text(resources::Key::PreviewDark, locale),
+        Key::NeedFile => resources::text(resources::Key::NeedFile, locale),
+        Key::NeedIntent => resources::text(resources::Key::NeedIntent, locale),
+        Key::NeedAsset => resources::text(resources::Key::NeedAsset, locale),
+        Key::NeedCurrent => resources::text(resources::Key::NeedCurrent, locale),
+        Key::NeedLocal => resources::text(resources::Key::NeedLocal, locale),
+        Key::NeedRecovery => resources::text(resources::Key::NeedRecovery, locale),
+        Key::NeedOwner => resources::text(resources::Key::NeedOwner, locale),
+        Key::IntentReceipt => resources::text(resources::Key::IntentReceipt, locale),
+        Key::Title => resources::text(resources::Key::Title, locale),
+        Key::Private => resources::text(resources::Key::Private, locale),
+        Key::Current => resources::text(resources::Key::Current, locale),
+        Key::Replacement => resources::text(resources::Key::Replacement, locale),
+        Key::Empty => resources::text(resources::Key::Empty, locale),
+        Key::File => resources::text(resources::Key::File, locale),
+        Key::Bounds => resources::text(resources::Key::Bounds, locale),
+        Key::Alt => resources::text(resources::Key::Alt, locale),
+        Key::AltHelp => resources::text(resources::Key::AltHelp, locale),
+        Key::Provenance => resources::text(resources::Key::Provenance, locale),
+        Key::ProvenanceHelp => resources::text(resources::Key::ProvenanceHelp, locale),
+        Key::Rights => resources::text(resources::Key::Rights, locale),
+        Key::RightsHelp => resources::text(resources::Key::RightsHelp, locale),
+        Key::Prepare => resources::text(resources::Key::Prepare, locale),
+        Key::Upload => resources::text(resources::Key::Upload, locale),
+        Key::Select => resources::text(resources::Key::Select, locale),
+        Key::Clear => resources::text(resources::Key::Clear, locale),
+        Key::Discard => resources::text(resources::Key::Discard, locale),
+        Key::Refresh => resources::text(resources::Key::Refresh, locale),
+        Key::Reconcile => resources::text(resources::Key::Reconcile, locale),
+        Key::Replay => resources::text(resources::Key::Replay, locale),
+        Key::Confirm => resources::text(resources::Key::Confirm, locale),
+        Key::Cancel => resources::text(resources::Key::Cancel, locale),
+        Key::ClearHelp => resources::text(resources::Key::ClearHelp, locale),
+        Key::PendingHelp => resources::text(resources::Key::PendingHelp, locale),
+        Key::Compare => resources::text(resources::Key::Compare, locale),
+        Key::Owner => resources::text(resources::Key::Owner, locale),
+        Key::UnavailablePreview => resources::text(resources::Key::UnavailablePreview, locale),
+        Key::Operation => resources::text(resources::Key::Operation, locale),
+        Key::PreparedHelp => resources::text(resources::Key::PreparedHelp, locale),
     }
 }
-pub fn stage(stage: Stage, en: bool) -> &'static str {
-    match (stage, en) {
-        (Stage::Empty, false) => "Chưa có ảnh bìa",
-        (Stage::Empty, true) => "No cover selected",
-        (Stage::Current, false) => "Ảnh hiện tại · riêng tư",
-        (Stage::Current, true) => "Current cover · private",
-        (Stage::Replacement, false) => "Đã chọn tệp · chưa lưu",
-        (Stage::Replacement, true) => "File selected · unsaved",
-        (Stage::Validating, false) => "Đang kiểm tra tệp",
-        (Stage::Validating, true) => "Validating file",
-        (Stage::Preparing, false) => "Đang chuẩn bị intent",
-        (Stage::Preparing, true) => "Preparing intent",
-        (Stage::Prepared, false) => "Sẵn sàng tải tệp · chưa admission",
-        (Stage::Prepared, true) => "Ready to upload · not admitted",
-        (Stage::Uploading, false) => "Đang tải bytes",
-        (Stage::Uploading, true) => "Uploading bytes",
-        (Stage::AwaitingAcknowledgement, false) => "Chờ server xác nhận · chưa gắn ảnh",
-        (Stage::AwaitingAcknowledgement, true) => {
-            "Awaiting server acknowledgement · cover unchanged"
+pub fn stage(stage: Stage, locale: crate::localization::Locale) -> &'static str {
+    match stage {
+        Stage::Empty => resources::text(resources::Key::StageEmpty, locale),
+        Stage::Current => resources::text(resources::Key::StageCurrent, locale),
+        Stage::Replacement => resources::text(resources::Key::StageReplacement, locale),
+        Stage::Validating => resources::text(resources::Key::StageValidating, locale),
+        Stage::Preparing => resources::text(resources::Key::StagePreparing, locale),
+        Stage::Prepared => resources::text(resources::Key::StagePrepared, locale),
+        Stage::Uploading => resources::text(resources::Key::StageUploading, locale),
+        Stage::AwaitingAcknowledgement => {
+            resources::text(resources::Key::StageAwaitingAcknowledgement, locale)
         }
-        (Stage::Admitted, false) => "Đã admission · chưa gắn ảnh",
-        (Stage::Admitted, true) => "Admitted · cover unchanged",
-        (Stage::Saved, false) => "Đã lưu lựa chọn ảnh bìa riêng tư",
-        (Stage::Saved, true) => "Private cover selection saved",
-        (Stage::Failed, false) => "Yêu cầu bị từ chối · giữ bản nháp",
-        (Stage::Failed, true) => "Request failed · draft retained",
-        (Stage::Expired, false) => "Intent hết hạn · chuẩn bị intent mới",
-        (Stage::Expired, true) => "Intent expired · prepare a new intent",
-        (Stage::Unknown, false) => "Kết quả chưa rõ · cần đối soát",
-        (Stage::Unknown, true) => "Outcome unknown · reconcile first",
-        (Stage::Conflict, false) => "Xung đột revision · tải lại để đối chiếu",
-        (Stage::Conflict, true) => "Revision conflict · reload to compare",
-        (Stage::Loading, false) => "Đang tải ảnh bìa hiện tại",
-        (Stage::Loading, true) => "Loading current cover",
-        (Stage::Forbidden, false) => "Ảnh không khả dụng hoặc bạn không phải owner",
-        (Stage::Forbidden, true) => "Artwork unavailable or owner access required",
+        Stage::Admitted => resources::text(resources::Key::StageAdmitted, locale),
+        Stage::Saved => resources::text(resources::Key::StageSaved, locale),
+        Stage::Failed => resources::text(resources::Key::StageFailed, locale),
+        Stage::Expired => resources::text(resources::Key::StageExpired, locale),
+        Stage::Unknown => resources::text(resources::Key::StageUnknown, locale),
+        Stage::Conflict => resources::text(resources::Key::StageConflict, locale),
+        Stage::Loading => resources::text(resources::Key::StageLoading, locale),
+        Stage::Forbidden => resources::text(resources::Key::StageForbidden, locale),
     }
 }
-pub fn problem(p: Problem, en: bool) -> &'static str {
-    match (p, en) {
-        (Problem::File, false) => "Chọn PNG/JPEG không rỗng, tối đa 8 MiB.", (Problem::File, true) => "Choose a nonempty PNG/JPEG, at most 8 MiB.",
-        (Problem::Dimensions, false) => "Mỗi chiều phải từ 1 đến 4096 px; tối đa 16.777.216 pixel.", (Problem::Dimensions, true) => "Each dimension must be 1–4096 px; at most 16,777,216 pixels.",
-        (Problem::Decode, false) => "Không đọc được ảnh. Hãy chọn một PNG/JPEG hợp lệ.", (Problem::Decode, true) => "Image could not be decoded. Choose a valid PNG/JPEG.",
-        (Problem::Provenance, false) => "Kiểm tra nguồn: không trống, tối đa 4096 byte, không có ký tự điều khiển ngoài tab/xuống dòng.",
-        (Problem::Provenance, true) => "Check provenance: required, at most 4096 bytes, no controls except tab/newline.",
-        (Problem::Rights, false) => "Kiểm tra 1–64 ID quyền phân biệt và đúng định dạng.", (Problem::Rights, true) => "Check 1–64 distinct, valid rights IDs.",
-        (Problem::Alt, false) => "Mô tả không được trống, vượt 1024 byte hoặc có ký tự điều khiển / ngắt dòng.",
-        (Problem::Alt, true) => "Alt text must be nonblank, at most 1024 bytes, without controls or line separators.",
-    }
-}
-
-/// These technical facts use byte counts (base 1); English alone distinguishes one/other.
-fn byte_unit(count: u64, en: bool) -> &'static str {
-    if en && count != 1 {
-        "bytes"
-    } else {
-        "byte"
+pub fn problem(p: Problem, locale: crate::localization::Locale) -> &'static str {
+    match p {
+        Problem::File => resources::text(resources::Key::ProblemFile, locale),
+        Problem::Dimensions => resources::text(resources::Key::ProblemDimensions, locale),
+        Problem::Decode => resources::text(resources::Key::ProblemDecode, locale),
+        Problem::Provenance => resources::text(resources::Key::ProblemProvenance, locale),
+        Problem::Rights => resources::text(resources::Key::ProblemRights, locale),
+        Problem::Alt => resources::text(resources::Key::ProblemAlt, locale),
     }
 }
 
 /// Named Rust format parameters expand once, so braces inside a file name remain literal.
-pub fn media_facts(byte_length: u64, width: u32, height: u32, mime: &str, en: bool) -> String {
-    format!(
-        "{byte_length} {unit} · {width} × {height} px · {mime}",
-        unit = byte_unit(byte_length, en)
+pub fn media_facts(
+    byte_length: u64,
+    width: u32,
+    height: u32,
+    mime: &str,
+    locale: crate::localization::Locale,
+) -> String {
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkMediaFacts {
+            arg_byte_length: byte_length,
+            arg_width: u64::from(width),
+            arg_height: u64::from(height),
+            arg_mime: mime,
+        }
+        .render(locale),
+        locale,
     )
 }
 
@@ -189,18 +157,33 @@ pub fn file_facts(
     width: u32,
     height: u32,
     mime: &str,
-    en: bool,
+    locale: crate::localization::Locale,
 ) -> String {
-    format!(
-        "{name} · {byte_length} {unit} · {width} × {height} px · {mime}",
-        unit = byte_unit(byte_length, en)
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkFileFacts {
+            arg_name: name,
+            arg_byte_length: byte_length,
+            arg_width: u64::from(width),
+            arg_height: u64::from(height),
+            arg_mime: mime,
+        }
+        .render(locale),
+        locale,
     )
 }
 
-pub fn transferred_bytes(transferred: u64, total: u64, en: bool) -> String {
-    format!(
-        "{transferred} / {total} {unit}",
-        unit = byte_unit(total, en)
+pub fn transferred_bytes(
+    transferred: u64,
+    total: u64,
+    locale: crate::localization::Locale,
+) -> String {
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkTransferredBytes {
+            arg_transferred: transferred,
+            arg_total: total,
+        }
+        .render(locale),
+        locale,
     )
 }
 
@@ -257,8 +240,8 @@ mod tests {
             Key::PreviewLight,
             Key::PreviewDark,
         ] {
-            for en in [false, true] {
-                assert!(!text(key, en).trim().is_empty(), "{key:?} / {en}");
+            for locale in crate::localization::Locale::supported() {
+                assert!(!text(key, locale).trim().is_empty(), "{key:?} / {locale}");
             }
         }
         for value in [
@@ -279,8 +262,11 @@ mod tests {
             Stage::Loading,
             Stage::Forbidden,
         ] {
-            for en in [false, true] {
-                assert!(!stage(value, en).trim().is_empty(), "{value:?} / {en}");
+            for locale in crate::localization::Locale::supported() {
+                assert!(
+                    !stage(value, locale).trim().is_empty(),
+                    "{value:?} / {locale}"
+                );
             }
         }
         for value in [
@@ -291,8 +277,11 @@ mod tests {
             Problem::Rights,
             Problem::Alt,
         ] {
-            for en in [false, true] {
-                assert!(!problem(value, en).trim().is_empty(), "{value:?} / {en}");
+            for locale in crate::localization::Locale::supported() {
+                assert!(
+                    !problem(value, locale).trim().is_empty(),
+                    "{value:?} / {locale}"
+                );
             }
         }
     }

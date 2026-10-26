@@ -2,6 +2,7 @@
 //! shown beside plain-language names so an owner can match them to delegate documentation.
 use super::{GrantState, Lifetime, Problem};
 use crate::contract::DelegationAction;
+use crate::localization::generated::delegation as resources;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
@@ -66,149 +67,90 @@ pub enum Key {
     Cancel,
 }
 
-pub fn text(key: Key, en: bool) -> &'static str {
-    match (key, en) {
-        (Key::Title, false) => "Ủy quyền theo tác phẩm",
-        (Key::Title, true) => "Work delegation",
-        (Key::Intro, false) => "Cho một tác nhân đã đăng ký (ví dụ trợ lý AI biên tập) quyền giới hạn trên riêng tác phẩm này, tối đa 30 ngày. Bạn có thể thu hồi bất cứ lúc nào.",
-        (Key::Intro, true) => "Give one registered actor (for example an AI editing assistant) limited access to this work only, for up to 30 days. You can revoke it at any time.",
-        (Key::MemberOnly, false) => "Chỉ chủ sở hữu tác phẩm mới quản lý ủy quyền. Bạn đang xem tác phẩm này với tư cách thành viên.",
-        (Key::MemberOnly, true) => "Only the work owner manages delegation. You are viewing this work as a member.",
-        (Key::ForbiddenHelp, false) => "Máy chủ từ chối quyền quản lý ủy quyền cho tài khoản này (chỉ chủ sở hữu).",
-        (Key::ForbiddenHelp, true) => "The server refused delegation management for this account (owner only).",
-        (Key::IssueTitle, false) => "Cấp quyền mới",
-        (Key::IssueTitle, true) => "Issue a new grant",
-        (Key::Delegate, false) => "ID tác nhân được ủy quyền",
-        (Key::Delegate, true) => "Delegate actor ID",
-        (Key::DelegateHelp, false) => "Tác nhân phải đã đăng ký, đang hoạt động và khác tài khoản của bạn. Ví dụ: agent-editor.",
-        (Key::DelegateHelp, true) => "The actor must be registered, active and different from your account. Example: agent-editor.",
-        (Key::Actions, false) => "Quyền được cấp",
-        (Key::Actions, true) => "Allowed actions",
-        (Key::ActionsHelp, false) => "Không bao gồm duyệt, phát hành, quyền sử dụng, thành viên, lưu trữ hay cấp lại quyền.",
-        (Key::ActionsHelp, true) => "Never includes review, publication, rights, membership, archiving or re-delegation.",
-        (Key::Lifetime, false) => "Thời hạn",
-        (Key::Lifetime, true) => "Lifetime",
-        (Key::LifetimeHelp, false) => "Tính từ lúc máy chủ cấp quyền. Không thể gia hạn; hãy cấp quyền mới khi cần.",
-        (Key::LifetimeHelp, true) => "Counted from the server's issuance time. Grants cannot be extended; issue a new one when needed.",
-        (Key::Issue, false) => "Cấp quyền và tạo mã",
-        (Key::Issue, true) => "Issue grant and create token",
-        (Key::SaveTokenFirst, false) => "Lưu và ẩn mã vừa cấp trước khi cấp quyền tiếp theo.",
-        (Key::SaveTokenFirst, true) => "Save and hide the current token before issuing another grant.",
-        (Key::Archived, false) => "Tác phẩm đã lưu trữ: không thể cấp quyền mới. Bạn vẫn có thể thu hồi quyền đã cấp.",
-        (Key::Archived, true) => "This work is archived: no new grants. You can still revoke existing ones.",
-        (Key::RevealTitle, false) => "Mã ủy quyền chỉ hiển thị một lần",
-        (Key::RevealTitle, true) => "This delegation token is shown only once",
-        (Key::RevealBody, false) => "Sao chép và lưu mã vào nơi an toàn ngay bây giờ. Cantos không lưu bản rõ của mã và không thể hiển thị lại. Nếu làm mất mã, hãy thu hồi quyền và cấp quyền mới.",
-        (Key::RevealBody, true) => "Copy it to a safe place now. Cantos keeps no readable copy and cannot show it again. If you lose it, revoke the grant and issue a new one.",
-        (Key::RevealField, false) => "Mã ủy quyền cho",
-        (Key::RevealField, true) => "Delegation token for",
-        (Key::RevealUse, false) => "Chỉ gửi mã trong tiêu đề Authorization: Bearer. Không đặt mã vào URL, cookie, nhật ký hay bản thảo.",
-        (Key::RevealUse, true) => "Send it only as an Authorization: Bearer header. Never put it in a URL, cookie, log or manuscript.",
-        (Key::Copy, false) => "Sao chép mã",
-        (Key::Copy, true) => "Copy token",
-        (Key::Copied, false) => "Đã sao chép mã vào bộ nhớ tạm.",
-        (Key::Copied, true) => "Token copied to the clipboard.",
-        (Key::CopyManual, false) => "Không sao chép tự động được. Mã đã được chọn sẵn; nhấn Ctrl+C (⌘C trên Mac) để sao chép.",
-        (Key::CopyManual, true) => "Automatic copy is unavailable. The token is selected; press Ctrl+C (⌘C on Mac) to copy it.",
-        (Key::Dismiss, false) => "Tôi đã lưu mã, ẩn mã",
-        (Key::Dismiss, true) => "I saved it — hide the token",
-        (Key::UnrecoverableTitle, false) => "Không thể hiển thị lại mã",
-        (Key::UnrecoverableTitle, true) => "The token cannot be shown again",
-        (Key::UnrecoverableBody, false) => "Lần gửi trước đã tạo quyền này, nhưng mã chỉ hiển thị một lần nên không thể khôi phục. Hãy thu hồi quyền này và cấp quyền mới nếu tác nhân vẫn cần truy cập.",
-        (Key::UnrecoverableBody, true) => "The earlier attempt created this grant, but its token is shown only once and cannot be recovered. Revoke it and issue a new grant if the actor still needs access.",
-        (Key::RevokeThis, false) => "Thu hồi quyền này",
-        (Key::RevokeThis, true) => "Revoke this grant",
-        (Key::ListTitle, false) => "Quyền đã cấp",
-        (Key::ListTitle, true) => "Issued grants",
-        (Key::Refresh, false) => "Tải lại danh sách",
-        (Key::Refresh, true) => "Reload grants",
-        (Key::More, false) => "Xem thêm quyền",
-        (Key::More, true) => "Load more grants",
-        (Key::Empty, false) => "Chưa có quyền ủy quyền nào cho tác phẩm này.",
-        (Key::Empty, true) => "No delegation grants for this work yet.",
-        (Key::EmptyHint, false) => "Dùng biểu mẫu “Cấp quyền mới” để cho một tác nhân truy cập tác phẩm này.",
-        (Key::EmptyHint, true) => "Use “Issue a new grant” to give an actor access to this work.",
-        (Key::WorkLabel, false) => "Tác phẩm",
-        (Key::WorkLabel, true) => "Work",
-        (Key::NotLoaded, false) => "Danh sách chưa được tải.",
-        (Key::NotLoaded, true) => "The list has not been loaded.",
-        (Key::DelegateLabel, false) => "Tác nhân",
-        (Key::DelegateLabel, true) => "Delegate",
-        (Key::GrantId, false) => "ID quyền",
-        (Key::GrantId, true) => "Grant ID",
-        (Key::Issued, false) => "Cấp lúc",
-        (Key::Issued, true) => "Issued",
-        (Key::Expires, false) => "Hết hạn",
-        (Key::Expires, true) => "Expires",
-        (Key::RevokedAt, false) => "Thu hồi lúc",
-        (Key::RevokedAt, true) => "Revoked",
-        (Key::RevokedNow, false) => "Vừa thu hồi; tải lại để xem thời điểm máy chủ ghi nhận.",
-        (Key::RevokedNow, true) => "Just revoked; reload to see the server's recorded time.",
-        (Key::Revoke, false) => "Thu hồi",
-        (Key::Revoke, true) => "Revoke",
-        (Key::RevokeFor, false) => "quyền của",
-        (Key::RevokeFor, true) => "grant for",
-        (Key::DialogTitle, false) => "Thu hồi quyền ủy quyền?",
-        (Key::DialogTitle, true) => "Revoke this delegation?",
-        (Key::DialogBody, false) => "Mọi yêu cầu dùng mã này sau khi thu hồi đều bị từ chối. Nội dung tác nhân đã lưu trước đó vẫn giữ nguyên. Không thể hoàn tác; hãy cấp quyền mới nếu cần cho phép lại.",
-        (Key::DialogBody, true) => "Every request with this token after revocation is refused. Content the delegate already saved stays. This cannot be undone; issue a new grant to allow access again.",
-        (Key::DialogKeep, false) => "Giữ quyền",
-        (Key::DialogKeep, true) => "Keep grant",
-        (Key::DialogConfirm, false) => "Thu hồi quyền",
-        (Key::DialogConfirm, true) => "Revoke grant",
-        (Key::DialogClose, false) => "Đóng",
-        (Key::DialogClose, true) => "Close",
-        (Key::DialogFailed, false) => "Không mở được hộp xác nhận nên chưa thu hồi. Thử lại.",
-        (Key::DialogFailed, true) => "The confirmation could not open, so nothing was revoked. Try again.",
-        (Key::Idle, false) => "Không có yêu cầu ủy quyền nào đang chờ.",
-        (Key::Idle, true) => "No delegation request is pending.",
-        (Key::Loading, false) => "Đang tải danh sách quyền…",
-        (Key::Loading, true) => "Loading grants…",
-        (Key::Issuing, false) => "Đang cấp quyền…",
-        (Key::Issuing, true) => "Issuing grant…",
-        (Key::Revoking, false) => "Đang thu hồi quyền…",
-        (Key::Revoking, true) => "Revoking grant…",
-        (Key::Listed, false) => "Đã tải danh sách quyền từ máy chủ.",
-        (Key::Listed, true) => "Grants loaded from the server.",
-        (Key::IssuedOk, false) => "Đã cấp quyền. Lưu mã ngay; mã sẽ không hiển thị lại.",
-        (Key::IssuedOk, true) => "Grant issued. Save the token now; it will not be shown again.",
-        (Key::Replayed, false) => "Máy chủ xác nhận quyền đã được tạo trước đó; mã không thể khôi phục.",
-        (Key::Replayed, true) => "The server confirmed the grant already existed; its token cannot be recovered.",
-        (Key::RevokedOk, false) => "Đã thu hồi quyền.",
-        (Key::RevokedOk, true) => "Grant revoked.",
-        (Key::Ambiguous, false) => "Chưa biết kết quả. Gửi lại đúng thao tác để xác nhận: máy chủ không tạo quyền thứ hai cho cùng thao tác, và nếu quyền đã được tạo thì mã sẽ không hiển thị lại.",
-        (Key::Ambiguous, true) => "Outcome unknown. Retry the exact operation to confirm: the server never creates a second grant for it, and if the grant already exists its token will not be shown again.",
-        (Key::Retry, false) => "Gửi lại đúng thao tác",
-        (Key::Retry, true) => "Retry exact operation",
-        (Key::Abandon, false) => "Bỏ thao tác chưa rõ kết quả",
-        (Key::Abandon, true) => "Abandon unresolved operation",
-        (Key::AbandonHelp, false) => "Danh sách sẽ được tải lại để kiểm tra quyền thực tế trên máy chủ.",
-        (Key::AbandonHelp, true) => "The list is reloaded to check the actual grants on the server.",
-        (Key::Cancel, false) => "Hủy yêu cầu đang chờ",
-        (Key::Cancel, true) => "Cancel pending request",
+pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
+    match key {
+        Key::Title => resources::text(resources::Key::Title, locale),
+        Key::Intro => resources::text(resources::Key::Intro, locale),
+        Key::MemberOnly => resources::text(resources::Key::MemberOnly, locale),
+        Key::ForbiddenHelp => resources::text(resources::Key::ForbiddenHelp, locale),
+        Key::IssueTitle => resources::text(resources::Key::IssueTitle, locale),
+        Key::Delegate => resources::text(resources::Key::Delegate, locale),
+        Key::DelegateHelp => resources::text(resources::Key::DelegateHelp, locale),
+        Key::Actions => resources::text(resources::Key::Actions, locale),
+        Key::ActionsHelp => resources::text(resources::Key::ActionsHelp, locale),
+        Key::Lifetime => resources::text(resources::Key::Lifetime, locale),
+        Key::LifetimeHelp => resources::text(resources::Key::LifetimeHelp, locale),
+        Key::Issue => resources::text(resources::Key::Issue, locale),
+        Key::SaveTokenFirst => resources::text(resources::Key::SaveTokenFirst, locale),
+        Key::Archived => resources::text(resources::Key::Archived, locale),
+        Key::RevealTitle => resources::text(resources::Key::RevealTitle, locale),
+        Key::RevealBody => resources::text(resources::Key::RevealBody, locale),
+        Key::RevealField => resources::text(resources::Key::RevealField, locale),
+        Key::RevealUse => resources::text(resources::Key::RevealUse, locale),
+        Key::Copy => resources::text(resources::Key::Copy, locale),
+        Key::Copied => resources::text(resources::Key::Copied, locale),
+        Key::CopyManual => resources::text(resources::Key::CopyManual, locale),
+        Key::Dismiss => resources::text(resources::Key::Dismiss, locale),
+        Key::UnrecoverableTitle => resources::text(resources::Key::UnrecoverableTitle, locale),
+        Key::UnrecoverableBody => resources::text(resources::Key::UnrecoverableBody, locale),
+        Key::RevokeThis => resources::text(resources::Key::RevokeThis, locale),
+        Key::ListTitle => resources::text(resources::Key::ListTitle, locale),
+        Key::Refresh => resources::text(resources::Key::Refresh, locale),
+        Key::More => resources::text(resources::Key::More, locale),
+        Key::Empty => resources::text(resources::Key::Empty, locale),
+        Key::EmptyHint => resources::text(resources::Key::EmptyHint, locale),
+        Key::WorkLabel => resources::text(resources::Key::WorkLabel, locale),
+        Key::NotLoaded => resources::text(resources::Key::NotLoaded, locale),
+        Key::DelegateLabel => resources::text(resources::Key::DelegateLabel, locale),
+        Key::GrantId => resources::text(resources::Key::GrantId, locale),
+        Key::Issued => resources::text(resources::Key::Issued, locale),
+        Key::Expires => resources::text(resources::Key::Expires, locale),
+        Key::RevokedAt => resources::text(resources::Key::RevokedAt, locale),
+        Key::RevokedNow => resources::text(resources::Key::RevokedNow, locale),
+        Key::Revoke => resources::text(resources::Key::Revoke, locale),
+        Key::RevokeFor => resources::text(resources::Key::RevokeFor, locale),
+        Key::DialogTitle => resources::text(resources::Key::DialogTitle, locale),
+        Key::DialogBody => resources::text(resources::Key::DialogBody, locale),
+        Key::DialogKeep => resources::text(resources::Key::DialogKeep, locale),
+        Key::DialogConfirm => resources::text(resources::Key::DialogConfirm, locale),
+        Key::DialogClose => resources::text(resources::Key::DialogClose, locale),
+        Key::DialogFailed => resources::text(resources::Key::DialogFailed, locale),
+        Key::Idle => resources::text(resources::Key::Idle, locale),
+        Key::Loading => resources::text(resources::Key::Loading, locale),
+        Key::Issuing => resources::text(resources::Key::Issuing, locale),
+        Key::Revoking => resources::text(resources::Key::Revoking, locale),
+        Key::Listed => resources::text(resources::Key::Listed, locale),
+        Key::IssuedOk => resources::text(resources::Key::IssuedOk, locale),
+        Key::Replayed => resources::text(resources::Key::Replayed, locale),
+        Key::RevokedOk => resources::text(resources::Key::RevokedOk, locale),
+        Key::Ambiguous => resources::text(resources::Key::Ambiguous, locale),
+        Key::Retry => resources::text(resources::Key::Retry, locale),
+        Key::Abandon => resources::text(resources::Key::Abandon, locale),
+        Key::AbandonHelp => resources::text(resources::Key::AbandonHelp, locale),
+        Key::Cancel => resources::text(resources::Key::Cancel, locale),
     }
 }
 
-pub fn action(action: DelegationAction, en: bool) -> &'static str {
-    match (action, en) {
-        (DelegationAction::WorkRead, false) => "Xem tác phẩm và danh sách chương/tập",
-        (DelegationAction::WorkRead, true) => "View the work and its chapters/episodes",
-        (DelegationAction::ContentRead, false) => "Đọc nội dung và lịch sử nội dung",
-        (DelegationAction::ContentRead, true) => "Read content and content history",
-        (DelegationAction::ContentWrite, false) => "Thêm bản nội dung mới (văn bản hoặc bản thu)",
-        (DelegationAction::ContentWrite, true) => "Append content revisions (text or recording)",
+pub fn action(action: DelegationAction, locale: crate::localization::Locale) -> &'static str {
+    match action {
+        DelegationAction::WorkRead => resources::text(resources::Key::ActionWorkRead, locale),
+        DelegationAction::ContentRead => resources::text(resources::Key::ActionContentRead, locale),
+        DelegationAction::ContentWrite => {
+            resources::text(resources::Key::ActionContentWrite, locale)
+        }
     }
 }
 
 /// Short name used in grant rows.
-pub fn action_short(action: DelegationAction, en: bool) -> &'static str {
-    match (action, en) {
-        (DelegationAction::WorkRead, false) => "Xem tác phẩm",
-        (DelegationAction::WorkRead, true) => "View work",
-        (DelegationAction::ContentRead, false) => "Đọc nội dung",
-        (DelegationAction::ContentRead, true) => "Read content",
-        (DelegationAction::ContentWrite, false) => "Ghi nội dung",
-        (DelegationAction::ContentWrite, true) => "Write content",
+pub fn action_short(action: DelegationAction, locale: crate::localization::Locale) -> &'static str {
+    match action {
+        DelegationAction::WorkRead => resources::text(resources::Key::ActionShortWorkRead, locale),
+        DelegationAction::ContentRead => {
+            resources::text(resources::Key::ActionShortContentRead, locale)
+        }
+        DelegationAction::ContentWrite => {
+            resources::text(resources::Key::ActionShortContentWrite, locale)
+        }
     }
 }
 
@@ -221,72 +163,73 @@ pub const fn action_label(action: DelegationAction) -> &'static str {
     }
 }
 
-pub fn lifetime(lifetime: Lifetime, en: bool) -> &'static str {
-    match (lifetime, en) {
-        (Lifetime::OneDay, false) => "1 ngày",
-        (Lifetime::OneDay, true) => "1 day",
-        (Lifetime::Week, false) => "7 ngày",
-        (Lifetime::Week, true) => "7 days",
-        (Lifetime::TwoWeeks, false) => "14 ngày",
-        (Lifetime::TwoWeeks, true) => "14 days",
-        (Lifetime::Maximum, false) => "30 ngày (tối đa)",
-        (Lifetime::Maximum, true) => "30 days (maximum)",
+pub fn lifetime(lifetime: Lifetime, locale: crate::localization::Locale) -> &'static str {
+    match lifetime {
+        Lifetime::OneDay => resources::text(resources::Key::LifetimeOneDay, locale),
+        Lifetime::Week => resources::text(resources::Key::LifetimeWeek, locale),
+        Lifetime::TwoWeeks => resources::text(resources::Key::LifetimeTwoWeeks, locale),
+        Lifetime::Maximum => resources::text(resources::Key::LifetimeMaximum, locale),
     }
 }
 
-pub fn state(state: GrantState, en: bool) -> &'static str {
-    match (state, en) {
-        (GrantState::Active, false) => "Đang hiệu lực",
-        (GrantState::Active, true) => "Active",
-        (GrantState::Expired, false) => "Đã hết hạn",
-        (GrantState::Expired, true) => "Expired",
-        (GrantState::Revoked, false) => "Đã thu hồi",
-        (GrantState::Revoked, true) => "Revoked",
+pub fn state(state: GrantState, locale: crate::localization::Locale) -> &'static str {
+    match state {
+        GrantState::Active => resources::text(resources::Key::StateActive, locale),
+        GrantState::Expired => resources::text(resources::Key::StateExpired, locale),
+        GrantState::Revoked => resources::text(resources::Key::StateRevoked, locale),
     }
 }
 
-pub fn problem(problem: &Problem, en: bool) -> String {
-    let text = match (problem, en) {
-        (Problem::InvalidActor, false) => "Nhập ID tác nhân hợp lệ: 1–64 ký tự chữ thường a–z, số 0–9, “-” hoặc “_”.",
-        (Problem::InvalidActor, true) => "Enter a valid actor ID: 1–64 characters of lowercase a–z, digits 0–9, “-” or “_”.",
-        (Problem::SelfDelegation, false) => "Không thể ủy quyền cho chính tài khoản chủ sở hữu.",
-        (Problem::SelfDelegation, true) => "You cannot delegate to your own owner account.",
-        (Problem::UnavailableActor, false) => "Tác nhân này chưa đăng ký hoặc đã ngừng hoạt động.",
-        (Problem::UnavailableActor, true) => "This actor is not registered or is inactive.",
-        (Problem::EmptyActions, false) => "Chọn ít nhất một quyền.",
-        (Problem::EmptyActions, true) => "Choose at least one action.",
-        (Problem::DuplicateAction, false) => "Mỗi quyền chỉ được chọn một lần.",
-        (Problem::DuplicateAction, true) => "Each action can be chosen only once.",
-        (Problem::InvalidExpiry, false) => "Thời hạn phải sau thời điểm cấp và không quá 30 ngày theo đồng hồ máy chủ. Kiểm tra đồng hồ thiết bị hoặc chọn thời hạn ngắn hơn.",
-        (Problem::InvalidExpiry, true) => "The expiry must be after issuance and within 30 days by the server's clock. Check this device's clock or choose a shorter lifetime.",
-        (Problem::DuplicateGrantId, false) => "ID quyền vừa tạo đã được dùng. Gửi lại để tạo ID mới.",
-        (Problem::DuplicateGrantId, true) => "The generated grant ID is already used. Submit again to create a new ID.",
-        (Problem::Archived, false) => "Tác phẩm đã lưu trữ nên không thể cấp quyền mới.",
-        (Problem::Archived, true) => "The work is archived, so no new grant can be issued.",
-        (Problem::OperationReused, false) => "Mã thao tác đã được dùng cho một yêu cầu khác. Gửi lại để tạo thao tác mới.",
-        (Problem::OperationReused, true) => "The operation ID was used for a different request. Submit again to start a new operation.",
-        (Problem::NotOwner, false) => "Chỉ chủ sở hữu tác phẩm mới quản lý ủy quyền.",
-        (Problem::NotOwner, true) => "Only the work owner manages delegation.",
-        (Problem::NotFound, false) => "Không tìm thấy tác phẩm hoặc quyền này, hoặc bạn không được phép xem.",
-        (Problem::NotFound, true) => "The work or grant was not found or is not accessible.",
-        (Problem::SignIn, false) => "Phiên đăng nhập đã thay đổi hoặc hết hạn. Đăng nhập lại.",
-        (Problem::SignIn, true) => "Your session changed or expired. Sign in again.",
-        (Problem::Malformed, false) => "Máy chủ từ chối yêu cầu không hợp lệ.",
-        (Problem::Malformed, true) => "The server refused a malformed request.",
-        (Problem::Unavailable, false) => "Dịch vụ chưa khả dụng hoặc yêu cầu bị từ chối. Thử lại sau.",
-        (Problem::Unavailable, true) => "The service is unavailable or refused the request. Try again later.",
-        (Problem::Interrupted, false) => "Kết nối bị gián đoạn hoặc hết thời gian.",
-        (Problem::Interrupted, true) => "The connection was interrupted or timed out.",
-        (Problem::UnexpectedReply, false) => "Phản hồi không khớp yêu cầu; chưa có xác nhận.",
-        (Problem::UnexpectedReply, true) => "The response did not match the request; nothing is acknowledged.",
-        (Problem::InvalidInput, false) => "Không tạo được yêu cầu từ dữ liệu đã nhập.",
-        (Problem::InvalidInput, true) => "Could not build a request from the entered values.",
-        (Problem::Unrecognized { path, rule }, false) => {
-            return format!("Máy chủ từ chối trường {path}: {rule}.")
+pub fn problem(problem: &Problem, locale: crate::localization::Locale) -> String {
+    match problem {
+        Problem::InvalidActor => {
+            resources::text(resources::Key::ProblemInvalidActor, locale).to_owned()
         }
-        (Problem::Unrecognized { path, rule }, true) => {
-            return format!("The server refused field {path}: {rule}.")
+        Problem::SelfDelegation => {
+            resources::text(resources::Key::ProblemSelfDelegation, locale).to_owned()
         }
-    };
-    text.to_owned()
+        Problem::UnavailableActor => {
+            resources::text(resources::Key::ProblemUnavailableActor, locale).to_owned()
+        }
+        Problem::EmptyActions => {
+            resources::text(resources::Key::ProblemEmptyActions, locale).to_owned()
+        }
+        Problem::DuplicateAction => {
+            resources::text(resources::Key::ProblemDuplicateAction, locale).to_owned()
+        }
+        Problem::InvalidExpiry => {
+            resources::text(resources::Key::ProblemInvalidExpiry, locale).to_owned()
+        }
+        Problem::DuplicateGrantId => {
+            resources::text(resources::Key::ProblemDuplicateGrantId, locale).to_owned()
+        }
+        Problem::Archived => resources::text(resources::Key::ProblemArchived, locale).to_owned(),
+        Problem::OperationReused => {
+            resources::text(resources::Key::ProblemOperationReused, locale).to_owned()
+        }
+        Problem::NotOwner => resources::text(resources::Key::ProblemNotOwner, locale).to_owned(),
+        Problem::NotFound => resources::text(resources::Key::ProblemNotFound, locale).to_owned(),
+        Problem::SignIn => resources::text(resources::Key::ProblemSignIn, locale).to_owned(),
+        Problem::Malformed => resources::text(resources::Key::ProblemMalformed, locale).to_owned(),
+        Problem::Unavailable => {
+            resources::text(resources::Key::ProblemUnavailable, locale).to_owned()
+        }
+        Problem::Interrupted => {
+            resources::text(resources::Key::ProblemInterrupted, locale).to_owned()
+        }
+        Problem::UnexpectedReply => {
+            resources::text(resources::Key::ProblemUnexpectedReply, locale).to_owned()
+        }
+        Problem::InvalidInput => {
+            resources::text(resources::Key::ProblemInvalidInput, locale).to_owned()
+        }
+        Problem::Unrecognized { path, rule } => crate::localization::present(
+            crate::localization::generated::Message::StudioDelegationProblemUnrecognized {
+                arg_path: path,
+                arg_rule: rule,
+            }
+            .render(locale),
+            locale,
+        ),
+    }
 }

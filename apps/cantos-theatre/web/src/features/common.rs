@@ -75,8 +75,8 @@ pub(crate) fn PersonGlyph() -> impl IntoView {
     }
 }
 
-pub(crate) fn clock(seconds: u32) -> String {
-    format!("{}:{:02}", seconds / 60, seconds % 60)
+pub(crate) fn clock(locale: crate::messages::Locale, seconds: u32) -> String {
+    crate::messages::clock_seconds(locale, u64::from(seconds))
 }
 
 #[cfg(feature = "preview")]
@@ -122,14 +122,14 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     match artwork_src(id) {
         Some(src) => view! {
             <div class="theatre-cover" data-work=id.slug() data-art="true" role="img"
-                aria-label=move || ctx.format(Key::CoverArtName, &[("title", ctx.work(id).title.to_owned()), ("description", ctx.text(Key::CoverArtPlaceholder).to_owned())])>
+                aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellCoverArtName { arg_title: ctx.work(id).title, arg_description: ctx.text(Key::CoverArtPlaceholder) })>
                 <img class="theatre-cover-art" src=src alt="" decoding="async" loading="lazy"/>
             </div>
         }
         .into_any(),
         None => view! {
             <div class="theatre-cover" data-work=id.slug() role="img"
-                aria-label=move || ctx.format(Key::CoverArtName, &[("title", ctx.work(id).title.to_owned()), ("description", ctx.text(Key::CoverPlaceholder).to_owned())])>
+                aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellCoverArtName { arg_title: ctx.work(id).title, arg_description: ctx.text(Key::CoverPlaceholder) })>
                 <span class="theatre-cover-moon" aria-hidden="true"></span>
                 <span class="theatre-cover-index" aria-hidden="true">"C / "{match id { WorkId::Mountain => "01", WorkId::River => "02", WorkId::Dream => "03" }}</span>
                 <strong lang="vi-VN" aria-hidden="true">{ctx.work(id).title}</strong>
@@ -145,7 +145,7 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
 pub(crate) fn SaveAction(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     view! {
         <button type="button" class="theatre-action theatre-action-tonal"
-            aria-label=move || ctx.format(if ctx.library.with(|state| state.is_saved(id)) { Key::RemoveSaveName } else { Key::SaveName }, &[("title", ctx.work(id).title.to_owned())])
+            aria-label=move || ctx.message(if ctx.library.with(|state| state.is_saved(id)) { crate::localization::generated::Message::TheatreShellRemoveSaveName { arg_title: ctx.work(id).title } } else { crate::localization::generated::Message::TheatreShellSaveName { arg_title: ctx.work(id).title } })
             on:click=move |_| {
                 let desired = !ctx.library.with_untracked(|state| state.is_saved(id));
                 ctx.set_saved(id, desired);

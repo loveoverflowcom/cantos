@@ -388,6 +388,13 @@ pages. Refresh starts again at the first page; only acknowledged reads move the 
 Failed or cancelled reads retain the last accepted page. Paging does not change the selected
 Work/unit, the Content append base, the saved current head or any unsaved draft. A page count is
 never presented as a total, and paging never makes a partial unit set eligible for ordering.
+
+Workspace field issues show guidance from the existing vi-VN/en copy owner before the unchanged
+`path · rule` diagnostic. Known Catalog/Content validation rules select semantic guidance; unknown
+rules receive a localized review instruction. Guidance and diagnostics remain escaped text. This
+bounded repair under [#506](https://github.com/loveoverflowcom/cantos/issues/506) leaves the production
+catalog/runtime migration pending [ADR 0050](../../../docs/decisions/0050-localization-semantic-catalog.md).
+
 The [navigation evidence](../../../docs/evidence/studio-cms-navigation-20261023.md) records the
 follow-on's actual browser and native checks separately from the earlier CMS journey.
 

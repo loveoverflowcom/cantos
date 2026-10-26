@@ -68,8 +68,8 @@ impl TheatreContext {
     pub fn text(self, key: Key) -> &'static str {
         messages::text(key, self.locale.get())
     }
-    pub fn format(self, key: Key, values: &[(&str, String)]) -> String {
-        messages::format(key, self.locale.get(), values)
+    pub fn message(self, message: crate::localization::generated::Message<'_>) -> String {
+        messages::message(self.locale.get(), message)
     }
     pub fn work(self, id: WorkId) -> Work {
         self.catalog.work(id)

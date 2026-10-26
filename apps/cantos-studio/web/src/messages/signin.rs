@@ -2,6 +2,7 @@
 //! failing factor of a login: the API never says, and the UI does not guess. A 403 is an
 //! Origin refusal or a roster denial and the response cannot tell which, so its message never
 //! claims that the password was right.
+use crate::localization::generated::signin as resources;
 use crate::signin::SignInFailure;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,44 +48,26 @@ pub const ALL: [Key; 18] = [
     Key::SessionNotStored,
 ];
 
-pub fn text(key: Key, english: bool) -> &'static str {
-    match (key, english) {
-        (Key::Email, false) => "Email",
-        (Key::Email, true) => "Email",
-        (Key::Password, false) => "Mật khẩu",
-        (Key::Password, true) => "Password",
-        (Key::ShowPassword, false) => "Hiện mật khẩu",
-        (Key::ShowPassword, true) => "Show password",
-        (Key::HidePassword, false) => "Ẩn mật khẩu",
-        (Key::HidePassword, true) => "Hide password",
-        (Key::Submit, false) => "Đăng nhập",
-        (Key::Submit, true) => "Sign in",
-        (Key::Submitting, false) => "Đang đăng nhập…",
-        (Key::Submitting, true) => "Signing in…",
-        (Key::ReauthenticateHelp, false) => "Nhập lại email và mật khẩu của chính tài khoản đang mở bản nháp. Tài khoản khác sẽ bị từ chối và phiên mới bị thu hồi.",
-        (Key::ReauthenticateHelp, true) => "Enter the email and password of the account that opened the current drafts. Another account is refused and its new session is revoked.",
-        (Key::Incomplete, false) => "Nhập email và mật khẩu.",
-        (Key::Incomplete, true) => "Enter your email and password.",
-        (Key::InvalidInput, false) => "Email hoặc mật khẩu không đúng định dạng. Kiểm tra rồi thử lại.",
-        (Key::InvalidInput, true) => "The email or password is not in a valid format. Check it and try again.",
-        (Key::InvalidCredentials, false) => "Không đăng nhập được. Kiểm tra email và mật khẩu rồi thử lại.",
-        (Key::InvalidCredentials, true) => "Could not sign in. Check your email and password and try again.",
-        (Key::NotPermitted, false) => "Yêu cầu đăng nhập bị từ chối: tài khoản này không được phép vào Cantos Studio. Hãy liên hệ quản trị viên, dùng tài khoản khác hoặc mở Studio từ địa chỉ chính thức.",
-        (Key::NotPermitted, true) => "The sign-in request was refused: this account may not access Cantos Studio. Contact an administrator, use another account, or open Studio from its official address.",
-        (Key::NotAvailable, false) => "Đăng nhập Studio chưa khả dụng trên máy chủ này và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên.",
-        (Key::NotAvailable, true) => "Studio sign-in is not available on this server and there is no alternative sign-in. Contact an administrator.",
-        (Key::RateLimited, false) => "Quá nhiều lần thử. Hãy chờ {seconds} giây rồi thử lại.",
-        (Key::RateLimited, true) => "Too many attempts. Wait {seconds} seconds and try again.",
-        (Key::Unavailable, false) => "Dịch vụ tài khoản chưa phản hồi nên chưa biết đăng nhập đã thành công hay chưa. Hãy kiểm tra phiên hiện tại hoặc thử lại sau. Bản nháp trong tab này vẫn được giữ.",
-        (Key::Unavailable, true) => "The account service did not answer, so it is unknown whether sign-in completed. Check the current session or try again later. Drafts in this tab are kept.",
-        (Key::AccountMismatch, false) => "Đây không phải tài khoản đã mở bản nháp đang giữ. Phiên vừa tạo đã bị thu hồi; hãy đăng nhập đúng tài khoản ban đầu.",
-        (Key::AccountMismatch, true) => "This is not the account that opened the retained draft. The new session was revoked; sign in as the original account.",
-        (Key::CleanupPending, false) => "Phiên trước vẫn đang được thu hồi. Hãy thử lại sau giây lát.",
-        (Key::CleanupPending, true) => "The previous session is still being revoked. Try again in a moment.",
-        (Key::Superseded, false) => "Phiên đã thay đổi trong lúc đăng nhập (có thể ở tab khác). Hãy kiểm tra phiên rồi thử lại.",
-        (Key::Superseded, true) => "The session changed while signing in (possibly in another tab). Check the session and try again.",
-        (Key::SessionNotStored, false) => "Đã xác thực nhưng trình duyệt chưa giữ phiên Studio. Kiểm tra cài đặt cookie của trang rồi thử lại.",
-        (Key::SessionNotStored, true) => "You were authenticated, but the browser did not keep the Studio session. Check the site's cookie settings and try again.",
+pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
+    match key {
+        Key::Email => resources::text(resources::Key::Email, locale),
+        Key::Password => resources::text(resources::Key::Password, locale),
+        Key::ShowPassword => resources::text(resources::Key::ShowPassword, locale),
+        Key::HidePassword => resources::text(resources::Key::HidePassword, locale),
+        Key::Submit => resources::text(resources::Key::Submit, locale),
+        Key::Submitting => resources::text(resources::Key::Submitting, locale),
+        Key::ReauthenticateHelp => resources::text(resources::Key::ReauthenticateHelp, locale),
+        Key::Incomplete => resources::text(resources::Key::Incomplete, locale),
+        Key::InvalidInput => resources::text(resources::Key::InvalidInput, locale),
+        Key::InvalidCredentials => resources::text(resources::Key::InvalidCredentials, locale),
+        Key::NotPermitted => resources::text(resources::Key::NotPermitted, locale),
+        Key::NotAvailable => resources::text(resources::Key::NotAvailable, locale),
+        Key::RateLimited => resources::text(resources::Key::RateLimitedSummary, locale),
+        Key::Unavailable => resources::text(resources::Key::Unavailable, locale),
+        Key::AccountMismatch => resources::text(resources::Key::AccountMismatch, locale),
+        Key::CleanupPending => resources::text(resources::Key::CleanupPending, locale),
+        Key::Superseded => resources::text(resources::Key::Superseded, locale),
+        Key::SessionNotStored => resources::text(resources::Key::SessionNotStored, locale),
     }
 }
 
@@ -105,11 +88,16 @@ pub fn failure_key(failure: SignInFailure) -> Key {
 }
 
 /// The message for a failed attempt, with the bounded Retry-After seconds where there is one.
-pub fn failure_text(failure: SignInFailure, english: bool) -> String {
-    let message = text(failure_key(failure), english);
+pub fn failure_text(failure: SignInFailure, locale: crate::localization::Locale) -> String {
     match failure {
-        SignInFailure::RateLimited(seconds) => message.replace("{seconds}", &seconds.to_string()),
-        _ => message.to_owned(),
+        SignInFailure::RateLimited(seconds) => crate::localization::present(
+            crate::localization::generated::Message::StudioSigninRateLimited {
+                arg_seconds: u64::from(seconds),
+            }
+            .render(locale),
+            locale,
+        ),
+        _ => text(failure_key(failure), locale).to_owned(),
     }
 }
 
@@ -120,8 +108,8 @@ mod tests {
     #[test]
     fn every_resource_is_nonblank_and_distinct_failures_read_differently() {
         for key in ALL {
-            for english in [false, true] {
-                assert!(!text(key, english).trim().is_empty(), "{key:?}");
+            for locale in crate::localization::Locale::supported() {
+                assert!(!text(key, locale).trim().is_empty(), "{key:?}");
             }
         }
         let failures = [
@@ -137,8 +125,8 @@ mod tests {
             SignInFailure::Superseded,
             SignInFailure::SessionNotStored,
         ];
-        for english in [false, true] {
-            let messages: Vec<_> = failures.iter().map(|f| failure_text(*f, english)).collect();
+        for locale in crate::localization::Locale::supported() {
+            let messages: Vec<_> = failures.iter().map(|f| failure_text(*f, locale)).collect();
             for (index, message) in messages.iter().enumerate() {
                 assert!(!messages[..index].contains(message), "{message}");
             }
@@ -157,8 +145,8 @@ mod tests {
             SignInFailure::AccountMismatch,
             SignInFailure::SessionNotStored,
         ] {
-            for english in [false, true] {
-                let message = failure_text(failure, english).to_lowercase();
+            for locale in crate::localization::Locale::supported() {
+                let message = failure_text(failure, locale).to_lowercase();
                 // A 403 cannot prove the credential was verified (it may be an Origin refusal).
                 assert!(!message.contains("mật khẩu đúng"), "{failure:?}");
                 assert!(!message.contains("password is correct"), "{failure:?}");
@@ -169,21 +157,36 @@ mod tests {
             }
         }
         // The 403 message says the request was refused and the account may not enter Studio.
-        assert!(failure_text(SignInFailure::NotPermitted, true).contains("may not access"));
-        assert!(failure_text(SignInFailure::NotPermitted, false).contains("không được phép"));
+        assert!(failure_text(
+            SignInFailure::NotPermitted,
+            crate::localization::Locale::English
+        )
+        .contains("may not access"));
+        assert!(failure_text(
+            SignInFailure::NotPermitted,
+            crate::localization::Locale::Vietnamese
+        )
+        .contains("không được phép"));
     }
 
     #[test]
     fn retry_after_seconds_are_shown_and_the_placeholder_never_leaks() {
         assert_eq!(
-            failure_text(SignInFailure::RateLimited(42), true),
+            failure_text(
+                SignInFailure::RateLimited(42),
+                crate::localization::Locale::English
+            ),
             "Too many attempts. Wait 42 seconds and try again."
         );
-        assert!(failure_text(SignInFailure::RateLimited(42), false).contains("42 giây"));
+        assert!(failure_text(
+            SignInFailure::RateLimited(42),
+            crate::localization::Locale::Vietnamese
+        )
+        .contains("42 giây"));
         for key in ALL {
             if key != Key::RateLimited {
-                assert!(!text(key, true).contains("{seconds}"));
-                assert!(!text(key, false).contains("{seconds}"));
+                assert!(!text(key, crate::localization::Locale::English).contains("{seconds}"));
+                assert!(!text(key, crate::localization::Locale::Vietnamese).contains("{seconds}"));
             }
         }
     }
