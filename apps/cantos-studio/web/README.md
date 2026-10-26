@@ -100,6 +100,13 @@ access-request, invitation or Membership flow.
 | 400 | invalid input message |
 | refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
 
+The header toolbar uses compact inline `Select`s for language and appearance (an unambiguous
+`vi-VN`/`en` list, never a toggle) and, once the workspace is confirmed, an avatar trigger for the
+actor. The avatar opens a floating popover (identity, refresh, reauthenticate, logout) that does not
+displace the header; Escape, a press outside or focus leaving closes it, Escape returns focus to the
+trigger and closing discards typed reauthentication input. Session authority stays in the session
+owner; the popover only presents it.
+
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
 request authority. No summary endpoint, portfolio total, QC count or demo record is added.

@@ -220,8 +220,48 @@ body { margin: 0; }
   .studio-shell[data-theme="system"] .studio-logo-light { display: none; }
   .studio-shell[data-theme="system"] .studio-logo-dark { display: block; }
 }
-.studio-shell .studio-account { max-inline-size: 24rem; }
-.studio-shell .studio-account summary { cursor: pointer; padding: var(--cantos-space-sm); }
+/* Header toolbar: compact fields and the avatar share one 48-unit interaction row (40-unit painted
+   fields and avatar), so the brand, selects and account entry sit on a single centered baseline. */
+.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-md); }
+.studio-shell .toolbar > .studio-toolbar-field { flex: 0 1 auto; min-inline-size: 8rem; }
+.studio-shell .studio-account { position: relative; }
+.studio-shell .studio-account[hidden] { display: none; }
+.studio-shell .studio-account-trigger { display: inline-grid; place-items: center; inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border: 0; border-radius: var(--cantos-shape-pill); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.studio-shell .studio-account-trigger[aria-expanded="true"] { background: var(--cantos-color-surface-container); }
+/* Identity badge: shared initials and tone contracts (avatar tokens) with Studio-owned geometry. */
+.studio-shell .studio-avatar { display: inline-grid; place-items: center; flex-shrink: 0; overflow: hidden; border-radius: var(--cantos-shape-pill); font-family: var(--cantos-type-family-ui); font-weight: var(--cantos-type-label-weight); line-height: 1; white-space: nowrap; user-select: none; --studio-avatar-size: var(--cantos-size-avatar-medium); inline-size: var(--studio-avatar-size); block-size: var(--studio-avatar-size); font-size: calc(var(--studio-avatar-size) * 0.44); }
+.studio-shell .studio-avatar[data-size="large"] { --studio-avatar-size: var(--cantos-size-avatar-large); }
+.studio-shell .studio-avatar[data-tone="lavender"] { background: var(--cantos-color-avatar-lavender); color: var(--cantos-color-on-avatar-lavender); }
+.studio-shell .studio-avatar[data-tone="gold"] { background: var(--cantos-color-avatar-gold); color: var(--cantos-color-on-avatar-gold); }
+.studio-shell .studio-avatar[data-tone="sage"] { background: var(--cantos-color-avatar-sage); color: var(--cantos-color-on-avatar-sage); }
+.studio-shell .studio-avatar[data-tone="rose"] { background: var(--cantos-color-avatar-rose); color: var(--cantos-color-on-avatar-rose); }
+.studio-shell .studio-avatar[data-tone="sky"] { background: var(--cantos-color-avatar-sky); color: var(--cantos-color-on-avatar-sky); }
+.studio-shell .studio-avatar[data-tone="clay"] { background: var(--cantos-color-avatar-clay); color: var(--cantos-color-on-avatar-clay); }
+@media (forced-colors: active) { .studio-shell .studio-avatar { border: var(--cantos-size-border) solid CanvasText; } }
+/* Floating popover: out of flow, so opening it never moves the header or the content below. */
+.studio-shell .studio-account-menu {
+  position: absolute;
+  z-index: 41;
+  inset-block-start: calc(100% + var(--cantos-space-sm));
+  inset-inline-end: 0;
+  box-sizing: border-box;
+  inline-size: min(24rem, calc(100vw - 2 * var(--cantos-space-lg)));
+  max-block-size: calc(100dvh - 6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: var(--cantos-space-md);
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-shape-overlay);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+}
+.studio-shell .studio-account-menu p { margin: 0; }
+.studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
+.studio-shell .studio-account-caption { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 .studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); padding: var(--cantos-space-xl); }
@@ -268,7 +308,11 @@ body { margin: 0; }
   .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .studio-shell .dashboard-resume { grid-column: auto; }
   .studio-shell .studio-header { align-items: start; margin-block-end: var(--cantos-space-lg); }
-  .studio-shell .studio-header > .toolbar { flex: 1 1 100%; }
+  .studio-shell .studio-header > .toolbar { flex: 1 1 100%; position: relative; }
+  .studio-shell .toolbar > .studio-toolbar-field { flex: 1 1 14rem; min-inline-size: 0; }
+  /* The avatar is not at the edge here: anchor the popover to the toolbar's full width. */
+  .studio-shell .studio-account { position: static; margin-inline-start: auto; }
+  .studio-shell .studio-account-menu { inset-inline: 0; inline-size: auto; }
   .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
 }
 
