@@ -369,7 +369,7 @@ fn cover_outcome_matches_an_independent_precedence_table() {
     assert_eq!(shown, 10);
 }
 
-// The six fetch markers below are checked by tests/public_cover_behavior_binding.rs.
+// The registered fetch markers below are checked by tests/public_cover_behavior_binding.rs.
 // They link native regressions to modeled scenarios; no trace replay/conformance is implied.
 /// Quint run: cantos.media.public-cover-projection.run.fetch-current-shown
 #[test]
@@ -473,6 +473,39 @@ fn cover_fetch_rejects_the_previously_shown_image_after_revocation() {
     );
     assert_eq!(revoked, CoverProjection::Fallback(CoverFallback::Revoked));
     assert_eq!(admit_cover_fetch(&revoked, &a), None);
+}
+
+/// Quint run: cantos.media.public-cover-projection.run.fetch-restored-disclosure
+#[test]
+fn cover_fetch_restores_the_same_image_when_its_current_disclosure_is_cleared_again() {
+    let h = history();
+    let w2 = &h.revisions[1];
+    let (a, b) = ("a".repeat(64), "b".repeat(64));
+
+    let initially_shown = project(w2, &h, Some(&h.a), cleared(&h.a, 1000), 500);
+    let initial_cover = admit_cover_fetch(&initially_shown, &a).unwrap().clone();
+    assert_eq!(initial_cover.sha256(), a);
+    assert_eq!(initial_cover.image_asset_id(), h.a.id().as_str());
+    assert_eq!(initial_cover.image_asset_digest(), h.a.digest());
+    assert_eq!(admit_cover_fetch(&initially_shown, &b), None);
+
+    let revoked = project(
+        w2,
+        &h,
+        Some(&h.a),
+        CoverDisclosure::Revoked {
+            image_asset_digest: h.a.digest(),
+        },
+        501,
+    );
+    assert_eq!(revoked, CoverProjection::Fallback(CoverFallback::Revoked));
+    assert_eq!(admit_cover_fetch(&revoked, &a), None);
+    assert_eq!(admit_cover_fetch(&revoked, &b), None);
+
+    let restored = project(w2, &h, Some(&h.a), cleared(&h.a, 1200), 502);
+    assert_eq!(restored, CoverProjection::Shown(initial_cover.clone()));
+    assert_eq!(admit_cover_fetch(&restored, &a), Some(&initial_cover));
+    assert_eq!(admit_cover_fetch(&restored, &b), None);
 }
 
 /// Quint run: cantos.media.public-cover-projection.run.fetch-expired

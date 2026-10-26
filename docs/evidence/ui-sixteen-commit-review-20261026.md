@@ -172,6 +172,16 @@ In the safe continuation, 75 focused UI-token/behavior tests and the two native-
 regressions passed. Both native fixtures recovered without a source change; the two legacy
 shell/tool failures remain unclosed from the full-suite receipt. No full-suite PASS is claimed.
 
+The first complete Rust CI run of the follow-up found another explicit SSOT linkage obligation:
+every registered cover-fetch run must name one real native regression. The added restored-
+disclosure run initially had no marker in `public_cover_tests.rs`; this was a new test-binding
+gap from the scenario addition, not a baseline failure. A new test now calls the existing
+production projection and fetch-admission functions for the same pinned Work/asset/request:
+admit, revoke and deny, then clear the current disclosure again and admit the identical
+`PublicCover`. Wrong-SHA requests stay denied throughout. The existing lexical binding guard
+and property/control assertions are unchanged; the guard passed 2/2 after this repair. This
+is native pure-core regression plus static linkage, not trace replay or client conformance.
+
 After unrelated Studio file reads in the Documents checkout reported short reads, the pushed
 head was recovered into `/tmp/cantos-ui16-final-495` for the bounded follow-up. Existing source,
 evidence and unrelated checkouts were preserved. Both locations refer to the same single PR.
