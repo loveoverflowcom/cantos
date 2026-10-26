@@ -7,6 +7,7 @@ import com.cantos.theatre.domain.playback.PlaybackObservation
 import com.cantos.theatre.ports.MediaEngine
 import com.cantos.theatre.ports.PlaybackAccessPort
 import com.cantos.theatre.ports.PlaybackAccessResult
+import com.cantos.theatre.ports.PlaybackGrant
 import com.cantos.theatre.ports.StreamingMediaEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -124,8 +125,10 @@ class AuthorizingMediaEngine(
                     native.load(latest, result.value.location)
                     if (closed || token != loadToken || !playing) return@launch
                     native.start(latest)
+                    // A just-issued grant never outlives the server TTL, whatever the device clock reads.
+                    val lifetime = minOf(result.value.expiresAtMs - nowMs(), PlaybackGrant.TTL_MS)
                     refresh = scope.launch {
-                        delay((result.value.expiresAtMs - nowMs() - 15_000).coerceAtLeast(1_000))
+                        delay((lifetime - 15_000).coerceAtLeast(1_000))
                         if (!closed && token == loadToken && playing) {
                             failures = 0
                             launchLoad()

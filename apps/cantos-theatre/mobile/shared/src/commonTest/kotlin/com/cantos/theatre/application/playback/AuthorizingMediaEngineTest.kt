@@ -275,6 +275,26 @@ class AuthorizingMediaEngineTest {
     }
 
     @Test
+    fun a_device_clock_behind_the_server_still_refreshes_before_the_real_grant_lifetime_ends() = runTest {
+        // Device four minutes behind: a just-issued 120 s grant reads as six minutes away.
+        val native = MockStreamingMediaEngine()
+        val access = MockPlaybackAccessPort { grant(expiresAt = testScheduler.currentTime + 360_000) }
+        val engine = AuthorizingMediaEngine(this, native, access) { testScheduler.currentTime }
+        try {
+            engine.start(command(1))
+            runCurrent()
+            assertEquals(listOf(audio), access.authorizations)
+            advanceTimeBy(104_999)
+            runCurrent()
+            assertEquals(listOf(audio), access.authorizations)
+            advanceTimeBy(1)
+            runCurrent()
+            assertEquals(listOf(audio, audio), access.authorizations)
+            assertEquals(2, native.starts.size)
+        } finally { engine.close() }
+    }
+
+    @Test
     fun clear_hides_late_observations_and_the_same_owner_can_play_a_new_session() = runTest {
         val native = MockStreamingMediaEngine()
         val access = MockPlaybackAccessPort { grant() }
