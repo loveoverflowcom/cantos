@@ -112,6 +112,7 @@ def validate(catalog):
     messages = catalog["messages"]
     require(isinstance(messages, dict) and messages, "messages empty")
     generated_names = set()
+    generated_enums = set()
     for key, message in messages.items():
         require(KEY.fullmatch(key), f"invalid semantic key: {key}")
         name = symbol(key)
@@ -130,12 +131,17 @@ def validate(catalog):
                 members = [symbol(value) for value in kind]
                 require("Self" not in members and len(members) == len(set(members)),
                         f"{key}: generated enum collision")
+                enum_name = name + symbol(arg)
+                require(enum_name not in generated_enums, f"{key}: generated enum type collision")
+                generated_enums.add(enum_name)
         translations = message["translations"]
         require(isinstance(translations, dict) and set(translations) == tags, f"{key}: locale/key coverage")
         signatures, parameters = set(), []
         for locale in locales:
             pattern = translations[locale["tag"]]
             values, selector = templates(pattern, args, locale)
+            enum_args = {arg for arg, kind in args.items() if isinstance(kind, list)}
+            require(enum_args == ({selector} if selector else set()), f"{key}: enum requires select")
             signatures.add((next(iter(sorted(set(pattern) - {"forms"}))), pattern.get("plural", pattern.get("select"))))
             for value in values:
                 names = Counter(text for kind, text in segments(value) if kind == "arg")

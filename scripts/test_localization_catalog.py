@@ -97,6 +97,23 @@ class CatalogTest(unittest.TestCase):
             message["args"]["state"] = values
             self.refuses("generated enum collision")
 
+    def test_enum_arguments_require_select_and_distinct_generated_type_names(self):
+        message = self.source["messages"]["studio.publication.state"]
+        original = deepcopy(self.source)
+        for tag in message["translations"]:
+            message["translations"][tag] = {"text": "{state}"}
+        self.refuses("enum requires select")
+        self.source = original
+        message = self.source["messages"].pop("studio.publication.state")
+        self.source["messages"]["common.foo"] = deepcopy(message)
+        self.source["messages"]["common.foo_state"] = deepcopy(message)
+        for key, arg in (("common.foo", "state_state"), ("common.foo_state", "state")):
+            item = self.source["messages"][key]
+            item["args"] = {arg: ["draft", "ready"]}
+            for pattern in item["translations"].values():
+                pattern["select"] = arg
+        self.refuses("generated enum type collision")
+
     def test_locale_metadata_must_be_unambiguous_and_fallback_supported(self):
         self.source["locales"][1]["aliases"] = ["vi"]
         self.refuses("ambiguous UI alias")
