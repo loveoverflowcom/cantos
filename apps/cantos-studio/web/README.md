@@ -322,9 +322,11 @@ Icon imports at a consumer site still require admission. The paired VI/EN login 
 checks adapter anatomy; it does not establish real browser Enter or auth acceptance.
 
 Content/Brief/Publication and catalog metadata forms compose shared `TextField`, `TextArea`
-and `Select` controls directly. Their existing draft signals and immutable command snapshots
+and `Select` controls. Their existing draft signals and immutable command snapshots
 remain the value owners. Workspace Select commits explicitly notify the draft ledger; native
 fallback events are excluded from the ancestor listener to avoid recording the same choice twice.
+The Content kind composition shares the existing unknown-revision lock with its native fieldset
+and enhanced menu, preserving retained Source/Script values while editing is unavailable.
 Import metadata uses the same controls, retaining its native 2,048-character limit, required source
 reference and server field diagnostics. `ReviewCheckbox` maps each existing boolean review gate
 and localized reason to the shared `Checkbox`/`ChoiceState`, forwarding the exact confirmation

@@ -1036,6 +1036,10 @@ pub fn ContentWorkspace(
         replace_head.set_value(Some((unit.clone(), current)));
         dispatch.send(Command::ContentHead { unit });
     });
+    // The enhanced menu has non-native option rows: the fieldset alone cannot enforce its lock.
+    let content_locked = Signal::derive(move || {
+        facts.with(|facts| drafts.with(|drafts| drafts.content_base(&facts.unit_id()).is_none()))
+    });
     let open_selected_editor =
         Callback::new(move |()| on_editor.run(facts.with_untracked(Facts::editor_script)));
     view! {<section id="workspace-content" aria-labelledby=move || if dashboard.get() {"dashboard-title"} else {"live-title"}
@@ -1114,8 +1118,10 @@ pub fn ContentWorkspace(
                 <ActionButton id="live-patch-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id.clone(),request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:drafts.with_untracked(|drafts|drafts.metadata_base(&u.id)).ok_or(ClientError::InvalidInput)?,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})()))>{move ||text(Key::SaveMetadata,english.get())}</ActionButton>
                 <section class="live-section"><h3>{move ||text(Key::Content,english.get())}</h3><p>{move ||text(Key::NoContent,english.get())}</p>
                     <div class="toolbar"><ActionButton id="live-content-head" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_head.run(()))>{move ||text(Key::ReadHead,english.get())}</ActionButton><ActionButton id="live-content-history" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send_page(Command::ContentHistory {unit:facts.with_untracked(Facts::unit_id),after:0}))>{move ||text(Key::History,english.get())}</ActionButton></div>
-                    <fieldset class="live-content-fields" disabled=move ||facts.with(|facts|drafts.with(|drafts|drafts.content_base(&facts.unit_id()).is_none()))><legend>{move ||text(Key::Content,english.get())}</legend>
-                    <Select id="live-content-kind" label=Signal::derive(move ||text(Key::Body,english.get()).to_owned()) value=body on_input=Callback::new(move |value|{body.set(value);track_input.run("live-content-kind".to_owned());}) options=Signal::derive(move ||vec![SelectOption::new("text",text(Key::Text,english.get())),SelectOption::new("recording",text(Key::Recording,english.get())),SelectOption {disabled:true,..SelectOption::new("source",text(Key::Source,english.get()))},SelectOption {disabled:true,..SelectOption::new("script",text(Key::Script,english.get()))},SelectOption {disabled:editor_script.with(|script|script.is_none()),..SelectOption::new("editor-script",text(Key::EditorScript,english.get()))}]) class="live-field"/>
+                    <fieldset class="live-content-fields" disabled=move ||content_locked.get()><legend>{move ||text(Key::Content,english.get())}</legend>
+                    <super::content_kind::ContentKindSelect english=english value=body.into() locked=content_locked
+                        editor_script_available=Signal::derive(move ||editor_script.with(|script|script.is_some()))
+                        on_change=Callback::new(move |value|{if !content_locked.get_untracked(){body.set(value);track_input.run("live-content-kind".to_owned());}})/>
                     <p class="help">{move ||text(Key::ScriptBindingHelp,english.get())}</p>
                     <p><code>{move ||facts.with(|f|drafts.with(|drafts|drafts.content(&f.unit_id()).script.map(|script|copy::script_binding(&script)).unwrap_or_default()))}</code></p>
                     <TextArea id="live-manuscript" label=Signal::derive(move ||text(Key::Text,english.get()).to_owned()) value=manuscript on_input=Callback::new(move |value|manuscript.set(value)) class="live-field"/><TextArea id="live-provenance" label=Signal::derive(move ||text(Key::Provenance,english.get()).to_owned()) value=provenance on_input=Callback::new(move |value|provenance.set(value)) class="live-field"/><TextField id="live-content-rights" label=Signal::derive(move ||text(Key::Rights,english.get()).to_owned()) value=content_rights on_input=Callback::new(move |value|content_rights.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
