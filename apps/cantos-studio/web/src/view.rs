@@ -791,7 +791,6 @@ pub fn Studio() -> impl IntoView {
                     </div>
                 </aside>
                 <div class="entry-form">
-                <p class="entry-eyebrow">"Cantos Studio"</p>
                 <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),english.get())}</h1>
                 <p class="help">{move ||entry_text(crate::messages::entry::help(entry_state.get()),english.get())}</p>
                 <div hidden=move ||!session.with(SessionState::pending) inert=move ||!session.with(SessionState::pending)>

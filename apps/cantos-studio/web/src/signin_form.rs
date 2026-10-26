@@ -3,13 +3,23 @@
 use crate::{
     messages::signin::{failure_text, text, Key},
     signin::SignInForm,
-    ui::FormSubmit,
+    ui::{BlockReason, FormSubmit},
 };
 use cantos_ui::{
-    Announcement, ButtonVariant, DisabledReason, FieldState, Icon, IconName, Status, TextField,
-    TextFieldKind, TextFieldVariant,
+    AccessibleName, Announcement, ButtonState, ButtonVariant, DisabledReason, FieldState, Icon,
+    IconButton, IconName, Status, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::{ev::SubmitEvent, prelude::*};
+
+fn password_eye_resources(
+    english: bool,
+) -> Option<(AccessibleName, AccessibleName, DisabledReason)> {
+    Some((
+        AccessibleName::new(text(Key::ShowPassword, english)).ok()?,
+        AccessibleName::new(text(Key::HidePassword, english)).ok()?,
+        DisabledReason::new(BlockReason::ContextReady.text(english)).ok()?,
+    ))
+}
 
 /// `id` namespaces the controls so the entry form and the in-workspace reauthentication form
 /// can coexist. `blocked` is the shell's own barrier (another auth/request in flight).
@@ -26,9 +36,61 @@ pub fn SignInPanel(
 ) -> impl IntoView {
     let email_id = format!("{id}-email");
     let password_id = format!("{id}-password");
+    let password_eye_id = format!("{id}-password-eye");
     let submit_id = format!("{id}-submit");
     let status_id = format!("{id}-status");
     let submitting = Signal::derive(move || form.with(SignInForm::submitting));
+    // Presentation only: the shared field retypes the existing input and preserves selection.
+    // Clearing the secret (submission, logout or closing reauthentication) also resets the eye.
+    let revealed = RwSignal::new(false);
+    Effect::new(move |_| {
+        if form.with(|form| form.password().is_empty()) {
+            revealed.set(false);
+        }
+    });
+    // Allocate the eye's reactive handles under the form owner, before the trailing view runs.
+    // A locale update or reauthentication unmount must not leave DOM effects with disposed handles.
+    let password_eye = password_eye_resources(false)
+        .zip(password_eye_resources(true))
+        .map(|resources| {
+            let resources = StoredValue::new(resources);
+            let name = Signal::derive(move || {
+                resources.with_value(|(vi, en)| {
+                    let (show, hide, _) = if english.get() { en } else { vi };
+                    if revealed.get() {
+                        hide.clone()
+                    } else {
+                        show.clone()
+                    }
+                })
+            });
+            let icon = Signal::derive(move || {
+                if revealed.get() {
+                    IconName::VisibilityOff
+                } else {
+                    IconName::Visibility
+                }
+            });
+            let state = Signal::derive(move || {
+                if blocked.get() || submitting.get() {
+                    resources.with_value(|(vi, en)| {
+                        ButtonState::Disabled(if english.get() {
+                            en.2.clone()
+                        } else {
+                            vi.2.clone()
+                        })
+                    })
+                } else {
+                    ButtonState::Enabled
+                }
+            });
+            ViewFn::from(move || {
+                view! {
+                    <IconButton id=password_eye_id.clone() name=name icon=icon state=state
+                        on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
+                }
+            })
+        });
     let field_state = Signal::derive(move || {
         if submitting.get() {
             DisabledReason::new(text(Key::Submitting, english.get()))
@@ -61,9 +123,11 @@ pub fn SignInPanel(
             <TextField id=password_id label=Signal::derive(move || text(Key::Password, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.password().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_password(value)))
-                kind=TextFieldKind::Password variant=TextFieldVariant::Floating state=field_state required=true
-                autocomplete="current-password"/>
-            <FormSubmit id=submit_id english=english variant=ButtonVariant::Primary
+                kind=Signal::derive(move || if revealed.get() { TextFieldKind::Text } else { TextFieldKind::Password })
+                variant=TextFieldVariant::Floating state=field_state required=true
+                autocomplete="current-password"
+                trailing=move || password_eye.as_ref().map(ViewFn::run)/>
+            <FormSubmit id=submit_id english=english variant=ButtonVariant::AuthPrimary
                 icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
                 busy=submitting
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>
@@ -109,13 +173,13 @@ mod tests {
     }
 
     #[test]
-    fn the_current_sign_in_or_reauthentication_task_submits_through_a_primary_action() {
+    fn sign_in_and_reauthentication_submit_through_the_auth_primary_action() {
         for reauth in [false, true] {
             let html = render(SignInForm::default(), false, false, reauth);
             let at = html.find("id=\"session-submit\"").unwrap();
             let start = html[..at].rfind("<button").unwrap();
             let submit = &html[start..at + html[at..].find('>').unwrap()];
-            assert!(submit.contains("data-variant=\"primary\""), "{submit}");
+            assert!(submit.contains("data-variant=\"auth-primary\""), "{submit}");
             assert!(submit.contains("type=\"submit\""), "{submit}");
         }
     }
@@ -129,6 +193,59 @@ mod tests {
             "{html}"
         );
         assert_eq!(html.matches("cui-field-shell").count(), 2, "{html}");
+    }
+
+    #[test]
+    fn each_form_has_a_named_non_submitting_password_eye_inside_the_field() {
+        for (english, label) in [(false, "Hiện mật khẩu"), (true, "Show password")] {
+            for reauth in [false, true] {
+                let html = render(SignInForm::default(), english, false, reauth);
+                let eye = html.split("id=\"session-password-eye\"").nth(1).unwrap();
+                let eye = eye.split("</button>").next().unwrap();
+                assert!(eye.contains("type=\"button\""), "{eye}");
+                assert!(eye.contains(label), "{eye}");
+                assert!(!eye.contains("disabled"), "{eye}");
+                assert!(html.contains("cui-field-trailing"), "{html}");
+            }
+        }
+    }
+
+    #[test]
+    fn password_visibility_is_unavailable_while_the_form_is_pending_or_blocked() {
+        for pending in [false, true] {
+            let mut form = SignInForm::default();
+            if pending {
+                form.set_email("owner@example.invalid".into());
+                form.set_password("password".into());
+                let _ = form.begin(None).unwrap();
+            }
+            let html = render(form, false, !pending, false);
+            let eye = html.split("id=\"session-password-eye\"").nth(1).unwrap();
+            let eye = eye.split("</button>").next().unwrap();
+            assert!(eye.contains("disabled"), "{eye}");
+            assert!(
+                eye.contains("aria-describedby=\"session-password-eye-reason\""),
+                "{eye}"
+            );
+        }
+    }
+
+    #[test]
+    fn entry_and_reauthentication_eyes_are_namespaced_and_initially_masked() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let form = RwSignal::new(SignInForm::default());
+            let html = view! {
+                <SignInPanel id="session" form=form english=Signal::stored(false)
+                    blocked=Signal::stored(false) on_submit=Callback::new(|()| {})/>
+                <SignInPanel id="account" form=form english=Signal::stored(false)
+                    blocked=Signal::stored(false) on_submit=Callback::new(|()| {}) reauthenticate=true/>
+            }.to_html();
+            for id in ["session-password-eye", "account-password-eye"] {
+                assert_eq!(html.matches(&format!("id=\"{id}\"")).count(), 1, "{html}");
+            }
+            assert_eq!(html.matches("type=\"password\"").count(), 2, "{html}");
+        });
     }
 
     #[test]
