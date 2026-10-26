@@ -1,10 +1,10 @@
 //! Visible and accessible copy belongs to the app, in both supported locales.
-/// Locale-neutral revision notation preserves the caller's exact title or kind label.
 /// Locale-neutral field diagnostics keep the server path and rule unchanged.
 pub fn diagnostic(path: &str, rule: &str) -> String {
     format!("{path} · {rule}")
 }
 
+/// Locale-neutral revision notation preserves the caller's exact title or kind label.
 pub fn labelled_revision(label: &str, revision: u64) -> String {
     format!("{label} · r{revision}")
 }
@@ -259,6 +259,18 @@ pub enum Key {
     ErrorUnsupported,
     ErrorAdmission,
     ErrorUnavailable,
+    FieldRequired,
+    FieldByteLimit,
+    FieldControlCharacter,
+    FieldLanguage,
+    FieldIdentifier,
+    FieldRevision,
+    FieldDigest,
+    FieldDuplicate,
+    FieldItemLimit,
+    FieldChoice,
+    FieldEmptyPatch,
+    FieldReview,
 }
 pub fn text(key: Key, en: bool) -> &'static str {
     match (key,en) {
@@ -363,6 +375,18 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::ErrorUnsupported, false) => "Định dạng dữ liệu chưa được hỗ trợ.", (Key::ErrorUnsupported, true) => "Unsupported media or representation.",
         (Key::ErrorAdmission, false) => "Dữ liệu hoặc âm thanh bị từ chối. Kiểm tra khai báo và bằng chứng.", (Key::ErrorAdmission, true) => "Input or media admission refused. Review declarations and evidence.",
         (Key::ErrorUnavailable, false) => "Dịch vụ chưa khả dụng hoặc yêu cầu bị từ chối.", (Key::ErrorUnavailable, true) => "Service unavailable or request refused.",
+        (Key::FieldRequired, false) => "Điền trường bắt buộc này.", (Key::FieldRequired, true) => "Fill in this required field.",
+        (Key::FieldByteLimit, false) => "Rút gọn trường này để nằm trong giới hạn số byte.", (Key::FieldByteLimit, true) => "Shorten this field to fit its byte limit.",
+        (Key::FieldControlCharacter, false) => "Bỏ ký tự điều khiển chưa được hỗ trợ khỏi trường này.", (Key::FieldControlCharacter, true) => "Remove unsupported control characters from this field.",
+        (Key::FieldLanguage, false) => "Nhập mã ngôn ngữ nội dung hợp lệ, ví dụ vi-VN hoặc zh-Hant.", (Key::FieldLanguage, true) => "Enter a valid content language tag, such as vi-VN or zh-Hant.",
+        (Key::FieldIdentifier, false) => "Kiểm tra định dạng ID và mục được tham chiếu trong trường này.", (Key::FieldIdentifier, true) => "Check the identifier format and referenced item in this field.",
+        (Key::FieldRevision, false) => "Dùng số phiên bản hợp lệ, lớn hơn không.", (Key::FieldRevision, true) => "Use a valid revision number greater than zero.",
+        (Key::FieldDigest, false) => "Đối chiếu mã băm với đúng tài liệu được tham chiếu.", (Key::FieldDigest, true) => "Check the digest against the exact referenced document.",
+        (Key::FieldDuplicate, false) => "Kiểm tra ID bị trùng trong trường này.", (Key::FieldDuplicate, true) => "Check for a duplicate identifier in this field.",
+        (Key::FieldItemLimit, false) => "Giảm số mục trong trường này để nằm trong giới hạn.", (Key::FieldItemLimit, true) => "Reduce the number of entries in this field to fit its limit.",
+        (Key::FieldChoice, false) => "Chọn một giá trị được hỗ trợ cho trường này.", (Key::FieldChoice, true) => "Choose a supported value for this field.",
+        (Key::FieldEmptyPatch, false) => "Thay đổi ít nhất một trường trước khi lưu.", (Key::FieldEmptyPatch, true) => "Change at least one field before saving.",
+        (Key::FieldReview, false) => "Kiểm tra trường này và mã chẩn đoán.", (Key::FieldReview, true) => "Review this field and its diagnostic code.",
 
         (Key::Pane,true)=>"Content & audio",(Key::Pane,false)=>"Nội dung & âm thanh",
         (Key::Help,true)=>"Private Studio workspace. Stored content, briefs and audio reviews are immutable. Publication requires separate server confirmation.",(Key::Help,false)=>"Không gian Studio riêng tư. Nội dung, chỉ dẫn và đánh giá đã lưu là bất biến. Phát hành cần xác nhận riêng từ server.",
@@ -510,6 +534,31 @@ pub fn error_key(error: &super::ClientError) -> Key {
     }
 }
 
+/// Known Catalog/Content validation facts select guidance; open wire rules stay diagnostic.
+pub fn field_rule_key(rule: &str) -> Key {
+    match rule {
+        "required" => Key::FieldRequired,
+        "control_character" => Key::FieldControlCharacter,
+        "language_tag" | "invalid_language" => Key::FieldLanguage,
+        "canonical_uuid" | "invalid_uuid" | "token_id" => Key::FieldIdentifier,
+        "positive_revision" | "invalid_revision" => Key::FieldRevision,
+        "sha256" | "export_digest" | "content_digest" => Key::FieldDigest,
+        "duplicate_id" => Key::FieldDuplicate,
+        "max_items_64" => Key::FieldItemLimit,
+        "work_kind" | "unit_kind" | "visibility" => Key::FieldChoice,
+        "empty_patch" => Key::FieldEmptyPatch,
+        _ if rule
+            .strip_prefix("max_bytes_")
+            .filter(|limit| limit.bytes().all(|byte| byte.is_ascii_digit()))
+            .and_then(|limit| limit.parse::<u64>().ok())
+            .is_some_and(|limit| limit > 0) =>
+        {
+            Key::FieldByteLimit
+        }
+        _ => Key::FieldReview,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -614,10 +663,70 @@ mod tests {
             Key::ErrorUnsupported,
             Key::ErrorAdmission,
             Key::ErrorUnavailable,
+            Key::FieldRequired,
+            Key::FieldByteLimit,
+            Key::FieldControlCharacter,
+            Key::FieldLanguage,
+            Key::FieldIdentifier,
+            Key::FieldRevision,
+            Key::FieldDigest,
+            Key::FieldDuplicate,
+            Key::FieldItemLimit,
+            Key::FieldChoice,
+            Key::FieldEmptyPatch,
+            Key::FieldReview,
         ] {
             for en in [false, true] {
                 assert!(!text(key, en).trim().is_empty(), "{key:?} / {en}");
             }
+        }
+    }
+
+    #[test]
+    fn field_rule_guidance_maps_known_facts_and_never_echoes_unknown_rule_text() {
+        for (rule, expected) in [
+            ("required", Key::FieldRequired),
+            ("max_bytes_512", Key::FieldByteLimit),
+            ("max_bytes_65536", Key::FieldByteLimit),
+            ("control_character", Key::FieldControlCharacter),
+            ("language_tag", Key::FieldLanguage),
+            ("invalid_language", Key::FieldLanguage),
+            ("canonical_uuid", Key::FieldIdentifier),
+            ("invalid_uuid", Key::FieldIdentifier),
+            ("token_id", Key::FieldIdentifier),
+            ("positive_revision", Key::FieldRevision),
+            ("invalid_revision", Key::FieldRevision),
+            ("sha256", Key::FieldDigest),
+            ("export_digest", Key::FieldDigest),
+            ("content_digest", Key::FieldDigest),
+            ("duplicate_id", Key::FieldDuplicate),
+            ("max_items_64", Key::FieldItemLimit),
+            ("work_kind", Key::FieldChoice),
+            ("unit_kind", Key::FieldChoice),
+            ("visibility", Key::FieldChoice),
+            ("empty_patch", Key::FieldEmptyPatch),
+        ] {
+            assert_eq!(field_rule_key(rule), expected, "{rule}");
+        }
+        for rule in [
+            "",
+            "future_rule_<script>{time}",
+            "max_bytes_",
+            "max_bytes_0",
+            "max_bytes_-1",
+            "max_bytes_+512",
+            "max_bytes_512 backend prose",
+            "max_bytes_18446744073709551616",
+        ] {
+            assert_eq!(field_rule_key(rule), Key::FieldReview, "{rule}");
+            assert_eq!(
+                text(field_rule_key(rule), false),
+                "Kiểm tra trường này và mã chẩn đoán."
+            );
+            assert_eq!(
+                text(field_rule_key(rule), true),
+                "Review this field and its diagnostic code."
+            );
         }
     }
 
