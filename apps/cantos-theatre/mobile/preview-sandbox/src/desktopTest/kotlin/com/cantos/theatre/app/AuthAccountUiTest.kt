@@ -186,6 +186,8 @@ class AuthAccountUiTest {
         h.identity.clearFails = true
         onNodeWithTag("logout").performScrollTo().performClick()
         waitForIdle()
+        onNodeWithTag("logout-confirm").performClick()
+        waitForIdle()
         onNodeWithTag("open-library").assertDoesNotExist()
         onNodeWithText("Cần hoàn tất xóa phiên cũ trước khi đăng nhập lại.").assertExists()
         onNodeWithTag("sign-in").performScrollTo().assertIsNotEnabled()

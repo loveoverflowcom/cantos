@@ -133,6 +133,44 @@ class DesktopAcceptanceJourneyTest {
         assertTrue(!keys.onKeyEvent(key()))
     }
 
+    @Test fun back_closes_the_sign_out_sheet_before_the_account_route_and_only_the_confirm_signs_out() =
+        run(PreviewSession.Restored.seed()) { owners ->
+            waitUntil(timeoutMillis = 5_000) { owners.account.state.value is NativeAccountState.SignedIn }
+            onNodeWithTag("account").performClick()
+            title("Tài khoản")
+
+            // Open, then Back: the sheet closes, the route stays, the owner is untouched and focus returns.
+            onNodeWithTag("logout").performScrollTo().performClick()
+            untilTag("logout-sheet")
+            assertTrue(keys.backAvailable)
+            assertTrue(keys.onKeyEvent(key()))
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("logout-sheet").fetchSemanticsNodes().isEmpty() }
+            waitForIdle()
+            title("Tài khoản")
+            assertTrue(owners.account.state.value is NativeAccountState.SignedIn)
+            onNodeWithTag("logout").assertIsFocused()
+
+            // Go back from the sheet's own button: still no sign-out.
+            onNodeWithTag("logout").performClick()
+            untilTag("logout-sheet")
+            onNodeWithTag("logout-cancel").performClick()
+            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("logout-sheet").fetchSemanticsNodes().isEmpty() }
+            assertTrue(owners.account.state.value is NativeAccountState.SignedIn)
+
+            // With no sheet open the next Back is the route's: it leaves Account and keeps the session.
+            assertTrue(keys.onKeyEvent(key()))
+            waitForIdle()
+            title("Của tôi")
+            assertTrue(owners.account.state.value is NativeAccountState.SignedIn)
+
+            // Only the confirm action reaches the owner.
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("logout").performScrollTo().performClick()
+            untilTag("logout-sheet")
+            onNodeWithTag("logout-confirm").performClick()
+            waitUntil(timeoutMillis = 5_000) { owners.account.state.value == NativeAccountState.SignedOut }
+        }
+
     @Test fun a_signed_in_logout_clears_the_library_and_the_next_listener_starts_without_it_on_screen() =
         run(PreviewSession.Restored.seed()) { owners ->
             waitUntil(timeoutMillis = 5_000) { owners.account.state.value is NativeAccountState.SignedIn }
@@ -141,6 +179,8 @@ class DesktopAcceptanceJourneyTest {
             assertTrue(owners.shell.library.value.saved.isNotEmpty())
             onNodeWithTag("account").performClick()
             onNodeWithTag("logout").performScrollTo().performClick()
+            waitForIdle()
+            onNodeWithTag("logout-confirm").performClick()
             waitUntil(timeoutMillis = 5_000) { owners.account.state.value == NativeAccountState.SignedOut }
             assertEquals(null, owners.shell.library.value.account)
             assertTrue(owners.shell.library.value.saved.isEmpty(), "no previous listener row remains in the Library owner")

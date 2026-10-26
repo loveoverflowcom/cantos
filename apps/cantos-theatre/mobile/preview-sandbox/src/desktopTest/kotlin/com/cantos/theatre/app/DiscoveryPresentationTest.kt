@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -49,7 +50,7 @@ class DiscoveryPresentationTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { CantosPresentation(ShellState(stack = listOf(ShellRoute.Account), selectedEpisode = noSelection), ShellCatalogView(), {}) }
             onNodeWithTag("header-logo", useUnmergedTree = true).assertDoesNotExist()
-            onNodeWithText("Không gian của bạn").assertExists()
+            onNodeWithTag("header-title").assertTextEquals("Tài khoản")
         }
     }
 

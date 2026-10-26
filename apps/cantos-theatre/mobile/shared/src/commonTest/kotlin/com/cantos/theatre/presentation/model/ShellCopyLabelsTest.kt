@@ -54,8 +54,7 @@ class ShellCopyLabelsTest {
         assertEquals("Nghe tiếp", vietnamese.text(CopyKey.Continuing))
         assertEquals("Lịch sử", vietnamese.text(CopyKey.History))
         assertEquals("Tài khoản", vietnamese.text(CopyKey.Account))
-        assertEquals("Không gian của bạn", vietnamese.text(CopyKey.AccountSpace))
-        assertEquals("Your space", english.text(CopyKey.AccountSpace))
+        assertEquals("Account", english.text(CopyKey.Account))
         assertEquals("Đăng nhập", vietnamese.text(CopyKey.SignIn))
         assertEquals("Tạo tài khoản", vietnamese.text(CopyKey.CreateAccount))
         assertEquals(
