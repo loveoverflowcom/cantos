@@ -223,6 +223,43 @@ class QualificationContract(unittest.TestCase):
                 with self.subTest(service=service, file=name), self.assertRaisesRegex(ValueError, "CREATED_DATABASE"):
                     qualify.check_unmigrated_layout(service, {owner: record, name: record})
 
+    def test_pair_removal_orders_network_dependents_and_handles_an_already_stopped_identity(self):
+        fixture = qualify.Fixture.__new__(qualify.Fixture)
+        fixture.server, fixture.identity = "owned-server", "owned-identity"
+        fixture.names = [fixture.identity, fixture.server]
+        running = {fixture.server: True, fixture.identity: False}
+        removed = []
+
+        def pod(action, *args):
+            name = args[-1]
+            if action == "inspect":
+                return json.dumps([{"State": {"Running": running[name]}}]).encode()
+            if action == "stop":
+                self.assertTrue(running[name], "an already stopped owner needs no stop command")
+                running[name] = False
+            elif action == "rm":
+                self.assertFalse(running[name])
+                if name == fixture.identity:
+                    self.assertNotIn(fixture.server, running, "remove the network dependent first")
+                removed.append(name)
+                del running[name]
+            return b""
+
+        fixture.pod = pod  # Named command double; no Linux acceptance from this test.
+        fixture.stop()
+        self.assertEqual(removed, [fixture.server, fixture.identity])
+        self.assertEqual(fixture.names, [])
+
+    def test_podman_failure_identifies_operation_without_echoing_arguments_or_remote_output(self):
+        fixture = qualify.Fixture.__new__(qualify.Fixture)
+        fixture.podman = ["podman", "--root", "/private/owned-store"]
+        with patch.object(fixture, "sh", side_effect=ValueError("COMMAND_podman_EXIT_125")):
+            with self.assertRaisesRegex(ValueError, "^PODMAN_RM_EXIT_125$"):
+                fixture.pod("rm", "owned-identity")
+            fixture.operation_context = "stop-identity"
+            with self.assertRaisesRegex(ValueError, "^stop-identity:PODMAN_RM_EXIT_125$"):
+                fixture.pod("rm", "owned-identity")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -186,6 +186,7 @@ class Fixture:
         self.root, self.work, self.manifest, self.authfile = root, work, manifest, authfile
         self.names = []
         self.driver = None
+        self.operation_context = "setup"
         self.prefix = "cantos-qualify-" + uuid.uuid4().hex
         self.podman = ["podman", "--root", str(work / "store"), "--runroot", str(work / "run"),
                        "--storage-driver", "vfs"]
@@ -206,7 +207,18 @@ class Fixture:
         return result.stdout
 
     def pod(self, *args, expected=0, timeout=120):
-        return self.sh([*self.podman, *map(str, args)], expected, timeout)
+        try:
+            return self.sh([*self.podman, *map(str, args)], expected, timeout)
+        except ValueError as error:
+            # Identify the operation without logging arguments, auth paths or remote stderr.
+            prefix = "COMMAND_podman_EXIT_"
+            if str(error).startswith(prefix):
+                action = str(args[0]).strip("-").upper()
+                require(re.fullmatch(r"[A-Z-]{1,30}", action), "PODMAN_OPERATION")
+                context = getattr(self, "operation_context", None)
+                label = (context + ":") if context else ""
+                raise ValueError(label + "PODMAN_" + action + "_EXIT_" + str(error)[len(prefix):]) from None
+            raise
 
     def new_databases(self, name):
         result = {}
@@ -233,19 +245,23 @@ class Fixture:
 
     def migrate(self):
         for service in oci.SERVICES:
+            self.operation_context = "migrate-" + service
             entry = "/usr/local/bin/cantos-migrate" if service == "cantos-server" else "/usr/local/bin/cantos-identity"
             args = [] if service == "cantos-server" else ["migrate"]
             self.pod("run", "--rm", "--network=none", *self.options(service), "--entrypoint", entry,
                      self.image(service), *args)
 
-    def start(self):
+    def start(self, *, identity_server_uid=10001):
+        require(identity_server_uid in (10001, 10003), "FIXTURE_CALLER_UID")
         identity = self.prefix + "-identity"
         server = self.prefix + "-server"
         network = "none" if self.driver is None else f"ns:/proc/{self.driver.pid}/ns/net"
         for service, name, network in (("cantos-identity", identity, network),
                                        ("cantos-server", server, "container:" + identity)):
+            self.operation_context = "start-" + service + "-allowed-" + str(identity_server_uid)
             self.names.append(name)  # Also clean a container whose create/start outcome is uncertain.
-            self.pod("run", "-d", "--name", name, "--network", network, *self.options(service),
+            override = ["--env", "CANTOS_IDENTITY_SERVER_UIDS=" + str(identity_server_uid)] if service == "cantos-identity" else []
+            self.pod("run", "-d", "--name", name, "--network", network, *self.options(service), *override,
                      self.image(service), *(["serve"] if service == "cantos-identity" else []))
         self.identity, self.server = identity, server
         namespaces = []
@@ -303,7 +319,9 @@ class Fixture:
 
     def stop(self):
         for name in (self.server, self.identity):
-            self.pod("stop", "--time", "15", name)
+            self.operation_context = "stop-server" if name == self.server else "stop-identity"
+            if json.loads(self.pod("inspect", name))[0]["State"]["Running"]:
+                self.pod("stop", "--time", "15", name)
             require(not json.loads(self.pod("inspect", name))[0]["State"]["Running"], "COLD_BACKUP_REQUIRES_STOP")
             self.pod("rm", name)
             self.names.remove(name)
@@ -329,8 +347,10 @@ class Fixture:
             own = "server.db" if service == "cantos-server" else "identity.db"
             other = next(s for s in oci.SERVICES if s != service)
             foreign = "server.db" if other == "cantos-server" else "identity.db"
+            self.operation_context = "isolation-own-database-" + service
             self.pod("run", "--rm", "--network=none", *self.options(service), "--entrypoint", "/bin/sh",
                      self.image(service), "-c", "test -r /database/" + own)
+            self.operation_context = "isolation-foreign-database-" + service
             self.pod("run", "--rm", "--network=none", *self.options(service, database=self.databases[other]),
                      "--entrypoint", "/bin/sh", self.image(service), "-c", "test -r /database/" + foreign, expected=1)
             checks += [service + "-own-db-positive", service + "-foreign-db-denied"]
@@ -342,28 +362,30 @@ class Fixture:
         executable.chmod(0o755)
         for service in oci.SERVICES:
             for path, command, expected in ((canary, "cat /host-canary", 0), (executable, "/host-canary", 42)):
+                self.operation_context = "isolation-positive-" + path.name + "-" + service
                 self.pod("run", "--rm", "--network=none", *self.options(service), "--mount",
                          f"type=bind,src={path},dst=/host-canary,ro=true", "--entrypoint", "/bin/sh",
                          self.image(service), "-c", command, expected=expected)
+            self.operation_context = "isolation-negative-credential-" + service
             self.pod("run", "--rm", "--network=none", *self.options(service), "--entrypoint", "/bin/sh",
                      self.image(service), "-c", "cat /host-canary", expected=1)
+            self.operation_context = "isolation-negative-executable-" + service
             self.pod("run", "--rm", "--network=none", *self.options(service), "--entrypoint", "/bin/sh",
                      self.image(service), "-c", "/host-canary", expected=127)
             checks += [service + "-credential-mount-positive-and-absent-negative",
                        service + "-executable-mount-positive-and-absent-negative"]
         # A real Server UID rejected by Identity's OS-peer allowlist: configure the wrong caller.
+        self.operation_context = "isolation-stop-identity"
         self.pod("stop", "--time", "15", self.identity)
         checks += self.call("unavailable")["checks"]
-        self.pod("rm", self.identity)
-        self.names.remove(self.identity)
-        self.names.append(self.identity)
-        self.pod("run", "-d", "--name", self.identity, "--network", f"ns:/proc/{self.driver.pid}/ns/net",
-                 *self.options("cantos-identity"), "--env", "CANTOS_IDENTITY_SERVER_UIDS=10003",
-                 self.image("cantos-identity"), "serve")
-        self.wait_socket()
+        # Server depends on Identity's network namespace. Remove the owned pair in
+        # dependency order, then recreate both in the namespace retained by the driver.
+        self.stop()
+        self.start(identity_server_uid=10003)
         checks += self.call("denied_peer")["checks"]
         self.stop()
         self.restart()
+        checks += self.call("persisted")["checks"]
         return checks + ["uds-mode-and-peer-uid-negative"]
 
     def wait_socket(self):
