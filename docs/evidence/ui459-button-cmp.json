@@ -2,10 +2,10 @@
   "component_id": "button",
   "renderer": "cmp",
   "status": "PASS",
-  "reviewer": "Codex root; independent pr_scope and review_shared reviewers; fresh JVM test-root images, semantics and source inspected 25 October 2026",
+  "reviewer": "Codex root; independent pr_scope and review_shared reviewers; fresh JVM test-root images, semantics and source inspected 25 October 2026 | digest refreshed 26 October 2026 for #478 (Claude Sonnet 5.5): ui-preview cmp verify re-run green; focus-perimeter pixel assertions and opened captures only for Button/BackButton/IconButton/FilterChip/TextField; scope in docs/evidence/theatre-cmp-focus-perimeter-478.md",
   "reference": "Current canonical component/token contracts and fresh before/after matrix in docs/evidence/ui-review-20261025-select.md; bounded JVM component scope only, not browser/device/AT/production or design-pixel fidelity.",
   "tokens_sha256": "f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3",
-  "source_sha256": "58b4f4c98ca0ff1bfec2a53736f6d5cfd9e4364c916985ab8f0b518f5c6063de",
+  "source_sha256": "1df019511b5cc63f2d9fd4df0834235d0922ca6cec8f8388bd5fb050d9377945",
   "checks": {
     "structural": {
       "status": "PASS",

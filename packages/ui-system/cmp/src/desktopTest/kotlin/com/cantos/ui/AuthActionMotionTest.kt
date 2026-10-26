@@ -6,6 +6,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -38,8 +40,10 @@ class AuthActionMotionTest {
 
     private fun verifyMotion(reducedMotion: Boolean) {
         var intents = 0
+        lateinit var focusManager: FocusManager
         compose.setContent {
             BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = reducedMotion)) {
+                focusManager = LocalFocusManager.current
                 Button("Đăng nhập với Cantos ID", { intents += 1 },
                     variant = ButtonVariant.AuthPrimary,
                     controlModifier = Modifier.requiredSize(300.dp, 60.dp).testTag("motion-action"))
@@ -51,14 +55,19 @@ class AuthActionMotionTest {
         val bounds = action.fetchSemanticsNode().boundsInRoot
         val prefix = if (reducedMotion) "reduced" else "animated"
         fun frame(name: String): Int {
+            // A press focuses the node on desktop, and the inset focus ring is the capsule's own
+            // edge in the content colour (white on white here), so it would hide the painted corner
+            // this scan measures. The ring's shape follows the corner in FocusPerimeterPixelTest.
+            compose.runOnUiThread { focusManager.clearFocus(force = true) }
+            compose.mainClock.advanceTimeByFrame()
             val bitmap = action.captureToImage()
             save(bitmap, "cmp-auth-motion-$prefix-$name")
             assertEquals(bounds, action.fetchSemanticsNode().boundsInRoot)
             // A 4 px scanline intersects the capsule/pressed corner well away from text.
             // Inspect the actual filled boundary rather than the implementation's fraction.
             val pixels = bitmap.toPixelMap()
-            // Scan outwards from the filled interior to the background gap before
-            // the separate focus ring. Ripple color changes remain inside this boundary.
+            // Scan outwards from the filled interior to the background. Ripple colour changes
+            // remain inside this boundary.
             val background = pixels[0, 0]
             return 1 + ((29 downTo 0).firstOrNull { x ->
                 val pixel = pixels[x, 4]
