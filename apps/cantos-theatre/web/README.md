@@ -535,7 +535,9 @@ non-null cover is admitted only when its `url` is exactly
 query or fragment, its digest is 64 lower-case hex and its alt text is non-blank and at most
 1024 bytes (`application/public_cover.rs`); the client never derives or rewrites a URL. Discovery
 cards and the Work detail show the image over the existing decorative fallback (kind glyph or
-typographic cover) with its alt text and language, sized by the declared ratio. It is a
+typographic cover) with its alt text and language. Every card thumbnail is one 2:3 frame in a
+bounded column (cover or fallback alike, so a shelf never reflows by image); the detail keeps the
+declared ratio, bounded in height. It is a
 cross-origin `<img>` (lazy, `no-referrer`, no CORS needed because no pixel is read; the shipped
 CSP has no `img-src`). A load error (revoked/expired/withdrawn `404`, `503`, corrupt bytes) removes
 the image and leaves the fallback with no dialog; title, link, Listen and playback never depend on

@@ -50,9 +50,12 @@ pub(crate) fn PublicCover(
     } else {
         CoverPhase::None
     });
-    let ratio = cover
-        .as_ref()
-        .map(|cover| format!("aspect-ratio: {} / {}", cover.width_px, cover.height_px));
+    let ratio = cover.as_ref().map(|cover| {
+        format!(
+            "--theatre-cover-ratio: {} / {}",
+            cover.width_px, cover.height_px
+        )
+    });
     let image = cover.map(|cover| {
         let (width, height) = (cover.width_px, cover.height_px);
         view! {
@@ -109,7 +112,10 @@ mod tests {
         assert!(html.contains("lang=\"vi-VN\""), "{html}");
         assert!(html.contains("referrerpolicy=\"no-referrer\""), "{html}");
         assert!(html.contains("width=\"1200\"") && html.contains("height=\"1800\""));
-        assert!(html.contains("aspect-ratio: 1200 / 1800"), "{html}");
+        assert!(
+            html.contains("--theatre-cover-ratio: 1200 / 1800"),
+            "{html}"
+        );
         // The fallback stays and stays decorative; the image alone names the cover.
         assert!(
             html.contains("aria-hidden=\"true\" class=\"theatre-cover-fallback\""),
