@@ -273,7 +273,7 @@ body { margin: 0; }
   display: grid;
   gap: var(--cantos-space-md);
   padding: var(--cantos-space-md);
-  border-radius: var(--cantos-shape-overlay);
+  border-radius: var(--cantos-web-shape-overlay);
   background: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
   box-shadow: var(--cantos-elevation-overlay);
@@ -347,7 +347,7 @@ body { margin: 0; }
     inset-inline: 0;
     inline-size: 100%;
     max-block-size: 85vh;
-    border-radius: var(--cantos-shape-overlay) var(--cantos-shape-overlay) 0 0;
+    border-radius: var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0 0;
     box-shadow: var(--cantos-elevation-overlay);
   }
   .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
