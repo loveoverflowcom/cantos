@@ -1,4 +1,4 @@
-# Cantos API — Editorial and External Audio Authority
+# Cantos Server — Editorial and External Audio Authority
 
 > **Native business port; production acceptance pending.** `Store`, `cantos-migrate`,
 > `cantos-operator` and the host use `CANTOS_SERVER_DATABASE` (`server.db`), never `DATABASE_URL`.
@@ -74,10 +74,14 @@ never deletes DB/WAL/media/evidence or opens Identity's file.
 Set an absolute `CANTOS_STORAGE_CONFIG` path to checked non-secret TOML; see
 [storage.example.toml](config/storage.example.toml) (a Long Vân target profile is in
 [storage.longvan.example.toml](config/storage.longvan.example.toml), unaccepted until its
-[live acceptance](../../docs/evidence/longvan-s3-acceptance.md) runs) and the
+[live acceptance](../../docs/evidence/longvan-s3-acceptance.md#operator-procedure) passes) and the
 [configuration contract](../../docs/architecture/object-storage.md#checked-configuration-and-switching).
-Credentials use named environment inputs outside Git. Every configured target is validated at
-startup, including historical read targets, with no provider fallback. The preceding absolute
+Runtime credentials use the TOML-named `CANTOS_S3_ACCESS_KEY_ID` /
+`CANTOS_S3_SECRET_ACCESS_KEY` inputs outside Git; they are separate from the ignored harness
+inputs `CANTOS_LIVE_S3_*`. No harness variable configures the Server. Follow the
+[Secret Manager custody guide](../../docs/deployment/google-secret-manager.md) only under
+separate authorization; a stored secret is neither verified reader access nor runtime binding.
+Every configured target is validated at startup, including historical read targets, with no provider fallback. The preceding absolute
 `CANTOS_AUDIO_ROOT` option remains compatible and selects `legacy-filesystem`; setting both is
 an error. Without either option, private storage is unavailable.
 
@@ -102,9 +106,21 @@ version ID, otherwise refreshable access redirects to the protected API stream. 
 writes never migrates old bytes. The [VPS Studio composition](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/vps-production.md#development-private-audio-on-the-vps)
 selects the existing filesystem driver on a persistent host mount during initial development,
 without Long Vân credentials; the separate Theatre API process is not given private file access. No producer receives a Studio cookie and no upload/preview
-becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations,
-renditions, reviews and candidates; its application-role grants are SELECT/INSERT only.
-Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
+becomes a release. Current Turso versions 20/21 retain private media, immutable receipts and
+producer authority. PostgreSQL migration0014 and its role grants are historical provenance,
+not native runtime setup.
+
+For local coverage use `cargo test --locked -p cantos-server --lib live_acceptance` and
+`cargo test --locked -p cantos-server --test audio_intake_turso` with Rust 1.98.1 and installed
+ffmpeg/ffprobe. The first uses offline HTTP doubles with two live tests ignored; the second
+uses real run-owned Turso/filesystem files and synthetic Ogg/Opus. Neither accepts Long Vân.
+The [current acceptance handoff](../../docs/evidence/longvan-s3-acceptance.md#native-server-local-handoff-26-october-2026)
+traces the wired runtime and records the remaining gates: privacy remediation/recheck,
+separately approved secret custody/access, full provider harness, then isolated Server/Turso
+intake/restart acceptance. Historical anonymous exact-URL cache exposure still blocks activation.
+Keep filesystem-first (#309), every historical target/root, immutable receipt bytes/digests
+and protected API reads; changing `active_write_target` copies no media. The live harness is
+manual/ignored and never an ordinary CI or preflight gate.
 
 ## Origin public media storage
 
