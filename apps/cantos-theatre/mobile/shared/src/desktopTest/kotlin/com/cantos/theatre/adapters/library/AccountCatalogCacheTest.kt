@@ -46,7 +46,7 @@ class AccountCatalogCacheTest {
             val cache = AccountCatalogCache(store) { "A" }
             var requests = 0
             var fail = false
-            val response = """{"items":[{"work_id":"10000000-0000-0000-0000-000000000001","kind":"story","title":"Một lời hẹn","description":"Nghe bằng tiếng Việt","language":"vi","first_published_at_ms":1}],"next_cursor":null}"""
+            val response = """{"items":[{"work_id":"10000000-0000-0000-0000-000000000001","kind":"story","title":"Một lời hẹn","description":"Nghe bằng tiếng Việt","language":"vi","first_published_at_ms":1,"unit_count":1,"cover":null}],"next_cursor":null}"""
             val api = PublicCatalogHttpAdapter(ApiOrigin.parse("https://api.example"), CatalogHttpTransport {
                 requests += 1
                 if (fail) error("offline")
@@ -61,6 +61,30 @@ class AccountCatalogCacheTest {
             cache.invalidate(); fail = true
             assertEquals(PublicCatalogRead.Transport, api.works(null, PublicCatalogQuery.All))
             assertEquals(2, requests)
+            store.close()
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun aCachedPageWithoutTheCoverFieldIsNeverReadAsNoCover() = runTest {
+        val folder = Files.createTempDirectory("cantos-catalog-cover").toFile()
+        try {
+            val store = desktopLibraryStore(folder.resolve("catalog.sqlite").absolutePath)
+            val cache = AccountCatalogCache(store) { "A" }
+            var requests = 0
+            val covered = """{"items":[{"work_id":"10000000-0000-4000-8000-000000000001","kind":"story","title":"Một lời hẹn","description":"","language":"vi","first_published_at_ms":1,"unit_count":1,"cover":null}],"next_cursor":null}"""
+            val api = PublicCatalogHttpAdapter(ApiOrigin.parse("https://api.example"), CatalogHttpTransport {
+                requests += 1
+                CatalogHttpResponse(200, "application/json", covered.encodeToByteArray())
+            }, cache)
+            // An entry an earlier client stored for the page-one key, in the representation without `cover`.
+            val legacy = """{"items":[{"work_id":"10000000-0000-4000-8000-000000000001","kind":"story","title":"Cũ","description":"","language":"vi","first_published_at_ms":1}],"next_cursor":null}"""
+            cache.put("https://api.example/api/v1/theatre/works?limit=20&presentation=2", legacy, "A")
+            val page = assertIs<PublicCatalogRead.Ready<com.cantos.theatre.domain.catalog.PublicWorkPage>>(api.works(null, PublicCatalogQuery.All))
+            assertEquals(1, requests, "the stale-shaped entry is refused and the network is read")
+            assertEquals("Một lời hẹn", page.value.items.single().title)
+            // The earlier client's own key (no presentation) is never consulted at all.
+            cache.put("https://api.example/api/v1/theatre/works?limit=20", legacy, "A")
+            api.works(null, PublicCatalogQuery.All)
+            assertEquals(1, requests, "the refreshed v1.2 entry now serves from cache")
             store.close()
         } finally { folder.deleteRecursively() }
     }

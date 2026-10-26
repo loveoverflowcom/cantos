@@ -2,6 +2,7 @@ package com.cantos.theatre.adapters.http
 
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
+import com.cantos.theatre.domain.catalog.CoverContentType
 import com.cantos.theatre.domain.catalog.MaxPageItems
 import com.cantos.theatre.domain.catalog.MaxSafeMillis
 import com.cantos.theatre.domain.catalog.PublicUnitId
@@ -32,23 +33,27 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
  * **Drift check, not code generation.** The Kotlin wire DTOs are hand-written; this test pins
  * them to the shared strict JSON Schema (property names, required set, JSON types, nullability,
- * enum values, `additionalProperties:false`) and decodes/re-encodes every default-v1 fixture.
- * Presentation-only opt-in fixtures must be refused by these default DTOs. A schema or fixture
- * change in `services/cantos-server/contracts/theatre/discovery/v1` fails here until the DTOs and
- * fixture inventory are reviewed.
+ * enum values, `additionalProperties:false`) and decodes/re-encodes every fixture this client
+ * reads: the v1.2 covered Work reads (`presentation=2`) and the default-v1 unit, error and
+ * manifest shapes. Default and `presentation=1` Work bodies must be refused by the covered DTOs,
+ * never read as "no cover". A schema or fixture change in
+ * `services/cantos-server/contracts/theatre/discovery/v1` fails here until the DTOs and fixture
+ * inventory are reviewed.
  */
 class PublicCatalogWireDriftTest {
     private val defs: JsonObject =
         Json.parseToJsonElement(CanonicalDiscoveryCorpus.schemaJson).jsonObject.getValue("\$defs").jsonObject
 
     private val dtoByDefinition: Map<String, KSerializer<*>> = mapOf(
-        "WorkSummary" to WorkSummaryWire.serializer(),
-        "WorkPage" to WorkPageWire.serializer(),
+        "CoverImage" to CoverImageWire.serializer(),
+        "CoveredWorkSummary" to CoveredWorkSummaryWire.serializer(),
+        "CoveredWorkPage" to CoveredWorkPageWire.serializer(),
         "UnitSummary" to UnitSummaryWire.serializer(),
         "UnitPage" to UnitPageWire.serializer(),
         "ListenerError" to ListenerErrorWire.serializer(),
@@ -56,12 +61,17 @@ class PublicCatalogWireDriftTest {
         "PlaybackAuthorization" to PlaybackGrantWire.serializer(),
     )
 
-    private enum class Shape { WorkPage, UnitPage, ListenerError, Manifest, PresentedWorkPage, PresentedUnitPage }
+    private enum class Shape {
+        CoveredWorkPage, CoveredWork, UnitPage, ListenerError, Manifest, DefaultWorkPage, PresentedWorkPage, PresentedUnitPage,
+    }
 
     /** Every shared fixture must be classified; a new file fails until reviewed. */
     private val fixtureShapes = mapOf(
-        "works.json" to Shape.WorkPage,
-        "empty.json" to Shape.WorkPage,
+        // An empty page has no item to carry the v1.2 fields, so it is valid for both levels.
+        "empty.json" to Shape.CoveredWorkPage,
+        "works.json" to Shape.DefaultWorkPage,
+        "cover/covered_works.json" to Shape.CoveredWorkPage,
+        "cover/covered_work.json" to Shape.CoveredWork,
         "units.json" to Shape.UnitPage,
         "units_empty_continuation.json" to Shape.UnitPage,
         "units_end_empty.json" to Shape.UnitPage,
@@ -72,7 +82,7 @@ class PublicCatalogWireDriftTest {
         "unavailable.json" to Shape.ListenerError,
         "rendition_unavailable.json" to Shape.ListenerError,
         "manifest.json" to Shape.Manifest,
-        // #251 requires presentation=1; the native client continues requesting default v1.
+        // #251 presentation=1: the native client reads Works at presentation=2 and Units at default v1.
         "presented_works.json" to Shape.PresentedWorkPage,
         "presented_units.json" to Shape.PresentedUnitPage,
     )
@@ -114,6 +124,11 @@ class PublicCatalogWireDriftTest {
                 val shape = alternatives?.single { it["type"]?.jsonPrimitive?.content != "null" } ?: property
                 val enumValues = shape["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
                 when {
+                    shape["\$ref"] != null -> {
+                        assertEquals(StructureKind.CLASS, element.kind, "$label is an object")
+                        assertEquals(shape.getValue("\$ref").jsonPrimitive.content.removePrefix("#/\$defs/"),
+                            definitionBySerialName[element.serialName.removeSuffix("?")], "$label definition")
+                    }
                     shape["const"] != null -> {
                         val constant = shape.getValue("const").jsonPrimitive
                         val kind = when { constant.isString -> PrimitiveKind.STRING
@@ -178,18 +193,30 @@ class PublicCatalogWireDriftTest {
     }
 
     @Test
-    fun every_shared_fixture_is_classified_as_default_round_trip_or_unsupported_presentation() {
+    fun every_shared_fixture_is_classified_as_round_trip_or_unsupported_presentation() {
         assertEquals(fixtureShapes.keys, CanonicalDiscoveryCorpus.fixtureJsonByFile.keys, "unclassified or missing fixture")
         CanonicalDiscoveryCorpus.fixtureJsonByFile.forEach { (file, json) ->
             when (fixtureShapes.getValue(file)) {
-                Shape.WorkPage -> assertRoundTrip(WorkPageWire.serializer(), json, file)
+                Shape.CoveredWorkPage -> assertRoundTrip(CoveredWorkPageWire.serializer(), json, file)
+                Shape.CoveredWork -> assertRoundTrip(CoveredWorkSummaryWire.serializer(), json, file)
+                Shape.DefaultWorkPage -> assertPresentationMissing(CoveredWorkPageWire.serializer(), json, file, "unit_count", "cover")
                 Shape.UnitPage -> assertRoundTrip(UnitPageWire.serializer(), json, file)
                 Shape.ListenerError -> assertRoundTrip(ListenerErrorWire.serializer(), json, file)
                 Shape.Manifest -> assertRoundTrip(ManifestWire.serializer(), json, file)
-                Shape.PresentedWorkPage -> assertPresentationRefused(WorkPageWire.serializer(), json, file, "unit_count")
+                Shape.PresentedWorkPage -> assertPresentationMissing(CoveredWorkPageWire.serializer(), json, file, "cover")
                 Shape.PresentedUnitPage -> assertPresentationRefused(UnitPageWire.serializer(), json, file, "ordinal")
             }
         }
+    }
+
+    /** A lower presentation level lacks [fields]; the strict covered reader must refuse it for exactly them. */
+    private fun <T> assertPresentationMissing(serializer: KSerializer<T>, json: String, file: String, vararg fields: String) {
+        val items = Json.parseToJsonElement(json).jsonObject.getValue("items").jsonArray
+        assertTrue(items.isNotEmpty() && items.none { item -> fields.any { it in item.jsonObject } }, "$file must lack $fields")
+        val refusal = assertFailsWith<SerializationException>("$file is not a v1.2 body") {
+            catalogJson.decodeFromString(serializer, json)
+        }
+        fields.forEach { assertTrue(refusal.message?.contains(it) == true, "$file must be refused for missing $it") }
     }
 
     private fun <T> assertPresentationRefused(serializer: KSerializer<T>, json: String, file: String, field: String) {
@@ -211,13 +238,22 @@ class PublicCatalogWireDriftTest {
     @Test
     fun shared_fixtures_map_to_validated_domain_values_by_server_identity() {
         val fixtures = CanonicalDiscoveryCorpus.fixtureJsonByFile
-        val works = catalogJson.decodeFromString(WorkPageWire.serializer(), fixtures.getValue("works.json")).toDomain()
+        val works = catalogJson.decodeFromString(CoveredWorkPageWire.serializer(), fixtures.getValue("cover/covered_works.json")).toDomain()
         assertIs<CatalogCheck.Valid<PublicWorkPage>>(works)
-        val work: PublicWork = works.value.items.single()
+        val work: PublicWork = works.value.items.first()
         assertEquals("10000000-0000-4000-8000-000000000001", work.id.value)
         assertEquals(PublicWorkKind.Story, work.kind)
         assertEquals("Ánh đèn cuối sân khấu", work.title)
-        assertEquals(null, works.value.next)
+        // The shown cover is bound to this Work and its digest; the second Work has the legitimate null.
+        val cover = assertNotNull(work.cover)
+        assertEquals(work.id, cover.work)
+        assertEquals("Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống.", cover.altText)
+        assertEquals(CoverContentType.Jpeg, cover.contentType)
+        assertEquals(245_760, cover.byteLength)
+        assertEquals(null, works.value.items[1].cover)
+        assertEquals("lc1_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", works.value.next?.value)
+        val detail = catalogJson.decodeFromString(CoveredWorkSummaryWire.serializer(), fixtures.getValue("cover/covered_work.json")).toDomain()
+        assertEquals(CoverContentType.Png, assertNotNull(assertIs<CatalogCheck.Valid<PublicWork>>(detail).value.cover).contentType)
 
         fun units(file: String) = catalogJson.decodeFromString(UnitPageWire.serializer(), fixtures.getValue(file)).toDomain(work)
         val first = assertIs<CatalogCheck.Valid<PublicUnitPage>>(units("units.json")).value.items.single()
@@ -243,8 +279,10 @@ class PublicCatalogWireDriftTest {
 
     @Test
     fun strict_decoding_rejects_unknown_missing_and_mistyped_fields() {
-        val work = """{"work_id":"10000000-0000-4000-8000-000000000001","kind":"story","title":"T","description":"","language":"vi-VN","first_published_at_ms":5000}"""
-        catalogJson.decodeFromString(WorkSummaryWire.serializer(), work)
+        val cover = """{"url":"https://a.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/${"a".repeat(64)}","sha256":"${"a".repeat(64)}","content_type":"image/png","width_px":8,"height_px":8,"byte_length":9,"alt_text":"A"}"""
+        val work = """{"work_id":"10000000-0000-4000-8000-000000000001","kind":"story","title":"T","description":"","language":"vi-VN","first_published_at_ms":5000,"unit_count":2,"cover":null}"""
+        catalogJson.decodeFromString(CoveredWorkSummaryWire.serializer(), work)
+        catalogJson.decodeFromString(CoveredWorkSummaryWire.serializer(), work.replace("null}", "$cover}"))
         val hostile = listOf(
             work.replace("}", ""","genre":"drama"}"""),
             work.replace(""","language":"vi-VN"""", ""),
@@ -256,13 +294,22 @@ class PublicCatalogWireDriftTest {
             work.replace("5000", "null"),
             work.replace("\"T\"", "null"),
             work.replace("\"T\"", "7"),
+            // v1.2: cover is required-nullable, unit_count a JSON integer, and the cover object closed.
+            work.replace(""","cover":null""", ""),
+            work.replace(""","unit_count":2""", ""),
+            work.replace("\"unit_count\":2", "\"unit_count\":\"2\""),
+            work.replace("null}", "{}}"),
+            work.replace("null}", "${cover.replace("}", ""","asset_id":"x"}""")}}"),
+            work.replace("null}", "${cover.replace("}", "").substringBeforeLast(",\"alt_text\"")}}}"),
+            work.replace("null}", "${cover.replace("image/png", "image/gif")}}"),
+            work.replace("null}", "${cover.replace("\"width_px\":8", "\"width_px\":\"8\"")}}"),
         )
         hostile.forEach { json ->
-            assertFailsWith<SerializationException>(json) { catalogJson.decodeFromString(WorkSummaryWire.serializer(), json) }
+            assertFailsWith<SerializationException>(json) { catalogJson.decodeFromString(CoveredWorkSummaryWire.serializer(), json) }
         }
         // next_cursor is required even though it is nullable.
-        assertFailsWith<SerializationException>("missing next_cursor") { catalogJson.decodeFromString(WorkPageWire.serializer(), """{"items":[]}""") }
-        assertEquals(null, catalogJson.decodeFromString(WorkPageWire.serializer(), """{"items":[],"next_cursor":null}""").nextCursor)
+        assertFailsWith<SerializationException>("missing next_cursor") { catalogJson.decodeFromString(CoveredWorkPageWire.serializer(), """{"items":[]}""") }
+        assertEquals(null, catalogJson.decodeFromString(CoveredWorkPageWire.serializer(), """{"items":[],"next_cursor":null}""").nextCursor)
         assertFailsWith<SerializationException>("extra error field") {
             catalogJson.decodeFromString(ListenerErrorWire.serializer(), """{"code":"not_found","retryable":false,"current_revision":null}""")
         }

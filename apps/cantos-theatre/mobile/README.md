@@ -24,6 +24,20 @@ presentation. Qualified Logo Symbol, FloatingSearch and the Library Button are a
 bounded continuation below. Avatar, tonal IconButton, FilterChip and UiRoot/Theatre expression
 still await admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
 
+**Public cover ([#159](https://github.com/loveoverflowcom/cantos/issues/159), ADR 0033).** Work
+list, search and detail reads send `presentation=2` and strictly decode the v1.2 covered DTOs
+(unit reads stay on default v1). `PublicCover` admits only the exact
+`https://{origin}/api/v1/theatre/works/{work}/cover/{sha256}` delivery shape; any other shape
+refuses the page. `PublicCoverHttp` reads the image anonymously, bounded by `byte_length`, and
+verifies status, content type, length and SHA-256 before decoding; `CoverImages` (3 concurrent,
+32 MiB in-memory LRU, nothing on disk) feeds the `WorkArtwork` seam on Discovery cards and the Work
+detail. `null`, loading, 404/503/mismatch/decode failure all keep the decorative tonal fallback
+and never block the title, navigation or playback; preview mock artwork is never a production
+fallback. Android decodes with `BitmapFactory`; **iOS has no cover boundary yet** (its URLSession
+bridge carries `String` bodies), so iOS shows the fallback. Player, mini-player and Library artwork
+are unchanged. Only desktop JVM tests and an Android debug compile were run; no emulator, device or
+real-server image read.
+
 **Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
 is a JVM-desktop-only module (one `desktop` target; no Android or iOS target, framework or source
 set, and no Android SDK or Kotlin/Native needed) for the Desktop Preview, its scenario workbench and

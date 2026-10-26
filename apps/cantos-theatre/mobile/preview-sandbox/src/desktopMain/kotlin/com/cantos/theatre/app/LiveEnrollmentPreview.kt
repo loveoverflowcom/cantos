@@ -7,6 +7,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.cantos.theatre.adapters.http.ApiOrigin
 import com.cantos.theatre.adapters.http.JvmCatalogTransport
+import com.cantos.theatre.adapters.http.PublicCoverHttp
+import com.cantos.theatre.adapters.image.SkiaCoverDecoder
 import com.cantos.theatre.adapters.http.NativeAuthorizedHttpPort
 import com.cantos.theatre.adapters.http.PlaybackAccessHttp
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
@@ -202,6 +204,7 @@ fun LiveEnrollmentPreview(origin: ApiOrigin) {
     val owners = remember(origin) { LiveEnrollmentOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        CantosTheatreApp(owners.shell, cache = owners.cache)
+        val covers = remember { CoverImages(PublicCoverHttp(JvmCatalogTransport()), SkiaCoverDecoder, System::currentTimeMillis) }
+        CantosTheatreApp(owners.shell, cache = owners.cache, coverImages = covers)
     }
 }

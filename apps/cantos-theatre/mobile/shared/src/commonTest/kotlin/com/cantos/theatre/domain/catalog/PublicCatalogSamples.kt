@@ -20,7 +20,17 @@ object PublicCatalogSamples {
         kind: PublicWorkKind = PublicWorkKind.Story,
         title: String = "Ánh đèn cuối sân khấu $n",
         description: String = "Một lời hẹn chưa bao giờ nói ra.",
-    ): PublicWork = PublicWork.of(workId(n), kind, title, description, "vi-VN", 5_000L + n).valid()
+        cover: PublicCover? = null,
+    ): PublicWork = PublicWork.of(workId(n), kind, title, description, "vi-VN", 5_000L + n, cover).valid()
+
+    /** A cover the Server would authorize for work [n]: its own route and digest. */
+    fun cover(n: Int, alt: String = "Bìa của tác phẩm $n: ngọn đèn vàng trên sân khấu tối."): PublicCover {
+        val sha = n.toString(16).padStart(64, 'a')
+        return PublicCover.of(
+            workId(n), "https://api.cantos.example/api/v1/theatre/works/${workId(n).value}/cover/$sha", sha,
+            CoverContentType.Png, 1024, 1536, 4_096, alt,
+        ).valid()
+    }
 
     fun unit(
         n: Int,

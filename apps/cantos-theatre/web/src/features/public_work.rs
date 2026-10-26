@@ -1,8 +1,9 @@
-//! Live public Work detail. Server text only: no cover art, genre, credit or count. The Listen
+//! Live public Work detail. Server text and the Server-authorized cover only: no genre or credit.
+//! The Listen
 //! control and each unit's control only express an intent; the root resolves the exact release
 //! and owns the one player. Opening this page never plays anything.
 use crate::contract::{
-    discovery::{PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind},
+    discovery::{CoveredWorkSummary, PresentedUnitSummary, UnitKind, WorkKind},
     library::{AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation},
 };
 use crate::{
@@ -10,6 +11,7 @@ use crate::{
         account_view::{AccountViewState, SessionPhase},
         library_sync::{ResumeAttemptState, ResumeRefusal, SavedCommandPhase},
         player_session::PlayerSession,
+        public_discovery::kind_name,
         public_listen::{ListenFailure, ListenState},
         public_work::{PageStatus, ReadFailure, UnitList, WorkDetailPhase, WorkDetailState},
     },
@@ -20,6 +22,7 @@ use crate::{
     features::{
         auth_copy::{self, CopyKey},
         common::clock,
+        public_cover::PublicCover,
     },
     messages::{self, text, Key, Locale},
 };
@@ -272,7 +275,7 @@ pub(crate) fn PublicWorkDetail(
                 }
                 Shape::Ready(_) => state
                     .with_untracked(|s| match s.phase() {
-                        WorkDetailPhase::Ready { work, .. } => Some(work.clone()),
+                        WorkDetailPhase::Ready { work, .. } => Some((**work).clone()),
                         _ => None,
                     })
                     .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more sync_controls/> }.into_any())
@@ -284,7 +287,7 @@ pub(crate) fn PublicWorkDetail(
 
 #[component]
 fn WorkSaveControl(
-    work: PresentedWorkSummary,
+    work: CoveredWorkSummary,
     first_publication_id: Signal<Option<String>>,
     locale: RwSignal<Locale>,
     controls: WorkSyncControls,
@@ -391,7 +394,7 @@ fn ReadyWork(
     state: RwSignal<WorkDetailState>,
     locale: RwSignal<Locale>,
     listen: ListenControls,
-    work: PresentedWorkSummary,
+    work: CoveredWorkSummary,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
     sync_controls: Option<WorkSyncControls>,
@@ -476,13 +479,15 @@ fn ReadyWork(
         WorkKind::Podcast => Key::PublicWorkUnitCountEpisodes,
         WorkKind::Novel | WorkKind::Story => Key::PublicWorkUnitCountChapters,
     };
+    let fallback_lang = lang.clone();
+    let fallback_title = work.title.clone();
     view! {
         <header class="theatre-work-intro theatre-public-work-intro">
-            <div class="theatre-cover" aria-hidden="true">
+            <PublicCover cover=work.cover.clone() lang=lang.clone() kind=kind_name(kind) class="theatre-public-work-cover">
                 <span class="theatre-cover-moon"></span>
-                <strong lang=lang.clone()>{work.title.clone()}</strong>
+                <strong lang=fallback_lang>{fallback_title}</strong>
                 <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
-            </div>
+            </PublicCover>
             <div>
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
@@ -577,7 +582,7 @@ fn press_current_unit(state: ReadSignal<WorkDetailState>, unit_id: &str, listen:
 fn UnitRow(
     state: ReadSignal<WorkDetailState>,
     unit_id: String,
-    work: PresentedWorkSummary,
+    work: CoveredWorkSummary,
     lang: String,
     locale: RwSignal<Locale>,
     listen: ListenControls,
@@ -754,7 +759,7 @@ fn UnitRow(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::{PresentedUnitPage, PresentedWorkPage};
+    use crate::contract::discovery::{CoveredWorkPage, PresentedUnitPage};
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
@@ -763,9 +768,9 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
-    fn fixture_work() -> PresentedWorkSummary {
-        let page: PresentedWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
+    fn fixture_work() -> CoveredWorkSummary {
+        let page: CoveredWorkPage = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
         ))
         .unwrap();
         page.items.into_iter().next().unwrap()
@@ -813,7 +818,7 @@ mod tests {
     }
     /// A ready Work with its page-one request in flight.
     fn opened(
-        work: PresentedWorkSummary,
+        work: CoveredWorkSummary,
     ) -> (WorkDetailState, crate::application::public_work::PageTicket) {
         let mut state = WorkDetailState::default();
         let ticket = state.open(PublicWorkId::parse(WORK).unwrap()).unwrap();
@@ -840,11 +845,12 @@ mod tests {
             .to_html()
         })
     }
+    /// Only the Server-authorized cover may be an image; nothing else is borrowed or invented.
     fn assert_no_fabrication(html: &str) {
+        assert!(html.matches("<img").count() <= 1, "{html}");
         for absent in [
             "<audio",
             "<video",
-            "<img",
             "Tập 1",
             "Chương 1",
             "Chương 8",
@@ -868,6 +874,42 @@ mod tests {
             state.finish_page(&first, Ok(page(items, Some("lc1_next")))),
             Step::Settled
         );
+    }
+
+    #[test]
+    fn detail_shows_the_authorized_cover_with_its_alt_text_and_keeps_title_and_listen() {
+        let work = fixture_work();
+        let cover = work.cover.clone().unwrap();
+        let (mut state, first) = opened(work);
+        state.finish_page(&first, Ok(page(vec![unit(1, "Chương một")], None)));
+        let html = render(state, Locale::Vietnamese);
+        assert!(html.contains(&format!("src=\"{}\"", cover.url)), "{html}");
+        assert!(
+            html.contains(&format!("alt=\"{}\"", cover.alt_text)),
+            "{html}"
+        );
+        assert!(html.contains("data-cover=\"loading\""), "{html}");
+        assert_eq!(html.matches("<img").count(), 1, "{html}");
+        // Title, summary and Listen never depend on the image.
+        assert!(
+            html.contains("Ánh đèn cuối sân khấu") && html.contains("theatre-public-work-listen")
+        );
+        // Private and rights metadata never reach the page.
+        for private in ["asset_id", "rights", "provenance", "storage", "owner"] {
+            assert!(!html.contains(private), "{private}");
+        }
+    }
+
+    #[test]
+    fn detail_without_a_cover_keeps_the_typographic_fallback_and_no_image() {
+        let mut work = fixture_work();
+        work.cover = None;
+        let (mut state, first) = opened(work);
+        state.finish_page(&first, Ok(page(vec![unit(1, "Chương một")], None)));
+        let html = render(state, Locale::Vietnamese);
+        assert!(html.contains("data-cover=\"none\""), "{html}");
+        assert!(!html.contains("<img"), "{html}");
+        assert!(html.contains("theatre-cover-moon"), "{html}");
     }
 
     #[test]

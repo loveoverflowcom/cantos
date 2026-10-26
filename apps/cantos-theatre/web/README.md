@@ -522,11 +522,27 @@ credentials omitted, the shared deadline and bounded bodies. It distinguishes lo
 `not_found` answer (no reason is guessed), retryable unavailable and protocol failures, a terminal
 empty list and a partial list with Load more. An empty page with a cursor is followed
 automatically within a small budget; a failed page keeps its rows and retries the same cursor;
-`invalid_cursor` restarts from page one without duplicating rows. Both reads send
-`presentation=1` and decode the `Presented*` DTOs: the Work shows the server's public
-`unit_count` ("Chương đã công bố: N") and each row its `ordinal` as "Vị trí N" — the current rank
-in the public list, never an identity or an author-assigned chapter number. No cover, genre or
-loaded-page-length total is shown. Listening is described under [Live guest playback](#live-guest-playback);
+`invalid_cursor` restarts from page one without duplicating rows. The Work list, search and
+detail reads send `presentation=2` and strictly decode `CoveredWorkPage`/`CoveredWorkSummary`; the
+unit reads send `presentation=1`. The Work shows the server's public `unit_count` ("Chương đã công
+bố: N") and each row its `ordinal` as "Vị trí N" — the current rank in the public list, never an
+identity or an author-assigned chapter number. No genre or loaded-page-length total is shown.
+
+**Public cover (#158, ADR 0033).** `cover` is required and nullable. `null` is the only no-cover
+state; a missing key, unknown field or out-of-bound value is a protocol failure of the whole read. A
+non-null cover is admitted only when its `url` is exactly
+`https://{origin}/api/v1/theatre/works/{this work_id}/cover/{its sha256}` with no credentials,
+query or fragment, its digest is 64 lower-case hex and its alt text is non-blank and at most
+1024 bytes (`application/public_cover.rs`); the client never derives or rewrites a URL. Discovery
+cards and the Work detail show the image over the existing decorative fallback (kind glyph or
+typographic cover) with its alt text and language. Every card thumbnail is one 2:3 frame in a
+bounded column (cover or fallback alike, so a shelf never reflows by image); the detail keeps the
+declared ratio, bounded in height. It is a
+cross-origin `<img>` (lazy, `no-referrer`, no CORS needed because no pixel is read; the shipped
+CSP has no `img-src`). A load error (revoked/expired/withdrawn `404`, `503`, corrupt bytes) removes
+the image and leaves the fallback with no dialog; title, link, Listen and playback never depend on
+it. Mock artwork is never a production fallback. Selecting a CORP header for the deployed origins
+and offline retention are open deployment decisions. Listening is described under [Live guest playback](#live-guest-playback);
 opening a Work plays nothing. Back returns to the opening card's focus and the search it came from.
 
 ### Identity v1 cookie session

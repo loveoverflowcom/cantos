@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import com.cantos.theatre.app.CantosTheatreApp
 import com.cantos.theatre.features.membership.presentation.LocalMembershipDiagnostics
 import com.cantos.theatre.features.membership.presentation.LocalMembershipIntroArtwork
+import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.LocalWorkArtwork
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.Density
@@ -31,6 +32,8 @@ fun PreviewTheatreApp(
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     density: Density = Density.Comfortable,
     motionPreference: MotionPreference = MotionPreference.Reduced,
+    /** Deterministic cover pipeline for fixtures; none keeps every cover on its fallback. */
+    coverImages: CoverImageSource? = null,
 ) {
     WithPreviewArtwork {
         CompositionLocalProvider(
@@ -51,6 +54,7 @@ fun PreviewTheatreApp(
                 backHandler = backHandler,
                 density = density,
                 motionPreference = motionPreference,
+                coverImages = coverImages,
             )
         }
     }

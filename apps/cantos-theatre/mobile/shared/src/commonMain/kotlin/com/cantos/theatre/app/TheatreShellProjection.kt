@@ -7,6 +7,7 @@ import com.cantos.theatre.application.catalog.PublicCatalogState
 import com.cantos.theatre.application.catalog.WalkPhase
 import com.cantos.theatre.application.playback.NativeSelection
 import com.cantos.theatre.domain.catalog.PublicUnit
+import com.cantos.theatre.domain.catalog.PublicCover
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicUnitKind
@@ -50,6 +51,7 @@ import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.ShellUnitKind
+import com.cantos.theatre.presentation.model.ShellCover
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.ShellWorkId
 
@@ -386,7 +388,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
         } else {
             ShellWork(workId, work.title, copy.text(work.kind.label()), work.description, ordered,
                 if (work.kind.unitKind == PublicUnitKind.Chapter) ShellUnitKind.Chapter else ShellUnitKind.Episode,
-                entry.unitsPhase, entry.detailPhase)
+                entry.unitsPhase, entry.detailPhase, cover = work.cover?.let(::shellCover))
         }
     }
 
@@ -397,6 +399,10 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 
     private fun seconds(durationMs: Long): Int = ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 }
+
+private fun shellCover(cover: PublicCover) = ShellCover(
+    cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText,
+)
 
 private fun LibraryWorkKind.toPublic(): PublicWorkKind = when (this) {
     LibraryWorkKind.Novel -> PublicWorkKind.Novel

@@ -23,8 +23,8 @@ fn same<T: DeserializeOwned + Serialize>(json: &str) {
 
 #[test]
 fn discovery_fixtures_round_trip_through_the_theatre_representation() {
-    same::<discovery::PresentedWorkPage>(server!(
-        "theatre/discovery/v1/fixtures/presented_works.json"
+    same::<discovery::CoveredWorkPage>(server!(
+        "theatre/discovery/v1/fixtures/cover/covered_works.json"
     ));
     same::<discovery::PresentedUnitPage>(server!(
         "theatre/discovery/v1/fixtures/presented_units.json"

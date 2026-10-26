@@ -38,7 +38,7 @@ provider, device or browser observation.
 | "First published" | Catalog | `first_published_at_ms` | Immutable first-index anchor; republish never moves it | P0 |
 | Work missing, private, withdrawn, expired, owner-disabled | Catalog | `404 not_found` (`not_found.json`) | One merged anonymous answer; no reason, no 410 | P0, by design |
 | Non-canonical Work id | Catalog | `400 invalid_request` | Strict canonical lower-case UUID | P0 |
-| Cover or fallback art | Deferred | none (`WorkSummary` has no cover) | [#171](https://github.com/loveoverflowcom/cantos/issues/171), [ADR 0033](../decisions/0033-release-pinned-public-cover.md) accepted (v1.2 `presentation=2`, `cover: null` fallback) | Deferred until #171; FE shows its fallback |
+| Cover or fallback art | Catalog (`presentation=2`) | `cover` (required nullable `CoverImage`) | [#171](https://github.com/loveoverflowcom/cantos/issues/171), [ADR 0033](../decisions/0033-release-pinned-public-cover.md) (v1.2, `cover: null` and any image failure show the FE fallback) | Backend implemented by #171; Web and CMP consume it on Discovery cards and Work detail (browser/device acceptance separate) |
 | Genres, credits, seasons, transcript, markers | Deferred | none | P1, [ADR 0030](../decisions/0030-release-safe-public-metadata.md) | Deferred; fixtures stay labelled in preview only |
 | Unit count or total duration | — | none | Would disclose hidden-unit existence | Gap G5; FE must not invent it |
 | CTA "Nghe" (first unit) | Catalog | first page of `GET /works/{work}/units`, first item | Display order, see `position` below | P0; CTA disabled until the page loads; never autoplays |

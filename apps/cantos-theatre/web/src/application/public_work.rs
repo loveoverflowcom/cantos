@@ -8,7 +8,7 @@
 //! `ordinal` come from the presentation DTOs (`presentation=1`); the loaded rows never supply a
 //! total, and the rank is neither an identity nor an author-assigned number.
 use crate::contract::discovery::{
-    PresentedUnitPage, PresentedUnitSummary, PresentedWorkSummary, UnitKind, WorkKind,
+    CoveredWorkSummary, PresentedUnitPage, PresentedUnitSummary, UnitKind, WorkKind,
 };
 use crate::core::public_ids::{canonical_uuid, PublicWorkId};
 use std::collections::BTreeSet;
@@ -62,10 +62,11 @@ pub const fn unit_kind_for(kind: WorkKind) -> UnitKind {
 }
 
 /// The detail must be the Work named by the route, with renderable public text.
-pub fn validate_work(work: &PresentedWorkSummary, expected: PublicWorkId) -> bool {
+pub fn validate_work(work: &CoveredWorkSummary, expected: PublicWorkId) -> bool {
     PublicWorkId::parse(&work.work_id) == Some(expected)
         && !work.title.trim().is_empty()
         && !work.language.trim().is_empty()
+        && crate::application::public_cover::work_is_admitted(work, expected)
 }
 
 /// Page-local checks shared by the HTTP decoder and the state machine.
@@ -258,7 +259,7 @@ pub enum WorkDetailPhase {
     NotFound,
     Failed(ReadFailure),
     Ready {
-        work: PresentedWorkSummary,
+        work: Box<CoveredWorkSummary>,
         units: Box<UnitList>,
     },
 }
@@ -336,7 +337,7 @@ impl WorkDetailState {
     pub fn finish_work(
         &mut self,
         ticket: &WorkTicket,
-        result: Result<PresentedWorkSummary, CatalogReadError>,
+        result: Result<CoveredWorkSummary, CatalogReadError>,
     ) -> Step {
         if ticket.generation != self.generation
             || self.work != Some(ticket.work)
@@ -347,7 +348,7 @@ impl WorkDetailState {
         self.phase = match result {
             Ok(work) if validate_work(&work, ticket.work) => {
                 self.phase = WorkDetailPhase::Ready {
-                    work,
+                    work: Box::new(work),
                     units: Box::default(),
                 };
                 return self.request_page().map_or(Step::Settled, Step::Continue);
@@ -491,10 +492,10 @@ mod tests {
     fn work_id() -> PublicWorkId {
         PublicWorkId::parse(WORK).unwrap()
     }
-    fn work_summary() -> PresentedWorkSummary {
-        let page: crate::contract::discovery::PresentedWorkPage =
+    fn work_summary() -> CoveredWorkSummary {
+        let page: crate::contract::discovery::CoveredWorkPage =
             serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
         ))
             .unwrap();
         page.items.into_iter().next().unwrap()
