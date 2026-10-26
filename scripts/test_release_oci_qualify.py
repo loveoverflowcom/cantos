@@ -260,6 +260,22 @@ class QualificationContract(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "^stop-identity:PODMAN_RM_EXIT_125$"):
                 fixture.pod("rm", "owned-identity")
 
+    def test_wrong_peer_requires_actual_environment_and_static_ready_and_refusal_events(self):
+        values = {**qualify.IDENTITY_ENV, "CANTOS_IDENTITY_SERVER_UIDS": "10003"}
+        entries = [key + "=" + value for key, value in values.items()]
+        qualify.check_runtime_environment("cantos-identity", entries, 10003)
+        with self.assertRaisesRegex(ValueError, "ENVIRONMENT_MISMATCH"):
+            qualify.check_runtime_environment("cantos-identity", entries, 10001)
+        with self.assertRaisesRegex(ValueError, "ENVIRONMENT_AMBIGUOUS"):
+            qualify.check_runtime_environment("cantos-identity", entries + [entries[0]], 10003)
+        ready = b'{"event":"ready","mail":"configured"}\n'
+        refused = b'{"event":"connection_refused","detail":"peer is not an allowed caller"}\n'
+        self.assertEqual(qualify.peer_refusal_events(ready + refused),
+                         ["identity-ready-event", "identity-connection-refused-event"])
+        for data in (b"", ready, refused, ready + b'{"event":"unavailable"}\n'):
+            with self.assertRaisesRegex(ValueError, "PEER_REFUSAL_NOT_OBSERVED"):
+                qualify.peer_refusal_events(data)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,6 +62,12 @@ correct credentials must work again after the negative control. No recursive dep
 or broad cleanup option is used. Podman failures identify the operation and exit code without
 echoing command arguments or remote stderr.
 
+The wrong-peer request expects HTTP 503: Identity drops non-allowlisted OS peers before reading
+RPC bytes, which the Server maps to unavailable transport, not password denial (401). This is
+accepted only alongside the actual wrong-caller runtime environment and both static Identity
+`ready` and `connection_refused` events; a generic 503 alone cannot pass this control. Correct
+credentials must work before and after restoring the peer policy. Raw logs are never emitted.
+
 The all-layer policy includes files deleted by later layers. It rejects database/audio assets,
 credential paths/files and private-key payload markers, and checks the exact service binary set.
 CA certificates and executable parser strings are allowed. This disclosed policy is not a
