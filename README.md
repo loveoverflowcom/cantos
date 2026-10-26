@@ -72,6 +72,10 @@ prepared tools for the selected target. No PostgreSQL, Kanidm, container engine 
 needed for native checks. Editor exclusions in `.vscode/settings.json` hide generated output;
 they never delete data or change Git tracking.
 
+The repository gate also checks the whole [pre-ADR localization fixture](docs/evidence/fixtures/localization-foundation/README.md)
+and deterministic Rust/Kotlin projection drift. This experiment adds no application runtime;
+[ADR 0050](docs/decisions/0050-localization-semantic-catalog.md) remains proposed under #167.
+
 ```sh
 cargo xtask doctor
 cargo xtask services list

@@ -1,0 +1,190 @@
+[
+  {
+    "locale": "vi-VN",
+    "key": "common.cancel",
+    "args": {},
+    "expected": "Hủy"
+  },
+  {
+    "locale": "en-GB",
+    "key": "common.cancel",
+    "args": {},
+    "expected": "Cancel"
+  },
+  {
+    "locale": "ja-JP",
+    "key": "common.cancel",
+    "args": {},
+    "expected": "キャンセル",
+    "includeTest": true
+  },
+  {
+    "locale": "en",
+    "key": "theatre.player.bookmark.add",
+    "args": {
+      "time": "12:05",
+      "title": "Lời hẹn {time} <b> & \" %1$s"
+    },
+    "expected": "At 12:05, add bookmark for Lời hẹn {time} <b> & \" %1$s"
+  },
+  {
+    "locale": "vi",
+    "key": "theatre.player.bookmark.add",
+    "args": {
+      "title": "Lời hẹn {time}",
+      "time": "12:05"
+    },
+    "expected": "Thêm dấu trang cho Lời hẹn {time} lúc 12:05"
+  },
+  {
+    "locale": "ja",
+    "key": "theatre.player.bookmark.add",
+    "args": {
+      "title": "Lời hẹn {time}",
+      "time": "12:05"
+    },
+    "expected": "Lời hẹn {time} の 12:05 にブックマークを追加",
+    "includeTest": true
+  },
+  {
+    "locale": "vi-VN",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 0
+    },
+    "expected": "0 tập",
+    "includeTest": false
+  },
+  {
+    "locale": "vi-VN",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 1
+    },
+    "expected": "1 tập",
+    "includeTest": false
+  },
+  {
+    "locale": "vi-VN",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 2
+    },
+    "expected": "2 tập",
+    "includeTest": false
+  },
+  {
+    "locale": "en",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 0
+    },
+    "expected": "0 episodes",
+    "includeTest": false
+  },
+  {
+    "locale": "en",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 1
+    },
+    "expected": "1 episode",
+    "includeTest": false
+  },
+  {
+    "locale": "en",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 2
+    },
+    "expected": "2 episodes",
+    "includeTest": false
+  },
+  {
+    "locale": "ja",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 0
+    },
+    "expected": "0 話",
+    "includeTest": true
+  },
+  {
+    "locale": "ja",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 1
+    },
+    "expected": "1 話",
+    "includeTest": true
+  },
+  {
+    "locale": "ja",
+    "key": "theatre.library.episode_count",
+    "args": {
+      "count": 2
+    },
+    "expected": "2 話",
+    "includeTest": true
+  },
+  {
+    "locale": "vi-VN",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "draft"
+    },
+    "expected": "Bản nháp",
+    "includeTest": false
+  },
+  {
+    "locale": "vi-VN",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "ready"
+    },
+    "expected": "Sẵn sàng",
+    "includeTest": false
+  },
+  {
+    "locale": "en",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "draft"
+    },
+    "expected": "Draft",
+    "includeTest": false
+  },
+  {
+    "locale": "en",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "ready"
+    },
+    "expected": "Ready",
+    "includeTest": false
+  },
+  {
+    "locale": "ja",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "draft"
+    },
+    "expected": "下書き",
+    "includeTest": true
+  },
+  {
+    "locale": "ja",
+    "key": "studio.publication.state",
+    "args": {
+      "state": "ready"
+    },
+    "expected": "準備完了",
+    "includeTest": true
+  },
+  {
+    "locale": "en",
+    "key": "common.error.unavailable",
+    "args": {},
+    "expected": "The service is temporarily unavailable. Try again."
+  }
+]
