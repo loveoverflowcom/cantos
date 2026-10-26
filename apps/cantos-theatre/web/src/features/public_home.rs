@@ -1054,7 +1054,10 @@ mod tests {
             assert!(button.contains("cui-sr-only"));
             assert_eq!(html.matches("cui-field-trailing").count(), 1);
             for forbidden in ["arrow_forward", "mic", "voice"] {
-                assert!(!html.contains(&format!("name=\"{forbidden}\"")), "{forbidden}");
+                assert!(
+                    !html.contains(&format!("name=\"{forbidden}\"")),
+                    "{forbidden}"
+                );
             }
         }
     }
