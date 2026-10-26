@@ -801,7 +801,7 @@ pub fn Studio() -> impl IntoView {
                 <Show when=move ||entry_state.get()!=Entry::SignInUnavailable>
                     <SignInPanel id="session" form=entry_form english=english blocked=auth_blocked on_submit=submit_entry/>
                 </Show>
-                <p class="help">{move || entry_text(EntryKey::MemoryHelp,english.get())}</p>
+                <p class="help" hidden=move || !unsaved.get()>{move || entry_text(EntryKey::MemoryHelp,english.get())}</p>
                 <div class="entry-recovery">
                     <div hidden=move ||entry_state.get()==Entry::Login && !unsaved.get()>
                     <ActionButton id="session-refresh" english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=refresh>{move ||entry_text(EntryKey::Retry,english.get())}</ActionButton>
