@@ -101,6 +101,17 @@ fn auth_action_state(
     })
 }
 
+fn login_key_submits(key: &str, is_composing: bool, input_target: bool) -> bool {
+    input_target && key == "Enter" && !is_composing
+}
+
+fn password_eye_names(locale: Locale) -> Option<(AccessibleName, AccessibleName)> {
+    Some((
+        AccessibleName::new(auth_copy::text(CopyKey::LoginShowPassword, locale)).ok()?,
+        AccessibleName::new(auth_copy::text(CopyKey::LoginHidePassword, locale)).ok()?,
+    ))
+}
+
 /// Entry actions of the account page: they open the explicit auth routes, behind the same
 /// cleanup barrier as the forms themselves.
 #[component]
@@ -203,9 +214,13 @@ fn LoginForm(
         <form class="theatre-auth-actions" id="theatre-login-form"
             on:submit=move |event| { event.prevent_default(); submit(); }
             on:keydown=move |event| {
-                // Buttons are never submit buttons, so Enter submits explicitly, except while an
-                // IME composition (Vietnamese Telex/VNI) is still choosing its text.
-                if event.key() == "Enter" && !event.is_composing() {
+                use leptos::wasm_bindgen::JsCast;
+                let input_target = event.target().is_some_and(|target| {
+                    target.dyn_ref::<leptos::web_sys::HtmlInputElement>().is_some()
+                });
+                // Input Enter submits outside composition. Buttons keep their native activation,
+                // so the password eye never submits credentials.
+                if login_key_submits(&event.key(), event.is_composing(), input_target) {
                     event.prevent_default();
                     submit();
                 }
@@ -224,12 +239,14 @@ fn LoginForm(
                 state=field_state
                 on_input=Callback::new(move |value| password.set(value))
                 trailing=move || view! {
-                    <IconButton id="theatre-login-password-eye"
-                        name=Signal::derive(move || AccessibleName::new(auth_copy::text(
-                            if revealed.get() { CopyKey::LoginHidePassword } else { CopyKey::LoginShowPassword },
-                            locale.get())).unwrap_or_else(|_| AccessibleName::new("Password").expect("static name")))
-                        icon=Signal::derive(move || if revealed.get() { IconName::VisibilityOff } else { IconName::Visibility })
-                        on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
+                    // Validate both localized names before mounting; toggling only updates the
+                    // existing button's attributes, retaining keyboard focus on the eye.
+                    {move || password_eye_names(locale.get()).map(|(show, hide)| view! {
+                        <IconButton id="theatre-login-password-eye"
+                            name=Signal::derive(move || if revealed.get() { hide.clone() } else { show.clone() })
+                            icon=Signal::derive(move || if revealed.get() { IconName::VisibilityOff } else { IconName::Visibility })
+                            on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
+                    })}
                 }/>
             {move || availability.get().map(|availability| view! {
                 <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login state=availability
@@ -602,6 +619,31 @@ mod tests {
                 html.find("theatre-login-password-eye").unwrap()
                     < html.find("theatre-auth-login").unwrap()
             );
+        }
+    }
+
+    #[test]
+    fn login_enter_only_submits_from_inputs_outside_ime_composition() {
+        assert!(login_key_submits("Enter", false, true));
+        assert!(!login_key_submits("Enter", true, true));
+        assert!(!login_key_submits(" ", false, true));
+        assert!(!login_key_submits("Escape", false, true));
+        assert!(
+            !login_key_submits("Enter", false, false),
+            "Enter on the password eye or a button must keep its native activation"
+        );
+        assert!(!login_key_submits("Enter", true, false));
+    }
+
+    #[test]
+    fn password_eye_names_are_admitted_in_both_locales_before_mounting() {
+        for (locale, show, hide) in [
+            (Locale::Vietnamese, "Hiện mật khẩu", "Ẩn mật khẩu"),
+            (Locale::English, "Show password", "Hide password"),
+        ] {
+            let names = password_eye_names(locale).expect("both localized names must be nonblank");
+            assert_eq!(names.0.as_str(), show);
+            assert_eq!(names.1.as_str(), hide);
         }
     }
 

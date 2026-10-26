@@ -20,13 +20,12 @@ import kotlinx.coroutines.withContext
  * The process's cover pipeline: verified bytes -> decoded image, with at most [maxConcurrent]
  * reads in flight and a small in-memory cache. Nothing is written to disk.
  *
- * The Server serves covers `public, no-cache` so a revoked image stops at the next request.
- * A decoded image is therefore reused for at most [freshForMs] and only for the exact URL it
- * was read from (the URL names the Work and the digest, so one Work's authorization is never
- * another's), then read again. A 404 on a digest-pinned URL is stable for that URL and is
- * remembered for the process: a refreshed summary carries a different URL or no cover. Any other
- * failure is not remembered, so a later composition may retry. Memory is bounded by
- * [budgetBytes] of decoded pixels, least recently used first.
+ * The Server serves covers `public, no-cache`: every load revalidates the exact disclosed
+ * request before showing pixels, including a previously decoded image. Only after fresh byte
+ * verification may decoded pixels be reused for [freshForMs], and only for that exact URL
+ * (which names the Work and digest). Refusals discard cached pixels and are never retained,
+ * so a later authorized read can recover. Memory is bounded by [budgetBytes] of decoded pixels,
+ * least recently used first; the freshness window controls decoding, never authorization.
  */
 class CoverImages(
     private val source: CoverBytesSource,
@@ -41,30 +40,25 @@ class CoverImages(
     private val gate = Semaphore(maxConcurrent)
     private val lock = Mutex()
     private val decoded = LinkedHashMap<String, Entry>()
-    private val missing = HashSet<String>()
     private var used = 0L
 
-    override suspend fun load(cover: ShellCover): CoverLoad {
-        lookup(cover.url)?.let { return it }
-        return gate.withPermit {
-            lookup(cover.url)?.let { return@withPermit it }
-            val request = CoverRequest(cover.url, cover.sha256, cover.byteLength, cover.mime)
-            when (val bytes = source.fetch(request)) {
-                is CoverBytes.Verified -> {
-                    val bitmap = withContext(Dispatchers.Default) { decoder.decode(bytes.bytes, CoverDecodeMaxEdgePx) }
-                    if (bitmap == null) CoverLoad.Unavailable else remember(cover.url, bitmap)
-                }
-                CoverBytes.NotFound -> {
-                    lock.withLock { missing += cover.url }
-                    CoverLoad.Unavailable
-                }
-                CoverBytes.Unavailable, CoverBytes.Refused -> CoverLoad.Unavailable
+    override suspend fun load(cover: ShellCover): CoverLoad = gate.withPermit {
+        val request = CoverRequest(cover.url, cover.sha256, cover.byteLength, cover.mime)
+        when (val bytes = source.fetch(request)) {
+            is CoverBytes.Verified -> {
+                lookup(cover.url)?.let { return@withPermit it }
+                val bitmap = withContext(Dispatchers.Default) { decoder.decode(bytes.bytes, CoverDecodeMaxEdgePx) }
+                if (bitmap == null) CoverLoad.Unavailable else remember(cover.url, bitmap)
+            }
+            CoverBytes.NotFound, CoverBytes.Unavailable, CoverBytes.Refused -> {
+                lock.withLock { decoded.remove(cover.url)?.let { used -= it.bytes } }
+                CoverLoad.Unavailable
             }
         }
     }
 
+    /** Decoded reuse is safe only after this load has freshly verified the disclosed bytes. */
     private suspend fun lookup(url: String): CoverLoad? = lock.withLock {
-        if (url in missing) return@withLock CoverLoad.Unavailable
         val entry = decoded.remove(url) ?: return@withLock null
         if (nowMs() - entry.loadedAtMs >= freshForMs) {
             used -= entry.bytes

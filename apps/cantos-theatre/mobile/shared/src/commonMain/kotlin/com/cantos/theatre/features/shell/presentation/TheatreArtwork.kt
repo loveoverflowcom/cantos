@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,15 +103,17 @@ private fun CoverArtwork(
     shape: Shape,
     contentScale: ContentScale,
 ) {
-    // Keyed by the disclosed digest: a republished or revoked image is another key, and leaving
-    // the composition cancels the read.
-    val loaded by produceState<CoverLoad?>(null, cover.sha256) {
-        value = try {
-            source.load(cover)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            CoverLoad.Unavailable
+    // A digest does not grant another Work's authorization. Recreate the state when any
+    // disclosed fact or the host source changes, so no old image survives the next pending read.
+    val loaded by key(cover, source) {
+        produceState<CoverLoad?>(null) {
+            value = try {
+                source.load(cover)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                CoverLoad.Unavailable
+            }
         }
     }
     when (val result = loaded) {

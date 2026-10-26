@@ -3,8 +3,12 @@ package com.cantos.theatre.app
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.testTag
@@ -37,6 +41,8 @@ import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackObservation
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.CoverLoad
+import com.cantos.theatre.features.shell.presentation.LocalCoverImages
+import com.cantos.theatre.features.shell.presentation.WorkArtwork
 import com.cantos.theatre.ports.PlaybackAccessPort
 import com.cantos.theatre.ports.PlaybackAccessResult
 import com.cantos.theatre.ports.PlaybackGrant
@@ -45,6 +51,9 @@ import com.cantos.theatre.ports.PublicCatalogPort
 import com.cantos.theatre.ports.PublicCatalogRead
 import com.cantos.theatre.ports.StreamingMediaEngine
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellWorkId
+import com.cantos.ui.CantosTheme
+import com.cantos.ui.UiPreferences
 import kotlin.test.assertEquals
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -120,6 +129,78 @@ class PublicCoverUiTest {
 
     private val image = ImageBitmap(8, 12)
     private fun pipeline() = Covers { cover -> if (cover.sha256 == sample.cover(3).sha256) CoverLoad.Unavailable else CoverLoad.Ready(image) }
+
+    private fun shellCover(n: Int): ShellCover {
+        val cover = sample.cover(n)
+        return ShellCover(cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText)
+    }
+
+    private fun androidx.compose.ui.test.ComposeUiTest.mountArtwork(cover: () -> ShellCover, source: () -> CoverImageSource) {
+        setContent {
+            CantosTheme(UiPreferences()) {
+                CompositionLocalProvider(LocalCoverImages provides source()) {
+                    WorkArtwork(ShellWorkId("current-work"), Modifier.requiredSize(80.dp, 120.dp), cover = cover())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun changing_the_work_url_with_the_same_digest_rechecks_the_new_authorization() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val first = shellCover(1)
+        val second = first.copy(
+            url = "https://api.cantos.example/api/v1/theatre/works/${sample.workId(2).value}/cover/${first.sha256}",
+            altText = "Bìa thứ hai",
+        )
+        var cover by mutableStateOf(first)
+        val requested = mutableListOf<ShellCover>()
+        val source = CoverImageSource {
+            requested += it
+            if (it == first) CoverLoad.Ready(image) else CoverLoad.Unavailable
+        }
+        mountArtwork({ cover }, { source })
+        waitUntil { onAllNodesWithTag("cover-image", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+        runOnIdle { cover = second }
+        waitForIdle()
+        assertEquals(listOf(first, second), requested)
+        onAllNodesWithTag("cover-image", useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun a_changed_cover_shows_the_fallback_while_its_new_read_is_suspended() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val first = shellCover(1)
+        val second = shellCover(2)
+        var cover by mutableStateOf(first)
+        val next = CompletableDeferred<CoverLoad>()
+        val requested = mutableListOf<ShellCover>()
+        val source = CoverImageSource {
+            requested += it
+            if (it == first) CoverLoad.Ready(image) else next.await()
+        }
+        mountArtwork({ cover }, { source })
+        waitUntil { onAllNodesWithTag("cover-image", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+        runOnIdle { cover = second }
+        waitForIdle()
+        assertEquals(listOf(first, second), requested)
+        onAllNodesWithTag("cover-image", useUnmergedTree = true).assertCountEquals(0)
+        onAllNodesWithContentDescription(second.altText, useUnmergedTree = true).assertCountEquals(0)
+        next.complete(CoverLoad.Ready(image))
+        waitUntil { onAllNodesWithContentDescription(second.altText, useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+    }
+
+    @Test
+    fun replacing_the_cover_source_reloads_the_same_cover_instead_of_retaining_its_bitmap() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val cover = shellCover(1)
+        val first = Covers { CoverLoad.Ready(image) }
+        val second = Covers { CoverLoad.Unavailable }
+        var source: CoverImageSource by mutableStateOf(first)
+        mountArtwork({ cover }, { source })
+        waitUntil { onAllNodesWithTag("cover-image", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+        runOnIdle { source = second }
+        waitForIdle()
+        assertEquals(listOf(cover.sha256), second.loads)
+        onAllNodesWithTag("cover-image", useUnmergedTree = true).assertCountEquals(0)
+    }
 
     @Test
     fun a_card_shows_its_real_cover_with_alt_text_and_null_or_failed_covers_keep_the_fallback() = runDesktopComposeUiTest(width = 390, height = 844) {

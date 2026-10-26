@@ -96,6 +96,10 @@
       "declaration": "fetchRevokedTest"
     },
     {
+      "id": "cantos.media.public-cover-projection.run.fetch-restored-disclosure",
+      "declaration": "fetchRestoredDisclosureTest"
+    },
+    {
       "id": "cantos.media.public-cover-projection.run.fetch-expired",
       "declaration": "fetchExpiredTest"
     },
