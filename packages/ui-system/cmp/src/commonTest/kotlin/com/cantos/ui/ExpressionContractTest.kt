@@ -57,6 +57,17 @@ class ExpressionContractTest {
     }
 
     @Test
+    fun the_docked_search_geometry_is_canonical_and_its_motion_is_not_a_native_role() {
+        assertEquals(72.0, CantosTokens.number("size.searchHeader"))
+        assertEquals(36.0, CantosTokens.number("shape.searchRest"))
+        assertEquals(28.0, CantosTokens.number("shape.searchOpen"))
+        // Resting radius is half the minimum header, so the idle search is a capsule at 72.
+        assertEquals(CantosTokens.number("size.searchHeader") / 2, CantosTokens.number("shape.searchRest"))
+        // The 280/200 ms open and close are a Web design seed; native keeps its motion scheme.
+        assertTrue(CantosTokens.names.none { it.startsWith("motion.search") })
+    }
+
+    @Test
     fun the_theatre_chip_radius_moves_from_its_resting_radius_to_a_capsule_without_overshoot() {
         val side = 48f
         assertEquals(12f, chipRadius(side, 12f, 0f))

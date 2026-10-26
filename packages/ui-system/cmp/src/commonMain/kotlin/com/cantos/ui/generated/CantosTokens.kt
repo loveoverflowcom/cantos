@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.7.0 sha256:f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3
+// Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.7.0"
+    const val version: String = "0.8.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -85,6 +85,8 @@ object CantosTokens {
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
         TokenValue("shape.profileContainer", "dimension", "36", "36", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
+        TokenValue("shape.searchOpen", "dimension", "28", "28", null, null, null),
+        TokenValue("shape.searchRest", "dimension", "36", "36", null, null, null),
         TokenValue("shape.statusSymbol", "dimension", "28", "28", null, null, null),
         TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
         TokenValue("size.authField", "dimension", "56", "56", null, null, null),
@@ -106,6 +108,7 @@ object CantosTokens {
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
         TokenValue("size.searchAction", "dimension", "52", "52", null, null, null),
+        TokenValue("size.searchHeader", "dimension", "72", "72", null, null, null),
         TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),
         TokenValue("space.controlInline", "dimension", "12", "12", "12", "16", null),
         TokenValue("space.inset", "dimension", "12", "12", null, null, null),

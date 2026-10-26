@@ -476,7 +476,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.7.0";
+pub const TOKEN_VERSION: &str = "0.8.0";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -1219,6 +1219,26 @@ pub const TOKENS: &[TokenRegistration] = &[
         alias_of: None,
     },
     TokenRegistration {
+        name: "shape.searchOpen",
+        css_variable: "--cantos-shape-search-open",
+        kind: "dimension",
+        light: "1.75rem",
+        dark: "1.75rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "shape.searchRest",
+        css_variable: "--cantos-shape-search-rest",
+        kind: "dimension",
+        light: "2.25rem",
+        dark: "2.25rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
         name: "shape.statusSymbol",
         css_variable: "--cantos-shape-status-symbol",
         kind: "dimension",
@@ -1424,6 +1444,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "dimension",
         light: "3.25rem",
         dark: "3.25rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "size.searchHeader",
+        css_variable: "--cantos-size-search-header",
+        kind: "dimension",
+        light: "4.5rem",
+        dark: "4.5rem",
         compact: None,
         comfortable: None,
         alias_of: None,

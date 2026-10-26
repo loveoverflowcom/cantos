@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.7.0 sha256:f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3
+// Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.7.0";
+pub const VERSION: &str = "0.8.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -80,6 +80,8 @@ pub enum Token {
     ShapePill,
     ShapeProfileContainer,
     ShapeReading,
+    ShapeSearchOpen,
+    ShapeSearchRest,
     ShapeStatusSymbol,
     ShapeThumbnail,
     SizeAuthField,
@@ -101,6 +103,7 @@ pub enum Token {
     SizeIcon,
     SizeIconCompact,
     SizeSearchAction,
+    SizeSearchHeader,
     SizeStatusSymbol,
     SpaceControlInline,
     SpaceInset,
@@ -223,6 +226,8 @@ pub const ALL: &[Token] = &[
     Token::ShapePill,
     Token::ShapeProfileContainer,
     Token::ShapeReading,
+    Token::ShapeSearchOpen,
+    Token::ShapeSearchRest,
     Token::ShapeStatusSymbol,
     Token::ShapeThumbnail,
     Token::SizeAuthField,
@@ -244,6 +249,7 @@ pub const ALL: &[Token] = &[
     Token::SizeIcon,
     Token::SizeIconCompact,
     Token::SizeSearchAction,
+    Token::SizeSearchHeader,
     Token::SizeStatusSymbol,
     Token::SpaceControlInline,
     Token::SpaceInset,
@@ -369,6 +375,8 @@ impl Token {
             Self::ShapePill => "--cantos-shape-pill",
             Self::ShapeProfileContainer => "--cantos-shape-profile-container",
             Self::ShapeReading => "--cantos-shape-reading",
+            Self::ShapeSearchOpen => "--cantos-shape-search-open",
+            Self::ShapeSearchRest => "--cantos-shape-search-rest",
             Self::ShapeStatusSymbol => "--cantos-shape-status-symbol",
             Self::ShapeThumbnail => "--cantos-shape-thumbnail",
             Self::SizeAuthField => "--cantos-size-auth-field",
@@ -390,6 +398,7 @@ impl Token {
             Self::SizeIcon => "--cantos-size-icon",
             Self::SizeIconCompact => "--cantos-size-icon-compact",
             Self::SizeSearchAction => "--cantos-size-search-action",
+            Self::SizeSearchHeader => "--cantos-size-search-header",
             Self::SizeStatusSymbol => "--cantos-size-status-symbol",
             Self::SpaceControlInline => "--cantos-space-control-inline",
             Self::SpaceInset => "--cantos-space-inset",
@@ -669,6 +678,8 @@ impl Token {
             Self::ShapePill => "62.4375rem",
             Self::ShapeProfileContainer => "2.25rem",
             Self::ShapeReading => "0.75rem",
+            Self::ShapeSearchOpen => "1.75rem",
+            Self::ShapeSearchRest => "2.25rem",
             Self::ShapeStatusSymbol => "1.75rem",
             Self::ShapeThumbnail => "0.625rem",
             Self::SizeAuthField => "3.5rem",
@@ -690,6 +701,7 @@ impl Token {
             Self::SizeIcon => "1.5rem",
             Self::SizeIconCompact => "1.25rem",
             Self::SizeSearchAction => "3.25rem",
+            Self::SizeSearchHeader => "4.5rem",
             Self::SizeStatusSymbol => "4.5rem",
             Self::SpaceControlInline => "0.75rem",
             Self::SpaceInset => "0.75rem",

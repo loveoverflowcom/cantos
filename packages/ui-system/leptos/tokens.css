@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.7.0 sha256:f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3
+/* Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -75,6 +75,8 @@
   --cantos-shape-pill: 62.4375rem;
   --cantos-shape-profile-container: 2.25rem;
   --cantos-shape-reading: 0.75rem;
+  --cantos-shape-search-open: 1.75rem;
+  --cantos-shape-search-rest: 2.25rem;
   --cantos-shape-status-symbol: 1.75rem;
   --cantos-shape-thumbnail: 0.625rem;
   --cantos-size-auth-field: 3.5rem;
@@ -96,6 +98,7 @@
   --cantos-size-icon: 1.5rem;
   --cantos-size-icon-compact: 1.25rem;
   --cantos-size-search-action: 3.25rem;
+  --cantos-size-search-header: 4.5rem;
   --cantos-size-status-symbol: 4.5rem;
   --cantos-space-control-inline: 0.75rem;
   --cantos-space-inset: 0.75rem;

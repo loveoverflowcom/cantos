@@ -564,7 +564,7 @@ class ExpressionContract(unittest.TestCase):
 class CanonicalRepositoryTokens(unittest.TestCase):
     def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
         source = validate(load_source(SOURCE.read_bytes()))
-        self.assertEqual(source["version"], "0.7.0")
+        self.assertEqual(source["version"], "0.8.0")
         self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
         self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
         self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))

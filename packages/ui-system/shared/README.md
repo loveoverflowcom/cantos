@@ -1,4 +1,10 @@
-# Shared semantic contract v0.7.0
+# Shared semantic contract v0.8.0
+
+v0.8.0 adds the docked-search geometry of Search v4.3 ([#452](https://github.com/loveoverflowcom/cantos/issues/452)):
+`size.searchHeader` 72 (minimum header, grows with text), `shape.searchRest` 36 and `shape.searchOpen` 28
+(resting and open dock radius). Nothing existing changes value. The 280/200 ms open/close motion is
+deliberately **not** a canonical role: it is a Web design seed (`--cantos-web-search-*` in
+`foundation.css.in`) and native renderers keep their own motion scheme.
 
 v0.7.0 adds the **Theatre expression** ([#452](https://github.com/loveoverflowcom/cantos/issues/452),
 owner direction of 2026-10-25): an opt-in role remap for one subtree, 17 themed `color.theatre*`
@@ -96,9 +102,9 @@ The expressive proposal's hexes are Theatre-only provenance in
 [#452](https://github.com/loveoverflowcom/cantos/issues/452); `tokens.json` remains the sole source.
 
 Renderer-local geometry stays out of the canonical source (design v4 calls the numbers starting
-points, not shared pixels): Web declares 68 minimum shell, 16 radius and a 72-unit pill search in
+points, not shared pixels): Web declares 68 minimum shell and 16 radius (the search header uses the canonical roles) in
 `foundation.css.in` under `[data-expression="theatre"]`; CMP names `FloatingFieldMinHeight` 68,
-`FloatingFieldRadius` 16 and `FloatingSearchMinHeight` 72 in `Fields.kt`. The shared sizes are the
+`FloatingFieldRadius` 16 in `Fields.kt`; the search header minimum is the canonical `size.searchHeader`. The shared sizes are the
 ones both renderers and every consumer must agree on: a 48-unit header control (`size.avatarControl`,
 also the minimum hit area), a 44-unit official mark 12 units before the wordmark (`size.brandMark`,
 `space.inset`) and a 52-unit docked search action (`size.searchAction`).
