@@ -57,6 +57,20 @@ class PlaybackAccessHttpTest {
     }
 
     @Test
+    fun clock_skew_is_tolerated_behind_the_server_but_never_admits_an_expired_grant() = runTest {
+        // The server issues its own now + 120 s; the device clock is independent of it.
+        val serverNow = 2_000_000L
+        val issued = grant(expires = serverNow + 120_000)
+        fun admit(deviceNow: Long) = PlaybackAccessHttp(ApiOrigin.parse("https://api.example"),
+            QueueHttp(listOf(manifest, issued))) { deviceNow }
+        // A device four minutes behind sees a six-minute grant; six minutes behind is not sane.
+        assertIs<PlaybackAccessResult.Accepted<*>>(admit(serverNow - 240_000).authorize(audio))
+        assertEquals(PlaybackAccessResult.Refused(PlaybackAccessFailure.Protocol), admit(serverNow - 360_000).authorize(audio))
+        // A device ahead of the server by the whole window sees an already expired grant.
+        assertEquals(PlaybackAccessResult.Refused(PlaybackAccessFailure.Protocol), admit(serverNow + 120_000).authorize(audio))
+    }
+
+    @Test
     fun exact_manifest_and_grant_preserve_identity_and_never_route_audio_through_json() = runTest {
         val http = QueueHttp(listOf(manifest, grant()))
         val api = PlaybackAccessHttp(ApiOrigin.parse("https://api.example"), http) { 5000 }

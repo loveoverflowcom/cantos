@@ -107,7 +107,8 @@ class PlaybackAccessHttp(
         val now = nowMs()
         if (grant.publication != identity.publicationId || grant.rendition != identity.renditionId ||
             grant.hash != identity.sha256 || grant.contentType != "audio/ogg" || !grant.ranges ||
-            grant.expires <= now || grant.expires - now > 120_000 || !safeMediaUrl(grant.url)) {
+            grant.expires <= now || grant.expires - now > PlaybackGrant.TTL_MS + PlaybackGrant.CLOCK_SKEW_ALLOWANCE_MS ||
+            !safeMediaUrl(grant.url)) {
             return PlaybackAccessResult.Refused(PlaybackAccessFailure.Protocol)
         }
         return PlaybackAccessResult.Accepted(PlaybackGrant(PlaybackLocation(grant.url), grant.expires))
