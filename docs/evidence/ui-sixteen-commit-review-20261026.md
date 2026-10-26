@@ -100,6 +100,17 @@ The password input, secret lifetime and auth effect owner stay unchanged. The de
 production-decision regression covers input/button targets, composing input, Space and Escape;
 exact Vietnamese/English names and existing form-rendering cases remain tested.
 
+### P2 — Account menu used the CMP corner scale on Web
+
+Class: confirmed defect; category: rule; confidence: reproduced. Introduced by
+`807be13e53714c849ad98ec8bf6024d0b48e2f19` in `theatre.css` account-menu and menu-row radii.
+The existing `WebShapeIndependence` regression rejected `--cantos-shape-overlay` and
+`--cantos-shape-control`: regular Web corners belong to the independently owned
+`--cantos-web-shape-*` mapping in `foundation.css.in`, not the canonical CMP density scale.
+The app CSS now reads the existing Web overlay/control roles. No token, generated output,
+admission record or test assertion was weakened. The focused regression went from 5 tests /
+1 failure to 5 passed. Runtime pixels are recorded separately in the PR.
+
 ### P1 — Current component admission remains incomplete
 
 Class: required evidence gap; category: rule/evidence; confidence: confirmed-from-source and
@@ -147,6 +158,23 @@ prepared per-command paths resolved those prerequisites without global tool chan
 | Corrected `CoverImagesTest` + `PublicCoverUiTest` | PASS: 18 tests, no failures; mocked byte source/decoder and JVM production composables |
 | `cargo xtask verify behavior --capability cantos.media.public-cover-projection --setup` | PASS: typecheck, 17 named runs, sampled simulation, witnesses, negative controls and freshness; model-only |
 | Independent final source review | No new actionable defect in the seven source/model/test fix paths; adjacent comment correction applied separately |
+
+The supplemental canonical-temp Python run completed 1,169 cases with 6 failures and 15 skips.
+Two findings belonged to this review: the Web corner-role regression above and the explicit
+catalog inventory fixture still expecting 16 cover runs after this PR added the seventeenth.
+The fixture now expects exactly 17 runs while retaining all six properties, twelve witnesses
+and one sensitivity control per property. The remaining failures were two native-isolation
+fixture failures (including source-snapshot instability) and two legacy shell fixture failures
+(BSD `sed` incompatibility and missing `flock` on macOS). They are reported separately from
+source regressions; no real VPS operation was run and no legacy tool/runtime change is made.
+The PR supplies the final targeted reruns rather than promoting this failed full-suite receipt.
+In the safe continuation, 75 focused UI-token/behavior tests and the two native-isolation
+regressions passed. Both native fixtures recovered without a source change; the two legacy
+shell/tool failures remain unclosed from the full-suite receipt. No full-suite PASS is claimed.
+
+After unrelated Studio file reads in the Documents checkout reported short reads, the pushed
+head was recovered into `/tmp/cantos-ui16-final-495` for the bounded follow-up. Existing source,
+evidence and unrelated checkouts were preserved. Both locations refer to the same single PR.
 
 Raw logs/reports remain ignored under `artifacts/agent-runs/ui-sixteen-review/`, Gradle's
 `build/test-results/desktopTest/` and `target/verification/behavior/`. The Draft PR reports the
