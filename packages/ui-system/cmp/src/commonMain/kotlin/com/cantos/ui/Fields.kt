@@ -1,6 +1,5 @@
 package com.cantos.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,13 +76,12 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
         // One inset perimeter owned by this field; no other control's focus geometry changes.
         TextFieldVariant.Floating -> Modifier.cantosInsetPerimeter(FloatingFieldRadius, invalid = messages.error != null)
         // The docked search header: resting radius 36 (half of the 72 minimum), hover 1 / focus 2 inset.
-        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(tokenDp("shape.searchRest"), invalid = messages.error != null, hoverStroke = true)
-        TextFieldVariant.AuthTonal, TextFieldVariant.Regular -> Modifier.cantosFocus(
-            if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
-            restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
-                BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error"))
-            } else null,
-        )
+        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(RoundedCornerShape(tokenDp("shape.searchRest")), invalid = messages.error != null, hoverStroke = true)
+        // The auth shell is painted, so it gets the same Fields v4 perimeter on its own shape.
+        TextFieldVariant.AuthTonal -> Modifier.cantosInsetPerimeter(CantosShapes.authField, invalid = messages.error != null)
+        // Regular is the Standard expression's field (its error is an underline indicator); no Theatre
+        // surface uses it, so it keeps the outset ring.
+        TextFieldVariant.Regular -> Modifier.cantosFocus("shape.field")
     })
     .semantics {
         if (variant == TextFieldVariant.AuthTonal || variant == TextFieldVariant.FloatingSearch) contentDescription = label

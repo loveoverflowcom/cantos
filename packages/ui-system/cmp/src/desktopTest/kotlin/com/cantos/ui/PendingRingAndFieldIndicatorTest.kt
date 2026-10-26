@@ -26,8 +26,9 @@ import kotlin.test.assertTrue
 
 /**
  * Issue #421 on the production components, JVM Desktop Compose only: the pending ring turns under
- * full motion over a manual clock and holds a visible stationary arc under reduced motion, and a
- * focused invalid field shows the focus ring instead of stacking it on the error outline. Pixels here
+ * full motion over a manual clock and holds a visible stationary arc under reduced motion, and an
+ * auth field paints one inset perimeter (invalid 1 dp, focus 2 dp, focused-invalid 2 dp in the error
+ * colour) instead of stacking a ring on the error outline. Pixels here
  * are not Android/iOS runtime, TalkBack or a recorded video.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -127,38 +128,40 @@ class PendingRingAndFieldIndicatorTest {
     }
 
     /**
-     * Pixels along a vertical line through the field's horizontal middle, across the field and the
-     * ring around it only: the message text below it is not an indicator and must not count.
+     * Pixels along a vertical line through the field's horizontal middle, from [outside] rows above the
+     * field's top edge to [depth] rows into it. Message text below the field is never sampled.
      */
-    private fun column(image: ImageBitmap, field: Field): List<Color> {
+    private fun column(image: ImageBitmap, field: Field, outside: Int, depth: Int): List<Color> {
         val x = (390 * field.density / 2f).toInt().coerceAtMost(image.width - 1)
         val pixels = image.toPixelMap()
-        val margin = (tokenDpValue("size.focusOffset") + tokenDpValue("size.focusWidth")) * field.density
-        val rows = (field.topPx - margin.toInt() - 1)..(field.bottomPx + margin.toInt() + 1)
-        return rows.map { pixels[x, it.coerceIn(0, image.height - 1)] }
+        return ((field.topPx - outside) until (field.topPx + depth)).map { pixels[x, it.coerceIn(0, image.height - 1)] }
     }
 
-    private fun tokenDpValue(name: String): Float = CantosTokens.number(name).toFloat()
+    /** Consecutive rows, from the field's top edge inward, painted in [color]: the stroke thickness. */
+    private fun strokeRows(image: ImageBitmap, field: Field, color: Color): Int =
+        column(image, field, 0, 12).takeWhile { it.isNear(color) }.size
+
+    private fun paintedAbove(image: ImageBitmap, field: Field): List<Color> = column(image, field, 12, 0)
 
     @Test
-    fun a_focused_invalid_field_paints_the_focus_ring_and_not_the_error_outline_it_replaces() {
+    fun an_invalid_field_keeps_one_inside_error_stroke_and_focus_swaps_it_for_one_thicker_error_stroke() {
         val field = invalidField("Email cần được kiểm tra.")
         val error = tokenColorInTheme("color.error")
         val focusColor = tokenColorInTheme("color.focus")
-        val resting = column(field.unfocused, field)
-        val ringed = column(field.focused, field)
-        assertTrue(resting.any { it.isNear(error) }, "an unfocused invalid field keeps its error outline")
-        assertTrue(ringed.none { it.isNear(error) }, "a focused invalid field must not stack the error outline under the ring")
-        assertTrue(ringed.any { it.isNear(focusColor) }, "focus stays visible on an invalid field")
-        assertTrue(resting.none { it.isNear(focusColor) }, "no focus ring without focus")
+        assertEquals(1, strokeRows(field.unfocused, field, error), "an unfocused invalid field has one 1 dp error stroke")
+        assertEquals(2, strokeRows(field.focused, field, error), "focus is one 2 dp stroke in the error colour, never stacked")
+        assertTrue(column(field.focused, field, 12, 12).none { it.isNear(focusColor) }, "no second, focus-coloured perimeter")
+        assertEquals(paintedAbove(field.unfocused, field), paintedAbove(field.focused, field), "nothing is painted outside the bounds")
     }
 
     @Test
-    fun a_focused_valid_field_still_paints_the_ring_and_no_error_colour() {
+    fun a_focused_valid_field_paints_one_inside_focus_stroke_and_no_error_colour() {
         val field = invalidField(null)
         val error = tokenColorInTheme("color.error")
-        val ringed = column(field.focused, field)
-        assertTrue(ringed.any { it.isNear(tokenColorInTheme("color.focus")) })
-        assertTrue(ringed.none { it.isNear(error) })
+        val focusColor = tokenColorInTheme("color.focus")
+        assertEquals(0, strokeRows(field.unfocused, field, focusColor), "idle paints no perimeter")
+        assertEquals(2, strokeRows(field.focused, field, focusColor), "focus is one 2 dp stroke")
+        assertTrue(column(field.focused, field, 12, 12).none { it.isNear(error) })
+        assertEquals(paintedAbove(field.unfocused, field), paintedAbove(field.focused, field), "nothing is painted outside the bounds")
     }
 }

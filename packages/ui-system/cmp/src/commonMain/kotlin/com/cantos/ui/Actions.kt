@@ -129,11 +129,14 @@ internal fun ButtonControl(
     })
     val background = containerColor ?: buttonContainerColor(variant)
     val foreground = buttonContentColor(variant)
+    val inset = insetPerimeter || variant.focusIsInset(LocalUiPreferences.current.expression)
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },
         enabled = state.canPress(),
         modifier = modifier.heightIn(min = minimumHeight)
-            .then(if (insetPerimeter) Modifier.cantosInsetPerimeter(InsetPerimeterRadius, invalid = invalid, active = active)
+            .then(if (inset) Modifier.cantosInsetPerimeter(resolvedShape, invalid = invalid, active = active,
+                ring = if (variant.ringReadsFromContent()) foreground else null,
+                inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
                 else Modifier.cantosFocus(if (auth) "shape.pill" else "shape.control"))
             .actionState(state, description)
             .semantics { name?.let { contentDescription = it.text } },
@@ -160,10 +163,20 @@ internal fun ButtonControl(
 }
 
 /**
- * A capsule is a radius of half the shortest side; Skia scales an oversized radius down to it, so a
- * stadium needs no measured height. Only used by the inset perimeter.
+ * A painted action keeps its focus perimeter inside its own surface: every auth action (their only
+ * consumer is Theatre) and every action under the Theatre expression. The Standard expression keeps
+ * the outset ring.
  */
-private val InsetPerimeterRadius: Dp = Dp(999f)
+internal fun ButtonVariant.focusIsInset(expression: CantosExpression): Boolean =
+    isAuth() || expression == CantosExpression.Theatre
+
+/**
+ * A primary fill is the focus hue itself (`color.primary` against `color.focus` is about 1.1:1 in
+ * both themes), so an inset ring in `color.focus` would vanish on it; it reads from the content colour.
+ * That colour is also the page's, so such a ring sits one active stroke inside the fill, never on its edge.
+ */
+internal fun ButtonVariant.ringReadsFromContent(): Boolean =
+    this == ButtonVariant.Primary || this == ButtonVariant.AuthPrimary
 
 /**
  * Under the Theatre expression `primaryContainer` is the ink of selection (chips, the current
@@ -295,8 +308,13 @@ fun IconButton(
             tooltip = { PlainTooltip { Text(name.text) } },
             state = rememberTooltipState(),
         ) {
-        val iconModifier = controlModifier.size(tokenDp("size.control"))
-            .cantosFocus(if (circular) "shape.pill" else "shape.control").actionState(state)
+        // The plain glyph button is Material's circle whatever [circular] says; a filled one is [shape].
+        val focus = if (variant.focusIsInset(LocalUiPreferences.current.expression)) {
+            Modifier.cantosInsetPerimeter(if (filled) shape else CantosShapes.full,
+                ring = if (variant.ringReadsFromContent()) buttonContentColor(variant) else null,
+                inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
+        } else Modifier.cantosFocus(if (circular) "shape.pill" else "shape.control")
+        val iconModifier = controlModifier.size(tokenDp("size.control")).then(focus).actionState(state)
             .semantics { contentDescription = name.text }
         if (filled) {
             FilledIconButton(
@@ -366,13 +384,14 @@ fun FilterChip(
             val spec = rememberMotionSpec(MotionIntent.Feedback, MotionProperty.Spatial)
             val fraction by animateFloatAsState(if (selected) 1f else 0f, spec.toAnimationSpec(), label = "chip-shape")
             val resting = tokenDp("shape.reading")
+            val chipShape = remember(fraction, resting) { ChipShape(fraction, resting) }
             MaterialFilterChip(
                 selected = selected,
                 onClick = { if (state.canPress()) onSelect(!selected) },
                 enabled = state.canPress(),
                 label = { Text(label) },
                 leadingIcon = if (selected) ({ Icon("check") }) else null,
-                shape = remember(fraction, resting) { ChipShape(fraction, resting) },
+                shape = chipShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = tokenColor("color.surfaceContainer"),
                     labelColor = tokenColor("color.onSurface"),
@@ -386,7 +405,11 @@ fun FilterChip(
                     disabledSelectedContainerColor = tokenColor("color.surfaceContainer"),
                 ),
                 border = null,
-                modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
+                // The selected ink container is the label's inverse, so its ring reads from that.
+                modifier = controlModifier.heightIn(min = tokenDp("size.control"))
+                    .cantosInsetPerimeter(chipShape, ring = if (selected) tokenColor("color.onPrimaryContainer") else null,
+                        inward = if (selected) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
+                    .actionState(state),
             )
         } else {
             MaterialFilterChip(

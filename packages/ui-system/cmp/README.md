@@ -44,13 +44,14 @@ Everything below is additive and local to the control that opts in:
 
 - `TextFieldVariant.Floating` / `FloatingSearch` keep the label inside one tonal shell, draw one
   inset state perimeter (`cantosInsetPerimeter`: idle none, invalid 1, focus 2, focused-invalid 2 in
-  the error colour, always inside the node's bounds) and keep help outside it. They never change
-  `cantosFocus`, so `Regular` and `AuthTonal` keep their outset ring. Minimums are 68 and 72 logical
-  units (`FloatingFieldMinHeight`, and `size.searchHeader` for the search); text scale and a long
-  label grow the shell. `FloatingSearch` (Search v4.3) has no floating label: its label is the
-  empty prompt and the field's accessible name, the radius is `shape.searchRest` (36) and a pointer
-  hover paints one inset `size.border` (touch has none). Opening, closing and the dock body belong to
-  the Search composition; native keeps its motion scheme, with no copy of the Web 280/200 ms seed.
+  the error colour, always inside the node's bounds) and keep help outside it. Minimums are 68 and
+  72 logical units (`FloatingFieldMinHeight`, and `size.searchHeader` for the search); text scale and a
+  long label grow the shell. `AuthTonal` paints the same perimeter on `shape.authField` ([#478](https://github.com/loveoverflowcom/cantos/issues/478));
+  `Regular` is the Standard field and keeps the outset `cantosFocus` ring. `FloatingSearch` (Search v4.3)
+  has no floating label: its label is the empty prompt and the field's accessible name, the radius is
+  `shape.searchRest` (36) and a pointer hover paints one inset `size.border` (touch has none). Opening,
+  closing and the dock body belong to the Search composition; native keeps its motion scheme, with no
+  copy of the Web 280/200 ms seed.
 - `TextField(..., trailing = { IconButton(...) })` on both the `String` and `TextFieldValue`
   overloads places one action inside the shell. The layout reserves its width; the field owns no
   action or visibility state, and the caller's selection and composition are untouched by a press.
@@ -60,6 +61,18 @@ Everything below is additive and local to the control that opts in:
 - `FilterChip` under the Theatre expression is a tonal 12-radius chip that becomes an ink capsule
   with its check when selected; it keeps its start edge and 48-unit height, so only its width grows.
   The shape change uses the interruptible feedback motion that reduced motion removes.
+- Focus perimeter ([#478](https://github.com/loveoverflowcom/cantos/issues/478)): a painted action keeps
+  one focus perimeter on its own edge, never outside it. `Button` (and `BackButton`) draw
+  `cantosInsetPerimeter` for every auth variant and for every variant under the Theatre expression;
+  `IconButton` and `FilterChip` do under the Theatre expression. The stroke is `2 × size.border`, its
+  corner follows the measured shape (so the pressed auth capsule keeps it on the edge), and it paints
+  over the content with no layout, size or hit-area change. `Primary` and `AuthPrimary` fills are the
+  focus hue itself (about 1.1:1), so their ring is `color.onPrimary`, drawn one stroke (2 dp) inside the
+  fill so it cannot merge with the page; a selected Theatre chip's ring is `color.onPrimaryContainer`,
+  inset the same way; every other fill uses `color.focus` (at least 3:1, contract-tested). The
+  Standard expression, unpainted controls (`Link`, `NavTabs`, `Checkbox`/`Radio`/`Switch` rows,
+  `RangeField`) and menu items keep the outset `cantosFocus` ring, which needs parent spacing. The
+  `AuthTonal` label/help gap still includes that clearance, so form rhythm is unchanged.
 - `Select` under the Theatre expression is one tonal capsule whose value and chevron are one
   centered group, with a single 2-unit inset cue while open or focused. A nonblank error uses
   one error-coloured inset unit at rest and two while focused or open; blank errors add no cue.
@@ -86,7 +99,7 @@ For Button/IconButton/FilterChip, `modifier` still applies once to the whole fie
 `controlModifier` attaches focus, geometry and semantics to the actual native control. It does not
 silently move existing root modifiers. Decorative Icon now inherits the surrounding content tint,
 with an explicit tint override when needed. Focus consumes width/offset and the control's shape;
-text fields use `shape.field`. Parents need spacing for an outset focus ring.
+text fields use `shape.field`. Parents need spacing for an outset focus ring; inset perimeters need none.
 
 The [session 1 evidence](../../../docs/evidence/cmp-ui-system-session1.md) records 41 executed CMP
 tests and inspected captures. Both previews declare nested-theme, composed-content, selection,
@@ -298,8 +311,13 @@ entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM 
   frame, the hit box on every sampled frame and writes labelled `cmp-motion-auth-action-*`
   captures with a `frame` sidecar (recipe, mark, time, timebase).
 - `PendingRingAndFieldIndicatorTest`: the pending ring moves over a manual clock under full motion
-  and stays stationary but painted under reduced motion; a focused invalid `AuthTonal` field paints
-  the focus ring instead of stacking it on the error outline (#421).
+  and stays stationary but painted under reduced motion; an `AuthTonal` field paints one inset
+  perimeter (invalid 1 dp, focus 2 dp, focused-invalid 2 dp in the error colour) instead of
+  stacking a ring on the error outline (#421, #478).
+- `FocusPerimeterContractTest` / `FocusPerimeterPixelTest`: the pure stroke geometry, variant
+  decision and ring-versus-fill contrast, and production pixels showing no focus pixel outside the
+  bounds, the ring on the edge (including the pressed auth corner), no size change and the
+  documented outset exceptions (#478).
 - `MotionReplay.kt`: the animation recipe, driver and model helpers. Motion frames are owned by
   tests; production UI never advances the clock. The Workbench tab's intent replay does not
   control this animation clock or offer pause/seek-to-frame controls.
