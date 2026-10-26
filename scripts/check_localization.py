@@ -121,7 +121,8 @@ def validate_policy(policy):
                 errors.append(f"localization allow-list: invalid owner mode: {entry['path']}")
             if group == "owners" and entry["mode"] == "generated":
                 from localization_resources import TARGETS
-                if Path(entry["path"]) not in TARGETS.values():
+                from localization_kotlin import TARGETS as KOTLIN_TARGETS
+                if Path(entry["path"]) not in {*TARGETS.values(), *KOTLIN_TARGETS}:
                     errors.append(f"localization allow-list: generated owner has no drift guard: {entry['path']}")
             identity = (entry["path"], entry.get("literal"), entry.get("context"))
             if identity in seen:

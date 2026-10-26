@@ -15,7 +15,7 @@ typealias PreferenceLocale = UiLocale
 
 data class PreferencesState(
     val theme: PreferenceTheme = PreferenceTheme.Light,
-    val locale: PreferenceLocale = PreferenceLocale.Vietnamese,
+    val locale: PreferenceLocale = PreferenceLocale.Default,
 )
 
 sealed interface PreferencesEvent {

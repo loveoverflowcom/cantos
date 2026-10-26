@@ -27,6 +27,7 @@ import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellResume
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.clockTime
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.ui.tokenDp
 
 /**
@@ -62,21 +63,18 @@ private fun BookmarkRow(bookmark: ShellBookmark, catalog: ShellCatalogView, copy
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.OpenBookmark(bookmark)) },
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("$rowTag-open").semantics {
-                    contentDescription = copy.text(CopyKey.OpenBookmark, "title" to title, "time" to copy.spokenTime(bookmark.positionSeconds))
+                    contentDescription = copy.text(ShellMessage.OpenBookmark(title = title, time = copy.spokenTime(bookmark.positionSeconds)))
                 }) {
-                Text(copy.text(CopyKey.BookmarkCaption, "title" to title, "time" to clockTime(bookmark.positionSeconds)))
+                Text(copy.text(ShellMessage.BookmarkCaption(title = title, time = clockTime(bookmark.positionSeconds))))
             }
             if (bookmark.id.isNotEmpty()) TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.DeleteBookmark(bookmark.id)) },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("$rowTag-delete").semantics {
                     // The spoken name is the visible one: a bookmark the server never accepted is discarded, not deleted.
-                    contentDescription = copy.text(
-                        when (bookmark.sync) {
-                            ShellBookmarkSync.Failed -> CopyKey.DiscardBookmarkName
-                            ShellBookmarkSync.DeleteFailed -> CopyKey.RetryDeleteBookmarkName
-                            else -> CopyKey.DeleteBookmarkName
-                        },
-                        "title" to title, "time" to copy.spokenTime(bookmark.positionSeconds),
-                    )
+                    contentDescription = copy.text(when (bookmark.sync) {
+                            ShellBookmarkSync.Failed -> ShellMessage.DiscardBookmarkName(title = title, time = copy.spokenTime(bookmark.positionSeconds))
+                            ShellBookmarkSync.DeleteFailed -> ShellMessage.RetryDeleteBookmarkName(title = title, time = copy.spokenTime(bookmark.positionSeconds))
+                            else -> ShellMessage.DeleteBookmarkName(title = title, time = copy.spokenTime(bookmark.positionSeconds))
+                        })
                 }) {
                 Text(copy.text(when (bookmark.sync) {
                     ShellBookmarkSync.Failed -> CopyKey.DiscardBookmark

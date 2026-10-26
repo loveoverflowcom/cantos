@@ -28,16 +28,17 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.resources.Res
 import com.cantos.theatre.resources.cantos_brand_symbol_dark
 import com.cantos.theatre.resources.cantos_brand_symbol_light
 import com.cantos.theatre.resources.cantos_brand_wordmark_dark
 import com.cantos.theatre.resources.cantos_brand_wordmark_light
 import com.cantos.theatre.resources.noto_sans_regular
-import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.MotionIntent
@@ -50,8 +51,6 @@ import com.cantos.ui.rememberMotionSpec
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.text.font.FontFamily
 
 /** Presentation only: readiness belongs to the existing local owner, never catalog or identity IO.
  * Ready content wins in the same composition, with no entrance/exit wait or navigation event.
@@ -62,7 +61,7 @@ fun CantosLocalLaunch(
     localReady: Boolean,
     preferences: UiPreferences,
     modifier: Modifier = Modifier,
-    locale: ShellLocale = ShellLocale.Vietnamese,
+    locale: ShellLocale = ShellLocale.Default,
     content: @Composable () -> Unit,
 ) {
     if (localReady) {
@@ -92,9 +91,9 @@ private fun CantosSplashPresentation(modifier: Modifier, locale: ShellLocale) {
     val effectsProgress = effects.value
     val spatialProgress = spatial.value
     val resources = launchResources(locale)
-    val status = stringResource(resources.status)
-    val tagline = stringResource(resources.tagline)
-    val category = stringResource(resources.category)
+    val status = resources.status
+    val tagline = resources.tagline
+    val category = resources.category
     val symbol = painterResource(if (dark) Res.drawable.cantos_brand_symbol_dark else Res.drawable.cantos_brand_symbol_light)
     val wordmark = painterResource(if (dark) Res.drawable.cantos_brand_wordmark_dark else Res.drawable.cantos_brand_wordmark_light)
     BoxWithConstraints(

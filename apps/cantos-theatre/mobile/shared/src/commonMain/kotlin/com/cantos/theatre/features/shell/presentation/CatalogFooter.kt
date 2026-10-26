@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.LegacyCopyKey
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryPhase
@@ -77,5 +78,5 @@ internal fun LibraryFooter(phase: ShellLibraryPhase, section: ShellLibrarySectio
 /** Under a minute the old whole-minute caption would read "0 minutes", so it names seconds. */
 internal fun durationCaption(durationSeconds: Int, copy: ShellCopy): String =
     if (durationSeconds in 1..59) {
-        copy.text(if (durationSeconds == 1) CopyKey.SecondOne else CopyKey.SecondsOther, "count" to durationSeconds.toString())
-    } else copy.text(CopyKey.Duration, "minutes" to (durationSeconds / 60).toString())
+        copy.text(if (durationSeconds == 1) LegacyCopyKey.SecondOne else LegacyCopyKey.SecondsOther, "count" to durationSeconds.toString())
+    } else copy.text(LegacyCopyKey.Duration, "minutes" to (durationSeconds / 60).toString())

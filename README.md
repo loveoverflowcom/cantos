@@ -72,9 +72,11 @@ prepared tools for the selected target. No PostgreSQL, Kanidm, container engine 
 needed for native checks. Editor exclusions in `.vscode/settings.json` hide generated output;
 they never delete data or change Git tracking.
 
-The repository gate also checks the whole [pre-ADR localization fixture](docs/evidence/fixtures/localization-foundation/README.md)
-and deterministic Rust/Kotlin projection drift. This experiment adds no application runtime;
-[ADR 0050](docs/decisions/0050-localization-semantic-catalog.md) remains proposed under #167.
+The repository gate checks the accepted [semantic resource catalog](packages/localization/README.md),
+complete translations and deterministic app-owned Rust/Kotlin projection drift. The original
+[pre-ADR fixture](docs/evidence/fixtures/localization-foundation/README.md) remains historical
+evidence. [ADR0050](docs/decisions/0050-localization-semantic-catalog.md) selects the architecture;
+Web/CMP target, formatter and runtime qualification remain separate.
 
 ```sh
 cargo xtask doctor

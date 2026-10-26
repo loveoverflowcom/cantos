@@ -20499,6 +20499,4199 @@
           "text": "{input} / {output}"
         }
       }
+    },
+    "theatre.cmp_shell.brand": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos"
+        },
+        "en": {
+          "text": "Cantos"
+        }
+      }
+    },
+    "theatre.cmp_shell.discover": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Khám phá"
+        },
+        "en": {
+          "text": "Discover"
+        }
+      }
+    },
+    "theatre.cmp_shell.search": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm kiếm"
+        },
+        "en": {
+          "text": "Search"
+        }
+      }
+    },
+    "theatre.cmp_shell.library": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Của tôi"
+        },
+        "en": {
+          "text": "My library"
+        }
+      }
+    },
+    "theatre.cmp_shell.settings": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cài đặt nghe"
+        },
+        "en": {
+          "text": "Listening settings"
+        }
+      }
+    },
+    "theatre.cmp_shell.back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại"
+        },
+        "en": {
+          "text": "Back"
+        }
+      }
+    },
+    "theatre.cmp_shell.close_player": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn phòng nghe"
+        },
+        "en": {
+          "text": "Close listening room"
+        }
+      }
+    },
+    "theatre.cmp_shell.switch_to_light": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chuyển sang giao diện sáng"
+        },
+        "en": {
+          "text": "Switch to light appearance"
+        }
+      }
+    },
+    "theatre.cmp_shell.switch_to_dark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chuyển sang giao diện tối"
+        },
+        "en": {
+          "text": "Switch to dark appearance"
+        }
+      }
+    },
+    "theatre.cmp_shell.work": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm"
+        },
+        "en": {
+          "text": "Work"
+        }
+      }
+    },
+    "theatre.cmp_shell.player": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phòng nghe"
+        },
+        "en": {
+          "text": "Listening room"
+        }
+      }
+    },
+    "theatre.cmp_shell.queue": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tiếp theo"
+        },
+        "en": {
+          "text": "Up next"
+        }
+      }
+    },
+    "theatre.cmp_shell.welcome": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Câu chuyện vẫn\nđang đợi bạn."
+        },
+        "en": {
+          "text": "A story is\nwaiting for you."
+        }
+      }
+    },
+    "theatre.cmp_shell.continuing_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "CHUYỆN CÒN DỞ"
+        },
+        "en": {
+          "text": "YOUR UNFINISHED STORY"
+        }
+      }
+    },
+    "theatre.cmp_shell.discover_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một thế giới để nghe"
+        },
+        "en": {
+          "text": "A world to listen to"
+        }
+      }
+    },
+    "theatre.cmp_shell.explore_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Những miền thanh âm"
+        },
+        "en": {
+          "text": "More worlds of sound"
+        }
+      }
+    },
+    "theatre.cmp_shell.continue": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe tiếp"
+        },
+        "en": {
+          "text": "Continue listening"
+        }
+      }
+    },
+    "theatre.cmp_shell.details": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Khám phá tác phẩm {title}"
+        },
+        "en": {
+          "text": "Explore {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.done": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xong"
+        },
+        "en": {
+          "text": "Done"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer_simulation_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn thời lượng hẹn giờ hoặc thời điểm hết tập."
+        },
+        "en": {
+          "text": "Choose a timer duration or the end of the episode."
+        }
+      }
+    },
+    "theatre.cmp_shell.start_episode": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở tập đầu"
+        },
+        "en": {
+          "text": "Open first episode"
+        }
+      }
+    },
+    "theatre.cmp_shell.episodes": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các tập"
+        },
+        "en": {
+          "text": "Episodes"
+        }
+      }
+    },
+    "theatre.cmp_shell.play_episode": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phát {title}"
+        },
+        "en": {
+          "text": "Play {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.pause_episode": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạm dừng {title}"
+        },
+        "en": {
+          "text": "Pause {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.open_player": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở phòng nghe: {title}"
+        },
+        "en": {
+          "text": "Open listening room: {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.save": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu tác phẩm"
+        },
+        "en": {
+          "text": "Save work"
+        }
+      }
+    },
+    "theatre.cmp_shell.save_name": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu tác phẩm {title}"
+        },
+        "en": {
+          "text": "Save work {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.unsave_name": {
+      "args": {
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ lưu tác phẩm {title}"
+        },
+        "en": {
+          "text": "Unsave work {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu · Bỏ lưu"
+        },
+        "en": {
+          "text": "Saved · Unsave"
+        }
+      }
+    },
+    "theatre.cmp_shell.saved_only_here": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm đã lưu xuất hiện trong tủ sách của bạn."
+        },
+        "en": {
+          "text": "Saved works appear in your library."
+        }
+      }
+    },
+    "theatre.cmp_shell.library_session": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các tác phẩm đã lưu, điểm nghe và dấu trang của bạn."
+        },
+        "en": {
+          "text": "Your saved works, listening positions and bookmarks."
+        }
+      }
+    },
+    "theatre.cmp_shell.resume_sample": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở vị trí nghe"
+        },
+        "en": {
+          "text": "Open listening position"
+        }
+      }
+    },
+    "theatre.cmp_shell.resume_sample_name": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở vị trí nghe {title} tại {time}"
+        },
+        "en": {
+          "text": "Open listening position for {title} at {time}"
+        }
+      }
+    },
+    "theatre.cmp_shell.resume_sample_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở lại đúng vị trí và giữ tạm dừng. Chọn Phát để nghe tiếp."
+        },
+        "en": {
+          "text": "Open the saved position paused. Choose Play to continue listening."
+        }
+      }
+    },
+    "theatre.cmp_shell.no_continue": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có câu chuyện để nghe tiếp"
+        },
+        "en": {
+          "text": "No stories to continue yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.no_continue_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở một tập và bắt đầu nghe. Bạn có thể trở lại từ đây để nghe tiếp."
+        },
+        "en": {
+          "text": "Open an episode and start listening. Return here to continue."
+        }
+      }
+    },
+    "theatre.cmp_shell.no_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa lưu câu chuyện nào"
+        },
+        "en": {
+          "text": "No saved stories yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.no_saved_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn Lưu trên câu chuyện bạn thích. Tác phẩm sẽ xuất hiện ngay tại đây."
+        },
+        "en": {
+          "text": "Choose Save on a story you like. It will appear here straight away."
+        }
+      }
+    },
+    "theatre.cmp_shell.history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lịch sử"
+        },
+        "en": {
+          "text": "History"
+        }
+      }
+    },
+    "theatre.cmp_shell.no_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có lịch sử nghe"
+        },
+        "en": {
+          "text": "No listening history yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.no_history_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lịch sử ghi nhận các tập đã phát; chỉ mở trang hoặc lưu truyện chưa tạo lịch sử."
+        },
+        "en": {
+          "text": "History records episodes after playback; opening a page or saving a story does not add history."
+        }
+      }
+    },
+    "theatre.cmp_shell.history_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các câu chuyện đã phát, gần nhất ở trên. Mở lại sẽ khôi phục vị trí và giữ tạm dừng."
+        },
+        "en": {
+          "text": "Stories played, most recent first. Reopening restores the position and stays paused."
+        }
+      }
+    },
+    "theatre.cmp_shell.view_all_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem tất cả lịch sử nghe"
+        },
+        "en": {
+          "text": "View all listening history"
+        }
+      }
+    },
+    "theatre.cmp_shell.clear_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa lịch sử nghe"
+        },
+        "en": {
+          "text": "Clear listening history"
+        }
+      }
+    },
+    "theatre.cmp_shell.clear_history_confirm_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa lịch sử nghe?"
+        },
+        "en": {
+          "text": "Clear listening history?"
+        }
+      }
+    },
+    "theatre.cmp_shell.clear_history_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ xóa danh sách lịch sử. Vị trí nghe, truyện đã lưu, dấu trang và trình phát vẫn được giữ lại."
+        },
+        "en": {
+          "text": "Only the history list is cleared. Listening positions, saved stories, bookmarks and the player are retained."
+        }
+      }
+    },
+    "theatre.cmp_shell.confirm_clear_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xác nhận xóa lịch sử"
+        },
+        "en": {
+          "text": "Confirm clear history"
+        }
+      }
+    },
+    "theatre.cmp_shell.cancel": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hủy"
+        },
+        "en": {
+          "text": "Cancel"
+        }
+      }
+    },
+    "theatre.cmp_shell.account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản"
+        },
+        "en": {
+          "text": "Account"
+        }
+      }
+    },
+    "theatre.cmp_shell.membership_preview": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Membership"
+        },
+        "en": {
+          "text": "Membership"
+        }
+      }
+    },
+    "theatre.cmp_shell.sign_in": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập"
+        },
+        "en": {
+          "text": "Sign in"
+        }
+      }
+    },
+    "theatre.cmp_shell.create_account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo tài khoản"
+        },
+        "en": {
+          "text": "Create an account"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tên tác phẩm, tập hoặc thể loại"
+        },
+        "en": {
+          "text": "Work, episode or genre"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_hint": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm một câu chuyện để nghe"
+        },
+        "en": {
+          "text": "Find a story to listen to"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_clear": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa tìm kiếm"
+        },
+        "en": {
+          "text": "Clear search"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_submit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm kiếm"
+        },
+        "en": {
+          "text": "Search"
+        }
+      }
+    },
+    "theatre.cmp_shell.loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải danh sách…"
+        },
+        "en": {
+          "text": "Loading stories…"
+        }
+      }
+    },
+    "theatre.cmp_shell.loading_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách sẽ xuất hiện khi tải xong."
+        },
+        "en": {
+          "text": "Stories will appear when loading finishes."
+        }
+      }
+    },
+    "theatre.cmp_shell.empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa tìm thấy câu chuyện"
+        },
+        "en": {
+          "text": "No stories found"
+        }
+      }
+    },
+    "theatre.cmp_shell.empty_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đổi từ khóa hoặc xóa tìm kiếm để thử lại."
+        },
+        "en": {
+          "text": "Change your search or clear it to try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.catalog_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có câu chuyện khả dụng"
+        },
+        "en": {
+          "text": "No stories available yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.catalog_empty_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách hiện chưa có tác phẩm khả dụng. Bạn có thể tải lại để kiểm tra."
+        },
+        "en": {
+          "text": "There are no available works in this list yet. Reload to check again."
+        }
+      }
+    },
+    "theatre.cmp_shell.error": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa mở được danh sách"
+        },
+        "en": {
+          "text": "The list could not open"
+        }
+      }
+    },
+    "theatre.cmp_shell.error_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử lại để tải danh sách. Tập và điểm nghe của bạn vẫn được giữ."
+        },
+        "en": {
+          "text": "Try loading the list again. Your episode and position are kept."
+        }
+      }
+    },
+    "theatre.cmp_shell.retry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử lại"
+        },
+        "en": {
+          "text": "Retry"
+        }
+      }
+    },
+    "theatre.cmp_shell.listening_store_failure": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa lưu được thay đổi. Dữ liệu trước đó được giữ lại."
+        },
+        "en": {
+          "text": "The change could not be saved. Previous data is retained."
+        }
+      }
+    },
+    "theatre.cmp_shell.retry_listening": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử lại thao tác thất bại gần nhất"
+        },
+        "en": {
+          "text": "Retry the last failed action"
+        }
+      }
+    },
+    "theatre.cmp_shell.ready": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bình thường"
+        },
+        "en": {
+          "text": "Ready"
+        }
+      }
+    },
+    "theatre.cmp_shell.continuing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe tiếp"
+        },
+        "en": {
+          "text": "Continue listening"
+        }
+      }
+    },
+    "theatre.cmp_shell.saved_tab": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu"
+        },
+        "en": {
+          "text": "Saved"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmarks": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Dấu trang"
+        },
+        "en": {
+          "text": "Bookmarks"
+        }
+      }
+    },
+    "theatre.cmp_shell.library_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tủ sách đang chờ bạn"
+        },
+        "en": {
+          "text": "Your library is waiting"
+        }
+      }
+    },
+    "theatre.cmp_shell.library_empty_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm một câu chuyện trong Khám phá. Tủ sách sẽ lớn dần khi bạn nghe và lưu lại."
+        },
+        "en": {
+          "text": "Find a story in Discover. Your library grows as you listen and save."
+        }
+      }
+    },
+    "theatre.cmp_shell.continue_empty_summary": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Trở lại đúng điểm bạn đã dừng nghe."
+        },
+        "en": {
+          "text": "Return to where you stopped listening."
+        }
+      }
+    },
+    "theatre.cmp_shell.saved_empty_summary": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giữ những câu chuyện bạn muốn trở lại."
+        },
+        "en": {
+          "text": "Keep the stories you want to return to."
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmarks_empty_summary": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ghi dấu khoảnh khắc trong phòng nghe."
+        },
+        "en": {
+          "text": "Bookmark a moment in the listening room."
+        }
+      }
+    },
+    "theatre.cmp_shell.history_empty_summary": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các tập đã phát sẽ xuất hiện ở đây."
+        },
+        "en": {
+          "text": "Episodes you have played will appear here."
+        }
+      }
+    },
+    "theatre.cmp_shell.open_bookmark": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở dấu trang {title}, {time}"
+        },
+        "en": {
+          "text": "Open bookmark for {title}, {time}"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmarks_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Dấu trang chưa khả dụng trên thiết bị này."
+        },
+        "en": {
+          "text": "Bookmarks are unavailable on this device."
+        }
+      }
+    },
+    "theatre.cmp_shell.no_bookmarks": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có dấu trang"
+        },
+        "en": {
+          "text": "No bookmarks yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.no_bookmarks_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Trong phòng nghe, chọn “Ghi dấu điểm này” để giữ đúng một thời điểm của bản thu."
+        },
+        "en": {
+          "text": "In the listening room, choose “Bookmark this moment” to keep an exact point of the recording."
+        }
+      }
+    },
+    "theatre.cmp_shell.delete_bookmark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa"
+        },
+        "en": {
+          "text": "Delete"
+        }
+      }
+    },
+    "theatre.cmp_shell.discard_bookmark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ dấu trang"
+        },
+        "en": {
+          "text": "Discard bookmark"
+        }
+      }
+    },
+    "theatre.cmp_shell.delete_bookmark_name": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa dấu trang {title}, {time}"
+        },
+        "en": {
+          "text": "Delete bookmark for {title}, {time}"
+        }
+      }
+    },
+    "theatre.cmp_shell.discard_bookmark_name": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ dấu trang {title}, {time}"
+        },
+        "en": {
+          "text": "Discard bookmark for {title}, {time}"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmark_offline": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có mạng. Dấu trang sẽ đồng bộ khi kết nối lại."
+        },
+        "en": {
+          "text": "Offline. The bookmark will sync when you reconnect."
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmark_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Dấu trang chưa được máy chủ nhận. Bạn có thể bỏ nó."
+        },
+        "en": {
+          "text": "The server didn’t accept this bookmark. You can discard it."
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmark_delete_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xóa được dấu trang này. Dấu trang vẫn còn; bạn có thể thử xóa lại."
+        },
+        "en": {
+          "text": "This bookmark couldn’t be deleted yet. It is still saved; you can try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.retry_delete_bookmark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử xóa lại"
+        },
+        "en": {
+          "text": "Try deleting again"
+        }
+      }
+    },
+    "theatre.cmp_shell.retry_delete_bookmark_name": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử xóa lại dấu trang {title}, {time}"
+        },
+        "en": {
+          "text": "Try deleting bookmark for {title}, {time} again"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmark_caption": {
+      "args": {
+        "title": "text",
+        "time": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{title} · {time}"
+        },
+        "en": {
+          "text": "{title} · {time}"
+        }
+      }
+    },
+    "theatre.cmp_shell.speed_caption": {
+      "args": {
+        "speed": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tốc độ · {speed}"
+        },
+        "en": {
+          "text": "Speed · {speed}"
+        }
+      }
+    },
+    "theatre.cmp_shell.cached_catalog": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách đã lưu trên máy. Chọn Làm mới để kiểm tra bản hiện tại."
+        },
+        "en": {
+          "text": "Cached catalog. Choose Refresh to check the current catalog."
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_playing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang phát"
+        },
+        "en": {
+          "text": "Playing"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa phát được âm thanh. Thử Phát để xin lại quyền cho đúng bản thu."
+        },
+        "en": {
+          "text": "Audio is unavailable. Choose Play to retry this recording."
+        }
+      }
+    },
+    "theatre.cmp_shell.full_player": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở trình phát"
+        },
+        "en": {
+          "text": "Open player"
+        }
+      }
+    },
+    "theatre.cmp_shell.sync_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang chờ đồng bộ"
+        },
+        "en": {
+          "text": "Pending sync"
+        }
+      }
+    },
+    "theatre.cmp_shell.sync_confirmed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đồng bộ"
+        },
+        "en": {
+          "text": "Synced"
+        }
+      }
+    },
+    "theatre.cmp_shell.sync_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đồng bộ chưa thành công"
+        },
+        "en": {
+          "text": "Sync failed"
+        }
+      }
+    },
+    "theatre.cmp_shell.library_sign_in": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập để lưu và đồng bộ tủ sách, lịch sử và điểm nghe."
+        },
+        "en": {
+          "text": "Sign in to save and sync your library, history and listening positions."
+        }
+      }
+    },
+    "theatre.cmp_shell.progress_conflict": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Điểm nghe trên thiết bị khác đã thay đổi. Chọn điểm muốn lưu; trình phát vẫn giữ nguyên."
+        },
+        "en": {
+          "text": "Another device changed the listening position. Choose which position to save; playback stays where it is."
+        }
+      }
+    },
+    "theatre.cmp_shell.keep_here": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giữ điểm trên máy này"
+        },
+        "en": {
+          "text": "Keep this device’s position"
+        }
+      }
+    },
+    "theatre.cmp_shell.use_other": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giữ điểm trên thiết bị khác"
+        },
+        "en": {
+          "text": "Keep the other device’s position"
+        }
+      }
+    },
+    "theatre.cmp_shell.resume_needs_refresh": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Điểm nghe đã được lưu. Làm mới để kiểm tra quyền nghe bản thu này."
+        },
+        "en": {
+          "text": "Your position is saved. Refresh to check access to this recording."
+        }
+      }
+    },
+    "theatre.cmp_shell.library_section_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa tải được mục này. Bạn có thể thử lại."
+        },
+        "en": {
+          "text": "Couldn’t load this section. You can try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.library_section_stale": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa làm mới được. Đang hiện dữ liệu đã lưu trên máy."
+        },
+        "en": {
+          "text": "Couldn’t refresh. Showing data saved on this device."
+        }
+      }
+    },
+    "theatre.cmp_shell.saved_undescribed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm này hiện chưa được mở công khai. Mục đã lưu của bạn vẫn được giữ."
+        },
+        "en": {
+          "text": "This work isn’t publicly available right now. Your saved item is kept."
+        }
+      }
+    },
+    "theatre.cmp_shell.release_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản thu này đã thay đổi hoặc không còn được phép nghe. Điểm nghe vẫn được giữ."
+        },
+        "en": {
+          "text": "This recording has changed or is no longer available. Your position is retained."
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_simulating": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang mô phỏng · Không phát âm thanh"
+        },
+        "en": {
+          "text": "Simulating · No audio output"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_paused": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tạm dừng"
+        },
+        "en": {
+          "text": "Paused"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_idle": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn một tập để nghe"
+        },
+        "en": {
+          "text": "Choose an episode to listen to"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang mở tập…"
+        },
+        "en": {
+          "text": "Opening episode…"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_buffering": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải âm thanh…"
+        },
+        "en": {
+          "text": "Buffering…"
+        }
+      }
+    },
+    "theatre.cmp_shell.playback_ended": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã hết tập"
+        },
+        "en": {
+          "text": "Episode ended"
+        }
+      }
+    },
+    "theatre.cmp_shell.selection_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có nội dung cho lựa chọn này"
+        },
+        "en": {
+          "text": "No content for this selection"
+        }
+      }
+    },
+    "theatre.cmp_shell.selection_unavailable_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại."
+        },
+        "en": {
+          "text": "The current metadata is insufficient to open this selection. Return to discovery to choose again."
+        }
+      }
+    },
+    "theatre.cmp_shell.play": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phát"
+        },
+        "en": {
+          "text": "Play"
+        }
+      }
+    },
+    "theatre.cmp_shell.pause": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạm dừng"
+        },
+        "en": {
+          "text": "Pause"
+        }
+      }
+    },
+    "theatre.cmp_shell.position": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Điểm nghe"
+        },
+        "en": {
+          "text": "Listening position"
+        }
+      }
+    },
+    "theatre.cmp_shell.position_spoken": {
+      "args": {
+        "elapsed": "text",
+        "total": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{elapsed} trên {total}"
+        },
+        "en": {
+          "text": "{elapsed} of {total}"
+        }
+      }
+    },
+    "theatre.cmp_shell.position_caption": {
+      "args": {
+        "elapsed": "text",
+        "total": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{elapsed} / {total}"
+        },
+        "en": {
+          "text": "{elapsed} / {total}"
+        }
+      }
+    },
+    "theatre.cmp_shell.seconds_spoken": {
+      "args": {
+        "minutes": "text",
+        "seconds": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{minutes} {seconds}"
+        },
+        "en": {
+          "text": "{minutes} {seconds}"
+        }
+      }
+    },
+    "theatre.cmp_shell.seek_step": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "15 giây"
+        },
+        "en": {
+          "text": "15 seconds"
+        }
+      }
+    },
+    "theatre.cmp_shell.rewind": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lùi 15 giây"
+        },
+        "en": {
+          "text": "Back 15 seconds"
+        }
+      }
+    },
+    "theatre.cmp_shell.forward": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tiến 15 giây"
+        },
+        "en": {
+          "text": "Forward 15 seconds"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ghi dấu điểm này"
+        },
+        "en": {
+          "text": "Bookmark this moment"
+        }
+      }
+    },
+    "theatre.cmp_shell.bookmarked": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã ghi dấu điểm này"
+        },
+        "en": {
+          "text": "Moment bookmarked"
+        }
+      }
+    },
+    "theatre.cmp_shell.player_explanation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn Phát để bắt đầu nghe hoặc điều chỉnh điểm nghe."
+        },
+        "en": {
+          "text": "Choose Play to listen or adjust the listening position."
+        }
+      }
+    },
+    "theatre.cmp_shell.next_explanation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn một tập trong danh sách để mở trong phòng nghe."
+        },
+        "en": {
+          "text": "Choose an episode from the list to open in the listening room."
+        }
+      }
+    },
+    "theatre.cmp_shell.current_episode": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tập đang mở"
+        },
+        "en": {
+          "text": "Current episode"
+        }
+      }
+    },
+    "theatre.cmp_shell.personal_rhythm": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một nhịp nghe riêng"
+        },
+        "en": {
+          "text": "Your own listening rhythm"
+        }
+      }
+    },
+    "theatre.cmp_shell.preferences_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Điều chỉnh giao diện, ngôn ngữ và tùy chọn nghe."
+        },
+        "en": {
+          "text": "Adjust appearance, language and listening preferences."
+        }
+      }
+    },
+    "theatre.cmp_shell.theme": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giao diện"
+        },
+        "en": {
+          "text": "Appearance"
+        }
+      }
+    },
+    "theatre.cmp_shell.light": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giấy ngà · Sáng"
+        },
+        "en": {
+          "text": "Warm paper · Light"
+        }
+      }
+    },
+    "theatre.cmp_shell.dark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mực tím · Tối"
+        },
+        "en": {
+          "text": "Purple ink · Dark"
+        }
+      }
+    },
+    "theatre.cmp_shell.language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ giao diện"
+        },
+        "en": {
+          "text": "Interface language"
+        }
+      }
+    },
+    "theatre.cmp_shell.locale_save_failure": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không lưu được ngôn ngữ. Lựa chọn trước đó vẫn được giữ. Hãy thử lại."
+        },
+        "en": {
+          "text": "Couldn’t save the language. Your previous choice is unchanged. Try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.speed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tốc độ phát"
+        },
+        "en": {
+          "text": "Playback speed"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hẹn giờ dừng"
+        },
+        "en": {
+          "text": "Sleep timer"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer_off": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tắt"
+        },
+        "en": {
+          "text": "Off"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer15": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "15 phút"
+        },
+        "en": {
+          "text": "15 minutes"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer30": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "30 phút"
+        },
+        "en": {
+          "text": "30 minutes"
+        }
+      }
+    },
+    "theatre.cmp_shell.timer_end": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hết tập này"
+        },
+        "en": {
+          "text": "End of episode"
+        }
+      }
+    },
+    "theatre.cmp_shell.refresh": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Làm mới"
+        },
+        "en": {
+          "text": "Refresh"
+        }
+      }
+    },
+    "theatre.cmp_shell.load_more": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tải thêm"
+        },
+        "en": {
+          "text": "Load more"
+        }
+      }
+    },
+    "theatre.cmp_shell.loading_more": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải thêm…"
+        },
+        "en": {
+          "text": "Loading more…"
+        }
+      }
+    },
+    "theatre.cmp_shell.next_page_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa tải thêm được. Các mục đã hiện vẫn được giữ."
+        },
+        "en": {
+          "text": "Couldn’t load more. Items already shown are kept."
+        }
+      }
+    },
+    "theatre.cmp_shell.work_not_found": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm này hiện không mở được"
+        },
+        "en": {
+          "text": "This work can’t be opened right now"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_not_found_note": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại danh sách để chọn một tác phẩm khác."
+        },
+        "en": {
+          "text": "Go back to the list to choose another work."
+        }
+      }
+    },
+    "theatre.cmp_shell.kind_novel": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tiểu thuyết"
+        },
+        "en": {
+          "text": "Novel"
+        }
+      }
+    },
+    "theatre.cmp_shell.kind_story": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Truyện"
+        },
+        "en": {
+          "text": "Story"
+        }
+      }
+    },
+    "theatre.cmp_shell.kind_podcast": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Podcast"
+        },
+        "en": {
+          "text": "Podcast"
+        }
+      }
+    },
+    "theatre.cmp_shell.chapters": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các chương"
+        },
+        "en": {
+          "text": "Chapters"
+        }
+      }
+    },
+    "theatre.cmp_shell.error_dialog_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa hoàn tất thao tác"
+        },
+        "en": {
+          "text": "Couldn’t complete that"
+        }
+      }
+    },
+    "theatre.cmp_shell.close_error": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng"
+        },
+        "en": {
+          "text": "Close"
+        }
+      }
+    },
+    "theatre.cmp_shell.error_network": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa kết nối được với máy chủ. Hãy kiểm tra mạng và thử lại."
+        },
+        "en": {
+          "text": "Couldn’t reach the server. Check your connection and try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_timeout": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phản hồi từ máy chủ quá thời gian chờ. Hãy thử lại."
+        },
+        "en": {
+          "text": "The server took too long to respond. Try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_unauthenticated": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cần đăng nhập để thực hiện thao tác này."
+        },
+        "en": {
+          "text": "Sign in to continue with this action."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_forbidden": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản hiện tại không có quyền thực hiện thao tác này."
+        },
+        "en": {
+          "text": "Your account does not have access to this action."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_content_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nội dung này đã thay đổi hoặc không còn mở công khai."
+        },
+        "en": {
+          "text": "This content has changed or is no longer available."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_protocol": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phản hồi từ máy chủ không đúng định dạng mong đợi. Hãy thử lại."
+        },
+        "en": {
+          "text": "The server returned an unexpected response. Try again."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_configuration": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cấu hình máy chủ của bản dựng này không hợp lệ."
+        },
+        "en": {
+          "text": "This build’s server configuration is invalid."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_storage": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa truy cập được dữ liệu trên thiết bị này. Các thao tác đang chờ được giữ lại; Cantos chưa xác nhận đã đồng bộ."
+        },
+        "en": {
+          "text": "Local data is unavailable. Pending actions are kept; sync has not been confirmed."
+        }
+      }
+    },
+    "theatre.cmp_shell.error_service_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Dịch vụ đang tạm thời gián đoạn. Hãy thử lại sau ít phút."
+        },
+        "en": {
+          "text": "The service is temporarily unavailable. Try again in a moment."
+        }
+      }
+    },
+    "theatre.cmp_auth.brand": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos"
+        },
+        "en": {
+          "text": "Cantos"
+        }
+      }
+    },
+    "theatre.cmp_auth.back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại"
+        },
+        "en": {
+          "text": "Back"
+        }
+      }
+    },
+    "theatre.cmp_auth.return_home": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Khám phá"
+        },
+        "en": {
+          "text": "Back to Discover"
+        }
+      }
+    },
+    "theatre.cmp_auth.return_account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Tài khoản"
+        },
+        "en": {
+          "text": "Back to Account"
+        }
+      }
+    },
+    "theatre.cmp_auth.return_membership": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Membership"
+        },
+        "en": {
+          "text": "Back to Membership"
+        }
+      }
+    },
+    "theatre.cmp_auth.return_login": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Đăng nhập"
+        },
+        "en": {
+          "text": "Back to sign-in"
+        }
+      }
+    },
+    "theatre.cmp_auth.toggle_theme": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chuyển giao diện sáng tối"
+        },
+        "en": {
+          "text": "Switch light and dark theme"
+        }
+      }
+    },
+    "theatre.cmp_auth.login_eyebrow": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "CANTOS · MỘT LẦN TRỞ LẠI"
+        },
+        "en": {
+          "text": "CANTOS · A PLACE TO RETURN"
+        }
+      }
+    },
+    "theatre.cmp_auth.login_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Câu chuyện đang đợi bạn."
+        },
+        "en": {
+          "text": "Your story is waiting."
+        }
+      }
+    },
+    "theatre.cmp_auth.login_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể nghe ngay mà không cần đăng nhập."
+        },
+        "en": {
+          "text": "Sign in to return to your library. Public stories are still available without signing in."
+        }
+      }
+    },
+    "theatre.cmp_auth.password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mật khẩu"
+        },
+        "en": {
+          "text": "Password"
+        }
+      }
+    },
+    "theatre.cmp_auth.password_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập mật khẩu."
+        },
+        "en": {
+          "text": "Enter your password."
+        }
+      }
+    },
+    "theatre.cmp_auth.show_password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hiện mật khẩu"
+        },
+        "en": {
+          "text": "Show password"
+        }
+      }
+    },
+    "theatre.cmp_auth.hide_password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ẩn mật khẩu"
+        },
+        "en": {
+          "text": "Hide password"
+        }
+      }
+    },
+    "theatre.cmp_auth.invalid_credentials": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể đăng nhập bằng thông tin này."
+        },
+        "en": {
+          "text": "Unable to sign in with these credentials."
+        }
+      }
+    },
+    "theatre.cmp_auth.retry_later": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau."
+        },
+        "en": {
+          "text": "Sign-in is temporarily unavailable. Please try again later."
+        }
+      }
+    },
+    "theatre.cmp_auth.cantos_id_login": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập"
+        },
+        "en": {
+          "text": "Sign in"
+        }
+      }
+    },
+    "theatre.cmp_auth.create_account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo tài khoản Cantos"
+        },
+        "en": {
+          "text": "Create a Cantos account"
+        }
+      }
+    },
+    "theatre.cmp_auth.password_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Dùng email và mật khẩu đã thiết lập sau khi xác minh hộp thư."
+        },
+        "en": {
+          "text": "Use the email and password you set up after verifying your mailbox."
+        }
+      }
+    },
+    "theatre.cmp_auth.brand_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhắm mắt lại. Mở một thế giới."
+        },
+        "en": {
+          "text": "Close your eyes. Open a world."
+        }
+      }
+    },
+    "theatre.cmp_auth.brand_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Có những câu chuyện chỉ cần lắng nghe. Có những miền tưởng tượng luôn chờ bạn."
+        },
+        "en": {
+          "text": "Some stories only ask you to listen. Worlds of imagination are waiting for you."
+        }
+      }
+    },
+    "theatre.cmp_auth.brand_genres": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Truyện · Podcast · Kịch truyền thanh"
+        },
+        "en": {
+          "text": "Stories · Podcasts · Audio drama"
+        }
+      }
+    },
+    "theatre.cmp_auth.restore_session": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Khôi phục phiên đã lưu"
+        },
+        "en": {
+          "text": "Restore the saved session"
+        }
+      }
+    },
+    "theatre.cmp_auth.nothing_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thiết bị này chưa lưu phiên nào để khôi phục."
+        },
+        "en": {
+          "text": "This device has no saved session to restore."
+        }
+      }
+    },
+    "theatre.cmp_auth.cancel_login": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hủy đăng nhập"
+        },
+        "en": {
+          "text": "Cancel sign-in"
+        }
+      }
+    },
+    "theatre.cmp_auth.pending_reason": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang đăng nhập. Không gửi yêu cầu lần hai."
+        },
+        "en": {
+          "text": "Signing in. A second request is not sent."
+        }
+      }
+    },
+    "theatre.cmp_auth.pending_status": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang xác minh phiên đăng nhập…"
+        },
+        "en": {
+          "text": "Verifying the sign-in session…"
+        }
+      }
+    },
+    "theatre.cmp_auth.unavailable_reason": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai."
+        },
+        "en": {
+          "text": "Sign-in is not available in this build. Public stories still play."
+        }
+      }
+    },
+    "theatre.cmp_auth.cleanup_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cần hoàn tất xóa phiên cũ trước khi đăng nhập lại."
+        },
+        "en": {
+          "text": "The previous session must be removed before you sign in again."
+        }
+      }
+    },
+    "theatre.cmp_auth.cleanup_reason": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập tạm dừng cho đến khi phiên cũ được xóa."
+        },
+        "en": {
+          "text": "Sign-in is paused until the previous session is removed."
+        }
+      }
+    },
+    "theatre.cmp_auth.retry_cleanup": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử xóa phiên lại"
+        },
+        "en": {
+          "text": "Retry removing the session"
+        }
+      }
+    },
+    "theatre.cmp_auth.failure_storage": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể đọc phiên đã lưu trên thiết bị."
+        },
+        "en": {
+          "text": "The saved session on this device could not be read."
+        }
+      }
+    },
+    "theatre.cmp_auth.failure_expired": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên đã hết hạn. Vui lòng đăng nhập lại."
+        },
+        "en": {
+          "text": "The session expired. Please sign in again."
+        }
+      }
+    },
+    "theatre.cmp_auth.failure_api": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể xác minh phiên qua mạng. Vui lòng thử lại."
+        },
+        "en": {
+          "text": "The session could not be verified over the network. Please try again."
+        }
+      }
+    },
+    "theatre.cmp_auth.failure_protocol": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể xác minh phản hồi đăng nhập an toàn."
+        },
+        "en": {
+          "text": "The secure sign-in response could not be verified."
+        }
+      }
+    },
+    "theatre.cmp_auth.failure_exhausted": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập tạm thời không khả dụng. Vui lòng mở lại ứng dụng."
+        },
+        "en": {
+          "text": "Sign-in is temporarily unavailable. Please reopen the app."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_eyebrow": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "CANTOS ID · TÀI KHOẢN CỦA BẠN"
+        },
+        "en": {
+          "text": "CANTOS ID · YOUR ACCOUNT"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một nơi để trở lại."
+        },
+        "en": {
+          "text": "A place to return to."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xác minh email trước, rồi đặt thông tin đăng nhập trong trình duyệt an toàn. Cantos không nhận mật khẩu tại đây."
+        },
+        "en": {
+          "text": "Verify your email, then set up credentials in the secure browser. Cantos does not collect your password here."
+        }
+      }
+    },
+    "theatre.cmp_auth.signup_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng ký chưa sẵn sàng trên bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai."
+        },
+        "en": {
+          "text": "Registration is not ready in this build. You can still sign in or play public stories."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_disabled": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Máy chủ chưa bật đăng ký cho bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai."
+        },
+        "en": {
+          "text": "Registration is not enabled by the server for this build. You can still sign in or play public stories."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_email": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Địa chỉ email"
+        },
+        "en": {
+          "text": "Email address"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_send": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Gửi yêu cầu xác minh"
+        },
+        "en": {
+          "text": "Request email verification"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_sending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang gửi yêu cầu…"
+        },
+        "en": {
+          "text": "Submitting the request…"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_waiting": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Yêu cầu đã được tiếp nhận. Mở email xác minh trong hộp thư: Cantos sẽ mở trong trình duyệt để bạn xác minh và đặt mật khẩu. Xong bước đó, hãy quay lại ứng dụng này để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo."
+        },
+        "en": {
+          "text": "The request was accepted. Open the verification email: Cantos opens in your browser so you can verify and set your password. When that is done, come back to this app to sign in. This does not confirm delivery or account creation."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_cancel": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hủy đăng ký"
+        },
+        "en": {
+          "text": "Cancel registration"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_cancelled": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã dừng đăng ký tại đây. Hủy không thu hồi thao tác máy chủ đã hoàn tất."
+        },
+        "en": {
+          "text": "Registration stopped here. Cancellation cannot undo work already completed by the server."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_restart": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bắt đầu yêu cầu mới"
+        },
+        "en": {
+          "text": "Start a new request"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_retry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kiểm tra lại"
+        },
+        "en": {
+          "text": "Check again"
+        }
+      }
+    },
+    "theatre.cmp_auth.register_invalid_email": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập địa chỉ email hợp lệ."
+        },
+        "en": {
+          "text": "Enter a valid email address."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_denied": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Máy chủ từ chối yêu cầu đăng ký trên bản này."
+        },
+        "en": {
+          "text": "The server refused registration from this build."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_rate_limited": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn đã gửi quá nhiều yêu cầu. Hãy thử lại sau ít phút."
+        },
+        "en": {
+          "text": "Too many requests were sent. Please try again in a few minutes."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_send_unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa biết máy chủ đã nhận yêu cầu hay chưa. Kiểm tra hộp thư trước khi bắt đầu yêu cầu mới."
+        },
+        "en": {
+          "text": "The submission outcome is unknown. Check your inbox before starting a new request."
+        }
+      }
+    },
+    "theatre.cmp_auth.register_later": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Để sau, về Khám phá"
+        },
+        "en": {
+          "text": "Later, back to Discover"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_eyebrow": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "CANTOS ID · XÁC MINH EMAIL"
+        },
+        "en": {
+          "text": "CANTOS ID · EMAIL VERIFICATION"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn mật khẩu cho tài khoản mới."
+        },
+        "en": {
+          "text": "Choose a password for your new account."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_heading_done": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản của bạn đã sẵn sàng."
+        },
+        "en": {
+          "text": "Your account is ready."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_heading_unusable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết này chưa dùng được."
+        },
+        "en": {
+          "text": "This link cannot be used."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_confirm_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết đã được mở an toàn trong ứng dụng. Hãy chọn mật khẩu rồi xác nhận để tạo tài khoản. Chỉ mở liên kết thì chưa tạo gì và chưa đăng nhập."
+        },
+        "en": {
+          "text": "The link opened safely in the app. Choose a password, then confirm to create your account. Opening the link alone creates nothing and does not sign you in."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mật khẩu mới"
+        },
+        "en": {
+          "text": "New password"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password_repeat": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập lại mật khẩu"
+        },
+        "en": {
+          "text": "Repeat the password"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Từ 8 đến 128 ký tự. Khoảng trắng được giữ nguyên và mật khẩu không được lưu trên thiết bị."
+        },
+        "en": {
+          "text": "8 to 128 characters. Spaces are kept as typed and the password is never stored on this device."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password_short": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mật khẩu cần ít nhất 8 ký tự."
+        },
+        "en": {
+          "text": "The password needs at least 8 characters."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password_long": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mật khẩu chỉ được tối đa 128 ký tự."
+        },
+        "en": {
+          "text": "The password can have at most 128 characters."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_password_mismatch": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hai mật khẩu chưa giống nhau."
+        },
+        "en": {
+          "text": "The two passwords do not match."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_confirm_checkbox": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tôi là chủ hộp thư này và xác nhận tạo tài khoản Cantos với mật khẩu vừa nhập."
+        },
+        "en": {
+          "text": "I own this mailbox and confirm creating a Cantos account with the password I just entered."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_create": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo tài khoản"
+        },
+        "en": {
+          "text": "Create account"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_create_reason": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập mật khẩu hợp lệ hai lần và đánh dấu xác nhận."
+        },
+        "en": {
+          "text": "Enter a valid password twice and tick the confirmation."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_completing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tạo tài khoản…"
+        },
+        "en": {
+          "text": "Creating your account…"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_retry_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa biết tài khoản đã được tạo hay chưa. Hãy gửi lại đúng yêu cầu cũ: không cần nhập lại và mật khẩu không bị đổi. Nếu rời màn hình này, yêu cầu sẽ mất; khi đó hãy thử đăng nhập bằng mật khẩu bạn đã chọn."
+        },
+        "en": {
+          "text": "We cannot tell whether the account was created. Send the same request again: nothing is retyped and the password is unchanged. If you leave this screen the request is lost; then try signing in with the password you chose."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_retry_rate_limited": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Có quá nhiều yêu cầu. Hãy đợi một lúc rồi gửi lại đúng yêu cầu cũ; mật khẩu không bị đổi."
+        },
+        "en": {
+          "text": "Too many requests. Wait a while, then send the same request again; the password is unchanged."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_retry_same": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Gửi lại đúng yêu cầu cũ"
+        },
+        "en": {
+          "text": "Send the same request again"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_invalid_password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mật khẩu chưa được chấp nhận. Chưa có gì được tạo; hãy chọn mật khẩu khác rồi xác nhận lại."
+        },
+        "en": {
+          "text": "The password was not accepted. Nothing was created; choose another password and confirm again."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_choose_password": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn mật khẩu khác"
+        },
+        "en": {
+          "text": "Choose another password"
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_link_spent": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết này không còn dùng được: có thể đã hết hạn hoặc đã được dùng. Nếu bạn đã tạo tài khoản, hãy đăng nhập; nếu chưa, hãy yêu cầu email mới."
+        },
+        "en": {
+          "text": "This link can no longer be used: it may have expired or already been used. If you already created an account, sign in; otherwise request another email."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_forbidden": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Máy chủ từ chối tạo tài khoản từ bản ứng dụng này."
+        },
+        "en": {
+          "text": "The server refused account creation from this build."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_not_configured": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Máy chủ chưa mở tạo tài khoản cho bản này. Bạn vẫn có thể nghe nội dung công khai."
+        },
+        "en": {
+          "text": "Account creation is not open for this build yet. You can still play public stories."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_link_unreadable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc được liên kết xác minh an toàn. Hãy mở lại liên kết mới nhất từ email; nếu vẫn lỗi, bạn có thể yêu cầu email mới."
+        },
+        "en": {
+          "text": "The verification link could not be read safely. Reopen the latest link from your email; if the problem continues, you can request another email."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_completed_signed_out": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản đã được tạo. Hãy đăng nhập bằng email và mật khẩu bạn vừa chọn."
+        },
+        "en": {
+          "text": "Your account was created. Sign in with the email and password you just chose."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_completed_signed_in": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản mới đã được tạo. Bạn vẫn đang đăng nhập bằng tài khoản hiện tại. Để dùng tài khoản mới, hãy đăng xuất trong Tài khoản rồi đăng nhập lại."
+        },
+        "en": {
+          "text": "The new account was created. You are still signed in with your current account. To use the new one, sign out in Account, then sign in."
+        }
+      }
+    },
+    "theatre.cmp_auth.verify_open_account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở Tài khoản"
+        },
+        "en": {
+          "text": "Open Account"
+        }
+      }
+    },
+    "theatre.cmp_auth.guest_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Người nghe khách"
+        },
+        "en": {
+          "text": "Guest listener"
+        }
+      }
+    },
+    "theatre.cmp_auth.guest_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chào người nghe."
+        },
+        "en": {
+          "text": "Welcome, listener."
+        }
+      }
+    },
+    "theatre.cmp_auth.guest_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình."
+        },
+        "en": {
+          "text": "You can still explore and play public stories. Sign in when you want to open your own library."
+        }
+      }
+    },
+    "theatre.cmp_auth.sign_in": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập"
+        },
+        "en": {
+          "text": "Sign in"
+        }
+      }
+    },
+    "theatre.cmp_auth.create_account_short": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo tài khoản"
+        },
+        "en": {
+          "text": "Create an account"
+        }
+      }
+    },
+    "theatre.cmp_auth.signed_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đăng nhập"
+        },
+        "en": {
+          "text": "Signed in"
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sắp ra mắt"
+        },
+        "en": {
+          "text": "Coming soon"
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_name": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos Membership"
+        },
+        "en": {
+          "text": "Cantos Membership"
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một người nghe. Một người đồng hành."
+        },
+        "en": {
+          "text": "A listener. A companion."
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm hiểu chương trình hội viên khi bạn sẵn sàng."
+        },
+        "en": {
+          "text": "Learn about membership whenever you are ready."
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_learn": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm hiểu Membership"
+        },
+        "en": {
+          "text": "Explore Membership"
+        }
+      }
+    },
+    "theatre.cmp_auth.appearance": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giao diện"
+        },
+        "en": {
+          "text": "Appearance"
+        }
+      }
+    },
+    "theatre.cmp_auth.appearance_light": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang dùng giao diện sáng"
+        },
+        "en": {
+          "text": "Using the light appearance"
+        }
+      }
+    },
+    "theatre.cmp_auth.appearance_dark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang dùng giao diện tối"
+        },
+        "en": {
+          "text": "Using the dark appearance"
+        }
+      }
+    },
+    "theatre.cmp_auth.listening_settings": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cài đặt nghe"
+        },
+        "en": {
+          "text": "Listening settings"
+        }
+      }
+    },
+    "theatre.cmp_auth.listening_settings_hint": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tốc độ, hẹn giờ và ngôn ngữ"
+        },
+        "en": {
+          "text": "Speed, timer and language"
+        }
+      }
+    },
+    "theatre.cmp_auth.logout": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng xuất"
+        },
+        "en": {
+          "text": "Sign out"
+        }
+      }
+    },
+    "theatre.cmp_auth.signed_profile_name": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Người nghe Cantos"
+        },
+        "en": {
+          "text": "Cantos listener"
+        }
+      }
+    },
+    "theatre.cmp_auth.my_membership": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hội viên của tôi"
+        },
+        "en": {
+          "text": "My membership"
+        }
+      }
+    },
+    "theatre.cmp_auth.membership_explore": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm hiểu hội viên"
+        },
+        "en": {
+          "text": "Explore membership"
+        }
+      }
+    },
+    "theatre.cmp_auth.library_and_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thư viện & Lịch sử nghe"
+        },
+        "en": {
+          "text": "Library & listening history"
+        }
+      }
+    },
+    "theatre.cmp_auth.support_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên hệ hỗ trợ"
+        },
+        "en": {
+          "text": "Contact support"
+        }
+      }
+    },
+    "theatre.cmp_auth.support_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin hỗ trợ đang cập nhật"
+        },
+        "en": {
+          "text": "Support information is being updated"
+        }
+      }
+    },
+    "theatre.cmp_auth.logout_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng xuất khỏi Cantos?"
+        },
+        "en": {
+          "text": "Sign out of Cantos?"
+        }
+      }
+    },
+    "theatre.cmp_auth.logout_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn luôn có thể quay lại Cantos để tiếp tục câu chuyện của mình."
+        },
+        "en": {
+          "text": "You can always return to Cantos to continue your story."
+        }
+      }
+    },
+    "theatre.cmp_auth.logout_cancel": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại"
+        },
+        "en": {
+          "text": "Go back"
+        }
+      }
+    },
+    "theatre.cmp_auth.logout_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang đăng xuất…"
+        },
+        "en": {
+          "text": "Signing out…"
+        }
+      }
+    },
+    "theatre.cmp_auth.logout_pending_reason": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Yêu cầu đang được xử lý. Không gửi lần hai."
+        },
+        "en": {
+          "text": "The request is in progress. It is not sent twice."
+        }
+      }
+    },
+    "theatre.cmp_membership.app_brand": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos"
+        },
+        "en": {
+          "text": "Cantos"
+        }
+      }
+    },
+    "theatre.cmp_membership.back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại"
+        },
+        "en": {
+          "text": "Back"
+        }
+      }
+    },
+    "theatre.cmp_membership.toggle_theme": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chuyển giao diện sáng tối"
+        },
+        "en": {
+          "text": "Switch light and dark theme"
+        }
+      }
+    },
+    "theatre.cmp_membership.brand": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos Membership"
+        },
+        "en": {
+          "text": "Cantos Membership"
+        }
+      }
+    },
+    "theatre.cmp_membership.preview_notice": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản xem thử · Không gửi đăng ký, tạo tài khoản hoặc thanh toán."
+        },
+        "en": {
+          "text": "Preview · No registration, account creation or payment is sent."
+        }
+      }
+    },
+    "theatre.cmp_membership.intro_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lắng nghe. Và đồng hành."
+        },
+        "en": {
+          "text": "Listen. And belong."
+        }
+      }
+    },
+    "theatre.cmp_membership.intro_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một góc dành cho những người muốn đi xa hơn cùng câu chuyện."
+        },
+        "en": {
+          "text": "A place for those who want to go further with a story."
+        }
+      }
+    },
+    "theatre.cmp_membership.coming_soon": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sắp ra mắt"
+        },
+        "en": {
+          "text": "Coming soon"
+        }
+      }
+    },
+    "theatre.cmp_membership.intro_card_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đồng hành cùng những câu chuyện bạn yêu. Chỉ cần tên và email để bắt đầu."
+        },
+        "en": {
+          "text": "Support the stories you love. Start with your name and email."
+        }
+      }
+    },
+    "theatre.cmp_membership.form_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thêm một người đồng hành."
+        },
+        "en": {
+          "text": "One more companion."
+        }
+      }
+    },
+    "theatre.cmp_membership.form_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Để Cantos gửi thông tin hội viên đến bạn."
+        },
+        "en": {
+          "text": "Let Cantos send membership information to you."
+        }
+      }
+    },
+    "theatre.cmp_membership.name": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tên của bạn"
+        },
+        "en": {
+          "text": "Your name"
+        }
+      }
+    },
+    "theatre.cmp_membership.email": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Email"
+        },
+        "en": {
+          "text": "Email"
+        }
+      }
+    },
+    "theatre.cmp_membership.submit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng ký Membership"
+        },
+        "en": {
+          "text": "Register interest in Membership"
+        }
+      }
+    },
+    "theatre.cmp_membership.plans": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem các gói Membership"
+        },
+        "en": {
+          "text": "View Membership plans"
+        }
+      }
+    },
+    "theatre.cmp_membership.explore": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Để sau, tiếp tục khám phá"
+        },
+        "en": {
+          "text": "Later, continue exploring"
+        }
+      }
+    },
+    "theatre.cmp_membership.view_receipt": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem xác nhận minh họa"
+        },
+        "en": {
+          "text": "View sample receipt"
+        }
+      }
+    },
+    "theatre.cmp_membership.received_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng ký đã hoàn tất."
+        },
+        "en": {
+          "text": "Registration received."
+        }
+      }
+    },
+    "theatre.cmp_membership.received_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bây giờ bạn có thể xem các gói Membership, hoặc tiếp tục khám phá và quyết định sau."
+        },
+        "en": {
+          "text": "You can view Membership plans now, or keep exploring and decide later."
+        }
+      }
+    },
+    "theatre.cmp_membership.thank_you": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cảm ơn người đồng hành"
+        },
+        "en": {
+          "text": "Thank you for joining us"
+        }
+      }
+    },
+    "theatre.cmp_membership.receipt_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đăng ký · minh họa"
+        },
+        "en": {
+          "text": "Received · sample"
+        }
+      }
+    },
+    "theatre.cmp_membership.received_fixture": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xác nhận từ fixture · Chưa gửi đăng ký thật"
+        },
+        "en": {
+          "text": "Fixture receipt · No real request was sent"
+        }
+      }
+    },
+    "theatre.cmp_membership.account_registered_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng ký hoàn tất."
+        },
+        "en": {
+          "text": "Account registration complete."
+        }
+      }
+    },
+    "theatre.cmp_membership.account_registered_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn có thể bắt đầu khám phá hoặc xem các gói Membership khi muốn."
+        },
+        "en": {
+          "text": "Start exploring or view Membership plans whenever you want."
+        }
+      }
+    },
+    "theatre.cmp_membership.account_fixture": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản minh họa được chọn thủ công, không phải kết quả xác thực."
+        },
+        "en": {
+          "text": "Manually selected account fixture, not an authentication result."
+        }
+      }
+    },
+    "theatre.cmp_membership.account_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không gian của bạn"
+        },
+        "en": {
+          "text": "Your space"
+        }
+      }
+    },
+    "theatre.cmp_membership.account_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Điểm quay lại của bản xem thử. Tài khoản thật không bị thay đổi."
+        },
+        "en": {
+          "text": "Preview return destination. Your real account is unchanged."
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn nhịp đồng hành."
+        },
+        "en": {
+          "text": "Find your rhythm."
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem thông tin các gói ở màn riêng. Bạn có thể quyết định sau."
+        },
+        "en": {
+          "text": "Explore plans on their own screen. You can decide later."
+        }
+      }
+    },
+    "theatre.cmp_membership.unpublished": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa công bố các gói Membership."
+        },
+        "en": {
+          "text": "Membership plans have not been announced."
+        }
+      }
+    },
+    "theatre.cmp_membership.monthly": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Theo tháng · bố cục minh họa"
+        },
+        "en": {
+          "text": "Monthly · illustrative layout"
+        }
+      }
+    },
+    "theatre.cmp_membership.annual": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Theo năm · bố cục minh họa"
+        },
+        "en": {
+          "text": "Annual · illustrative layout"
+        }
+      }
+    },
+    "theatre.cmp_membership.month_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một tháng."
+        },
+        "en": {
+          "text": "One month."
+        }
+      }
+    },
+    "theatre.cmp_membership.year_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một năm."
+        },
+        "en": {
+          "text": "One year."
+        }
+      }
+    },
+    "theatre.cmp_membership.price_unpublished": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa công bố"
+        },
+        "en": {
+          "text": "Not announced"
+        }
+      }
+    },
+    "theatre.cmp_membership.month_action": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem gói tháng"
+        },
+        "en": {
+          "text": "View monthly plan"
+        }
+      }
+    },
+    "theatre.cmp_membership.year_action": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem gói năm"
+        },
+        "en": {
+          "text": "View annual plan"
+        }
+      }
+    },
+    "theatre.cmp_membership.plan_details_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chi tiết gói chưa công bố."
+        },
+        "en": {
+          "text": "Plan details have not been announced."
+        }
+      }
+    },
+    "theatre.cmp_membership.month_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tham gia theo từng tháng, theo nhịp nghe của bạn."
+        },
+        "en": {
+          "text": "Join month by month, at your listening pace."
+        }
+      }
+    },
+    "theatre.cmp_membership.year_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một chặng đồng hành dài hơi cùng những câu chuyện."
+        },
+        "en": {
+          "text": "A longer journey alongside the stories."
+        }
+      }
+    },
+    "theatre.cmp_membership.month_rate": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mức phí / tháng"
+        },
+        "en": {
+          "text": "Price / month"
+        }
+      }
+    },
+    "theatre.cmp_membership.year_rate": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mức phí / năm"
+        },
+        "en": {
+          "text": "Price / year"
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Fixture: đang tải thông tin gói…"
+        },
+        "en": {
+          "text": "Fixture: loading plan information…"
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Fixture: chưa có gói để hiển thị."
+        },
+        "en": {
+          "text": "Fixture: no plans to display."
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin các gói hiện chưa khả dụng."
+        },
+        "en": {
+          "text": "Plan information is currently unavailable."
+        }
+      }
+    },
+    "theatre.cmp_membership.plans_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Fixture: chưa tải được thông tin gói. Xác nhận đăng ký vẫn được giữ."
+        },
+        "en": {
+          "text": "Fixture: plan information could not load. Your receipt is retained."
+        }
+      }
+    },
+    "theatre.cmp_membership.no_checkout": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giá và quyền lợi sẽ được công bố trước khi bạn quyết định. Hiện chưa mở chọn gói hoặc thanh toán."
+        },
+        "en": {
+          "text": "Prices and benefits will be announced before you decide. Plan selection and checkout are currently unavailable."
+        }
+      }
+    },
+    "theatre.cmp_membership.unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng ký thật chưa khả dụng. Nội dung đã nhập chỉ được giữ trong phiên xem thử này."
+        },
+        "en": {
+          "text": "Real registration is unavailable. Entered text is retained only in this preview session."
+        }
+      }
+    },
+    "theatre.cmp_membership.pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Fixture đang chờ kết quả thủ công. Không gửi yêu cầu lần hai."
+        },
+        "en": {
+          "text": "Fixture awaiting a manual outcome. A duplicate request is blocked."
+        }
+      }
+    },
+    "theatre.cmp_membership.pending_action": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang chờ xác nhận…"
+        },
+        "en": {
+          "text": "Awaiting confirmation…"
+        }
+      }
+    },
+    "theatre.cmp_membership.unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa biết kết quả. Giữ nguyên tên, email và ý định; kiểm tra lại trước khi gửi khác."
+        },
+        "en": {
+          "text": "The outcome is unknown. Name, email and intent stay locked until reconciliation."
+        }
+      }
+    },
+    "theatre.cmp_membership.failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Fixture chưa xác nhận đăng ký. Bạn có thể thử lại hoặc sửa nội dung."
+        },
+        "en": {
+          "text": "The fixture did not confirm registration. Retry or correct your details."
+        }
+      }
+    },
+    "theatre.cmp_membership.retry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thử lại đăng ký"
+        },
+        "en": {
+          "text": "Retry registration"
+        }
+      }
+    },
+    "theatre.cmp_membership.reconcile": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kiểm tra lại yêu cầu"
+        },
+        "en": {
+          "text": "Check the same request"
+        }
+      }
+    },
+    "theatre.cmp_membership.name_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập tên bạn muốn sử dụng."
+        },
+        "en": {
+          "text": "Enter the name you want to use."
+        }
+      }
+    },
+    "theatre.cmp_membership.name_too_long": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tên tối đa 120 ký tự Unicode."
+        },
+        "en": {
+          "text": "Use no more than 120 Unicode characters for your name."
+        }
+      }
+    },
+    "theatre.cmp_membership.name_invalid": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tên không được chứa ký tự điều khiển."
+        },
+        "en": {
+          "text": "Your name must not contain control characters."
+        }
+      }
+    },
+    "theatre.cmp_membership.email_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập địa chỉ email."
+        },
+        "en": {
+          "text": "Enter your email address."
+        }
+      }
+    },
+    "theatre.cmp_membership.email_too_long": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Email tối đa 254 ký tự Unicode."
+        },
+        "en": {
+          "text": "Use no more than 254 Unicode characters for email."
+        }
+      }
+    },
+    "theatre.cmp_membership.email_invalid": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhập email hợp lệ với một dấu @ và không có khoảng trắng."
+        },
+        "en": {
+          "text": "Enter an email with one @ and no whitespace."
+        }
+      }
+    },
+    "theatre.cmp_live.library_session": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các tác phẩm đã lưu, điểm nghe, dấu trang và lịch sử nghe của bạn."
+        },
+        "en": {
+          "text": "Your saved works, listening positions, bookmarks and listening history."
+        }
+      }
+    },
+    "theatre.cmp_live.history_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các câu chuyện đã nghe, gần nhất ở trên."
+        },
+        "en": {
+          "text": "Stories you have listened to, most recent first."
+        }
+      }
+    },
+    "theatre.cmp_launch.splash_tagline": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhắm mắt lại.\nMở một thế giới."
+        },
+        "en": {
+          "text": "Close your eyes.\nOpen a world."
+        }
+      }
+    },
+    "theatre.cmp_launch.splash_category": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Truyện · Podcast · Audio drama"
+        },
+        "en": {
+          "text": "Stories · Podcasts · Audio drama"
+        }
+      }
+    },
+    "theatre.cmp_launch.splash_status": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang mở Cantos"
+        },
+        "en": {
+          "text": "Opening Cantos"
+        }
+      }
+    },
+    "theatre.cmp_launch.listening_unavailable_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cantos chưa sẵn sàng"
+        },
+        "en": {
+          "text": "Cantos isn’t ready yet"
+        }
+      }
+    },
+    "theatre.cmp_launch.listening_unavailable_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản này chưa phát được truyện hay podcast."
+        },
+        "en": {
+          "text": "This version can’t play stories or podcasts yet."
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cấu hình máy chủ chưa hợp lệ"
+        },
+        "en": {
+          "text": "Server configuration isn’t valid"
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_origin_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Địa chỉ máy chủ được cấu hình đang để trống. Hãy cài bản dựng có địa chỉ hợp lệ."
+        },
+        "en": {
+          "text": "The configured server address is empty. Install a build with a valid address."
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_origin_malformed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Địa chỉ máy chủ được cấu hình không đúng dạng https://tên-miền."
+        },
+        "en": {
+          "text": "The configured server address isn’t in the form https://host."
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_origin_not_https": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Địa chỉ máy chủ phải dùng HTTPS."
+        },
+        "en": {
+          "text": "The server address must use HTTPS."
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_origin_cleartext_host": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản dev chỉ cho phép http với 127.0.0.1 hoặc localhost."
+        },
+        "en": {
+          "text": "Dev builds allow http only for 127.0.0.1 or localhost."
+        }
+      }
+    },
+    "theatre.cmp_launch.host_fault_network_not_declared": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản dựng này không có quyền truy cập mạng nên không thể gọi máy chủ."
+        },
+        "en": {
+          "text": "This build has no network permission, so it can’t reach the server."
+        }
+      }
     }
   }
 }

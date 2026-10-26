@@ -9,24 +9,34 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.adapters.preview.PreviewLocalePreferenceStore
+import com.cantos.theatre.adapters.preview.PreviewLoginMode
+import com.cantos.theatre.adapters.preview.PreviewWorkIds
+import com.cantos.theatre.app.PreviewOwners
+import com.cantos.theatre.app.PreviewSeed
+import com.cantos.theatre.app.PreviewSession
+import com.cantos.theatre.app.PreviewTestRoot
+import com.cantos.theatre.app.previewState
+import com.cantos.theatre.app.seed
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.ports.LocalePreferenceRead
@@ -34,19 +44,9 @@ import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
-import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
-import com.cantos.theatre.adapters.preview.PreviewLocalePreferenceStore
-import com.cantos.theatre.adapters.preview.PreviewLoginMode
-import com.cantos.theatre.app.PreviewOwners
-import com.cantos.theatre.app.PreviewSeed
-import com.cantos.theatre.app.PreviewSession
-import com.cantos.theatre.app.PreviewTestRoot
-import com.cantos.theatre.adapters.preview.PreviewWorkIds
-import com.cantos.theatre.app.previewState
-import com.cantos.theatre.app.seed
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /**
  * The one Cantos Theatre application, mounted exactly as the Desktop Preview mounts it, driven
@@ -269,8 +269,22 @@ class PreviewShellFlowTest {
     fun settings_edit_the_shared_preferences_and_a_refused_locale_write_is_reported_then_retried() {
         val store = PreviewLocalePreferenceStore().apply { writesAvailable = false }
         run(localeStore = store) { owners ->
+            untilTag("work-$sonHa")
+            onNodeWithTag("work-$sonHa").performScrollTo().performClick()
+            untilTag("episode-${PreviewEpisodeIds.SonHa03.value}")
+            onNodeWithTag("episode-${PreviewEpisodeIds.SonHa03.value}").performScrollTo().performClick()
+            waitUntil(timeoutMillis = 5_000) { owners.runtime.listening.playback.state.value.status == PlaybackStatus.Playing }
+            onNodeWithTag("forward").performScrollTo().performClick()
+            onNodeWithTag("transport").performScrollTo().performClick()
+            waitUntil(timeoutMillis = 5_000) { owners.runtime.listening.playback.state.value.status == PlaybackStatus.Paused }
+            onNodeWithTag("back").performClick()
             onNodeWithTag("account").performClick()
             onNodeWithTag("settings").performScrollTo().performClick()
+            val player = owners.runtime.listening.playback.state.value
+            val library = owners.shell.library.value
+            val account = owners.account.state.value
+            val navigation = owners.shell.navigation.value
+            val engineCommands = owners.engine.commands.toList()
             onNodeWithTag("setting-Language").performScrollTo().performClick()
             onNodeWithTag("locale-English").performClick()
             onNodeWithTag("locale-save-failure").performScrollTo().assertTextEquals(
@@ -284,6 +298,11 @@ class PreviewShellFlowTest {
             onNodeWithTag("setting-Language").assert(hasText("English"))
             assertEquals(LocalePreferenceRead.Saved(com.cantos.theatre.domain.preferences.UiLocale.English), store.readLocale())
             assertEquals(ShellLocale.English, owners.projection().locale)
+            assertEquals(player, owners.runtime.listening.playback.state.value)
+            assertEquals(library, owners.shell.library.value)
+            assertEquals(account, owners.account.state.value)
+            assertEquals(navigation, owners.shell.navigation.value)
+            assertEquals(engineCommands, owners.engine.commands)
         }
     }
 

@@ -10,8 +10,8 @@ import com.cantos.theatre.adapters.preview.PreviewLoginMode
 import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
-import org.junit.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 /** JVM production form/shell/controller interactions; no native secure-store or real auth claim. */
 @OptIn(ExperimentalTestApi::class)
@@ -33,6 +33,32 @@ class IdentityV1LoginUiTest {
     }
     private fun ComposeUiTest.submit() { onNodeWithTag("login-primary").performScrollTo().performClick(); waitForIdle() }
     private fun ComposeUiTest.password() = onNodeWithTag("login-password").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+
+    @Test fun generated_locale_updates_keep_focused_input_and_a_pending_login_in_the_same_mount() = run(ShellLocale.Vietnamese) { h ->
+        input()
+        onNodeWithTag("login-password").performScrollTo().performClick()
+        onNodeWithTag("login-password").assertIsFocused()
+        val maskedPassword = password()
+        runOnIdle { h.preferences.setLocale(ShellLocale.English.toPreferenceLocale()) }
+        onNodeWithText("Show password").assertExists()
+        onNodeWithTag("login-password").assertIsFocused()
+        assertEquals(maskedPassword, password())
+        onNodeWithTag("login-email").assert(hasText("listener@example.test"))
+        onNodeWithText("Show password").performScrollTo().performClick()
+        assertEquals("form-only-secret", password())
+        submit()
+        val account = h.account.state.value
+        val player = h.runtime.listening.playback.state.value
+        val library = h.shell.library.value
+        runOnIdle { h.preferences.setLocale(ShellLocale.Vietnamese.toPreferenceLocale()) }
+        onNodeWithTag("login-primary").assertIsNotEnabled()
+        onNodeWithText("Đang xác minh phiên đăng nhập…").assertExists()
+        assertEquals(1, h.identity.loginRequests)
+        assertEquals("", password())
+        assertEquals(account, h.account.state.value)
+        assertEquals(player, h.runtime.listening.playback.state.value)
+        assertEquals(library, h.shell.library.value)
+    }
 
     @Test fun invalid_fields_never_dispatch_and_keyboard_moves_email_to_password() = run { h ->
         submit(); assertEquals(0, h.identity.loginRequests)

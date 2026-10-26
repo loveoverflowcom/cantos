@@ -158,4 +158,6 @@ or translator workflow is unsuitable. A merge or a passing fixture never establi
 runtime, platform or production acceptance.
 
 #506 Web implementation and actual target results are recorded in [the Web evidence](../evidence/web-localization-506.md).
-Kotlin generation/bindings and CMP adoption remain #507 work; acceptance does not close #167/#505.
+The [#507 CMP record](../evidence/cmp-localization-507.md) separates generated text/registry
+adoption from the retained numeric compatibility namespaces and missing native ICU4X bindings.
+Architecture acceptance does not close #167/#505 or establish Android/iOS runtime acceptance.

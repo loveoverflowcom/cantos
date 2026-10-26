@@ -12,10 +12,9 @@ import com.cantos.theatre.features.launch.presentation.launchResources
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.UiPreferences
 import java.util.Locale
-import kotlinx.coroutines.test.runTest
-import org.jetbrains.compose.resources.getString
-import org.junit.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
+import org.junit.Test
 
 @OptIn(ExperimentalTestApi::class)
 class AppLocalePresentationTest {
@@ -28,7 +27,7 @@ class AppLocalePresentationTest {
                 runTest {
                     val resources = launchResources(locale)
                     val actual = listOf(resources.status, resources.tagline, resources.category,
-                        resources.unavailableTitle, resources.unavailableBody).map { getString(it) }
+                        resources.unavailableTitle, resources.unavailableBody)
                     val expected = when (locale) {
                         ShellLocale.Vietnamese -> listOf("Đang mở Cantos", "Nhắm mắt lại.\nMở một thế giới.",
                             "Truyện · Podcast · Audio drama", "Cantos chưa sẵn sàng", "Phiên bản này chưa phát được truyện hay podcast.")

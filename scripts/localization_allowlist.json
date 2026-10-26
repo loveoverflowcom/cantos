@@ -78,27 +78,22 @@
     {
       "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellCopy.kt",
       "mode": "bilingual",
-      "reason": "Existing CMP shell CopyKey/ShellText resource owner."
+      "reason": "Typed semantic adapter over ADR0050 generated Kotlin resources; no catalog literals."
     },
     {
       "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AuthCopy.kt",
       "mode": "bilingual",
-      "reason": "Existing CMP authentication AuthText resource owner."
+      "reason": "Typed semantic adapter over ADR0050 generated Kotlin resources; no catalog literals."
     },
     {
       "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/membership/presentation/MembershipCopy.kt",
       "mode": "bilingual",
-      "reason": "Existing CMP membership MembershipText resource owner."
+      "reason": "Typed semantic adapter over ADR0050 generated Kotlin resources; no catalog literals."
     },
     {
       "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/app/DemoShellCopy.kt",
       "mode": "bilingual",
       "reason": "Existing sandbox-only ShellText overrides; never a production catalog."
-    },
-    {
-      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/values/strings.xml",
-      "mode": "bilingual",
-      "reason": "Existing launch Compose resources use explicit Vietnamese and _en resource IDs."
     },
     {
       "path": "packages/ui-system/leptos/preview/messages.rs",
@@ -124,6 +119,36 @@
       "path": "apps/cantos-theatre/web/src/localization/generated.rs",
       "mode": "generated",
       "reason": "ADR0050 accepted resource projection; whole-catalog validation and byte drift are mandatory in this same gate."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/preferences/UiLocale.kt",
+      "mode": "generated",
+      "reason": "ADR0050 app-owned Kotlin projection; strict whole-catalog validation and deterministic byte drift are mandatory."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/generated/TheatreResources.kt",
+      "mode": "generated",
+      "reason": "ADR0050 app-owned Kotlin projection; strict whole-catalog validation and deterministic byte drift are mandatory."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/LegacyShellCopy.kt",
+      "mode": "bilingual",
+      "reason": "Explicit existing vi/en numeric compatibility namespace pending actual ICU4X Kotlin/native binding qualification. No new locale fallback."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/LegacyRetryAfter.kt",
+      "mode": "bilingual",
+      "reason": "Existing numeric retry-after wording retained until ICU4X Kotlin/native number/plural qualification."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellLocale.kt",
+      "mode": "generated",
+      "reason": "Generated read-only registry projection; same strict catalog and byte drift guard as UiLocale."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/app/LocaleProjection.kt",
+      "mode": "generated",
+      "reason": "Generated read-only registry projection; same strict catalog and byte drift guard as UiLocale."
     }
   ],
   "exceptions": [

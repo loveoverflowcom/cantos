@@ -44,15 +44,15 @@ internal fun SettingsScreen(state: ShellState, copy: ShellCopy, dispatch: (Shell
         PreferencePanel.entries.filter { it != PreferencePanel.Diagnostics || diagnostics != null }.forEach { choice ->
             val value = when (choice) {
                 PreferencePanel.Theme -> copy.text(if (state.theme == ShellTheme.Light) CopyKey.Light else CopyKey.Dark)
-                PreferencePanel.Language -> copy.text(if (state.locale == ShellLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English)
+                PreferencePanel.Language -> state.locale.autonym
                 PreferencePanel.Speed -> copy.speed(state.speedPercent)
                 PreferencePanel.Timer -> copy.text(timerKey(state.timer))
                 PreferencePanel.Diagnostics -> diagnostics?.let {
-                    if (state.locale == ShellLocale.Vietnamese) it.summary.vi else it.summary.en
+                    it.summary
                 }.orEmpty()
             }
             val title = choice.title?.let { copy.text(it) } ?: diagnostics?.let {
-                if (state.locale == ShellLocale.Vietnamese) it.title.vi else it.title.en
+                it.title
             }.orEmpty()
             PreferenceRow(title, value, { panel = choice },
                 Modifier.testTag("setting-$choice").focusRequester(requesters.getValue(choice)))

@@ -88,7 +88,7 @@ fun VerifyEmailScreen(
             is VerificationPhase.CompleteRetry -> Button(copy.text(AuthText.VerifyRetrySame), { onIntent(VerificationIntent.Retry) },
                 variant = ButtonVariant.AuthPrimary, icon = "refresh",
                 state = if (retryWaitSeconds == null) ButtonState.Enabled
-                else ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.RetryAfter).replace("{seconds}", retryWaitSeconds.toString()))),
+                else ButtonState.Disabled(DisabledReason.of(legacyRetryAfter(locale, retryWaitSeconds))),
                 controlModifier = Modifier.fillMaxWidth().testTag("verify-retry"))
             VerificationPhase.CompleteRefused(CompletionFailure.Invalid) -> Button(copy.text(AuthText.VerifyChoosePassword),
                 { onIntent(VerificationIntent.ChooseAnother) }, variant = ButtonVariant.AuthPrimary,

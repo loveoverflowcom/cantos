@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -28,17 +30,14 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -46,8 +45,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -57,13 +57,15 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.errors.ErrorAction
 import com.cantos.theatre.application.errors.ErrorNotice
+import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.LegacyCopyKey
 import com.cantos.theatre.presentation.model.ShellCapabilities
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellCatalogView
@@ -74,15 +76,14 @@ import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellListeningFailure
 import com.cantos.theatre.presentation.model.ShellRoute
-import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.presentation.model.ShellState
-import com.cantos.theatre.presentation.model.ShellText
-import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.canGoBack
 import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.theatre.presentation.model.filteredWorks
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.theatre.presentation.model.isAccountTask
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
@@ -92,26 +93,26 @@ import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
 import com.cantos.ui.LogoVariant
 import com.cantos.ui.MotionPreference
-import com.cantos.ui.Theme
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
+import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
-import com.cantos.ui.tokenDp
-import com.cantos.ui.tokenColor
-import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.generated.CantosTokens
+import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenColor
+import com.cantos.ui.tokenDp
 
 /** Optional host-owned presentation additions; absent in an ordinary application mount. */
 typealias ShellNoticeContent = @Composable (ShellState, ShellCopy) -> Unit
 typealias ShellDiagnosticsContent = @Composable (ShellState, (ShellEvent) -> Unit, () -> Unit) -> Unit
 
 class ShellDiagnosticsSlot(
-    val title: ShellText,
-    val summary: ShellText,
+    val title: String,
+    val summary: String,
     val content: ShellDiagnosticsContent,
 )
 
-val LocalShellCopyOverrides = staticCompositionLocalOf<Map<CopyKey, ShellText>> { emptyMap() }
+val LocalShellLiveCopy = staticCompositionLocalOf { false }
 val LocalShellNotice = staticCompositionLocalOf<ShellNoticeContent?> { null }
 val LocalShellDiagnostics = staticCompositionLocalOf<ShellDiagnosticsSlot?> { null }
 
@@ -153,7 +154,7 @@ fun CantosPresentation(
     onErrorDismiss: () -> Unit = {},
     errorReturnFocus: FocusRequester? = null,
 ) {
-    val copy = ShellCopy(state.locale, LocalShellCopyOverrides.current)
+    val copy = ShellCopy(state.locale, LocalShellLiveCopy.current)
     val notice = LocalShellNotice.current
     // An open confirmation sheet owns Back before the route stack does.
     val overlays = remember { BackOverlayRegistry() }
@@ -402,7 +403,7 @@ private fun WorkSummary(
     Card(
         onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Work(work.id))) },
         modifier = modifier.fillMaxWidth().testTag("work-${work.id}")
-            .semantics { contentDescription = copy.text(CopyKey.Details, "title" to work.title) },
+            .semantics { contentDescription = copy.text(ShellMessage.Details(title = work.title)) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
     ) {
@@ -458,7 +459,7 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
     val works = filteredWorks(state, catalog)
     // A partial list has no honest total: the count is shown only once the list is complete.
     if (catalog.worksPhase == ShellListPhase.Complete) {
-        Text(copy.text(CopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
+        Text(copy.text(LegacyCopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
     }
     when {
         state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch, state.theme, state.query)
@@ -562,7 +563,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
 @Composable
 private fun UnitCount(work: ShellWork, copy: ShellCopy, color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified) {
     if (work.unitsPhase != ShellListPhase.Complete) return
-    Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) CopyKey.ChaptersCount else CopyKey.EpisodesCount,
+    Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) LegacyCopyKey.ChaptersCount else LegacyCopyKey.EpisodesCount,
         "count" to work.episodes.size.toString()), style = MaterialTheme.typography.bodySmall, color = color)
 }
 
@@ -574,7 +575,7 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
         enabled = episode.durationSeconds > 0,
         modifier = Modifier.fillMaxWidth().testTag("episode-${episode.id}").semantics {
             role = Role.Button
-            contentDescription = copy.text(CopyKey.PlayEpisode, "title" to episode.title)
+            contentDescription = copy.text(ShellMessage.PlayEpisode(title = episode.title))
             if (selected) stateDescription = copy.text(CopyKey.CurrentEpisode)
         },
         shape = MaterialTheme.shapes.medium,
@@ -601,7 +602,7 @@ internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy,
     FilledTonalButton(shape = MaterialTheme.shapes.medium,
         onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
         modifier = Modifier.testTag(tag).semantics {
-            contentDescription = copy.text(if (saved) CopyKey.UnsaveName else CopyKey.SaveName, "title" to work.title)
+            contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
             stateDescription = copy.text(if (saved) CopyKey.SavedTab else CopyKey.Save)
         },
     ) {
