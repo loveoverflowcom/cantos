@@ -406,7 +406,6 @@ body { margin: 0; }
 .theatre-auth-copy h1 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .theatre-auth-actions { display: grid; gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
 .theatre-auth-actions .cui-button { inline-size: 100%; }
-.theatre-auth-helper { font-size: var(--cantos-type-metadata-size); }
 .theatre-account-profile .theatre-avatar { margin-block-end: var(--cantos-space-lg); }
 /* Existing Web-owned live regions: Status/ErrorState await both-renderer admission for
    new Theatre sites. Keep their semantic tone vocabulary without copying a shared control. */
