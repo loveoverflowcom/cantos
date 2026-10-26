@@ -204,13 +204,11 @@ fn SearchForm(
                         trailing=move || view! {
                             // The one magnifier (Search v4.3): an icon-only action whose localized
                             // name is its accessible text; Enter and this press share `submit`.
-                            <IconButton id="theatre-discovery-submit" variant=ButtonVariant::Primary
-                                icon=IconName::Search
-                                name=Signal::derive(move || {
-                                    AccessibleName::new(text(Key::DiscoverySearchSubmit, locale.get()))
-                                        .unwrap_or_else(|_| AccessibleName::new("Search").expect("static name"))
-                                })
-                                on_press=Callback::new(move |_| submit())/>
+                            {move || AccessibleName::new(text(Key::DiscoverySearchSubmit, locale.get())).ok().map(|name| view! {
+                                <IconButton id="theatre-discovery-submit" variant=ButtonVariant::Primary
+                                    icon=IconName::Search name
+                                    on_press=Callback::new(move |_| submit())/>
+                            })}
                         }/>
                 </div>
             </div>
