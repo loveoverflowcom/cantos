@@ -18,13 +18,14 @@ use super::{
         storage_error,
     },
 };
-use std::{
-    path::Path,
-    sync::{Arc, LazyLock},
-};
+use std::{path::Path, sync::Arc};
 use tokio::sync::Semaphore;
 
-static PUBLICATION_IO: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
+/// Blocking-I/O lanes per use. Admission (promotion and observation, whose inspection runs
+/// external decoders for seconds) and listener reads never share a pool: Studio publication
+/// work cannot refuse a listener's media request, and listener traffic cannot fail admission.
+const ADMISSION_LANES: usize = 4;
+const READ_LANES: usize = 4;
 
 /// Immutable approved-audio byte class, with no private-storage port and no direct file URL.
 /// Files are content-addressed in this root only. A publication identity additionally binds
@@ -33,6 +34,8 @@ static PUBLICATION_IO: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Sema
 pub struct FilesystemPublicationStorage {
     #[cfg(unix)]
     inner: Arc<super::storage::unix::ObjectDirectories>,
+    admission: Arc<Semaphore>,
+    reads: Arc<Semaphore>,
 }
 impl FilesystemPublicationStorage {
     /// Absolute, owner-only root with no symlink components. Storage-class markers refuse
@@ -45,6 +48,8 @@ impl FilesystemPublicationStorage {
                     super::storage::unix::ObjectDirectories::publication(root)
                         .map_err(storage_error)?,
                 ),
+                admission: Arc::new(Semaphore::new(ADMISSION_LANES)),
+                reads: Arc::new(Semaphore::new(READ_LANES)),
             })
         }
         #[cfg(not(unix))]
@@ -64,7 +69,7 @@ impl FilesystemPublicationStorage {
     ) -> Result<(), StorageError> {
         publication_id(rendition_id, &audio.metadata().sha256)?;
         let storage = self.clone();
-        bounded_filesystem_io(PUBLICATION_IO.clone(), move || {
+        bounded_filesystem_io(self.admission.clone(), move || {
             #[cfg(unix)]
             {
                 storage
@@ -116,7 +121,7 @@ impl PublicationDelivery for FilesystemPublicationStorage {
         Box::pin(async move {
             let id = publication_id(&object.rendition_id, object.sha256.as_str())
                 .map_err(|_| PublicationDependencyError::InvalidObservation)?;
-            let result = bounded_filesystem_io(PUBLICATION_IO.clone(), move || {
+            let result = bounded_filesystem_io(storage.admission.clone(), move || {
                 #[cfg(unix)]
                 {
                     use std::io::{Read, Seek};
@@ -209,7 +214,7 @@ impl PublicationObjects for FilesystemPublicationStorage {
                 use futures_util::StreamExt;
                 use std::io::{Seek, SeekFrom};
                 use tokio::io::AsyncReadExt;
-                let file = bounded_filesystem_io(PUBLICATION_IO.clone(), move || {
+                let file = bounded_filesystem_io(storage.reads.clone(), move || {
                     let mut file = storage.verified_file(object.sha256(), object.byte_length())?;
                     file.seek(SeekFrom::Start(range.first()))
                         .map_err(|_| StorageError::Unavailable)?;
