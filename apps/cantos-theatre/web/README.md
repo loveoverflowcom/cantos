@@ -82,7 +82,7 @@ one owner. Filters remain outside that hero, before results. The live brand uses
 official Symbol at the canonical 44-unit mark size with a 12-unit gap before Cantos. Its one
 link retains paired decorative tones and existing navigation.
 
-The [app-owned empty artwork](assets/empty/README.md) is packaged from the actual v4 handoff,
+The [app-owned empty artwork](empty-artwork.md) is packaged from the actual v4 handoff,
 with unchanged source hashes and no runtime Drive access. This bounded adoption consumes the
 [qualified component scopes](../../../docs/evidence/ui-qualification-459-final.md). It does not
 activate the shared root's Theatre expression or duplicate that role remap in app CSS. Icon-only
