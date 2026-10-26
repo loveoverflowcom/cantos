@@ -12,8 +12,8 @@ body { margin: 0; }
 .studio-shell .session-controls > .cui-field, .studio-shell .toolbar > input { flex: 1 1 18rem; }
 .studio-shell :where(label):not(:where(.cui-choice-label, .cui-field > .cui-field-label, .cui-field-shell > .cui-field-label)) { display: block; margin-block: var(--cantos-space-sm); }
 .studio-shell textarea { inline-size: 100%; min-block-size: 23rem; resize: vertical; }
-/* Field controls keep the shared inset state perimeter (Fields v3); this offset ring is for other natives. */
-.studio-shell :where(a, summary, button, input, textarea, select):not(.cui-field-control):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+/* Fields retain their shared shell perimeter; other controls keep one flush inset indicator. */
+.studio-shell :where(a, summary, button, input, textarea, select):not(.cui-field-control):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell output { display: inline-block; margin-inline-start: var(--cantos-space-sm); font-variant-numeric: tabular-nums; }
 .studio-shell .mode { color: var(--cantos-color-on-surface-variant); }
 .studio-shell pre { background: var(--cantos-color-surface-container); padding: var(--cantos-space-md); white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 30rem; overflow: auto; }
@@ -182,7 +182,7 @@ body { margin: 0; }
 .studio-shell .delegation-panel .live-status, .studio-shell .delegation-grant { background: var(--cantos-color-surface); }
 .studio-shell .delegation-panel .live-status { margin-block: var(--cantos-space-md); }
 .studio-shell .delegation-panel h4 { margin-block: var(--cantos-space-lg) var(--cantos-space-sm); }
-.studio-shell .delegation-panel [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.studio-shell .delegation-panel [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell .delegation-problems { margin: 0; padding-inline-start: var(--cantos-space-lg); }
 .studio-shell .delegation-problems:empty { display: none; }
 .studio-shell :is(.delegation-reveal, .delegation-unrecoverable) { margin-block: var(--cantos-space-md); }
@@ -281,11 +281,9 @@ body { margin: 0; }
 .studio-shell .studio-account-menu p { margin: 0; }
 .studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
 .studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; }
-.studio-shell .studio-account-caption { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .studio-account-close { justify-self: end; }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
-.studio-shell .studio-action-danger { color: var(--cantos-color-error); }
-.studio-shell .studio-action-danger:hover { background: var(--cantos-color-error-container); color: var(--cantos-color-on-error-container); }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 .studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); padding: var(--cantos-space-xl); }
@@ -311,7 +309,6 @@ body { margin: 0; }
 .studio-shell .studio-pane-heading h2 { margin-block: 0; }
 .studio-shell .dashboard-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
 .studio-shell .dashboard-heading h2 { font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); margin-block: 0 var(--cantos-space-sm); }
-.studio-shell .dashboard-lead { max-inline-size: 52ch; color: var(--cantos-color-on-surface-variant); }
 .studio-shell .dashboard-actions, .studio-shell .dashboard-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
 .studio-shell .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--cantos-space-lg); }
 .studio-shell .dashboard-resume { grid-column: 1 / -1; }
@@ -360,7 +357,7 @@ body { margin: 0; }
 .studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
-.studio-shell [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.studio-shell [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell .dashboard-grid { align-items: start; }
 .studio-shell .dashboard-works .dashboard-heading { margin-block-end: var(--cantos-space-md); align-items: center; }
 .studio-shell .dashboard-tools { grid-column: 1 / -1; }

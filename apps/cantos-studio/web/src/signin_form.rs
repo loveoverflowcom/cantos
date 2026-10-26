@@ -34,6 +34,13 @@ pub fn SignInPanel(
     #[prop(optional)]
     reauthenticate: bool,
 ) -> impl IntoView {
+    if reauthenticate {
+        // The shell owns session authority; disposing this form only wipes its inputs and
+        // fences its presentation result. Reopening starts with a fresh credential form.
+        on_cleanup(move || {
+            let _ = form.try_update(SignInForm::clear);
+        });
+    }
     let email_id = format!("{id}-email");
     let password_id = format!("{id}-password");
     let password_eye_id = format!("{id}-password-eye");
@@ -114,7 +121,9 @@ pub fn SignInPanel(
                     on_submit.run(());
                 }
             }>
-            <p class="help">{move || text(if reauthenticate { Key::ReauthenticateHelp } else { Key::Help }, english.get())}</p>
+            <Show when=move || reauthenticate>
+                <p class="help">{move || text(Key::ReauthenticateHelp, english.get())}</p>
+            </Show>
             <TextField id=email_id label=Signal::derive(move || text(Key::Email, english.get()).to_owned())
                 value=Signal::derive(move || form.with(|form| form.email().to_owned()))
                 on_input=Callback::new(move |value: String| form.update(|form| form.set_email(value)))
@@ -249,6 +258,36 @@ mod tests {
     }
 
     #[test]
+    fn closing_reauthentication_discards_input_and_fences_its_late_result() {
+        Owner::new().with(|| {
+            let form = RwSignal::new(SignInForm::default());
+            for pending in [false, true] {
+                form.update(|form| {
+                    form.set_email("owner@example.invalid".into());
+                    form.set_password("temporary secret".into());
+                });
+                let issued = pending.then(|| form.try_update(|form| form.begin(None)).flatten().unwrap().0);
+                let panel_owner = Owner::new();
+                panel_owner.with(|| {
+                    let _ = view! {
+                        <SignInPanel id="account" form=form english=Signal::stored(false)
+                            blocked=Signal::stored(false) on_submit=Callback::new(|()| {}) reauthenticate=true/>
+                    }.to_html();
+                });
+                panel_owner.cleanup();
+                form.with(|form| {
+                    assert_eq!(form.email(), "");
+                    assert_eq!(form.password(), "");
+                    assert_eq!(form.phase(), crate::signin::SignInPhase::Editing);
+                });
+                if let Some(issued) = issued {
+                    assert_eq!(form.try_update(|form| form.finish(issued, Err(Failure::InvalidCredentials))), Some(false));
+                }
+            }
+        });
+    }
+
+    #[test]
     fn the_status_row_stays_hidden_until_there_is_a_failure_to_announce() {
         let html = render(SignInForm::default(), false, false, false);
         let status = html
@@ -353,6 +392,7 @@ mod tests {
         assert!(render(form, true, false, false).contains("Wait 17 seconds"));
         let html = render(SignInForm::default(), true, false, true);
         assert!(html.contains(text(Key::ReauthenticateHelp, true)), "{html}");
-        assert!(!html.contains(text(Key::Help, true)));
+        let entry = render(SignInForm::default(), true, false, false);
+        assert!(!entry.contains(text(Key::ReauthenticateHelp, true)));
     }
 }

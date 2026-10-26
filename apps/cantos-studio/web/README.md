@@ -100,12 +100,15 @@ access-request, invitation or Membership flow.
 | 400 | invalid input message |
 | refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
 
-The header toolbar uses compact inline `Select`s for language and appearance (an unambiguous
-`vi-VN`/`en` list, never a toggle) and, once the workspace is confirmed, an avatar trigger for the
-actor. The avatar opens a floating popover (identity, refresh, reauthenticate, logout) that does not
-displace the header; Escape, a press outside or focus leaving closes it, Escape returns focus to the
-trigger and closing discards typed reauthentication input. Session authority stays in the session
-owner; the popover only presents it.
+The header toolbar uses localized language and theme-cycle buttons and, once the workspace is
+confirmed, an avatar trigger for the actor. The avatar opens a floating account group on wide
+screens and a bottom sheet on narrow screens. Opening focuses its close button; Tab and Shift+Tab
+wrap through its visible enabled controls. Escape or the close button restores focus to the
+trigger; a press outside or focus leaving also closes it. Closing disposes the reauthentication
+form, clears its typed credentials and rejects late updates to that form. Session authority
+stays in the session owner; closing the group does not assert cancellation of an in-flight server
+operation. This is not an aria-modal dialog and does not establish background inertness or
+screen-reader acceptance. See the [six-issue review evidence](../../../docs/evidence/studio-six-issue-review-20261026.md).
 
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and

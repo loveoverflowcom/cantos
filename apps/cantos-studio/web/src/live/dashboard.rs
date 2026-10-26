@@ -93,8 +93,7 @@ pub fn Dashboard(
     view! {
         <section id="studio-dashboard" class="studio-dashboard" aria-labelledby="dashboard-title">
             <header class="dashboard-heading">
-                <div><h2 id="dashboard-title" tabindex="-1">{move || text(Key::Title, english.get())}</h2>
-                    <p class="dashboard-lead">{move || text(Key::Lead, english.get())}</p></div>
+                <div><h2 id="dashboard-title" tabindex="-1">{move || text(Key::Title, english.get())}</h2></div>
                 <div class="dashboard-actions">
                     <ActionButton id="dashboard-create-work" english=english variant=ButtonVariant::Tonal blocked=blocked on_press=Callback::new(move |_| on_new_work.run(()))>{move || text(Key::NewWork, english.get())}</ActionButton>
                     <ActionButton id="dashboard-import" english=english variant=ButtonVariant::Primary blocked=session_pending on_press=Callback::new(move |_| on_import.run(()))>{move || text(Key::Import, english.get())}</ActionButton>
@@ -115,7 +114,6 @@ pub fn Dashboard(
                     <section aria-labelledby="dashboard-works-title">
                         <div class="dashboard-heading"><h3 id="dashboard-works-title" tabindex="-1">{move || text(Key::Works, english.get())}</h3>
                             <ActionButton id="dashboard-refresh" english=english variant=ButtonVariant::Text blocked=blocked on_press=Callback::new(move |_| on_refresh.run(()))>{move || text(Key::Refresh, english.get())}</ActionButton></div>
-                        <p class="help">{move || text(Key::PageHelp, english.get())}</p>
                         <div id="dashboard-status" class="dashboard-status" tabindex="-1">
                             <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, english.get())}</p></Show>
                             <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><p role="status" aria-live="polite">{move || text(Key::Loading, english.get())}</p></Show>
@@ -201,7 +199,8 @@ mod tests {
                     on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_previous=noop on_next=noop on_pick=Callback::new(|_: String| {})/> }.to_html();
                 assert_eq!(html.contains(text(Key::EmptyTitle, false)), empty, "{html}");
                 assert!(!html.contains("Tổng số"));
-                assert!(html.contains(text(Key::PageHelp, false)));
+                assert!(html.contains(text(Key::Refresh, false)));
+                assert!(html.contains(text(Key::Previous, false)));
                 assert!(!html.contains("id=\"dashboard-continue\""));
             }
         });

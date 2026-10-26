@@ -22,6 +22,7 @@ pub enum Key {
     Cancel,
     Retry,
     Session,
+    CloseAccount,
     MemoryHelp,
     Reauthenticate,
     CleanupPending,
@@ -96,5 +97,7 @@ pub fn text(key: Key, english: bool) -> &'static str {
         (Key::Retry, true) => "Try again",
         (Key::Session, false) => "Tài khoản Studio",
         (Key::Session, true) => "Studio account",
+        (Key::CloseAccount, false) => "Đóng menu tài khoản",
+        (Key::CloseAccount, true) => "Close account menu",
     }
 }
