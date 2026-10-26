@@ -28,6 +28,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -55,6 +57,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -436,12 +439,20 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
                 label = copy.text(CopyKey.SearchLabel), value = state.query, onValueChange = { dispatch(ShellEvent.Search(it)) },
                 modifier = Modifier.fillMaxWidth(), controlModifier = Modifier.testTag("search-input"),
                 variant = TextFieldVariant.FloatingSearch,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { dispatch(ShellEvent.SubmitSearch) }),
+                // Search v4.3: the dock holds exactly one magnifier; clearing lives outside it.
                 trailing = {
-                    if (state.query.isNotEmpty()) IconButton(onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.size(tokenDp("size.control"))) {
-                        Icon(rememberCantosIconVector("close"), copy.text(CopyKey.SearchClear))
+                    IconButton(onClick = { dispatch(ShellEvent.SubmitSearch) }, modifier = Modifier.size(tokenDp("size.control")).testTag("search-submit")) {
+                        Icon(rememberCantosIconVector("search"), copy.text(CopyKey.SearchSubmit))
                     }
                 },
             )
+            if (state.query.isNotEmpty()) {
+                TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.testTag("search-clear")) {
+                    Text(copy.text(CopyKey.SearchClear))
+                }
+            }
         }
     }
     val works = filteredWorks(state, catalog)

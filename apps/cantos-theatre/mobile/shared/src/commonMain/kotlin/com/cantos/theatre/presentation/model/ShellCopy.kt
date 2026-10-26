@@ -64,6 +64,7 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     SearchLabel("Tên tác phẩm, tập hoặc thể loại", "Work, episode or genre"),
     SearchHint("Tìm một câu chuyện để nghe", "Find a story to listen to"),
     SearchClear("Xóa tìm kiếm", "Clear search"),
+    SearchSubmit("Tìm kiếm", "Search"),
     Results("{count} tác phẩm", "{count} works", "{count} work"),
     Loading("Đang tải danh sách…", "Loading stories…"),
     LoadingNote("Danh sách sẽ xuất hiện khi tải xong.", "Stories will appear when loading finishes."),
