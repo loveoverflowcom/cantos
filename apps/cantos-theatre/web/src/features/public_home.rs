@@ -20,8 +20,8 @@ use crate::{
     messages::{self, text, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonState, ButtonVariant, DisabledReason, IconName, TextField, TextFieldKind,
-    TextFieldVariant,
+    AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, IconButton, IconName,
+    TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -202,10 +202,15 @@ fn SearchForm(
                         value=search on_input=Callback::new(move |value| search.set(value))
                         error=search_error autocomplete="off"
                         trailing=move || view! {
-                            <Button id="theatre-discovery-submit" variant=ButtonVariant::Tonal icon=IconName::Search
-                                on_press=Callback::new(move |_| submit())>
-                                {move || text(Key::DiscoverySearchSubmit, locale.get())}
-                            </Button>
+                            // The one magnifier (Search v4.3): an icon-only action whose localized
+                            // name is its accessible text; Enter and this press share `submit`.
+                            <IconButton id="theatre-discovery-submit" variant=ButtonVariant::Primary
+                                icon=IconName::Search
+                                name=Signal::derive(move || {
+                                    AccessibleName::new(text(Key::DiscoverySearchSubmit, locale.get()))
+                                        .unwrap_or_else(|_| AccessibleName::new("Search").expect("static name"))
+                                })
+                                on_press=Callback::new(move |_| submit())/>
                         }/>
                 </div>
             </div>
@@ -1042,9 +1047,15 @@ mod tests {
             assert_eq!(html.matches("id=\"theatre-discovery-search\"").count(), 1);
             assert_eq!(html.matches("id=\"theatre-discovery-submit\"").count(), 1);
             assert!(html.contains("data-trailing=\"true\""));
+            // One icon-only magnifier: its localized name is screen-reader text, never a caption,
+            // and no arrow, voice or microphone action exists beside it.
             let button = html[submit..].split("</button>").next().unwrap();
             assert!(button.contains(text(Key::DiscoverySearchSubmit, locale)));
-            assert!(!button.contains("cui-sr-only"));
+            assert!(button.contains("cui-sr-only"));
+            assert_eq!(html.matches("cui-field-trailing").count(), 1);
+            for forbidden in ["arrow_forward", "mic", "voice"] {
+                assert!(!html.contains(&format!("name=\"{forbidden}\"")), "{forbidden}");
+            }
         }
     }
 
