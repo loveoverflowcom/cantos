@@ -93,6 +93,8 @@ class TheatreShell(
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
     private val mutableUi = MutableStateFlow(TheatreUiInputs(membership = initialMembership))
     val ui: StateFlow<TheatreUiInputs> = mutableUi.asStateFlow()
+    /** Counts explicit submits; a change skips the debounce for the text already typed. */
+    private val searchSubmits = MutableStateFlow(0)
     private val mutableKnown = MutableStateFlow(KnownCatalog())
     val known: StateFlow<KnownCatalog> = mutableKnown.asStateFlow()
     private val mutableRequested = MutableStateFlow<UnitRequest?>(null)
@@ -133,11 +135,14 @@ class TheatreShell(
         // The open work follows the navigation stack: the nearest Work route at or below the top.
         scope.launch { navigation.collect { syncDetail(it) } }
         scope.launch {
-            combine(navigation, ui) { nav, inputs -> desiredQuery(nav, inputs.query) }
+            var seenSubmits = 0
+            combine(navigation, ui, searchSubmits) { nav, inputs, submits -> DesiredSearch(desiredQuery(nav, inputs.query), submits) }
                 .distinctUntilChanged()
-                .collectLatest { query ->
+                .collectLatest { (query, submits) ->
+                    val submitted = submits != seenSubmits
+                    seenSubmits = submits
                     if (query == null || query == catalog.state.value.query) return@collectLatest
-                    if (query.text.isNotEmpty()) delay(searchDebounceMs)
+                    if (query.text.isNotEmpty() && !submitted) delay(searchDebounceMs)
                     catalog.dispatch(PublicCatalogIntent.Query(query))
                 }
         }
@@ -227,6 +232,7 @@ class TheatreShell(
             is ShellEvent.SeekTo -> runtime.listening.playback.dispatch(PlaybackEvent.SeekRequested(event.seconds.toLong() * 1000L))
             is ShellEvent.SelectLibrary -> mutableUi.update { it.copy(libraryTab = event.tab) }
             is ShellEvent.Search -> mutableUi.update { it.copy(query = event.query) }
+            ShellEvent.SubmitSearch -> searchSubmits.update { it + 1 }
             ShellEvent.Retry -> retry()
             is ShellEvent.LoadMoreLibrary -> activeLibrary()?.nextPage(event.section.toDomain())
             is ShellEvent.RetryLibrary -> retryLibrary(event.section.toDomain())
@@ -366,6 +372,8 @@ class TheatreShell(
     private fun desiredQuery(navigation: NavigationState, text: String): PublicCatalogQuery? =
         if (navigation.route != TheatreRoute.Search) PublicCatalogQuery.All
         else (PublicCatalogQuery.of(text) as? CatalogCheck.Valid)?.value
+
+    private data class DesiredSearch(val query: PublicCatalogQuery?, val submits: Int)
 
     private fun onWorkRoute(): Boolean = mutableNavigation.value.stack.any { it is TheatreRoute.Work }
 

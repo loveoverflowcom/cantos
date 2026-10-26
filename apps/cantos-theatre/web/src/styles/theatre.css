@@ -547,8 +547,8 @@ body { margin: 0; }
 .theatre-discovery-search-hero { display: grid; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
 .theatre-discovery-search-hero .theatre-discover-intro { margin: 0; align-items: flex-start; }
 .theatre-discovery-search-hero :where(.theatre-muted, .theatre-eyebrow) { color: inherit; }
-/* The admitted Floating shell owns input and the existing visibly labelled Button together.
-   The trailing column reserves the button's actual width, including enlarged text. */
+/* The shared docked search shell (Search v4.3, under the Theatre expression) owns the input and its
+   one icon-only magnifier; the trailing column reserves the action's width at any text scale. */
 .theatre-public-search-main, .theatre-public-search-main > .cui-field { min-inline-size: 0; inline-size: 100%; }
 .theatre-public-search-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); }
 @media (max-width: 43.75rem) {

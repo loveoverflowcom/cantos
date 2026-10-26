@@ -254,6 +254,8 @@ sealed interface ShellEvent {
     data object Bookmark : ShellEvent
     data class SelectLibrary(val tab: ShellLibraryTab) : ShellEvent
     data class Search(val query: String) : ShellEvent
+    /** The docked magnifier or the keyboard's search action: reads the typed text now instead of after the debounce. */
+    data object SubmitSearch : ShellEvent
     data class CatalogMode(val mode: ShellCatalogMode) : ShellEvent
     data object Retry : ShellEvent
     /** Asks the source for the next page of whatever list the current route shows. */

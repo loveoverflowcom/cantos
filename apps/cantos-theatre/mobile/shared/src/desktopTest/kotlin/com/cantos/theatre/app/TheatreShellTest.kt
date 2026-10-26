@@ -123,6 +123,21 @@ class TheatreShellTest {
     }
 
     @Test
+    fun submitting_search_reads_the_typed_text_now_without_waiting_for_the_debounce() = runTest {
+        val f = fixture()
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Search))
+        f.shell.dispatch(ShellEvent.Search("sân khấu"))
+        runCurrent()
+        assertEquals(PublicCatalogQuery.All, f.catalog.state.value.query, "typing alone still waits")
+        f.shell.dispatch(ShellEvent.SubmitSearch)
+        runCurrent()
+        assertEquals("sân khấu", f.catalog.state.value.query.text)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(listOf("", "sân khấu"), f.queries.map { it.text }, "the submit costs exactly one read")
+    }
+
+    @Test
     fun an_episode_opens_real_playback_only_when_the_api_listed_it() = runTest {
         val f = fixture()
         f.shell.dispatch(ShellEvent.Navigate(workRoute(f)))

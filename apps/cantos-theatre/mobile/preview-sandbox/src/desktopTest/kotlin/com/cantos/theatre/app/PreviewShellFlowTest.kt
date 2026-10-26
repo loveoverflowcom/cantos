@@ -126,7 +126,7 @@ class PreviewShellFlowTest {
         onNodeWithTag("work-$denKhua").assertExists()
         input.performTextReplacement("không có trong tủ sách")
         untilNoTag("work-$denKhua")
-        onNodeWithContentDescription("Xóa tìm kiếm").performClick()
+        onNodeWithTag("search-clear").performClick()
         input.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
         untilTag("work-$canhBuom")
         onNodeWithTag("work-$sonHa").assertExists()

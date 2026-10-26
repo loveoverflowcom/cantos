@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
@@ -66,9 +67,21 @@ class DiscoveryPresentationTest {
         }
         onNodeWithTag("search-input").performTextReplacement("Sơn Hà")
         assertEquals(listOf<ShellEvent>(ShellEvent.Search("Sơn Hà")), events.toList())
-        onNodeWithContentDescription("Xóa tìm kiếm").performClick()
+        onNodeWithTag("search-clear").performClick()
         assertEquals(listOf<ShellEvent>(ShellEvent.Search("Sơn Hà"), ShellEvent.Search("")), events.toList())
         assertEquals(ShellRoute.Search, state.route)
+    }
+
+    @Test
+    fun the_docked_search_holds_one_magnifier_that_submits_without_changing_text_or_route() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val events = mutableListOf<ShellEvent>()
+        val state = ShellState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), selectedEpisode = noSelection, query = "Đèn")
+        setContent { CantosPresentation(state, ShellCatalogView(), events::add) }
+        onNodeWithTag("search-submit").assertHasClickAction()
+        onNodeWithContentDescription("Tìm kiếm", useUnmergedTree = true).assertExists()
+        onNodeWithTag("search-submit").performClick()
+        assertEquals(listOf<ShellEvent>(ShellEvent.SubmitSearch), events.toList())
+        onNodeWithTag("search-clear").assertExists()
     }
 
     @Test

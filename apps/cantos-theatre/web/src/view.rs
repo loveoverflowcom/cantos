@@ -17,7 +17,7 @@ use crate::{
     messages::{self, Key, Locale},
     platform,
 };
-use cantos_ui::{Container, ContainerWidth, Density, Theme, UiRoot};
+use cantos_ui::{Container, ContainerWidth, Density, Expression, Theme, UiRoot};
 #[cfg(feature = "preview")]
 use cantos_ui::{EmptyState, Select, Space, Stack, Surface, SurfaceTone};
 use leptos::prelude::*;
@@ -42,7 +42,7 @@ pub fn Theatre() -> impl IntoView {
     Effect::new(move |_| platform::set_document_language(ctx.locale.get().lang()));
 
     view! {
-        <UiRoot theme=ctx.theme density=Density::Comfortable class="theatre-shell">
+        <UiRoot theme=ctx.theme density=Density::Comfortable expression=Expression::Theatre class="theatre-shell">
             <div class="theatre-app" lang=move || ctx.locale.get().lang()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |event| { event.prevent_default(); platform::focus_main(main); }>{move || ctx.text(Key::SkipContent)}</a>
                 <aside class="theatre-rail">
@@ -386,7 +386,7 @@ pub use live_shell::LiveBoundary;
 // Keep the existing shared foundation adoption at this root composition site.
 #[component]
 fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
-    view! { <UiRoot theme density=Density::Comfortable class="theatre-shell">{children()}</UiRoot> }
+    view! { <UiRoot theme density=Density::Comfortable expression=Expression::Theatre class="theatre-shell">{children()}</UiRoot> }
 }
 #[component]
 fn LiveContainer(children: Children) -> impl IntoView {
