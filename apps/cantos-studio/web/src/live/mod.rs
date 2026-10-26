@@ -12,6 +12,8 @@ mod tests;
 #[cfg(target_arch = "wasm32")]
 pub mod workspace;
 
+#[cfg(any(target_arch = "wasm32", test))]
+mod content_kind;
 pub mod copy;
 pub mod dashboard;
 mod dashboard_copy;

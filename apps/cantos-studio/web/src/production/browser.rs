@@ -364,7 +364,12 @@ pub fn ProductionInputs(
                 <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| read_snapshot(state,api,snapshot_id.get_untracked())>{move || text(Key::Inspect,english.get())}</button></div>
             <div class="toolbar">{move || state.with(|s| s.stored.as_ref().map(|s| s.snapshots.clone()).unwrap_or_default()).into_iter().map(|snapshot| { let id=StoredValue::new(snapshot.id.clone()); view! { <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) on:click=move |_| { snapshot_id.set(id.get_value());read_snapshot(state,api,id.get_value()); }><code>{snapshot.id}</code>" · "{snapshot.script_revision}</button> } }).collect_view()}</div>
             {move || state.with(|s| s.snapshot.clone()).map(|snapshot| view! { <SnapshotDetails snapshot=snapshot english=english /> })}
-            <Show when=move || state.with(|s| s.snapshot.is_some())><label class="adaptation-confirm" for="production-confirm"><input id="production-confirm" type="checkbox" disabled=move || blocked() || state.with(Production::is_dirty) prop:checked=move || state.with(|s| s.confirmation.is_some()) on:change=move |e| state.update(|s| *s=s.confirm(event_target_checked(&e))) /><span>{move || text(Key::ConfirmApproval,english.get())}</span></label>
+            <Show when=move || state.with(|s| s.snapshot.is_some())><crate::ui::ReviewCheckbox id="production-confirm" english=english reason=BlockReason::ProductionReview
+                label=Signal::derive(move ||text(Key::ConfirmApproval,english.get()).to_owned())
+                checked=Signal::derive(move ||state.with(|s|s.confirmation.is_some()))
+                blocked=Signal::derive(move ||blocked() || state.with(Production::is_dirty))
+                described_by=Some("production-approval-help".to_owned())
+                on_change=Callback::new(move |checked|state.update(|s|*s=s.confirm(checked)))/>
                 <p id="production-approval-help" class="help">{move || text(Key::ApprovalHelp,english.get())}</p>
                 <ActionButton id="production-approve" english=english blocked=Signal::derive(approve_blocked) reason=BlockReason::ProductionReview described_by="production-approval-help" on_press=Callback::new(move |_| {
                     if approve_blocked() { return; } let Some(snapshot)=state.with_untracked(|s| s.snapshot.clone()) else { return; };
@@ -753,7 +758,10 @@ fn BudgetFields(
         <FormField id="production-limit".into() label=Key::Limit value=value(BudgetField::Limit) change=change(BudgetField::Limit) english=english readonly=readonly kind="number" min="0" />
         <FormField id="production-scope".into() label=Key::Scope value=value(BudgetField::Scope) change=change(BudgetField::Scope) english=english readonly=readonly />
         <FormField id="production-territory".into() label=Key::Territory value=value(BudgetField::Territory) change=change(BudgetField::Territory) english=english readonly=readonly />
-    </div><label class="adaptation-confirm" for="production-known-rate"><input id="production-known-rate" type="checkbox" disabled=move ||readonly.get() prop:checked=move ||state.with(|s|s.form.as_ref().is_some_and(|f|f.known_rate)) on:change=move |e|{if !readonly.get_untracked(){state.update(|s|*s=s.edit(|f|f.known_rate=event_target_checked(&e)));}} /><span>{move ||text(Key::KnownRate,english.get())}</span></label>
+    </div><crate::ui::ReviewCheckbox id="production-known-rate" english=english reason=BlockReason::ReadOnly
+        label=Signal::derive(move ||text(Key::KnownRate,english.get()).to_owned())
+        checked=Signal::derive(move ||state.with(|s|s.form.as_ref().is_some_and(|f|f.known_rate))) blocked=readonly
+        on_change=Callback::new(move |checked|{if !readonly.get_untracked(){state.update(|s|*s=s.edit(|f|f.known_rate=checked));}})/>
     <Show when=move ||state.with(|s|s.form.as_ref().is_some_and(|f|f.known_rate))><div class="production-fields">
         <FormField id="production-rate-reference".into() label=Key::RateReference value=value(BudgetField::Reference) change=change(BudgetField::Reference) english=english readonly=readonly />
         <FormField id="production-rate-version".into() label=Key::RateVersion value=value(BudgetField::Version) change=change(BudgetField::Version) english=english readonly=readonly />

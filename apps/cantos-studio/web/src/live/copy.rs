@@ -1,5 +1,10 @@
 //! Visible and accessible copy belongs to the app, in both supported locales.
 /// Locale-neutral revision notation preserves the caller's exact title or kind label.
+/// Locale-neutral field diagnostics keep the server path and rule unchanged.
+pub fn diagnostic(path: &str, rule: &str) -> String {
+    format!("{path} · {rule}")
+}
+
 pub fn labelled_revision(label: &str, revision: u64) -> String {
     format!("{label} · r{revision}")
 }

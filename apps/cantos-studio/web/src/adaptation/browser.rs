@@ -151,11 +151,11 @@ pub fn ScriptAdaptation(
                     </details>
                 </StructuredEditor>
                 <ValidationControls id="adaptation-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
-                <label class="adaptation-confirm" for="adaptation-reviewed">
-                    <input id="adaptation-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || state.with(|review| review.reviewed_findings)
-                        on:change=move |event| state.update(|review| *review = review.review_findings(event_target_checked(&event))) />
-                    <span>{move || copy().review}</span>
-                </label>
+                <crate::ui::ReviewCheckbox id="adaptation-reviewed" english=english
+                    label=Signal::derive(move ||copy().review.to_owned())
+                    checked=Signal::derive(move ||state.with(|review|review.reviewed_findings))
+                    blocked=Signal::derive(move ||blocked() || activity.get() || !preview.with(|p|p.is_current(&actor.get(),&draft.get())))
+                    on_change=Callback::new(move |checked|state.update(|review|*review=review.review_findings(checked)))/>
                 <button class="cui-button" data-variant="primary" type="button" disabled=accept_blocked aria-describedby="adaptation-accept-reason adaptation-accept-help" on:click=move |_| {
                     if accept_blocked() { return; }
                     match operation_id() {

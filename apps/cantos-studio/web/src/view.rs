@@ -862,8 +862,11 @@ pub fn Studio() -> impl IntoView {
                     <RevisionInspector state=state english=english activity=inspector_pending draft_activity=activity />
                 </StructuredEditor>
                 <ValidationControls id="revision-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
-                <label class="adaptation-confirm" for="revision-reviewed"><input id="revision-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || reviewed.get()
-                    on:change=move |e| reviewed.set(event_target_checked(&e)) /><span>{move || text(Key::ReviewBeforeSave, english.get())}</span></label>
+                <crate::ui::ReviewCheckbox id="revision-reviewed" english=english
+                    label=Signal::derive(move ||text(Key::ReviewBeforeSave,english.get()).to_owned())
+                    checked=reviewed blocked=Signal::derive(move ||blocked() || activity.get() || !preview.with(|p|p.is_current(&actor.get(),&draft.get())))
+                    on_change=Callback::new(move |checked|reviewed.set(checked))/>
+
                 <div class="toolbar">
                     <ActionButton id="revision-save" icon=IconName::Save english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
                         if save_blocked() { return; }
