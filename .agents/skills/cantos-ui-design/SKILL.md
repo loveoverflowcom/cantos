@@ -173,7 +173,8 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
    If one is missing, follow the [declaration/admission sequence](references/preview-catalog.md);
    do not hide a reusable control or palette inside a feature to bypass it.
 4. **Implement the owned preview.** Consume semantic roles and root-injected preferences, immutable
-   projections and intents; never hand-edit generated output. Localize visible/accessibility copy
+   projections and intents; never hand-edit generated output. Classify copy by role and place
+   optional help by [`contextual-help.md`](references/contextual-help.md). Localize visible/accessibility copy
    with semantic keys, parameters and resources; map errors instead of exposing internals.
 5. **Test and inspect previews.** Use the cheapest presentation-mapping/DOM/semantics regression,
    then select and restore a named recipe through the
@@ -207,6 +208,7 @@ implemented runtime gates.
 | **UI-COMPONENT** lookup → reuse/extend → missing declaration + preview → state/theme/motion evidence → admission → product adoption | feature-local controls evade shared contracts or unqualified prototypes reach apps | record `button` + `AuthPrimary` and host-driven states / copy a filled button into a feature | [preview admission](references/preview-catalog.md), import gate + reviewed scenario evidence | app-owned compositions retain an explicit owner; no shared-admission exemption |
 | **UI-TOKEN** visual values come from one versioned semantic source; generated output is never hand-edited; a role change maps both consumers | Web/CMP palette drift; theme change misses literals | `var(--cantos-color-primary)` / a hex literal in a component; patching generated Kotlin | drift test and literal scan (proposed) · manual | renderer-local geometry with a stated reason |
 | **UI-STRING** every visible and accessibility string is a localized resource with a semantic key | untranslatable UI; English fallbacks; leaked provider errors | `studio.publish.action` in vi-VN and en / `"Publish"` literal; `error.to_string()` shown | literal scan, key and placeholder parity (proposed) · manual | logs and developer-only diagnostics |
+| **UI-COPY** classify copy by role; essential content stays visible; cut redundant prose; optional help uses the [lightest reachable mechanism](references/contextual-help.md) | walls of instruction; or a blocker hidden in a hover tooltip or long press | icon button named `Đánh dấu vị trí 12:05`, no caption / a QC blocker only in a tooltip; a paragraph above a familiar control | [review questions](references/contextual-help.md#7-review-questions) · manual | none for essential content; no ban on helper text that prevents errors |
 | **UI-STATE** each component has a state matrix; disabled carries a reason; status is never color alone | dead-end controls; QC blocks invisible to color-blind users | icon + text + tone for `Blocking`, reason beside a disabled Publish / grey button, red dot only | matrix tests and per-state captures · manual | — |
 | **UI-A11Y** names state action + item + state; focus visible, contained, restored; drag and gestures have alternatives | keyboard or screen-reader dead ends; focus lost after dialogs | `Phát tập 3: Một lời hẹn` / an unnamed ▶ icon | `accessibility-checked`; `screen-reader-walked` only when it happened · manual | — |
 | **UI-MOTION** motion uses intent tokens, never delays an action or moves a target under the user, stays interruptible; reduced motion keeps feedback | blocked or mis-tapped input; vestibular harm | play dispatches on press and the morph decorates it / waiting for the morph to finish | `MotionPolicyTest` exhaustive mapping and virtual-clock replay on CMP (Leptos mapping not implemented), runtime recording · manual | — |
@@ -272,6 +274,7 @@ belongs on the residual-risk line, never in silence.
 | motion intents, springs, interruptibility, reduced motion, mini ↔ full player, recording evidence | [`motion.md`](references/motion.md) |
 | names, focus, keyboard, drag alternatives, live regions, targets, Web vs CMP semantics, evidence levels | [`accessibility.md`](references/accessibility.md) |
 | strings, keys, parameters, plurals, formatting, error presentation, the framework decision | [`localization.md`](references/localization.md) |
+| how much text to show, redundant copy, helper text, tooltips, disclosures, popovers/sheets, first-use guidance, Web vs CMP help interactions | [`contextual-help.md`](references/contextual-help.md) |
 | anatomy and state matrices: buttons, chips, navigation, fields, episode rows, player, job status, QC, dialogs, stale indicators | [`component-states.md`](references/component-states.md) |
 | the screenshot review pass, Studio and Theatre checks, ledger, same-scenario recheck, evidence | [`visual-review.md`](references/visual-review.md) |
 | registering a new component in both preview apps, named-token inspection, qualification before app adoption | [`preview-catalog.md`](references/preview-catalog.md) |

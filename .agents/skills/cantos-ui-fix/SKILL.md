@@ -65,7 +65,10 @@ The [shared UI loop](../cantos-ui-design/SKILL.md#shared-ui-loop) remains the UI
 For shared tokens, load its [token reference](../cantos-ui-design/references/tokens.md) and both
 renderer skills: change the canonical source, never generated output, and bound Web/CMP impact.
 Preserve existing components, localized visible/accessibility strings, semantics, focus and
-reduced-motion behavior under those owner contracts.
+reduced-motion behavior under those owner contracts. A copy repair is minimal: classify the text
+by [role](../cantos-ui-design/references/contextual-help.md#2-classify-each-piece-of-copy-by-role),
+keep its meaning and both locales, never move essential content into a tooltip or long press, and
+keep keyboard, focus and accessible names intact.
 
 ## Routing and stopping boundaries
 

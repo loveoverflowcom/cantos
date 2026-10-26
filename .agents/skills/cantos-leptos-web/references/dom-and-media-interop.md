@@ -1,7 +1,7 @@
 # DOM, browser and media interop
 
 > **Scope.** Direct browser work in Cantos Leptos code: node refs, `web-sys` helpers, listener and
-> observer cleanup, focus and dialogs, keyboard shortcuts, storage, file input, and Theatre Web
+> observer cleanup, focus and dialogs, keyboard shortcuts, tooltips and disclosures, storage, file input, and Theatre Web
 > playback through `HTMLMediaElement`, the Media Session API, autoplay policy, byte-range seeking
 > and signed-URL refresh. Use when code touches `web-sys`, `wasm-bindgen`, an event listener, the
 > `<audio>` element or anything the renderer does not express declaratively.
@@ -192,12 +192,40 @@ type`. A JS shim stays small, versioned with the app and documented beside its b
 undeclared global function is an invisible dependency. Do not test browser behavior by mocking
 `web-sys`; put the browser behind a port for component tests and use a real browser for the rest.
 
+## 9. Contextual help and disclosures
+
+The copy roles, mechanism choice and examples belong to
+[contextual-help](../../cantos-ui-design/references/contextual-help.md); this section is the DOM
+side. Reuse existing parts before adding markup: `IconButton` for an icon-only action,
+`FieldHelp`/`FieldError` for field text, `ButtonState` reasons for blocked actions.
+
+- **Label tooltip.** `IconButton` already renders its name as hidden text and as `title`. Treat
+  `title` as a pointer-hover convenience: it does not appear on keyboard focus or touch and screen
+  readers handle it inconsistently. Never add `title` as the only name, description or reason.
+- **Optional explanation.** A visible `<button>` with `aria-expanded` and `aria-controls`
+  revealing an adjacent region in reading order, or native `<details>`/`<summary>`. The trigger
+  says what it reveals ("Vì sao bản thu này đã cũ?"); the content may contain links.
+- **Richer content.** An app-owned popover follows the
+  [Studio account menu](../../../../apps/cantos-studio/web/src/account_menu.rs): a named trigger
+  with `aria-expanded`/`aria-controls`, Escape closes and returns focus to the trigger, a focus
+  move outside closes it, and opening never shifts the layout beneath. A modal choice uses
+  `<dialog>` (§ 3).
+- **No hover-only path.** No `mouseenter`-only listeners for content; anything shown on hover is
+  also shown on focus, stays while hovered, and Escape dismisses it without moving focus.
+- **No new shared primitive by stealth.** A reusable tooltip, toggletip or popover is the
+  `proposed` `tooltip` specimen and needs [preview admission](../../cantos-ui-design/references/preview-catalog.md)
+  on both renderers; a feature-local copy is a finding.
+- **Oracle.** DOM test of `aria-expanded`, `aria-controls`/`aria-describedby` and the reason
+  text; a keyboard walk (open, Escape, focus restored) and a touch-emulated or real-touch pass
+  confirming nothing needs hover.
+
 ## Completion checklist
 
 - [ ] Declarative bindings first; `NodeRef` instead of document queries; no `set_inner_html` of content.
 - [ ] Every `web-sys` call is in a named helper with a typed error; no `unwrap()` on browser globals.
 - [ ] Every listener, observer, timer, stream and media handler is released in `on_cleanup`.
 - [ ] Global shortcuts check `is_typing_context`; focus moves on navigation and returns after dialogs.
+- [ ] Help and disclosures need no hover; `title` is never the only name, description or reason.
 - [ ] Playback state comes from media events through the shared reducer; intent is separate.
 - [ ] Autoplay rejection, buffering, expired access and invalid seeks leave a recoverable player.
 - [ ] Range requests and signed-URL refresh were observed on the real delivery path, or reported as not covered.

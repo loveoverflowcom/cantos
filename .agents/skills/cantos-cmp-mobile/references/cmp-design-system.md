@@ -2,7 +2,8 @@
 
 > **Scope.** How the shared Cantos design intent reaches Compose Multiplatform: the generated
 > Kotlin theme, Material 3 Expressive APIs in CMP, color and dynamic color, typography with
-> Vietnamese diacritics and font scaling, touch targets, semantics, insets, back navigation,
+> Vietnamese diacritics and font scaling, touch targets, semantics, tooltips and contextual help,
+> insets, back navigation,
 > reduced motion, localization and component states. Use for any visible change to the Theatre
 > mobile app.
 
@@ -145,6 +146,37 @@ Names state the action and the item; state goes in the state description; built-
 
 Oracle: `semantics-tested` name, role, state and actions on the production composable, then
 `screen-reader-walked` with TalkBack and VoiceOver ([cmp-testing.md](cmp-testing.md)).
+
+## Tooltips and contextual help
+
+Copy roles, mechanism choice and examples belong to
+[contextual-help](../../cantos-ui-design/references/contextual-help.md); this section maps them
+onto Compose. The shared `IconButton` wraps `TooltipBox`/`PlainTooltip` around the control and
+shows the same `name` that is its `contentDescription`. With the pinned Material 3 artifact the
+tooltip is expected to open on long press with touch and on hover with a pointer — a candidate
+behavior to observe on Android and iOS separately; the JVM desktop host proves neither. Treat it
+as an echo of the name, never as an explanation channel.
+
+| Need | Choice on Theatre native | Reject when |
+|---|---|---|
+| name of an icon-only action | the existing `IconButton`; a visible label when the icon is not familiar | the tooltip would carry anything the name does not |
+| optional secondary explanation | an explicit, named info `IconButton` that opens a bottom sheet or dialog, or an expandable section in reading order (candidate APIs; check the pinned version on both targets) | the content is essential, or the trigger is not a visible control |
+| secondary actions | an overflow menu with a named trigger | it hides a primary action or essential state |
+| richer content or choices | a bottom sheet; back and scrim dismiss and focus returns to the trigger | a confirmation or consequence, which is a dialog |
+| genuinely unfamiliar interaction | dismissible first-use guidance with a visible way to find it again | it blocks playback or repeats on every launch |
+| long press | only as a shortcut that also has a visible path and an accessibility label | it is the only path, or it competes with another gesture below |
+
+Long press is not discoverable and competes with scrolling and dragging (lazy lists, reordering),
+text selection, player seeking on the seek bar or player surface, platform edge gestures (Android
+predictive back, iOS edge swipe and home indicator) and screen-reader gestures (TalkBack
+double-tap-and-hold, VoiceOver). When a long press does act, name it (`onLongClickLabel` or a
+custom accessibility action, candidates) so TalkBack and VoiceOver can reach it. An info trigger
+meets the [touch target](#touch-targets) floor, exposes expanded/collapsed state when it expands in
+place, and help text wraps under large font scales.
+
+Oracle: `semantics-tested` name, state and actions on the production composable; then
+`device-tested` long press, hover where a pointer exists and sheet dismissal, and
+`screen-reader-walked` with TalkBack and VoiceOver, each recorded per platform.
 
 ## Insets, safe areas and adaptive layout
 

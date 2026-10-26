@@ -140,6 +140,7 @@ and [`material3-expressive.md`](material3-expressive.md):
 | times and costs that jitter as they update | proportional figures instead of tabular |
 | lines longer than about 90 characters in prose | no measure limit |
 | the longer locale breaking a layout | sized for one language's labels |
+| a paragraph explaining a familiar control; the same explanation in two regions | copy not classified by role ([`contextual-help.md`](contextual-help.md#2-classify-each-piece-of-copy-by-role)) |
 
 Use realistic strings: `Người dẫn chuyện`, `Ngày mai, mình có diễn tiếp không?`,
 `Ánh đèn cuối sân khấu`, one long title, one long name ([`typography.md`](typography.md),

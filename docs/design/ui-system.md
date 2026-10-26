@@ -152,6 +152,21 @@ Use native semantic HTML and input behavior on the web before custom ARIA patter
 
 Avoid single-key global player shortcuts while typing in the script editor. Announce significant async state changes without repeatedly interrupting screen-reader users. Keep generation/error status outside volatile editor text.
 
+### Copy and contextual help
+
+Screens explain themselves through structure, familiar icons, short command labels and visible
+state before prose. Keep visible what a person needs to decide or recover: action labels, current
+state, errors and validation, a required-input constraint, permission/QC/rights blockers, disabled
+reasons, destructive or irreversible consequences and empty-state recovery. Remove copy that
+repeats an obvious label or icon, a success or session fact already shown, or an explanation owned
+by another region of the same screen. Optional explanation may move to a tooltip, disclosure,
+popover or sheet only when it stays reachable by keyboard, touch and assistive technology: hover
+and long press are never the only way to read or do anything. Helper text that prevents an error
+stays; this is not a ban on visible instruction. Localization, focus, semantics, text scaling,
+reduced motion and touch targets apply to every disclosure. The
+[contextual-help method](../../.agents/skills/cantos-ui-design/references/contextual-help.md)
+owns the decision matrix, renderer choices and examples.
+
 ## Accessibility and motion acceptance
 
 These are project targets to verify, not claims of compliance:

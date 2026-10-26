@@ -246,7 +246,7 @@ density, theme, source hash and installed build identity ([native icon review](.
 | component API, state ownership, immutable values, `StateFlow.update`, effects and lifetimes, sealed types, errors, coroutines, formatting | [`kotlin-conventions.md`](references/kotlin-conventions.md) |
 | playback port, pure reducer, Android/iOS media adapters, interruptions, sleep timer, restore, URL refresh, lock-screen metadata | [`native-playback.md`](references/native-playback.md) |
 | download staging and verification, local metadata store, account scoping, revocation, progress outbox, background execution | [`downloads-and-local-state.md`](references/downloads-and-local-state.md) |
-| generated Kotlin theme, Material 3 Expressive in CMP, dynamic color, typography, touch targets, semantics, insets, back, reduced motion, resources | [`cmp-design-system.md`](references/cmp-design-system.md) |
+| generated Kotlin theme, Material 3 Expressive in CMP, dynamic color, typography, touch targets, semantics, tooltips/long press/contextual help, insets, back, reduced motion, resources | [`cmp-design-system.md`](references/cmp-design-system.md) |
 | choosing CMP evidence, renderers, device runs, blocked gates, acceptance matrix, clocks and dispatchers | [`cmp-testing.md`](references/cmp-testing.md) |
 | Arrow, Kotest Property, persistent collections, Konform, Turbine, Lincheck, Detekt/ktlint/Compose Rules compatibility and adoption cost | [`cmp-tooling.md`](references/cmp-tooling.md) |
 | Android CLI/Quail 2+ setup, emulator-free PNG and semantics capture, preview inspection, JVM alternative | [`compose-preview.md`](references/compose-preview.md) |

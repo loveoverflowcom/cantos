@@ -20,6 +20,7 @@ Select references, not a copied checklist:
 | incorrect visible/accessible label or Vietnamese overflow | [localization](../../cantos-ui-design/references/localization.md), [typography](../../cantos-ui-design/references/typography.md) |
 | wrong mapping of a correct domain fact | [component states](../../cantos-ui-design/references/component-states.md), [functional core](../../cantos-engineering/references/functional-core.md), owning domain skill |
 | focus, keyboard, semantics or motion | [accessibility](../../cantos-ui-design/references/accessibility.md), [motion](../../cantos-ui-design/references/motion.md) |
+| verbose, redundant or hidden copy; tooltip, disclosure or long-press help | [contextual help](../../cantos-ui-design/references/contextual-help.md), then [localization](../../cantos-ui-design/references/localization.md) |
 | stale response, lifecycle or duplicate state owner | [Leptos async](../../cantos-leptos-web/references/leptos-async.md) or CMP's required Kotlin/architecture/testing references |
 | capture and same-scenario comparison | [visual review](../../cantos-ui-design/references/visual-review.md), [Web testing](../../cantos-leptos-web/references/web-testing.md) or [CMP testing](../../cantos-cmp-mobile/references/cmp-testing.md) |
 
