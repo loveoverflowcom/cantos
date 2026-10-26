@@ -8,6 +8,8 @@ use crate::signin::SignInFailure;
 pub enum Key {
     Email,
     Password,
+    ShowPassword,
+    HidePassword,
     Submit,
     Submitting,
     Help,
@@ -25,9 +27,11 @@ pub enum Key {
     SessionNotStored,
 }
 
-pub const ALL: [Key; 17] = [
+pub const ALL: [Key; 19] = [
     Key::Email,
     Key::Password,
+    Key::ShowPassword,
+    Key::HidePassword,
     Key::Submit,
     Key::Submitting,
     Key::Help,
@@ -51,6 +55,10 @@ pub fn text(key: Key, english: bool) -> &'static str {
         (Key::Email, true) => "Email",
         (Key::Password, false) => "Mật khẩu",
         (Key::Password, true) => "Password",
+        (Key::ShowPassword, false) => "Hiện mật khẩu",
+        (Key::ShowPassword, true) => "Show password",
+        (Key::HidePassword, false) => "Ẩn mật khẩu",
+        (Key::HidePassword, true) => "Hide password",
         (Key::Submit, false) => "Đăng nhập",
         (Key::Submit, true) => "Sign in",
         (Key::Submitting, false) => "Đang đăng nhập…",

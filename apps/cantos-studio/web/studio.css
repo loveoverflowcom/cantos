@@ -276,7 +276,7 @@ body { margin: 0; }
 .studio-shell .entry-recovery { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin-block-start: var(--cantos-space-md); }
 /* Email/password sign-in: a native form, one column, full-width submit; also used inside the account menu. */
 .studio-shell .signin-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); margin-block: var(--cantos-space-md); min-inline-size: 0; }
-.studio-shell .signin-form .cui-button-field, .studio-shell .signin-form .cui-button-field > .cui-button { inline-size: 100%; }
+.studio-shell .signin-form > .cui-button-field, .studio-shell .signin-form > .cui-button-field > .cui-button { inline-size: 100%; }
 .studio-shell .studio-workbench { display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: start; }
 .studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); margin: 0; }
 .studio-shell .workspace-nav .cui-nav-item { inline-size: 100%; box-sizing: border-box; justify-content: start; text-align: start; }

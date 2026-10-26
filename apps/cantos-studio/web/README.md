@@ -153,7 +153,11 @@ blindly replayed.
 
 Sign-in is one typed intent built from an explicit form submission: the password leaves the form
 with the intent (the field is empty before the request) and is never logged, persisted or kept
-for a retry. A retained draft (or the account menu's reauthentication) pins its owner: the
+for a retry. Both entry and account reauthentication use the shared floating password field with
+a localized show/hide action and an `AuthPrimary` submit. Visibility changes the same native input,
+preserving its selection; the eye is unavailable while blocked/submitting and resets when the
+password is cleared. The entry keeps its header/hero branding and uses the official symbol favicon.
+A retained draft (or the account menu's reauthentication) pins its owner: the
 identity client refuses and revokes any other account, so the owner's private drafts are never
 projected to it. Cancel/logout invalidate intent before asynchronous cleanup (the previous
 session is revoked with a fenced `DELETE identity/session`; an unacknowledged revoke blocks new
