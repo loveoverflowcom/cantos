@@ -2,7 +2,6 @@
 #[derive(Clone, Copy)]
 pub enum Key {
     Title,
-    Lead,
     NewWork,
     Import,
     Resume,
@@ -10,7 +9,6 @@ pub enum Key {
     NoSelection,
     SelectedUnit,
     Works,
-    PageHelp,
     Refresh,
     Next,
     Previous,
@@ -46,8 +44,6 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::UnknownLifecycle, false) => "Trạng thái chưa xác định",
         (Key::Title, true) => "Writing desk",
         (Key::Title, false) => "Bàn viết",
-        (Key::Lead, true) => "Your private place to write, prepare production instructions and review audio.",
-        (Key::Lead, false) => "Không gian riêng để viết, chuẩn bị chỉ dẫn sản xuất và xem lại âm thanh.",
         (Key::NewWork, true) => "New work",
         (Key::NewWork, false) => "Tạo tác phẩm",
         (Key::Import, true) => "Import manuscript",
@@ -62,8 +58,6 @@ pub fn text(key: Key, en: bool) -> &'static str {
         (Key::SelectedUnit, false) => "Chương / tập đang chọn",
         (Key::Works, true) => "Your works",
         (Key::Works, false) => "Tác phẩm của bạn",
-        (Key::PageHelp, true) => "Each read loads up to 20 works. Use Previous or Next to navigate; refresh returns to the first page. Your selection and drafts stay intact.",
-        (Key::PageHelp, false) => "Mỗi lần đọc tải tối đa 20 tác phẩm. Dùng Trang trước hoặc Trang tiếp; tải lại để về trang đầu. Tác phẩm đang chọn và bản nháp được giữ nguyên.",
         (Key::Refresh, true) => "Refresh this list",
         (Key::Refresh, false) => "Tải lại danh sách",
         (Key::Previous, true) => "Previous page",

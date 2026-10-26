@@ -1,9 +1,9 @@
 //! Header account entry: an avatar trigger and a floating popover.
 //!
 //! Presentation only. The session owner (`SessionState`) stays in `view.rs`; this component owns
-//! the disclosure geometry, dismissal (Escape, outside press, focus leaving) and focus return,
+//! the disclosure geometry, dismissal, contained keyboard traversal and focus return,
 //! and renders whatever account actions the shell passes as children.
-use cantos_ui::{avatar_initials, avatar_seed, avatar_tone, AvatarInitials};
+use cantos_ui::{avatar_initials, avatar_seed, avatar_tone, AvatarInitials, Button, ButtonVariant};
 use leptos::{ev, html, prelude::*};
 
 pub const ENTRY_ID: &str = "studio-account-entry";
@@ -17,6 +17,74 @@ mod browser {
         wasm_bindgen::JsCast,
         web_sys::{HtmlElement, Node},
     };
+
+    fn focusable(wrapper: &HtmlElement) -> Vec<HtmlElement> {
+        let Ok(candidates) = wrapper
+            .query_selector_all("button, a[href], input, select, textarea, summary, [tabindex]")
+        else {
+            return Vec::new();
+        };
+        (0..candidates.length())
+            .filter_map(|index| candidates.item(index)?.dyn_into::<HtmlElement>().ok())
+            .filter(|element| {
+                element.tab_index() >= 0
+                    && !element.matches(":disabled").unwrap_or(true)
+                    && element
+                        .closest("[hidden], [inert]")
+                        .ok()
+                        .flatten()
+                        .is_none()
+                    && element.get_bounding_client_rect().width() > 0.0
+                    && element.get_bounding_client_rect().height() > 0.0
+            })
+            .collect()
+    }
+
+    pub(super) fn focus_first(menu: NodeRef<html::Div>) {
+        if let Some(menu) = menu.get_untracked() {
+            if let Some(first) = focusable(&menu).first() {
+                let _ = first.focus();
+            }
+        }
+    }
+
+    /// Resolve the current rendered controls on each Tab: opening reauthentication and
+    /// pending actions can change the list without recreating the account disclosure.
+    pub(super) fn contain_tab(event: &ev::KeyboardEvent, wrapper: NodeRef<html::Div>) {
+        if event.key() != "Tab" || event.is_composing() {
+            return;
+        }
+        let Some(wrapper) = wrapper.get_untracked() else {
+            return;
+        };
+        let controls = focusable(&wrapper);
+        let Some(first) = controls.first() else {
+            return;
+        };
+        let Some(last) = controls.last() else { return };
+        let active = wrapper
+            .owner_document()
+            .and_then(|document| document.active_element());
+        let target = if event.shift_key()
+            && active
+                .as_ref()
+                .is_none_or(|active| active.is_same_node(Some(first)))
+        {
+            Some(last)
+        } else if !event.shift_key()
+            && active
+                .as_ref()
+                .is_none_or(|active| active.is_same_node(Some(last)))
+        {
+            Some(first)
+        } else {
+            None
+        };
+        if let Some(target) = target {
+            event.prevent_default();
+            let _ = target.focus();
+        }
+    }
 
     pub(super) fn focus(element: NodeRef<html::Button>) {
         if let Some(element) = element.get_untracked() {
@@ -54,6 +122,8 @@ mod browser {
     pub(super) fn focus_left(_: &ev::FocusEvent, _: NodeRef<html::Div>) -> bool {
         false
     }
+    pub(super) fn focus(_: NodeRef<html::Button>) {}
+    pub(super) fn contain_tab(_: &ev::KeyboardEvent, _: NodeRef<html::Div>) {}
 }
 
 /// App-private identity badge. The shared `Avatar` is not admitted for new adoption until it has
@@ -88,14 +158,14 @@ pub fn AccountEntry(
     /// Localized accessible name of the trigger and the popover group.
     #[prop(into)]
     label: Signal<String>,
-    /// Localized caption above the actor in the popover.
+    /// Localized explicit dismissal; the trigger can be obscured by the narrow sheet.
     #[prop(into)]
-    caption: Signal<String>,
+    close_label: Signal<String>,
     children: ChildrenFn,
 ) -> impl IntoView {
-    let _ = caption;
     let wrapper = NodeRef::<html::Div>::new();
     let trigger = NodeRef::<html::Button>::new();
+    let menu = NodeRef::<html::Div>::new();
     let name = Signal::derive(move || actor.get().unwrap_or_default());
     let visible = Memo::new(move |_| menu_visible(available.get(), open.get()));
 
@@ -107,6 +177,11 @@ pub fn AccountEntry(
     #[cfg(target_arch = "wasm32")]
     {
         use leptos::leptos_dom::helpers::window_event_listener;
+        Effect::new(move |_| {
+            if visible.get() && menu.get().is_some() {
+                browser::focus_first(menu);
+            }
+        });
         let press = window_event_listener(ev::pointerdown, move |event| {
             if open.get_untracked() && browser::press_outside(&event, wrapper) {
                 open.set(false);
@@ -126,6 +201,11 @@ pub fn AccountEntry(
     }
     view! {
         <div class="studio-account" node_ref=wrapper hidden=move || !available.get()
+            on:keydown=move |event: ev::KeyboardEvent| {
+                if visible.get_untracked() {
+                    browser::contain_tab(&event, menu);
+                }
+            }
             on:focusout=move |event: ev::FocusEvent| {
                 if browser::focus_left(&event, wrapper) {
                     open.set(false);
@@ -139,7 +219,12 @@ pub fn AccountEntry(
             </button>
             <Show when=move || visible.get()>
                 <div class="studio-account-scrim" on:click=move |_| open.set(false) aria-hidden="true"></div>
-                <div id=MENU_ID class="studio-account-menu" role="group" aria-label=move || label.get()>
+                <div id=MENU_ID node_ref=menu class="studio-account-menu" role="group" aria-label=move || label.get()>
+                    <Button id="studio-account-close" class="studio-account-close" variant=ButtonVariant::Text
+                        on_press=Callback::new(move |_| {
+                            open.set(false);
+                            browser::focus(trigger);
+                        })>{move || close_label.get()}</Button>
                     <div class="studio-account-identity">
                         <ActorBadge actor=actor size="large"/>
                         <div class="studio-account-name">
@@ -162,7 +247,7 @@ mod tests {
         let open = RwSignal::new(open);
         view! {
             <AccountEntry actor=actor available=Signal::derive(move || available) open=open
-                label="Tài khoản Studio" caption="Actor đã đăng nhập">
+                label="Tài khoản Studio" close_label="Đóng">
                 <button id="probe-action" type="button">"Đăng xuất"</button>
             </AccountEntry>
         }

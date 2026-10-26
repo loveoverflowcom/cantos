@@ -762,13 +762,13 @@ pub fn Studio() -> impl IntoView {
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
                         open=account_menu_open
                         label=Signal::derive(move || entry_text(EntryKey::Session, english.get()).to_owned())
-                        caption=Signal::derive(move || copy().actor.to_owned())>
+                        close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, english.get()).to_owned())>
                         <ActionButton id="account-refresh" icon=IconName::Refresh english=english variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,english.get())}</ActionButton>
                         <ActionButton id="account-reauthenticate" icon=IconName::Login english=english variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,english.get())}</ActionButton>
                         <Show when=move || reauth_open.get()>
                             <SignInPanel id="account" form=account_form english=english blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Secondary class=Signal::derive(|| "studio-action-danger".to_string()) blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
+                        <ActionButton id="account-logout" icon=IconName::Logout english=english variant=ButtonVariant::Danger blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,english.get())}</ActionButton>
                     </AccountEntry>
                 </div>
             </header>
@@ -881,7 +881,6 @@ pub fn Studio() -> impl IntoView {
                         })>{move || text(Key::Discard, english.get())}</ActionButton>
                 </div>
                 <p id="request-reason" class="help">{move || state.with(|e| if e.busy() { copy().busy } else if e.pending().is_some() { copy().pending } else if e.actor().is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, english.get()) } else { "" })}</p>
-                <p class="help">{move || text(Key::PermissionHelp, english.get())}</p>
             </section>
             <div hidden=move ||panel.get()!=WorkspacePane::Revisions><UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(Editor::status),english.get())}</span></UiStatus></div>
             <Show when=move || dialog_failure.get()><UiStatus announcement=Announcement::Polite><p>{move || text(Key::DialogFailure, english.get())}</p></UiStatus></Show>

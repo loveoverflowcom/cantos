@@ -12,7 +12,6 @@ pub enum Key {
     HidePassword,
     Submit,
     Submitting,
-    Help,
     ReauthenticateHelp,
     Incomplete,
     InvalidInput,
@@ -27,14 +26,13 @@ pub enum Key {
     SessionNotStored,
 }
 
-pub const ALL: [Key; 19] = [
+pub const ALL: [Key; 18] = [
     Key::Email,
     Key::Password,
     Key::ShowPassword,
     Key::HidePassword,
     Key::Submit,
     Key::Submitting,
-    Key::Help,
     Key::ReauthenticateHelp,
     Key::Incomplete,
     Key::InvalidInput,
@@ -63,8 +61,6 @@ pub fn text(key: Key, english: bool) -> &'static str {
         (Key::Submit, true) => "Sign in",
         (Key::Submitting, false) => "Đang đăng nhập…",
         (Key::Submitting, true) => "Signing in…",
-        (Key::Help, false) => "Đăng nhập bằng email và mật khẩu của tài khoản Cantos. Studio không có đăng ký công khai; quyền vào Studio do quản trị viên cấp.",
-        (Key::Help, true) => "Sign in with your Cantos account email and password. Studio has no public sign-up; Studio access is granted by an administrator.",
         (Key::ReauthenticateHelp, false) => "Nhập lại email và mật khẩu của chính tài khoản đang mở bản nháp. Tài khoản khác sẽ bị từ chối và phiên mới bị thu hồi.",
         (Key::ReauthenticateHelp, true) => "Enter the email and password of the account that opened the current drafts. Another account is refused and its new session is revoked.",
         (Key::Incomplete, false) => "Nhập email và mật khẩu.",

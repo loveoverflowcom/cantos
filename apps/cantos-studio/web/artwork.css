@@ -9,7 +9,7 @@
 .artwork-fields { display: grid; gap: var(--cantos-space-md); }
 .studio-artwork p, .studio-artwork small { overflow-wrap: anywhere; }
 .studio-artwork input[type=file] { max-inline-size: 100%; min-block-size: var(--cantos-size-control); font: inherit; }
-.studio-artwork input[type=file]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: var(--cantos-size-focus-offset); }
+.studio-artwork input[type=file]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .artwork-actions { margin-block: var(--cantos-space-lg); }
 @container (max-width: 36rem) { .artwork-columns { grid-template-columns: minmax(0, 1fr); } }
 /* Keep the browser-owned file button legible under 200% text scaling. */
