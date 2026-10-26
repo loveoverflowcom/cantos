@@ -155,6 +155,18 @@
     "visibility_off": {
       "path": "src/action/visibility_off/materialicons/24px.svg",
       "sha256": "e28996cb2ef8ad3377e4500d4714bb99462593d611a6f7b0c43d662dda9863b6"
+    },
+    "upload": {
+      "path": "src/file/upload/materialiconsoutlined/24px.svg",
+      "sha256": "b532d523c00d1ce32c83da03360660cdec541eb315f0fdd402d03409d238fbe6"
+    },
+    "transform": {
+      "path": "src/image/transform/materialiconsoutlined/24px.svg",
+      "sha256": "27bffd2ab8e88b23d1ae04c0a12a24181fbfa963b70d60390e5f8eb68920738e"
+    },
+    "edit": {
+      "path": "src/image/edit/materialiconsoutlined/24px.svg",
+      "sha256": "df1143921a7b3e43027aaa3d3e6b027e2ca853e4d140ba73c943faaad7fb5ebe"
     }
   }
 }

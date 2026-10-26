@@ -106,6 +106,26 @@ pub fn focus_heading(id: &str) {
     }
 }
 
+/// Keeps the current workspace link visible when the narrow strip scrolls horizontally.
+/// Where the list does not overflow the container has no scroll range, so this does nothing.
+pub fn reveal_in_strip(id: &str) {
+    let Some(item) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id(id))
+        .and_then(|e| e.dyn_into::<HtmlElement>().ok())
+    else {
+        return;
+    };
+    let Some(strip) = item
+        .parent_element()
+        .and_then(|e| e.dyn_into::<HtmlElement>().ok())
+    else {
+        return;
+    };
+    let centered = item.offset_left() - (strip.client_width() - item.offset_width()) / 2;
+    strip.set_scroll_left(centered.max(0));
+}
+
 /// A destination-specific CTA may already have focused its form after the pane became visible.
 /// Do not replace that more precise intent with the shell's generic heading/caret fallback.
 pub fn pane_has_focus(id: &str) -> bool {
