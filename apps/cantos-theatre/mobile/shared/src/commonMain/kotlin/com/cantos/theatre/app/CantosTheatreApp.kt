@@ -152,7 +152,7 @@ fun CantosTheatreApp(
                     onToggleTheme = { dispatch(ShellEvent.SetTheme(if (theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) })
             },
             membershipScreen = ui.membership.screen,
-            accountContent = { loginFocus -> AccountContent(locale, theme, accountView, onAuth, loginFocus) },
+            accountContent = { loginFocus, backOverlay -> AccountContent(locale, theme, accountView, onAuth, loginFocus, backOverlay) },
             authContent = {
                 val verifier = shell.verification
                 if (state.route == ShellRoute.VerifyEmail && verifier != null && verification != null) {

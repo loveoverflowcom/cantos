@@ -223,6 +223,8 @@ class PreviewShellFlowTest {
         waitUntil(timeoutMillis = 5_000) { owners.account.state.value is NativeAccountState.SignedIn }
         onNodeWithTag("account").performClick()
         onNodeWithTag("logout").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("logout-confirm").performClick()
         waitUntil(timeoutMillis = 5_000) { owners.account.state.value == NativeAccountState.SignedOut }
         assertEquals(null, owners.shell.library.value.account)
         onNodeWithTag("sign-in").performScrollTo().assertIsEnabled().performClick()

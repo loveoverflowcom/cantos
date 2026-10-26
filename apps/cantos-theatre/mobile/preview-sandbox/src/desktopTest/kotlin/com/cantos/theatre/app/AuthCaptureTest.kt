@@ -101,6 +101,19 @@ class AuthCaptureTest {
         }
     }
 
+    @Test
+    fun signed_in_account_and_the_sign_out_sheet_are_captured() {
+        val english = PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account), locale = ShellLocale.English))
+        capture("account-signed-light-en-390x844", 390, 844, english) { it.completeLogin() }
+        capture("account-signed-light-320x568", 320, 568, account) { it.completeLogin() }
+        capture("logout-sheet-light-390x844", 390, 844, account) { it.completeLogin(); it.click("logout") }
+        capture("logout-sheet-dark-390x844", 390, 844, account.themed(ShellTheme.Dark)) { it.completeLogin(); it.click("logout") }
+        capture("logout-sheet-light-en-390x844", 390, 844, english) { it.completeLogin(); it.click("logout") }
+        capture("logout-sheet-light-320x568", 320, 568, account) { it.completeLogin(); it.click("logout") }
+        capture("logout-sheet-light-text2-320x800", 320, 800, account, textScale = 2f) { it.completeLogin(); it.click("logout") }
+        capture("logout-sheet-light-768x1024", 768, 1024, account) { it.completeLogin(); it.click("logout") }
+    }
+
     /** The preview owners plus the Compose test that drives them, so a step can click and settle. */
     private class Drive(val test: ComposeUiTest, val h: PreviewOwners) {
         fun click(tag: String) {

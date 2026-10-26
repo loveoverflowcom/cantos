@@ -339,8 +339,13 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary **Không gian của bạn** screen: a guest profile with vertical Sign in
-  and Create account actions, a Membership card and the listening settings.
+  the avatar opens a secondary **Tài khoản** screen: a guest profile with vertical Sign in
+  and Create account actions, a Membership card and the listening settings. A signed-in listener sees
+  a compact profile, one grouped list (membership, library and history, appearance, listening
+  settings, support information) and a separate Sign out entry that opens a modal bottom sheet:
+  only its confirm action asks the account owner to sign out, and Back closes the sheet before the
+  route. With no typed name/email projection the profile reads **Người nghe Cantos · Đã đăng nhập**;
+  support is information until a verified destination exists.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs, for the verified
   account that owns the Library; a guest is asked to sign in. History has a secondary full list and
   a confirmed clear action; clearing it preserves listening positions and saved works. The three

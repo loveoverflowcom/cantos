@@ -135,8 +135,9 @@ fun CantosPresentation(
     membershipContent: @Composable () -> Unit = {},
     membershipHeader: (@Composable () -> Unit)? = null,
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
-    // Receives the requester that Back restores when it closes an auth intent opened from Account.
-    accountContent: @Composable (loginFocus: FocusRequester) -> Unit = {},
+    // Receives the requester that Back restores when it closes an auth intent opened from Account, and
+    // a slot that registers an open confirmation sheet's dismissal, which takes Back before the route does.
+    accountContent: @Composable (loginFocus: FocusRequester, backOverlay: @Composable (onBack: () -> Unit) -> Unit) -> Unit = { _, _ -> },
     // Login, Register and email verification bodies; the root reads the route from its own projection.
     authContent: @Composable () -> Unit = {},
     authHeader: (@Composable () -> Unit)? = null,
@@ -151,9 +152,11 @@ fun CantosPresentation(
 ) {
     val copy = ShellCopy(state.locale, LocalShellCopyOverrides.current)
     val notice = LocalShellNotice.current
-    val back = { if (activeError != null) onErrorDismiss() else dispatch(ShellEvent.Back) }
+    // An open confirmation sheet owns Back before the route stack does.
+    val overlays = remember { BackOverlayRegistry() }
+    val back = { if (activeError != null) onErrorDismiss() else if (!overlays.dismiss()) dispatch(ShellEvent.Back) }
     SideEffect { onThemeChanged(state.theme == ShellTheme.Dark) }
-    backHandler(activeError != null || canGoBack(state), back)
+    backHandler(activeError != null || overlays.active || canGoBack(state), back)
     val entryFocus = rememberAuthEntryFocus(state.stack)
     CantosTheme(
         UiPreferences(
@@ -168,7 +171,7 @@ fun CantosPresentation(
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().safeDrawingPadding().imePadding().onPreviewKeyEvent {
-                    if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && canGoBack(state)) {
+                    if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && (overlays.active || canGoBack(state))) {
                         back()
                         true
                     } else {
@@ -223,7 +226,7 @@ fun CantosPresentation(
                             }
                             ShellRoute.Player -> PlayerScreen(state, catalog, copy, dispatch)
                             ShellRoute.Queue -> QueueScreen(state, catalog, copy, dispatch)
-                            ShellRoute.Account -> accountContent(entryFocus.login)
+                            ShellRoute.Account -> accountContent(entryFocus.login) { onBack -> BackOverlay(overlays, onBack) }
                             ShellRoute.Login, ShellRoute.Register, ShellRoute.VerifyEmail -> authContent()
                             ShellRoute.MembershipPreview -> membershipContent()
                             ShellRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
@@ -275,7 +278,7 @@ private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
 
 private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
     ShellRoute.Player -> CopyKey.Player
-    ShellRoute.Account -> CopyKey.AccountSpace
+    ShellRoute.Account -> CopyKey.Account
     ShellRoute.MembershipPreview -> CopyKey.Brand
     ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, ShellRoute.Queue,
     ShellRoute.History, ShellRoute.Settings, ShellRoute.Unavailable, ShellRoute.Login, ShellRoute.Register,

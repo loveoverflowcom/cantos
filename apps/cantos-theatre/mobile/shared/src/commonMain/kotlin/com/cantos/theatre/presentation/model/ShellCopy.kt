@@ -58,7 +58,6 @@ enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     Cancel("Hủy", "Cancel"),
     Account("Tài khoản", "Account"),
     MembershipPreview("Membership", "Membership"),
-    AccountSpace("Không gian của bạn", "Your space"),
     // Route titles only: the account/auth screens own their copy under features/auth.
     SignIn("Đăng nhập", "Sign in"),
     CreateAccount("Tạo tài khoản", "Create an account"),
