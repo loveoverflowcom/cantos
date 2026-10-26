@@ -60,6 +60,7 @@ impl Locale {
 #[derive(Clone, Copy)]
 pub struct Copy {
     pub theme: &'static str,
+    pub language: &'static str,
     pub system: &'static str,
     pub light: &'static str,
     pub dark: &'static str,
@@ -87,7 +88,7 @@ pub struct Copy {
 pub fn copy(english: bool) -> Copy {
     if english {
         Copy {
-        theme:"Appearance", system:"System", light:"Light", dark:"Dark", unknown:"Unknown",
+        theme:"Appearance", language:"Language", system:"System", light:"Light", dark:"Dark", unknown:"Unknown",
         title:"Cantos Studio", mode:"Live · local Axum / PostgreSQL · no mock data",
         token:"Development session token", login:"Sign in", script:"Script ID (UUID)",
         read:"Read current revision", draft:"Complete Script IR draft (JSON)",
@@ -99,7 +100,7 @@ pub fn copy(english: bool) -> Copy {
     }
     } else {
         Copy {
-        theme:"Giao diện", system:"Theo hệ thống", light:"Sáng", dark:"Tối", unknown:"Chưa xác định",
+        theme:"Giao diện", language:"Ngôn ngữ", system:"Theo hệ thống", light:"Sáng", dark:"Tối", unknown:"Chưa xác định",
         title:"Cantos Studio", mode:"Live · Axum / PostgreSQL local · không dùng dữ liệu mock",
         token:"Token phiên phát triển", login:"Đăng nhập", script:"ID kịch bản (UUID)",
         read:"Đọc bản sửa đổi hiện tại", draft:"Bản nháp Script IR đầy đủ (JSON)",
