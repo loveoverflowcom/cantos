@@ -290,6 +290,7 @@ rules, [shared UI loop](../../cantos-ui-design/SKILL.md#shared-ui-loop),
 [accessibility](../../cantos-ui-design/references/accessibility.md),
 [localization](../../cantos-ui-design/references/localization.md),
 [component-states](../../cantos-ui-design/references/component-states.md),
+[contextual-help](../../cantos-ui-design/references/contextual-help.md),
 [visual-review](../../cantos-ui-design/references/visual-review.md); renderer criteria in
 [`cantos-leptos-web`](../../cantos-leptos-web/SKILL.md) and
 [`cantos-cmp-mobile`](../../cantos-cmp-mobile/SKILL.md); product requirements in the

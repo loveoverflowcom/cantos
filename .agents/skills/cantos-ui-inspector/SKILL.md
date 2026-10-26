@@ -165,6 +165,7 @@ control, inspect its enabled, disabled-with-reason and focus states **without ac
 | decoupling | a gated action reachable by another route or key; disabled without the server's reason; Web and CMP giving one state two meanings | `UI-CORE`, `UI-STATE`, [component-states](../cantos-ui-design/references/component-states.md) |
 | immutability | audio without its source revision; stale clips unmarked after an edit; a replaced release erasing visible history | [UI system § Studio](../../../docs/design/ui-system.md#studio-text-first-production) |
 | verification honesty | "Saved" or "Published" before the durable state; a progress jump after reload | scenario expectations |
+| copy economy and contextual help | redundant or repeated prose; an error, blocker or disabled reason only in a tooltip, on hover or behind a long press; an info affordance unreachable by keyboard, touch or screen reader; help truncated in the longer locale | `UI-COPY`, [contextual-help § 7](../cantos-ui-design/references/contextual-help.md#7-review-questions) — hover, long press and disclosure need interaction evidence, not a still image |
 
 Types, the functional core and code style are not observable in pixels. When a symptom suggests a
 rule in the wrong layer, report the symptom and hand the cause to

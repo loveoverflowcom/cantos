@@ -89,7 +89,8 @@ confirm with TalkBack and VoiceOver. Recipes: renderer skills.
   character-key shortcuts only when focus is outside editable content, ignore events during
   composition, prefer a modifier, and let users turn character-key shortcuts off.
 - Escape dismisses overlays; Enter and Space activate buttons through native behavior.
-- Touch gestures have visible alternatives; long-press menus have a visible entry point.
+- Touch gestures have visible alternatives; long-press menus have a visible entry point. Tooltips,
+  disclosures and other optional help follow [`contextual-help.md`](contextual-help.md).
 
 ## 6. Announcements without spam
 
