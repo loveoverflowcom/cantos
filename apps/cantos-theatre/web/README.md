@@ -117,9 +117,13 @@ a guest's avatar links to Account, and a signed-in avatar is a disclosure button
 (`features/account_menu.rs`, design v4.1, [#473](https://github.com/loveoverflowcom/cantos/issues/473))
 with real links to membership information, Library and Settings, an informational support line
 (no verified support destination exists, so it is not a control) and a logout entry. The menu
-never invents a name, email, membership or profile-edit action. Choosing logout closes the menu
-and opens one shared-Dialog confirmation: Cancel/Escape/backdrop dismiss before any intent, focus
-starts on Cancel and returns to the avatar, and confirm calls the existing logout owner once; the
+never invents a name, email, membership or profile-edit action, and a healthy signed-in session
+shows no status line under the name ([#481](https://github.com/loveoverflowcom/cantos/issues/481)).
+The header and menu still use the app-private `PersonGlyph`: shared `Avatar` has no two-renderer
+qualification record, so the text avatar (resolved initials, or a neutral `C` without a name)
+waits for #452/#467 admission. Choosing logout closes the menu and opens one shared-Dialog
+confirmation: Back (leading `arrow_back`)/Escape/backdrop dismiss before any intent, focus starts
+on Back and returns to the avatar, and confirm calls the existing logout owner once; the
 dialog then shows the owner's pending or unconfirmed step and closes on the guest transition.
 Browser, screen-reader and real-logout acceptance remain separate. Login and Create account are
 explicit secondary routes. The two primary destinations remain

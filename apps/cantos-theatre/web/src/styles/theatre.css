@@ -448,7 +448,7 @@ body { margin: 0; }
 .theatre-account-menu p { margin: 0; }
 .theatre-account-menu-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); padding: var(--cantos-space-sm); }
 .theatre-account-menu-title { font-family: var(--cantos-type-family-editorial); font-weight: 700; overflow-wrap: anywhere; }
-.theatre-account-menu-status, .theatre-account-menu-tagline, .theatre-account-menu-info { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); line-height: var(--cantos-type-body-line-height); }
+.theatre-account-menu-tagline, .theatre-account-menu-info { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); line-height: var(--cantos-type-body-line-height); }
 .theatre-account-menu-tagline { grid-column: 1 / -1; }
 .theatre-account-menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
 .theatre-account-menu-row {

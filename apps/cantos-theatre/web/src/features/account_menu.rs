@@ -169,7 +169,6 @@ fn AccountMenuPanel(
                 <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span>
                 <div class="theatre-account-menu-name">
                     <p class="theatre-account-menu-title">{text(Key::AccountMenuListener, locale)}</p>
-                    <p class="theatre-account-menu-status">{text(Key::AccountMenuSignedIn, locale)}</p>
                 </div>
                 <p class="theatre-account-menu-tagline">{text(Key::AccountMenuTagline, locale)}</p>
             </div>
@@ -234,12 +233,22 @@ fn LogoutDialog(
                     on_error=Callback::new(move |_| open.set(false))
                     initial_focus=Callback::new(|()| browser::focus_by_id(CANCEL_ID))
                     actions=ViewFn::from(move || view! {
-                        <Button id=CANCEL_ID variant=ButtonVariant::AuthSecondary
-                            on_press=Callback::new(move |_| close.run(()))>
-                            {move || messages::text(
-                                if step.get() == LogoutStep::InProgress { Key::LogoutDismiss } else { Key::LogoutCancel },
-                                language)}
-                        </Button>
+                        // Back leads with the arrow; while sign-out runs the same action only closes.
+                        {move || if step.get() == LogoutStep::InProgress {
+                            view! {
+                                <Button id=CANCEL_ID variant=ButtonVariant::AuthSecondary
+                                    on_press=Callback::new(move |_| close.run(()))>
+                                    {messages::text(Key::LogoutDismiss, language)}
+                                </Button>
+                            }.into_any()
+                        } else {
+                            view! {
+                                <Button id=CANCEL_ID variant=ButtonVariant::AuthSecondary icon=IconName::ArrowBack
+                                    on_press=Callback::new(move |_| close.run(()))>
+                                    {messages::text(Key::LogoutCancel, language)}
+                                </Button>
+                            }.into_any()
+                        }}
                         <Button id="theatre-logout-confirm" variant=ButtonVariant::AuthPrimary icon=IconName::Logout
                             state=Signal::derive(move || confirm_state(step.get(), language))
                             on_press=Callback::new(move |_| on_confirm.run(()))>
@@ -443,7 +452,7 @@ mod tests {
                     "Tài khoản",
                     "Đăng xuất khỏi Cantos?",
                     "Bạn luôn có thể quay lại Cantos để tiếp tục câu chuyện của mình.",
-                    "Hủy",
+                    "Quay lại",
                     "Đăng xuất",
                 ),
                 (
@@ -451,7 +460,7 @@ mod tests {
                     "Account",
                     "Sign out of Cantos?",
                     "You can always return to Cantos to continue your story.",
-                    "Cancel",
+                    "Back",
                     "Sign out",
                 ),
             ] {
@@ -476,8 +485,31 @@ mod tests {
                 }
                 assert_eq!(html.matches("id=\"theatre-logout-confirm\"").count(), 1);
                 assert!(html.contains("id=\"theatre-logout-cancel\""));
+                let cancel = html.split("id=\"theatre-logout-cancel\"").nth(1).unwrap();
+                let cancel = &cancel[..cancel.find("</button>").unwrap()];
+                assert!(
+                    cancel.find("cui-button-icon").unwrap()
+                        < cancel.find(cancel_label(language)).unwrap(),
+                    "the arrow leads the label"
+                );
+                assert!(
+                    cancel.contains(ARROW_BACK_PATH) && !cancel.contains("aria-label"),
+                    "a decorative arrow_back, not the logout icon"
+                );
             }
         });
+    }
+
+    const ARROW_BACK_PATH: &str = "M20 11H7.83l5.59-5.59";
+
+    fn cancel_label(language: Locale) -> &'static str {
+        messages::text(Key::LogoutCancel, language)
+    }
+
+    #[test]
+    fn the_back_button_is_named_back() {
+        assert_eq!(cancel_label(Locale::Vietnamese), "Quay lại");
+        assert_eq!(cancel_label(Locale::English), "Back");
     }
 
     #[test]
@@ -492,7 +524,6 @@ mod tests {
                         "Cài đặt &amp; Giao diện",
                         "Thông tin hỗ trợ đang cập nhật",
                         "Người nghe Cantos",
-                        "Đã đăng nhập",
                     ],
                 ),
                 (
@@ -503,7 +534,6 @@ mod tests {
                         "Settings &amp; appearance",
                         "Support information is being updated",
                         "Cantos listener",
-                        "Signed in",
                     ],
                 ),
             ] {
@@ -528,6 +558,10 @@ mod tests {
                         && !html.contains("Edit profile")
                 );
                 assert!(!html.contains("example.com") && !html.contains("Minh Anh"));
+                // A healthy signed-in session is not announced under the name.
+                for obsolete in ["Đã đăng nhập", "Signed in", "theatre-account-menu-status"] {
+                    assert!(!html.contains(obsolete), "{obsolete}");
+                }
                 assert_eq!(
                     html.matches("<button").count(),
                     1,
