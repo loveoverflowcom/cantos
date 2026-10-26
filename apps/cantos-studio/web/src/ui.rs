@@ -1,7 +1,7 @@
 //! Studio presentation adapters. Values, permissions and effects remain app-owned.
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, ChoiceState, Dialog, DialogError, DisabledReason,
-    ErrorState, FilterChip, IconName, Select,
+    ErrorState, IconName, LinkHref, NavItem, Select,
 };
 use leptos::{ev::MouseEvent, prelude::*};
 
@@ -155,6 +155,17 @@ impl WorkspacePane {
         }
     }
 
+    pub const fn icon(self) -> IconName {
+        match self {
+            Self::Dashboard => IconName::Home,
+            Self::Content => IconName::MenuBook,
+            Self::Import => IconName::Upload,
+            Self::Proposal => IconName::Transform,
+            Self::Revisions => IconName::Edit,
+            Self::Production => IconName::Mic,
+        }
+    }
+
     pub fn label(self, english: bool) -> &'static str {
         match self {
             Self::Dashboard => {
@@ -175,29 +186,36 @@ fn pane_selection(panel: RwSignal<WorkspacePane>, pane: WorkspacePane) -> Callba
     Callback::new(move |_| panel.set(pane))
 }
 
+/// Only a plain primary click switches the mounted pane in place. A modified click keeps the
+/// browser's native open-in-new-tab behaviour through the pane's hash `href`.
+fn switches_in_place(button: i16, ctrl: bool, meta: bool, shift: bool, alt: bool) -> bool {
+    button == 0 && !(ctrl || meta || shift || alt)
+}
+
+fn pane_href(pane: WorkspacePane) -> Option<LinkHref> {
+    LinkHref::new(format!("#{}", pane.id())).ok()
+}
+
 /// This changes visibility only. All four app panels stay mounted with their draft state.
+/// One set of links serves every width: a column in the rail, a wrapped row below 64rem and a
+/// horizontally scrollable strip below 45rem, always with icon and label.
 #[component]
 pub fn WorkspaceNavigation(panel: RwSignal<WorkspacePane>, english: Signal<bool>) -> impl IntoView {
     view! {
         <nav class="workspace-nav" aria-label=move || text(Key::Workspace, english.get())>
-            <div class="workspace-nav-compact">
-                <Select id="studio-workspace-select" label=Signal::derive(move ||text(Key::Workspace,english.get()).to_owned())
-                    value=Signal::derive(move ||panel.get().id().to_owned())
-                    on_input=Callback::new(move |id: String| {
-                        if let Some(pane)=WorkspacePane::ALL.into_iter().find(|pane|pane.id()==id) {panel.set(pane);}
+            <div class="workspace-nav-list">
+            {WorkspacePane::ALL.into_iter().filter_map(|pane| pane_href(pane).map(|href| view! {
+                <NavItem id=format!("{}-control", pane.id()) href=href
+                    icon=pane.icon() current=Signal::derive(move || panel.get() == pane)
+                    on_press=Callback::new(move |event: MouseEvent| {
+                        if switches_in_place(event.button(), event.ctrl_key(), event.meta_key(), event.shift_key(), event.alt_key()) {
+                            event.prevent_default();
+                            pane_selection(panel, pane).run(true);
+                        }
                     })>
-                    {WorkspacePane::ALL.into_iter().map(|pane| view! {
-                        <option value=pane.id() selected=move ||panel.get()==pane>{move ||pane.label(english.get())}</option>
-                    }).collect_view()}
-                </Select>
-            </div>
-            <div class="workspace-nav-wide">
-            {WorkspacePane::ALL.into_iter().map(|pane| view! {
-                <FilterChip id=format!("{}-control", pane.id()) selected=Signal::derive(move || panel.get() == pane)
-                    on_change=pane_selection(panel, pane)>
                     {move || pane.label(english.get())}
-                </FilterChip>
-            }).collect_view()}
+                </NavItem>
+            })).collect_view()}
             </div>
         </nav>
     }
@@ -587,20 +605,22 @@ mod tests {
     }
 
     #[test]
-    fn pane_control_is_a_native_pressed_button_and_reselection_keeps_current_pane() {
+    fn pane_control_is_a_current_page_link_with_an_icon_and_reselection_keeps_current_pane() {
         let owner = Owner::new();
         owner.with(|| {
             let panel = RwSignal::new(WorkspacePane::Proposal);
             let english = Signal::stored(false);
             let html = view! { <WorkspaceNavigation panel=panel english=english/> }.to_html();
-            assert_eq!(html.matches("aria-pressed=\"true\"").count(), 1);
-            assert_eq!(
-                html.matches("type=\"button\"").count(),
-                WorkspacePane::ALL.len()
-            );
+            assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
+            assert_eq!(html.matches("<a ").count(), WorkspacePane::ALL.len());
+            assert_eq!(html.matches("cui-icon").count(), WorkspacePane::ALL.len());
+            assert!(!html.contains("aria-pressed"));
+            assert!(!html.contains("cui-chip-check"));
+            assert!(!html.contains("<select"));
             assert!(!html.contains("role=\"tab"));
             for pane in WorkspacePane::ALL {
-                assert!(html.contains(pane.id()));
+                assert!(html.contains(&format!("id=\"{}-control\"", pane.id())));
+                assert!(html.contains(&format!("href=\"#{}\"", pane.id())));
                 pane_selection(panel, pane).run(true);
                 assert_eq!(panel.get_untracked(), pane);
                 pane_selection(panel, pane).run(false);
@@ -608,6 +628,33 @@ mod tests {
             }
         });
     }
+
+    #[test]
+    fn every_pane_has_a_distinct_icon() {
+        let mut icons: Vec<_> = WorkspacePane::ALL
+            .iter()
+            .map(|pane| pane.icon().as_str())
+            .collect();
+        icons.sort_unstable();
+        icons.dedup();
+        assert_eq!(icons.len(), WorkspacePane::ALL.len());
+    }
+
+    #[test]
+    fn only_a_plain_primary_click_switches_in_place() {
+        assert!(switches_in_place(0, false, false, false, false));
+        for (button, ctrl, meta, shift, alt) in [
+            (1, false, false, false, false),
+            (2, false, false, false, false),
+            (0, true, false, false, false),
+            (0, false, true, false, false),
+            (0, false, false, true, false),
+            (0, false, false, false, true),
+        ] {
+            assert!(!switches_in_place(button, ctrl, meta, shift, alt));
+        }
+    }
+
     #[test]
     fn catalog_choices_keep_zero_and_unknown_nonfirst_selection_without_render_dispatch() {
         let owner = Owner::new();

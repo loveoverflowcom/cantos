@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 37 unmodified SVG files come from
+These 40 unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -44,7 +44,11 @@ names even when a pending action temporarily hides its glyph.
 | Player transport / options | `fast_rewind`, `fast_forward`, `speed`, `timer`, `star`, `queue_music` | Theatre CMP player controls |
 | Account / chevron | `account_circle`, `person`, `keyboard_arrow_right` | Theatre CMP shell and account rows |
 | Show / hide a secret field value | `visibility` / `visibility_off` | Theatre password fields' trailing action; the host owns the visibility state and its localized name |
+| Studio workspace navigation | `home`, `menu_book`, `upload`, `transform`, `edit`, `mic` | One decorative icon per Studio Web workspace link; the link text owns the name |
 | Search action | `search` | Icon-only, docked action of a Theatre search field; the host owns the localized name |
+
+`auto_fix_high` is not in the subset: its upstream SVG uses `polygon` anatomy that the trusted
+generator and the CMP path mapping reject, so the Studio adaptation link uses `transform`.
 
 `arrow_forward` remains progression; `expand_more` remains disclosure. Neither disclosure nor
 a selected/success check represents waiting. Buttons keep the visible action label and localized

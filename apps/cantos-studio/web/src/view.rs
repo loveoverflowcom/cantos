@@ -23,9 +23,9 @@ use crate::{
     signin_form::SignInPanel,
 };
 use cantos_ui::{
-    Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, IconName,
-    Logo, LogoTone, LogoVariant, Select, SelectDensity, SelectLabelPlacement, SelectOption,
-    Status as UiStatus, Theme, UiRoot,
+    AccessibleName, Announcement, BackButton, Button, ButtonVariant, Container, ContainerWidth,
+    Density, FieldLabel, IconName, Logo, LogoTone, LogoVariant, Select, SelectDensity,
+    SelectLabelPlacement, SelectOption, Status as UiStatus, Theme, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -305,6 +305,12 @@ pub fn Studio() -> impl IntoView {
                 }
             }
         }
+    });
+    Effect::new(move |_| {
+        let id = format!("{}-control", panel.get().id());
+        leptos::leptos_dom::helpers::request_animation_frame(move || {
+            crate::navigation::reveal_in_strip(&id)
+        });
     });
     let pane_history =
         leptos::leptos_dom::helpers::window_event_listener_untyped("popstate", move |_| {
@@ -815,7 +821,9 @@ pub fn Studio() -> impl IntoView {
             <div class="studio-workbench-content">
             <div class="studio-pane-heading" hidden=move ||panel.get()==WorkspacePane::Dashboard>
                 <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(english.get())}</h2>
-                <Button id="studio-back-desk" variant=ButtonVariant::Text on_press=Callback::new(move |_|panel.set(WorkspacePane::Dashboard))>{move ||entry_text(EntryKey::Back,english.get())}</Button>
+                {move || AccessibleName::new(entry_text(EntryKey::Back,english.get())).ok().map(|name| view! {
+                    <BackButton id="studio-back-desk" name=name on_back=Callback::new(move |_|panel.set(WorkspacePane::Dashboard))/>
+                })}
             </div>
             <div hidden=move || !matches!(panel.get(),WorkspacePane::Content|WorkspacePane::Dashboard)><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||!session_pending.get()) dashboard=Signal::derive(move ||panel.get()==WorkspacePane::Dashboard) on_import=open_import on_editor=open_editor editor_script=editor_script on_open_content=open_content session_epoch=session_epoch session_pending=session_pending activity=content_activity busy=content_busy dirty=content_dirty/></div>
             <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english session_pending=session_pending dirty=import_dirty activity=import_activity /></div>

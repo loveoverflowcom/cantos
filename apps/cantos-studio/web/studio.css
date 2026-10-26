@@ -62,7 +62,7 @@ body { margin: 0; }
 .studio-shell .studio-header .toolbar { margin: 0; }
 .studio-shell .studio-header label { font-weight: 400; }
 .studio-shell .workspace-nav { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); padding-block: var(--cantos-space-md); margin-block-end: var(--cantos-space-md); }
-.studio-shell .authoring-nav button[aria-pressed="true"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); text-decoration: underline; }
+.studio-shell .authoring-nav button[aria-pressed="true"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
 .studio-shell .revision-strip { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cantos-space-sm); }
 .studio-shell .authoring-workspace { display: grid; grid-template-columns: minmax(11rem, .75fr) minmax(0, 2.4fr) minmax(16rem, 1fr); gap: var(--cantos-space-lg); margin-block: var(--cantos-space-md); align-items: start; }
 .studio-shell .authoring-nav, .studio-shell .authoring-canvas, .studio-shell .authoring-inspector { min-width: 0; }
@@ -93,7 +93,7 @@ body { margin: 0; }
 .studio-shell .validation-controls p { margin-block: var(--cantos-space-sm); }
 .studio-shell [hidden] { display: none !important; }
 @container studio (max-width: 75rem) { .studio-shell .authoring-workspace { grid-template-columns: minmax(10rem, .7fr) minmax(0, 2fr); } .studio-shell .authoring-inspector { grid-column: 1 / -1; margin-block-start: var(--cantos-space-sm); } }
-@container studio (max-width: 45rem) { .studio-shell .authoring-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); } .studio-shell .authoring-nav button { min-height: var(--cantos-size-control); } .studio-shell .authoring-inspector { grid-column: auto; } .studio-shell .workspace-nav > .cui-button-field { flex: 1 1 10rem; } .studio-shell .workspace-nav .cui-filter-chip { width: 100%; } .studio-shell .authoring-fields { grid-template-columns: minmax(0, 1fr); } }
+@container studio (max-width: 45rem) { .studio-shell .authoring-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); } .studio-shell .authoring-nav button { min-height: var(--cantos-size-control); } .studio-shell .authoring-inspector { grid-column: auto; } .studio-shell .authoring-fields { grid-template-columns: minmax(0, 1fr); } }
 
 .studio-shell .authoring-field textarea { min-height: 7rem; font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
 .studio-shell .authoring-advanced textarea { min-height: 24rem; font-family: ui-monospace, monospace; }
@@ -280,7 +280,8 @@ body { margin: 0; }
 .studio-shell .signin-form .cui-button-field, .studio-shell .signin-form .cui-button-field > .cui-button { inline-size: 100%; }
 .studio-shell .studio-workbench { display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: start; }
 .studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); margin: 0; }
-.studio-shell .studio-workbench > .workspace-nav .cui-filter-chip { inline-size: 100%; justify-content: start; white-space: normal; text-align: start; }
+.studio-shell .workspace-nav .cui-nav-item { inline-size: 100%; box-sizing: border-box; justify-content: start; text-align: start; }
+.studio-shell .workspace-nav .cui-nav-item[aria-current="page"] { text-decoration: none; }
 .studio-shell .studio-workbench-content { min-inline-size: 0; }
 .studio-shell .studio-pane-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); }
 .studio-shell .studio-pane-heading h2 { margin-block: 0; }
@@ -316,9 +317,8 @@ body { margin: 0; }
   .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
 }
 
-/* Narrow navigation keeps all mounted workspaces reachable without a tall control rail. */
-.studio-shell .workspace-nav-compact { display: none; }
-.studio-shell .workspace-nav-wide { display: flex; flex-direction: column; gap: var(--cantos-space-sm); }
+/* One set of links serves every width; narrow containers turn the rail into a scrollable tab strip. */
+.studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
 .studio-shell [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
@@ -326,13 +326,13 @@ body { margin: 0; }
 .studio-shell .dashboard-works .dashboard-heading { margin-block-end: var(--cantos-space-md); align-items: center; }
 .studio-shell .dashboard-tools { grid-column: 1 / -1; }
 @container studio (max-width: 64rem) {
-  .studio-shell .workspace-nav-wide { flex-direction: row; flex-wrap: wrap; }
-  .studio-shell .workspace-nav-wide > * { flex: 1 1 11rem; }
+  .studio-shell .workspace-nav-list { flex-direction: row; flex-wrap: wrap; }
+  .studio-shell .workspace-nav-list > * { flex: 1 1 11rem; }
 }
 @container studio (max-width: 45rem) {
-  .studio-shell .workspace-nav-wide { display: none; }
-  .studio-shell .workspace-nav-compact { display: block; min-inline-size: 0; inline-size: 100%; }
   .studio-shell .studio-workbench > .workspace-nav { padding: var(--cantos-space-sm); }
+  .studio-shell .workspace-nav-list { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; padding-block-end: var(--cantos-space-xs); }
+  .studio-shell .workspace-nav-list > .cui-nav-item { flex: 0 0 auto; inline-size: auto; scroll-snap-align: center; white-space: nowrap; }
 }
 
 /* Exact production identifiers and native media controls stay inside narrow Studio sections. */
