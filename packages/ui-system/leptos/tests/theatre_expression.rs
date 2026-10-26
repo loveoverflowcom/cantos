@@ -223,8 +223,8 @@ fn theatre_geometry_matches_the_design_minimums_without_fixing_heights() {
     for declaration in [
         "--cantos-web-field-block-size: 4.25rem;",
         "--cantos-web-field-radius: 1rem;",
-        "--cantos-web-field-block-size: 4.5rem;",
-        "--cantos-web-field-radius: var(--cantos-shape-pill);",
+        "--cantos-web-field-block-size: var(--cantos-size-search-header);",
+        "--cantos-web-field-radius: var(--cantos-shape-search-rest);",
         "min-inline-size: var(--cantos-size-search-action);",
         "min-block-size: var(--cantos-size-search-action);",
     ] {
@@ -290,4 +290,65 @@ fn the_canonical_remap_is_declared_after_every_theme_block_in_the_token_css() {
     );
     assert!(TOKEN_CSS[remap..]
         .contains("--cantos-type-headline-weight: var(--cantos-type-theatre-heading-weight);"));
+}
+
+#[test]
+fn the_docked_search_has_no_floating_label_and_strokes_stay_inside_its_own_bounds() {
+    let css = theatre_section();
+    // The label is the accessible name; it is visible only as the empty-state prompt.
+    let hidden = css
+        .find("[data-kind=\"search\"] .cui-field-shell > .cui-field-label {")
+        .expect("hidden label rule");
+    let prompt = css
+        .find(".cui-field-control:placeholder-shown ~ .cui-field-label {")
+        .expect("empty prompt rule");
+    assert!(
+        hidden < prompt,
+        "the empty prompt overrides the hidden label"
+    );
+    let hidden_rule = &css[hidden..prompt];
+    assert!(
+        hidden_rule.contains("clip-path: inset(50%);"),
+        "{hidden_rule}"
+    );
+    assert!(
+        !hidden_rule.contains("display: none"),
+        "the name stays in the tree"
+    );
+    // Idle 0, hover 1 inset, focus 2 inset: never a positive outline-offset or a halo.
+    let hover = css
+        .find(".cui-field-shell:hover:not([data-invalid=\"true\"])")
+        .expect("hover rule");
+    let hover_rule = &css[hover..hover + 420];
+    assert!(
+        hover_rule
+            .contains("outline: var(--cantos-web-stroke-rest) solid var(--cantos-color-outline);"),
+        "{hover_rule}"
+    );
+    assert!(
+        hover_rule.contains("outline-offset: calc(-1 * var(--cantos-web-stroke-rest));"),
+        "{hover_rule}"
+    );
+    assert!(!css.contains("box-shadow"), "no halo");
+}
+
+#[test]
+fn the_docked_search_motion_is_a_web_seed_that_reduced_motion_zeroes_and_native_never_reads() {
+    let css = FOUNDATION_CSS;
+    for declaration in [
+        "--cantos-web-search-open-duration: 280ms;",
+        "--cantos-web-search-open-easing: cubic-bezier(0.2, 0, 0, 1);",
+        "--cantos-web-search-close-duration: 200ms;",
+        "--cantos-web-search-close-easing: cubic-bezier(0.4, 0, 1, 1);",
+        "--cantos-web-search-effects-duration: var(--cantos-motion-feedback-duration);",
+    ] {
+        assert!(css.contains(declaration), "missing {declaration}");
+    }
+    let reduced = css
+        .find("--cantos-web-search-open-duration: 0ms;")
+        .expect("reduced-motion override");
+    assert!(css[..reduced]
+        .rfind("@media (prefers-reduced-motion: reduce)")
+        .is_some());
+    assert!(css.contains("--cantos-web-search-close-duration: 0ms;"));
 }

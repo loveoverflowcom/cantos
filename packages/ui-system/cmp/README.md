@@ -46,7 +46,11 @@ Everything below is additive and local to the control that opts in:
   inset state perimeter (`cantosInsetPerimeter`: idle none, invalid 1, focus 2, focused-invalid 2 in
   the error colour, always inside the node's bounds) and keep help outside it. They never change
   `cantosFocus`, so `Regular` and `AuthTonal` keep their outset ring. Minimums are 68 and 72 logical
-  units (`FloatingFieldMinHeight`, `FloatingSearchMinHeight`); text scale and a long label grow the shell.
+  units (`FloatingFieldMinHeight`, and `size.searchHeader` for the search); text scale and a long
+  label grow the shell. `FloatingSearch` (Search v4.3) has no floating label: its label is the
+  empty prompt and the field's accessible name, the radius is `shape.searchRest` (36) and a pointer
+  hover paints one inset `size.border` (touch has none). Opening, closing and the dock body belong to
+  the Search composition; native keeps its motion scheme, with no copy of the Web 280/200 ms seed.
 - `TextField(..., trailing = { IconButton(...) })` on both the `String` and `TextFieldValue`
   overloads places one action inside the shell. The layout reserves its width; the field owns no
   action or visibility state, and the caller's selection and composition are untouched by a press.

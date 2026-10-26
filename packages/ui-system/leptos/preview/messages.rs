@@ -7,7 +7,7 @@
 use super::recipe::{Fixture, Locale, Recipe};
 
 pub mod tool {
-    pub const THEATRE_TITLE: &str = "Theatre expression · v0.7.0";
+    pub const THEATRE_TITLE: &str = "Theatre expression · v0.8.0";
     pub const THEATRE_INTRO: &str = "This subtree opts into Theatre expression; the rest of the gallery stays Standard. No app adopts it yet.";
     pub const THEATRE_CONTROL_HELP: &str =
         "The tonal theme action (48) and circular search action (52) use the same IconButton.";

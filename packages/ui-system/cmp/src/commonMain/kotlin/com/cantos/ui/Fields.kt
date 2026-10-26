@@ -31,10 +31,12 @@ import androidx.compose.ui.unit.dp
 // pixels. Both are minimums: the label, value and text scale grow the shell, nothing is clipped.
 internal val FloatingFieldMinHeight: Dp = 68.dp
 internal val FloatingFieldRadius: Dp = 16.dp
-internal val FloatingSearchMinHeight: Dp = 72.dp
 
 /** The two shell variants share one anatomy; only the search field changes shape and minimum. */
 internal fun TextFieldVariant.isFloating(): Boolean = this == TextFieldVariant.Floating || this == TextFieldVariant.FloatingSearch
+
+/** AuthTonal puts its label outside the shell and the docked search has none: its label is the prompt and the accessible name. */
+internal fun TextFieldVariant.hasFieldLabel(): Boolean = this != TextFieldVariant.AuthTonal && this != TextFieldVariant.FloatingSearch
 
 /** Blank messages have no visible or semantic invalid state, matching the Web contract. */
 internal data class FieldMessages(val help: String?, val error: String?, val reason: String?) {
@@ -68,14 +70,14 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
     .then(when (variant) {
         TextFieldVariant.AuthTonal -> Modifier.heightIn(min = tokenDp("size.authField"))
         TextFieldVariant.Floating -> Modifier.heightIn(min = FloatingFieldMinHeight)
-        TextFieldVariant.FloatingSearch -> Modifier.heightIn(min = FloatingSearchMinHeight)
+        TextFieldVariant.FloatingSearch -> Modifier.heightIn(min = tokenDp("size.searchHeader"))
         TextFieldVariant.Regular -> Modifier
     })
     .then(when (variant) {
         // One inset perimeter owned by this field; no other control's focus geometry changes.
         TextFieldVariant.Floating -> Modifier.cantosInsetPerimeter(FloatingFieldRadius, invalid = messages.error != null)
-        // A capsule is a radius of half the shortest side; Skia scales an oversized radius to it.
-        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(Dp(999f), invalid = messages.error != null)
+        // The docked search header: resting radius 36 (half of the 72 minimum), hover 1 / focus 2 inset.
+        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(tokenDp("shape.searchRest"), invalid = messages.error != null, hoverStroke = true)
         TextFieldVariant.AuthTonal, TextFieldVariant.Regular -> Modifier.cantosFocus(
             if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field",
             restingBorder = if (variant == TextFieldVariant.AuthTonal && messages.error != null) {
@@ -84,7 +86,7 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
         )
     })
     .semantics {
-        if (variant == TextFieldVariant.AuthTonal) contentDescription = label
+        if (variant == TextFieldVariant.AuthTonal || variant == TextFieldVariant.FloatingSearch) contentDescription = label
         if (messages.description.isNotBlank()) stateDescription = messages.description
         messages.error?.let { error(it) }
     }
@@ -173,7 +175,7 @@ private fun FieldFrame(
 private fun fieldShape(variant: TextFieldVariant): androidx.compose.ui.graphics.Shape = when (variant) {
     TextFieldVariant.AuthTonal -> CantosShapes.authField
     TextFieldVariant.Floating -> RoundedCornerShape(FloatingFieldRadius)
-    TextFieldVariant.FloatingSearch -> CantosShapes.full
+    TextFieldVariant.FloatingSearch -> RoundedCornerShape(tokenDp("shape.searchRest"))
     TextFieldVariant.Regular -> CantosShapes.reading
 }
 
@@ -203,7 +205,8 @@ private fun ControlledTextField(
             value = value,
             onValueChange = { if (state.acceptsInput()) onValueChange(it) },
             modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
-            label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
+            label = if (variant.hasFieldLabel()) ({ Text(label) }) else null,
+            placeholder = if (variant == TextFieldVariant.FloatingSearch) ({ Text(label) }) else null,
             trailingIcon = trailing,
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
@@ -247,7 +250,8 @@ private fun ControlledTextField(
             value = value,
             onValueChange = { if (state.acceptsValueChange(value, it)) onValueChange(it) },
             modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
-            label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
+            label = if (variant.hasFieldLabel()) ({ Text(label) }) else null,
+            placeholder = if (variant == TextFieldVariant.FloatingSearch) ({ Text(label) }) else null,
             trailingIcon = trailing,
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,

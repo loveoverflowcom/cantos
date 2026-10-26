@@ -1,6 +1,9 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,24 +64,36 @@ internal fun Modifier.cantosFocus(shapeRole: String = "shape.control", restingBo
  * invalid field paints one `size.border`, focus (or an [active] open menu) paints two, in the
  * error colour while invalid. It never leaves the bounds, so it cannot be clipped, double with the
  * node's fill or move neighbouring layout; the radius is capped by Skia to a stadium.
+ * [hoverStroke] adds the idle-hover cue of the docked search: one `size.border` in `color.outline`
+ * while a pointer is over an unfocused, valid node (touch has no hover and paints nothing).
  * Only the node itself counts as focused: a trailing action inside the shell keeps its own ring.
  * Standard controls keep [cantosFocus]; this is local to the fields and menus that opt in.
  */
-internal fun Modifier.cantosInsetPerimeter(radius: Dp, invalid: Boolean = false, active: Boolean = false): Modifier = composed {
+internal fun Modifier.cantosInsetPerimeter(
+    radius: Dp,
+    invalid: Boolean = false,
+    active: Boolean = false,
+    hoverStroke: Boolean = false,
+): Modifier = composed {
     var focused by remember { mutableStateOf(false) }
+    val pointer = remember { MutableInteractionSource() }
+    val hovered by pointer.collectIsHoveredAsState()
     val rest = tokenDp("size.border")
     val strong = rest * InsetPerimeterActiveFactor
     val error = tokenColor("color.error")
     val focus = tokenColor("color.focus")
+    val hover = tokenColor("color.outline")
     onFocusChanged { focused = it.isFocused }
+        .then(if (hoverStroke) Modifier.hoverable(pointer) else Modifier)
         .drawWithContent {
             drawContent()
             val engaged = focused || active
-            if (engaged || invalid) {
+            val hinted = hoverStroke && hovered && !engaged && !invalid
+            if (engaged || invalid || hinted) {
                 val stroke = (if (engaged) strong else rest).toPx()
                 val corner = (radius.toPx() - stroke / 2).coerceAtLeast(0f)
                 drawRoundRect(
-                    color = if (invalid) error else focus,
+                    color = if (invalid) error else if (hinted) hover else focus,
                     topLeft = Offset(stroke / 2, stroke / 2),
                     size = Size(size.width - stroke, size.height - stroke),
                     cornerRadius = CornerRadius(corner, corner),

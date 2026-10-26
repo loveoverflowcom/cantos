@@ -21,6 +21,7 @@ import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -242,6 +243,31 @@ class TheatreFoundationTest {
         compose.onNodeWithTag("theme").performClick()
         compose.onNodeWithTag("search").performClick()
         assertEquals(2, presses, "a blocked action dispatches nothing")
+    }
+
+    @Test
+    fun the_docked_search_has_no_floating_label_one_trailing_action_and_a_72_unit_minimum() {
+        var query by mutableStateOf("")
+        var searches = 0
+        compose.setContent {
+            UiRoot(preferences = theatre) {
+                TextField("Tìm trong danh mục", query, { query = it }, variant = TextFieldVariant.FloatingSearch,
+                    controlModifier = Modifier.testTag("field"),
+                    trailing = {
+                        IconButton(AccessibleName.of("Tìm trong danh mục"), "search", { searches += 1 },
+                            variant = ButtonVariant.Primary, circular = true,
+                            controlModifier = Modifier.size(tokenDp("size.searchAction")).testTag("search"))
+                    })
+            }
+        }
+        // The label is the accessible name and the empty prompt, never a floated caption: one text
+        // node with this string in the field (its placeholder), and the single search action.
+        compose.onNodeWithTag("field").assertContentDescriptionEquals("Tìm trong danh mục").assertHeightIsAtLeast(72.dp)
+        assertEquals(1, compose.onAllNodesWithText("Tìm trong danh mục", useUnmergedTree = true).fetchSemanticsNodes().size)
+        compose.runOnIdle { query = "Truyện đêm khuya" }
+        compose.onNodeWithTag("field").assertContentDescriptionEquals("Tìm trong danh mục")
+        compose.onNodeWithTag("search").performClick()
+        assertEquals(1, searches)
     }
 
     @Test

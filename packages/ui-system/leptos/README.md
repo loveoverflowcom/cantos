@@ -434,7 +434,14 @@ visible one.
   validation and history (a blocked action also cancels the click). `variant=Tonal` gives the 48-unit
   theme action.
 - `TextField` marks `data-kind` on `.cui-field`; with `kind=Search` under the Theatre expression the
-  shell is a 72-minimum pill and its trailing action a 52-unit circle (`size.searchAction`).
+  shell is the docked search header (Search v4.3): `size.searchHeader` (72) minimum, resting radius
+  `shape.searchRest` (36) and a trailing action that is a 52-unit circle (`size.searchAction`, at
+  least 48 to touch). It has no floating label: the label is the accessible name and the empty
+  prompt, visually hidden (never removed) once there is a value. State stroke stays inside the
+  shell: idle 0, hover 1, focus 2, invalid 1; no outset ring. The 280/200 ms open and close
+  (`--cantos-web-search-*`, effects reuse the feedback duration, 0 under reduced motion) are a Web
+  seed for the Search composition, not a canonical or native role. The dock body is not a shared
+  component.
 - `Avatar` gains `AvatarSize::Control` (48) and `accent=true`, which pins the Theatre pink pair
   instead of the identity hue; the golden initials and tone vectors are unchanged.
 - `UiRoot expression=Expression::Theatre` opts a subtree in. Everything Theatre-specific in

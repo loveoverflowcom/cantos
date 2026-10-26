@@ -28,6 +28,22 @@
   --cantos-web-stroke-rest: var(--cantos-size-border);
   --cantos-web-stroke-active: calc(2 * var(--cantos-size-border));
 }
+/* Docked search motion (v4.3) is a Web design seed, not a canonical or spring-based role: open 280
+   and close 200, with the shared feedback duration (140) for the content. Native renderers keep
+   their existing motion scheme. Reduced motion updates at once. */
+:where(.cantos-ui) {
+  --cantos-web-search-open-duration: 280ms;
+  --cantos-web-search-open-easing: cubic-bezier(0.2, 0, 0, 1);
+  --cantos-web-search-close-duration: 200ms;
+  --cantos-web-search-close-easing: cubic-bezier(0.4, 0, 1, 1);
+  --cantos-web-search-effects-duration: var(--cantos-motion-feedback-duration);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) {
+    --cantos-web-search-open-duration: 0ms;
+    --cantos-web-search-close-duration: 0ms;
+  }
+}
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
    Padding on the control leaves room for accents/descenders; never clip the label.
    Browsers without text-box support retain the token line-height fallback. */
@@ -1158,13 +1174,51 @@
   --cantos-web-chip-radius: var(--cantos-web-shape-reading);
   --cantos-web-chip-selected-radius: calc(var(--cantos-size-control) / 2);
 }
-/* A search field is a pill with its action docked inside: 72 high, a 52-unit visible action
-   (at least 48 to touch) and a larger inline inset so the rounded end never crowds the text. */
+/* A search field is the docked search header (v4.3): at least 72 high with its action docked
+   inside (a 52-unit visible action, at least 48 to touch) and a larger inline inset so the rounded
+   end never crowds the text. The resting radius is half the header; a taller, text-scaled header
+   keeps it instead of turning into a capsule. */
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] {
-  --cantos-web-field-block-size: 4.5rem;
-  --cantos-web-field-radius: var(--cantos-shape-pill);
+  --cantos-web-field-block-size: var(--cantos-size-search-header);
+  --cantos-web-field-radius: var(--cantos-shape-search-rest);
   --cantos-web-field-inset: 1.5rem;
   --cantos-web-field-trailing-inset: 0.625rem;
+}
+/* No floating label: the label is the field's accessible name and, while the field is empty, the
+   visible prompt in the value's place (focused or not). Once there is a value it is visually
+   hidden, never removed, so the value is vertically centered and nothing moves or overlaps. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell > .cui-field-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell > .cui-field-control:placeholder-shown ~ .cui-field-label {
+  position: static;
+  inline-size: auto;
+  block-size: auto;
+  margin: 0;
+  clip-path: none;
+  white-space: normal;
+  grid-row: 1 / -1;
+  align-self: center;
+  padding: var(--cantos-web-field-label-top) var(--cantos-web-field-inset);
+  font-size: var(--cantos-type-body-size);
+  line-height: 1.5rem;
+  font-weight: var(--cantos-type-body-weight);
+  pointer-events: none;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell > .cui-field-control {
+  padding-block: var(--cantos-web-field-label-top);
+}
+/* State stroke on the search shell's own bounds, like focus and invalid: idle 0, hover 1 inset,
+   focus 2 inset (the shared floating rule). Hover yields to focus and invalid. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"][data-state="editable"] .cui-field-shell:hover:not([data-invalid="true"]):not(:has(> .cui-field-control:focus-visible)) {
+  outline: var(--cantos-web-stroke-rest) solid var(--cantos-color-outline);
+  outline-offset: calc(-1 * var(--cantos-web-stroke-rest));
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] .cui-field-trailing .cui-button {
   min-inline-size: var(--cantos-size-search-action);
