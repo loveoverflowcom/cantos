@@ -29,6 +29,8 @@ acceptance from a merged PR.
 For #348's native production packaging, read the [OCI release contract and next slices](deployment/native-oci-release.md),
 then the [native architecture](architecture/native-turso-refactor.md) and [retained VPS runbook](deployment/vps-production.md).
 The offline contract verifier is separate from publish, native qualification and live activation.
+The [exact-image Linux fixture](assurance/native-oci-qualification.md) owns synthetic pair
+qualification and receipt retrieval; it grants no admission or host authority.
 For first-party v1 auth and parallel migration, start with the
 [native owner amendment](architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration),
 then [Identity auth v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md) and the [private RPC](../services/cantos-identity/contracts/identity/v1/README.md). Older provider guides are retired history, not supported workflows.

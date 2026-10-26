@@ -107,6 +107,8 @@ states. Historical PASS cannot qualify today's implementation.
 Production OCI build/admission, publication recovery records and offline host preparation are
 described in the [release contract](docs/deployment/native-oci-release.md). A host-local same-schema NATIVE_READY upgrade/recovery executor exists with independent
 qualification/admission and cold-backup fences; first-native/legacy cutover stays deferred; legacy API/aggregate release routes refuse. New work targets `develop` after PR #400.
+The explicit [disposable Linux fixture](docs/assurance/native-oci-qualification.md) qualifies an
+exact built pair with synthetic HTTP/auth/isolation/restore checks; it grants no admission.
 [Retained VPS records](docs/deployment/vps-production.md) describe legacy operations, not an
 available native activation command. No merge, deploy, VPS operation or data retirement follows
 from documentation cleanup. Preserve DB/WAL, backups, media, accounts and other tasks' outputs.

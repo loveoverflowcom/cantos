@@ -230,7 +230,7 @@ run their standalone equivalents again when covered by that handoff run.
 
 | Change | Required check at the applicable milestone |
 | --- | --- |
-| Release artifact contract / CI promotion | `cargo xtask release self-test` for focused contract, DAG and mocked-adapter regressions; Python tests are included in the repository gate and Rust CLI/deploy tests in the Rust gate. Real CI/build/activate acceptance remains separate. |
+| Release artifact contract / CI promotion | `cargo xtask release self-test` for contract, DAG and mocked-adapter regressions; Python tests are in repository and CLI/deploy tests in Rust. Explicit `release oci-qualify` runs real exact images only on disposable matching Linux ([boundary](docs/assurance/native-oci-qualification.md)); ordinary gates never start it. Host activation remains separate. |
 | Repository hygiene (documents, skills, scripts) | `repository` gate, included in handoff preflight; `cargo xtask verify repository` for a focused hygiene check when needed |
 | Completed handoff or a pull request | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it (broadens to every gate when impact is uncertain) |
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` (Server and client conformance, independent goldens and the `tools/proto-codegen` drift check of every consumer's binding) |

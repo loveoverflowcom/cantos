@@ -2,8 +2,8 @@ name: Native OCI publish
 
 # Manual producer for the native Server/Identity image pair (#348). It builds the checked-out
 # commit, pushes both images to GHCR and records an UNADMITTED candidate: every qualification gate
-# is NOT_RUN, so `cargo xtask release oci-verify` refuses it until real gate records and an
-# operator admission exist. It never deploys, activates a host or changes package visibility.
+# is initially NOT_RUN. The disposable Linux qualification step tests that exact published pair
+# and retains a separate result; an operator admission is still required. No deployment occurs.
 # The same release owner (`scripts/release_oci_build.py`) serves the local producer.
 
 on:
@@ -49,6 +49,49 @@ jobs:
           set -Eeuo pipefail
           cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
             --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
+      - name: Pin the one published candidate from this run
+        id: candidate
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          paths = list(Path('artifacts/release-build/oci').glob('**/candidate/manifest.json'))
+          assert len(paths) == 1, 'exactly one producer candidate required'
+          path = paths[0]
+          raw = path.read_bytes()
+          manifest = json.loads(raw)
+          assert manifest['source_sha'] == os.environ['SOURCE_SHA']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'manifest={path}\n')
+              output.write(f'digest={hashlib.sha256(raw).hexdigest()}\n')
+              output.write(f'configuration={manifest["configuration_sha256"]}\n')
+          PY
+      - name: Qualify the exact pair on disposable native Linux
+        env:
+          MANIFEST: ${{ steps.candidate.outputs.manifest }}
+          MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          # Root is confined to this disposable runner and its private Podman image store.
+          # No production credentials, remote host, systemd/Quadlet or admission are involved.
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/qualification-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/qualification-auth.json"' EXIT
+          sudo env "PATH=$PATH" "RUSTUP_HOME=$HOME/.rustup" "CARGO_HOME=$HOME/.cargo" \
+            cargo xtask release oci-qualify \
+            --manifest "$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+            --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+            --authfile "$RUNNER_TEMP/qualification-auth.json" \
+            --output artifacts/release-qualification/exact-pair
+      - name: Make only this run's qualification receipts readable for artifact retention
+        if: always()
+        run: |
+          if test -d artifacts/release-qualification; then
+            sudo chown -R -- "$(id -u):$(id -g)" artifacts/release-qualification
+          fi
       - name: Remove the authfile
         if: always()
         run: rm -f "$RUNNER_TEMP/ghcr-auth.json"
@@ -59,6 +102,7 @@ jobs:
           name: native-oci-candidate-${{ github.sha }}
           path: |
             artifacts/release-build/oci/
+            artifacts/release-qualification/
             ${{ runner.temp }}/oci-build-result.json
           if-no-files-found: error
           retention-days: 14

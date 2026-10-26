@@ -283,6 +283,15 @@ host and, only with `--publish`, pushes it to GHCR and writes an **unadmitted** 
 [`native-oci-publish`](../.github/workflows/native-oci-publish.yml) workflow is manual only. See the
 [producer contract](../docs/deployment/native-oci-release.md#producers-release-oci-build).
 
+`cargo xtask release oci-qualify --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
+--configuration-digest SHA256 --platform P --output FRESH_DIRECTORY [--authfile PATH]` runs the
+production pair in a private rootful Podman store on disposable matching native Linux. It checks
+layers/UIDs/mounts/UDS/network controls, real HTTP/auth/persistence and cold same-schema restore.
+Input and fixture digests bind separate immutable PASS/FAIL/NOT_RUN records; it never reuses input
+PASS or writes an admission. The manual OCI workflow calls it after publishing. Core/file
+regressions belong to release self-test/repository; CLI regressions belong to Rust. Preflight and
+ordinary CI never execute containers. See [run/receipt/limit details](../docs/assurance/native-oci-qualification.md).
+
 These are preparatory PR A slices of #348; a real registry publish and
 exact-image fixture acceptance remain required before PR B's native VPS activation. The existing `deploy vps`
 command and legacy `api`/`all` release selectors are retired refusals; they do not consume this contract.

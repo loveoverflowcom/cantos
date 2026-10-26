@@ -206,6 +206,25 @@ pub enum Action {
         #[arg(long, requires = "publish")]
         authfile: Option<PathBuf>,
     },
+    /// Qualify an exact unadmitted image pair on disposable native Linux, using real containers.
+    /// Requires rootful Podman; never publishes, admits images or activates a host.
+    OciQualify {
+        #[arg(long)]
+        manifest: PathBuf,
+        #[arg(long)]
+        manifest_digest: String,
+        #[arg(long)]
+        source_sha: String,
+        #[arg(long)]
+        configuration_digest: String,
+        #[arg(long)]
+        platform: String,
+        #[arg(long)]
+        authfile: Option<PathBuf>,
+        /// Fresh immutable output directory; the input candidate is never overwritten.
+        #[arg(long)]
+        output: PathBuf,
+    },
 }
 
 fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
@@ -241,6 +260,36 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             command = command.args(["--rollback-attempt", attempt]);
         }
         return command;
+    }
+    if let Action::OciQualify {
+        manifest,
+        manifest_digest,
+        source_sha,
+        configuration_digest,
+        platform,
+        authfile,
+        output,
+    } = action
+    {
+        let command = command.args([
+            "scripts/release_oci_qualify.py".into(),
+            "--manifest".into(),
+            manifest.display().to_string(),
+            "--manifest-digest".into(),
+            manifest_digest.clone(),
+            "--source-sha".into(),
+            source_sha.clone(),
+            "--configuration-digest".into(),
+            configuration_digest.clone(),
+            "--platform".into(),
+            platform.clone(),
+            "--output".into(),
+            output.display().to_string(),
+        ]);
+        return match authfile {
+            Some(path) => command.args(["--authfile".into(), path.display().to_string()]),
+            None => command,
+        };
     }
     if let Action::OciVerify {
         manifest,
@@ -389,6 +438,7 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         Action::SelfTest
         | Action::OciVerify { .. }
         | Action::OciBuild { .. }
+        | Action::OciQualify { .. }
         | Action::NativeUpgrade { .. } => {
             unreachable!("handled above")
         }
@@ -465,6 +515,46 @@ mod tests {
     use crate::cli::Cli;
     use crate::workspace::Workspace;
     use clap::Parser;
+
+    #[test]
+    fn exact_image_qualification_requires_pins_and_has_no_admission_or_deploy_switch() {
+        let args = [
+            "xtask",
+            "release",
+            "oci-qualify",
+            "--manifest",
+            "candidate/manifest.json",
+            "--manifest-digest",
+            "digest",
+            "--source-sha",
+            "source",
+            "--configuration-digest",
+            "configuration",
+            "--platform",
+            "linux/amd64",
+            "--output",
+            "qualified",
+        ];
+        assert!(Cli::try_parse_from(args).is_ok());
+        for forbidden in ["--publish", "--execute", "--admission", "--skip"] {
+            assert!(Cli::try_parse_from(args.into_iter().chain([forbidden])).is_err());
+        }
+        assert!(Cli::try_parse_from(&args[..args.len() - 2]).is_err());
+        let action = Action::OciQualify {
+            manifest: "candidate/manifest.json".into(),
+            manifest_digest: "digest".into(),
+            source_sha: "source".into(),
+            configuration_digest: "configuration".into(),
+            platform: "linux/amd64".into(),
+            authfile: None,
+            output: "qualified".into(),
+        };
+        let plan = command(&Workspace::discover().unwrap(), &action);
+        assert_eq!(plan.program, "python3");
+        assert_eq!(plan.args[0], "scripts/release_oci_qualify.py");
+        assert!(!plan.args.iter().any(|arg| arg == "--authfile"));
+        assert!(plan.env.is_empty());
+    }
 
     #[test]
     fn native_oci_plan_has_explicit_pins_and_only_calls_the_offline_release_owner() {
