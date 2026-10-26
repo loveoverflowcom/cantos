@@ -112,8 +112,17 @@ sites, so this composition does not import them or alter the admission baseline.
 migration needs the existing qualification process; source registration is not runtime approval.
 
 The default entrypoint opens public Home without a login wall. It reads actual published work
-summaries anonymously, independently of session availability. Account opens through the avatar;
-Login and Create account are explicit secondary routes. The two primary destinations remain
+summaries anonymously, independently of session availability. Account opens through the avatar:
+a guest's avatar links to Account, and a signed-in avatar is a disclosure button
+(`features/account_menu.rs`, design v4.1, [#473](https://github.com/loveoverflowcom/cantos/issues/473))
+with real links to membership information, Library and Settings, an informational support line
+(no verified support destination exists, so it is not a control) and a logout entry. The menu
+never invents a name, email, membership or profile-edit action. Choosing logout closes the menu
+and opens one shared-Dialog confirmation: Cancel/Escape/backdrop dismiss before any intent, focus
+starts on Cancel and returns to the avatar, and confirm calls the existing logout owner once; the
+dialog then shows the owner's pending or unconfirmed step and closes on the guest transition.
+Browser, screen-reader and real-logout acceptance remain separate. Login and Create account are
+explicit secondary routes. The two primary destinations remain
 **Khám phá** and **Của tôi**, following [#35](https://github.com/loveoverflowcom/cantos/issues/35).
 The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
 as required by [#129](https://github.com/loveoverflowcom/cantos/issues/129).
