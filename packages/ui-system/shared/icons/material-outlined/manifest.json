@@ -167,6 +167,14 @@
     "edit": {
       "path": "src/image/edit/materialiconsoutlined/24px.svg",
       "sha256": "df1143921a7b3e43027aaa3d3e6b027e2ca853e4d140ba73c943faaad7fb5ebe"
+    },
+    "arrow_upward": {
+      "path": "src/navigation/arrow_upward/materialiconsoutlined/24px.svg",
+      "sha256": "473799e3e3c53c8f7417f80fe797cf6c2a55886cc415f8a7972b8e55abd82ec1"
+    },
+    "arrow_downward": {
+      "path": "src/navigation/arrow_downward/materialiconsoutlined/24px.svg",
+      "sha256": "61643262c55c5fe4022407585d2609a7e3e73420ff93267931148a5eb9782790"
     }
   }
 }

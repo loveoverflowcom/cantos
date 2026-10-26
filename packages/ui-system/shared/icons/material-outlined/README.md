@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 40 unmodified SVG files come from
+These 42 unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -38,6 +38,7 @@ names even when a pending action temporarily hides its glyph.
 | Cancel / choose | `close` / `check` | Explicit cancel or selection |
 | Copy | `content_copy` | Studio private handoff receipt copy action |
 | Save / retry | `save` / `refresh` | Draft and recoverable actions |
+| Reorder chapters | `arrow_upward` / `arrow_downward` | Studio chapter earlier/later actions |
 | Archive / delete | `archive` / `delete_outline` | Explicit draft management |
 | Generate voice / preview | `mic` / `play_arrow`, `pause` | Forge mock and listening controls |
 | Sync / settings | `cloud_sync` / `settings` | Explicit synchronization and settings |

@@ -354,6 +354,7 @@ fn InputField(
     required: bool,
     placeholder: Option<String>,
     autocomplete: Option<String>,
+    maxlength: Option<u32>,
     min: Option<String>,
     max: Option<String>,
     step: Option<String>,
@@ -373,7 +374,7 @@ fn InputField(
     let label_view = view! { <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel> };
     let control = view! {
         <input id=id.clone() node_ref=input_ref class="cui-field-control" type=input_type.get_untracked() name=name required=required
-            placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
+            placeholder=placeholder autocomplete=autocomplete maxlength=maxlength min=min max=max step=step
             value=move || value.get() prop:value=move || value.get()
             readonly=move || state.get().is_read_only()
             disabled=move || state.get().is_disabled()
@@ -449,6 +450,9 @@ pub fn TextField(
     #[prop(optional)] required: bool,
     #[prop(into, optional)] placeholder: Option<String>,
     #[prop(into, optional)] autocomplete: Option<String>,
+    /// Native UTF-16 editing limit; callers retain their own validation policy.
+    #[prop(optional)]
+    maxlength: Option<u32>,
     /// One trailing action inside the shell of a `Floating` field: the password eye or a docked
     /// search submit. Pass a real native control (`IconButton`) with a localized name; the shell
     /// is never a clickable surface and owns no action or secret state. The control column
@@ -463,7 +467,7 @@ pub fn TextField(
             trailing=trailing
             on_composition_start=on_composition_start on_composition_end=on_composition_end
             state=state help=help error=error described_by=described_by class=class name=name
-            required=required placeholder=placeholder autocomplete=autocomplete min=None max=None step=None/>
+            required=required placeholder=placeholder autocomplete=autocomplete maxlength=maxlength min=None max=None step=None/>
     }
 }
 
@@ -491,7 +495,7 @@ pub fn NumberField(
             trailing=None
             on_composition_start=None on_composition_end=None
             state=state help=help error=error described_by=described_by class=class name=name
-            required=required placeholder=placeholder autocomplete=None min=min max=max step=step/>
+            required=required placeholder=placeholder autocomplete=None maxlength=None min=min max=max step=step/>
     }
 }
 

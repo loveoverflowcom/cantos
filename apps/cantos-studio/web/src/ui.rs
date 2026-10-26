@@ -1,6 +1,6 @@
 //! Studio presentation adapters. Values, permissions and effects remain app-owned.
 use cantos_ui::{
-    Button, ButtonState, ButtonVariant, ChoiceState, Dialog, DialogError, DisabledReason,
+    Button, ButtonState, ButtonVariant, Checkbox, ChoiceState, Dialog, DialogError, DisabledReason,
     ErrorState, IconName, LinkHref, NavItem, Select,
 };
 use leptos::{ev::MouseEvent, prelude::*};
@@ -325,6 +325,32 @@ pub fn ActionButton(
                 action_state(blocked.get(), busy, reason)
             })>{children()}</Button>
     }.into_any()
+}
+
+/// Translate the existing Studio boolean gate into the shared checkbox state. The caller
+/// retains the exact review/consent transition; this adapter never grants approval.
+#[component]
+pub fn ReviewCheckbox(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] checked: Signal<bool>,
+    on_change: Callback<bool>,
+    english: Signal<bool>,
+    #[prop(into, default = false.into())] blocked: Signal<bool>,
+    #[prop(default = BlockReason::SaveReview)] reason: BlockReason,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+) -> impl IntoView {
+    let Ok(reason) = LocalizedReason::new(reason) else {
+        return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp,english.get_untracked())}</p></ErrorState> }.into_any();
+    };
+    let reason = StoredValue::new(reason);
+    view! {
+        <Checkbox id label checked on_change described_by class="review-confirmation"
+            state=Signal::derive(move || if blocked.get() {
+                ChoiceState::Disabled(reason.with_value(|reason|reason.get(english.get())))
+            } else { ChoiceState::Enabled })/>
+    }
+    .into_any()
 }
 
 /// Real form submission stays native (including Enter); the form owns the submit guard/effect.
@@ -779,5 +805,41 @@ mod pane_return_tests {
                 WorkspacePane::Dashboard
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod review_checkbox_tests {
+    use super::*;
+
+    #[test]
+    fn confirmation_projects_checked_disabled_reason_and_localized_name_without_mutation() {
+        Owner::new().with(|| {
+            let checked = RwSignal::new(true);
+            let blocked = RwSignal::new(false);
+            let english = RwSignal::new(false);
+            let calls = RwSignal::new(0);
+            for (disabled, en) in [(false,false),(true,false),(true,true),(false,true)] {
+                blocked.set(disabled);
+                english.set(en);
+                let html = view! {
+                    <ReviewCheckbox id="review-test" english=english.into()
+                        label=Signal::derive(move ||text(Key::ReviewBeforeSave,english.get()).to_owned())
+                        checked blocked described_by=Some("review-help".to_owned())
+                        on_change=Callback::new(move |value|{checked.set(value);calls.update(|n|*n+=1);})/>
+                }.to_html();
+                assert!(html.contains("cui-choice-label"),"{html}");
+                assert!(html.contains("cui-choice-control"),"{html}");
+                assert!(html.contains(r#"for="review-test""#),"{html}");
+                assert!(html.contains(r#"type="checkbox""#),"{html}");
+                assert!(html.contains(" checked"),"{html}");
+                assert_eq!(html.contains(" disabled"), disabled,"{html}");
+                let descriptions = if disabled {"review-help review-test-reason"} else {"review-help"};
+                assert!(html.contains(&format!("aria-describedby=\"{descriptions}\"")),"{html}");
+                assert!(html.contains(text(Key::ReviewBeforeSave,en)),"{html}");
+                assert!(checked.get_untracked());
+                assert_eq!(calls.get_untracked(),0);
+            }
+        });
     }
 }

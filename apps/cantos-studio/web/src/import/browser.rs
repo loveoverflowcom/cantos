@@ -1,15 +1,13 @@
 //! Leptos shell for private manuscript import; transport and durable decisions have other owners.
 use super::{
-    optional_metadata, page_bounds, warning_on_page, ImportEditor, ImportIntent, ImportStatus,
-    MAX_FILE_BYTES,
+    page_bounds, warning_on_page, ImportEditor, ImportIntent, ImportStatus, MAX_FILE_BYTES,
 };
-use crate::contract::{Extraction, ImportFormat, ImportOutcome, ImportResponse};
+use crate::contract::{Extraction, ImportOutcome, ImportResponse};
 use crate::{
     api::{StudioContext, StudioHttp},
     messages,
     view::operation_id,
 };
-use cantos_ui::{Icon, IconName};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -30,24 +28,6 @@ fn dispatch_import(state: RwSignal<ImportEditor>, api: StudioHttp, intent: Impor
             }
         }
     });
-}
-
-fn format_value(format: ImportFormat) -> &'static str {
-    match format {
-        ImportFormat::Txt => "txt",
-        ImportFormat::Markdown => "markdown",
-        ImportFormat::Docx => "docx",
-        ImportFormat::ScriptIr => "script_ir",
-    }
-}
-
-fn selected_format(value: &str) -> ImportFormat {
-    match value {
-        "markdown" => ImportFormat::Markdown,
-        "docx" => ImportFormat::Docx,
-        "script_ir" => ImportFormat::ScriptIr,
-        _ => ImportFormat::Txt,
-    }
 }
 
 #[component]
@@ -133,42 +113,7 @@ pub fn ManuscriptImport(
                         }
                     } />
                 <p class="identity">{move || copy().file_name}<output id="import-selected-file">{move || state.with(|editor| editor.visible_metadata().map(|metadata|metadata.file_name.clone()).unwrap_or_default())}</output></p>
-                <label for="import-format">{move || copy().format}</label>
-                <div class="cui-select">
-                <select class="cui-field-control" id="import-format" disabled=blocked prop:value=move || state.with(|editor| editor.visible_metadata().map(|metadata|format_value(metadata.format)).unwrap_or("txt"))
-                    on:change=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.format = selected_format(&event_target_value(&event))))>
-                    <option value="txt">{move || copy().txt}</option>
-                    <option value="markdown">{move || copy().markdown}</option>
-                    <option value="docx">{move || copy().docx}</option>
-                    <option value="script_ir">{move || copy().script_ir}</option>
-                </select>
-                    <Icon name=IconName::ExpandMore/>
-                </div>
-                <label for="import-reference">{move || copy().reference}</label>
-                <input class="cui-field-control" id="import-reference" disabled=blocked maxlength="2048" autocomplete="off" required aria-describedby="import-field-findings"
-                    prop:value=move || state.with(|editor| editor.visible_metadata().map(|metadata|metadata.reference.clone()).unwrap_or_default())
-                    on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.reference = event_target_value(&event))) />
-                <div class="import-metadata">
-                    <div>
-                        <label for="import-rights-holder">{move || copy().rights_holder}</label>
-                        <input class="cui-field-control" id="import-rights-holder" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.rights_holder.clone()).unwrap_or_default())
-                            on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.rights_holder = optional_metadata(event_target_value(&event)))) />
-                    </div>
-                    <div>
-                        <label for="import-permission">{move || copy().permission_evidence}</label>
-                        <input class="cui-field-control" id="import-permission" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.permission_evidence.clone()).unwrap_or_default())
-                            on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.permission_evidence = optional_metadata(event_target_value(&event)))) />
-                    </div>
-                    <div>
-                        <label for="import-usage">{move || copy().usage_scope}</label>
-                        <input class="cui-field-control" id="import-usage" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.usage_scope.clone()).unwrap_or_default())
-                            on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.usage_scope = optional_metadata(event_target_value(&event)))) />
-                    </div>
-                </div>
-                <p id="import-rights-help" class="help">{move || copy().rights_help}</p>
+                <super::fields::MetadataFields state=state english=english session_pending=session_pending/>
                 <div class="toolbar">
                     <button class="cui-button" data-variant="primary" type="submit" disabled=save_blocked aria-describedby="import-reason">{move || copy().save}</button>
                     <Show when=move || state.with(|editor| editor.pending.is_some() && !editor.busy)>

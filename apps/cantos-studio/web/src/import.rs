@@ -371,6 +371,8 @@ pub fn optional_metadata(text: String) -> Option<String> {
 
 #[cfg(target_arch = "wasm32")]
 mod browser;
+#[cfg(any(target_arch = "wasm32", test))]
+mod fields;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use browser::ExtractionPreview;
 #[cfg(target_arch = "wasm32")]

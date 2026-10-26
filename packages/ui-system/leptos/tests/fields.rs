@@ -477,3 +477,21 @@ fn select_density_and_label_placement_preserve_native_and_menu_contracts() {
     assert!(html.contains("data-select-density=\"regular\""));
     assert!(html.contains("data-label-placement=\"above\""));
 }
+
+#[test]
+fn text_field_preserves_the_callers_native_length_limit_without_truncating_controlled_text() {
+    Owner::new().with(|| {
+        let value = RwSignal::new("Người dẫn chuyện".to_owned());
+        let html = view! {
+            <TextField id="limited" label="Tham chiếu" value maxlength=2048 required=true
+                on_input=Callback::new(|_: String|panic!("render must not edit"))/>
+            <TextField id="unlimited" label="Ghi chú" value
+                on_input=Callback::new(|_: String|panic!("render must not edit"))/>
+        }
+        .to_html();
+        assert!(control(&html, "input", "limited").contains(r#"maxlength="2048""#));
+        assert!(control(&html, "input", "limited").contains(" required"));
+        assert!(!control(&html, "input", "unlimited").contains("maxlength"));
+        assert_eq!(value.get_untracked(), "Người dẫn chuyện");
+    });
+}

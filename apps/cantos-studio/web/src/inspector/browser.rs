@@ -261,15 +261,15 @@ pub fn RevisionInspector(
                     if !rebase_blocked() { state.update(|editor| *editor = editor.rebase()); }
                 }>{move || copy().rebase}</button>
                 <p id="inspector-review-help" class="help">{move || workspace(Key::ReviewHelp)}</p>
-                <label class="adaptation-confirm" for="inspector-review-confirm">
-                    <input id="inspector-review-confirm" type="checkbox" disabled=move || draft_active() || inspector.with(Inspector::has_activity) || state.with(|editor| editor.is_dirty() || editor.remote().is_none_or(|remote| remote.revision != editor.base()) || editor.base() == 0 || editor.actor().is_empty() || editor.busy() || editor.pending().is_some() || !editor.can_edit())
-                        aria-describedby="inspector-review-help inspector-permission-help" prop:checked=move || inspector.with(|inspector| inspector.confirmation.is_some())
-                        on:change=move |event| {
-                            let checked = event_target_checked(&event);
-                            update_inspector(inspector, state, activity, |inspector, editor| inspector.observe_workspace(editor, draft_active()).confirm(editor, checked && !draft_active()));
-                        } />
-                    <span>{move || workspace(Key::ReviewSavedConfirm)}</span>
-                </label>
+                <crate::ui::ReviewCheckbox id="inspector-review-confirm" english=english
+                    label=Signal::derive(move ||workspace(Key::ReviewSavedConfirm).to_owned())
+                    checked=Signal::derive(move ||inspector.with(|inspector|inspector.confirmation.is_some()))
+                    blocked=Signal::derive(move ||draft_active() || inspector.with(Inspector::has_activity) || state.with(|editor|editor.is_dirty() || editor.remote().is_none_or(|remote|remote.revision!=editor.base()) || editor.base()==0 || editor.actor().is_empty() || editor.busy() || editor.pending().is_some() || !editor.can_edit()))
+                    described_by=Some("inspector-review-help inspector-permission-help".to_owned())
+                    on_change=Callback::new(move |checked|{
+                        update_inspector(inspector,state,activity,|inspector,editor|inspector.observe_workspace(editor,draft_active()).confirm(editor,checked && !draft_active()));
+                    })/>
+
                 <button class="cui-button" data-variant="secondary" type="button" disabled=review_blocked aria-describedby="inspector-review-help inspector-permission-help inspector-pending-help" on:click=move |_| {
                     if review_blocked() { return; }
                     match operation_id() {
