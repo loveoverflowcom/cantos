@@ -188,6 +188,46 @@ mod tests {
         assert!(index.contains("data-bin=\"cantos-theatre\""));
         assert!(index.contains("src/styles/theatre.css"));
     }
+    /// Focus chrome: a painted shell draws one perimeter on its own edge. Only the zero-specificity
+    /// fallback for a bare link or input may keep an outset offset; every other `:focus-visible`
+    /// rule must be flush (`0`) or inset (negative), and the current avatar ring must yield to focus.
+    #[test]
+    fn painted_controls_focus_perimeter_has_no_outset_gap() {
+        let css = include_str!("styles/theatre.css");
+        let mut checked = 0;
+        for rule in css.split('}') {
+            let Some((selector, body)) = rule.rsplit_once('{') else {
+                continue;
+            };
+            let selector = selector.trim();
+            if !selector.contains(":focus-visible")
+                || selector.contains(":not(:focus-visible)")
+                || !body.contains("outline-offset")
+            {
+                continue;
+            }
+            if selector.contains(":where(.theatre-app :where(a, button, input,") {
+                continue;
+            }
+            let offset = body
+                .split("outline-offset:")
+                .nth(1)
+                .and_then(|value| value.split(';').next())
+                .unwrap()
+                .trim();
+            assert!(
+                offset == "0" || offset.starts_with("calc(-") || offset.starts_with('-'),
+                "outset focus gap on a painted shell: {selector} {{ outline-offset: {offset} }}"
+            );
+            checked += 1;
+        }
+        assert!(
+            checked >= 4,
+            "expected the shell focus rules, found {checked}"
+        );
+        assert!(css.contains(".theatre-avatar[aria-current=\"page\"]:not(:focus-visible) {"));
+    }
+
     #[test]
     fn mock_shell_is_explicit_and_never_mounts_media_or_studio_authority() {
         Owner::new().with(|| {

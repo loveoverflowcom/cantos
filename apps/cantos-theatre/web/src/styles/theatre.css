@@ -17,9 +17,17 @@ body { margin: 0; }
 }
 .theatre-app * { box-sizing: border-box; }
 .theatre-app :where(h1, h2, h3, p) { margin-block-start: 0; overflow-wrap: anywhere; }
-.theatre-app :where(a, button, input, [tabindex]:not([tabindex="-1"])):focus-visible {
+/* Fallback for a bare link, input or tabbable region with no painted shell of its own. It carries
+   zero specificity beyond :focus-visible, so a shared primitive's own state stroke (the inset
+   Field perimeter, a Select, the trailing action) always wins instead of stacking an outset ring. */
+:where(.theatre-app :where(a, button, input, [tabindex]:not([tabindex="-1"]))):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
+}
+/* A painted shell (button, chip, destination, avatar, row, card) shows one focus perimeter that
+   touches its own edge: zero gap, no halo. Hover and press never draw this stroke. */
+.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-account-menu-row, .theatre-auth-brand, .theatre-skip):focus-visible {
+  outline-offset: 0;
 }
 /* Route changes move focus to <main> for assistive technology; the landmark itself is not a control. */
 .theatre-main:focus { outline: none; }
@@ -137,7 +145,8 @@ body { margin: 0; }
 .theatre-avatar svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
 .theatre-avatar[data-size="large"] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
 .theatre-avatar[data-size="large"] svg { inline-size: calc(var(--cantos-size-icon) * 1.5); block-size: calc(var(--cantos-size-icon) * 1.5); }
-.theatre-avatar[aria-current="page"] { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: calc(var(--cantos-size-focus-offset) * -1); }
+/* The current-page ring yields to the focus perimeter, so a focused current avatar shows one ring. */
+.theatre-avatar[aria-current="page"]:not(:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: calc(var(--cantos-size-focus-offset) * -1); }
 .theatre-cover[data-art] { padding: 0; background: var(--cantos-color-surface-container); }
 .theatre-cover-art { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
 /* Small covers: artwork only; the typographic fallback keeps just its title. */
@@ -323,7 +332,7 @@ body { margin: 0; }
 .membership-preview :where(h1,h2,p,label,a,button,summary) { overflow-wrap: anywhere; }
 .membership-preview :where(button,input,select,a,summary):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
-  outline-offset: var(--cantos-size-focus-offset);
+  outline-offset: 0;
 }
 .membership-preview h1 { font: var(--cantos-type-headline-weight) var(--cantos-type-headline-size)/var(--cantos-type-headline-line-height) var(--cantos-type-family-editorial); }
 .membership-preview h2 { font: var(--cantos-type-title-weight) var(--cantos-type-title-size)/var(--cantos-type-title-line-height) var(--cantos-type-family-editorial); }
@@ -394,7 +403,7 @@ body { margin: 0; }
 .theatre-auth { max-inline-size: 70rem; margin-inline: auto; }
 .theatre-auth-top { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
 .theatre-auth-brand { inline-size: 9rem; min-block-size: var(--cantos-size-control); flex-shrink: 0; display: inline-flex; align-items: center; border-radius: var(--cantos-web-shape-control); }
-.theatre-auth-brand:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.theatre-auth-brand:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: 0; }
 .theatre-auth-brand .cui-logo { inline-size: 100%; block-size: auto; }
 .theatre-auth-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: center; }
 .theatre-auth-story { overflow: hidden; }
@@ -530,7 +539,7 @@ body { margin: 0; }
 .theatre-public-work-arrow svg { transform: rotate(180deg); }
 .theatre-public-work-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .theatre-public-work-link:hover { text-decoration: underline; }
-.theatre-public-work:has(.theatre-public-work-link:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.theatre-public-work:has(.theatre-public-work-link:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: 0; }
 /* Search: one labelled form, wrapped on a narrow screen, with a stable list region below. */
 .theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
