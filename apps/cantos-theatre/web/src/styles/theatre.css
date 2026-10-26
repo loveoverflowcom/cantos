@@ -407,6 +407,60 @@ body { margin: 0; }
 .theatre-auth-actions { display: grid; gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
 .theatre-auth-actions .cui-button { inline-size: 100%; }
 .theatre-account-profile .theatre-avatar { margin-block-end: var(--cantos-space-lg); }
+/* Header account disclosure (signed in) and logout confirmation. Surface roles only; the
+   disclosure grows and scrolls with long strings, narrow viewports and large text. */
+.theatre-account-disclosure { position: relative; }
+.theatre-app button.theatre-avatar { border: 0; padding: 0; font: inherit; cursor: pointer; }
+.theatre-account-scrim { position: fixed; inset: 0; z-index: 40; }
+.theatre-account-menu {
+  position: absolute;
+  z-index: 41;
+  inset-block-start: calc(100% + var(--cantos-space-md));
+  inset-inline-end: 0;
+  box-sizing: border-box;
+  inline-size: min(22rem, calc(100vw - 2 * var(--cantos-space-lg)));
+  max-block-size: calc(100dvh - 6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: var(--cantos-space-md);
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-shape-overlay);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+}
+/* On a narrow viewport the avatar is not at the edge: anchor to the topbar's full width. */
+.theatre-topbar { position: relative; }
+@media (max-width: 40rem) {
+  .theatre-account-disclosure { position: static; }
+  .theatre-account-menu { inset-inline: 0; inline-size: auto; inset-block-start: calc(100% + var(--cantos-space-xs)); }
+}
+.theatre-account-menu p { margin: 0; }
+.theatre-account-menu-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-sm) var(--cantos-space-md); padding: var(--cantos-space-sm); }
+.theatre-account-menu-title { font-family: var(--cantos-type-family-editorial); font-weight: 700; overflow-wrap: anywhere; }
+.theatre-account-menu-status, .theatre-account-menu-tagline, .theatre-account-menu-info { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); line-height: var(--cantos-type-body-line-height); }
+.theatre-account-menu-tagline { grid-column: 1 / -1; }
+.theatre-account-menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
+.theatre-account-menu-row {
+  display: flex; align-items: center; gap: var(--cantos-space-md);
+  box-sizing: border-box; inline-size: 100%; min-block-size: var(--cantos-size-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-md);
+  border: 0; border-radius: var(--cantos-shape-control);
+  background: transparent; color: inherit; font: inherit; text-align: start; text-decoration: none; cursor: pointer;
+}
+.theatre-account-menu-row .cui-icon, .theatre-account-menu-row svg { flex: none; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
+.theatre-account-menu-row span { min-inline-size: 0; overflow-wrap: anywhere; }
+@media (hover: hover) { .theatre-account-menu-row:hover { background: var(--cantos-color-surface-container); } }
+.theatre-account-menu-info { padding: var(--cantos-space-sm) var(--cantos-space-md); border-block-start: var(--cantos-size-border) solid var(--cantos-color-surface-container); }
+.theatre-account-menu-logout { color: var(--cantos-color-primary); }
+.theatre-logout-dialog { inline-size: min(30rem, calc(100% - 2 * var(--cantos-space-md))); }
+.theatre-logout-dialog .cui-dialog-header { flex-wrap: nowrap; align-items: center; }
+.theatre-logout-dialog .cui-dialog-title { flex-basis: 0; }
+.theatre-logout-dialog .cui-dialog-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+.theatre-logout-dialog .cui-dialog-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
+.theatre-logout-status:empty { display: none; }
+.theatre-logout-status { margin: 0; }
 /* Existing Web-owned live regions: Status/ErrorState await both-renderer admission for
    new Theatre sites. Keep their semantic tone vocabulary without copying a shared control. */
 .theatre-auth-feedback { margin-block: var(--cantos-space-md); font-size: var(--cantos-type-label-size); line-height: var(--cantos-type-body-line-height); }

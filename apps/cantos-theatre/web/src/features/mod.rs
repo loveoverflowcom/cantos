@@ -1,4 +1,5 @@
 pub(crate) mod account;
+pub(crate) mod account_menu;
 mod account_ui;
 pub(crate) mod auth;
 pub(crate) mod auth_copy;

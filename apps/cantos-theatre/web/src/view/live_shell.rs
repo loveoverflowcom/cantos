@@ -20,7 +20,7 @@ use crate::{
     features::{
         account::LiveAccount,
         auth::AuthPage,
-        common::{icon, PersonGlyph},
+        common::icon,
         library::{LibraryActions, LiveLibrary},
         live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen, PlayerSyncControls},
         public_home::{self, PublicHome},
@@ -994,7 +994,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 on_input=Callback::new(move |value: String| {
                                     if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); }
                                 })/>
-                            <a id="theatre-account-entry" class="theatre-avatar" href="#account" aria-label=move || messages::text(Key::Account, locale.get()) aria-current=move || (nav.route.get() == Route::Account).then_some("page")><PersonGlyph/></a>
+                            <crate::features::account_menu::AccountEntry state=state.read_only() locale route=nav.route on_logout/>
                         </div>
                     </header>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">

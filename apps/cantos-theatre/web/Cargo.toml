@@ -24,7 +24,7 @@ leptos = { version = "=0.7.8", default-features = false }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 leptos = { version = "=0.7.8", features = ["csr"] }
 gloo-net = { version = "=0.6.0", features = ["http"] }
-web-sys = { version = "=0.3.77", features = ["Window", "Location", "HtmlElement", "Document", "AbortController", "AbortSignal", "RequestCredentials", "RequestRedirect", "History", "Storage", "PageTransitionEvent", "HashChangeEvent", "KeyboardEvent", "Crypto", "ResizeObserver", "CssStyleDeclaration", "DomRect", "HtmlAudioElement", "HtmlMediaElement", "MediaError", "Event", "DomException"] }
+web-sys = { version = "=0.3.77", features = ["Window", "Location", "HtmlElement", "Document", "AbortController", "AbortSignal", "RequestCredentials", "RequestRedirect", "History", "Storage", "PageTransitionEvent", "HashChangeEvent", "KeyboardEvent", "Crypto", "ResizeObserver", "CssStyleDeclaration", "DomRect", "HtmlAudioElement", "HtmlMediaElement", "MediaError", "Event", "DomException", "FocusEvent", "MouseEvent", "Node"] }
 cantos-ui = { path = "../../../packages/ui-system/leptos", features = ["csr"] }
 
 
