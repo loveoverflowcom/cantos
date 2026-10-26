@@ -2,30 +2,30 @@
   "component_id": "error-state",
   "renderer": "cmp",
   "status": "PASS",
-  "reviewer": "Codex root; independent qualification_review inspected current CMP source, semantics and Noto pixels (25 October 2026)",
-  "reference": "Owner-supplied v3 boards, previously inspected v4 boards4/5 and current canonical contracts; bounded CMP/JVM semantics/input/visual scope and exclusions in docs/evidence/ui-qualification-459-final.md; not device/AT/production acceptance.",
+  "reviewer": "Codex root; independent pr_scope and review_shared reviewers; fresh JVM test-root images, semantics and source inspected 25 October 2026",
+  "reference": "Current canonical component/token contracts and fresh before/after matrix in docs/evidence/ui-review-20261025-select.md; bounded JVM component scope only, not browser/device/AT/production or design-pixel fidelity.",
   "tokens_sha256": "f0ab05cb589a06626850889f108f9fa7dc0db5505783574beceee2aee80ed1a3",
-  "source_sha256": "25686dbe46377286f9622084eb234cb719d2932f8bec4bf8c8a5b46f53bf60dd",
+  "source_sha256": "58b4f4c98ca0ff1bfec2a53736f6d5cfd9e4364c916985ab8f0b518f5c6063de",
   "checks": {
     "structural": {
       "status": "PASS",
-      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify",
-      "artifact": "docs/evidence/ui-qualification-459-final.md"
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; 255 tests / 41 suites, current source digest; structural scope and actual opened images in report",
+      "artifact": "docs/evidence/ui-review-20261025-select.md"
     },
     "runtime": {
       "status": "PASS",
-      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify",
-      "artifact": "docs/evidence/ui-qualification-459-final.md"
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; 255 tests / 41 suites, current source digest; runtime scope and actual opened images in report",
+      "artifact": "docs/evidence/ui-review-20261025-select.md"
     },
     "accessibility": {
       "status": "PASS",
-      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; named semantics, blocked states and focus scope in per-component table",
-      "artifact": "docs/evidence/ui-qualification-459-final.md"
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; 255 tests / 41 suites, current source digest; accessibility scope and actual opened images in report",
+      "artifact": "docs/evidence/ui-review-20261025-select.md"
     },
     "visual": {
       "status": "PASS",
-      "command": "Opened attributed light/dark, narrow/wide, Vietnamese100/200% matrix; per-component scope and font limitations in final report",
-      "artifact": "docs/evidence/ui-qualification-459-final.md"
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; 255 tests / 41 suites, current source digest; visual scope and actual opened images in report",
+      "artifact": "docs/evidence/ui-review-20261025-select.md"
     }
   }
 }

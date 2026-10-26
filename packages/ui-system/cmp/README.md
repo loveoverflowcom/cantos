@@ -57,7 +57,8 @@ Everything below is additive and local to the control that opts in:
   with its check when selected; it keeps its start edge and 48-unit height, so only its width grows.
   The shape change uses the interruptible feedback motion that reduced motion removes.
 - `Select` under the Theatre expression is one tonal capsule whose value and chevron are one
-  centered group, with a single 2-unit inset cue while open or focused.
+  centered group, with a single 2-unit inset cue while open or focused. A nonblank error uses
+  one error-coloured inset unit at rest and two while focused or open; blank errors add no cue.
 - `Avatar(size = AvatarSize.Control, accent = true)` is a 48-unit accent avatar; `accent` pins
   `color.theatrePink` and leaves initials and semantics unchanged.
 

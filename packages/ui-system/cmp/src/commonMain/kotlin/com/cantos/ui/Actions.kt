@@ -112,6 +112,7 @@ internal fun ButtonControl(
     icon: String? = null,
     shape: Shape? = null,
     insetPerimeter: Boolean = false,
+    invalid: Boolean = false,
     active: Boolean = false,
     containerColor: Color? = null,
     content: @Composable RowScope.() -> Unit,
@@ -132,7 +133,7 @@ internal fun ButtonControl(
         onClick = { if (state.canPress()) onPress() },
         enabled = state.canPress(),
         modifier = modifier.heightIn(min = minimumHeight)
-            .then(if (insetPerimeter) Modifier.cantosInsetPerimeter(InsetPerimeterRadius, active = active)
+            .then(if (insetPerimeter) Modifier.cantosInsetPerimeter(InsetPerimeterRadius, invalid = invalid, active = active)
                 else Modifier.cantosFocus(if (auth) "shape.pill" else "shape.control"))
             .actionState(state, description)
             .semantics { name?.let { contentDescription = it.text } },
