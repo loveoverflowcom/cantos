@@ -26,6 +26,15 @@ impl Theme {
             _ => None,
         }
     }
+
+    /// Pure cycle transition: Dark → Light → System → Dark.
+    pub const fn cycle(self) -> Self {
+        match self {
+            Self::Dark => Self::Light,
+            Self::Light => Self::System,
+            Self::System => Self::Dark,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

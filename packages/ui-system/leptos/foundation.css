@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651 template-sha256:dab60e6481cd1b2b3fe96f146a176de8628b8edf82a7278897dafe9dca89e0c1
+/* Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651 template-sha256:43b0be8ebe9716bc4a2db3fcac000a8ff6222d03c99ef723e0cf21e4a537246e
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -72,11 +72,35 @@
   fill: currentColor;
   vertical-align: middle;
 }
-:where(.cantos-ui) .cui-button-field {
+:where(.cantos-ui) .cui-button-field,
+:where(.cantos-ui) .cui-tooltip-anchor {
+  position: relative;
   display: inline-grid;
   justify-items: start;
   gap: var(--cantos-space-xs);
   min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-tooltip {
+  position: absolute;
+  z-index: 50;
+  inset-block-start: calc(100% + var(--cantos-space-xs));
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding: var(--cantos-space-xs) var(--cantos-space-sm);
+  border-radius: var(--cantos-web-shape-reading);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  font-weight: 400;
+  white-space: nowrap;
+  box-shadow: var(--cantos-elevation-overlay);
+  pointer-events: auto;
+}
+:where(.cantos-ui) .cui-tooltip[hidden] {
+  display: none !important;
 }
 :where(.cantos-ui) .cui-button {
   box-sizing: border-box;
@@ -261,6 +285,25 @@
 }
 :where(.cantos-ui) .cui-icon-button {
   padding: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-theme-cycle-button {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--cantos-shape-pill);
+}
+:where(.cantos-ui) .cui-theme-icon-system {
+  display: inline-block;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  flex-shrink: 0;
+  fill: currentColor;
+  vertical-align: middle;
 }
 /* Issue 127: opt-in auth/account roles. Ordinary controls retain the Web mapping above.
    Native :active and focus interrupt without a timer; this is a CSS transition, not a spring. */

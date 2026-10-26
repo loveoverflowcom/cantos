@@ -28,4 +28,11 @@ class ThemeModeTest {
     fun the_modes_are_exactly_light_dark_and_system_in_chip_order() {
         assertEquals(listOf(ThemeMode.Light, ThemeMode.Dark, ThemeMode.System), ThemeMode.entries)
     }
+
+    @Test
+    fun cycle_steps_dark_light_system_dark() {
+        assertEquals(ThemeMode.Light, ThemeMode.Dark.cycle())
+        assertEquals(ThemeMode.System, ThemeMode.Light.cycle())
+        assertEquals(ThemeMode.Dark, ThemeMode.System.cycle())
+    }
 }

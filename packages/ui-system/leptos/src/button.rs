@@ -1,4 +1,4 @@
-use leptos::{ev::MouseEvent, prelude::*};
+use leptos::{ev, ev::MouseEvent, prelude::*};
 
 use crate::{Icon, IconName};
 
@@ -287,9 +287,19 @@ pub fn IconButton(
     /// Enter, composition, validation and history. A blocked state still prevents submission.
     #[prop(optional)]
     submit: bool,
+    /// Explicit tooltip text. If omitted, defaults to the button's accessible name.
+    #[prop(optional, into)]
+    tooltip: Option<Signal<String>>,
 ) -> impl IntoView {
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
+    let tooltip_id = format!("{id}-tooltip");
+    let tooltip_id_for_description = tooltip_id.clone();
+    let tooltip_id_for_span = tooltip_id.clone();
+    let tooltip_open = RwSignal::new(false);
+    let tooltip_text =
+        tooltip.unwrap_or_else(|| Signal::derive(move || name.get().as_str().to_owned()));
+
     view! {
         <div class="cui-button-field">
             <button id=id type=if submit { "submit" } else { "button" } class=move || component_class("cui-button cui-icon-button", &class.get())
@@ -300,7 +310,25 @@ pub fn IconButton(
                 aria-controls=aria_controls
                 aria-expanded=move || aria_expanded.map(|expanded| expanded.get().to_string())
                 aria-describedby=move || {
-                    description_ids(&described_by.get(), state.get().reason().map(|_| reason_id_for_description.as_str()))
+                    let desc = description_ids(&described_by.get(), state.get().reason().map(|_| reason_id_for_description.as_str()));
+                    if tooltip_open.get() {
+                        match desc {
+                            Some(d) => Some(format!("{d} {tooltip_id_for_description}")),
+                            None => Some(tooltip_id_for_description.clone()),
+                        }
+                    } else {
+                        desc
+                    }
+                }
+                on:mouseenter=move |_| tooltip_open.set(true)
+                on:mouseleave=move |_| tooltip_open.set(false)
+                on:focus=move |_| tooltip_open.set(true)
+                on:blur=move |_| tooltip_open.set(false)
+                on:keydown=move |event: ev::KeyboardEvent| {
+                    if event.key() == "Escape" && tooltip_open.get_untracked() {
+                        event.stop_propagation();
+                        tooltip_open.set(false);
+                    }
                 }
                 on:click=move |event| {
                     if state.get_untracked().can_press() {
@@ -317,6 +345,15 @@ pub fn IconButton(
                 }}
                 <span class="cui-sr-only">{move || name.get().as_str().to_owned()}</span>
             </button>
+            <span id=tooltip_id_for_span
+                role="tooltip"
+                class="cui-tooltip"
+                data-state=move || if tooltip_open.get() { "visible" } else { "hidden" }
+                hidden=move || !tooltip_open.get()
+                on:mouseenter=move |_| tooltip_open.set(true)
+                on:mouseleave=move |_| tooltip_open.set(false)>
+                {move || tooltip_text.get()}
+            </span>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()
                 role=move || state.get().is_busy().then_some("status")>
                 {move || state.get().reason().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}

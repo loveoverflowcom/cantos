@@ -1,5 +1,11 @@
 package com.cantos.ui
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -302,11 +308,13 @@ fun IconButton(
     CantosIcons.paths(icon)
     val filled = variant != ButtonVariant.Text
     val shape = if (circular) CantosShapes.full else CantosShapes.reading
+    val tooltipState = rememberTooltipState()
+    val coroutineScope = rememberCoroutineScope()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         TooltipBox(
             positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
             tooltip = { PlainTooltip { Text(name.text) } },
-            state = rememberTooltipState(),
+            state = tooltipState,
         ) {
         // The plain glyph button is Material's circle whatever [circular] says; a filled one is [shape].
         val focus = if (variant.focusIsInset(LocalUiPreferences.current.expression)) {
@@ -314,8 +322,23 @@ fun IconButton(
                 ring = if (variant.ringReadsFromContent()) buttonContentColor(variant) else null,
                 inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
         } else Modifier.cantosFocus(if (circular) "shape.pill" else "shape.control")
+        val doubleTapGesture = if (state.canPress()) {
+            Modifier.pointerInput(name.text) {
+                detectTapGestures(
+                    onDoubleTap = { coroutineScope.launch { tooltipState.show() } },
+                    onTap = { onPress() },
+                )
+            }
+        } else Modifier
         val iconModifier = controlModifier.size(tokenDp("size.control")).then(focus).actionState(state)
-            .semantics { contentDescription = name.text }
+            .semantics {
+                contentDescription = name.text
+                customActions = listOf(CustomAccessibilityAction(name.text) {
+                    coroutineScope.launch { tooltipState.show() }
+                    true
+                })
+            }
+            .then(doubleTapGesture)
         if (filled) {
             FilledIconButton(
                 onClick = { if (state.canPress()) onPress() },

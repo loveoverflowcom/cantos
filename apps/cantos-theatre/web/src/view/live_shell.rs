@@ -31,7 +31,7 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, LogoVariant, Select,
-    SelectDensity, SelectLabelPlacement, SelectOption, Theme,
+    SelectDensity, SelectLabelPlacement, SelectOption, Theme, ThemeCycleButton,
 };
 use leptos::prelude::*;
 
@@ -1096,11 +1096,11 @@ fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl Int
             <h1 id="theatre-preferences-heading">{move || messages::text(Key::Settings, locale.get())}</h1>
             <div class="theatre-account-theme">
                 <label for="theatre-settings-theme">{move || messages::text(Key::Theme, locale.get())}</label>
-                <select id="theatre-settings-theme" prop:value=move || theme.get().as_str() on:change=move |e| { if let Some(value) = Theme::from_attribute(&event_target_value(&e)) { theme.set(value); } }>
-                    <option value="system">{move || messages::text(Key::System,locale.get())}</option>
-                    <option value="light">{move || messages::text(Key::Light,locale.get())}</option>
-                    <option value="dark">{move || messages::text(Key::Dark,locale.get())}</option>
-                </select>
+                <ThemeCycleButton
+                    id="theatre-settings-theme"
+                    theme=theme
+                    english=Signal::derive(move || locale.get() == Locale::English)
+                />
             </div>
             <a class="theatre-text-link" href="#account">{move || messages::text(Key::Account,locale.get())}</a>
         </section>
@@ -1295,5 +1295,17 @@ mod tests {
             assert_eq!(text(membership_back_key(member), Locale::Vietnamese), vi);
             assert_eq!(text(membership_back_key(member), Locale::English), en);
         }
+    }
+
+    #[test]
+    fn live_preferences_renders_theme_cycle_button_with_accessible_controls() {
+        Owner::new().with(|| {
+            let locale = RwSignal::new(Locale::Vietnamese);
+            let theme = RwSignal::new(Theme::Dark);
+            let html = view! { <LivePreferences locale theme/> }.to_html();
+            assert!(html.contains("id=\"theatre-settings-theme\""));
+            assert!(html.contains("cui-theme-cycle-button"));
+            assert!(!html.contains("<select"));
+        });
     }
 }
