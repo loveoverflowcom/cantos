@@ -8,6 +8,8 @@ mod http;
 mod image_attempts;
 #[path = "support/sample_catalog_input.rs"]
 mod input;
+#[path = "support/sample_preview_http.rs"]
+mod preview;
 #[path = "support/sample_catalog_files.rs"]
 mod sample_files;
 
@@ -625,22 +627,28 @@ async fn sample_catalog() {
             Store::open(&database_path, Intent::Serve).await.unwrap(),
             &root,
         );
+        // The canonical router answers every path it always did; the local preview routes sit in
+        // front of it, read through its Studio routes and are never mounted by a production host.
+        let canonical = api_router(AppState {
+            store,
+            web_origin: ORIGIN.into(),
+        });
+        let dataset = preview::Preview::new(canonical, &token, preview::members(&spec));
+        dataset
+            .verify()
+            .await
+            .expect("the Store must hold exactly the declared sample dataset");
         let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
             .await
             .expect("sample loopback port must be free");
         println!("Sample API listening on http://127.0.0.1:8080; private Studio token remains in studio-token; Ctrl-C stops this owner");
-        axum::serve(
-            listener,
-            api_router(AppState {
-                store,
-                web_origin: ORIGIN.into(),
-            }),
-        )
-        .with_graceful_shutdown(async {
-            tokio::signal::ctrl_c().await.unwrap();
-        })
-        .await
-        .unwrap();
+        println!("Local preview reads: {}/works (Theatre Web: TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web, then open http://127.0.0.1:8082/?mode=local-db#discover)", preview::NAMESPACE);
+        axum::serve(listener, dataset.router())
+            .with_graceful_shutdown(async {
+                tokio::signal::ctrl_c().await.unwrap();
+            })
+            .await
+            .unwrap();
     }
 }
 
@@ -1021,5 +1029,373 @@ async fn admitted_image_with_unrecorded_response_is_reconciled_after_expiry_with
             .await,
         1
     );
+    serving.stop().await;
+}
+
+async fn preview_get(serving: &http::HttpHost, path: &str, extra: &[(&str, &str)]) -> http::Reply {
+    let mut headers = vec![
+        ("host", "127.0.0.1:8082"),
+        ("origin", "http://127.0.0.1:8082"),
+    ];
+    for &(name, value) in extra {
+        headers.retain(|(existing, _)| *existing != name);
+        headers.push((name, value));
+    }
+    http::request(
+        &serving.client,
+        &serving.base,
+        "GET",
+        path,
+        None,
+        None,
+        None,
+        vec![],
+        &headers,
+    )
+    .await
+}
+
+#[tokio::test]
+async fn sample_preview_reads_current_turso_revisions_enforces_dataset_membership_and_keeps_canonical_router_closed(
+) {
+    let (fixture, _clock, root, cover) = recovery_fixture().await;
+    let store = configured(fixture.store().clone(), &root);
+    let canonical_host = host(&store).await;
+    // Canonical router never mounts the local preview route.
+    preview_get(&canonical_host, "/api/v1/sample-preview/works", &[])
+        .await
+        .error(StatusCode::NOT_FOUND, "not_found");
+
+    let work = recovery_work(&canonical_host).await;
+    let chapter_one = input::identity("ben-suong/chapter-01", "chapter");
+    let chapter_two = input::identity("ben-suong/chapter-02", "chapter");
+    for (index, (unit_id, title, description)) in [
+        (
+            &chapter_one,
+            "Chương 1: Bến đò sương",
+            "Mở đầu bên bến sông",
+        ),
+        (
+            &chapter_two,
+            "Chương 2: Lời hẹn cũ",
+            "Tiếng gọi dưới gốc đa",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let create_unit = json!({
+            "operation_id": input::identity(&format!("ben-suong/chapter-0{}", index + 1), "create-chapter"),
+            "id": unit_id,
+            "kind": "chapter",
+            "expected_work_revision": index + 1,
+            "details": {"title": title, "description": description},
+        });
+        let _: Value = canonical_host
+            .json(
+                "POST",
+                &format!("/api/v1/studio/works/{work}/content-units"),
+                Some(RECOVERY_TOKEN),
+                None,
+                Some(&create_unit),
+            )
+            .await
+            .success(StatusCode::CREATED);
+    }
+    let mut journal = recovery_journal(&root, &work, &cover);
+    let asset = journal
+        .admit(&canonical_host, RECOVERY_TOKEN, &cover)
+        .await
+        .unwrap();
+    let select = json!({
+        "operation_id": input::identity("ben-suong", "set-artwork"),
+        "expected_work_revision": 3,
+        "artwork": {
+            "image_asset_id": asset["id"],
+            "image_asset_digest": asset["digest"],
+            "alt_text": "Bến Sương bìa gốc",
+        },
+    });
+    let _: Value = canonical_host
+        .json(
+            "PATCH",
+            &format!("/api/v1/studio/works/{work}/artwork"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&select),
+        )
+        .await
+        .success(StatusCode::OK);
+
+    // Seed a foreign private Work in the same Store to prove dataset membership isolation.
+    let foreign_work = "90000000-0000-4000-8000-000000000099";
+    let create_foreign = json!({
+        "operation_id": "90000000-0000-4000-8000-000000000098",
+        "id": foreign_work,
+        "kind": "story",
+        "details": {
+            "title": "Truyện ngoài bộ mẫu",
+            "synopsis": "Không thuộc sample dataset",
+            "language": "vi-VN",
+            "visibility": "private",
+            "rights_refs": [],
+        },
+    });
+    let _: Value = canonical_host
+        .json(
+            "POST",
+            "/api/v1/studio/works",
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&create_foreign),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    canonical_host.stop().await;
+
+    let members = vec![preview::Member {
+        work_id: work.clone(),
+        unit_ids: vec![chapter_one.clone(), chapter_two.clone()],
+    }];
+    let preview_service = preview::Preview::new(
+        api_router(AppState {
+            store: store.clone(),
+            web_origin: ORIGIN.into(),
+        }),
+        RECOVERY_TOKEN,
+        members.clone(),
+    );
+    preview_service.verify().await.unwrap();
+    let serving = http::HttpHost::start(preview_service.router()).await;
+
+    // Public discovery on the same host still hides the private draft Work.
+    let public_works: Value = serving
+        .json::<Value>("GET", "/api/v1/theatre/works", None, None, None)
+        .await
+        .success(StatusCode::OK);
+    assert_eq!(public_works["items"], json!([]));
+
+    // Preview list and detail read from Turso without exposing Studio credentials or storage paths.
+    let list_reply = preview_get(&serving, "/api/v1/sample-preview/works", &[]).await;
+    let list_body = String::from_utf8(list_reply.bytes.clone()).unwrap();
+    assert!(!list_body.contains(RECOVERY_TOKEN));
+    assert!(!list_body.contains("sample-filesystem"));
+    assert!(!list_body.contains("rights"));
+    let listed: Value = list_reply.success(StatusCode::OK);
+    assert_eq!(listed["schema"], preview::SCHEMA);
+    assert_eq!(listed["dataset_id"], input::DATASET);
+    assert_eq!(listed["items"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["items"][0]["work_id"], work);
+    assert_eq!(listed["items"][0]["chapter_count"], 2);
+    let cover_path = listed["items"][0]["cover"]["path"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        cover_path,
+        format!("/api/v1/sample-preview/works/{work}/cover/{}", cover.sha256)
+    );
+
+    let detail: Value = preview_get(
+        &serving,
+        &format!("/api/v1/sample-preview/works/{work}"),
+        &[],
+    )
+    .await
+    .success(StatusCode::OK);
+    assert_eq!(detail["work"], listed["items"][0]);
+    assert_eq!(
+        detail["chapters"],
+        json!([
+            {
+                "unit_id": chapter_one,
+                "kind": "chapter",
+                "position": 1,
+                "title": "Chương 1: Bến đò sương",
+                "description": "Mở đầu bên bến sông",
+                "audio": "unavailable",
+            },
+            {
+                "unit_id": chapter_two,
+                "kind": "chapter",
+                "position": 2,
+                "title": "Chương 2: Lời hẹn cũ",
+                "description": "Tiếng gọi dưới gốc đa",
+                "audio": "unavailable",
+            }
+        ])
+    );
+
+    // Cover GET and HEAD serve verified bytes and reject foreign digests.
+    let cover_reply = preview_get(&serving, &cover_path, &[]).await;
+    assert_eq!(cover_reply.status, StatusCode::OK);
+    assert_eq!(cover_reply.headers["content-type"], "image/png");
+    assert_eq!(cover_reply.bytes, cover.bytes);
+    let head_reply = http::request(
+        &serving.client,
+        &serving.base,
+        "HEAD",
+        &cover_path,
+        None,
+        None,
+        None,
+        vec![],
+        &[
+            ("host", "127.0.0.1:8082"),
+            ("origin", "http://127.0.0.1:8082"),
+        ],
+    )
+    .await;
+    assert_eq!(head_reply.status, StatusCode::OK);
+    assert_eq!(
+        head_reply.headers["content-length"],
+        cover.bytes.len().to_string()
+    );
+    assert!(head_reply.bytes.is_empty());
+
+    // Foreign Work ID, foreign cover digest, query string, and foreign Host/Origin are refused.
+    preview_get(
+        &serving,
+        &format!("/api/v1/sample-preview/works/{foreign_work}"),
+        &[],
+    )
+    .await
+    .error(StatusCode::NOT_FOUND, "not_found");
+    preview_get(
+        &serving,
+        &format!(
+            "/api/v1/sample-preview/works/{work}/cover/{}",
+            "0".repeat(64)
+        ),
+        &[],
+    )
+    .await
+    .error(StatusCode::NOT_FOUND, "not_found");
+    preview_get(&serving, "/api/v1/sample-preview/works?extra=1", &[])
+        .await
+        .error(StatusCode::BAD_REQUEST, "invalid_request");
+    // Trunk's reverse proxy sends Host: 127.0.0.1 without port; foreign Host/Origin are refused.
+    let proxied: Value = preview_get(
+        &serving,
+        "/api/v1/sample-preview/works",
+        &[("host", "127.0.0.1")],
+    )
+    .await
+    .success(StatusCode::OK);
+    assert_eq!(proxied["items"].as_array().unwrap().len(), 1);
+    preview_get(
+        &serving,
+        "/api/v1/sample-preview/works",
+        &[("host", "evil.example:8080")],
+    )
+    .await
+    .error(StatusCode::FORBIDDEN, "forbidden");
+    preview_get(
+        &serving,
+        "/api/v1/sample-preview/works",
+        &[("origin", "http://evil.example")],
+    )
+    .await
+    .error(StatusCode::FORBIDDEN, "forbidden");
+
+    // DB provenance oracle: updating Work and Chapter metadata through Studio immediately
+    // changes the preview response, proving it reads current Turso revisions rather than JSON.
+    let patch_work = json!({
+        "operation_id": "90000000-0000-4000-8000-000000000001",
+        "expected_revision": 4,
+        "details": {
+            "title": "Bến Sương (Bản sửa DB)",
+            "synopsis": "Mô tả đọc trực tiếp từ Turso revision mới.",
+        },
+    });
+    let _: Value = serving
+        .json(
+            "PATCH",
+            &format!("/api/v1/studio/works/{work}"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&patch_work),
+        )
+        .await
+        .success(StatusCode::OK);
+    let patch_chapter = json!({
+        "operation_id": "90000000-0000-4000-8000-000000000002",
+        "expected_revision": 1,
+        "expected_work_revision": 5,
+        "details": {
+            "title": "Chương 1: Đã cập nhật trong Turso",
+            "description": "Nội dung mô tả chương mới từ DB",
+            "source": null,
+            "content_digest": null,
+        },
+    });
+    let _: Value = serving
+        .json(
+            "PATCH",
+            &format!("/api/v1/studio/content-units/{chapter_one}"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&patch_chapter),
+        )
+        .await
+        .success(StatusCode::OK);
+
+    let updated: Value = preview_get(
+        &serving,
+        &format!("/api/v1/sample-preview/works/{work}"),
+        &[],
+    )
+    .await
+    .success(StatusCode::OK);
+    assert_eq!(updated["work"]["title"], "Bến Sương (Bản sửa DB)");
+    assert_eq!(
+        updated["work"]["description"],
+        "Mô tả đọc trực tiếp từ Turso revision mới."
+    );
+    assert_eq!(
+        updated["chapters"][0]["title"],
+        "Chương 1: Đã cập nhật trong Turso"
+    );
+    assert_eq!(
+        updated["chapters"][0]["description"],
+        "Nội dung mô tả chương mới từ DB"
+    );
+
+    // Corrupting the private cover object fails closed without leaking filesystem paths.
+    let object = root.join("media/objects").join(&cover.sha256);
+    fs::remove_file(&object).unwrap();
+    let missing_cover = preview_get(&serving, &cover_path, &[])
+        .await
+        .error(StatusCode::INTERNAL_SERVER_ERROR, "sample_mismatch");
+    assert!(!missing_cover.to_string().contains("media/objects"));
+    fs::write(&object, &cover.bytes).unwrap();
+    fs::set_permissions(&object, fs::Permissions::from_mode(0o400)).unwrap();
+
+    // Adding an extra chapter outside the declared sample membership fails closed.
+    let extra_chapter = json!({
+        "operation_id": "90000000-0000-4000-8000-000000000003",
+        "id": "90000000-0000-4000-8000-000000000004",
+        "kind": "chapter",
+        "expected_work_revision": 6,
+        "details": {"title": "Chương lạ", "description": "Không thuộc bộ mẫu"},
+    });
+    let _: Value = serving
+        .json(
+            "POST",
+            &format!("/api/v1/studio/works/{work}/content-units"),
+            Some(RECOVERY_TOKEN),
+            None,
+            Some(&extra_chapter),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    preview_get(
+        &serving,
+        &format!("/api/v1/sample-preview/works/{work}"),
+        &[],
+    )
+    .await
+    .error(StatusCode::INTERNAL_SERVER_ERROR, "sample_mismatch");
+
     serving.stop().await;
 }

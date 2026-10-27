@@ -43,7 +43,7 @@ const CANTOS_BRAND: &str = "Cantos";
 
 /// One app-owned brand link; the admitted shared Logo supplies the original decorative symbol.
 #[component]
-fn LiveBrand() -> impl IntoView {
+pub(crate) fn LiveBrand() -> impl IntoView {
     view! {
         <a class="theatre-brand theatre-live-brand" href="#discover" aria-label=CANTOS_BRAND>
             <Logo variant=LogoVariant::Symbol tone=LogoTone::Light class="theatre-logo-light"/>
@@ -1086,7 +1086,7 @@ fn LiveTopbarActions(
 
 /// A route with nothing to show: a visible reason and one way back, with no sample content.
 #[component]
-fn LiveRecovery(locale: RwSignal<Locale>, heading: Key, help: Key) -> impl IntoView {
+pub(crate) fn LiveRecovery(locale: RwSignal<Locale>, heading: Key, help: Key) -> impl IntoView {
     view! {
         <section class="theatre-public-state theatre-panel theatre-live-recovery" aria-labelledby="theatre-live-recovery-heading">
             <h1 id="theatre-live-recovery-heading" tabindex="-1">{move || messages::text(heading, locale.get())}</h1>
@@ -1115,7 +1115,7 @@ fn LibraryAccountEntry(
 }
 
 #[component]
-fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl IntoView {
+pub(crate) fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl IntoView {
     view! {
         <section class="theatre-account-preferences" aria-labelledby="theatre-preferences-heading">
             <h1 id="theatre-preferences-heading">{move || messages::text(Key::Settings, locale.get())}</h1>

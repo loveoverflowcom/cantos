@@ -8,7 +8,7 @@ pub(crate) mod auth_preview;
 pub(crate) mod common;
 #[cfg(feature = "preview")]
 pub(crate) mod discovery;
-mod discovery_language;
+pub(crate) mod discovery_language;
 #[cfg(feature = "preview")]
 pub(crate) mod explore;
 pub(crate) mod library;

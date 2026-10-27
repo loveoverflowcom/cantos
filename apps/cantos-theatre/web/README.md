@@ -318,6 +318,7 @@ declarations do not establish browser or native acceptance.
 | `src/platform/audio.rs` | The one `HTMLAudioElement` and its listeners, requests and timers; executes the driver's commands and reports back (browser only) |
 | `src/live/public_media.rs` | Anonymous manifest `GET` and empty-body authorization `POST`; strict shared-DTO decoding and exact `ListenerError` classification. Media bytes are streamed by the element, never fetched here |
 | `src/features/live_player.rs` | Live full player (`#player`) and mini-player over the one root session; reuses the shared timeline control |
+| `src/local_sample.rs` | **`preview` feature only.** Explicit `?mode=local-db` draft catalog/detail/cover consumer over loopback `/api/v1/sample-preview/*` from `--sample-serve`; keeps Play disabled with no playback or authorization requests |
 | `src/infrastructure/` | Mock `MockCatalog` and deterministic `FakeMedia` (isolated `?mode=mock`, **`preview` feature only**) and an inert native port; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
@@ -462,15 +463,16 @@ production or UI-system acceptance gate.
 | `/?mode=mock` | None | **`preview` build only.** Session-only sample catalog/library and simulated player; no audio, persistence or publication evidence |
 | `/?mode=membership-preview` | None | **`preview` build only.** Explicit Membership interest/receipt/plan fixtures; no durable submission, entitlement or payment |
 | `/?mode=auth-preview` | None | **`preview` build only.** Explicit synthetic Home/Auth/Account states; no provider login or registration proof |
+| `/?mode=local-db` | Loopback `--sample-serve` (`/api/v1/sample-preview/*`) | **`preview` build only.** Seeded local Turso sample Works, draft chapters and verified PNG covers over real HTTP; Play stays disabled with zero playback/authorization requests |
 
 ### Production and preview build lanes
 
-The crate has one opt-in Cargo feature, `preview`, **off by default**. It compiles the three
+The crate has one opt-in Cargo feature, `preview`, **off by default**. It compiles the four
 preview entrypoints above, the sample catalog (`MockCatalog`), the deterministic `FakeMedia`
-player port, the mock shell and the diagnostic fixture controls and copy. A production lane
+player port, the mock shell, the local sample preview (`local_sample`) and the diagnostic fixture controls and copy. A production lane
 (`trunk build`, `--release`, `cargo xtask deploy`, `release-build`, `web-performance`) never
-enables it, so there `?mode=mock`, `?mode=auth-preview` and `?mode=membership-preview` are
-ordinary live URLs: `Mode::from_query` has no preview variant to return and the bundle contains
+enables it, so there `?mode=mock`, `?mode=auth-preview`, `?mode=membership-preview` and
+`?mode=local-db` are ordinary live URLs: `Mode::from_query` has no preview variant to return and the bundle contains
 neither the data nor the entrypoints. Unit tests and lint cover the preview code, so `cargo
 xtask verify` enables the feature for them and lints the production lane separately
 (`cargo clippy -p cantos-theatre --target wasm32-unknown-unknown`). A plain `cargo test -p

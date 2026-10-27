@@ -15,6 +15,8 @@ pub enum Mode {
     MembershipPreview,
     #[cfg(feature = "preview")]
     AuthPreview,
+    #[cfg(feature = "preview")]
+    LocalDb,
 }
 impl Mode {
     /// A production build has no preview to select: every query, including the preview ones,
@@ -27,6 +29,8 @@ impl Mode {
             "?mode=membership-preview" => Self::MembershipPreview,
             #[cfg(feature = "preview")]
             "?mode=auth-preview" => Self::AuthPreview,
+            #[cfg(feature = "preview")]
+            "?mode=local-db" => Self::LocalDb,
             _ => Self::Live,
         }
     }
@@ -119,6 +123,8 @@ mod tests {
             Mode::from_query("?mode=membership-preview"),
             Mode::MembershipPreview
         );
+        assert_eq!(Mode::from_query("?mode=local-db"), Mode::LocalDb);
+        assert_eq!(Mode::from_query("?mode=local-db&fixture=1"), Mode::Live);
         assert_eq!(
             Mode::from_query("?mode=membership-preview&fixture=1"),
             Mode::Live
