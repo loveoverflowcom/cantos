@@ -63,6 +63,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.errors.ErrorAction
 import com.cantos.theatre.application.errors.ErrorNotice
+import com.cantos.theatre.components.TopBarAccountButton
+import com.cantos.theatre.components.TopBarThemeButton
 import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.LegacyCopyKey

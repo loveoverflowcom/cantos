@@ -415,6 +415,7 @@ shared/src/commonMain/kotlin/com/cantos/theatre/
   ports/             PublicCatalogPort, PlaybackAccessPort, StreamingMediaEngine, identity and Library ports
   adapters/          HTTP, identity and SQLDelight Library boundaries; no mock adapters
   features/          actual stateless UI, CantosPresentation and auth/Membership presentation
+  components/        leaf presentation shared by features (the top bar's theme and account controls)
   presentation/model/  neutral ShellState, ShellEvent, catalog projection and vi/en copy
 shared/src/commonTest/      core/typed/controller and fixture-only codec tests, shared sample presentation values
 shared/src/desktopTest/     JVM Compose presentation/layout and production-composition tests over test doubles
@@ -449,11 +450,16 @@ The app-owned search containment reads the dedicated Theatre hero/foreground and
 tokens. It does not enable the global Theatre expression or change account/Auth/Membership
 presentation. The one app-owned top bar (#532) composes the official Logo Symbol, a 48 dp tonal
 theme square and a 48 dp circular text-avatar account action from canonical Theatre roles and
-stable Material controls in the Shell feature; the avatar keeps the generic `C` fallback because
-no display name is held. Auth and Membership keep their focused-task headers (the layer guard
-forbids a cross-feature import), so their theme action awaits a shared owner. This is not the
-shared Avatar or tonal IconButton. Avatar, tonal shared IconButton, filters and expression adoption remain separate
-until their exact renderer scopes are admitted. Component qualification does not establish
+stable Material controls. Their single owner is the `components` layer (`TopBarThemeButton`,
+`TopBarAccountButton`): the layer guard forbids one feature importing another, so Shell, Auth and
+Membership each place that owner's control in their own header and keep their own intent, tag and
+localized name. The avatar keeps the generic `C` fallback because no display name is held; Auth and
+Membership show the theme square only. `components` may import only neutral `presentation.model`
+values, Compose and the UI system, and no feature, application, adapter or port. It is not the
+shared Avatar or tonal IconButton: those stay unadmitted (the tonal IconButton also needs the
+Theatre expression, which the app does not enable), and admitting them would re-point only this
+owner. Filters and expression adoption remain separate until their exact renderer scopes are
+admitted. Component qualification does not establish
 Android/iOS or production-flow acceptance.
 
 ## Local commands

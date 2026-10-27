@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.cantos.theatre.application.identity.AccountView
+import com.cantos.theatre.components.TopBarThemeButton
 import com.cantos.theatre.domain.identity.RegistrationEmail
 import com.cantos.theatre.domain.identity.RegistrationResult
 import com.cantos.theatre.domain.identity.RegistrationState
@@ -61,7 +61,6 @@ import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
-import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
 
@@ -136,12 +135,10 @@ fun AuthHeader(
             accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
         )
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
-            Icon(
-                if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-                contentDescription = copy.text(AuthText.ToggleTheme),
-            )
-        }
+        TopBarThemeButton(
+            theme, copy.text(AuthText.ToggleTheme), { onIntent(AuthIntent.ToggleTheme) },
+            Modifier.testTag("auth-theme"),
+        )
     }
 }
 

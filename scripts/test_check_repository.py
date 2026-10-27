@@ -1608,6 +1608,8 @@ import com.cantos.theatre.application.X
             ("application/playback/PlaybackController.kt", "import androidx.compose.runtime.Composable", "application"),
             ("features/shell/presentation/PlayerSection.kt", "import com.cantos.theatre.app.CopyKey", "features"),
             ("presentation/model/ShellState.kt", "import com.cantos.theatre.app.AppContainer", "presentation"),
+            ("components/TopBarActions.kt", "import com.cantos.theatre.features.auth.presentation.AuthHeader", "components"),
+            ("components/TopBarActions.kt", "import com.cantos.theatre.domain.identity.RegistrationEmail", "components"),
             ("app/AppContainer.kt", "import com.cantos.theatre.adapters.mock.MockStorageDatabase", "app"),
             ("adapters/http/ListenerClient.kt", "import io.ktor.client.engine.mock.MockEngine", "adapters"),
         )

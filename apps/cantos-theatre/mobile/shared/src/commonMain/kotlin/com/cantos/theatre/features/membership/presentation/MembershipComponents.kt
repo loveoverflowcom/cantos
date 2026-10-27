@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import com.cantos.theatre.components.TopBarThemeButton
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.AccessibleName
@@ -64,10 +64,10 @@ fun MembershipHeader(
                 accessibleName = AccessibleName.of(copy.text(MembershipText.AppBrand)),
             )
         }
-        IconButton(onClick = onToggleTheme, modifier = Modifier.size(tokenDp("size.backControl")).testTag("membership-theme")) {
-            Icon(if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-                contentDescription = copy.text(MembershipText.ToggleTheme))
-        }
+        TopBarThemeButton(
+            theme, copy.text(MembershipText.ToggleTheme), onToggleTheme,
+            Modifier.testTag("membership-theme"),
+        )
     }
 }
 

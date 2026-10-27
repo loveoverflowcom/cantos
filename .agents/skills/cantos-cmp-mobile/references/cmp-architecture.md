@@ -29,13 +29,14 @@ Feature packages cannot manipulate another feature's internal state. No circular
 | Ports | `ports/{MediaEngine,CatalogPort,ProgressPort}`: required capabilities, no vendor implementations |
 | Adapters / infrastructure | sandbox `adapters/preview`: mock EXTERNAL ports (catalog, playback access, decoder stand-in, identity transport, remote Library API) over synthetic UUID fixtures, while the Library store is the production SQLite on an in-memory database; shared HTTP/identity and native playback/storage adapters remain separate; preview evidence does not establish native acceptance |
 | Presentation | shared `features/shell/presentation/CantosPresentation.kt` renders neutral immutable models/intents from the `presentation/model` leaf consumed by shell/auth/Membership; the sandbox mounts `CantosTheatreApp` itself (`PreviewTheatreApp`) and adds only artwork and Membership-fixture slots |
+| Shared leaf components | `components/`: presentation that more than one feature needs (the Theatre top bar's theme and account controls); imports only `presentation.model`, Compose and the UI system, never a feature, application, adapter or port, so features may use it without importing each other |
 | Composition root | hosts construct the same owners and `TheatreShell`: Android `AndroidProductionOwner`, iOS `IosCatalogOwner`, and the sandbox `PreviewOwners` (mock external ports only) for the Desktop Preview |
 
 Good Kotlin: `fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransition`
 uses plain domain values. Counterexample: `domain/playback` importing `android.media.*`,
 `Composable` or `application.PlaybackController`. The `repository` gate
 (`check_theatre_architecture`) rejects import, fully qualified-name and package/directory
-violations for `domain`, `ports`, `application`, `features` and `demo`; compile the touched
+violations for `domain`, `ports`, `application`, `features`, `components` and `demo`; compile the touched
 targets as well. All shared main sources, including `app`/`adapters`, resources and declared
 Gradle dependency/source routing are additionally checked for sandbox re-entry. The static
 guard traverses supported literal project dependency declarations; it is bounded lexical

@@ -1,4 +1,4 @@
-package com.cantos.theatre.features.shell.presentation
+package com.cantos.theatre.components
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FilledIconButton
@@ -13,21 +13,18 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.generated.CantosTokens
 import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
-/**
- * Top-level destinations carry the official brand mark before the wordmark, with Back first when
- * the stack has one; every drill-down route keeps Back (Close for the player) and the title only.
- */
-internal fun topBarShowsBrandMark(route: ShellRoute): Boolean = when (route) {
-    ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, ShellRoute.History -> true
-    else -> false
-}
+// The Theatre top bar's two trailing actions, owned once for every header (Shell, Auth and
+// Membership). A feature cannot import another feature, so this leaf layer is their shared owner.
+// It holds presentation only: each caller keeps its own intent, localized label and test tag.
+// Avatar and the tonal shared IconButton are not yet admitted to the UI system (and the app does
+// not enable the Theatre expression their tonal role needs), so both are stable Material controls
+// painted from canonical Theatre roles; admission would re-point only this file.
 
 /**
  * Theme action of the Theatre top bar: one tonal square on the same 48 dp centerline as the brand
