@@ -1034,7 +1034,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
                                 Route::Player => view! { <LivePlayerScreen live sync_controls=player_sync_controls/> }.into_any(),
                                 Route::Discover | Route::Explore => view! {
-                                    <PublicHome state=discovery locale applied=nav.query on_search on_login on_register
+                                    <PublicHome state=discovery account=state.read_only() locale applied=nav.query on_search on_login on_register on_refresh on_logout
                                         on_retry=on_discovery_retry on_load_more=on_discovery_more on_restart=on_discovery_restart on_open_work/>
                                 }.into_any(),
                                 // A route that parses but has no live capability says so; it never

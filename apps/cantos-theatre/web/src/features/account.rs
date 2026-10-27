@@ -111,7 +111,8 @@ pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
     }
 }
 
-fn live_status_key(state: &AccountUi) -> Key {
+/// The visible status of a session phase, shared by Account and the Discovery intro.
+pub(crate) fn live_status_key(state: &AccountUi) -> Key {
     match state.phase {
         SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
         SessionPhase::Guest => Key::LiveGuestStatus,

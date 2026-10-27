@@ -496,8 +496,10 @@ body { margin: 0; }
 .theatre-account-theme p { font-size: var(--cantos-type-metadata-size); }
 .theatre-account-links { list-style: none; margin: 0; padding: 0; }
 .theatre-account-links a { display: flex; align-items: center; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); }
-/* The one guest cluster: capsule CTAs keep icon and label centered and wrap as whole buttons. */
-.theatre-home-auth-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+/* The one guest cluster: capsule CTAs keep icon and label centered and wrap as whole buttons.
+   The session slot takes its place for every other phase, with the same wrapping. */
+.theatre-home-auth-actions, .theatre-home-session { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+.theatre-discover-intro .theatre-home-session .theatre-auth-feedback { margin: 0; }
 /* Discover (live): topbar, intro, hero and shelf share the container's one inline axis. */
 .theatre-live-app .theatre-main { padding-inline: 0; padding-block-start: 0; }
 .theatre-live-app .theatre-topbar { padding-inline: 0; padding-block: var(--cantos-space-md); }
