@@ -2,16 +2,23 @@
 //!
 //! This is the Khám phá screen: the intro, the search/filter form and the public Work list. The
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
-//! a callback the shell turns into a request, so nothing here parses a cursor or fetches.
+//! a callback the shell turns into a request, so nothing here parses a cursor or fetches. The
+//! intro's account slot reads the same mounted [`AccountViewState`] as the header avatar.
 use crate::contract::discovery::{CoverImage, CoveredWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
-    application::public_discovery::{
-        kind_name, DiscoveryQuery, PublicDiscoveryFailure, PublicDiscoveryPhase,
-        PublicDiscoveryState, QueryError, Tail,
+    application::{
+        account_view::{AccountViewState, SessionPhase},
+        public_discovery::{
+            kind_name, DiscoveryQuery, PublicDiscoveryFailure, PublicDiscoveryPhase,
+            PublicDiscoveryState, QueryError, Tail,
+        },
     },
     core::public_ids::PublicWorkId,
     features::{
+        account::live_status_key,
+        account_ui::{account_ui, session_tone, AccountUi},
+        auth::SessionRecovery,
         auth_copy::{self, CopyKey},
         common::{icon, EmptyArtwork, EmptyArtworkKind},
         discovery_language,
@@ -94,6 +101,75 @@ const fn query_error_key(error: QueryError) -> Key {
         QueryError::SearchTooLong => Key::DiscoverySearchTooLong,
         QueryError::SearchControlCharacter => Key::DiscoverySearchInvalid,
         QueryError::LanguageSyntax => Key::DiscoveryLanguageInvalid,
+    }
+}
+
+/// What the intro's account slot shows. It is derived from the mounted account, never stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HomeSession {
+    /// A healthy guest: the one Sign in / Create account cluster.
+    GuestActions,
+    /// API-confirmed: no guest intents and no extra text; the header avatar carries the account.
+    SignedIn,
+    /// Checking, failed or cleaning up: the owner's own status and permitted recovery. None of
+    /// these is presented as a guest or as signed in.
+    Status,
+}
+
+/// Only the phase the owner admits for sign-in is offered the guest intents, so a confirmed
+/// session, a lookup in flight and an unresolved logout never show them.
+fn home_session(ui: &AccountUi) -> HomeSession {
+    match ui.phase {
+        _ if ui.can_authenticate => HomeSession::GuestActions,
+        SessionPhase::SignedIn => HomeSession::SignedIn,
+        SessionPhase::Idle
+        | SessionPhase::Checking
+        | SessionPhase::Guest
+        | SessionPhase::Failed(_)
+        | SessionPhase::LogoutPending => HomeSession::Status,
+    }
+}
+
+/// The intro's account slot (#538): the same authority as the header, projected for Discovery.
+#[component]
+fn HomeAccount(
+    account: ReadSignal<AccountViewState>,
+    locale: RwSignal<Locale>,
+    on_login: Callback<()>,
+    on_register: Callback<()>,
+    on_refresh: Callback<()>,
+    on_logout: Callback<()>,
+) -> impl IntoView {
+    let ui = account_ui(account);
+    let slot = Memo::new(move |_| home_session(&ui.get()));
+    view! {
+        {move || match slot.get() {
+            // The one guest cluster: it sits beside the intro and wraps below it when narrow.
+            // Create account leads as the filled action; Sign in is the tonal alternative.
+            HomeSession::GuestActions => view! {
+                <div class="theatre-home-auth-actions">
+                    <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::AuthSecondary
+                        focus_on_press=true on_press=Callback::new(move |_| on_login.run(()))>
+                        {move || text(Key::SignIn, locale.get())}
+                    </Button>
+                    <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::AuthPrimary
+                        focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
+                        {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
+                    </Button>
+                </div>
+            }.into_any(),
+            HomeSession::SignedIn => ().into_any(),
+            HomeSession::Status => view! {
+                <div class="theatre-home-session">
+                    <p id="theatre-home-session-status" class="theatre-auth-feedback"
+                        data-tone=move || session_tone(ui.get().phase).as_str()
+                        role="status" aria-live="polite" aria-atomic="true">
+                        {move || text(live_status_key(&ui.get()), locale.get())}
+                    </p>
+                    <SessionRecovery state=account locale scope="theatre-home-session" on_refresh on_logout/>
+                </div>
+            }.into_any(),
+        }}
     }
 }
 
@@ -271,12 +347,18 @@ fn WorkCard(
 #[component]
 pub(crate) fn PublicHome(
     state: RwSignal<PublicDiscoveryState>,
+    /// The mounted session owner, read-only: it decides whether guest intents may appear.
+    account: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     /// The search the link carries; the fields mirror it and a submit asks the shell to apply one.
     applied: RwSignal<DiscoveryQuery>,
     on_search: Callback<DiscoveryQuery>,
     on_login: Callback<()>,
     on_register: Callback<()>,
+    /// Re-read the session after a failed lookup; the owner refuses it while a hold applies.
+    on_refresh: Callback<()>,
+    /// Retry an unconfirmed logout, offered only while the owner admits it.
+    on_logout: Callback<()>,
     /// Retry the failed read (same cursor for a later page) or reload page one.
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
@@ -339,18 +421,7 @@ pub(crate) fn PublicHome(
                     <h1 id="theatre-public-home-heading">{move || text(Key::HomeHeading, locale.get())}</h1>
                     <p class="theatre-muted">{move || text(Key::PublicHomeIntroduction, locale.get())}</p>
                 </div>
-                // The one guest cluster: it sits beside the intro and wraps below it when narrow.
-                // Create account leads as the filled action; Sign in is the tonal alternative.
-                <div class="theatre-home-auth-actions">
-                    <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::AuthSecondary
-                        focus_on_press=true on_press=Callback::new(move |_| on_login.run(()))>
-                        {move || text(Key::SignIn, locale.get())}
-                    </Button>
-                    <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::AuthPrimary
-                        focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
-                        {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
-                    </Button>
-                </div>
+                <HomeAccount account locale on_login on_register on_refresh on_logout/>
             </header>
             </SearchForm>
             <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading"
@@ -439,19 +510,41 @@ pub(crate) fn PublicHome(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::account_view::AccountFailure;
     use crate::application::public_discovery::DiscoveryReadError;
     use crate::contract::discovery::CoveredWorkPage;
+    use crate::features::auth_preview::{guest, logout_pending, signed_in, PreviewActor};
+
+    fn guest_account() -> RwSignal<AccountViewState> {
+        let account = RwSignal::new(AccountViewState::default());
+        guest(account).unwrap();
+        account
+    }
+
+    fn home(
+        state: RwSignal<PublicDiscoveryState>,
+        account: RwSignal<AccountViewState>,
+        locale: RwSignal<Locale>,
+        applied: RwSignal<DiscoveryQuery>,
+    ) -> String {
+        view! {
+            <PublicHome state account=account.read_only() locale applied on_search=Callback::new(|_| ())
+                on_login=Callback::new(|()| ()) on_register=Callback::new(|()| ())
+                on_refresh=Callback::new(|()| ()) on_logout=Callback::new(|()| ())
+                on_retry=Callback::new(|()| ()) on_load_more=Callback::new(|()| ())
+                on_restart=Callback::new(|()| ()) on_open_work=Callback::new(|_| ()) />
+        }
+        .to_html()
+    }
 
     fn render_with(state: PublicDiscoveryState, applied: DiscoveryQuery, locale: Locale) -> String {
         Owner::new().with(|| {
-            view! {
-                <PublicHome state=RwSignal::new(state) locale=RwSignal::new(locale)
-                    applied=RwSignal::new(applied) on_search=Callback::new(|_| ())
-                    on_login=Callback::new(|()| ()) on_register=Callback::new(|()| ())
-                    on_retry=Callback::new(|()| ()) on_load_more=Callback::new(|()| ())
-                    on_restart=Callback::new(|()| ()) on_open_work=Callback::new(|_| ()) />
-            }
-            .to_html()
+            home(
+                RwSignal::new(state),
+                guest_account(),
+                RwSignal::new(locale),
+                RwSignal::new(applied),
+            )
         })
     }
     fn render(state: PublicDiscoveryState, locale: Locale) -> String {
@@ -691,16 +784,13 @@ mod tests {
             );
             let state = RwSignal::new(initial.clone());
             let applied = RwSignal::new(DiscoveryQuery::default());
+            let account = guest_account();
             for (next, label, notice) in [
                 (Locale::Vietnamese, "Đăng nhập", "Đang hiển thị 1 tác phẩm"),
                 (Locale::English, "Sign in", "Showing 1 stories"),
             ] {
                 locale.set(next);
-                let html = view! { <PublicHome state locale applied on_search=Callback::new(|_| ())
-                on_login=Callback::new(|()| ()) on_register=Callback::new(|()| ())
-                on_retry=Callback::new(|()| ()) on_load_more=Callback::new(|()| ())
-                on_restart=Callback::new(|()| ()) on_open_work=Callback::new(|_| ())/ > }
-                .to_html();
+                let html = home(state, account, locale, applied);
                 assert!(html.contains(label) && html.contains(notice), "{html}");
                 assert!(html.contains("Lời hẹn {time}") && html.contains("lang=\"vi-VN\""));
                 assert_eq!(state.get_untracked(), initial);
@@ -1080,5 +1170,143 @@ mod tests {
         let more = state.load_more().unwrap();
         state.finish(&more, Ok(page(vec![], None)));
         assert_eq!(page_focus_target(&state), STATUS_ID);
+    }
+
+    const GUEST_INTENTS: [&str; 3] = [
+        "theatre-home-auth-actions",
+        "id=\"theatre-home-login\"",
+        "id=\"theatre-home-register\"",
+    ];
+
+    fn ui(phase: SessionPhase, can_authenticate: bool) -> AccountUi {
+        AccountUi {
+            phase,
+            can_authenticate,
+            can_retry_logout: false,
+            cleanup_in_flight: false,
+            login_refusal: None,
+        }
+    }
+
+    /// Exhaustive over the six phases: only the owner's sign-in admission yields guest intents.
+    #[test]
+    fn only_an_admitted_guest_is_offered_sign_in_and_every_other_phase_keeps_its_own_status() {
+        assert_eq!(
+            home_session(&ui(SessionPhase::Guest, true)),
+            HomeSession::GuestActions
+        );
+        assert_eq!(
+            home_session(&ui(SessionPhase::SignedIn, false)),
+            HomeSession::SignedIn
+        );
+        for phase in [
+            SessionPhase::Idle,
+            SessionPhase::Checking,
+            // A guest whose own logout cleanup is still unresolved is not a healthy guest.
+            SessionPhase::Guest,
+            SessionPhase::Failed(AccountFailure::Unavailable),
+            SessionPhase::Failed(AccountFailure::Protocol),
+            SessionPhase::LogoutPending,
+        ] {
+            assert_eq!(
+                home_session(&ui(phase, false)),
+                HomeSession::Status,
+                "{phase:?}"
+            );
+        }
+    }
+
+    /// The regression in #538: a signed-in listener still saw Sign in / Create account on Discovery.
+    #[test]
+    fn signed_in_discovery_renders_no_guest_intents_and_no_session_status() {
+        Owner::new().with(|| {
+            let account = RwSignal::new(AccountViewState::default());
+            signed_in(account, PreviewActor::A).unwrap();
+            for locale in Locale::supported() {
+                let html = home(
+                    RwSignal::new(PublicDiscoveryState::default()),
+                    account,
+                    RwSignal::new(locale),
+                    RwSignal::new(DiscoveryQuery::default()),
+                );
+                for absent in GUEST_INTENTS.into_iter().chain([
+                    "theatre-home-session-status",
+                    "theatre-home-session-refresh",
+                ]) {
+                    assert!(!html.contains(absent), "{absent}: {html}");
+                }
+                // The public catalog and search stay exactly as for a guest.
+                assert!(html.contains("id=\"theatre-discovery-search\""));
+                assert!(html.contains("theatre-public-catalog"));
+            }
+        });
+    }
+
+    #[test]
+    fn checking_failed_and_logout_pending_show_the_owner_status_never_guest_intents() {
+        Owner::new().with(|| {
+            let locale = RwSignal::new(Locale::Vietnamese);
+            let account = RwSignal::new(AccountViewState::default());
+            let render = || {
+                home(
+                    RwSignal::new(PublicDiscoveryState::default()),
+                    account,
+                    locale,
+                    RwSignal::new(DiscoveryQuery::default()),
+                )
+            };
+            // Before the first lookup settles, nothing claims guest or signed in.
+            let issued = account.write().begin_refresh().unwrap();
+            let html = render();
+            assert!(html.contains("Đang kiểm tra phiên người nghe…"), "{html}");
+            assert!(html.contains("data-tone=\"info\""), "{html}");
+            for absent in GUEST_INTENTS {
+                assert!(!html.contains(absent), "{absent}: {html}");
+            }
+            // An unavailable lookup is not a sign-out: its failure and Retry stay visible.
+            account
+                .write()
+                .finish_session(issued, Err(AccountFailure::Unavailable), String::new)
+                .unwrap();
+            let html = render();
+            assert!(
+                html.contains("id=\"theatre-home-session-status\""),
+                "{html}"
+            );
+            assert!(html.contains("data-tone=\"error\""), "{html}");
+            assert!(
+                html.contains("id=\"theatre-home-session-refresh\""),
+                "{html}"
+            );
+            for absent in GUEST_INTENTS {
+                assert!(!html.contains(absent), "{absent}: {html}");
+            }
+            // An unresolved logout hides the account and still offers no sign-in.
+            signed_in(account, PreviewActor::A).unwrap();
+            logout_pending(account).unwrap();
+            let html = render();
+            assert!(html.contains("data-tone=\"warning\""), "{html}");
+            for absent in GUEST_INTENTS {
+                assert!(!html.contains(absent), "{absent}: {html}");
+            }
+        });
+    }
+
+    /// One mounted owner drives the slot: sign-in removes the guest intents in place, and a
+    /// confirmed logout brings them back, without remounting Discovery.
+    #[test]
+    fn the_guest_cluster_follows_login_and_logout_of_the_same_mounted_owner() {
+        Owner::new().with(|| {
+            let account = guest_account();
+            let ui = account_ui(account.read_only());
+            let slot = Memo::new(move |_| home_session(&ui.get()));
+            assert_eq!(slot.get_untracked(), HomeSession::GuestActions);
+            signed_in(account, PreviewActor::A).unwrap();
+            assert_eq!(slot.get_untracked(), HomeSession::SignedIn);
+            logout_pending(account).unwrap();
+            assert_eq!(slot.get_untracked(), HomeSession::Status);
+            assert!(crate::features::auth_preview::logout_ack(account, true));
+            assert_eq!(slot.get_untracked(), HomeSession::GuestActions);
+        });
     }
 }

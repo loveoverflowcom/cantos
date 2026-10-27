@@ -127,6 +127,12 @@ show a decorative selected check, with a token-driven opacity transition and imm
 selection colors; hover preserves that pair and reduced motion removes the transition. See the
 [bounded lifecycle and navigation observations](../../../docs/evidence/theatre-web-navigation-lifecycle.md).
 
+Discover's intro reads the same mounted `AccountViewState` as the header
+([#538](https://github.com/loveoverflowcom/cantos/issues/538)). Only a guest the owner admits for
+sign-in sees **Đăng nhập / Tạo tài khoản**; a confirmed session shows neither and no extra text.
+Idle/Checking, a failed lookup and an unresolved sign-out show the owner's own status line and
+recovery (`theatre-home-session-*`), so none of them is presented as a guest or as signed in.
+
 The header and menu still use the app-private `PersonGlyph`: shared `Avatar` has no two-renderer
 qualification record, so the text avatar (resolved initials, or a neutral `C` without a name)
 waits for #452/#467 admission. Choosing logout closes the menu and opens one shared-Dialog
