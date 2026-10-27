@@ -47,6 +47,34 @@ authority. Enabling an endpoint requires a reviewed server-held actor/audience/a
 draft-and-input binding plus current revocation checks for every operation, including reads.
 No browser flag or environment switch bypasses this gate.
 
+## Ping/health probe slice (#486)
+
+`firebase/probe.mjs` is the source for a narrow deployment smoke probe, exported by
+`index.mjs` as `forgeProbeHttp` with the fixed packaged worker. It is not a registered Firebase
+trigger: there is no `firebase-functions` dependency, Linux worker bundle, codebase config or
+deploy command, so nothing is deployed and cloud acceptance is `NOT_RUN`.
+
+| Route | Result |
+| --- | --- |
+| `GET /ping` | `200` `status: live`. Proves only that the function answered; it never starts the worker |
+| `GET /health` | `200` `status: ready` only when the packaged worker ran a fixed `capabilities` request and the validated reply reports `generation: unavailable`. Spawn failure, deadline, malformed reply or a rejection is `503` `status: degraded` with a closed `BoundaryError` code, never a healthy answer |
+| other method / path | `405` (with `Allow: GET`) / `404` |
+
+Bodies are `cantos-forge.probe/v1` with `status`, an optional closed `error` code and the
+`K_REVISION` revision when it is a plain identifier. They carry no paths, environment, stderr or
+request echo, and responses are `private, no-store`. The probe reads no body, grant, secret,
+provider or Drive state and does not authorize `forgeWorkerHttp`, which keeps its fail-closed
+grant gate. The probe checks run in the existing `cargo xtask verify forge` suite, including one
+real local Node→Rust `health` run; that proves the wrapper contract on the host OS, not the
+Linux ABI, Node 22 or a deployed Function.
+
+Remaining acceptance before live probe evidence, in order: the Gen2 trigger and dependency
+with a private invoker default and its own codebase in `infra/firebase/functions` (#212); a
+reproducible Linux worker build and package with ABI, mode and digest checks; an
+operator-authorized scoped deploy to `cantos-a348b` after reading project, region, IAM, billing
+and existing functions; real `ping`/`health`/wrong-method transcripts, sanitized logs and a
+scoped rollback. Missing-binary and timeout faults stay offline fault injection.
+
 ## Local attempt durability
 
 The local filesystem `AttemptStore` is a concrete adapter for the existing reserve-before-call

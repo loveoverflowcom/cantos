@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
-import { forgeWorkerHttp } from "../index.mjs";
-import { MAX_REPLY_BYTES, MAX_REQUEST_BYTES, MAX_TEXT_BYTES, SCHEMA_VERSION, parseRequest } from "../protocol.mjs";
+import { forgeProbeHttp, forgeWorkerHttp } from "../index.mjs";
+import { PROBE_SCHEMA_VERSION, makeProbeHandler } from "../probe.mjs";
+import { BoundaryError, MAX_REPLY_BYTES, MAX_REQUEST_BYTES, MAX_TEXT_BYTES, SCHEMA_VERSION, parseRequest } from "../protocol.mjs";
 import { createMockAuthorizedHandlerForTests, createMockRunnerForTests } from "../testing.mjs";
 
 const requestBytes = (operation = { kind: "capabilities" }, fields = {}) => Buffer.from(JSON.stringify({
@@ -279,4 +280,99 @@ test("an already disconnected HTTP caller never starts a child", async () => {
   await handler(f.request, f.response);
   assert.equal(calls, 0);
   assert.equal(f.response.body, undefined);
+});
+
+function probeFixture(path, method = "GET") {
+  const { request, response } = httpFixture(Buffer.alloc(0), method);
+  request.path = path;
+  return { request, response };
+}
+const probeCapabilities = { ...capabilities(), request_id: "probe-health" };
+const probeBody = (status, extra = {}, revision = "forge-probe-00001-abc") => (
+  { schema_version: PROBE_SCHEMA_VERSION, status, ...extra, revision });
+
+test("ping answers live without running the worker", async () => {
+  let calls = 0;
+  const handler = makeProbeHandler({ runWorker: async () => { calls += 1; }, revision: "forge-probe-00001-abc" });
+  const f = probeFixture("/ping");
+  await handler(f.request, f.response);
+  assert.equal(f.response.statusCode, 200);
+  assert.deepEqual(f.response.body, probeBody("live"));
+  assert.equal(f.response.headers["Cache-Control"], "private, no-store, max-age=0");
+  assert.equal(calls, 0);
+});
+
+test("health is ready only from a validated capabilities run with a fixed request", async () => {
+  let seen;
+  const handler = makeProbeHandler({
+    runWorker: async (bytes, options) => { seen = { bytes, options }; return probeCapabilities; },
+    revision: "forge-probe-00001-abc",
+  });
+  const f = probeFixture("/health");
+  f.request.headers["content-type"] = "application/json";
+  f.request.rawBody = requestBytes({ kind: "check_text", text: "caller supplied" });
+  await handler(f.request, f.response);
+  assert.equal(f.response.statusCode, 200);
+  assert.deepEqual(f.response.body, probeBody("ready", { worker: { generation: "unavailable" } }));
+  assert.deepEqual(parseRequest(seen.bytes), {
+    schema_version: SCHEMA_VERSION, request_id: "probe-health", operation: { kind: "capabilities" } });
+  assert.equal(seen.options.signal.aborted, false);
+});
+
+test("health degrades to 503 with a closed code for every worker failure", async () => {
+  const failures = [
+    [() => { throw new BoundaryError("worker_start_failed"); }, "worker_start_failed"],
+    [() => { throw new BoundaryError("worker_deadline_exceeded"); }, "worker_deadline_exceeded"],
+    [() => { throw new BoundaryError("invalid_worker_reply"); }, "invalid_worker_reply"],
+    [() => { throw new Error("private /operator/path token"); }, "worker_failed"],
+    [() => ({ ...probeCapabilities, request_id: null, result: { kind: "rejected", code: "invalid_request" } }), "worker_not_ready"],
+  ];
+  for (const [run, error] of failures) {
+    const f = probeFixture("/health");
+    await makeProbeHandler({ runWorker: async () => run(), revision: undefined })(f.request, f.response);
+    assert.equal(f.response.statusCode, 503);
+    assert.deepEqual(f.response.body, { schema_version: PROBE_SCHEMA_VERSION, status: "degraded", error, revision: null });
+  }
+});
+
+test("probe routes accept only GET and only the two named paths", async () => {
+  let calls = 0;
+  const handler = makeProbeHandler({ runWorker: async () => { calls += 1; return probeCapabilities; } });
+  for (const [path, method, status] of [
+    ["/ping", "POST", 405], ["/health", "DELETE", 405], ["/health", "HEAD", 405],
+    ["/", "GET", 404], ["/ping/", "GET", 404], ["/health/x", "GET", 404], ["/producer", "POST", 404],
+  ]) {
+    const f = probeFixture(path, method);
+    await handler(f.request, f.response);
+    assert.equal(f.response.statusCode, status, `${method} ${path}`);
+    assert.equal(f.response.headers.Allow, status === 405 ? "GET" : undefined);
+  }
+  assert.equal(calls, 0);
+});
+
+test("a disconnected health probe aborts the worker and never emits a late result", async () => {
+  let finish;
+  let observed;
+  const handler = makeProbeHandler({ runWorker: (bytes, { signal }) => { observed = signal; return new Promise((resolve) => { finish = resolve; }); } });
+  const f = probeFixture("/health");
+  const pending = handler(f.request, f.response);
+  f.response.emit("close");
+  assert.equal(observed.aborted, true);
+  finish(probeCapabilities);
+  await pending;
+  assert.equal(f.response.statusCode, undefined);
+});
+
+test("revision is reflected only as a plain identifier and the probe never grants producer access", async () => {
+  for (const revision of ["/srv/path", "a b", "x".repeat(129), "", 7, undefined]) {
+    const f = probeFixture("/ping");
+    await makeProbeHandler({ runWorker: async () => probeCapabilities, revision })(f.request, f.response);
+    assert.equal(f.response.body.revision, null);
+  }
+  const f = probeFixture("/ping");
+  await forgeProbeHttp(f.request, f.response);
+  assert.equal(f.response.statusCode, 200);
+  const producer = httpFixture(requestBytes());
+  await forgeWorkerHttp(producer.request, producer.response);
+  assert.equal(producer.response.statusCode, 503);
 });

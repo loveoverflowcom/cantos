@@ -2,8 +2,10 @@
 // never a caller field or production override. This does not establish Linux/Functions ABI.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { PROBE_SCHEMA_VERSION, makeProbeHandler } from "../probe.mjs";
 import { SCHEMA_VERSION } from "../protocol.mjs";
 import { createMockRunnerForTests } from "../testing.mjs";
 
@@ -66,4 +68,17 @@ test("aborting the real local child waits for its close before rejecting", { tim
   abort.abort();
   await assert.rejects(pending, (error) => error.code === "request_aborted");
   assert.equal(closed, true);
+});
+
+test("health through the real local Rust worker is ready with generation unavailable", { timeout: 10_000 }, async () => {
+  const body = {};
+  const response = Object.assign(new EventEmitter(), {
+    setHeader() {}, status(code) { body.status = code; return this; },
+    json(value) { body.json = value; this.writableEnded = true; return this; },
+  });
+  const request = Object.assign(new EventEmitter(), { method: "GET", path: "/health" });
+  await makeProbeHandler({ runWorker: nativeRunner(), revision: "local" })(request, response);
+  assert.equal(body.status, 200);
+  assert.deepEqual(body.json, { schema_version: PROBE_SCHEMA_VERSION, status: "ready",
+    worker: { generation: "unavailable" }, revision: "local" });
 });
