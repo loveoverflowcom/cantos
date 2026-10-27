@@ -755,113 +755,113 @@ sealed interface ShellMessage {
 
     data class BookmarkCaption(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + title + " · " + time
-            ShellLocale.English -> "" + title + " · " + time
+            ShellLocale.Vietnamese -> "" + this.title + " · " + this.time
+            ShellLocale.English -> "" + this.title + " · " + this.time
         }
     }
 
     data class DeleteBookmarkName(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Xóa dấu trang " + title + ", " + time
-            ShellLocale.English -> "" + "Delete bookmark for " + title + ", " + time
+            ShellLocale.Vietnamese -> "" + "Xóa dấu trang " + this.title + ", " + this.time
+            ShellLocale.English -> "" + "Delete bookmark for " + this.title + ", " + this.time
         }
     }
 
     data class Details(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Khám phá tác phẩm " + title
-            ShellLocale.English -> "" + "Explore " + title
+            ShellLocale.Vietnamese -> "" + "Khám phá tác phẩm " + this.title
+            ShellLocale.English -> "" + "Explore " + this.title
         }
     }
 
     data class DiscardBookmarkName(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Bỏ dấu trang " + title + ", " + time
-            ShellLocale.English -> "" + "Discard bookmark for " + title + ", " + time
+            ShellLocale.Vietnamese -> "" + "Bỏ dấu trang " + this.title + ", " + this.time
+            ShellLocale.English -> "" + "Discard bookmark for " + this.title + ", " + this.time
         }
     }
 
     data class OpenBookmark(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Mở dấu trang " + title + ", " + time
-            ShellLocale.English -> "" + "Open bookmark for " + title + ", " + time
+            ShellLocale.Vietnamese -> "" + "Mở dấu trang " + this.title + ", " + this.time
+            ShellLocale.English -> "" + "Open bookmark for " + this.title + ", " + this.time
         }
     }
 
     data class OpenPlayer(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Mở phòng nghe: " + title
-            ShellLocale.English -> "" + "Open listening room: " + title
+            ShellLocale.Vietnamese -> "" + "Mở phòng nghe: " + this.title
+            ShellLocale.English -> "" + "Open listening room: " + this.title
         }
     }
 
     data class PauseEpisode(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Tạm dừng " + title
-            ShellLocale.English -> "" + "Pause " + title
+            ShellLocale.Vietnamese -> "" + "Tạm dừng " + this.title
+            ShellLocale.English -> "" + "Pause " + this.title
         }
     }
 
     data class PlayEpisode(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Phát " + title
-            ShellLocale.English -> "" + "Play " + title
+            ShellLocale.Vietnamese -> "" + "Phát " + this.title
+            ShellLocale.English -> "" + "Play " + this.title
         }
     }
 
     data class PositionCaption(val elapsed: String, val total: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + elapsed + " / " + total
-            ShellLocale.English -> "" + elapsed + " / " + total
+            ShellLocale.Vietnamese -> "" + this.elapsed + " / " + this.total
+            ShellLocale.English -> "" + this.elapsed + " / " + this.total
         }
     }
 
     data class PositionSpoken(val elapsed: String, val total: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + elapsed + " trên " + total
-            ShellLocale.English -> "" + elapsed + " of " + total
+            ShellLocale.Vietnamese -> "" + this.elapsed + " trên " + this.total
+            ShellLocale.English -> "" + this.elapsed + " of " + this.total
         }
     }
 
     data class ResumeSampleName(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Mở vị trí nghe " + title + " tại " + time
-            ShellLocale.English -> "" + "Open listening position for " + title + " at " + time
+            ShellLocale.Vietnamese -> "" + "Mở vị trí nghe " + this.title + " tại " + this.time
+            ShellLocale.English -> "" + "Open listening position for " + this.title + " at " + this.time
         }
     }
 
     data class RetryDeleteBookmarkName(val time: String, val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Thử xóa lại dấu trang " + title + ", " + time
-            ShellLocale.English -> "" + "Try deleting bookmark for " + title + ", " + time + " again"
+            ShellLocale.Vietnamese -> "" + "Thử xóa lại dấu trang " + this.title + ", " + this.time
+            ShellLocale.English -> "" + "Try deleting bookmark for " + this.title + ", " + this.time + " again"
         }
     }
 
     data class SaveName(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Lưu tác phẩm " + title
-            ShellLocale.English -> "" + "Save work " + title
+            ShellLocale.Vietnamese -> "" + "Lưu tác phẩm " + this.title
+            ShellLocale.English -> "" + "Save work " + this.title
         }
     }
 
     data class SecondsSpoken(val minutes: String, val seconds: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + minutes + " " + seconds
-            ShellLocale.English -> "" + minutes + " " + seconds
+            ShellLocale.Vietnamese -> "" + this.minutes + " " + this.seconds
+            ShellLocale.English -> "" + this.minutes + " " + this.seconds
         }
     }
 
     data class SpeedCaption(val speed: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Tốc độ · " + speed
-            ShellLocale.English -> "" + "Speed · " + speed
+            ShellLocale.Vietnamese -> "" + "Tốc độ · " + this.speed
+            ShellLocale.English -> "" + "Speed · " + this.speed
         }
     }
 
     data class UnsaveName(val title: String) : ShellMessage {
         override fun text(locale: ShellLocale): String = when (locale) {
-            ShellLocale.Vietnamese -> "" + "Bỏ lưu tác phẩm " + title
-            ShellLocale.English -> "" + "Unsave work " + title
+            ShellLocale.Vietnamese -> "" + "Bỏ lưu tác phẩm " + this.title
+            ShellLocale.English -> "" + "Unsave work " + this.title
         }
     }
 

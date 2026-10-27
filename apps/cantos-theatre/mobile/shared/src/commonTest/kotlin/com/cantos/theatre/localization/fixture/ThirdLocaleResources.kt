@@ -27,9 +27,9 @@ sealed interface ProbeMessage {
 
     data class Bookmark(val time: String, val title: String) : ProbeMessage {
         override fun text(locale: UiLocale): String = when (locale) {
-            UiLocale.Vietnamese -> "" + "Nghe " + title + " tại " + time
-            UiLocale.English -> "" + "Listen to " + title + " at " + time
-            UiLocale.Japanese -> "" + time + "に" + title + "を聴く"
+            UiLocale.Vietnamese -> "" + "Nghe " + this.title + " tại " + this.time
+            UiLocale.English -> "" + "Listen to " + this.title + " at " + this.time
+            UiLocale.Japanese -> "" + this.time + "に" + this.title + "を聴く"
         }
     }
 

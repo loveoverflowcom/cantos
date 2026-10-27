@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from localization_catalog import require, segments, symbol
+from localization_catalog import quoted as catalog_quoted, require, segments, symbol
 
 MAIN = Path("apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre")
 TARGETS = {MAIN / "domain/preferences/UiLocale.kt", MAIN / "presentation/model/ShellLocale.kt",
@@ -19,7 +19,7 @@ KOTLIN_RESERVED = set("as break class continue do else false for fun if in inter
 
 def quoted(value):
     # Kotlin interpolation must never interpret catalog text (including currency signs).
-    return json.dumps(value, ensure_ascii=False).replace("$", r"\$")
+    return catalog_quoted(value, kotlin=True)
 
 
 def locale_source(catalog, package="com.cantos.theatre.domain.preferences", include_test=False,
@@ -60,7 +60,9 @@ def source(catalog, groups=GROUPS, package="com.cantos.theatre.presentation.mode
             lines += ["    ;", "", f"    fun text(locale: {locale_type}): String = when (this) {{"]
             for key, row in sorted(plain.items()):
                 lines += [f"        {symbol(key.split('.')[-1])} -> when (locale) {{"]
-                lines += [f"            {locale_type}.{locale['symbol']} -> {quoted(row['translations'][locale['tag']]['text'])}" for locale in locales]
+                for locale in locales:
+                    value = "".join(value for _, value in segments(row['translations'][locale['tag']]['text']))
+                    lines += [f"            {locale_type}.{locale['symbol']} -> {quoted(value)}"]
                 lines += ["        }"]
             lines += ["    }", "}", ""]
         parameterized = {key: row for key, row in messages.items() if row["args"]}
@@ -71,7 +73,7 @@ def source(catalog, groups=GROUPS, package="com.cantos.theatre.presentation.mode
                 lines += [f"    data class {symbol(key.split('.')[-1])}({fields}) : {prefix}Message {{",
                           f"        override fun text(locale: {locale_type}): String = when (locale) {{"]
                 for locale in locales:
-                    pieces = [quoted(value) if kind == "text" else value for kind, value in segments(row["translations"][locale["tag"]]["text"])]
+                    pieces = [quoted(value) if kind == "text" else f"this.{value}" for kind, value in segments(row["translations"][locale["tag"]]["text"])]
                     # Start with a string even if the message consists solely of arguments.
                     expression = '"" + ' + " + ".join(pieces)
                     lines += [f"            {locale_type}.{locale['symbol']} -> {expression}"]

@@ -155,7 +155,7 @@ def projections(catalog, include_test=False):
                 lines += ["        Key::" + symbol(key.split('.')[-1]) + " => match locale {"]
                 for locale in [row for row in catalog["locales"] if include_test or not row["testOnly"]]:
                     pattern = row["translations"][locale["tag"]]
-                    value = pattern.get("text", pattern.get("forms", {}).get("other"))
+                    value = "".join(value for _, value in segments(pattern["text"]))
                     lines += [f"            Locale::{locale['symbol']} => {quoted(value)},"]
                 lines += ["        },"]
             lines += ["    } }", "}"]
