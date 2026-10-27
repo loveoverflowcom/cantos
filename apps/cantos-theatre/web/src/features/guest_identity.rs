@@ -1,12 +1,13 @@
-//! Guest identity row of the live account card: the decorative person glyph in a tonal chip and
-//! one reachable info control. App-private composition; the shared `Avatar` and `Tooltip` are not
-//! used because neither offers a click/tap-pinned explanation (see the preview catalog gate).
-//! The help is non-modal: a click or tap anywhere outside the group closes it after it reached its
-//! target, so a pinned panel never swallows the first press on a sign-in or create-account action.
+//! Account card identity (v4.3): a compact outlined avatar and, for a healthy guest, one optional
+//! explanation behind a named disclosure below the actions. App-private composition; the shared
+//! `Avatar` and `Tooltip` are not used because neither offers a click/tap-pinned explanation (see
+//! the preview catalog gate). The help is non-modal: a click or tap anywhere outside the group
+//! closes it after it reached its target, so a pinned panel never swallows the first press on a
+//! sign-in or create-account action.
 use super::{
     account_menu::focus_left,
     auth_copy::{text, CopyKey},
-    common::{InfoGlyph, PersonGlyph},
+    common::{ChevronGlyph, PersonOutlineGlyph},
 };
 use crate::messages::Locale;
 use leptos::{ev, html, prelude::*};
@@ -110,14 +111,24 @@ mod browser {
     pub(super) fn dismiss_on_outside_press(_: NodeRef<html::Div>, _: RwSignal<InfoOpen>) {}
 }
 
+/// Decorative identity mark: the listener has no portrait, so the card's heading carries the name.
 #[component]
-pub(crate) fn GuestIdentity(locale: RwSignal<Locale>) -> impl IntoView {
+pub(crate) fn ProfileAvatar() -> impl IntoView {
+    view! {
+        <span class="theatre-avatar" data-profile="true" aria-hidden="true"><PersonOutlineGlyph/></span>
+    }
+}
+
+/// The optional fact for a guest. The trigger's visible text is its accessible name; the panel is
+/// in flow, so it never covers the heading or the actions above it.
+#[component]
+pub(crate) fn GuestInfo(locale: RwSignal<Locale>) -> impl IntoView {
     let state = RwSignal::new(InfoOpen::default());
     let wrapper = NodeRef::<html::Div>::new();
     let open = move || state.get().is_open();
     browser::dismiss_on_outside_press(wrapper, state);
     view! {
-        <div class="theatre-guest-identity" node_ref=wrapper
+        <div class="theatre-guest-info" node_ref=wrapper
             on:mouseenter=move |_| state.update(|s| *s = s.hover(true))
             on:mouseleave=move |_| state.update(|s| *s = s.hover(false))
             on:keydown=move |event: ev::KeyboardEvent| {
@@ -131,15 +142,14 @@ pub(crate) fn GuestIdentity(locale: RwSignal<Locale>) -> impl IntoView {
                     state.update(|s| *s = s.focus(false).dismiss());
                 }
             }>
-            <span class="theatre-avatar" data-size="large" data-guest="true" aria-hidden="true"><PersonGlyph/></span>
             <button id=INFO_ID type="button" class="theatre-guest-info-trigger"
-                aria-label=move || text(CopyKey::GuestInfoLabel, locale.get())
                 aria-controls=INFO_PANEL_ID
                 aria-expanded=move || open().to_string()
                 on:focus=move |_| state.update(|s| *s = s.focus(true))
                 on:blur=move |_| state.update(|s| *s = s.focus(false))
                 on:click=move |_| state.update(|s| *s = s.press())>
-                <InfoGlyph/>
+                <span class="theatre-guest-info-label">{move || text(CopyKey::GuestInfoLabel, locale.get())}</span>
+                <ChevronGlyph/>
             </button>
             <p id=INFO_PANEL_ID class="theatre-guest-info-panel" hidden=move || !open()>
                 {move || text(CopyKey::GuestInfo, locale.get())}

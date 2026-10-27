@@ -4,7 +4,7 @@ use super::{
     account_ui::{account_ui, session_tone, AccountUi},
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
-    guest_identity::GuestIdentity,
+    guest_identity::{GuestInfo, ProfileAvatar},
 };
 #[cfg(feature = "preview")]
 use crate::app::context::TheatreContext;
@@ -150,8 +150,8 @@ fn profile_status(
     move || messages::text(live_status_key(&ui.get()), locale.get())
 }
 
-/// The session settled as a guest with nothing to recover: the only phase whose status line,
-/// eyebrow and second help sentence are redundant. Checking, Failed and logout phases are not.
+/// The session settled as a guest with nothing to recover: the only phase whose status line and
+/// second help sentence are redundant. Checking, Failed and logout phases are not.
 const fn is_healthy_guest(phase: SessionPhase) -> bool {
     matches!(phase, SessionPhase::Guest)
 }
@@ -212,17 +212,12 @@ pub(crate) fn LiveAccount(
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
-                <Show when=move || !is_healthy_guest(ui.get().phase)>
-                    <p class="theatre-eyebrow">{label(locale, CopyKey::AccountEyebrow)}</p>
-                </Show>
+                <p class="theatre-eyebrow">{label(locale, CopyKey::AccountEyebrow)}</p>
                 <h1 id="theatre-live-account-heading">{label(locale, CopyKey::AccountHeading)}</h1>
             </header>
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <Show when=move || is_healthy_guest(ui.get().phase)
-                        fallback=|| view! { <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span> }>
-                        <GuestIdentity locale/>
-                    </Show>
+                    <ProfileAvatar/>
                     <h2>{profile_heading(ui, locale)}</h2>
                     // A healthy guest has nothing to report: the heading and one line say it.
                     // Every other phase keeps its live status, failure and recovery visible.
@@ -239,41 +234,36 @@ pub(crate) fn LiveAccount(
                     <Show when=move || ui.get().can_authenticate>
                         <AuthActions state locale scope="theatre-account" on_login on_register/>
                     </Show>
+                    // Optional, so it follows the actions it explains instead of leading the card.
+                    <Show when=move || is_healthy_guest(ui.get().phase)>
+                        <GuestInfo locale/>
+                    </Show>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                         <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
                 <div class="theatre-account-content">
-                    <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
-                        <section aria-labelledby="theatre-account-membership-heading">
-                            <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
-                            <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
-                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
-                            <p id="theatre-account-membership-status" class="theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
-                            <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
-                                icon=IconName::Star focus_on_press=true
-                                on_press=Callback::new(move |_| on_membership.run(()))>
-                                {label(locale, CopyKey::MembershipLearn)}
-                            </Button>
-                        </section>
-                    </Surface>
                     <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup inset=Space::Lg class="theatre-account-preferences">
                         <section aria-labelledby="theatre-account-preferences-heading">
                             <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
                             <div class="theatre-pref-row">
-                                <div class="theatre-pref-theme">
-                                    <span id="theatre-account-theme-label" class="theatre-pref-label">{move || messages::text(Key::Theme, locale.get())}</span>
+                                <div class="theatre-pref-tile theatre-pref-theme">
+                                    <span class="theatre-pref-copy">
+                                        <span id="theatre-account-theme-label" class="theatre-pref-label">{move || messages::text(Key::Theme, locale.get())}</span>
+                                        <span class="theatre-pref-value" aria-hidden="true">{move || messages::text(theme_value_key(theme.get()), locale.get())}</span>
+                                    </span>
                                     <ThemeCycleButton id="theatre-account-theme" theme=theme
                                         labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))/>
-                                    <span class="theatre-pref-value" aria-hidden="true">{move || messages::text(theme_value_key(theme.get()), locale.get())}</span>
                                 </div>
-                                <Select id="theatre-account-locale" class="theatre-pref-locale"
-                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                    label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-                                    value=Signal::derive(move || locale.get().lang().to_owned())
-                                    options=crate::localization::locale_options()
-                                    on_input=on_locale/>
+                                <div class="theatre-pref-tile theatre-pref-language">
+                                    <Select id="theatre-account-locale" class="theatre-pref-locale"
+                                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Above
+                                        label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+                                        value=Signal::derive(move || locale.get().lang().to_owned())
+                                        options=crate::localization::locale_options()
+                                        on_input=on_locale/>
+                                </div>
                             </div>
                             <ul class="theatre-action-rows">
                                 <ActionRow id="theatre-account-open-library" route=Route::Library asset="library_books" locale label=Key::Library/>
@@ -285,6 +275,19 @@ pub(crate) fn LiveAccount(
                                     {move || messages::text(Key::SignOut, locale.get())}
                                 </Button>
                             </Show>
+                        </section>
+                    </Surface>
+                    <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
+                        <section aria-labelledby="theatre-account-membership-heading">
+                            <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
+                            <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
+                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
+                            <p id="theatre-account-membership-status" class="theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
+                            <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
+                                icon=IconName::Star focus_on_press=true
+                                on_press=Callback::new(move |_| on_membership.run(()))>
+                                {label(locale, CopyKey::MembershipLearn)}
+                            </Button>
                         </section>
                     </Surface>
                 </div>
@@ -312,6 +315,42 @@ mod tests {
                     let html = render_live(state.read_only(), locale);
                     assert!(!html.contains("theatre-account-refresh-current"));
                     assert!(!html.contains("theatre-account-recovery"));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn preferences_precede_membership_and_form_two_tiles_that_name_their_value() {
+        use crate::features::auth_preview::guest;
+        Owner::new().with(|| {
+            for (language, theme_value, autonym) in [
+                (Locale::Vietnamese, "Hệ thống", "Tiếng Việt"),
+                (Locale::English, "System", "English"),
+            ] {
+                let theme_label = messages::text(Key::Theme, language);
+                let locale_label = messages::text(Key::Locale, language);
+                let state = RwSignal::new(AccountViewState::default());
+                let locale = RwSignal::new(language);
+                guest(state).unwrap();
+                let html = render_live(state.read_only(), locale);
+                // Reading order is the narrow-viewport order: guest, preferences, Membership.
+                let position =
+                    |needle: &str| html.find(needle).unwrap_or_else(|| panic!("{needle}"));
+                assert!(
+                    position("theatre-account-profile") < position("theatre-account-preferences")
+                        && position("theatre-account-preferences")
+                            < position("theatre-account-membership-heading")
+                );
+                assert_eq!(html.matches("theatre-pref-tile").count(), 2, "{html}");
+                let row = html
+                    .split("theatre-pref-row")
+                    .nth(1)
+                    .expect("preference row");
+                let row = row.split("theatre-action-rows").next().unwrap();
+                let visible = visible_text(row);
+                for shown in [theme_label, theme_value, locale_label, autonym] {
+                    assert!(visible.contains(shown), "{shown}");
                 }
             }
         });
@@ -429,14 +468,18 @@ mod tests {
         for needle in [
             ".theatre-account :is(.theatre-account-preferences, .theatre-account-profile).cui-surface",
             ".theatre-action-rows > li { min-inline-size: 0; }",
-            ".theatre-guest-identity { display: flex; flex-wrap: wrap;",
+            ".theatre-guest-info-trigger { margin-inline-start: 0; }",
         ] {
             assert!(narrow.contains(needle), "{needle}");
         }
-        // Wrapping rows keep their controls whole: the theme row and locale field wrap, and the
+        // Wrapping rows keep their controls whole: the preference tiles stack below a readable
+        // width and wrap their copy beside the control, the disclosure label wraps, and the
         // equal-size CTA pair keeps one height when a label wraps.
-        assert!(rule(".theatre-pref-theme").contains("flex-wrap: wrap"));
-        assert!(rule(".theatre-pref-locale.cui-select-field").contains("flex-wrap: wrap"));
+        assert!(
+            rule(".theatre-pref-row").contains("repeat(auto-fit, minmax(min(100%, 12rem), 1fr))")
+        );
+        assert!(rule(".theatre-pref-tile").contains("flex-wrap: wrap"));
+        assert!(rule(".theatre-guest-info-label").contains("overflow-wrap: anywhere"));
         assert!(
             rule(".theatre-account-profile .theatre-auth-actions").contains("grid-auto-rows: 1fr")
         );
@@ -679,13 +722,15 @@ mod tests {
     }
 
     #[test]
-    fn healthy_guest_card_is_one_heading_one_line_two_actions_and_a_named_closed_info_control() {
+    fn healthy_guest_card_greets_the_listener_with_two_actions_and_a_named_closed_disclosure() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
-            for (language, heading, line, info, name, create) in [
+            for (language, eyebrow, page, greeting, line, info, name, create) in [
                 (
                     Locale::Vietnamese,
-                    "Chào bạn.",
+                    "MỘT GÓC NGHE CỦA RIÊNG BẠN",
+                    "Góc của bạn.",
+                    "Chào người nghe.",
                     "Đăng nhập để mở thư viện của bạn.",
                     "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập.",
                     "Về chế độ nghe không đăng nhập",
@@ -693,7 +738,9 @@ mod tests {
                 ),
                 (
                     Locale::English,
-                    "Hello.",
+                    "A LISTENING SPACE OF YOUR OWN",
+                    "Your space.",
+                    "Welcome, listener.",
                     "Sign in to open your library.",
                     "You can still explore and listen to public content without signing in.",
                     "About listening without signing in",
@@ -704,37 +751,56 @@ mod tests {
                 guest(state).unwrap();
                 let html = render_live(state.read_only(), RwSignal::new(language));
                 assert_eq!(html.matches("<h1").count(), 1);
-                // Redundant copy is gone: no eyebrow, no status line, no second help sentence.
+                // The page keeps its eyebrow and heading; the status line and the second help
+                // sentence stay redundant for a healthy guest.
                 for removed in [
-                    "theatre-eyebrow\">MỘT",
-                    "A LISTENING SPACE",
                     "theatre-live-account-status",
                     "Chưa đăng nhập vào Cantos",
                     "You can still explore public stories",
-                    "Chào người nghe",
-                    "Welcome, listener",
+                    "Chào bạn.",
+                    "Hello.",
                 ] {
                     assert!(!html.contains(removed), "{removed}");
                 }
                 let text = visible_text(&html);
-                for shown in [heading, line, create] {
+                for shown in [eyebrow, page, greeting, line, create, name] {
                     assert!(text.contains(shown), "{shown}");
                 }
-                // The optional fact is behind a named control that starts closed and says what it opens.
-                assert!(html.contains(&format!("aria-label=\"{name}\"")), "{name}");
+                assert!(html.contains("theatre-eyebrow"));
+                // The disclosure is named by its own visible text, starts closed and says what it opens.
                 assert!(html.contains("aria-expanded=\"false\""));
                 assert!(html.contains("aria-controls=\"theatre-guest-info-panel\""));
+                let trigger = html
+                    .split("id=\"theatre-guest-info\"")
+                    .nth(1)
+                    .and_then(|rest| rest.split('>').next())
+                    .expect("disclosure trigger");
+                assert!(!trigger.contains("aria-label"), "{trigger}");
                 let panel = html
                     .split("id=\"theatre-guest-info-panel\"")
                     .nth(1)
                     .unwrap();
                 assert!(panel.split('>').next().unwrap().contains("hidden"));
                 assert!(panel.contains(info));
-                // The two existing actions keep their ids and callbacks; the secondary is outlined.
+                // It follows the actions it explains instead of leading the card.
+                assert!(
+                    html.find("id=\"theatre-account-register\"").unwrap()
+                        < html.find("id=\"theatre-guest-info\"").unwrap()
+                );
+                // The avatar is a compact outline, never the solid large silhouette or an info circle.
+                let avatar = html
+                    .split("<span")
+                    .find(|part| part.contains("theatre-avatar"))
+                    .and_then(|part| part.split("</span>").next())
+                    .expect("profile avatar");
+                assert!(avatar.contains("data-profile=\"true\"") && !avatar.contains("data-size"));
+                assert!(
+                    avatar.contains("fill=\"none\"") && !avatar.contains("fill=\"currentColor\"")
+                );
+                assert!(!html.contains("data-guest"));
+                // The two existing actions keep their ids and callbacks.
                 assert!(html.contains("id=\"theatre-account-login\""));
                 assert!(html.contains("id=\"theatre-account-register\""));
-                assert!(html.contains("data-variant=\"auth-outlined\""));
-                assert!(html.contains("data-guest=\"true\""));
                 assert!(
                     !html.contains("Cantos</"),
                     "no brand word in the action label"
