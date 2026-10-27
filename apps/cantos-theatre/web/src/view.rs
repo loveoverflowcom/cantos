@@ -22,6 +22,8 @@ use cantos_ui::{Container, ContainerWidth, Density, Expression, Theme, UiRoot};
 use cantos_ui::{EmptyState, Select, Space, Stack, Surface, SurfaceTone};
 use leptos::prelude::*;
 
+const NAV_ICON_SELECTED: &str = "check";
+
 #[cfg(feature = "preview")]
 #[component]
 pub fn Theatre() -> impl IntoView {
@@ -108,6 +110,7 @@ fn Navigation(ctx: TheatreContext) -> impl IntoView {
             <a class="theatre-nav-link" href=route.hash()
                 aria-current=move || (ctx.route.get().primary_navigation() == Some(route)).then_some("page")>
                 {icon(asset)}<span>{move || ctx.text(label)}</span>
+                <span class="theatre-nav-selected" aria-hidden="true">{icon(NAV_ICON_SELECTED)}</span>
             </a>
         }
     })
@@ -259,7 +262,8 @@ mod tests {
                 assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 2);
                 assert!(html.contains("href=\"#discover\""));
                 assert!(html.contains("href=\"#library\""));
-                assert!(html.contains("aria-current=\"page\""));
+                assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
+                assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 2);
                 for secondary in ["#explore", "#account", "#settings", "#player", "#queue"] {
                     assert!(!html.contains(secondary), "{secondary}");
                 }
@@ -348,7 +352,9 @@ mod tests {
             assert!(!html.contains("theatre-brand-name"), "{html}");
             assert!(html.contains("theatre-topbar-context"));
             assert_eq!(html.matches("theatre-nav-link").count(), 2);
-            assert_eq!(html.matches("class=\"theatre-icon\"").count(), 2, "{html}");
+            // Each destination retains its leading glyph and a decorative selected check.
+            assert_eq!(html.matches("class=\"theatre-icon\"").count(), 4, "{html}");
+            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 2);
             assert!(html.contains("href=\"#account\"") && html.contains("theatre-avatar"));
         });
     }

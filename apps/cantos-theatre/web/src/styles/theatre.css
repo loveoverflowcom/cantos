@@ -81,8 +81,19 @@ body { margin: 0; }
   text-decoration: none;
   color: var(--cantos-color-on-surface-variant) !important;
 }
+/* Apply the selected color pair together; the decorative check carries the transition. */
 .theatre-nav-link[aria-current="page"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container) !important; font-weight: var(--cantos-type-label-weight); }
-.theatre-nav-link:hover { background: var(--cantos-color-surface-container); }
+/* A state layer preserves the current destination's paired background and foreground. */
+.theatre-nav-link:hover { background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent)); }
+.theatre-nav-selected {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  opacity: 0;
+  transition: opacity var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+.theatre-nav-selected .theatre-icon { inline-size: var(--cantos-size-icon-compact); block-size: var(--cantos-size-icon-compact); }
+.theatre-nav-link[aria-current="page"] .theatre-nav-selected { opacity: 1; }
 .theatre-quote { padding: var(--cantos-space-md); font-family: var(--cantos-type-family-editorial); color: var(--cantos-color-on-surface-variant); }
 .theatre-content { min-inline-size: 0; }
 .theatre-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-md); padding: var(--cantos-space-lg) var(--cantos-space-xl); color: var(--cantos-color-on-surface-variant); }
@@ -292,7 +303,7 @@ body { margin: 0; }
   .theatre-brand { padding: var(--cantos-space-xs); }
   .theatre-brand small, .theatre-quote, .theatre-rail-note { display: none; }
   .theatre-nav { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs); margin-block: var(--cantos-space-md) 0; }
-  .theatre-nav-link { flex: 1 1 8rem; padding: var(--cantos-space-sm); }
+  .theatre-nav-link { flex: 1 1 8rem; gap: var(--cantos-space-sm); padding: var(--cantos-space-sm); }
   .theatre-topbar { padding: var(--cantos-space-md); }
   .theatre-main { padding-inline: 0; }
   .theatre-shelf, .theatre-work-intro { grid-template-columns: minmax(0, 1fr); }
@@ -306,7 +317,7 @@ body { margin: 0; }
   .theatre-episode-row { padding-inline: 0; }
   .theatre-episode-row[data-current="true"] { padding-inline: var(--cantos-space-sm); }
 }
-@media (prefers-reduced-motion: reduce) { .theatre-action, .theatre-chip { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .theatre-action, .theatre-chip, .theatre-nav-link, .theatre-nav-selected { transition: none; } }
 @media (forced-colors: active) {
   .theatre-action, .theatre-chip, .theatre-nav-link[aria-current="page"] { outline: var(--cantos-size-border) solid ButtonText; }
   .theatre-action:disabled { color: GrayText !important; }
