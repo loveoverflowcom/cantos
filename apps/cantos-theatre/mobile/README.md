@@ -447,7 +447,12 @@ Search adopts the qualified `TextField.FloatingSearch` with its editor-owned tag
 query-on-change/Clear contract. Library's invitation uses the qualified shared `Button`.
 The app-owned search containment reads the dedicated Theatre hero/foreground and heading-weight
 tokens. It does not enable the global Theatre expression or change account/Auth/Membership
-presentation. Avatar, tonal shared IconButton, filters and expression adoption remain separate
+presentation. The one app-owned top bar (#532) composes the official Logo Symbol, a 48 dp tonal
+theme square and a 48 dp circular text-avatar account action from canonical Theatre roles and
+stable Material controls in the Shell feature; the avatar keeps the generic `C` fallback because
+no display name is held. Auth and Membership keep their focused-task headers (the layer guard
+forbids a cross-feature import), so their theme action awaits a shared owner. This is not the
+shared Avatar or tonal IconButton. Avatar, tonal shared IconButton, filters and expression adoption remain separate
 until their exact renderer scopes are admitted. Component qualification does not establish
 Android/iOS or production-flow acceptance.
 

@@ -293,13 +293,12 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
 
 @Composable
 private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, accountFocus: FocusRequester) {
-    val branded = state.route == ShellRoute.Discovery || state.route == ShellRoute.Search ||
-        state.route == ShellRoute.Library || state.route == ShellRoute.History
+    val branded = topBarShowsBrandMark(state.route)
     BoxWithConstraints(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
     ) {
         val reflow = maxWidth < tokenDp("breakpoint.medium") && LocalDensity.current.fontScale > 1.3f
-        val actionsWidth = tokenDp("size.control") * 2
+        val actionsWidth = tokenDp("size.control") + tokenDp("size.avatarControl") + tokenDp("space.sm")
         val brandWidth = if (reflow) maxWidth else (maxWidth - actionsWidth).coerceAtLeast(tokenDp("size.control"))
         FlowRow(
             Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -331,20 +330,18 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
             color = MaterialTheme.colorScheme.primary,
         )
         }
-        Row(if (reflow) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.End,
+        Row(if (reflow) Modifier.fillMaxWidth() else Modifier,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"), Alignment.End),
             verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
-            onClick = { dispatch(ShellEvent.SetTheme(if (state.theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) },
-            modifier = Modifier.size(tokenDp("size.control")).testTag("theme-toggle"),
-        ) {
-            Icon(rememberCantosIconVector(if (state.theme == ShellTheme.Dark) "light_mode" else "dark_mode"),
-                copy.text(if (state.theme == ShellTheme.Dark) CopyKey.SwitchToLight else CopyKey.SwitchToDark))
-        }
+        TopBarThemeButton(
+            state.theme,
+            copy.text(if (state.theme == ShellTheme.Dark) CopyKey.SwitchToLight else CopyKey.SwitchToDark),
+            { dispatch(ShellEvent.SetTheme(if (state.theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) },
+            Modifier.testTag("theme-toggle"),
+        )
         if (state.route != ShellRoute.Account) {
-            IconButton(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
-                modifier = Modifier.size(tokenDp("size.control")).focusRequester(accountFocus).testTag("account")) {
-                Icon(rememberCantosIconVector("account_circle"), copy.text(CopyKey.Account))
-            }
+            TopBarAccountButton(copy.text(CopyKey.Account), { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
+                Modifier.focusRequester(accountFocus).testTag("account"))
         }
         }
         }
