@@ -10,6 +10,7 @@ use super::storage;
 pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
+pub(super) mod sample_metadata;
 
 const WORK_COLUMNS: &str =
     "w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest";

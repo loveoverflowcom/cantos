@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0 # historical v23 registry is independently checked at its pinned source
+          fetch-depth: 0 # historical v24 registry is independently checked at its pinned source
       - name: Select pinned Rust toolchain for xtask
         run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin
       - name: Build the static source-pinned deployment executor
@@ -98,7 +98,7 @@ jobs:
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --authfile "$RUNNER_TEMP/qualification-auth.json" \
             --output artifacts/release-qualification/exact-pair
-      - name: Rehearse historical v23 to v24 and cold pair recovery
+      - name: Rehearse historical v24 to v25 and cold pair recovery
         env:
           MANIFEST: ${{ steps.candidate.outputs.manifest }}
           MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
@@ -108,14 +108,15 @@ jobs:
           set -Eeuo pipefail
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
-          BASELINE_DIGEST=$(sha256sum infra/oci/historical-v23.json | cut -d' ' -f1)
+          BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
             --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
-            --baseline infra/oci/historical-v23.json --baseline-digest "$BASELINE_DIGEST" \
+            --baseline infra/oci/historical-v24.json --baseline-digest "$BASELINE_DIGEST" \
+            --transition v24-v25 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
-            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v23-v24"
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v25"
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |

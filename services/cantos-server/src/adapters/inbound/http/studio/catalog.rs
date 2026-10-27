@@ -5,7 +5,7 @@ use crate::contract::{
     studio::{
         ApiError, ArchiveContentUnitRequest, ArchiveWorkRequest, CreateContentUnitRequest,
         CreateWorkRequest, ErrorCode, FieldIssue, PatchContentUnitRequest, PatchWorkRequest,
-        ReorderContentUnitsRequest, SampleMetadataDisclosureRequest,
+        ReorderContentUnitsRequest, SampleMetadataDisclosureRequest, SampleMetadataRightsRequest,
     },
 };
 use axum::{
@@ -38,6 +38,7 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .route("/works/{work_id}/content-units/reorder", post(reorder))
         .route("/works/{work_id}/history", get(history))
+        .route("/sample-metadata-rights", post(record_sample_rights))
         .route(
             "/works/{work_id}/sample-metadata-disclosures",
             post(record_sample_work),
@@ -192,6 +193,25 @@ async fn sample_decision(
     match state
         .store
         .sample_metadata_decide(&token, &work, unit.as_deref(), body)
+        .await
+    {
+        Ok(result) => (StatusCode::OK, Json(result)).into_response(),
+        Err(error) => catalog_error(error),
+    }
+}
+
+async fn record_sample_rights(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    CatalogBody(body): CatalogBody<SampleMetadataRightsRequest>,
+) -> Response {
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state
+        .store
+        .record_sample_metadata_rights(&token, body)
         .await
     {
         Ok(result) => (StatusCode::OK, Json(result)).into_response(),

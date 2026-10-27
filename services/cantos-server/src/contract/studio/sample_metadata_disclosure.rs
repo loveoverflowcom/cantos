@@ -1,6 +1,26 @@
 //! Raw owner request for one explicitly scoped sample metadata decision.
 use serde::{Deserialize, Serialize};
 
+/// Owner's explicit, source-bound metadata display claim. This is not an independent legal
+/// determination or a clearance for audio, covers or anything outside the approved sample.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SampleMetadataRightsRequest {
+    pub operation_id: String,
+    pub source_id: String,
+    pub evidence_reference: String,
+    pub rights_statement: String,
+    pub confirm_metadata_rights: bool,
+    pub confirm_source: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SampleMetadataRightsResponse {
+    pub rights_id: String,
+    pub source_id: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "decision", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SampleMetadataDisclosureRequest {

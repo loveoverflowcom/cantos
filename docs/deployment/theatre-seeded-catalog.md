@@ -1,5 +1,26 @@
 # Theatre development catalog seeding
 
+## Owner-approved metadata-only production path (draft)
+
+The separate `scripts/seed_approved_sample_metadata.py` path is for the six-Work/twelve-unit
+sample authorized in ADR 0051. It does not use `--sample-serve`, the local preview router,
+development tokens, private images, mock audio, or direct database writes. It requires an
+existing active Studio owner and that owner's explicit source and metadata-rights assertion.
+An assertion records the owner's evidence reference and statement; it is not independent legal
+verification, audio clearance or permission to disclose other Works. Metadata rights can be
+withdrawn by appending the corresponding disclosure withdrawal.
+
+After this change is reviewed, merged, built and independently qualified, an operator can inspect
+the plan without a network call by passing the approved input, existing actor ID, evidence
+reference and rights statement to the script. Applying additionally requires `--apply` and
+`--confirm-rights-and-source`; the owner's existing Studio Cookie header is read interactively,
+never placed in a command argument or saved to a file. The script checks the current session actor
+before any mutation, validates the exact source bytes, uses deterministic operation IDs, and
+stops on conflicts or unknown results. A replay checks the current anonymous Discovery view;
+it cannot undo a later withdrawal. No credential or private source should be printed or included
+in a public PR. An ambiguous response requires reconciliation before a retry. This draft is not
+an authorization to modify a running production database before release qualification.
+
 ## Prepared sample dataset
 
 The explicit `cargo xtask seed theatre --sample-input ... --sample-media-source ...

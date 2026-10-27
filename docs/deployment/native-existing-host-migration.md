@@ -53,6 +53,14 @@ or establishes live readiness. The manual `native-oci-publish` workflow runs bot
 qualification and this historical rehearsal, retaining their separate artifacts. No ordinary
 preflight/CI job activates containers or a host.
 
+For the sample metadata change, `release native-rehearse --transition v24-v25`
+uses `infra/oci/historical-v24.json` and the same disposable exact-image fixture
+to exercise the v24-to-v25 migration and cold-pair restore. This baseline is a
+qualified historical image pair, not a claim about the pair currently running on
+any host. Its result is separate from admission and host activation. The existing
+`native-adopt` executor below remains limited to v23-to-v24; this rehearsal does
+not provide or authorize a v25 production rollout procedure.
+
 ```sh
 cargo xtask release native-rehearse --manifest PATH --manifest-digest SHA256 \
   --source-sha FULL_SHA --configuration-digest SHA256 --platform linux/amd64 \

@@ -14,7 +14,7 @@ use crate::contexts::{
         },
         turso,
     },
-    editorial, ingestion,
+    ingestion,
 };
 use crate::contract::studio::{
     SampleMetadataDisclosureRequest as Request, SampleMetadataDisclosureResponse as Response,
@@ -68,17 +68,32 @@ impl Store {
         } else {
             None
         };
-        if let Some(row) = tx.query_opt("SELECT fingerprint,work_id,subject_kind,subject_id,sequence,decision,recorded_at_ms FROM catalog_sample_metadata_disclosures WHERE owner_id=?1 AND operation_id=?2", &[&actor,&operation]).await? {
+        if let Some(row) = turso::sample_metadata::operation(&tx, actor, &operation).await? {
             let prior: String = row.try_get("fingerprint")?;
-            if prior != fingerprint { return Err(CatalogStoreError::OperationReused); }
+            if prior != fingerprint {
+                return Err(CatalogStoreError::OperationReused);
+            }
             let sequence: i64 = row.try_get("sequence")?;
-            let reply = Response { work_id: row.try_get("work_id")?, subject_kind: row.try_get("subject_kind")?, subject_id: row.try_get("subject_id")?, sequence: u64::try_from(sequence).map_err(|_| StoreError::CorruptRevision)?, decision: row.try_get("decision")?, recorded_at_ms: row.try_get("recorded_at_ms")? };
-            if reply.work_id != work || reply.subject_kind != kind || reply.subject_id != subject || reply.sequence == 0 { return Err(StoreError::CorruptRevision.into()); }
+            let reply = Response {
+                work_id: row.try_get("work_id")?,
+                subject_kind: row.try_get("subject_kind")?,
+                subject_id: row.try_get("subject_id")?,
+                sequence: u64::try_from(sequence).map_err(|_| StoreError::CorruptRevision)?,
+                decision: row.try_get("decision")?,
+                recorded_at_ms: row.try_get("recorded_at_ms")?,
+            };
+            if reply.work_id != work
+                || reply.subject_kind != kind
+                || reply.subject_id != subject
+                || reply.sequence == 0
+            {
+                return Err(StoreError::CorruptRevision.into());
+            }
             recheck_owner_work(&tx, token, &owner).await?;
             tx.commit().await.map_err(StoreError::from)?;
             return Ok(reply);
         }
-        let row = tx.query_one("SELECT coalesce(max(sequence),0) AS sequence FROM catalog_sample_metadata_disclosures WHERE subject_kind=?1 AND subject_id=?2", &[&kind,&subject]).await?;
+        let row = turso::sample_metadata::max_sequence(&tx, kind, subject).await?;
         let prior: i64 = row.try_get("sequence")?;
         let sequence = prior.checked_add(1).ok_or(StoreError::CorruptRevision)?;
         let now = owner_work_now(&tx).await?;
@@ -125,7 +140,7 @@ impl Store {
                 {
                     return Err(StoreError::InvalidRequest.into());
                 }
-                if !editorial::evidence_exists(&tx, actor, "rights", rights_id).await? {
+                if !super::sample_metadata_rights::bound(&tx, actor, rights_id, source_id).await? {
                     return Err(StoreError::EvidenceUnavailable.into());
                 }
                 let bytes = ingestion::source_bytes(&tx, actor, source_id)
@@ -144,7 +159,7 @@ impl Store {
                 .map_err(|_| StoreError::EvidenceUnavailable)?;
                 let work_rev =
                     i64::try_from(owner.work.revision()).map_err(|_| StoreError::InvalidRequest)?;
-                let wr = tx.query_one("SELECT snapshot_digest FROM catalog_work_revisions WHERE work_id=?1 AND revision=?2", &[&work,&work_rev]).await?;
+                let wr = turso::sample_metadata::work_digest(&tx, work, work_rev).await?;
                 let work_digest: String = wr.try_get("snapshot_digest")?;
                 let unit_rev = unit_value
                     .as_ref()
@@ -153,18 +168,50 @@ impl Store {
                     })
                     .transpose()?;
                 let unit_digest: Option<String> = if let Some(rev) = unit_rev {
-                    Some(tx.query_one("SELECT snapshot_digest FROM catalog_unit_revisions WHERE unit_id=?1 AND revision=?2", &[&subject,&rev]).await?.try_get("snapshot_digest")?)
+                    Some(
+                        turso::sample_metadata::unit_digest(&tx, subject, rev)
+                            .await?
+                            .try_get("snapshot_digest")?,
+                    )
                 } else {
                     None
                 };
-                tx.execute("INSERT INTO catalog_sample_metadata_disclosures(work_id,subject_kind,subject_id,sequence,owner_id,decision,work_revision,work_digest,unit_revision,unit_digest,source_id,source_sha256,rights_kind,rights_id,recorded_by,recorded_at_ms,operation_id,fingerprint) VALUES(?1,?2,?3,?4,?5,'disclosed',?6,?7,?8,?9,?10,?11,'rights',?12,?5,?13,?14,?15)", &[&work,&kind,&subject,&sequence,&actor,&work_rev,&work_digest,&unit_rev,&unit_digest,&source_id,&APPROVED_SAMPLE_SOURCE_SHA256,&rights_id,&now,&operation,&fingerprint]).await?;
+                turso::sample_metadata::insert_disclosed(
+                    &tx,
+                    work,
+                    kind,
+                    subject,
+                    sequence,
+                    actor,
+                    work_rev,
+                    &work_digest,
+                    unit_rev,
+                    &unit_digest,
+                    source_id,
+                    rights_id,
+                    now,
+                    &operation,
+                    &fingerprint,
+                )
+                .await?;
                 "disclosed"
             }
             Request::Withdraw { .. } => {
                 if prior == 0 {
                     return Err(StoreError::NotFound.into());
                 }
-                tx.execute("INSERT INTO catalog_sample_metadata_disclosures(work_id,subject_kind,subject_id,sequence,owner_id,decision,recorded_by,recorded_at_ms,operation_id,fingerprint) VALUES(?1,?2,?3,?4,?5,'withdrawn',?5,?6,?7,?8)", &[&work,&kind,&subject,&sequence,&actor,&now,&operation,&fingerprint]).await?;
+                turso::sample_metadata::insert_withdrawn(
+                    &tx,
+                    work,
+                    kind,
+                    subject,
+                    sequence,
+                    actor,
+                    now,
+                    &operation,
+                    &fingerprint,
+                )
+                .await?;
                 "withdrawn"
             }
         };

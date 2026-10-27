@@ -8,7 +8,7 @@ use crate::contexts::{
         },
         turso,
     },
-    editorial, ingestion,
+    ingestion,
 };
 use crate::platform::store::{actor_active, Row, StoreError, Tx};
 
@@ -23,7 +23,7 @@ fn get<T: crate::platform::store::FromColumn>(row: &Row, name: &str) -> Result<T
 }
 
 async fn latest(tx: &Tx<'_>, kind: &str, id: &str) -> Result<Option<Row>, StoreError> {
-    tx.query_opt("SELECT * FROM catalog_sample_metadata_disclosures WHERE subject_kind=?1 AND subject_id=?2 ORDER BY sequence DESC LIMIT 1", &[&kind, &id]).await.map_err(StoreError::from)
+    turso::sample_metadata::latest(tx, kind, id).await
 }
 
 async fn exact_source(
@@ -42,7 +42,7 @@ async fn exact_source(
     {
         return Err(StoreError::CorruptRevision);
     }
-    if !editorial::evidence_exists(tx, owner, "rights", &rights_id).await? {
+    if !super::sample_metadata_rights::bound(tx, owner, &rights_id, &source_id).await? {
         return Ok(None);
     }
     let Some(bytes) = ingestion::source_bytes(tx, owner, &source_id).await? else {
@@ -62,12 +62,7 @@ fn revision(row: &Row, column: &str) -> Result<Revision, StoreError> {
 async fn pinned_work(tx: &Tx<'_>, row: &Row, work_id: &str) -> Result<Work, StoreError> {
     let rev = revision(row, "work_revision")?;
     let expected: String = get(row, "work_digest")?;
-    let pin = tx
-        .query_one(
-            "SELECT snapshot_digest FROM catalog_work_revisions WHERE work_id=?1 AND revision=?2",
-            &[&work_id, &(rev.get() as i64)],
-        )
-        .await?;
+    let pin = turso::sample_metadata::work_digest(tx, work_id, rev.get() as i64).await?;
     if get::<String>(&pin, "snapshot_digest")? != expected {
         return Err(StoreError::CorruptRevision);
     }
@@ -79,12 +74,7 @@ async fn pinned_work(tx: &Tx<'_>, row: &Row, work_id: &str) -> Result<Work, Stor
 async fn pinned_unit(tx: &Tx<'_>, row: &Row, unit_id: &str) -> Result<ContentUnit, StoreError> {
     let rev = revision(row, "unit_revision")?;
     let expected: String = get(row, "unit_digest")?;
-    let pin = tx
-        .query_one(
-            "SELECT snapshot_digest FROM catalog_unit_revisions WHERE unit_id=?1 AND revision=?2",
-            &[&unit_id, &(rev.get() as i64)],
-        )
-        .await?;
+    let pin = turso::sample_metadata::unit_digest(tx, unit_id, rev.get() as i64).await?;
     if get::<String>(&pin, "snapshot_digest")? != expected {
         return Err(StoreError::CorruptRevision);
     }
@@ -128,7 +118,7 @@ pub(crate) async fn sample_disclosed_work(
     {
         return Err(StoreError::CorruptRevision);
     }
-    let first = tx.query_one("SELECT min(recorded_at_ms) AS first_at FROM catalog_sample_metadata_disclosures WHERE subject_kind='work' AND subject_id=?1 AND decision='disclosed'", &[&id]).await?;
+    let first = turso::sample_metadata::first_work_disclosure(tx, id).await?;
     let first_at: i64 = get(&first, "first_at")?;
     if first_at < 0 {
         return Err(StoreError::CorruptRevision);

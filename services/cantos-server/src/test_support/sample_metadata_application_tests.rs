@@ -68,6 +68,12 @@ fn with_source(mut request: Request, source: &str) -> Request {
     }
     request
 }
+fn with_rights(mut request: Request, rights: &str) -> Request {
+    if let Request::Disclose { rights_id, .. } = &mut request {
+        *rights_id = rights.into();
+    }
+    request
+}
 
 async fn work(fixture: &ServerFixture, title: &str, synopsis: &str, kind: WorkKind) {
     fixture
@@ -138,7 +144,23 @@ async fn unowned_or_unsubstantiated_disclosure_has_no_effect() {
     assert!(matches!(
         fixture
             .store()
-            .sample_metadata_decide(ALICE, WORK, None, request(op, 1, None))
+            .sample_metadata_decide(ALICE, WORK, None, request(op.clone(), 1, None))
+            .await,
+        Err(CatalogStoreError::Storage(StoreError::EvidenceUnavailable))
+    ));
+    // A syntactically bound claim still cannot make forged source bytes valid.
+    let rights_id = "sample_metadata_00000000000000000000000000000001";
+    let claim = serde_json::json!({"version":"sample-metadata-rights-v1", "operation_id":"00000000-0000-0000-0000-000000000001", "source_id":"sample-catalog-input-v1", "source_sha256":SHA, "evidence_reference":"synthetic", "rights_statement":"synthetic", "confirm_metadata_rights":true, "confirm_source":true}).to_string();
+    fixture.exec("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice','rights',?1,?2)", &[&rights_id,&claim]).await.unwrap();
+    assert!(matches!(
+        fixture
+            .store()
+            .sample_metadata_decide(
+                ALICE,
+                WORK,
+                None,
+                with_rights(request(op, 1, None), rights_id)
+            )
             .await,
         Err(CatalogStoreError::Storage(StoreError::CorruptRevision))
     ));
@@ -231,7 +253,6 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
         )
         .await
         .unwrap();
-    fixture.exec("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice','rights','sample-rights','owner confirmed metadata rights')", &[]).await.unwrap();
     let imported = fixture
         .store()
         .import_manuscript(
@@ -258,6 +279,49 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
             store: fixture.store().clone(),
             web_origin: "https://studio.example.test".into(),
         });
+    let rights_request = crate::contract::studio::SampleMetadataRightsRequest {
+        operation_id: Uuid::new_v4().to_string(),
+        source_id: imported.id.clone(),
+        evidence_reference: "synthetic fixture evidence".into(),
+        rights_statement: "synthetic owner declaration".into(),
+        confirm_metadata_rights: true,
+        confirm_source: true,
+    };
+    let rights_http = HttpRequest::post("/api/v1/studio/sample-metadata-rights")
+        .header(header::ORIGIN, "https://studio.example.test")
+        .header(header::COOKIE, format!("cantos_session={ALICE}"))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(serde_json::to_vec(&rights_request).unwrap()))
+        .unwrap();
+    let response = app.clone().oneshot(rights_http).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    let rights: crate::contract::studio::SampleMetadataRightsResponse =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(
+        fixture
+            .store()
+            .record_sample_metadata_rights(ALICE, rights_request.clone())
+            .await
+            .unwrap(),
+        rights
+    );
+    assert!(matches!(
+        fixture
+            .store()
+            .record_sample_metadata_rights(BOB, rights_request.clone())
+            .await,
+        Err(CatalogStoreError::Storage(StoreError::EvidenceUnavailable))
+    ));
+    let mut changed = rights_request.clone();
+    changed.rights_statement = "different claim".into();
+    assert!(matches!(
+        fixture
+            .store()
+            .record_sample_metadata_rights(ALICE, changed)
+            .await,
+        Err(CatalogStoreError::OperationReused)
+    ));
     let http = HttpRequest::post(format!(
         "/api/v1/studio/works/{WORK}/sample-metadata-disclosures"
     ))
@@ -265,7 +329,11 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
     .header(header::COOKIE, format!("cantos_session={ALICE}"))
     .header(header::CONTENT_TYPE, "application/json")
     .body(Body::from(
-        serde_json::to_vec(&with_source(request(op.clone(), 2, None), &imported.id)).unwrap(),
+        serde_json::to_vec(&with_rights(
+            with_source(request(op.clone(), 2, None), &imported.id),
+            &rights.rights_id,
+        ))
+        .unwrap(),
     ))
     .unwrap();
     let response = app.clone().oneshot(http).await.unwrap();
@@ -288,7 +356,10 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
                 ALICE,
                 WORK,
                 None,
-                with_source(request(op.clone(), 2, None), &imported.id)
+                with_rights(
+                    with_source(request(op.clone(), 2, None), &imported.id),
+                    &rights.rights_id
+                )
             )
             .await
             .unwrap(),
@@ -301,7 +372,10 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
                 ALICE,
                 WORK,
                 None,
-                with_source(request(op.clone(), 1, None), &imported.id)
+                with_rights(
+                    with_source(request(op.clone(), 1, None), &imported.id),
+                    &rights.rights_id
+                )
             )
             .await,
         Err(CatalogStoreError::OperationReused)
@@ -312,9 +386,12 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
             ALICE,
             WORK,
             Some(UNIT),
-            with_source(
-                request(Uuid::new_v4().to_string(), 2, Some(1)),
-                &imported.id,
+            with_rights(
+                with_source(
+                    request(Uuid::new_v4().to_string(), 2, Some(1)),
+                    &imported.id,
+                ),
+                &rights.rights_id,
             ),
         )
         .await
@@ -469,9 +546,12 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
             ALICE,
             WORK,
             Some(UNIT),
-            with_source(
-                request(Uuid::new_v4().to_string(), 2, Some(1)),
-                &imported.id,
+            with_rights(
+                with_source(
+                    request(Uuid::new_v4().to_string(), 2, Some(1)),
+                    &imported.id,
+                ),
+                &rights.rights_id,
             ),
         )
         .await
@@ -533,5 +613,52 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
             )
             .await,
         5
+    );
+}
+
+/// Exercises the production seed code against the real local HTTP router and disposable Turso.
+#[tokio::test]
+#[ignore = "requires the externally supplied sample-catalog.json and python3"]
+async fn full_sample_seed_uses_real_http_and_replays_idempotently() {
+    let input = std::env::var_os("CANTOS_APPROVED_SAMPLE_INPUT").expect("sample input path");
+    let fixture = ServerFixture::new().await;
+    fixture.studio_caller("alice", ALICE).await;
+    let app =
+        crate::adapters::inbound::http::api_router(crate::adapters::inbound::http::AppState {
+            store: fixture.store().clone(),
+            web_origin: "https://studio.example.test".into(),
+        });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let script_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts");
+    let program = r#"
+import os, sys
+sys.path.insert(0, os.environ['SEED_SCRIPT_DIR'])
+import seed_approved_sample_metadata as seed
+raw, works = seed.load_input(os.environ['SAMPLE_INPUT'])
+client = seed.Studio('http://127.0.0.1:' + os.environ['LOCAL_PORT'], 'https://studio.example.test', 'cantos_session=' + os.environ['FIXTURE_TOKEN'])
+for _ in range(2):
+    result = seed.seed(client, 'alice', raw, works, 'synthetic fixture source', 'synthetic owner statement')
+    assert (result['works'], result['units']) == (6, 12)
+"#;
+    let result = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("python3")
+            .arg("-c")
+            .arg(program)
+            .env("SEED_SCRIPT_DIR", script_dir)
+            .env("SAMPLE_INPUT", input)
+            .env("LOCAL_PORT", addr.port().to_string())
+            .env("FIXTURE_TOKEN", ALICE)
+            .output()
+            .expect("python3 executable")
+    })
+    .await
+    .unwrap();
+    server.abort();
+    assert!(
+        result.status.success(),
+        "seed failed: {}",
+        String::from_utf8_lossy(&result.stderr)
     );
 }
