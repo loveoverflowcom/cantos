@@ -26,7 +26,7 @@ body { margin: 0; }
 }
 /* A painted shell (button, chip, destination, avatar, row, card) shows one focus perimeter that
    touches its own edge: zero gap, no halo. Hover and press never draw this stroke. */
-.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-account-menu-row, .theatre-auth-brand, .theatre-skip):focus-visible {
+.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-guest-info-trigger, .theatre-account-menu-row, .theatre-auth-brand, .theatre-skip):focus-visible {
   outline-offset: 0;
 }
 /* Route changes move focus to <main> for assistive technology; the landmark itself is not a control. */
@@ -621,3 +621,65 @@ body { margin: 0; }
 .theatre-library-feedback p { margin-block-end: var(--cantos-space-sm); }
 
 .theatre-library-section > .theatre-actions:empty { display: none; }
+
+/* Guest account card (v4.2a). The person glyph sits in a circular tonal chip: surfaceContainer /
+   onSurface with a seamless accent stroke, never a detached outline. The help is one named info
+   control; its panel is in-flow so it never covers the heading or the actions. */
+.theatre-account-profile .theatre-avatar[data-guest] {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+  border: var(--cantos-size-border) solid var(--cantos-color-accent);
+  box-sizing: border-box;
+}
+.theatre-guest-identity {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--cantos-space-md);
+  margin-block-end: var(--cantos-space-lg);
+}
+.theatre-guest-identity .theatre-avatar { margin: 0; }
+.theatre-account-profile .theatre-guest-identity .theatre-avatar { margin-block-end: 0; }
+.theatre-guest-info-trigger {
+  justify-self: end;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
+  inline-size: var(--cantos-size-control); min-block-size: var(--cantos-size-control);
+  padding: 0; border: 0; border-radius: var(--cantos-shape-pill);
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+  position: relative; z-index: 41;
+}
+.theatre-guest-info-trigger svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
+@media (hover: hover) {
+  .theatre-guest-info-trigger:hover { background: color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent); }
+}
+.theatre-guest-info-trigger:focus-visible { outline: var(--cantos-size-focus-width) solid currentColor; }
+.theatre-guest-info-panel {
+  grid-column: 1 / -1;
+  margin: var(--cantos-space-sm) 0 0;
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-control);
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-body-line-height);
+  overflow-wrap: anywhere;
+}
+.theatre-guest-info-panel[hidden] { display: none; }
+.theatre-guest-info-scrim { position: fixed; inset: 0; z-index: 40; }
+.theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }
+/* Secondary action on the dark card: ink follows the card's own foreground, and the primary action
+   gets a foreground border so it separates from the card in light mode too. */
+.theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled) {
+  color: var(--cantos-color-on-primary-container);
+  border-color: var(--cantos-color-on-primary-container);
+}
+.theatre-account-profile .cui-button[data-variant="auth-primary"]:not(:disabled) {
+  border: var(--cantos-size-auth-outline) solid var(--cantos-color-on-primary-container);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled):hover {
+    background: color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent);
+  }
+}

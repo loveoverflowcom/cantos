@@ -134,11 +134,11 @@ pub(crate) fn AuthActions(
                 </Button>
             })}
             {move || availability.get().map(|availability| view! {
-                <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
+                <Button id=format!("{scope}-register") variant=ButtonVariant::AuthOutlined
                     icon=IconName::PersonAdd
                     state=availability focus_on_press=true
                     on_press=Callback::new(move |_| on_register.run(()))>
-                    {label(locale, CopyKey::CreateAccount)}
+                    {label(locale, CopyKey::GuestRegister)}
                 </Button>
             })}
         </div>
@@ -854,7 +854,7 @@ mod tests {
                     );
                     assert_eq!(
                         native_button_name(&html, &format!("{scope}-register")),
-                        auth_copy::text(CopyKey::CreateAccount, language)
+                        auth_copy::text(CopyKey::GuestRegister, language)
                     );
                 }
             }

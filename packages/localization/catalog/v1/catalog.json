@@ -5821,10 +5821,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chào người nghe."
+          "text": "Chào bạn."
         },
         "en": {
-          "text": "Welcome, listener."
+          "text": "Hello."
         }
       }
     },
@@ -5833,10 +5833,46 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Bạn vẫn có thể khám phá nội dung công khai. Đăng nhập khi muốn mở dữ liệu thư viện của mình."
+          "text": "Đăng nhập để mở thư viện của bạn."
         },
         "en": {
-          "text": "You can still explore public stories. Sign in when you want to open your library data."
+          "text": "Sign in to open your library."
+        }
+      }
+    },
+    "theatre.auth.guest_info_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về chế độ nghe không đăng nhập"
+        },
+        "en": {
+          "text": "About listening without signing in"
+        }
+      }
+    },
+    "theatre.auth.guest_info": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập."
+        },
+        "en": {
+          "text": "You can still explore and listen to public content without signing in."
+        }
+      }
+    },
+    "theatre.auth.guest_register": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo tài khoản"
+        },
+        "en": {
+          "text": "Create account"
         }
       }
     },
