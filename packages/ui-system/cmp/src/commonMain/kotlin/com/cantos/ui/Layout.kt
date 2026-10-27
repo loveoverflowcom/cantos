@@ -51,7 +51,10 @@ fun Surface(
     androidx.compose.material3.Surface(modifier, color = tokenColor(role), contentColor = tokenColor(foreground),
         shape = shape) {
         val supportingRole = if (tone == SurfaceTone.PrimaryContainer) "color.onPrimaryContainer" else "color.onSurfaceVariant"
-        CompositionLocalProvider(LocalSupportingTextRole provides supportingRole) {
+        // Only the profile card is this scope: a nested or any other surface resets it.
+        val actionScope = if (tone == SurfaceTone.PrimaryContainer && variant == SurfaceVariant.Profile)
+            AuthActionScope.OnPrimaryContainer else AuthActionScope.Default
+        CompositionLocalProvider(LocalSupportingTextRole provides supportingRole, LocalAuthActionScope provides actionScope) {
             Box(Modifier.padding(inset.value())) {
                 if (tone == SurfaceTone.Reading) ProvideTextStyle(typeStyle("editor", editorial = true), content)
                 else content()
