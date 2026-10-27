@@ -879,6 +879,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         alias_of: None,
     },
     TokenRegistration {
+        name: "color.theatreHeroAccent",
+        css_variable: "--cantos-color-theatre-hero-accent",
+        kind: "color",
+        light: "#5e3906",
+        dark: "#d9b57d",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
         name: "color.theatreOnAccountControl",
         css_variable: "--cantos-color-theatre-on-account-control",
         kind: "color",

@@ -272,6 +272,7 @@ pub fn TheatreExpressionSamples(
                         </p>
                         <GuestRecipeSamples/>
                         <div class="cui-theatre-hero" data-preview-state="theatre-expression">
+                            <p class="cui-theatre-hero-eyebrow">{fixture::HERO_EYEBROW}</p>
                             <p class="cui-theatre-hero-title">{fixture::HERO_TITLE}</p>
                             <p>{fixture::HERO_SUBTITLE}</p>
                         </div>

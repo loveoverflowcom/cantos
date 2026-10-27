@@ -103,6 +103,7 @@ asserted by `scripts/test_ui_tokens.py`:
 | Pair | Light | Dark | Floor |
 | --- | --- | --- | --- |
 | `theatreOnHero` on `theatreHero` (`#1d0b28` on `#c6a0f5`) | 8.62 | 13.76 | 4.5 |
+| `theatreHeroAccent` on `theatreHero` (`#5e3906` on `#c6a0f5` / `#d9b57d` on `#352142`) | 4.72 | 7.50 | 4.5 |
 | `theatreOnPeach` on `theatrePeach` | 9.74 | 6.62 | 4.5 |
 | `theatreOnPink` on `theatrePink` | 8.60 | 8.28 | 4.5 |
 | `theatreOnPrimary` on `theatrePrimary` | 11.36 | 8.28 | 4.5 |

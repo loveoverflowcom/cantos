@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527
+// Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
 // by python3 scripts/ui_tokens.py. Do not edit.
 
 pub const VERSION: &str = "0.9.0";
@@ -46,6 +46,7 @@ pub enum Token {
     ColorTheatreBackground,
     ColorTheatreFocus,
     ColorTheatreHero,
+    ColorTheatreHeroAccent,
     ColorTheatreOnAccountControl,
     ColorTheatreOnHero,
     ColorTheatreOnPeach,
@@ -199,6 +200,7 @@ pub const ALL: &[Token] = &[
     Token::ColorTheatreBackground,
     Token::ColorTheatreFocus,
     Token::ColorTheatreHero,
+    Token::ColorTheatreHeroAccent,
     Token::ColorTheatreOnAccountControl,
     Token::ColorTheatreOnHero,
     Token::ColorTheatreOnPeach,
@@ -353,6 +355,7 @@ impl Token {
             Self::ColorTheatreBackground => "--cantos-color-theatre-background",
             Self::ColorTheatreFocus => "--cantos-color-theatre-focus",
             Self::ColorTheatreHero => "--cantos-color-theatre-hero",
+            Self::ColorTheatreHeroAccent => "--cantos-color-theatre-hero-accent",
             Self::ColorTheatreOnAccountControl => "--cantos-color-theatre-on-account-control",
             Self::ColorTheatreOnHero => "--cantos-color-theatre-on-hero",
             Self::ColorTheatreOnPeach => "--cantos-color-theatre-on-peach",
@@ -624,6 +627,10 @@ impl Token {
             Self::ColorTheatreHero => match theme {
                 crate::Theme::Dark => "#352142",
                 crate::Theme::Light | crate::Theme::System => "#c6a0f5",
+            },
+            Self::ColorTheatreHeroAccent => match theme {
+                crate::Theme::Dark => "#d9b57d",
+                crate::Theme::Light | crate::Theme::System => "#5e3906",
             },
             Self::ColorTheatreOnAccountControl => match theme {
                 crate::Theme::Dark => "#291332",

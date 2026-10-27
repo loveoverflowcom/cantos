@@ -479,6 +479,7 @@ pub mod theatre_fixture {
     pub const THEME_LIGHT_NEXT: &str = "chuyển sang theo hệ thống";
     pub const THEME_SYSTEM_MODE: &str = "Theo hệ thống";
     pub const THEME_SYSTEM_NEXT: &str = "chuyển sang tối";
+    pub const HERO_EYEBROW: &str = "VỌNG ĐÀI · NHỮNG MIỀN THANH ÂM";
     pub const HERO_TITLE: &str = "Mở một miền tưởng tượng.";
     pub const HERO_SUBTITLE: &str = "Tiểu thuyết, truyện kể và podcast cho mỗi ngày.";
 }

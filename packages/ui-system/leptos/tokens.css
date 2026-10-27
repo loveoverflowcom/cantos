@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527
+/* Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -42,6 +42,7 @@
   --cantos-color-theatre-background: #fff2e9;
   --cantos-color-theatre-focus: #6b3093;
   --cantos-color-theatre-hero: #c6a0f5;
+  --cantos-color-theatre-hero-accent: #5e3906;
   --cantos-color-theatre-on-account-control: #fff8ef;
   --cantos-color-theatre-on-hero: #1d0b28;
   --cantos-color-theatre-on-peach: #462b19;
@@ -192,6 +193,7 @@
     --cantos-color-theatre-background: #21112d;
     --cantos-color-theatre-focus: #e0b8fc;
     --cantos-color-theatre-hero: #352142;
+    --cantos-color-theatre-hero-accent: #d9b57d;
     --cantos-color-theatre-on-account-control: #291332;
     --cantos-color-theatre-on-hero: #fff8ef;
     --cantos-color-theatre-on-peach: #ffe0c5;
@@ -256,6 +258,7 @@
   --cantos-color-theatre-background: #fff2e9;
   --cantos-color-theatre-focus: #6b3093;
   --cantos-color-theatre-hero: #c6a0f5;
+  --cantos-color-theatre-hero-accent: #5e3906;
   --cantos-color-theatre-on-account-control: #fff8ef;
   --cantos-color-theatre-on-hero: #1d0b28;
   --cantos-color-theatre-on-peach: #462b19;
@@ -319,6 +322,7 @@
   --cantos-color-theatre-background: #21112d;
   --cantos-color-theatre-focus: #e0b8fc;
   --cantos-color-theatre-hero: #352142;
+  --cantos-color-theatre-hero-accent: #d9b57d;
   --cantos-color-theatre-on-account-control: #291332;
   --cantos-color-theatre-on-hero: #fff8ef;
   --cantos-color-theatre-on-peach: #ffe0c5;
