@@ -648,7 +648,6 @@ body { margin: 0; }
   inline-size: var(--cantos-size-control); min-block-size: var(--cantos-size-control);
   padding: 0; border: 0; border-radius: var(--cantos-shape-pill);
   background: transparent; color: inherit; font: inherit; cursor: pointer;
-  position: relative; z-index: 41;
 }
 .theatre-guest-info-trigger svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
 @media (hover: hover) {
@@ -667,7 +666,6 @@ body { margin: 0; }
   overflow-wrap: anywhere;
 }
 .theatre-guest-info-panel[hidden] { display: none; }
-.theatre-guest-info-scrim { position: fixed; inset: 0; z-index: 40; }
 .theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }
 /* Guest CTA pair (v4.2b), scoped to this card: sign-in is the card's own foreground (deep purple)
    with the card surface as its light text/icon; create-account is transparent with a solid
