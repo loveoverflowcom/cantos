@@ -1192,7 +1192,7 @@ THEATRE_SANDBOX_SOURCE = THEATRE_MOBILE / "preview-sandbox/src"
 # Production application hosts compose :shared only; their main sources obey the shared boundary.
 THEATRE_PRODUCTION_HOSTS = (":androidApp",)
 THEATRE_PACKAGE = ("com", "cantos", "theatre")
-THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo", "presentation"}
+THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo", "presentation", "components"}
 # Allowlisted layers may import only these namespaces. Features use the denylist in
 # theatre_dependency_error; adapters and app have only the production/sandbox boundary.
 THEATRE_INTERNAL_ALLOWED = {
@@ -1201,6 +1201,9 @@ THEATRE_INTERNAL_ALLOWED = {
     "application": ("domain", "ports", "application"),
     "demo": ("demo", "presentation.model"),
     "presentation": ("presentation",),
+    # Leaf presentation shared by features, which may not import each other: no feature, app,
+    # adapter, port, application or domain dependency, only neutral models and the UI system.
+    "components": ("components", "presentation.model"),
 }
 THEATRE_EXTERNAL_ALLOWED = {
     "domain": ("kotlin",),
@@ -1208,6 +1211,7 @@ THEATRE_EXTERNAL_ALLOWED = {
     "application": ("kotlin", "kotlinx.coroutines"),
     "demo": ("kotlin",),
     "presentation": ("kotlin",),
+    "components": ("kotlin", "androidx.compose", "com.cantos.ui"),
 }
 THEATRE_FEATURE_FORBIDDEN = ("app", "adapters", "ports")
 THEATRE_COMMON_FORBIDDEN_ROOTS = {"android", "platform", "java", "javax"}
