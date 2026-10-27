@@ -264,6 +264,12 @@ links need both the explicit `local-development` build feature and
 creates or migrates a database and refuses a missing, foreign, corrupt or older-schema file without
 touching it. Configuration is entirely environment variables, each required value explicit:
 
+`cantos-identity check` requires only `CANTOS_IDENTITY_DATABASE`: with the owner stopped, it checks
+the existing registry, initialized instance epoch and pinned-engine integrity/foreign keys.
+It never migrates, initializes security state, starts a socket or configures/delivers mail. This
+is a cold recovery prerequisite in the [existing-host migration lane](../../docs/deployment/native-existing-host-migration.md),
+not authentication or restore-epoch-rotation acceptance.
+
 | Variable | Meaning |
 | --- | --- |
 | `CANTOS_IDENTITY_DATABASE` | absolute path of the database file (its directory must be private to the owner) |

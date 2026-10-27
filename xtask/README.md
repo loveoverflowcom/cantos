@@ -213,6 +213,19 @@ owns exact request/current-state pins, qualification requirements, cold backup, 
 crash refusal and explicit image-only rollback. Model/mock/file-only tests cannot admit images.
 Build, verify, preflight and CI never execute host activation. `deploy vps` remains retired.
 
+`cargo xtask release native-adopt --request PATH --request-digest SHA256` is the separate
+[existing-layout v23-to-v24 adoption lane](../docs/deployment/native-existing-host-migration.md).
+It defaults to offline validation; `--execute` requires `--approval PATH --approval-digest SHA256`.
+Explicit `--recover-attempt attempt-HEX` restores a cold pair only before service-start intent;
+after any possible accepted writes it refuses and requires forward recovery. It never creates
+an old release admission, changes proxy/data paths or bootstraps a runtime.
+
+`cargo xtask release native-rehearse --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
+--configuration-digest SHA256 --platform P --baseline PATH --baseline-digest SHA256 --output FRESH_DIR
+[--authfile PATH]` runs the old and new exact pairs on disposable native Linux with synthetic
+data. It writes a separate historical upgrade/restore report; it never changes the four
+current-schema qualification records or supplies operator admission/live acceptance.
+
 ### Offline Hosting rollout report
 
 `cargo xtask hosting-report --record PATH [--dry-run]` reads a strict local version-1

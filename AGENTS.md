@@ -305,6 +305,14 @@ never establish live VPS or exact-image qualification. Preserve legacy runtime/p
 acceptance and separately authorized cutover; missing inventory is `UNKNOWN`, never permission
 to bootstrap. Build/publish, inventory, activation, restore and cleanup are separate scopes.
 
+The separate `release native-adopt` lane supports only the reviewed existing
+[`/root/cantos-native` v23-to-v24 profile](docs/deployment/native-existing-host-migration.md).
+It preserves the declared paths/proxy policy, requires exact historical two-image rehearsal and
+separate operator adoption approval, retains complete cold native pairs and refuses restore
+after a start intent. `release native-rehearse` is the disposable Linux synthetic upgrade/restore
+primitive in the manual OCI workflow; its report is independent of current-schema qualification,
+producer admission, generation state and live readiness. No production operation is implicit.
+
 A service is a runnable process or independently managed infrastructure, not necessarily a Rust
 crate. Keep deployment/runtime assets under [infra/](infra/README.md), separate from application
 code and `xtask` orchestration; the [layout](docs/architecture/repository-layout.md) distinguishes

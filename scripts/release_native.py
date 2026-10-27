@@ -145,7 +145,7 @@ def unit_image(data, old_ref, new_ref):
                    for line in text.splitlines(keepends=True)).encode()
 
 
-def environment_files(data):
+def environment_files(data, *, root='/etc/cantos/'):
     """Parse assignment whitespace; refuse optional/continued/specifier/multiple-file forms."""
     result = []
     for line in data.decode().splitlines():
@@ -158,7 +158,7 @@ def environment_files(data):
         key,value=line.split('=',1)
         if key.strip() == 'EnvironmentFile':
             value=value.strip()
-            contract.require(re.fullmatch(r'/etc/cantos/[A-Za-z0-9_./-]+',value) and
+            contract.require(value.startswith(root) and re.fullmatch(r'/[A-Za-z0-9_./-]+',value) and
                              '..' not in PurePosixPath(value).parts and str(PurePosixPath(value)) == value,
                              'unsupported environment file directive')
             result.append(value)
@@ -180,7 +180,7 @@ def effective_environment_files(value, bound):
     return result
 
 
-def validate_mount_plan(request, service):
+def validate_mount_plan(request, service, *, media_root='/var/lib/cantos/media/', exact_media_root=None):
     mounts = request['mounts'][service]
     contract.require(isinstance(mounts, list) and 2 <= len(mounts) <= 16, 'bounded complete mount inventory required')
     destinations = []
@@ -196,16 +196,16 @@ def validate_mount_plan(request, service):
         contract.require(all(p != other and p not in other.parents and other not in p.parents for other in destinations), 'mount destinations overlap')
         destinations.append(p);sources.append(source)
         contract.require(source in [request['databases'][service], request['socket_directory'], *request['configuration_files']] or
-                         (service == 'cantos-server' and source.startswith('/var/lib/cantos/media/')), 'unbound mount or foreign database')
+                         (service == 'cantos-server' and (source == exact_media_root or source.startswith(media_root))), 'unbound mount or foreign database')
     db = [m for m in mounts if m['source'] == request['databases'][service]]
     contract.require(len(db) == 1 and not db[0]['read_only'] and sources.count(request['socket_directory']) == 1,
                      'exact writable database and socket mount required')
     return db[0]['destination']+('/server.db' if service == 'cantos-server' else '/identity.db')
 
 
-def check_container(request, service, container, images):
+def check_container(request, service, container, images, *, peer_policy='direct_peer', media_root='/var/lib/cantos/media/', exact_media_root=None):
     uid = 10001 if service == 'cantos-server' else 10002
-    expected_db = validate_mount_plan(request, service)
+    expected_db = validate_mount_plan(request, service, media_root=media_root, exact_media_root=exact_media_root)
     expected = sorted((m['source'],m['destination'],m['read_only']) for m in request['mounts'][service])
     actual = []
     for mount in container['Mounts']:
@@ -228,7 +228,7 @@ def check_container(request, service, container, images):
         return values[0]
     contract.require(value('CANTOS_IDENTITY_SOCKET') == expected_socket, 'native socket path mismatch')
     if service == 'cantos-server':
-        contract.require(value('CANTOS_IDENTITY_PEER_UID') == '10002' and value('CANTOS_IDENTITY_PEER_POLICY') == 'direct_peer', 'native peer policy mismatch')
+        contract.require(value('CANTOS_IDENTITY_PEER_UID') == '10002' and value('CANTOS_IDENTITY_PEER_POLICY') == peer_policy, 'native peer policy mismatch')
     else:
         contract.require(value('CANTOS_IDENTITY_SERVER_UIDS') == '10001' and value('CANTOS_IDENTITY_SOCKET_MODE') == '0660', 'native caller/socket policy mismatch')
 
@@ -327,6 +327,12 @@ def no_open_database_files(databases, proc=Path('/proc'), owner_uids=()):
 
 class System:
     """Rootful existing-host adapter; bounded commands, no login/downloaded helper or shell."""
+    state = STATE
+    configuration_root = '/etc/cantos/'
+
+    def check_container(self, request, service, container, images):
+        check_container(request, service, container, images)
+
     def command(self, argv):
         env = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'HOME': '/root', 'LANG': 'C'}
         if argv[0] == 'podman':
@@ -345,7 +351,7 @@ class System:
         source = self.command(['systemctl', 'show', '--property=SourcePath', '--value', service+'.service']).decode().strip()
         dropins = self.command(['systemctl', 'show', '--property=DropInPaths', '--value', service+'.service']).strip()
         contract.require(source == str(unit) and not dropins, 'foreign service or systemd drop-ins refused')
-        dependencies = environment_files(unit.read_bytes())
+        dependencies = environment_files(unit.read_bytes(), root=self.configuration_root)
         contract.require(all(name in request['configuration_files'] for name in dependencies),
                          'every runtime environment file must be bound')
         # Quadlet's own drop-ins do not necessarily appear in systemd DropInPaths.
@@ -371,7 +377,7 @@ class System:
             unit_image(unit.read_bytes(), old['images'][service]['ref'], old['images'][service]['ref'])
             c = self.inspect(service)
             contract.require(c['State']['Running'], 'current container must be running')
-            check_container(request, service, c, [old['images'][service]])
+            self.check_container(request, service, c, [old['images'][service]])
             db = Path(request['databases'][service]); meta = db.lstat()
             contract.require(db == db.resolve() and stat.S_ISDIR(meta.st_mode) and meta.st_uid == uid and
                              meta.st_gid == uid and not meta.st_mode & 0o007, 'database ownership mismatch')
@@ -395,8 +401,8 @@ class System:
                     contract.require(all(source != Path(db) and source not in Path(db).parents and Path(db) not in source.parents
                                          for db in request['databases'].values()), 'another container owns a database bind')
         sizes = [p.stat().st_size for service in SERVICES for p in Path(request['databases'][service]).rglob('*') if p.is_file()]
-        capacity = os.statvfs(STATE)
-        contract.require(shutil.disk_usage(STATE).free >= sum(sizes)*2+64*1024**2 and
+        capacity = os.statvfs(self.state)
+        contract.require(shutil.disk_usage(self.state).free >= sum(sizes)*2+64*1024**2 and
                          capacity.f_favail >= len(sizes)+100, 'insufficient backup capacity/inodes')
 
     def recovery_host(self, request, old, new):
@@ -408,7 +414,7 @@ class System:
             running = json.loads(self.command(['podman', 'ps', '--format', 'json', '--filter', 'name=^'+service+'$']))
             if running:
                 c = self.inspect(service)
-                check_container(request, service, c, [old['images'][service], new['images'][service]])
+                self.check_container(request, service, c, [old['images'][service], new['images'][service]])
         for service, uid in zip(SERVICES, (10001, 10002)):
             p = Path(request['databases'][service]); meta = p.lstat()
             contract.require(p == p.resolve() and meta.st_uid == uid and stat.S_ISDIR(meta.st_mode) and
@@ -439,7 +445,7 @@ class System:
         for service in SERVICES:
             c = self.inspect(service)
             contract.require(c['State']['Running'], 'started service must be running')
-            check_container(request, service, c, [release['images'][service]])
+            self.check_container(request, service, c, [release['images'][service]])
         socket=Path(request['socket_directory'])/'identity.sock'; meta=socket.lstat()
         contract.require(stat.S_ISSOCK(meta.st_mode) and meta.st_uid == 10002 and meta.st_gid == 10001 and
                          stat.S_IMODE(meta.st_mode) == 0o660, 'started socket ownership mismatch')

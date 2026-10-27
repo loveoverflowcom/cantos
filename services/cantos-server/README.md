@@ -38,6 +38,8 @@ verifier and fails closed; no config flag grants it authority.
 ## Current schema and explicit cutover
 
 `CANTOS_SERVER_DATABASE` names the local Turso file. `cantos-migrate` explicitly creates/upgrades;
+its `--check` mode verifies the existing registry and engine integrity/foreign keys without
+migration. Both owners must be stopped for the [paired recovery procedure](../../docs/deployment/native-existing-host-migration.md).
 serve refuses missing, foreign or unmigrated files. `cantos-operator` requires the Server stopped
 because it shares the exclusive file owner. See the [porting guide](../../docs/architecture/server-turso-porting.md#checkpoint-boundary).
 Retained [PG schema](schema/README.md), checksums and old cutover records are migration oracles,

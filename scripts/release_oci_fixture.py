@@ -158,6 +158,7 @@ class Journey:
         self.http("DELETE", web, 403, headers={"Cookie": browser["Cookie"]})
         self.http("DELETE", web, 204, headers=browser)
         self.http("GET", web, 401, headers=browser)
+        self.revoked_browser = browser
         old = self.pair
         self.pair, _ = self.http("POST", self.base + "refresh", 200,
                                 {k: old[k] for k in ("refresh_token", "session_id")})
@@ -174,6 +175,11 @@ class Journey:
         logged_in, _ = self.http("POST", self.base + "login", 200, self.login)
         check(logged_in["actor_id"] == self.pair["actor_id"], "restored-identity-password")
         return ["persisted-session-and-actor", "persisted-argon2-password"]
+
+    def historical_state(self):
+        checks = self.persisted()
+        self.http("GET", "/api/v1/theatre/identity/session", 401, headers=self.revoked_browser)
+        return checks + ["pre-cut-revoked-web-session-remains-denied"]
 
     def revoke(self):
         self.http("POST", self.base + "revoke", 204,
@@ -204,7 +210,7 @@ def main():
             action = request["action"]
             if action == "isolation":
                 checks = journey.isolation(request["host_port"])
-            elif action in ("health", "signup", "persisted", "revoke", "unavailable", "denied_peer"):
+            elif action in ("health", "signup", "persisted", "historical_state", "revoke", "unavailable", "denied_peer"):
                 checks = getattr(journey, action)()
             elif action == "revoked":
                 journey.session(401)

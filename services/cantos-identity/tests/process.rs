@@ -20,6 +20,48 @@ use tonic::{transport::Channel, Code, Request};
 const PASSWORD: &str = "chosen by the mailbox owner";
 const OWNER: &str = "owner@example.com";
 
+#[tokio::test]
+async fn explicit_check_refuses_missing_or_owned_data_and_never_migrates_or_opens_a_socket() {
+    use cantos_identity::{
+        config::MigrateConfig,
+        server::{run_check, run_migrate, RunError},
+    };
+    let run = RunDir::new();
+    let config = MigrateConfig {
+        database: run.path("identity.db"),
+    };
+    assert_eq!(run_check(&config).await, Err(RunError::Database));
+    assert!(!config.database.exists());
+    run_migrate(&config).await.unwrap();
+    run_check(&config).await.unwrap();
+    let owner = cantos_identity::persistence::IdentityStore::open(
+        &config.database,
+        cantos_store_turso::registry::Intent::Serve,
+        std::sync::Arc::new(cantos_store_turso::clock::SystemClock),
+    )
+    .await
+    .unwrap();
+    assert_eq!(run_check(&config).await, Err(RunError::Database));
+    drop(owner);
+    run_check(&config).await.unwrap();
+    assert!(!run.path("identity.sock").exists());
+    // Exercise CLI routing with a cleared environment: check needs only a database, never
+    // live mail/provider configuration. Its only possible credential source is the fixture.
+    let output = tokio::process::Command::new(support::binary())
+        .arg("check")
+        .env_clear()
+        .env("CANTOS_IDENTITY_DATABASE", &config.database)
+        .output()
+        .await
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stdout.is_empty());
+}
+
 fn ctx(ip: &str) -> Option<ClientContext> {
     Some(ClientContext {
         client_ip: ip.to_owned(),

@@ -1185,3 +1185,6 @@ async fn development_session_rows_are_well_formed_bound_and_never_resurrect_or_d
 
 #[path = "business_tests.rs"]
 mod business;
+
+#[path = "../../test_support/historical_migration.rs"]
+mod historical;

@@ -1,7 +1,7 @@
 use cantos_server::platform::turso::{registry, SERVER_EPOCH};
 use cantos_server::store::Store;
-use cantos_store_turso::registry::Intent;
-use std::env;
+use cantos_store_turso::{clock::SystemClock, registry::Intent, OpenRequest, OwnedDatabase};
+use std::{env, sync::Arc};
 
 /// Creates or upgrades `server.db` (the explicit operator action) or, with `--check`, verifies it
 /// read-only exactly as the serving process does. The Server never migrates at startup.
@@ -21,7 +21,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "invalid server schema registry")?
         .latest();
     if check_only {
-        Store::open(&path, Intent::Serve).await?;
+        let owner = OwnedDatabase::open(OpenRequest::new(
+            &path,
+            registry()?,
+            Intent::Serve,
+            Arc::new(SystemClock),
+        ))
+        .await?;
+        owner.check_integrity().await?;
         println!("server.db epoch {SERVER_EPOCH}, version {versions}: registry and checksums verified (read-only)");
     } else {
         Store::open(&path, Intent::Migrate).await?;

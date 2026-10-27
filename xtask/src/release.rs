@@ -189,6 +189,44 @@ pub enum Action {
         #[arg(long)]
         rollback_attempt: Option<String>,
     },
+    /// Explicit reviewed existing-layout v23 -> v24 adoption. Offline by default; execution
+    /// requires separate pinned operator approval. Never connects to a remote host.
+    NativeAdopt {
+        #[arg(long)]
+        request: PathBuf,
+        #[arg(long)]
+        request_digest: String,
+        #[arg(long, requires_all = ["approval", "approval_digest"])]
+        execute: bool,
+        #[arg(long)]
+        approval: Option<PathBuf>,
+        #[arg(long)]
+        approval_digest: Option<String>,
+        #[arg(long)]
+        recover_attempt: Option<String>,
+    },
+    /// Historical upgrade and pair restore on disposable Linux using synthetic data and exact
+    /// old/new images. Separate from the four current-schema OCI qualification records.
+    NativeRehearse {
+        #[arg(long)]
+        manifest: PathBuf,
+        #[arg(long)]
+        manifest_digest: String,
+        #[arg(long)]
+        source_sha: String,
+        #[arg(long)]
+        configuration_digest: String,
+        #[arg(long)]
+        platform: String,
+        #[arg(long)]
+        authfile: Option<PathBuf>,
+        #[arg(long)]
+        output: PathBuf,
+        #[arg(long)]
+        baseline: PathBuf,
+        #[arg(long)]
+        baseline_digest: String,
+    },
     /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
     /// it to GHCR and write an unadmitted candidate. Never activates a host or marks it eligible.
     OciBuild {
@@ -261,6 +299,35 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         }
         return command;
     }
+    if let Action::NativeAdopt {
+        request,
+        request_digest,
+        execute,
+        approval,
+        approval_digest,
+        recover_attempt,
+    } = action
+    {
+        let mut command = command
+            .args([
+                "scripts/release_native_migration.py".into(),
+                "--request".into(),
+                request.display().to_string(),
+                "--request-digest".into(),
+                request_digest.clone(),
+            ])
+            .arg_if(*execute, "--execute");
+        if let Some(path) = approval {
+            command = command.args(["--approval".into(), path.display().to_string()]);
+        }
+        if let Some(digest) = approval_digest {
+            command = command.args(["--approval-digest", digest]);
+        }
+        if let Some(attempt) = recover_attempt {
+            command = command.args(["--recover-attempt", attempt]);
+        }
+        return command;
+    }
     if let Action::OciQualify {
         manifest,
         manifest_digest,
@@ -269,10 +336,25 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         platform,
         authfile,
         output,
+    }
+    | Action::NativeRehearse {
+        manifest,
+        manifest_digest,
+        source_sha,
+        configuration_digest,
+        platform,
+        authfile,
+        output,
+        ..
     } = action
     {
-        let command = command.args([
-            "scripts/release_oci_qualify.py".into(),
+        let script = if matches!(action, Action::NativeRehearse { .. }) {
+            "scripts/release_native_rehearsal.py"
+        } else {
+            "scripts/release_oci_qualify.py"
+        };
+        let mut command = command.args([
+            script.into(),
             "--manifest".into(),
             manifest.display().to_string(),
             "--manifest-digest".into(),
@@ -286,6 +368,19 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             "--output".into(),
             output.display().to_string(),
         ]);
+        if let Action::NativeRehearse {
+            baseline,
+            baseline_digest,
+            ..
+        } = action
+        {
+            command = command.args([
+                "--baseline".into(),
+                baseline.display().to_string(),
+                "--baseline-digest".into(),
+                baseline_digest.clone(),
+            ]);
+        }
         return match authfile {
             Some(path) => command.args(["--authfile".into(), path.display().to_string()]),
             None => command,
@@ -439,6 +534,8 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         | Action::OciVerify { .. }
         | Action::OciBuild { .. }
         | Action::OciQualify { .. }
+        | Action::NativeAdopt { .. }
+        | Action::NativeRehearse { .. }
         | Action::NativeUpgrade { .. } => {
             unreachable!("handled above")
         }
@@ -855,5 +952,101 @@ mod tests {
         let checkout =
             Cli::try_parse_from(["xtask", "release", "checkout", "--transfer", "t"]).unwrap();
         assert_eq!(checkout.command.retirement(), None);
+    }
+
+    #[test]
+    fn native_adoption_execution_requires_distinct_approval_and_never_enters_legacy_deploy() {
+        let base = [
+            "xtask",
+            "release",
+            "native-adopt",
+            "--request",
+            "request.json",
+            "--request-digest",
+            "digest",
+        ];
+        assert!(Cli::try_parse_from(base).is_ok());
+        assert!(Cli::try_parse_from(base.into_iter().chain(["--execute"])).is_err());
+        assert!(Cli::try_parse_from(base.into_iter().chain([
+            "--execute",
+            "--approval",
+            "approval.json"
+        ]))
+        .is_err());
+        assert!(Cli::try_parse_from(base.into_iter().chain([
+            "--execute",
+            "--approval",
+            "approval.json",
+            "--approval-digest",
+            "approval-digest",
+            "--recover-attempt",
+            "attempt-abc",
+        ]))
+        .is_ok());
+        let action = Action::NativeAdopt {
+            request: "request.json".into(),
+            request_digest: "digest".into(),
+            execute: false,
+            approval: None,
+            approval_digest: None,
+            recover_attempt: None,
+        };
+        let cmd = command(&Workspace::discover().unwrap(), &action);
+        assert_eq!(
+            cmd.args,
+            [
+                "scripts/release_native_migration.py",
+                "--request",
+                "request.json",
+                "--request-digest",
+                "digest"
+            ]
+        );
+        assert!(!cmd.args.iter().any(|argument| argument == "--execute"));
+    }
+
+    #[test]
+    fn historical_rehearsal_requires_baseline_pins_and_has_no_activation_switch() {
+        let base = [
+            "xtask",
+            "release",
+            "native-rehearse",
+            "--manifest",
+            "manifest.json",
+            "--manifest-digest",
+            "digest",
+            "--source-sha",
+            "source",
+            "--configuration-digest",
+            "configuration",
+            "--platform",
+            "linux/amd64",
+            "--output",
+            "out",
+            "--baseline",
+            "old.json",
+            "--baseline-digest",
+            "old-digest",
+        ];
+        assert!(Cli::try_parse_from(base).is_ok());
+        assert!(Cli::try_parse_from(&base[..15]).is_err());
+        assert!(Cli::try_parse_from(base.into_iter().chain(["--execute"])).is_err());
+        let action = Action::NativeRehearse {
+            manifest: "manifest.json".into(),
+            manifest_digest: "digest".into(),
+            source_sha: "source".into(),
+            configuration_digest: "configuration".into(),
+            platform: "linux/amd64".into(),
+            authfile: None,
+            output: "out".into(),
+            baseline: "old.json".into(),
+            baseline_digest: "old-digest".into(),
+        };
+        let cmd = command(&Workspace::discover().unwrap(), &action);
+        assert_eq!(cmd.args[0], "scripts/release_native_rehearsal.py");
+        assert!(cmd
+            .args
+            .windows(4)
+            .any(|values| values == ["--baseline", "old.json", "--baseline-digest", "old-digest"]));
     }
 }
