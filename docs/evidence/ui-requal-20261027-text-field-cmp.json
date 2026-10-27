@@ -1,0 +1,31 @@
+{
+  "component_id": "text-field",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Claude Sonnet 5.5 (single automated agent session, no independent second reviewer); inspected current Leptos gallery and CMP captures 27 October 2026",
+  "reference": "Current canonical token/component contracts and the opened Leptos gallery and CMP capture set in docs/evidence/ui-requalification-20261027.md; v3/v4 boards not re-opened; bounded Web Chromium / JVM scope only, not device/AT/IME/production or design-pixel fidelity.",
+  "tokens_sha256": "c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527",
+  "source_sha256": "672a4cd2f67a26a4f0201859e4b1b98bbe10fccde0a7e42e000dcbbcfcd22d02",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; PASS 289 tests / 48 suites, zero failures/errors/skips",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; production composables, keyboard/pointer actions and callbacks on the JVM root",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview cmp verify; Compose semantics assertions; no device/AT/OS-window acceptance",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened representative cmp-preview captures per component (light/dark, 200% text, 320-840 wide); list in the report",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    }
+  }
+}

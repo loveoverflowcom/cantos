@@ -1,0 +1,31 @@
+{
+  "component_id": "nav-item",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Claude Sonnet 5.5 (single automated agent session, no independent second reviewer); inspected current Leptos gallery and CMP captures 27 October 2026",
+  "reference": "Current canonical token/component contracts and the opened Leptos gallery and CMP capture set in docs/evidence/ui-requalification-20261027.md; v3/v4 boards not re-opened; bounded Web Chromium / JVM scope only, not device/AT/IME/production or design-pixel fidelity.",
+  "tokens_sha256": "c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527",
+  "source_sha256": "4caa86f3d6bfd45fcae29dd9516a7e9bcd4f6e6ce951c5d471e44a3dc5e1827a",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 cargo xtask ui-preview leptos verify; PASS (package tests, WASM clippy, Trunk build)",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; real browser typing/click/Escape and DOM checks recorded in the report",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; DOM names, labels, aria-current/aria-hidden/role=status audit and dialog focus restore recorded in the report; not a screen-reader walkthrough",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened gallery sections in light 1000px and dark/200%/frame 320/reduced-motion; scope per component in the report",
+      "artifact": "docs/evidence/ui-requalification-20261027.md"
+    }
+  }
+}
