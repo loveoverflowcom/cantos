@@ -115,6 +115,10 @@ class Health(unittest.TestCase):
         request = adoption_request() | {'health_url': value}
         self.assertEqual(migration.decide(request, *releases(),  request['observed_at'])['activation'], 'NOT_RUN')
         self.assertEqual(adapter.bridge_url(value, container(), network()), 'http://10.42.0.15:8080'+adapter.HEALTH_PATH)
+        legacy = container(); legacy['NetworkSettings']['Networks']['fixture-net']['NetworkID'] = 'fixture-net'
+        self.assertEqual(adapter.bridge_url(value, legacy, network()), 'http://10.42.0.15:8080'+adapter.HEALTH_PATH)
+        with self.assertRaisesRegex(ValueError, 'network identity'):
+            adapter.bridge_url(value, legacy, network() | {'id': 'c'*64})
         changed = container(); changed['NetworkSettings']['Networks']['fixture-net']['IPAddress'] = '10.42.0.20'
         self.assertEqual(adapter.bridge_url(value, changed, network()), 'http://10.42.0.20:8080'+adapter.HEALTH_PATH)
         for patch in [{'address': '10.42.0.99'}, {'port': 80}, {'port': True}, {'path': '/admin'},
@@ -141,7 +145,9 @@ class Health(unittest.TestCase):
         mutations = [lambda c: c['HostConfig'].update(NetworkMode='host'),
                      lambda c: c['HostConfig'].update(PortBindings={'8080/tcp': [{'HostPort': '8080'}]}),
                      lambda c: c['NetworkSettings']['Networks'].update(foreign={}),
+                     lambda c: c['NetworkSettings']['Networks']['fixture-net'].update(NetworkID='foreign-name'),
                      lambda c: c['NetworkSettings']['Networks']['fixture-net'].update(NetworkID='c'*64),
+                     lambda c: c['NetworkSettings']['Networks']['fixture-net'].update(Gateway=''),
                      lambda c: c['NetworkSettings']['Networks']['fixture-net'].update(IPPrefixLen=16)]
         for mutate in mutations:
             c = container(); mutate(c); reads = []

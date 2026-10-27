@@ -100,9 +100,12 @@ def bridge_url(value, container, network):
     subnet = ipaddress.ip_network(value['subnet'])
     address = ipaddress.ip_address(endpoint['IPAddress'])
     gateway = ipaddress.ip_address(subnets[0]['gateway'])
-    require(endpoint.get('NetworkID') == value['network_id'] and
-                     endpoint.get('IPPrefixLen') == subnet.prefixlen and endpoint.get('Gateway') == str(gateway) and
-                     address in subnet and gateway in subnet and
+    # Podman 4's endpoint NetworkID is the exact network name; newer versions use the ID.
+    # The separate network inspection above always requires the approved real 64-hex ID.
+    require(endpoint.get('NetworkID') in (value['network_id'], value['network']), 'container bridge network mismatch')
+    require(endpoint.get('IPPrefixLen') == subnet.prefixlen, 'container bridge prefix mismatch')
+    require(endpoint.get('Gateway') == str(gateway), 'container bridge gateway mismatch')
+    require(address in subnet and gateway in subnet and
                      address not in (subnet.network_address, subnet.broadcast_address, gateway) and
                      gateway not in (subnet.network_address, subnet.broadcast_address), 'container bridge address mismatch')
     return f'http://{address}:8080{HEALTH_PATH}'

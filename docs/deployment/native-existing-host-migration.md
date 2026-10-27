@@ -129,6 +129,10 @@ address. It derives the address anew after restart, never pins an ephemeral IP o
 to an arbitrary host. It verifies container/process/network identity again after the bounded
 HTTP 200. Readiness is also checked before PREPARE/pulls/stops. No port, ingress, DNS, interface,
 firewall or peer policy is changed. The independent same-schema lane remains loopback-only.
+Podman 4 reports the endpoint's `NetworkID` as its exact network name; newer releases report the
+64-hex ID. Both representations still require the separate network inspection's real approved
+ID and exact name, sole endpoint map, bridge driver and subnet. An arbitrary endpoint name or
+an otherwise matching name whose real network ID changed refuses.
 
 Podman may report Server `Args` either as `[]` or as the one executable already in `Path` and
 `Config.Entrypoint`. Adoption accepts only those two metadata forms with an empty/null Cmd,
