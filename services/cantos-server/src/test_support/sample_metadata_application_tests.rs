@@ -641,6 +641,29 @@ client = seed.Studio('http://127.0.0.1:' + os.environ['LOCAL_PORT'], 'https://st
 for _ in range(2):
     result = seed.seed(client, 'alice', raw, works, 'synthetic fixture source', 'synthetic owner statement')
     assert (result['works'], result['units']) == (6, 12)
+assert client.call('GET', '/api/v1/theatre/works?presentation=2')['items'] == []
+cursor, seen = None, set()
+while True:
+    path = '/api/v1/theatre/works?presentation=3&limit=1' + (('&cursor=' + cursor) if cursor else '')
+    page = client.call('GET', path)
+    assert len(page['items']) == 1
+    work_id = page['items'][0]['work_id']
+    assert work_id not in seen
+    seen.add(work_id)
+    unit_cursor, units = None, set()
+    while True:
+        path = '/api/v1/theatre/works/' + work_id + '/units?presentation=3&limit=1' + (('&cursor=' + unit_cursor) if unit_cursor else '')
+        unit_page = client.call('GET', path)
+        assert len(unit_page['items']) == 1
+        unit = unit_page['items'][0]
+        assert unit['unit_id'] not in units and unit['playback'] is None
+        units.add(unit['unit_id'])
+        unit_cursor = unit_page['next_cursor']
+        if unit_cursor is None: break
+    assert len(units) == 2
+    cursor = page['next_cursor']
+    if cursor is None: break
+assert seen == set(seed.WORKS.values())
 "#;
     let result = tokio::task::spawn_blocking(move || {
         std::process::Command::new("python3")
