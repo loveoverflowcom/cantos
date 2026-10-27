@@ -14,6 +14,24 @@ use crate::contexts::editorial::{
 };
 use crate::platform::store::{authenticate, normalized_uuid, Store, StoreError};
 
+/// Record the verified input in the caller's transaction. The caller owns verification and
+/// authority; this is not a route and must never replace an existing source.
+pub(crate) async fn record_pinned_sample_source(
+    tx: &crate::platform::store::Tx<'_>,
+    owner: &str,
+    id: &str,
+    reference: &str,
+    bytes: &[u8],
+) -> Result<(), StoreError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| StoreError::InvalidRequest)?;
+    if turso::source_bytes(tx, owner, id).await?.is_some() {
+        return Err(StoreError::InvalidRequest);
+    }
+    let checksum = sha256_hex(bytes);
+    ensure_evidence(tx, owner, EvidenceKind::Source, id, reference).await?;
+    turso::insert_text_source(tx, owner, id, reference, text, &checksum).await
+}
+
 impl Store {
     /// The stopped-file operator has validated these bounded text inputs. No HTTP route calls
     /// this capability; the owning contexts still coordinate evidence and source atomically.

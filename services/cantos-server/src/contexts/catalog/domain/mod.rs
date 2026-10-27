@@ -9,6 +9,7 @@ pub mod metadata_disclosure;
 mod patch;
 mod reorder;
 mod revision;
+pub mod sample_seed_request;
 mod unit;
 mod work;
 

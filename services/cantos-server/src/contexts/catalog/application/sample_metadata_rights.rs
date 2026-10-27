@@ -32,6 +32,41 @@ fn rights_id(op: &str) -> String {
     format!("sample_metadata_{}", op.replace('-', ""))
 }
 
+/// Write an explicit operator attestation for the sample principal; no Studio session is implied.
+pub(super) async fn record_seed_attestation(
+    tx: &Tx<'_>,
+    owner: &str,
+    operation: &str,
+    source_id: &str,
+    evidence_reference: &str,
+    rights_statement: &str,
+) -> Result<String, StoreError> {
+    let operation = normalized_uuid(operation)?;
+    if !valid_text(evidence_reference) || !valid_text(rights_statement) {
+        return Err(StoreError::InvalidRequest);
+    }
+    let id = rights_id(&operation);
+    let claim = Claim {
+        version: "sample-metadata-rights-v1".into(),
+        operation_id: operation,
+        source_id: source_id.into(),
+        source_sha256: APPROVED_SAMPLE_SOURCE_SHA256.into(),
+        evidence_reference: evidence_reference.into(),
+        rights_statement: rights_statement.into(),
+        confirm_metadata_rights: true,
+        confirm_source: true,
+    };
+    let description = serde_json::to_string(&claim).map_err(|_| StoreError::CorruptRevision)?;
+    if editorial::evidence_description(tx, owner, "rights", &id)
+        .await?
+        .is_some()
+    {
+        return Err(StoreError::InvalidRequest);
+    }
+    editorial::register_evidence(tx, owner, EvidenceKind::Rights, &id, &description).await?;
+    Ok(id)
+}
+
 /// A generic rights evidence row is insufficient; require this claim's exact source binding.
 pub(super) async fn bound(
     tx: &Tx<'_>,

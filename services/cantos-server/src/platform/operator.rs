@@ -10,6 +10,50 @@ use crate::platform::{
     store::{token_hash, Store, StoreError},
 };
 
+pub(crate) const SAMPLE_SEED_ACTOR: &str = "cantos_sample_seed_v1";
+
+/// Reserve the fixed sample actor only when its ID is genuinely unused. This helper is called
+/// only by a stopped-database operator transaction; it cannot adopt a pre-existing actor.
+pub(crate) async fn sample_seed_principal(
+    tx: &crate::platform::store::Tx<'_>,
+    create: bool,
+    source_sha256: &str,
+) -> Result<bool, StoreError> {
+    let marker = tx
+        .query_opt(
+            "SELECT source_sha256 FROM sample_seed_principals WHERE actor_id=?1",
+            &[&SAMPLE_SEED_ACTOR],
+        )
+        .await?;
+    let actor = tx
+        .query_opt(
+            "SELECT active FROM actors WHERE id=?1",
+            &[&SAMPLE_SEED_ACTOR],
+        )
+        .await?;
+    match (marker, actor) {
+        (None, None) if create => {
+            tx.execute("INSERT INTO actors(id) VALUES(?1)", &[&SAMPLE_SEED_ACTOR])
+                .await?;
+            tx.execute(
+                "INSERT INTO sample_seed_principals(actor_id,source_sha256) VALUES(?1,?2)",
+                &[&SAMPLE_SEED_ACTOR, &source_sha256],
+            )
+            .await?;
+            Ok(true)
+        }
+        (Some(marker), Some(actor)) => {
+            let digest: String = marker.try_get("source_sha256")?;
+            let active: i64 = actor.try_get("active")?;
+            if digest != source_sha256 || (create && active != 1) {
+                return Err(StoreError::InvalidRequest);
+            }
+            Ok(false)
+        }
+        _ => Err(StoreError::InvalidRequest),
+    }
+}
+
 fn valid_id(id: &str) -> bool {
     (1..=64).contains(&id.len())
         && id.bytes().all(|byte| {

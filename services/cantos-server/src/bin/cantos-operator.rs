@@ -16,6 +16,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        ["sample-metadata", request_path, source_path] => {
+            let mut request_bytes = Vec::new();
+            File::open(request_path)?
+                .take(8193)
+                .read_to_end(&mut request_bytes)?;
+            if request_bytes.len() > 8192 {
+                return Err("sample request exceeds the limit".into());
+            }
+            let request: cantos_server::contexts::catalog::domain::sample_seed_request::SampleSeedRequest = serde_json::from_slice(&request_bytes)?;
+            if request.action != cantos_server::contexts::catalog::domain::sample_seed_request::SampleSeedAction::Publish { return Err("publication request required".into()); }
+            let mut bytes = Vec::new();
+            File::open(source_path)?
+                .take(16103)
+                .read_to_end(&mut bytes)?;
+            if bytes.len() > 16102 {
+                return Err("sample source exceeds the limit".into());
+            }
+            cantos_server::contexts::catalog::seed_sample(&store, &request, Some(&bytes))
+                .await
+                .map_err(|_| "sample operator command failed")?;
+            println!("sample metadata operation recorded");
+            return Ok(());
+        }
+        ["withdraw-sample-metadata", request_path] => {
+            let mut request_bytes = Vec::new();
+            File::open(request_path)?
+                .take(8193)
+                .read_to_end(&mut request_bytes)?;
+            if request_bytes.len() > 8192 {
+                return Err("sample request exceeds the limit".into());
+            }
+            let request: cantos_server::contexts::catalog::domain::sample_seed_request::SampleSeedRequest = serde_json::from_slice(&request_bytes)?;
+            if request.action != cantos_server::contexts::catalog::domain::sample_seed_request::SampleSeedAction::Withdraw { return Err("withdrawal request required".into()); }
+            cantos_server::contexts::catalog::seed_sample(&store, &request, None)
+                .await
+                .map_err(|_| "sample withdrawal failed")?;
+            println!("sample metadata withdrawal recorded");
+            return Ok(());
+        }
         ["register-identity", issuer, subject] => {
             let key = ExternalIdentityKey::new(*issuer, *subject)?;
             let result = operator::register_identity(&store, &key).await?;

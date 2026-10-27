@@ -15,6 +15,8 @@ use crate::platform::store::{authenticate, StoreError, Tx};
 mod sample_metadata;
 pub(super) mod sample_metadata_read;
 mod sample_metadata_rights;
+mod sample_seed_operator;
+pub use sample_seed_operator::seed_sample;
 
 pub(super) const MAX_UNITS: usize = 1000;
 

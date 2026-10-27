@@ -10,4 +10,7 @@ module sample_metadata_tests {
     .then(active(false)).then(check(inactiveHidden))
   run eligibleReleaseTest = init.then(release(true)).then(check(releasePlayable))
     .then(release(false)).then(check(not(state.playable)))
+  run seededWithdrawalTest = init.then(confirmSource).then(confirmRights).then(seedPublish)
+    .then(check(seedAttested and seedCannotLogin)).then(seedWithdraw)
+    .then(check(seedRevoked and seedWithdrawalPermanent))
 }

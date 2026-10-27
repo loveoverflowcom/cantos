@@ -16,6 +16,9 @@ use cantos_store_turso::{
 use super::{ServerDatabase, ServerDatabaseError, MIGRATIONS, SERVER_APPLICATION_ID, SERVER_EPOCH};
 use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
 
+// Real-engine seed barriers, kept with the cross-context fixture code.
+include!("../../test_support/sample_seed_candidate_tests.rs");
+
 #[test]
 fn the_service_registry_keeps_the_persisted_server_marker() {
     assert_eq!(super::registry().unwrap().application_id(), 0x434E_5453);

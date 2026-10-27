@@ -222,8 +222,8 @@ async fn historical_v24_ddl_failure_keeps_v23_history_and_repeated_attempts_cann
 }
 
 #[tokio::test]
-async fn v24_to_v25_preserves_history_and_existing_actor_and_refuses_old_serving() {
-    let run = TestRun::new("sample-metadata-v24-v25");
+async fn v24_to_v26_preserves_history_and_existing_actor_and_refuses_old_serving() {
+    let run = TestRun::new("sample-metadata-v24-v26");
     let path = run.path("server.db");
     let v24 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..24]).unwrap();
     let old = OwnedDatabase::open(OpenRequest::new(&path, v24, Intent::Migrate, clock()))
@@ -244,7 +244,7 @@ async fn v24_to_v25_preserves_history_and_existing_actor_and_refuses_old_serving
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 24,
-            latest: 25
+            latest: 26
         }))
     );
     assert_eq!(bytes(&path), before);
@@ -272,10 +272,10 @@ async fn v24_to_v25_preserves_history_and_existing_actor_and_refuses_old_serving
         Err(error) => assert_eq!(
             error,
             OpenError::Refused(Refusal::NewerThanBinary {
-                applied: 25,
+                applied: 26,
                 known: 24
             })
         ),
-        Ok(_) => panic!("v24 must refuse a migrated v25 file"),
+        Ok(_) => panic!("v24 must refuse a migrated v26 file"),
     }
 }

@@ -202,6 +202,64 @@ impl ApprovedSampleSource {
                 })
         })
     }
+
+    /// Construct only metadata snapshots from the verified input. This does not persist,
+    /// disclose, attest rights or create audio, and accepts no caller-selected owner.
+    pub(crate) fn sample_seed_snapshots(
+        &self,
+        at: i64,
+    ) -> Result<Vec<(super::Work, Vec<super::ContentUnit>)>, super::CatalogError> {
+        use crate::contexts::catalog::domain::{
+            ContentUnit, ContentUnitId, NewContentUnit, NewWork, UnitDetails, WorkDetails,
+        };
+        let owner = crate::contexts::catalog::domain::OwnerId::parse("cantos_sample_seed_v1")?;
+        let mut result = Vec::with_capacity(self.works.len());
+        for item in &self.works {
+            let work = crate::contexts::catalog::domain::Work::new(NewWork {
+                id: crate::contexts::catalog::domain::WorkId::parse(&sample_identity(
+                    &item.sample_key,
+                    "work",
+                ))?,
+                kind: crate::contexts::catalog::domain::WorkKind::parse(&item.kind)?,
+                owner_id: owner.clone(),
+                details: WorkDetails {
+                    title: item.title.clone(),
+                    synopsis: item.description.clone(),
+                    language: item.language.clone(),
+                    visibility: Visibility::Public,
+                    rights_refs: Vec::new(),
+                },
+                at,
+            })?;
+            let units = item
+                .chapters
+                .iter()
+                .map(|unit| {
+                    ContentUnit::new(
+                        &work,
+                        NewContentUnit {
+                            id: ContentUnitId::parse(&sample_identity(
+                                &unit.sample_key,
+                                "chapter",
+                            ))?,
+                            kind: work.kind().content_unit_kind(),
+                            details: UnitDetails {
+                                title: unit.title.clone(),
+                                description: unit.description.clone(),
+                                source: None,
+                                script: None,
+                                content_digest: None,
+                            },
+                            position: unit.position,
+                            at,
+                        },
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            result.push((work, units));
+        }
+        Ok(result)
+    }
 }
 
 /// Facts supplied by the authenticated, serialized owner transaction. The resulting witness

@@ -42,7 +42,8 @@ jobs:
         run: cargo xtask ci --job repository
   rust:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The uncached full suite exceeded 20 minutes on the hosted runner while still making progress.
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -98,7 +98,7 @@ jobs:
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --authfile "$RUNNER_TEMP/qualification-auth.json" \
             --output artifacts/release-qualification/exact-pair
-      - name: Rehearse historical v24 to v25 and cold pair recovery
+      - name: Rehearse historical v24 to v26 and cold pair recovery
         env:
           MANIFEST: ${{ steps.candidate.outputs.manifest }}
           MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
@@ -114,9 +114,9 @@ jobs:
             --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --baseline infra/oci/historical-v24.json --baseline-digest "$BASELINE_DIGEST" \
-            --transition v24-v25 \
+            --transition v24-v26 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
-            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v25"
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v26"
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |

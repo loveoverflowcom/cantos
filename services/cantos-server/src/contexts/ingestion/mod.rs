@@ -6,6 +6,7 @@ mod application;
 pub mod domain;
 mod turso;
 
+pub(crate) use application::record_pinned_sample_source;
 pub use domain::extraction::{
     extract, EXTRACTOR_VERSION, MAX_BLOCKS, MAX_DECODED_BYTES, MAX_SOURCE_BYTES, MAX_XML_DEPTH,
     MAX_XML_EVENTS, MAX_ZIP_ENTRIES, MAX_ZIP_RATIO,

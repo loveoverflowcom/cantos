@@ -61,6 +61,12 @@ any host. Its result is separate from admission and host activation. The existin
 `native-adopt` executor below remains limited to v23-to-v24; this rehearsal does
 not provide or authorize a v25 production rollout procedure.
 
+For the non-login sample principal, `--transition v24-v26` produces a distinct
+v24-to-v26 rehearsal using the same historical baseline. It neither reuses v25
+evidence for v26 nor authorizes production migration. The existing `native-adopt`
+executor is still limited to v23-to-v24; a v26 host migration and rollback plan
+must be reviewed and admitted separately before any production activation.
+
 ```sh
 cargo xtask release native-rehearse --manifest PATH --manifest-digest SHA256 \
   --source-sha FULL_SHA --configuration-digest SHA256 --platform linux/amd64 \

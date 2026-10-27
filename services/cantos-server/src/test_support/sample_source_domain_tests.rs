@@ -9,6 +9,16 @@
         let path = std::env::var_os("CANTOS_APPROVED_SAMPLE_INPUT").expect("sample input path");
         let mut bytes = std::fs::read(path).expect("read approved sample");
         let source = ApprovedSampleSource::parse(&bytes).expect("pinned sample");
+        let projected = source.sample_seed_snapshots(1).expect("valid sample snapshots");
+        assert_eq!(projected.len(), 6);
+        assert_eq!(projected.iter().map(|(_, units)| units.len()).sum::<usize>(), 12);
+        for (work, units) in &projected {
+            assert_eq!(work.owner_id().as_str(), "cantos_sample_seed_v1");
+            assert!(source.matches_work(work));
+            assert!(units.iter().all(|unit| source.matches_unit(unit)));
+            assert!(units.iter().all(|unit| unit.details().source.is_none()
+                && unit.details().script.is_none() && unit.details().content_digest.is_none()));
+        }
         assert_eq!(source.works.len(), 6);
         assert_eq!(
             source

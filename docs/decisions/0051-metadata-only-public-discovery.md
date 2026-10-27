@@ -70,6 +70,19 @@ content or other private drafts, cover assets or audio. Catalog create/edit with
 The existing release-gated API stays in force until a separate versioned implementation is
 verified and deployed; an owner decision alone does not publish data.
 
+On 27 October 2026 the owner additionally selected a non-login principal for this sample.
+It owns only the pinned sample identities and has no password, token, session or administrator
+role. A separately reviewed stopped-database operator path may act for that principal only
+with an explicit source/metadata-rights assertion and an auditable, reversible decision; it
+must not simulate a Studio session or weaken ordinary Studio authentication. The selection
+does not close registration or authorize production execution by itself. The operator and
+database barriers described here remain implementation work until independently tested.
+
+The stopped-file operator records an explicit, self-declared operator reference with the
+source and rights assertion; it is not represented as an authenticated human Studio session.
+The initial bounded flow publishes once, supports an append-only withdrawal and refuses a
+new publication after withdrawal. See the [operator procedure](../deployment/sample-metadata-operator.md).
+
 Recommended option **C**: an explicit, owner-recorded metadata disclosure.
 
 1. A Work disclosure and a per-unit disclosure are immutable, digest-bound records that pin an
