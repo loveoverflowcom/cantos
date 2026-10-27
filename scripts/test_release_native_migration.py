@@ -51,12 +51,14 @@ class Decisions(unittest.TestCase):
         request_value['mounts'][service].append({'source': migration.MEDIA, 'destination': '/private', 'read_only': False})
         container = {'ImageName': old['images'][service]['ref'], 'Image': old['images'][service]['config_digest'],
                      'Path': '/usr/local/bin/cantos-server', 'Args': [],
-                     'Config': {'User': '10001:10001', 'Env': ['CANTOS_SERVER_DATABASE=/data/server.db',
+                     'Config': {'User': '10001:10001', 'Entrypoint': ['/usr/local/bin/cantos-server'], 'Cmd': None,
+                                'Env': ['CANTOS_SERVER_DATABASE=/data/server.db',
                                 'CANTOS_IDENTITY_SOCKET=/rpc/identity.sock', 'CANTOS_IDENTITY_PEER_UID=10002',
                                 'CANTOS_IDENTITY_PEER_POLICY=trusted_proxy']},
                      'Mounts': [{'Type': 'bind', 'Source': item['source'], 'Destination': item['destination'],
                                  'RW': not item['read_only']} for item in request_value['mounts'][service]]}
-        migration.AdoptionSystem().check_container(request_value, service, container, [old['images'][service]])
+        with patch.object(migration.adapter, 'check_process'):
+            migration.AdoptionSystem().check_container(request_value, service, container, [old['images'][service]])
         with self.assertRaisesRegex(ValueError, 'unbound mount'):
             native.check_container(request_value, service, container, [old['images'][service]])
         container['Config']['Env'][-1] = 'CANTOS_IDENTITY_PEER_POLICY=direct_peer'
@@ -108,7 +110,9 @@ class Decisions(unittest.TestCase):
         old, new = releases()
         record = {'operation': 'HISTORICAL_V23_V24_REHEARSAL', 'status': 'PASS', 'baseline': old,
                   'target': migration.new_identity(new), 'evidence_level': 'integration-tested',
-                  'execution_environment': 'linux-native-exact-images', 'checks': migration.HISTORICAL_CHECKS}
+                  'execution_environment': 'linux-native-exact-images', 'checks': migration.HISTORICAL_CHECKS,
+                  'host_adapter': {'status': 'PASS', 'source_sha': new['source_sha'], 'images': new['images'],
+                                   'checks': migration.adapter.CHECKS, 'activation': 'NOT_RUN'}}
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory).resolve()/'report.json'
             for field, value in [('operation', 'migration-restore'), ('baseline', migration.new_identity(new)),
@@ -122,6 +126,12 @@ class Decisions(unittest.TestCase):
             native.atomic(path, contract.canonical(record))
             request_value['rehearsal']['sha256'] = native.digest_file(path)
             self.assertEqual(migration.rehearsal(request_value, old, new), record)
+            for value in (None, record['host_adapter'] | {'source_sha': 'f'*40},
+                          record['host_adapter'] | {'status': 'NOT_RUN'}):
+                native.atomic(path, contract.canonical(record | {'host_adapter': value}))
+                request_value['rehearsal']['sha256'] = native.digest_file(path)
+                with self.assertRaisesRegex(ValueError, 'real Podman bridge adapter'):
+                    migration.rehearsal(request_value, old, new)
 
 
 class MigrationHost(FakeHost):

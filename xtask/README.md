@@ -226,6 +226,13 @@ an old release admission, changes proxy/data paths or bootstraps a runtime.
 data. It writes a separate historical upgrade/restore report; it never changes the four
 current-schema qualification records or supplies operator admission/live acceptance.
 
+`cargo xtask release native-executor-build --output FRESH_DIR` builds a static amd64 xtask on
+a disposable Linux builder with the pinned Rust/musl toolchain. The
+[delivery contract](../docs/deployment/native-existing-host-migration.md#pinned-executor-delivery-without-a-host-compiler-change)
+owns its source-addressed compile-time checkout, binary provenance and direct execution without
+Rust/Cargo on the host. The manual OCI workflow retains that binary and exercises the historical
+and private-bridge adapter rehearsal through it. This command installs nothing on a VPS.
+
 ### Offline Hosting rollout report
 
 `cargo xtask hosting-report --record PATH [--dry-run]` reads a strict local version-1

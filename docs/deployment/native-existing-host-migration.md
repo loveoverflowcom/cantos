@@ -41,6 +41,12 @@ qualification; those results do not establish a historical upgrade or this execu
 5. Restore **both original v23/Identity roots** into different fresh roots and exercise the old
    image pair's session/password without running any migration on the restored pair.
 
+The same run additionally exercises the adoption adapter with the new exact pair on a uniquely
+named private Podman bridge, without published ports. It checks actual inspect metadata and
+NUL-delimited `/proc` argv, observes container-bound HTTP, and refuses a foreign network identity.
+The report's separate `host_adapter` result must be PASS and bind the exact target source/images;
+historical evidence without that result does not admit this adapter.
+
 It writes `historical-upgrade.json` separately from the four OCI gate records. A failure retains
 FAIL; interruption retains only an unfinished attempt. It never admits images, activates a host
 or establishes live readiness. The manual `native-oci-publish` workflow runs both current-schema
@@ -85,7 +91,7 @@ Version-1 request fields are exact (unknown/missing fields refuse):
 | `units` | Exact SHA-256 per service for `/etc/containers/systemd/<service>.container`; drop-ins/foreign effective units refuse |
 | `configuration_files` | Complete bounded path-to-SHA-256 mapping; root-owned non-symlink files in `/root/cantos-native/config/<filename>` or `/root/cantos-native/<filename>.env`; all effective EnvironmentFiles must be bound |
 | `mounts` | Complete per-service list of `source`, `destination`, `read_only`; only that service's DB, the socket, bound configs and Server's exact `/root/cantos-native/storage` root are accepted |
-| `health_url` | Explicit loopback HTTP health URL, no redirect/proxy |
+| `health_url` | Loopback HTTP URL as before, or the exact container-bound bridge selector below; no operator-selected address, redirect or ambient proxy |
 | `peer_policy` | Explicit existing `direct_peer` or `trusted_proxy`; actual container environment must match and the executor never rewrites it |
 | `rehearsal` | `path`, `sha256` of PASS historical evidence for these exact old/new image/source/config/platform identities; mock/current-schema records refuse |
 
@@ -101,6 +107,67 @@ The path and proxy reconciliation is preservation with exact validation. It does
 the host to the current-schema fixture. A different effective layout needs another reviewed
 profile. The ordinary `native-upgrade` path retains its canonical-path/direct-peer guards;
 this initial adopted layout does not silently gain admission to that separate lane.
+
+For an existing bridge-only Server, `health_url` may instead contain this descriptor. Values
+below are synthetic; obtain the actual network name, 64-hex ID and canonical RFC1918 IPv4 subnet
+from fresh operator-reviewed inventory. Port 8080 and this read-only route are fixed:
+
+```json
+{
+  "kind": "podman-bridge",
+  "network": "example-network",
+  "network_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subnet": "10.42.0.0/24",
+  "port": 8080,
+  "path": "/api/v1/theatre/works"
+}
+```
+
+The adapter requires exactly that one bridge network and subnet, no published host port, the
+network's matching ID/gateway/prefix, and the running exact Server's non-gateway/non-broadcast
+address. It derives the address anew after restart, never pins an ephemeral IP or accepts a URL
+to an arbitrary host. It verifies container/process/network identity again after the bounded
+HTTP 200. Readiness is also checked before PREPARE/pulls/stops. No port, ingress, DNS, interface,
+firewall or peer policy is changed. The independent same-schema lane remains loopback-only.
+Podman 4 reports the endpoint's `NetworkID` as its exact network name; newer releases report the
+64-hex ID. Both representations still require the separate network inspection's real approved
+ID and exact name, sole endpoint map, bridge driver and subnet. An arbitrary endpoint name or
+an otherwise matching name whose real network ID changed refuses.
+
+Podman may report Server `Args` either as `[]` or as the one executable already in `Path` and
+`Config.Entrypoint`. Adoption accepts only those two metadata forms with an empty/null Cmd,
+and the entrypoint itself may be the exact executable string or its one-element array (Podman
+versions differ; no command string parsing or splitting is performed). It
+then requires the actual running process argv to be exactly that one executable. Identity still
+requires exactly its executable plus `serve`. Extra flags, shell wrappers, migration commands,
+entrypoint/Cmd disagreement or a changed PID/container/start identity refuse.
+
+## Pinned executor delivery without a host compiler change
+
+`cargo xtask release native-executor-build --output FRESH_DIR` is a **disposable Linux amd64
+builder** action. It requires the exact repository Rust pin, its musl target, musl-gcc/readelf,
+and a pre-created writable canonical `/opt/cantos-native-executor` parent on that builder.
+It builds only xtask from a clean local clone at `/opt/cantos-native-executor/FULL_SOURCE_SHA`.
+It verifies a static amd64 ELF with no loader/shared dependencies, records compiler/source/hash,
+and reaches the real Python adoption refusal from another cwd with no Rust/Cargo on PATH.
+The manual OCI workflow retains `artifacts/native-executor/{xtask,executor.json}` and uses that
+exact prebuilt binary for the historical/bridge rehearsal on disposable Linux.
+
+For a separately authorized operator deployment, verify the trusted same-workflow artifact's
+source and ZIP/binary hashes. Prepare the clean, root-owned exact Git checkout (including locally
+present historical baseline objects) at the descriptor's **exact** `required_checkout` path.
+Validate HEAD and clean tracked/untracked state before using the verified binary. Existing
+compile-time workspace discovery is deliberately preserved: placing the checkout at another
+path or changing only cwd does not relocate the executor. Keep the compiler build tree and any
+Git alternates on the builder; deliver neither to the host. The operator's checkout must be
+self-contained. Keep request/admission/approval and evidence outside it.
+
+Invoke the verified `xtask` binary directly with `release native-adopt ...`; do not prefix it
+with `cargo run` or invoke rustup on the host. Runtime needs Python 3.11+, Git with the existing
+no-lazy-fetch guard, rootful Podman/systemd and procfs, plus the unchanged private-input/admission
+checks. Installed Rust/Cargo versions are irrelevant to this route. No toolchain installation,
+compiler downgrade, privileged executor container or root-override flag is provided. A missing
+or wrong checkout refuses; a successful build/rehearsal does not authorize live execution.
 
 ## Operator admission and maintenance
 
@@ -158,7 +225,7 @@ records `MIGRATE_INTENT`, migrates/checks each active root explicitly, rechecks 
 configuration bytes, and changes only each unit's exact Image directive. It does not change
 mounts, secrets, peer policy, media or ingress.
 
-Before starting Identity then Server it fsyncs `START_INTENT`. Exact runtime/socket/loopback
+Before starting Identity then Server it fsyncs `START_INTENT`. Exact runtime/socket/bound HTTP
 health checks follow. Only then does it create generation **1**, referencing the admitted target,
 observed baseline, request and preserved runtime layout; a receipt binds the cold backup.
 There is no invented prior manifest/admission/generation. Live business acceptance remains

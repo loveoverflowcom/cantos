@@ -449,8 +449,14 @@ class System:
         socket=Path(request['socket_directory'])/'identity.sock'; meta=socket.lstat()
         contract.require(stat.S_ISSOCK(meta.st_mode) and meta.st_uid == 10002 and meta.st_gid == 10001 and
                          stat.S_IMODE(meta.st_mode) == 0o660, 'started socket ownership mismatch')
+        self.health(request, release)
+
+    def health(self, request, release):
+        self.read_health(request['health_url'])
+
+    def read_health(self, url):
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-        with opener.open(request['health_url'], timeout=10) as response:
+        with opener.open(url, timeout=10) as response:
             contract.require(response.status == 200 and len(response.read(65537)) <= 65536, 'health observation failed')
 
 

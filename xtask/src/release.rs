@@ -144,6 +144,12 @@ pub enum Action {
     },
     /// Run release contract, packaging, DAG and mocked promotion regressions.
     SelfTest,
+    /// Build a static, source-pinned Linux deployment executor on a disposable builder.
+    /// Requires the pinned Rust/musl build tools there; never installs anything on a host.
+    NativeExecutorBuild {
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Verify an admitted native OCI pair offline; optionally read its exact GHCR metadata.
     /// This never builds, publishes, pulls image layers or activates a host.
     OciVerify {
@@ -267,6 +273,13 @@ pub enum Action {
 
 fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
     let command = CommandSpec::new("python3", workspace.root());
+    if let Action::NativeExecutorBuild { output } = action {
+        return command.args([
+            "scripts/release_native_executor.py".into(),
+            "--output".into(),
+            output.display().to_string(),
+        ]);
+    }
     if matches!(action, Action::SelfTest) {
         return command.args([
             "-m",
@@ -531,6 +544,7 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
             transfer.display().to_string(),
         ]),
         Action::SelfTest
+        | Action::NativeExecutorBuild { .. }
         | Action::OciVerify { .. }
         | Action::OciBuild { .. }
         | Action::OciQualify { .. }
@@ -591,7 +605,10 @@ pub fn run(
             "retired::",
         ]));
     }
-    let needed: &[Tool] = if matches!(args.action, Action::SelfTest) {
+    let needed: &[Tool] = if matches!(
+        args.action,
+        Action::SelfTest | Action::NativeExecutorBuild { .. }
+    ) {
         &[Tool::Python3, Tool::Cargo]
     } else {
         &[Tool::Python3]
@@ -608,6 +625,25 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn static_native_executor_build_has_an_explicit_output_and_no_host_execution_flag() {
+        let command = super::command(
+            &crate::workspace::Workspace::discover().unwrap(),
+            &super::Action::NativeExecutorBuild {
+                output: "executor-output".into(),
+            },
+        );
+        assert_eq!(command.program, "python3");
+        assert_eq!(
+            command.args,
+            [
+                "scripts/release_native_executor.py",
+                "--output",
+                "executor-output"
+            ]
+        );
+    }
+
     use super::{command, Action};
     use crate::cli::Cli;
     use crate::workspace::Workspace;

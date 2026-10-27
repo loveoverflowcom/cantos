@@ -14,6 +14,7 @@ import time
 
 import release_artifact as contract
 import release_native_migration as migration
+import release_native_adapter_rehearsal as adapter_rehearsal
 import release_oci as oci
 import release_oci_qualify as qualify
 
@@ -51,6 +52,7 @@ def run(fixture, old, new):
     f.restart()
     f.call('historical_state')
     f.stop()
+    f.adapter_record = adapter_rehearsal.run(f)
     f.manifest = old
     f.databases = {s: f.work/'v23-restored'/s for s in oci.SERVICES}
     for service in oci.SERVICES:
@@ -78,6 +80,7 @@ def rehearse(root, args):
               'runner': {'system': platform.system(), 'machine': platform.machine()}, 'started_at': int(time.time()),
               'activation': 'NOT_RUN', 'admission': 'NOT_RUN', 'live_readiness': 'NOT_RUN'}
     contract.write_new(args.output/'attempt.json', record)
+    fixture = None
     try:
         with tempfile.TemporaryDirectory(prefix='cantos-historical-rehearsal-') as temporary:
             fixture = qualify.Fixture(root, Path(temporary), old, args.authfile)
@@ -86,11 +89,16 @@ def rehearse(root, args):
             finally:
                 fixture.close()
         record.update(status='PASS', evidence_level='integration-tested', execution_environment='linux-native-exact-images',
-                      checks=migration.HISTORICAL_CHECKS, backup_files=backups)
+                      checks=migration.HISTORICAL_CHECKS, backup_files=backups, host_adapter=fixture.adapter_record)
     except Exception as error:
         # Keep static assertion codes, never subprocess stderr, configuration or data rows.
         safe = isinstance(error, ValueError) and re.fullmatch(r'[A-Za-z0-9_:/.-]{1,256}', str(error))
-        record.update(status='FAIL', failure=str(error) if safe else type(error).__name__)
+        code = error.code if isinstance(error, migration.adapter.Refusal) else None
+        failure = code if code and re.fullmatch(r'[A-Z0-9_]{1,160}', code) else (str(error) if safe else type(error).__name__)
+        record.update(status='FAIL', failure=failure)
+        if hasattr(fixture, 'adapter_phase'):
+            record.update(adapter_phase=fixture.adapter_phase, entrypoint_shapes=fixture.adapter_shapes
+                          if hasattr(fixture, 'adapter_shapes') else {})
     contract.write_new(args.output/'historical-upgrade.json', record)
     return record
 

@@ -17,6 +17,7 @@ import uuid
 
 import release_artifact as contract
 import release_native as native
+import release_native_adapter as adapter
 import release_oci as oci
 import release_oci_build as build
 
@@ -81,9 +82,7 @@ def decide(request, old, new, now, *, recovery=False):
         for mount in request['mounts'][service]:
             contract.require(mount['source'] in (DATABASES[service], SOCKET, *configs) or
                              (service == 'cantos-server' and mount['source'] == MEDIA), 'unknown adoption bind root')
-    health = re.fullmatch(r'http://127\.0\.0\.1:([1-9][0-9]{0,4})/[A-Za-z0-9_/-]+', request['health_url'])
-    contract.require(health is not None and int(health[1]) <= 65535,
-                     'explicit loopback health required')
+    adapter.selector(request['health_url'])
     return {'operation': OPERATION, 'activation': 'NOT_RUN', 'baseline_trust': 'OBSERVED_REQUIRES_OPERATOR_REVIEW',
             'data_paths': request['databases'], 'peer_policy': request['peer_policy'],
             'recovery': 'COLD_PAIR_RESTORE_BEFORE_START_ONLY; AFTER_START_FORWARD_RECOVERY_REQUIRED'}
@@ -98,6 +97,9 @@ def rehearsal(request, old, new):
                      record.get('evidence_level') == 'integration-tested' and
                      record.get('execution_environment') == 'linux-native-exact-images' and
                      record.get('checks') == HISTORICAL_CHECKS, 'exact historical pair upgrade/restore evidence required')
+    contract.require(record.get('host_adapter') == {'status': 'PASS', 'source_sha': new['source_sha'],
+                     'images': new['images'], 'checks': adapter.CHECKS, 'activation': 'NOT_RUN'},
+                     'exact real Podman bridge adapter evidence required')
     return record
 
 
@@ -166,14 +168,30 @@ class AdoptionSystem(native.System):
 
     def observe(self, request, old):
         super().observe(request, old)
+        # Refuse a wrong/unreachable bridge before PREPARE, pulls, stops or migration.
+        self.health(request, old)
         sizes = [p.stat().st_size for name in request['databases'].values() for p in Path(name).iterdir() if p.is_file()]
         capacity = os.statvfs(self.state)
         contract.require(shutil.disk_usage(self.state).free >= sum(sizes)*5+64*1024**2 and
                          capacity.f_favail >= len(sizes)*5+100, 'insufficient migration/backup/restore capacity')
 
     def check_container(self, request, service, container, images):
-        native.check_container(request, service, container, images, peer_policy=request['peer_policy'],
+        native.check_container(request, service, adapter.command_view(service, container), images, peer_policy=request['peer_policy'],
                                media_root=MEDIA+'/', exact_media_root=MEDIA)
+        adapter.check_process(service, container, lambda: self.inspect(service))
+
+    def health(self, request, release):
+        value = request['health_url']
+        if adapter.selector(value) == 'loopback':
+            return super().health(request, release)
+        def network():
+            values = json.loads(self.command(['podman', 'network', 'inspect', value['network']]))
+            contract.require(isinstance(values, list) and len(values) == 1, 'exact bridge network required')
+            return values[0]
+        adapter.bridge_health(value, lambda: self.inspect('cantos-server'), network,
+                              lambda container: self.check_container(request, 'cantos-server', container,
+                                                                     [release['images']['cantos-server']]),
+                              self.read_health)
 
     def recovery_host(self, request, old, new):
         self.host_identity(request, old)
