@@ -51,6 +51,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
     // Turso-only tables with no retained PostgreSQL declaration (ownership: check_repository TABLE_OWNER).
     expected.extend([
         "cantos_schema_history".into(),
+        "catalog_sample_metadata_disclosures".into(),
         "development_sessions".into(),
         "media_cover_disclosures".into(),
     ]);
