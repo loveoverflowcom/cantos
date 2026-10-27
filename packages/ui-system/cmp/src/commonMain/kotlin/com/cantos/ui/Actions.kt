@@ -128,9 +128,11 @@ internal fun ButtonControl(
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val auth = variant.isAuth()
     val resolvedShape = shape ?: if (auth) authActionShape(interactions) else CantosShapes.control
+    val pair = variant.joinsContainerPair(LocalAuthActionScope.current)
     val minimumHeight = tokenDp(minimumHeightRole ?: when (variant) {
         ButtonVariant.AuthPrimary -> "size.authPrimary"
-        ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> "size.authSecondary"
+        ButtonVariant.AuthOutlined -> if (pair) "size.authPrimary" else "size.authSecondary"
+        ButtonVariant.AuthSecondary -> "size.authSecondary"
         else -> "size.control"
     })
     val background = containerColor ?: buttonContainerColor(variant)
@@ -148,9 +150,10 @@ internal fun ButtonControl(
             .semantics { name?.let { contentDescription = it.text } },
         shape = resolvedShape,
         interactionSource = interactions,
-        border = if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
-            tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
-        ) else null,
+        border = if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
+            else if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
+                tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
+            ) else null,
         colors = ButtonDefaults.buttonColors(
             containerColor = background,
             contentColor = foreground,
@@ -195,7 +198,9 @@ private fun theatreTonal(variant: ButtonVariant): Boolean =
 
 @Composable
 internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant) {
-    ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.primary")
+    ButtonVariant.AuthPrimary -> tokenColor(
+        if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
+    ButtonVariant.Primary -> tokenColor("color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
         tokenColor(if (theatreTonal(variant)) "color.surfaceContainerHigh" else "color.primaryContainer")
     ButtonVariant.Danger -> tokenColor("color.errorContainer")
@@ -204,11 +209,15 @@ internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant
 
 @Composable
 internal fun buttonContentColor(variant: ButtonVariant): Color = when (variant) {
-    ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.onPrimary")
+    ButtonVariant.AuthPrimary -> tokenColor(
+        if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.primaryContainer" else "color.onPrimary")
+    ButtonVariant.Primary -> tokenColor("color.onPrimary")
+    ButtonVariant.AuthOutlined -> tokenColor(
+        if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
         tokenColor(if (theatreTonal(variant)) "color.onSurface" else "color.onPrimaryContainer")
     ButtonVariant.Danger -> tokenColor("color.error")
-    ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> tokenColor("color.primary")
+    ButtonVariant.Secondary, ButtonVariant.Text -> tokenColor("color.primary")
 }
 
 /** The 23 October anatomy centers the glyph and label together, without an icon bubble. */

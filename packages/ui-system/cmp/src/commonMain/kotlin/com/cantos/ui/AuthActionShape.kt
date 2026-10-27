@@ -5,6 +5,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
@@ -42,3 +43,19 @@ internal fun ButtonVariant.isAuth(): Boolean = when (this) {
     ButtonVariant.AuthPrimary, ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> true
     ButtonVariant.Primary, ButtonVariant.Tonal, ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.Danger -> false
 }
+
+/**
+ * Where an auth action sits decides its colour pair. [OnPrimaryContainer] is the profile card (the
+ * guest sign-in / create-account pair, design v4.2b): the primary action is filled with the card's
+ * own foreground and the outlined one is transparent with the same foreground as ink and outline.
+ * [Surface] provides it for that card only; nothing global changes and callbacks, eligibility and
+ * the disabled state stay with the button.
+ */
+internal enum class AuthActionScope { Default, OnPrimaryContainer }
+
+internal val LocalAuthActionScope = staticCompositionLocalOf { AuthActionScope.Default }
+
+/** Both pair members share one pill height and one outline weight so the stacked pair is equal. */
+internal fun ButtonVariant.joinsContainerPair(scope: AuthActionScope): Boolean =
+    scope == AuthActionScope.OnPrimaryContainer &&
+        (this == ButtonVariant.AuthPrimary || this == ButtonVariant.AuthOutlined)

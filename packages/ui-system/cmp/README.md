@@ -466,6 +466,14 @@ implementation or a replacement for ordinary listening/editor shapes:
   Both overloads accept a decorative registry `icon` name. The 23 October anatomy centers the
   icon and label together without a circle; loading uses the separate progress cue. The
   text/control supplies the sole accessible name.
+- Guest CTA pair (design v4.2b, #517): `Surface(PrimaryContainer, Profile)` alone scopes
+  `AuthPrimary` and `AuthOutlined` to the card's own roles through an internal local, with no new
+  public API. `AuthPrimary` fills with `color.onPrimaryContainer` and reads `color.primaryContainer`
+  as text/icon; `AuthOutlined` is transparent with `color.onPrimaryContainer` text and a 1.5 dp
+  outline. Both take the 60 dp minimum and the outline weight, so the stacked pair is one size.
+  Any other or nested surface, including Membership, keeps the global roles; callbacks,
+  eligibility and the disabled state are unchanged. JVM pixel and contrast tests cover it; Android,
+  iOS and screen-reader behavior are not established.
 - `TextFieldVariant.AuthTonal` is available on both raw-string and `TextFieldValue` overloads.
   The 56 dp minimum and 20 dp corner do not impose a fixed text height. Functional error/focus
   boundaries surround the native field only; help/error/blocking text remains outside their
