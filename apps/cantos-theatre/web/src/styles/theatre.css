@@ -669,14 +669,21 @@ body { margin: 0; }
 .theatre-guest-info-panel[hidden] { display: none; }
 .theatre-guest-info-scrim { position: fixed; inset: 0; z-index: 40; }
 .theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }
-/* Secondary action on the dark card: ink follows the card's own foreground, and the primary action
-   gets a foreground border so it separates from the card in light mode too. */
-.theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled) {
-  color: var(--cantos-color-on-primary-container);
-  border-color: var(--cantos-color-on-primary-container);
+/* Guest CTA pair (v4.2b), scoped to this card: sign-in is the card's own foreground (deep purple)
+   with the card surface as its light text/icon; create-account is transparent with a solid
+   foreground outline. Both are full-width pills of one height. Auth intents, eligibility and the
+   disabled state stay with the shared AuthPrimary/AuthOutlined buttons; no global role changes. */
+.theatre-account-profile .theatre-auth-actions .cui-button:is([data-variant="auth-primary"], [data-variant="auth-outlined"]) {
+  min-block-size: var(--cantos-size-auth-primary);
+  border: var(--cantos-size-auth-outline) solid var(--cantos-color-on-primary-container);
 }
 .theatre-account-profile .cui-button[data-variant="auth-primary"]:not(:disabled) {
-  border: var(--cantos-size-auth-outline) solid var(--cantos-color-on-primary-container);
+  background: var(--cantos-color-on-primary-container);
+  color: var(--cantos-color-primary-container);
+}
+.theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled) {
+  background: transparent;
+  color: var(--cantos-color-on-primary-container);
 }
 @media (prefers-reduced-motion: no-preference) {
   .theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled):hover {

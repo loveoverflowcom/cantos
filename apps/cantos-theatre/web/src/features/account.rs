@@ -379,6 +379,38 @@ mod tests {
     }
 
     #[test]
+    fn guest_cta_pair_is_deep_filled_and_transparent_outlined_of_one_size_from_tokens() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        let scope = ".theatre-account-profile";
+        let filled = rule(&format!(
+            "{scope} .cui-button[data-variant=\"auth-primary\"]:not(:disabled)"
+        ));
+        assert!(filled.contains("background: var(--cantos-color-on-primary-container)"));
+        assert!(filled.contains("color: var(--cantos-color-primary-container)"));
+        let outlined = rule(&format!(
+            "{scope} .cui-button[data-variant=\"auth-outlined\"]:not(:disabled)"
+        ));
+        assert!(outlined.contains("background: transparent"));
+        assert!(outlined.contains("color: var(--cantos-color-on-primary-container)"));
+        let both = rule(&format!(
+            "{scope} .theatre-auth-actions .cui-button:is([data-variant=\"auth-primary\"], [data-variant=\"auth-outlined\"])"
+        ));
+        assert!(both.contains("min-block-size: var(--cantos-size-auth-primary)"));
+        assert!(both.contains("border: var(--cantos-size-auth-outline) solid"));
+        for block in [filled, outlined, both] {
+            assert!(!block.contains('#') && !block.contains("rgb") && !block.contains("accent"));
+        }
+        // The pair is scoped to the guest card: the shared auth roles are not redefined globally.
+        assert!(!css.contains("\n.cui-button[data-variant=\"auth-primary\"]"));
+    }
+
+    #[test]
     fn theme_value_names_follow_the_cycle_modes() {
         assert_eq!(theme_value_key(Theme::Dark), Key::Dark);
         assert_eq!(theme_value_key(Theme::Light), Key::Light);
