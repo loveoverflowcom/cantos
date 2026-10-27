@@ -435,8 +435,25 @@ async fn production_settings_rights_snapshots_and_approvals_reconcile_real_unkno
         );
     }
 }
-#[tokio::test]
-async fn catalog_content_delegation_brief_and_grant_receipts_reconcile_unknown_commits() {
+#[test]
+fn catalog_content_delegation_brief_and_grant_receipts_reconcile_unknown_commits() {
+    // This intentionally exercises several large async transaction paths in one journey.
+    // Isolate its stack budget rather than changing the runtime or every test thread.
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(catalog_receipts_journey())
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn catalog_receipts_journey() {
     use crate::contexts::catalog::{
         content::wire as content_wire,
         delegation::wire as delegation_wire,
