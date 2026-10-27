@@ -52,6 +52,16 @@ Everything below is additive and local to the control that opts in:
   `shape.searchRest` (36) and a pointer hover paints one inset `size.border` (touch has none). Opening,
   closing and the dock body belong to the Search composition; native keeps its motion scheme, with no
   copy of the Web 280/200 ms seed.
+- Auth v4.3 Minimal Expressive ([#540](https://github.com/loveoverflowcom/cantos/issues/540)) is the
+  borderless recipe and is scoped to Theatre CMP Auth: `TextFieldVariant.FloatingTonal` is the Floating
+  anatomy with no stroke, where focus moves the fill to `surfaceContainerHigh` and the label and caret
+  to `primary`, and an error is `errorContainer`, the error label and an inline `warning_amber` glyph
+  with its message. `CompositionLocalProvider(tonalAuthActions()) { ... }` makes every `Button`,
+  `BackButton` and `IconButton` below it borderless (no `BorderStroke`, no inset ring or halo) and shows
+  keyboard/accessibility focus as a `cantosFocusFill` state layer inside the control's own shape; the
+  outlined auth action becomes the quiet tonal container. The specimen matrix is `AuthTonalSpecimen`
+  and `TonalAuthRecipeTest` samples the edge pixels against the stroked `Floating` and `AuthOutlined`
+  as negative controls. Every other variant and scope keeps its existing perimeter.
 - `TextField(..., trailing = { IconButton(...) })` on both the `String` and `TextFieldValue`
   overloads places one action inside the shell. The layout reserves its width; the field owns no
   action or visibility state, and the caller's selection and composition are untouched by a press.

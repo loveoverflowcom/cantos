@@ -12,12 +12,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon as MaterialIcon
+import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +53,8 @@ import com.cantos.ui.ButtonVariant
 import com.cantos.ui.CantosTypography
 import com.cantos.ui.DisabledReason
 import com.cantos.ui.FieldState
+import com.cantos.ui.Icon
+import com.cantos.ui.IconButton
 import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
 import com.cantos.ui.Space
@@ -61,6 +63,7 @@ import com.cantos.ui.SurfaceTone
 import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
+import com.cantos.ui.tonalAuthActions
 import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
@@ -119,39 +122,43 @@ fun AuthHeader(
     modifier: Modifier = Modifier,
 ) {
     val copy = AuthCopy(locale)
-    Row(
-        modifier.fillMaxWidth().padding(horizontal = tokenDp("space.section"), vertical = tokenDp("space.sm")),
-        horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Back is icon-only so a long destination label can never squeeze the logo; the full
-        // localized destination stays in its accessible name.
-        BackButton(
-            AccessibleName.of(copy.text(destination.label)), { onIntent(AuthIntent.Back) },
-            iconOnly = true, controlModifier = Modifier.testTag("back"),
-        )
-        Logo(
-            modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
-            tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
-            accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
-        )
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
-            Icon(
-                if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-                contentDescription = copy.text(AuthText.ToggleTheme),
+    AuthTonalScope {
+        Row(
+            modifier.fillMaxWidth().padding(horizontal = tokenDp("space.section"), vertical = tokenDp("space.sm")),
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Back is icon-only so a long destination label can never squeeze the logo; the full
+            // localized destination stays in its accessible name.
+            BackButton(
+                AccessibleName.of(copy.text(destination.label)), { onIntent(AuthIntent.Back) },
+                iconOnly = true, controlModifier = Modifier.testTag("back"),
             )
+            Logo(
+                modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
+                tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
+                accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
+            )
+            Spacer(Modifier.weight(1f))
+            MaterialIconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
+                MaterialIcon(
+                    if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
+                    contentDescription = copy.text(AuthText.ToggleTheme),
+                )
+            }
         }
     }
 }
 
+/** Every auth screen is one tonal scope: no border, ring or halo on a field, action or utility. */
 @Composable
-private fun AuthHeading(eyebrow: String, heading: String, body: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-        Text(eyebrow, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
-        Text(heading, style = CantosTypography.authHeading, modifier = Modifier.testTag("auth-heading").semantics { heading() })
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+internal fun AuthTonalScope(content: @Composable () -> Unit) =
+    CompositionLocalProvider(tonalAuthActions(), content = content)
+
+/** The one task title of an auth screen: no eyebrow, no promotional line, no brand card. */
+@Composable
+private fun AuthHeading(heading: String) {
+    Text(heading, style = CantosTypography.authHeading, modifier = Modifier.testTag("auth-heading").semantics { heading() })
 }
 
 /** Primary state follows the account owner; a disabled or loading action always states why. */
@@ -190,9 +197,13 @@ private fun SupportingText(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
+/** An error is a glyph plus its message in place, so colour is never the only signal. */
 @Composable
-private fun ErrorText(text: String) {
-    Text(text, Modifier.semantics { error(text) }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+internal fun ErrorText(text: String, modifier: Modifier = Modifier) {
+    Row(modifier.semantics(mergeDescendants = true) { error(text) }, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        Icon("warning_amber", tint = MaterialTheme.colorScheme.error)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    }
 }
 
 @Composable
@@ -203,44 +214,37 @@ fun LoginScreen(
     onIntent: (AuthIntent) -> Unit,
 ) {
     val copy = AuthCopy(locale)
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
-        AuthHeading(copy.text(AuthText.LoginEyebrow), copy.text(AuthText.LoginHeading), copy.text(AuthText.LoginHelp))
-        Surface(Modifier.fillMaxWidth().testTag("auth-brand"), tone = SurfaceTone.PrimaryContainer,
-            variant = SurfaceVariant.Auth, inset = Space.Lg) {
+    AuthTonalScope {
+        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
+            AuthHeading(copy.text(AuthText.LoginHeading))
+            AccountStatus(account, copy, nothingSaved)
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                Text(copy.text(AuthText.BrandGenres), style = MaterialTheme.typography.labelSmall)
-                Text(copy.text(AuthText.BrandHeading), style = CantosTypography.membershipTitle)
-                Text(copy.text(AuthText.BrandHelp), style = MaterialTheme.typography.bodyMedium)
+                LoginForm(account, copy, onIntent)
+                if (account.offersRegistration()) Button(
+                    copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
+                    variant = ButtonVariant.Text,
+                    icon = authActionIcon(AuthIntent.OpenRegister),
+                    controlModifier = Modifier.fillMaxWidth().testTag("login-create"),
+                )
+                when (account) {
+                    AccountView.Pending -> Button(
+                        copy.text(AuthText.CancelLogin), { onIntent(AuthIntent.CancelLogin) },
+                        icon = authActionIcon(AuthIntent.CancelLogin),
+                        variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-cancel"),
+                    )
+                    AccountView.CleanupRequired -> Button(
+                        copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
+                        icon = authActionIcon(AuthIntent.RetryCleanup),
+                        variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
+                    )
+                    AccountView.SignedOut, is AccountView.Failed -> Button(
+                        copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
+                        icon = authActionIcon(AuthIntent.RestoreSession),
+                        variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
+                    )
+                    AccountView.SignedIn, AccountView.Unavailable -> Unit
+                }
             }
-        }
-        AccountStatus(account, copy, nothingSaved)
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            LoginForm(account, copy, onIntent)
-            if (account.offersRegistration()) Button(
-                copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
-                variant = ButtonVariant.AuthSecondary,
-                icon = authActionIcon(AuthIntent.OpenRegister),
-                controlModifier = Modifier.fillMaxWidth().testTag("login-create"),
-            )
-            when (account) {
-                AccountView.Pending -> Button(
-                    copy.text(AuthText.CancelLogin), { onIntent(AuthIntent.CancelLogin) },
-                    icon = authActionIcon(AuthIntent.CancelLogin),
-                    variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-cancel"),
-                )
-                AccountView.CleanupRequired -> Button(
-                    copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                    icon = authActionIcon(AuthIntent.RetryCleanup),
-                    variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
-                )
-                AccountView.SignedOut, is AccountView.Failed -> Button(
-                    copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
-                    icon = authActionIcon(AuthIntent.RestoreSession),
-                    variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
-                )
-                AccountView.SignedIn, AccountView.Unavailable -> Unit
-            }
-            SupportingText(copy.text(AuthText.PasswordHelp))
         }
     }
 }
@@ -250,26 +254,30 @@ fun LoginScreen(
 fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit,
                    registration: RegistrationState? = null, onRegistration: (RegistrationIntent) -> Unit = {}) {
     val copy = AuthCopy(locale)
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
-        AuthHeading(copy.text(AuthText.RegisterEyebrow), copy.text(AuthText.RegisterHeading), copy.text(AuthText.RegisterHelp))
-        if (registration != null) RegistrationForm(registration, locale, onRegistration)
-        else Surface(Modifier.fillMaxWidth().testTag("register-unavailable").semantics { liveRegion = LiveRegionMode.Polite },
-            tone = SurfaceTone.Container, variant = SurfaceVariant.Auth, inset = Space.Lg) {
-            Text(copy.text(AuthText.SignupUnavailable), style = MaterialTheme.typography.bodyMedium)
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Button(
-                copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
-                variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
-                icon = authActionIcon(AuthIntent.OpenLogin),
-                controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
-            )
-            Button(
-                copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
-                icon = authActionIcon(AuthIntent.OpenHome),
-                variant = if (registration == null) ButtonVariant.AuthOutlined else ButtonVariant.Text,
-                controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
-            )
+    AuthTonalScope {
+        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
+            AuthHeading(copy.text(AuthText.RegisterHeading))
+            if (registration != null) RegistrationForm(registration, locale, onRegistration)
+            else Surface(Modifier.fillMaxWidth().testTag("register-unavailable").semantics { liveRegion = LiveRegionMode.Polite },
+                tone = SurfaceTone.Container, variant = SurfaceVariant.Auth, inset = Space.Lg) {
+                Text(copy.text(AuthText.SignupUnavailable), style = MaterialTheme.typography.bodyMedium)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Button(
+                    copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
+                    variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
+                    icon = authActionIcon(AuthIntent.OpenLogin),
+                    controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
+                )
+                // With a working form the header Back and the Login link already leave; only the
+                // unavailable state, which offers nothing else to do, keeps the way back to Discover.
+                if (registration == null) Button(
+                    copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
+                    icon = authActionIcon(AuthIntent.OpenHome),
+                    variant = ButtonVariant.Text,
+                    controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
+                )
+            }
         }
     }
 }
@@ -304,24 +312,31 @@ private fun LoginForm(account: AccountView, copy: AuthCopy, onIntent: (AuthInten
     val fieldState = if (account.canBeginLogin) FieldState.Editable else FieldState.ReadOnly
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         TextField(copy.text(AuthText.RegisterEmail), email, { email = it.take(254); invalidEmail = false },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal, state = fieldState,
             error = if (invalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
             controlModifier = Modifier.testTag("login-email"))
         TextField(copy.text(AuthText.Password), password, { password = it; invalidPassword = false },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal, state = fieldState,
             error = if (invalidPassword) copy.text(AuthText.PasswordRequired) else null,
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
+            // The eye is one control inside the field: it never submits and never moves focus or the caret.
+            trailing = { PasswordEye(visible, copy, Modifier.testTag("login-password-eye")) { visible = !visible } },
             controlModifier = Modifier.focusRequester(passwordFocus).testTag("login-password"))
-        // A separate control keeps the password label legible at narrow widths and 2x text.
-        TextButton({ visible = !visible }, modifier = Modifier.align(Alignment.End), enabled = account.canBeginLogin) {
-            androidx.compose.material3.Text(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword))
-        }
         Button(copy.text(AuthText.CantosIdLogin), { submit() }, variant = ButtonVariant.AuthPrimary,
             state = loginState(account, copy), icon = "login",
             controlModifier = Modifier.fillMaxWidth().testTag("login-primary"))
     }
+}
+
+/** An independent 48 dp visibility toggle for one password field; the field owns no visibility state. */
+@Composable
+internal fun PasswordEye(visible: Boolean, copy: AuthCopy, modifier: Modifier = Modifier, onToggle: () -> Unit) {
+    IconButton(
+        AccessibleName.of(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword)),
+        if (visible) "visibility_off" else "visibility", onToggle, controlModifier = modifier,
+    )
 }

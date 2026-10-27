@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,7 +46,7 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
         val editing = phase == RegistrationPhase.Editing || phase == RegistrationPhase.Submitting || failure == RegistrationFailure.InvalidEmail
         if (editing) {
             TextField(copy.text(AuthText.RegisterEmail), state.email, { onIntent(RegistrationIntent.Email(it)) },
-                modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating,
+                modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal,
                 state = if (phase == RegistrationPhase.Submitting) FieldState.ReadOnly else FieldState.Editable,
                 error = if (failure == RegistrationFailure.InvalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), controlModifier = Modifier.testTag("register-email"))
@@ -63,10 +62,11 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             RegistrationPhase.Cancelled -> copy.text(AuthText.RegisterCancelled)
             is RegistrationPhase.Failed -> copy.registrationFailure(phase.reason)
         }
-        if (status != null) Text(status, Modifier.testTag("register-status").semantics {
-            liveRegion = LiveRegionMode.Polite
-            if (failure != null) error(status)
-        }, color = if (failure == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+        if (status != null) {
+            val live = Modifier.testTag("register-status").semantics { liveRegion = LiveRegionMode.Polite }
+            if (failure != null) ErrorText(status, live)
+            else Text(status, live, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         // Editing has nothing to cancel: Back (header) and the Login link already leave. Cancel appears
         // only while a request is pending or its mail is awaited.
         if (phase == RegistrationPhase.Submitting || phase == RegistrationPhase.Waiting) {

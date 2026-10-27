@@ -61,9 +61,11 @@ enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger, AuthPrimary,
  * is the only variant whose trailing slot is part of its anatomy. Regular and AuthTonal keep
  * their existing geometry for their current consumers. FloatingSearch is the same anatomy as a
  * stadium with a 72-unit minimum, the shape of a search field that docks its action in the trailing
- * slot; the host still decides what, if anything, a query commits.
+ * slot; the host still decides what, if anything, a query commits. FloatingTonal (Auth v4.3) is the
+ * Floating anatomy with no stroke of any kind: idle, focus and error are tonal fills, a primary
+ * label and caret, and an inline icon + message, so no state is carried by a border or halo.
  */
-enum class TextFieldVariant { Regular, AuthTonal, Floating, FloatingSearch }
+enum class TextFieldVariant { Regular, AuthTonal, Floating, FloatingSearch, FloatingTonal }
 enum class StatusTone { Neutral, Info, Success, Warning, Error }
 enum class Theme(val tokenName: String) { Light("light"), Dark("dark") }
 enum class Density(val tokenName: String) { Compact("compact"), Comfortable("comfortable") }

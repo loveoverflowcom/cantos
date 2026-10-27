@@ -42,11 +42,11 @@ class IdentityV1LoginUiTest {
         onNodeWithTag("login-password").assertIsFocused()
         val maskedPassword = password()
         runOnIdle { h.preferences.setLocale(ShellLocale.English.toPreferenceLocale()) }
-        onNodeWithText("Show password").assertExists()
+        onNodeWithContentDescription("Show password").assertExists()
         onNodeWithTag("login-password").assertIsFocused()
         assertEquals(maskedPassword, password())
         onNodeWithTag("login-email").assert(hasText("listener@example.test"))
-        onNodeWithText("Show password").performScrollTo().performClick()
+        onNodeWithContentDescription("Show password").performScrollTo().performClick()
         assertEquals("form-only-secret", password())
         submit()
         val account = h.account.state.value
@@ -62,6 +62,37 @@ class IdentityV1LoginUiTest {
         assertEquals(library, h.shell.library.value)
     }
 
+    @Test fun login_is_one_title_then_the_form_the_primary_action_and_a_route_link() = run { _ ->
+        onNodeWithTag("auth-heading").assertTextEquals("Sign in")
+        for (tag in listOf("login-email", "login-password", "login-primary", "login-create")) onNodeWithTag(tag).performScrollTo().assertExists()
+        // v4.3 removed the promotional composition entirely, in both locales' copy.
+        onNodeWithTag("auth-brand").assertDoesNotExist()
+        for (text in listOf("CANTOS", "Close your eyes", "Sign in to return to your library")) onAllNodesWithText(text, substring = true).assertCountEquals(0)
+        onNodeWithTag("back").assertExists(); onNodeWithTag("auth-theme").assertExists()
+    }
+    @Test fun the_password_eye_is_a_48dp_in_field_control_that_never_submits_or_moves_focus() = run { h ->
+        input()
+        onNodeWithTag("login-password").performScrollTo().performClick()
+        onNodeWithTag("login-password").assertIsFocused()
+        val eye = onNodeWithTag("login-password-eye").performScrollTo()
+        eye.assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        eye.performClick(); waitForIdle()
+        assertEquals("form-only-secret", password())
+        assertEquals(0, h.identity.loginRequests)
+        onNodeWithContentDescription("Hide password").assertExists()
+        eye.performClick(); waitForIdle()
+        assertEquals(0, h.identity.loginRequests)
+        onNodeWithContentDescription("Show password").assertExists()
+    }
+    @Test fun field_errors_stay_visible_in_place_with_error_semantics_not_in_a_tooltip() = run { _ ->
+        submit()
+        for (message in listOf("Enter a valid email address.", "Enter your password.")) {
+            val node = onNodeWithText(message).performScrollTo()
+            node.assertExists()
+        }
+        assertTrue(SemanticsProperties.Error in onNodeWithTag("login-email").fetchSemanticsNode().config)
+        assertTrue(SemanticsProperties.Error in onNodeWithTag("login-password").fetchSemanticsNode().config)
+    }
     @Test fun invalid_fields_never_dispatch_and_keyboard_moves_email_to_password() = run { h ->
         submit(); assertEquals(0, h.identity.loginRequests)
         onNodeWithText("Enter a valid email address.").assertExists()
@@ -76,12 +107,12 @@ class IdentityV1LoginUiTest {
     }
     @Test fun credentials_clear_on_leave_and_visibility_is_local_to_the_form() = run { h ->
         input()
-        onNodeWithText("Show password").performScrollTo().performClick()
-        onNodeWithText("Hide password").assertExists()
+        onNodeWithContentDescription("Show password").performScrollTo().performClick()
+        onNodeWithContentDescription("Hide password").assertExists()
         onNodeWithTag("back").performClick(); waitForIdle()
         assertEquals(0, h.identity.loginRequests)
         h.shell.openLogin(); waitForIdle()
-        assertEquals("", password()); onNodeWithText("Show password").assertExists()
+        assertEquals("", password()); onNodeWithContentDescription("Show password").assertExists()
     }
     @Test fun generic_401_429_and_503_require_explicit_retry_with_a_fresh_password_in_both_locales() {
         for (locale in ShellLocale.entries) for (failure in listOf(IdentityV1Failure.Unauthorized, IdentityV1Failure.RateLimited(17), IdentityV1Failure.ServiceUnavailable)) run(locale) { h ->

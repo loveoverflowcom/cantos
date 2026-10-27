@@ -128,12 +128,14 @@ internal fun ButtonControl(
     })
     val background = containerColor ?: buttonContainerColor(variant)
     val foreground = buttonContentColor(variant)
+    val tonal = LocalAuthActionScope.current.isTonal()
     val inset = insetPerimeter || variant.focusIsInset(LocalUiPreferences.current.expression)
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },
         enabled = state.canPress(),
         modifier = modifier.heightIn(min = minimumHeight)
-            .then(if (inset) Modifier.cantosInsetPerimeter(resolvedShape, invalid = invalid, active = active,
+            .then(if (tonal) Modifier.cantosFocusFill(resolvedShape, foreground)
+                else if (inset) Modifier.cantosInsetPerimeter(resolvedShape, invalid = invalid, active = active,
                 ring = if (variant.ringReadsFromContent()) foreground else null,
                 inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
                 else Modifier.cantosFocus(if (auth) "shape.pill" else "shape.control"))
@@ -141,7 +143,7 @@ internal fun ButtonControl(
             .semantics { name?.let { contentDescription = it.text } },
         shape = resolvedShape,
         interactionSource = interactions,
-        border = if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
+        border = if (tonal) null else if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
             else if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
                 tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
             ) else null,
@@ -195,7 +197,10 @@ internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
         tokenColor(if (theatreTonal(variant)) "color.surfaceContainerHigh" else "color.primaryContainer")
     ButtonVariant.Danger -> tokenColor("color.errorContainer")
-    ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> Color.Transparent
+    // The outlined auth action has no outline in the tonal recipe: it is the quiet tonal container.
+    ButtonVariant.AuthOutlined ->
+        if (LocalAuthActionScope.current.isTonal()) tokenColor("color.surfaceContainerHigh") else Color.Transparent
+    ButtonVariant.Secondary, ButtonVariant.Text -> Color.Transparent
 }
 
 @Composable
@@ -294,7 +299,10 @@ fun IconButton(
             state = tooltipState,
         ) {
         // The plain glyph button is Material's circle whatever [circular] says; a filled one is [shape].
-        val focus = if (variant.focusIsInset(LocalUiPreferences.current.expression)) {
+        val tonalFocus = LocalAuthActionScope.current.isTonal()
+        val focus = if (tonalFocus) {
+            Modifier.cantosFocusFill(if (filled) shape else CantosShapes.full, buttonContentColor(variant))
+        } else if (variant.focusIsInset(LocalUiPreferences.current.expression)) {
             Modifier.cantosInsetPerimeter(if (filled) shape else CantosShapes.full,
                 ring = if (variant.ringReadsFromContent()) buttonContentColor(variant) else null,
                 inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
