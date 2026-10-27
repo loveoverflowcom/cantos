@@ -12,8 +12,8 @@
 //! `.js`/`.wasm`/`.css` from answering `200 text/html`.
 //!
 //! Theatre may add its Android App Links and iOS Universal Links association files under
-//! `.well-known/` (ADR 0048). Each claims exactly the release app and the signup email action
-//! path `/verify-email`; a debug application, another path or another association is refused.
+//! `.well-known/` (ADR 0048). Android claims only the release and/or approved dev application;
+//! Apple claims the release app and the signup email action path `/verify-email`.
 
 use std::collections::BTreeMap;
 
@@ -40,9 +40,9 @@ const MAX_ASSOCIATION_BYTES: usize = 128 * 1024;
 
 pub const ASSET_LINKS: &str = ".well-known/assetlinks.json";
 pub const APPLE_APP_SITE_ASSOCIATION: &str = ".well-known/apple-app-site-association";
-/// The release application of Cantos Theatre. The debug `com.cantos.theatre.dev` is never
-/// associated (owner decision recorded in ADR 0048).
+/// Only these exact Android identities can be associated; fingerprints still require operator review.
 const RELEASE_APPLICATION: &str = "com.cantos.theatre";
+const DEV_APPLICATION: &str = "com.cantos.theatre.dev";
 /// Android's at most two signing-certificate generations during a key rotation, plus slack.
 const MAX_FINGERPRINTS: usize = 4;
 
@@ -395,12 +395,23 @@ fn fingerprint(value: &Value) -> bool {
     })
 }
 
-/// Exactly one `handle_all_urls` statement for the release application.
+/// One statement per approved Android package, with its own reviewed signing certificates.
 fn validate_asset_links(value: &Value) -> Result<(), String> {
-    let statement = match value.as_array().map(Vec::as_slice) {
-        Some([only]) => only,
-        _ => return Err("must hold exactly one statement".into()),
-    };
+    let statements = value
+        .as_array()
+        .filter(|items| (1..=2).contains(&items.len()))
+        .ok_or_else(|| "must hold one or two statements".to_owned())?;
+    let mut packages = std::collections::BTreeSet::new();
+    for statement in statements {
+        let package = validate_asset_link_statement(statement)?;
+        if !packages.insert(package) {
+            return Err("duplicate application package".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_asset_link_statement(statement: &Value) -> Result<&str, String> {
     let statement = object(statement, &["relation", "target"])?;
     let relation = single(statement.get("relation"), "relation")?;
     if relation.as_str() != Some("delegate_permission/common.handle_all_urls") {
@@ -415,11 +426,13 @@ fn validate_asset_links(value: &Value) -> Result<(), String> {
     if target.get("namespace").and_then(Value::as_str) != Some("android_app") {
         return Err("`target.namespace` must be `android_app`".into());
     }
-    if target.get("package_name").and_then(Value::as_str) != Some(RELEASE_APPLICATION) {
-        return Err(format!(
-            "`target.package_name` must be the release application `{RELEASE_APPLICATION}`"
-        ));
-    }
+    let package = target
+        .get("package_name")
+        .and_then(Value::as_str)
+        .filter(|name| matches!(*name, RELEASE_APPLICATION | DEV_APPLICATION))
+        .ok_or_else(|| {
+            format!("`target.package_name` must be `{RELEASE_APPLICATION}` or `{DEV_APPLICATION}`")
+        })?;
     let prints = target
         .get("sha256_cert_fingerprints")
         .and_then(Value::as_array)
@@ -434,7 +447,7 @@ fn validate_asset_links(value: &Value) -> Result<(), String> {
             "`sha256_cert_fingerprints` must list 1–{MAX_FINGERPRINTS} distinct uppercase `AB:CD:…` SHA-256 fingerprints"
         ));
     }
-    Ok(())
+    Ok(package)
 }
 
 /// One `applinks` detail: the release application under one Apple team, claiming only
@@ -650,17 +663,13 @@ mod tests {
     }
 
     #[test]
-    fn asset_links_claim_only_the_release_application_with_real_fingerprints() {
+    fn asset_links_accept_only_distinct_approved_packages_and_valid_fingerprints() {
         let lower = FINGERPRINT.to_ascii_lowercase();
         let short = &FINGERPRINT[..92];
         for (links, needle) in [
             (
-                asset_links("com.cantos.theatre.dev", &[FINGERPRINT]),
-                "release application",
-            ),
-            (
                 asset_links("com.example.other", &[FINGERPRINT]),
-                "release application",
+                "target.package_name",
             ),
             (asset_links("com.cantos.theatre", &[]), "fingerprints"),
             (asset_links("com.cantos.theatre", &[&lower]), "fingerprints"),
@@ -669,8 +678,8 @@ mod tests {
                 asset_links("com.cantos.theatre", &[FINGERPRINT, FINGERPRINT]),
                 "fingerprints",
             ),
-            ("[]".to_owned(), "exactly one statement"),
-            ("{}".to_owned(), "exactly one statement"),
+            ("[]".to_owned(), "one or two statements"),
+            ("{}".to_owned(), "one or two statements"),
             ("not json".to_owned(), "not JSON"),
             (
                 asset_links("com.cantos.theatre", &[FINGERPRINT])
@@ -703,6 +712,60 @@ mod tests {
             ..files()
         };
         assert_eq!(rotated.validate(App::Theatre), Ok(()));
+        let dev = asset_links("com.cantos.theatre.dev", &[FINGERPRINT]);
+        assert_eq!(
+            PolicyFiles {
+                asset_links: Some(dev.clone()),
+                ..files()
+            }
+            .validate(App::Theatre),
+            Ok(())
+        );
+        let release = asset_links("com.cantos.theatre", &[FINGERPRINT]);
+        let both = format!(
+            "[{},{}]",
+            &release[1..release.len() - 1],
+            &dev[1..dev.len() - 1]
+        );
+        assert_eq!(
+            PolicyFiles {
+                asset_links: Some(both),
+                ..files()
+            }
+            .validate(App::Theatre),
+            Ok(())
+        );
+        let invalid_dev = asset_links("com.cantos.theatre.dev", &[&lower]);
+        let invalid_second = format!(
+            "[{},{}]",
+            &release[1..release.len() - 1],
+            &invalid_dev[1..invalid_dev.len() - 1]
+        );
+        assert!(problems(&PolicyFiles {
+            asset_links: Some(invalid_second),
+            ..files()
+        })
+        .iter()
+        .any(|p| p.contains("fingerprints")));
+        let too_many = format!(
+            "[{}, {}, {}]",
+            &release[1..release.len() - 1],
+            &dev[1..dev.len() - 1],
+            &dev[1..dev.len() - 1]
+        );
+        assert!(problems(&PolicyFiles {
+            asset_links: Some(too_many),
+            ..files()
+        })
+        .iter()
+        .any(|p| p.contains("one or two statements")));
+        let duplicate = format!("[{},{}]", &dev[1..dev.len() - 1], &dev[1..dev.len() - 1]);
+        assert!(problems(&PolicyFiles {
+            asset_links: Some(duplicate),
+            ..files()
+        })
+        .iter()
+        .any(|p| p.contains("duplicate application")));
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 - Status: Accepted direction: option C, staged (owner selection, 24 October 2026, in the #422
   work chat). Stage 0 is implemented. The owner settled stage 1's handler path, signed-in policy
-  and debug association the same day (see [Stage 1 owner choices](#stage-1-owner-choices)).
+  and the initial debug association choice the same day; the Android dev choice was superseded on 27 October 2026 (see [Stage 1 owner choices](#stage-1-owner-choices)).
   Stage 1 is partly implemented in source: Theatre Web serves `/verify-email` and the deploy
   check admits the two association files ([#431](https://github.com/loveoverflowcom/cantos/pull/431));
   Android declares the App Link and CMP completes the signup (stage 1 PR 2). The association
@@ -93,7 +93,7 @@ Selected by the owner on 24 October 2026 in the #422 work chat:
 | --- | --- | --- |
 | Handler path | `https://cantos.cc/verify-email` | Exact host and path. Android `<data android:scheme="https" android:host="cantos.cc" android:path="/verify-email"/>` with `autoVerify`, never a prefix or the site root. iOS AASA `components` names exactly `/verify-email`. Web serves the SPA at that path (Cloudflare `_redirects` 200 rewrite, Firebase Hosting rewrite) and still accepts nothing on other paths. The pinned build constant and the operator's `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` and Firebase template action URL all use this exact URL. Alias hosts and `www` are not claimed |
 | Completion while signed in | Allowed | The completion screen is reachable while a listener is signed in. The request stays anonymous: no `Authorization`, no session fence, no change to the stored grant, Library or outbox. On success the app keeps the current session, says the new account was created, and offers only the existing explicit sign-out followed by Login. It never signs out, switches or logs in automatically. A late completion response after the listener changed account changes nothing but this screen |
-| Debug association | None | `assetlinks.json` lists only `com.cantos.theatre` with the release signing certificate fingerprint. `com.cantos.theatre.dev` gets no entry, so its filter cannot verify and Android shows it, at most, as an unverified chooser option. Debug runs check the parser and state machine through an explicit `VIEW` intent to the pinned URL. On iOS the debug and release builds share bundle ID `com.cantos.theatre`, so the Associated Domains entitlement is attached to the Release configuration only. Verified-link opening is accepted only on release-signed builds |
+| Android dev association | Approved 27 October 2026 | `assetlinks.json` may list `com.cantos.theatre` and `com.cantos.theatre.dev`, each with its actual operator-approved signing certificate fingerprints. An ordinary per-machine debug key is not automatically approved. On iOS the debug and release builds share bundle ID `com.cantos.theatre`, so the Associated Domains entitlement remains Release-only. Each Android package requires separate device verification; an explicit intent is diagnostic only |
 
 Open for stage 1 review: the CMP Login pre-fill (none, recommended, since the link carries no
 email) and the iOS minimum version for `components` matching.
@@ -120,7 +120,7 @@ app-to-browser-to-app round trip and re-exposes the action in a browser URL, wit
 | Duplicate or late taps (`onNewIntent` during a pending completion) | One pending completion. A new link while pending is refused until it ends; late responses are fenced like Login |
 | Already signed in as another listener | Completion is allowed (owner choice). Never touch the active session. Completion is anonymous on the wire; after success, say the new account needs an explicit sign-out and Login |
 | Lost response or 503 | Identical retry only, with the same password re-entered. `replayed` counts as success. Never "nothing happened" |
-| Association file abuse or drift | Association bytes reviewed in Git. Exact package and fingerprint or team ID. Served `application/json` over HTTPS with no redirect. Production publishes the release certificate only; debug has no association (owner choice) |
+| Association file abuse or drift | Association bytes reviewed in Git. Exact package and fingerprint or team ID. Served `application/json` over HTTPS with no redirect. Android release and dev entries require separately reviewed actual certificate fingerprints; no arbitrary debug key is trusted |
 
 ## Consequences
 
@@ -157,7 +157,7 @@ regressions; the PR records their exact commands and results.
 | Stage 0 copy regressions (Web `auth_copy`, CMP `AuthCopyTest`) | see the PR |
 | Stage 1 CMP parser, state machine, controller, HTTP client, navigation and JVM UI flow (`EmailVerificationTest`, `EmailVerificationControllerTest`, `NativeIdentityV1ClientTest`, `NavigationTest`, `VerifyEmailFlowTest`); manifest and inspector controls (`test_theatre_android_host`, `test_inspect_android_release`) | example-tested on JVM; see the PR. No CMP Login pre-fill: the link carries no email |
 | iOS transient intake and Release-only entitlement | source-checked; real Foundation `NSUserActivity` intake is example-tested on macOS. SwiftUI direct URLs and browsing-web activities both use the process-owned shared parser/controller; full framework/host build, scene lifecycle and signed-device association are separate |
-| Android device (Gmail, another mail client, installed/absent, cold/warm; verified opening on release-signed builds only, debug through an explicit intent) | NOT_RUN |
+| Android device (Gmail, another mail client, installed/absent, cold/warm; verified opening for each approved dev/release signer, plus both-installed and absent-app cases) | NOT_RUN |
 | iOS real device (Mail, Gmail, installed/absent); a simulator is not equivalent | NOT_RUN |
 | Desktop browser no-app flow | NOT_RUN for this record; the existing Web journey evidence lives in the [Firebase boundary](../architecture/firebase-verification.md#evidence-and-remaining-acceptance) |
 | Production template, handler, association hosting, live email | NOT_RUN; operator-owned |
