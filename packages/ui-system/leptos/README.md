@@ -40,8 +40,11 @@ and visible reason. Both native disabled and the dispatch guard block repeated a
 reason uses a polite status region. `DisabledReason::new` and `AccessibleName::new` reject blank text.
 The same state is used by IconButton and FilterChip; selected state stays caller-owned.
 
-Button and IconButton replace a decorative action glyph with a stationary indeterminate ring
-while loading, including a Button without an icon. The original label and localized reason stay
+Button and IconButton replace a decorative action glyph with the shared `LoadingIndicator`
+(issue #528) while loading, including a Button without an icon. The indicator is one decorative
+arc used by buttons, selects and `LoadingState`: it turns once per `--cantos-web-loading-turn`
+(1000 ms, a Web design seed, not a canonical role) only while it is mounted and is a stationary
+visible arc under `prefers-reduced-motion`, so the label or reason is always the status. The original label and localized reason stay
 visible; progress is neither a disclosure chevron nor a success marker. IconButton also exposes
 its reactive accessible name as a native title tooltip. Glyphs remain 24 logical units with an
 8-unit label gap through existing tokens; there is one native action target. The

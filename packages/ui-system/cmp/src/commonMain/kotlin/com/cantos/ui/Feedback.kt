@@ -63,11 +63,16 @@ fun Status(
     }
 }
 
+/**
+ * Indeterminate loading with visible localized text. The shared [LoadingIndicator] turns under full
+ * motion and stays a stationary arc under reduced motion; the text is the status either way, and the
+ * indicator is never a disclosure glyph.
+ */
 @Composable
 fun LoadingState(text: String, modifier: Modifier = Modifier, announcement: Announcement = Announcement.Off) {
     Row(modifier.announcement(announcement).semantics { stateDescription = text },
         horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Icon("expand_more")
+        LoadingIndicator()
         Text(text)
     }
 }

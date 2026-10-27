@@ -1,6 +1,6 @@
 use leptos::{ev, ev::MouseEvent, prelude::*};
 
-use crate::{Icon, IconName};
+use crate::{feedback::LoadingIndicator, Icon, IconName};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ButtonVariant {
@@ -202,7 +202,7 @@ pub fn Button(
                     }
                 }>
                 {move || if state.get().is_busy() {
-                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-action-progress"></span></span> }.into_any())
+                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><LoadingIndicator/></span> }.into_any())
                 } else {
                     icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true"><Icon name=name/></span> }.into_any())
                 }}
@@ -339,7 +339,7 @@ pub fn IconButton(
                     }
                 }>
                 {move || if state.get().is_busy() {
-                    view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                    view! { <LoadingIndicator/> }.into_any()
                 } else {
                     view! { <Icon name=icon.get()/> }.into_any()
                 }}

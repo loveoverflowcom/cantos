@@ -88,6 +88,8 @@ import com.cantos.theatre.presentation.model.isAccountTask
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
+import com.cantos.ui.Announcement
+import com.cantos.ui.LoadingState
 import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
@@ -501,7 +503,8 @@ private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (
     Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         if (mode == ShellCatalogMode.Empty) TheatreEmptyArtwork(TheatreEmptyArtworkKind.Works, theme,
             Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f).align(Alignment.CenterHorizontally).testTag("catalog-empty-artwork"))
-        Text(copy.text(title), style = MaterialTheme.typography.titleLarge)
+        if (mode == ShellCatalogMode.Loading) LoadingState(copy.text(title))
+        else Text(copy.text(title), style = MaterialTheme.typography.titleLarge)
         Text(copy.text(message))
         if (mode == ShellCatalogMode.Error || mode == ShellCatalogMode.Loading) {
             Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Retry) }, modifier = Modifier.testTag("retry")) { Text(copy.text(CopyKey.Retry)) }
@@ -528,8 +531,8 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     }
     when (work.detailPhase) {
         ShellDetailPhase.Ready -> Unit
-        ShellDetailPhase.Loading -> Text(copy.text(CopyKey.Loading), Modifier.testTag("work-loading")
-            .semantics { liveRegion = LiveRegionMode.Polite })
+        ShellDetailPhase.Loading -> LoadingState(copy.text(CopyKey.Loading), Modifier.testTag("work-loading"),
+            announcement = Announcement.Polite)
             ShellDetailPhase.Failed -> CatalogRecovery(ShellCatalogMode.Error, copy, dispatch, state.theme)
         ShellDetailPhase.NotFound -> {
             Column(Modifier.testTag("work-not-found").semantics { liveRegion = LiveRegionMode.Polite },

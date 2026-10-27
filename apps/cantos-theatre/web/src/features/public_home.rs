@@ -20,8 +20,8 @@ use crate::{
     messages::{self, text, Key, Locale},
 };
 use cantos_ui::{
-    AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, IconButton, IconName,
-    TextField, TextFieldKind, TextFieldVariant,
+    AccessibleName, Announcement, Button, ButtonState, ButtonVariant, DisabledReason, IconButton,
+    IconName, LoadingState, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -358,7 +358,9 @@ pub(crate) fn PublicHome(
                 <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
                 {move || match current.get() {
                     Region::Loading => view! {
-                        <p class="theatre-public-state" role="status">{move || text(Key::PublicHomeLoading, locale.get())}</p>
+                        <LoadingState class="theatre-public-state" announcement=Announcement::Polite>
+                            {move || text(Key::PublicHomeLoading, locale.get())}
+                        </LoadingState>
                         <div class="theatre-shelf theatre-public-skeletons" aria-hidden="true">
                             {(0..3).map(|_| view! { <div class="theatre-public-skeleton"></div> }).collect_view()}
                         </div>

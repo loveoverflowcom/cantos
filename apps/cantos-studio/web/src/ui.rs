@@ -379,7 +379,7 @@ pub fn FormSubmit(
                 aria-busy=move || busy.get().then_some("true")
                 aria-describedby=move || (blocked.get() || busy.get()).then(|| described_by.clone())>
                 {move || if busy.get() {
-                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-action-progress"></span></span> }.into_any())
+                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-loading-indicator"></span></span> }.into_any())
                 } else { icon.clone().map(|icon| view! { <span class="cui-button-icon" aria-hidden="true">{icon.run()}</span> }.into_any()) }}
                 <span class="cui-control-label">{children()}</span>
             </button>
@@ -598,7 +598,7 @@ mod tests {
                             busy=Signal::stored(busy) on_press=Callback::new(move |_| calls.update(|value| *value += 1))>{label}</ActionButton>
                     }.to_html();
                     assert_eq!(html.contains("aria-busy=\"true\""), busy, "{html}");
-                    assert_eq!(html.contains("cui-action-progress"), busy, "{html}");
+                    assert_eq!(html.contains("cui-loading-indicator"), busy, "{html}");
                     assert_eq!(html.contains("<svg"), !busy, "forward the optional glyph: {html}");
                     assert!(html.contains("aria-hidden=\"true\""), "{html}");
                     assert_eq!(calls.get_untracked(), 0, "render cannot dispatch");

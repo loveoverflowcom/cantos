@@ -6,13 +6,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -50,9 +44,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.cantos.ui.generated.CantosIcons
@@ -226,36 +217,13 @@ private fun ActionIcon(icon: String?, state: ButtonState) {
     ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current)
 }
 
-/** Indeterminate ring: it turns under full motion and stays a visible stationary arc under reduced
- * motion. The action's localized state owns the pending announcement, so the ring is decorative and
- * never a completion percentage or a disclosure/check glyph.
- */
+/** The pending glyph of an action; the action's localized state owns the pending announcement. */
 @Composable
 private fun ActionGlyph(icon: String?, state: ButtonState, tint: Color) {
     if (state is ButtonState.Loading) {
-        PendingRing(tint, pendingRingTurnMillis(LocalUiPreferences.current.motion))
+        LoadingIndicator(tint = tint)
     } else if (icon != null) {
         Icon(icon, tint = tint)
-    }
-}
-
-@Composable
-private fun PendingRing(tint: Color, turnMillis: Int?) {
-    val stroke = tokenDp("size.focusWidth")
-    // The transition is unconditional so its slot is stable; reduced motion pins the angle at rest.
-    val spin = rememberInfiniteTransition(label = "pending-ring").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(turnMillis ?: PendingRingTurnMillis, easing = LinearEasing)),
-        label = "pending-ring-angle",
-    )
-    val turning = turnMillis != null
-    Canvas(Modifier.size(tokenDp("size.icon")).graphicsLayer { rotationZ = if (turning) spin.value else 0f }.clearAndSetSemantics { }) {
-        val width = stroke.toPx()
-        drawArc(tint, -90f, 270f, false,
-            topLeft = androidx.compose.ui.geometry.Offset(width / 2, width / 2),
-            size = androidx.compose.ui.geometry.Size(size.width - width, size.height - width),
-            style = Stroke(width))
     }
 }
 

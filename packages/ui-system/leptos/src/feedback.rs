@@ -81,7 +81,18 @@ pub fn Status(
     }
 }
 
-/// Indeterminate loading with visible localized text, without a continuous animation.
+/// The one indeterminate indicator, internal to the package so it is consumed through the registered
+/// components (Button, Select, `LoadingState`) and needs no catalog entry of its own: an arc that turns while it is mounted and stays a visible
+/// stationary arc under `prefers-reduced-motion`. It is decorative: the adjacent localized text or
+/// reason owns the pending announcement, so it never shows a percentage, a check or a disclosure
+/// glyph. Mount it only while work is ongoing; unmounting (or a hidden ancestor) ends the animation.
+#[component]
+pub(crate) fn LoadingIndicator() -> impl IntoView {
+    view! { <span class="cui-loading-indicator" aria-hidden="true"></span> }
+}
+
+/// Indeterminate loading with visible localized text. The indicator turns under full motion and
+/// stays a stationary arc under reduced motion; the text carries the status either way.
 #[component]
 pub fn LoadingState(
     children: Children,
@@ -91,7 +102,7 @@ pub fn LoadingState(
     view! {
         <div class=move || format!("cui-loading-state {}", class.get())
             data-state="loading" role=announcement.role()>
-            <span class="cui-loading-mark" aria-hidden="true"></span>
+            <LoadingIndicator/>
             <div>{children()}</div>
         </div>
     }

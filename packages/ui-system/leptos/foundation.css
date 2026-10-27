@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527 template-sha256:b9bdd8336d143c219e958f021e3cc3460b6e8557e890a9000bbe0a0bc8fa48d2
+/* Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527 template-sha256:ab5abe25126ea22b9282ec8a0a17c82016e455a6c216b91753599da59bdf0cf0
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -232,7 +232,6 @@
 :where(.cantos-ui) .cui-empty-state { padding: var(--cantos-space-md); }
 :where(.cantos-ui) .cui-error-state { padding: var(--cantos-space-md); background: var(--cantos-color-error-container); color: var(--cantos-color-error); border-radius: var(--cantos-web-shape-reading); }
 :where(.cantos-ui) .cui-state-title { margin-block: 0 var(--cantos-space-sm); font-weight: var(--cantos-type-label-weight); }
-:where(.cantos-ui) .cui-loading-mark { display: block; flex-shrink: 0; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); border: var(--cantos-size-focus-width) dotted currentColor; border-radius: var(--cantos-shape-pill); box-sizing: border-box; }
 :where(.cantos-ui) .cui-avatar {
   --cui-avatar-size: var(--cantos-size-avatar-medium);
   --cui-avatar-glyph: 0.44;
@@ -313,9 +312,16 @@
   justify-content: center;
   flex-shrink: 0;
 }
-/* A stationary indeterminate ring: the adjacent localized reason announces waiting.
-   It never implies disclosure or success, and needs no motion/reduced-motion adapter. */
-:where(.cantos-ui) .cui-action-progress {
+/* The shared indeterminate indicator (buttons, selects and LoadingState). The adjacent localized
+   text or reason announces waiting; the arc never implies disclosure, success or a percentage.
+   One turn is a Web design seed, not a canonical role: no continuous-motion token exists yet and the
+   CMP renderer keeps its own constant. It turns only while mounted (pending) and is a stationary,
+   still visible arc under reduced motion, so no loop or timer runs there. A hidden ancestor
+   (display: none) also ends it. Rotation is a compositor transform, so layout never moves. */
+:where(.cantos-ui) {
+  --cantos-web-loading-turn: 1000ms;
+}
+:where(.cantos-ui) .cui-loading-indicator {
   box-sizing: border-box;
   display: inline-block;
   flex-shrink: 0;
@@ -324,6 +330,13 @@
   border: var(--cantos-size-focus-width) solid currentColor;
   border-inline-end-color: transparent;
   border-radius: var(--cantos-shape-pill);
+  animation: cui-loading-turn var(--cantos-web-loading-turn) linear infinite;
+}
+@keyframes cui-loading-turn {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-loading-indicator { animation: none; }
 }
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);

@@ -359,7 +359,7 @@ mod tests {
             assert!(submit.contains("type=\"submit\""), "{html}");
             assert!(submit.contains("aria-busy=\"true\""), "{html}");
             assert!(submit.contains("disabled"), "{html}");
-            assert!(submit.contains("cui-action-progress"), "{html}");
+            assert!(submit.contains("cui-loading-indicator"), "{html}");
             assert!(!submit.contains("<svg"), "{html}");
             assert!(submit.contains(text(Key::Submitting, locale)), "{html}");
         }

@@ -24,8 +24,8 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, Announcement, BackButton, Button, ButtonVariant, Container, ContainerWidth,
-    Density, FieldLabel, IconName, Logo, LogoTone, LogoVariant, Status as UiStatus, Theme,
-    ThemeCycleButton, UiRoot,
+    Density, FieldLabel, IconName, LoadingState, Logo, LogoTone, LogoVariant, Status as UiStatus,
+    Theme, ThemeCycleButton, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -791,7 +791,7 @@ pub fn Studio() -> impl IntoView {
                 <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),locale.get())}</h1>
                 <p class="help">{move ||entry_text(crate::messages::entry::help(entry_state.get()),locale.get())}</p>
                 <div hidden=move ||!session.with(SessionState::pending) inert=move ||!session.with(SessionState::pending)>
-                    <UiStatus announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,locale.get())}else{text(Key::SessionChecking,locale.get())}}</UiStatus>
+                    <LoadingState announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,locale.get())}else{text(Key::SessionChecking,locale.get())}}</LoadingState>
                     <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,locale.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,locale.get())}</Button>
                 </div>
                 <div hidden=move ||session.with(SessionState::pending) inert=move ||session.with(SessionState::pending)>
