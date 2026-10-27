@@ -2,10 +2,11 @@
 
 Implemented Studio metadata core over [Audio Lifecycle v1](../../audio-lifecycle/v1/README.md),
 [Content Identity](../../content/v1/README.md) and [Production Brief v1](../../briefs/v1/README.md).
-[Schema](publication.schema.json), raw Rust DTOs in `api/src/publication.rs`,
+[Schema](publication.schema.json), Server-owned DTOs in `src/contract/studio/publication.rs`,
 and synthetic [request fixtures](fixtures/) own JSON transport.
 [Evidence and limits](../../../../../../docs/evidence/publication-core.md) separate core verification
-from unavailable PostgreSQL/delivery acceptance. This does not close #9/#10/#11.
+from its original unrun PG/delivery acceptance. Native persistence and HTTP test roots are
+now recorded in the [replacement ledger](../../../../../../docs/architecture/server-turso/remaining-pg-retirement.md). This does not close #9/#10/#11.
 
 ## Route inventory
 
@@ -65,14 +66,15 @@ embedded evidence and checks real candidate/rendition/Content bindings, not hash
 
 `ReleaseManifestDocument` is an owner/audit DTO, not a public Theatre projection. It includes
 review/evidence details. No staging key, private pathname, bearer or public/signed URL is accepted
-or returned. A future listener contract must deliberately project public metadata and apply
-current rights and delivery access checks through a media-owned consumer boundary.
+or returned. The separate [Discovery contract](../../../theatre/discovery/v1/README.md)
+projects public metadata and applies current rights/delivery checks through Media; the owner
+audit DTO is never returned to an anonymous listener.
 
 Publish requires both expected pointer version and expected active release ID. A single
-PostgreSQL transaction writes release, guarded active pointer, durable audit event and operation
+Turso writer unit writes release, guarded active pointer, durable audit event and operation
 receipt under the owning Work/clock fence. Pointer identity is fixed, version increments are
 forward-only and active pointers reference the same unit/owner. Settled rows reject update,
-delete and truncate. Uncommitted failure leaves no new release, pointer/event or receipt.
+delete and replacement/upsert attempts. Uncommitted failure leaves no new release, pointer/event or receipt.
 
 Republish creates a new UUID and immutable record with `supersedes`; it never edits the old
 manifest. The explicit policy `retain_until_rights_expiry_or_withdrawal` retains old snapshots
@@ -92,7 +94,8 @@ UUID operation IDs are scoped to the authenticated actor and operation. Identica
 the original durable receipt, including after restart or later withdrawal; it does not reactivate
 anything. Reusing an ID with a different subject/request fails. Clearances canonicalize rights
 and evidence sets before comparing retry input. Concurrent publishers are serialized by the
-Catalog fence and checked pointer; database race execution is pending in this environment.
+serialized writer and checked pointer. Native race/restart tests are mapped in the replacement ledger;
+production contention and deployed delivery remain separate acceptance.
 
 ## Storage and migration boundary
 
@@ -102,18 +105,16 @@ refined SHA-256, length and explicit profile. The result must attest a distinct 
 object, exact integrity and a finite verification window valid at the sampled clock. It cannot return a staging
 object reference or URL. `UnavailableDelivery` is the production default: no release can activate
 until a trusted host explicitly provides a real verified delivery adapter via
-`router_with_publication_delivery`. Platform PostgreSQL plumbing owns neither the port nor a
+`router_with_publication_delivery`. Generic persistence plumbing owns neither the port nor a
 business service. The named integration
 fake is test-only and establishes no public storage/CDN capability.
 
 Private byte verification reuses current `AudioStorage`; publish rechecks it under the final
 metadata fence. Filesystem/remote object state and SQL cannot be one transaction. A real immutable
 delivery/retention implementation must establish stable object existence through commit and
-resolution. The independently developed private `PrivateStorage` target adapter is not a public
-promotion API and is not merged by this slice.
+resolution. The private target registry is not a public promotion API. Configured native filesystem
+publication/origin adapters have a separate [Server boundary](../../../../README.md#origin-public-media-storage).
 
-Additive `0016_audio_publication.sql` preserves historical migration bytes. `0015` is independently
-reserved for private storage targets; the real runner accepts gaps. This standalone registry
-contains1–14,16/count15. Deployment application grants are a separate operator task; synthetic
-integration fixtures use SELECT/INSERT on publication tables and UPDATE only on pointer
-`active_release_id,version`. No role/credential setup or provider call occurred here.
+Native migrations 14 and 23 own releases, pointers, events and operation receipts. Historical
+PG registry/grant details do not configure native serving. A configured delivery adapter,
+actual byte integrity and independent production delivery/retention acceptance remain required.

@@ -110,12 +110,11 @@ limit;405 unsupported method;406 unacceptable response format;415 unsupported tr
 storage or database unavailable;500 corrupt persisted bytes/snapshot. Error codes/field rules
 are stable raw contracts; UI owns localized copy.
 
-Applied SQL0010 is reused byte-for-byte;0011–0013 stay unchanged. Migration0014 adds immutable
-submission/revocation/rendition/review/candidate tables with FKs, bounded snapshots and unique
-operation/rendition/sequence guards. Registry1–14/count14 includes the previously missing0010;
-upgrade tests cover databases where0011–0013 were already applied. App role needs SELECT/INSERT
-on new Media tables; existing Brief read-grant issuance additionally needs SELECT on
-`audio_submissions` to reject credential reuse. No UPDATE/DELETE/TRUNCATE grant is needed.
+Native migrations 14, 20 and 23 own the audio chain, private intake and review/publication
+receipts in the single `server.db`; registered older migrations remain immutable. Schema guards,
+FKs and same-unit current authority preserve exact binding and retry. The
+[native mapping](../../../../../../docs/architecture/server-turso/remaining-pg-retirement.md)
+records the former PG oracle dispositions; role grants are historical recovery inputs only.
 
 Production identity/TLS/credential delivery, object-store grants, S3/CDN, reference-aware orphan
 cleanup, stronger rights/QC policy, publication, playback/interoperability and live UI integration

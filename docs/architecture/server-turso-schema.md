@@ -1,10 +1,11 @@
 # Server Turso foundation schema
 
-**Status: composed foundation, business port incomplete.** `Store`, `cantos-migrate`, operator
-and host use the one Server-owned embedded Turso file through `platform/store` and
-`platform/turso`. This is not complete business schema v1. Actor, native Identity-session and
-development-session tables exist; registered business migration slots remain incomplete.
-See the [checkpoint](server-turso-porting.md#checkpoint-boundary).
+**Status: composed native foundation and business adapters; production acceptance separate.**
+`Store`, `cantos-migrate`, operator and host use one Server-owned embedded Turso file through
+`platform/store` and `platform/turso`. Versions 12–23 implement all 69 legacy-inventory business
+tables; v24 adds cover disclosures. Versions 4–11 are immutable placeholders, not pending ports.
+This document owns the foundation/session mapping; the [business replacement ledger](server-turso/remaining-pg-retirement.md)
+and [source boundary](server-turso-porting.md#checkpoint-boundary) own the context ports.
 
 `turso-candidate` and `dbsp-experimental` no longer exist. Foundation/session tests run through
 ordinary Rust tests; the real Identity journey requires its prebuilt executable. Prior feature-
@@ -15,7 +16,8 @@ mapping below retains the actual foundation guarantees and its unaccepted HTTP/r
 | --- | --- | --- |
 | 333.4 actor registry (version 1) | `actors`, `actor_external_identities` | composed adapter [`TursoIdentityRegistry`](../../services/cantos-server/src/platform/identity/turso.rs) with file-backed tests |
 | #335 provider-free sessions (version 2) | `identity_sessions`, `identity_session_tokens` | composed adapter [`TursoSessions`](../../services/cantos-server/src/platform/identity_auth/turso.rs) behind the shared [`SessionStore`](../../services/cantos-server/src/platform/identity_auth/session.rs) port, with file-backed tests and a [real Identity journey](../../services/cantos-server/tests/identity_auth_candidate.rs) |
-| every other `server` disposition | remaining tables of the [manifest](../../services/cantos-server/schema/native-table-ownership.json) | pending |
+| business contexts (versions 12–23) | all 69 Server-owned tables in the [legacy manifest](../../services/cantos-server/schema/native-table-ownership.json) | native adapters and tests mapped in the [retirement record](server-turso/remaining-pg-retirement.md) |
+| public cover disclosures (version 24) | `media_cover_disclosures` | [owner disclosure contract](../../services/cantos-server/contracts/studio/cover-disclosure/v1/README.md) |
 
 ## One registry, one owner
 
@@ -50,7 +52,7 @@ and the [registry contract](identity-registry.md#identity-contract). Tests live 
 | `actor_external_identities_actor_id_fkey` | `REFERENCES actors(id)`; the owner enables and verifies foreign keys on every connection | `bindings_are_exact_byte_keys_reference_an_actor_and_never_change` |
 | `actor_external_identities_immutable` (row) and `_no_truncate` (statement) | row-level `BEFORE UPDATE`/`BEFORE DELETE` `RAISE(ABORT, 'cantos:immutable.actor_external_identities')`, also fired by an unqualified `DELETE`; `BEFORE INSERT … WHEN EXISTS` refuses an insert over an existing key, because the engine's `REPLACE` deletes the conflicting row without firing delete triggers (observed: without that guard `INSERT OR REPLACE` rebinds the key) | `bindings_are_exact_byte_keys_reference_an_actor_and_never_change` (UPDATE, DELETE, upsert, `INSERT OR REPLACE`, `REPLACE INTO`) |
 | `linked_at timestamptz DEFAULT CURRENT_TIMESTAMP` | microsecond `INTEGER CHECK (linked_at >= 0)` without default, written from `WriteTransaction::now()` (trusted clock, read after the writer is held) | `registration_lookup_and_linking_follow_the_port_contract_on_a_real_file`, `bindings_survive_reopen_and_replay_returns_the_original_actor` (`i64::MAX`) |
-| per-key `pg_advisory_xact_lock` and `FOR SHARE OF a` against concurrent deactivation, under the 3 s lock and 5 s statement timeouts | facts, decision and writes inside one `BEGIN IMMEDIATE` on the serialized writer; no row lock is promised. The wait for the writer has **no deadline** (the 3 s busy timeout covers only engine-level busy), so one stalled transaction queues every write; a dropped request's open transaction is rolled back by the next `begin_write` | `concurrent_registrations_of_one_key_commit_one_binding_and_no_losing_actor`, `a_held_writer_orders_competing_requests_and_readers_never_see_uncommitted_bindings` |
+| per-key `pg_advisory_xact_lock` and `FOR SHARE OF a` against concurrent deactivation, under the 3 s lock and 5 s statement timeouts | facts, decision and writes inside one `BEGIN IMMEDIATE` on the serialized writer; no row lock is promised. the generic owner exposes `begin_write_within`, and the Server facade uses it with a five-second acquisition bound (distinct from engine busy timeout); a dropped request's open transaction is rolled back before the next write | `concurrent_registrations_of_one_key_commit_one_binding_and_no_losing_actor`, `a_held_writer_orders_competing_requests_and_readers_never_see_uncommitted_bindings` |
 | actor and binding created atomically; a rejection leaves no losing actor | one transaction rolled back on any rejected step; an insert over an existing key is the schema's `no_replace` guard, mapped to `ActorIdCollision`/`IdentityAlreadyBound`, and `ON CONFLICT DO NOTHING` must still change exactly one row | `a_failed_step_after_the_actor_insert_rolls_back_the_speculative_actor`, `rejections_and_inactive_or_missing_targets_change_no_row` |
 | replay returns the bound winner; a conflicting candidate creates nothing | `decide_registration` over facts read in the transaction | `registration_lookup_and_linking_follow_the_port_contract_on_a_real_file`, `bindings_survive_reopen_and_replay_returns_the_original_actor` |
 | linking never transfers or reactivates; missing or inactive targets are refused | `decide_link` plus the immutable binding guard | `rejections_and_inactive_or_missing_targets_change_no_row` |
@@ -65,8 +67,8 @@ Source rules are [`0004_identity_sessions.sql`](../../services/cantos-server/sch
 the historical [PostgreSQL adapter](https://github.com/loveoverflowcom/cantos/blob/c3acd81bfa94fe29bf4944dcafd5520dd0d50cdd/services/cantos-server/src/platform/identity_auth/postgres.rs) and
 [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md). The orchestration
 (`IdentityAuth`: fact validation, roster, fresh security reads, `decide_issue`/`decide_admission`,
-`SessionPolicy` and rotation) is shared: both adapters implement the one `SessionStore` port, so
-no decision is copied. Schema tests live in [`platform/turso/tests.rs`](../../services/cantos-server/src/platform/turso/tests.rs),
+`SessionPolicy` and rotation) remains shared through the `SessionStore` port and current
+Turso adapter. The former PostgreSQL adapter is retained only in pinned history. Schema tests live in [`platform/turso/tests.rs`](../../services/cantos-server/src/platform/turso/tests.rs),
 adapter tests in [`identity_auth/turso/tests.rs`](../../services/cantos-server/src/platform/identity_auth/turso/tests.rs);
 deadlines are Unix **seconds** (the `SessionPolicy` unit), taken from the trusted clock by a
 checked `div_euclid` of its microseconds.
@@ -117,12 +119,11 @@ model, and application tests do not replace those database barriers.
 
 ## Not established
 
-- The remaining business schema/adapters and foreign keys to `actors` (#333). Owner composition,
-  explicit Turso migration/startup refusal and typed StoreError mapping already exist.
-- Session admission inside real business writes: `admit_in` has no consumer until the context
-  adapters are ported. Native writer/read-snapshot admission must retain the old policy assertions;
-  the read-only linearization difference requires explicit native HTTP acceptance.
-- Server HTTP, cookie and Bearer transport over the Turso sessions, and the production binary.
+- Full production acceptance of the implemented business schemas/adapters, session admission
+  and process/HTTP consumers. Native file-backed and bounded loopback journeys are mapped in
+  the [business ledger](server-turso/remaining-pg-retirement.md) and
+  [23 October integration record](../evidence/post-merge-integration-20261023.md); they do not
+  establish HTTPS/deployed, every browser/device or every concurrency schedule.
 - Differential parity against the retained PostgreSQL oracle (the old gate is retired); importer
   and Tier B conversion (#336).
 - Quantified request/queue behavior at HTTP under contention. The shared writer already has

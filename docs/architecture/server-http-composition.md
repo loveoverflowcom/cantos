@@ -3,8 +3,8 @@
 The executable uses canonical inbound `assembly::server_router`: one Server Store backed by
 embedded Turso and one `axum::serve` listener. Route-local state shares the owner and configured
 services, with distinct trusted browser origins. Host/Forwarded/X-Forwarded never selects authority.
-Business schema/SQL remains incomplete; [the checkpoint](server-turso-porting.md#checkpoint-boundary)
-is separate from full HTTP and deployed acceptance.
+Business schemas/adapters use the same native owner; the [source boundary](server-turso-porting.md#checkpoint-boundary)
+remains separate from full HTTP and deployed acceptance.
 
 ## Route policy inventory
 

@@ -1,5 +1,10 @@
 # Media / Production legacy PostgreSQL oracle retirement ledger
 
+> **Historical source-only review.** NEEDS_PORT and missing-adapter statements below describe
+> the original pinned inventory, not current `develop`. The subsequent
+> [native retirement mapping](remaining-pg-retirement.md) and [exact oracle ledger](remaining-pg-oracles.json)
+> supersede those porting conclusions. Preserve the old assertions and evidence as history.
+
 > Historical, source-bound inventory at `12fb751ec71e20233fe4caaee35e4544fe4a0d4b`.
 > Its recommendations and environment observations describe that revision, not the current
 > checkout. Current retirement dispositions, real native test boundaries and limitations are in

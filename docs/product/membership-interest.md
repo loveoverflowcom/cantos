@@ -10,7 +10,7 @@ production HTTP, persistence, pricing or entitlement contract. Those boundaries 
 
 | Fact | Meaning and owner |
 | --- | --- |
-| Account registration | Identity-provider account creation; client auth owners #129/#130 and Listener authority #12. Existing login/session routes do not establish signup support. |
+| Account registration | Native Identity mailbox/password signup, with separate Server session issuance; [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) owns the implemented flow. Signup/proof never grants Membership or Studio authority. |
 | Membership interest receipt | Acknowledged intent to register contact information. It grants no paid status, content access or entitlement. Only a confirmed receipt may produce the received screen. |
 | Plan display | An optional, separate view opened by the listener. Opening, closing or failing to load it does not change a receipt or purchase anything. |
 | Active/paid/expired entitlement | Separate product/backend authority; not implemented or simulated as a result of this form. |

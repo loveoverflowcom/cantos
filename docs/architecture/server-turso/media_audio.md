@@ -1,5 +1,10 @@
 # External audio release chain and listener reads on `server.db` (migration 14)
 
+> **Historical migration-14 slice.** The Media write ports below were subsequently implemented
+> by migrations 20–23; v24 adds cover disclosures. Read the
+> [current native mapping](remaining-pg-retirement.md) before using this initial read-only scope.
+> This record's unported-write statements are historical, not the current runtime boundary.
+
 Scope: the rows Theatre discovery, manifests, playback authorization and the origin media route read,
 and the discovery indexer that writes the listener index. It is **not** the Media context port: upload
 intents, intake receipts, reviews, publication events/operations, the lifecycle and publication

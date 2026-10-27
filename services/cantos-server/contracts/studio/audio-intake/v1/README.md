@@ -6,11 +6,12 @@ revisions. It is separate from the general Work/ContentUnit/scoped-producer hand
 still owns the product boundary: production, recording, mixing and encoding happen outside
 Cantos. No TTS SDK, provider worker, backend mixer or automatic regeneration is introduced.
 
-The shared raw DTOs, JSON Schema and safe transport fixtures are added with this change.
-They are an implementation contract, **not evidence that a running deployment accepts files**.
-Rust compilation, Rust tests and real PostgreSQL/runtime verification are `NOT_RUN` in the
-implementation environment because Cargo/Rust are unavailable. Separate service tests own
-authorization, actual-byte inspection, object integrity, transactions and crash/retry evidence.
+Server-owned DTOs, JSON Schema and transport fixtures define compatibility; each consumer
+keeps its own representation. They do not establish deployed acceptance. Native admission,
+actual-byte inspection, object integrity and receipt/restart tests are mapped in the
+[retirement record](../../../../../../docs/architecture/server-turso/remaining-pg-retirement.md).
+The original [intake evidence](../../../../../../docs/evidence/audio-intake-format-validation.md)
+retains its source-bound outcomes; those old NOT_RUN entries are not current build status.
 
 ## Boundary and flow
 
@@ -52,7 +53,7 @@ The [schema](audio-intake.schema.json) names matching `$defs` and provides scala
 identity, codec/profile and envelope constraints. All independent request pins are required:
 
 - `operation_id`: canonical lowercase UUID, stable across response-loss retries
-- `expected_revision`: exact current positive revision, within PostgreSQL signed 64-bit range
+- `expected_revision`: exact current positive revision, within signed 64-bit range
 - `expected_content_digest`: exact current `sir-c1:sha256:<lowercase hex>` content digest
 - `profile_id`: one explicit profile below; omission never chooses a default
 
@@ -130,12 +131,12 @@ serving. When private audio storage is enabled, the API host disables **all** sa
 static serving, including otherwise disjoint public roots with nested symlinks. Serve Studio
 separately through its existing Trunk proxy and matching Web origin. That separate public tree
 must not reference private objects. Actual media bytes live in content-addressed immutable filesystem objects **outside
-PostgreSQL**. PostgreSQL holds intent/receipt metadata and the private object reference.
+SQL**. The Server-owned Turso file holds intent/receipt metadata and the private object reference.
 Neither storage keys nor filesystem paths appear in wire responses.
 
 Private object persistence uses an atomic no-overwrite step; existing objects are checked rather than
 silently replaced. A receipt may commit only after the object has passed integrity checks.
-Filesystem and PostgreSQL do not share a transaction. A crash or database rollback may leave
+Filesystem and Turso metadata do not share a transaction. A crash or database rollback may leave
 safe private orphan objects, never an accepted receipt that knowingly refers to an incomplete
 object. Rollback must not delete a content-addressed object that another receipt may share.
 Automatic orphan cleanup, storage lifecycle operations, S3 grants and production object storage

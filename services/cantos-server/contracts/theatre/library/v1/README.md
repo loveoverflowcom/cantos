@@ -126,7 +126,7 @@ indefinitely until an approved horizon exists. Transport failure may mean outcom
 read the receipt or resend the identical operation, never mint a replacement key blindly.
 
 `base_revision=0` means no existing register. Revision increments exactly one on acceptance,
-bounded at signed PostgreSQL bigint maximum. Stale divergent progress returns the current
+bounded at signed 64-bit integer maximum. Stale divergent progress returns the current
 record and explicit `listener_chooses`, or `keep_server` for a delayed checkpoint after explicit
 seek/restart/resolution/completion. There is no max-position, arrival-time, device-clock or
 same-device fast-forward merge. Reconciliation is a new explicit resolution operation against

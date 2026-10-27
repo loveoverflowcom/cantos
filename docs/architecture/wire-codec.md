@@ -3,7 +3,7 @@
 Cantos carries existing application DTOs as JSON by default. The four Studio revision/validation
 routes additionally negotiate versioned Protobuf or legacy named MessagePack. This changes only
 the HTTP representation: Script IR remains the exact JSON string, and authorization, revisions,
-idempotency, digests, PostgreSQL rows and object/audio storage retain their existing authority.
+idempotency, digests, Server Turso metadata and object/audio storage retain their existing authority.
 
 [ADR 0023](../decisions/0023-versioned-protobuf-wire.md) transitions the binary preference from
 [ADR 0013](../decisions/0013-optional-messagepack-wire.md). The latter and its
@@ -65,7 +65,7 @@ server negotiation within the same request, not a second write.
 
 ## Compatibility, rollout and rollback
 
-1. Keep the JSON default until independent schema/goldens, real disposable PostgreSQL replay,
+1. Keep the JSON default until independent schema/goldens, native file-backed persistence/HTTP replay,
    real browser save/reload/proxy/cancellation, target-platform and measurement gates are accepted.
 2. Roll back by rebuilding without `revision-protobuf`; no data conversion or migration exists.
    Host JSON compatibility tests have run; deployment/browser rollback has not been observed.

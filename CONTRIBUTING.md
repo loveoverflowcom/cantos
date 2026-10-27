@@ -1,6 +1,6 @@
 # Contributing to Cantos
 
-Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The native Server/Identity foundation exists; the [business porting boundary](docs/architecture/server-turso-porting.md#checkpoint-boundary) remains incomplete. Documentation, implementation and executed acceptance are separate.
+Cantos combines an audio-drama production Studio with a Theatre listening experience. Read the [project overview](README.md) before proposing a change. The native Server/Identity foundation exists; the [native business port](docs/architecture/server-turso-porting.md#checkpoint-boundary) is implemented, with production/data-conversion acceptance separate. Documentation, implementation and executed acceptance are separate.
 
 ## Branch and pull request workflow
 
