@@ -51,6 +51,11 @@ Web-proxy default; retained source assets and installed assets must be reconcile
 
 ## Private files, migration and rollback
 
+[`oci/historical-v23.json`](oci/historical-v23.json) contains public immutable old-image pins
+for the [historical native rehearsal](../docs/deployment/native-existing-host-migration.md).
+It establishes no actual DB state, admitted previous release or live-host acceptance. Adoption
+preserves the known existing data/proxy layout; it never reuses legacy PG dumps as native backups.
+
 The repository move changes no live resources. Public hosts, routes, ports, Podman network/volume
 names and installed absolute `/root/cantos-services/...` paths remain unchanged. Caddy's imports
 are in-file snippets and container static roots remain `/srv/theatre` and `/srv/studio`; there are

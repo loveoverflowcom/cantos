@@ -192,6 +192,10 @@ pub struct IdentityStore {
 }
 
 impl IdentityStore {
+    pub async fn check_integrity(&self) -> Result<(), IdentityStoreError> {
+        self.database.check_integrity().await.map_err(Into::into)
+    }
+
     // ACCEPTANCE-PENDING(#334/#336): restore epoch rotation. A copied old file cannot identify
     // its own restore, so a restored database keeps its epoch until the explicit rotation and the
     // Server resync are accepted. No code here pretends that is done.

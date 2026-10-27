@@ -119,3 +119,20 @@ service. To probe a specific disk, run `cargo run -p cantos-store-turso --featur
 cantos-turso-capability -- report DIR` with an existing private directory on that filesystem.
 The `testing` feature (run-owned temporary directories, a deterministic clock) is for tests and the
 report binary only; a runtime build never enables it.
+
+
+## Explicit cold integrity check
+
+`OwnedDatabase::check_integrity()` holds the owner's serialized writer while checking engine
+page integrity and foreign keys through bounded metadata-driven anti-joins. It does not migrate
+or initialize state. Recovery callers first open the exact registry with `Intent::Serve` after
+stopping owners. The reviewed native registries use explicit parent columns and MATCH SIMPLE;
+unknown/implicit parent-key forms refuse instead of passing.
+
+The pinned Turso 0.8.3 accepted `PRAGMA foreign_key_check` yet returned no violation for a
+fixture with a dangling row. The implementation therefore uses `foreign_key_list` and actual
+queries, with the parent's affinity/collation and composite/NULL semantics. The real-engine
+negative controls in `tests/integrity.rs` detect a dangling row and a mismatched composite pair,
+accept partial-NULL keys, and refuse unsupported implicit keys. Do not infer this acceptance
+from SQLite or from an empty pragma result. Host migration/admission and security restore
+rotation remain separate [operator boundaries](../../docs/deployment/native-existing-host-migration.md).

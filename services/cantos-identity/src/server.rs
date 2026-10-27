@@ -79,6 +79,18 @@ pub async fn run_migrate(config: &MigrateConfig) -> Result<(), RunError> {
         })
 }
 
+/// Verify the existing Identity registry, initialized epoch and engine integrity without
+/// migrations, mailbox delivery or opening a socket. Both owners must be stopped first.
+pub async fn run_check(config: &MigrateConfig) -> Result<(), RunError> {
+    let store = IdentityStore::open(&config.database, Intent::Serve, Arc::new(SystemClock))
+        .await
+        .map_err(|_| RunError::Database)?;
+    store
+        .check_integrity()
+        .await
+        .map_err(|_| RunError::Database)
+}
+
 fn store_reason(error: &IdentityStoreError) -> &'static str {
     match error {
         IdentityStoreError::Open(_) => "database open refused",

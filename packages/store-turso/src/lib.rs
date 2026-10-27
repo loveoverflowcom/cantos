@@ -20,6 +20,7 @@ pub mod registry;
 pub mod value;
 
 mod database;
+mod integrity;
 mod owner;
 mod sql;
 

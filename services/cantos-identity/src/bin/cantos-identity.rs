@@ -7,7 +7,7 @@ use std::{io::Write, process::ExitCode};
 
 use cantos_identity::{
     config::{MigrateConfig, ServeConfig},
-    server::{run_migrate, run_serve, Readiness, RunError},
+    server::{run_check, run_migrate, run_serve, Readiness, RunError},
 };
 
 fn lookup(name: &str) -> Option<String> {
@@ -48,7 +48,7 @@ fn announce(readiness: Readiness) {
 fn main() -> ExitCode {
     let mut arguments = std::env::args().skip(1);
     let (Some(command), None) = (arguments.next(), arguments.next()) else {
-        return fail(2, &"usage: cantos-identity <migrate|serve>");
+        return fail(2, &"usage: cantos-identity <migrate|check|serve>");
     };
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -58,12 +58,17 @@ fn main() -> ExitCode {
         Err(_) => return fail(1, &"async runtime unavailable"),
     };
     match command.as_str() {
-        "migrate" => {
+        "migrate" | "check" => {
             let config = match MigrateConfig::from_lookup(lookup) {
                 Ok(config) => config,
                 Err(error) => return fail(2, &error),
             };
-            match runtime.block_on(run_migrate(&config)) {
+            let result = if command == "check" {
+                runtime.block_on(run_check(&config))
+            } else {
+                runtime.block_on(run_migrate(&config))
+            };
+            match result {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => fail(1, &error),
             }
@@ -79,6 +84,6 @@ fn main() -> ExitCode {
                 Err(error) => fail(1, &error),
             }
         }
-        _ => fail(2, &"usage: cantos-identity <migrate|serve>"),
+        _ => fail(2, &"usage: cantos-identity <migrate|check|serve>"),
     }
 }

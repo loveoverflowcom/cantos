@@ -114,6 +114,13 @@ impl OwnedDatabase {
         &self.registry
     }
 
+    /// Explicit cold recovery check on the pinned engine; does not initialize or migrate.
+    /// The caller must separately validate the service registry through `Intent::Serve`.
+    pub async fn check_integrity(&self) -> Result<(), StoreFault> {
+        let writer = self.writer.lock().await;
+        crate::integrity::check(&writer).await
+    }
+
     /// Begin the only kind of mutation: `BEGIN IMMEDIATE` on the serialized writer. The trusted
     /// time is read after the writer is ours, so timestamps follow commit order.
     pub async fn begin_write(&self) -> Result<WriteTransaction<'_>, StoreFault> {

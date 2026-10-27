@@ -51,6 +51,11 @@ VPS backup/restore, Quadlet/systemd/reboot, real-provider mailbox delivery, brow
 Kani, full token/proof expiry elapsed in wall time, or unported business journeys. No expiry/auth
 policy, clock override or preseeded credential is introduced. These limits remain separate work.
 
+The separate [historical v23-to-v24 rehearsal](../deployment/native-existing-host-migration.md#evidence-before-effects)
+uses the old pair to create/populate v23 and restores that original pair after the actual upgrade.
+Its `historical-upgrade.json` is independently source/image bound; it never relabels the
+`migration-restore` record above or establishes live host/adoption acceptance.
+
 The serve-before-migrate negative control allows only the owner's empty 0600 `.db.owner` lock
 with the exact service UID/GID. The owner acquires that advisory lock before observing/refusing
 a missing database. Creating a DB, WAL, unknown file, nonempty lock or permissive/foreign lock

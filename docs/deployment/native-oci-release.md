@@ -293,6 +293,11 @@ acceptance follows from these fixtures; those remain explicit producer/operator 
 
 ## Existing native-host executor (review boundary)
 
+For a reviewed existing native layout without release-generation state and a Server v23 file,
+use the separate [v23-to-v24 adoption/recovery contract](native-existing-host-migration.md).
+It requires historical exact-pair evidence and distinct operator approval. The same-schema
+executor below retains its existing equality, canonical-layout and admission guards.
+
 `cargo xtask release native-upgrade --request /private/request.json --request-digest SHA256`
 validates both admitted releases and a strict request offline. Add `--execute` only on the
 explicitly authorized target host to upgrade it. This is **host-local**, rootful Linux, cgroup v2,
