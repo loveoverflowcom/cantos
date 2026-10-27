@@ -15,6 +15,7 @@ mod deploy;
 mod distribute;
 mod doctor;
 mod firebase_cli;
+mod forge_probe;
 mod gate;
 mod hosting_report;
 mod kani;
@@ -88,6 +89,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Secrets(args) => secrets::run(&workspace, &args),
+        Task::ForgeProbe(args) => forge_probe::run(&workspace, &args),
         Task::Kanidm(_) => unreachable!("retired commands are refused before dispatch"),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),

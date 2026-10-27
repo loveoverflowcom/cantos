@@ -545,7 +545,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | when `cantos-server` is selected, first `cargo build --locked -p cantos-identity --features service --bin cantos-identity --target-dir target`; then `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` with that executable's absolute path as `CANTOS_TEST_IDENTITY_BINARY` (the candidate journey never builds it) | cargo |
-| `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
+| `forge-functions` | `node --check functions.mjs`, `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
 | `contract-tests` | `cantos-server` `contract_conformance` (its own representation against the schemas/fixtures it owns), Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets; then each client's own representation (`cantos-studio`, `cantos-theatre`, `cantos-web-auth` lib tests filtered to `contract::`/`wire::`) | cargo |
 | `wav-reference` | `cargo build -p cantos-server --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `audio-inspection` | `cargo test -p cantos-server --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
@@ -615,6 +615,31 @@ Cargo/Node or an older/prerelease Node version is
 `UNSUPPORTED` before any selected command executes. Local stable Node 22+ is sufficient for
 these wrapper tests; their result does not qualify the separately selected hosted Node 22
 runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
+
+### Forge smoke package (explicit, local only)
+
+```sh
+cargo xtask forge-probe self-test
+cargo xtask forge-probe package --project cantos-a348b --region REGION --output artifacts/forge-probe/RUN [--dry-run]
+cargo xtask forge-probe inspect --bundle artifacts/forge-probe/RUN
+cargo xtask forge-probe qualify --bundle artifacts/forge-probe/RUN
+cargo xtask forge-probe deploy-plan --bundle artifacts/forge-probe/RUN
+```
+
+The [Functions policy](../infra/firebase/functions/README.md) owns prerequisites and recovery.
+`package` uses Rust 1.98.1, an already installed `x86_64-unknown-linux-musl` target/linker, a locked
+release build and a fresh run-owned directory. It records source revision/input hashes, compiler,
+binary digest and static ELF/mode evidence; no installer or cloud tool is invoked. Dry-run
+validates arguments and prints the plan without child-tool or artifact effects. `inspect` checks
+the exact source inventory, hashes, relative config, static ELF and executable permissions.
+`qualify` requires real Linux x86_64 and Node 22, runs locked `npm ci --ignore-scripts`, then actual
+SDK discovery, loopback HTTP and fixed packaged Rust tests with local-only fault injection.
+`deploy-plan` only prints the scoped Firebase primitive, never runs it. Ordinary verify/preflight gates never invoke
+packaging or npm qualification. The independent read-only `forge-probe-linux` PR job provisions
+the pinned musl/Node toolchain and calls these existing commands on the exact PR head; it
+retains only a successful test receipt. Python policy regressions run in the existing repository
+gate and trigger syntax/offline tests in `forge-functions`. Cloud remains a separately authorized
+operator phase. No Hosting/Distribution or production state is changed.
 
 `verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
 against run-owned real files, then checks the embedded foundation in `packages/store-turso` and

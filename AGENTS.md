@@ -6,8 +6,8 @@
 > secure private handoff API. No TTS/provider/worker in Cantos API. Theatre only plays releases.
 > [Forge ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md) records the owner-selected
 > local/Functions producer and private Drive drafts: Studio controls operations, Forge executes
-> outside the API. The local artifact CLI, attempt/recovery core, local attempt store and finite
-> worker boundary are implemented; provider/Functions/Drive execution and API handoff remain
+> outside the API. The local artifact CLI, attempt/recovery core, local attempt store, finite
+> worker and private Gen2 smoke package are implemented; provider/Functions/Drive execution and API handoff remain
 > unimplemented. The [worker runbook](docs/deployment/forge-worker.md) separates local source
 > from deployed packaging and live acceptance.
 > See [current decision](docs/decisions/0018-external-audio-production.md) and
@@ -237,7 +237,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Completed handoff or a pull request | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it (broadens to every gate when impact is uncertain) |
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` (Server and client conformance, independent goldens and the `tools/proto-codegen` drift check of every consumer's binding) |
 | Identity pure security core | Existing `rust` gate includes `cantos-identity`; metadata-based preflight selects its lint/tests. Focused primitive: `cargo test --locked -p cantos-identity`. Optional `verify kani --harness identity-security-version --harness identity-completion --harness identity-mailbox-proof` needs actual D1 Ubuntu x86_64 evidence; macOS tests are not Kani evidence. |
-| Forge worker/process boundary | `cargo xtask verify forge` (Rust producer plus Node wrapper tests; no provider or cloud calls) |
+| Forge worker/process boundary | `cargo xtask verify forge` (Rust producer, trigger syntax and offline Node wrapper tests); `cargo xtask forge-probe self-test` covers isolated package policy. Explicit `forge-probe package/inspect/qualify/deploy-plan` never deploys; the independent read-only `forge-probe-linux` PR job qualifies the exact source package on Linux. Linux/SDK/HTTP and cloud evidence remain separate ([policy](infra/firebase/functions/README.md)) |
 | Embedded Turso foundation and Identity security persistence | `cargo xtask verify turso` (Identity `persistence` clippy/tests, shared-store file-backed tests and engine capability report; no server, container or cloud service). Also lints and tests the `service` feature (the executable, real Turso files, real Argon2id, a run-owned loopback SMTP sink) with Identity's own RPC server binding, and lints ordinary `cantos-server` targets (the real Identity journey requires a prebuilt Identity executable). Focused primitives: `cargo test --locked -p cantos-identity --features persistence`, `cargo test --locked -p cantos-identity --features service`. |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observers: private audio admission and the native Identity mailbox-proof and session-admission capabilities, with a disclosed synthetic shell; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |

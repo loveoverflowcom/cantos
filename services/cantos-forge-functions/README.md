@@ -24,7 +24,7 @@ never imports Narrative Forge internals applies to Forge too.
 | Instruction bundles, `plan`/`run`/`resume`, AI-review and human-review evidence commands | proposed (rest of #82's foundation) |
 | Generation attempt core: reserve-before-call, one call per attempt, replay/conflict, uncertain outcomes, explicit regeneration, spend and attempt limits | implemented as a library only ([#203](https://github.com/loveoverflowcom/cantos/issues/203)); no generation CLI command or real provider; see [Generation attempts](#generation-attempts) |
 | Local filesystem attempt store | implemented library adapter, bounded write-once histories with required file/directory sync; no Drive/distributed fencing claim |
-| `cantos-forge-worker` and Node 22 process adapter | finite local capabilities/text-inspection protocol; HTTP unavailable until trusted invocation authority exists; no Firebase trigger or deployed bundle; source-only ping/health probe handler ([#486](https://github.com/loveoverflowcom/cantos/issues/486)), not deployed |
+| `cantos-forge-worker` and Node 22 process adapter | finite capabilities/text protocol; producer HTTP unavailable until trusted authority exists; private Gen2 ping/health trigger and explicit Linux package/qualification tooling ([#486](https://github.com/loveoverflowcom/cantos/issues/486)); deployed acceptance separate |
 | Deterministic mock speech provider | implemented (`adapters::mock_provider`); not audio, never provider-live evidence |
 | Real provider adapter (Gemini), encoding to a Cantos profile, cross-runtime paid-dispatch fencing, Studio calls, Firebase Functions hosting | unimplemented (#203 later boundaries); nothing is deployed, called or billed |
 | Authorized handoff to the Cantos API (`submit`) | proposed (#82 PR 3); no HTTP client exists |
@@ -126,7 +126,7 @@ src/
   wire.rs            JSON shapes of records, manifests and results; refuses unknown fields
   interfaces/        clap arguments, command execution, typed replies and finite worker protocol
   worker_main.rs     one bounded stdio request/reply; no credential/provider/workspace access
-firebase/            thin Node process/HTTP boundary; no registered deploy trigger or dependencies
+firebase/            Node process/HTTP boundary and private Gen2 smoke trigger; pinned SDK, no producer trigger
 tests/
   architecture.rs    domain, application and wire import no I/O, framework or outer layer (lexical)
   audio_profile_contract.rs  Forge's profiles against services/cantos-server/contracts/studio/audio-intake/v1/README.md

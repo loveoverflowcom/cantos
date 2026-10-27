@@ -54,7 +54,7 @@ Incremental engines are DEFER; DBSP's implementation/feature/gate are retired.
 | `services/cantos-server` | Native modular backend; [porting limits](services/cantos-server/README.md) |
 | `services/cantos-identity` | Native credential/security owner and private RPC |
 | `services/manifest.toml` | Typed process inventory; [runtime policy](services/README.md) |
-| `services/cantos-forge-functions` | External producer library/CLI/finite worker; live provider/Functions/Drive execution remains separate #203 work |
+| `services/cantos-forge-functions` | External producer library/CLI/finite worker and private Gen2 smoke package; live Functions/provider/Drive acceptance remains separate #486/#203 work |
 | `apps/cantos-studio/web` | Creator Leptos UI; no Studio mobile target |
 | `apps/cantos-theatre/{web,mobile}` | Listener Leptos/CMP clients, native playback; isolated opt-in previews |
 | `packages/` | Shared store primitives, Web session owner and design tokens; imports neither apps nor services (contracts belong to their service) |

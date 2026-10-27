@@ -207,8 +207,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   those assets. The native process inventory (`services/manifest.toml`) remains under
   `services/`; retained PostgreSQL/Kanidm assets live under `infra/vps/` as recovery inputs. This
   mechanical boundary does not move application or producer code, provision a
-  runtime or establish deployment acceptance. Add a Functions directory only with a concrete
-  consumer and reviewed runtime decision under #203.
+  runtime or establish deployment acceptance. The concrete #486 private smoke consumer uses
+  `infra/firebase/functions` policy and `xtask forge-probe` local staging/qualification; the
+  worker and Gen2 trigger stay in `services/cantos-forge-functions`. Cloud acceptance remains separate.
 - **Identity is a native owner.** `services/cantos-identity` owns one Turso file and private
   authenticated RPC. Removed Kanidm config/provider adapters are historical migration inputs;
   no provider is required by native build/run/verification.

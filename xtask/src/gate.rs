@@ -378,6 +378,8 @@ impl Gate {
                 ]
             }
             Gate::ForgeFunctions => vec![
+                CommandSpec::new("node", workspace.path("services/cantos-forge-functions/firebase"))
+                    .args(["--check", "functions.mjs"]),
                 cargo(&[
                     "build",
                     "--locked",
@@ -757,6 +759,7 @@ mod tests {
         assert_eq!(
             lines(&Gate::ForgeFunctions),
             [
+                "(in services/cantos-forge-functions/firebase) node --check functions.mjs",
                 "cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target",
                 "(in services/cantos-forge-functions/firebase) node --test test/boundary.test.mjs test/native-worker.test.mjs",
             ]

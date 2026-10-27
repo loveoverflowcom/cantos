@@ -4,5 +4,6 @@
   "private": true,
   "type": "module",
   "engines": { "node": "22" },
-  "main": "index.mjs"
+  "main": "functions.mjs",
+  "dependencies": { "firebase-functions": "7.4.0" }
 }

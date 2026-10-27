@@ -71,7 +71,9 @@ coordination service, cloud packaging or a completed production workflow.
 One crate retains the `cantos-forge` package and CLI binary name, local workspace schemas,
 artifact IDs, revisions, evidence and handoff-bundle formats. The additional finite worker
 binary consumes that same library. Studio never imports it. Function runtime source belongs
-to the service; future deploy configuration belongs to `infra/firebase/functions` under #212.
+to the service; the #486 private smoke policy now lives in `infra/firebase/functions` under #212.
+The smoke trigger/package is an implementation of the existing Node 22 candidate; actual Linux
+qualification and authorized cloud acceptance remain separate. It grants no producer authority.
 
 App-data is hidden from the normal Drive UI, cannot be shared or moved across spaces, and has
 no Trash recovery. Existing ordinary Drive sources remain untouched. An explicit import copies
