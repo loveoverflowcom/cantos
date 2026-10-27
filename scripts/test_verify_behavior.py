@@ -121,7 +121,7 @@ class BehaviorContracts(unittest.TestCase):
         selected = behavior.load_catalog(behavior.ROOT)
         # Explicit capability counts pin the reviewed selection and each sensitivity control set.
         expected = {
-            "cantos.media.sample-metadata": (4, 4, 4),
+            "cantos.media.sample-metadata": (5, 7, 5),
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
             "cantos.media.public-cover-projection": (17, 6, 12),
