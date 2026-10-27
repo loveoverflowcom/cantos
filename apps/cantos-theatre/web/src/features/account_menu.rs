@@ -369,9 +369,11 @@ pub(crate) fn AccountEntry(
                 <AccountMenuPanel locale on_pick=Callback::new(move |()| close_menu()) on_logout=request_logout/>
             </Show>
         </div>
-        <Show when=move || signed_in.get() || dialog_open.get()>
-            <LogoutDialog locale open=dialog_open step on_confirm=confirm/>
-        </Show>
+        // Keep the native closed dialog in the header's lifetime. A session check can change
+        // SignedIn → Checking while its control effects are queued; disposing the dialog then
+        // invalidates their arena-backed signals and traps release WASM. Only user intent opens
+        // the modal, and the existing step guard still rejects confirmation outside admission.
+        <LogoutDialog locale open=dialog_open step on_confirm=confirm/>
     }
 }
 
@@ -432,17 +434,27 @@ mod tests {
     }
 
     #[test]
-    fn guest_keeps_the_account_link_and_has_no_disclosure_or_dialog() {
+    fn logout_dialog_lifetime_is_independent_of_session_admission() {
+        Owner::new().with(|| {
+            for signed in [false, true] {
+                let html = render_entry(signed, Locale::Vietnamese);
+                assert_eq!(html.matches("<dialog").count(), 1);
+                assert!(!html.contains("<dialog open"));
+                assert_eq!(html.matches("id=\"theatre-logout-confirm\"").count(), 1);
+            }
+            assert!(!LogoutStep::Settled.can_confirm());
+        });
+    }
+
+    #[test]
+    fn guest_keeps_the_account_link_and_no_disclosure_or_open_dialog() {
         Owner::new().with(|| {
             let html = render_entry(false, Locale::Vietnamese);
             assert!(html.contains("<a") && html.contains("href=\"#account\""));
             assert!(html.contains("aria-label=\"Tài khoản\""));
-            for absent in [
-                "<button",
-                "aria-expanded",
-                "<dialog",
-                "theatre-account-menu",
-            ] {
+            assert_eq!(html.matches("<dialog").count(), 1);
+            assert!(!html.contains("<dialog open"));
+            for absent in ["aria-expanded", "theatre-account-menu"] {
                 assert!(!html.contains(absent), "{absent}");
             }
         });

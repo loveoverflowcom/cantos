@@ -120,6 +120,13 @@ with real links to membership information, Library and Settings, an informationa
 (no verified support destination exists, so it is not a control) and a logout entry. The menu
 never invents a name, email, membership or profile-edit action, and a healthy signed-in session
 shows no status line under the name ([#481](https://github.com/loveoverflowcom/cantos/issues/481)).
+The native logout dialog stays mounted for the header lifetime, including guest and session
+checks; only the explicit logout request opens it. This keeps its control signals alive while
+release-WASM effects settle across `SignedIn → Checking → SignedIn`. The primary destinations
+show a decorative selected check, with a token-driven opacity transition and immediate paired
+selection colors; hover preserves that pair and reduced motion removes the transition. See the
+[bounded lifecycle and navigation observations](../../../docs/evidence/theatre-web-navigation-lifecycle.md).
+
 The header and menu still use the app-private `PersonGlyph`: shared `Avatar` has no two-renderer
 qualification record, so the text avatar (resolved initials, or a neutral `C` without a name)
 waits for #452/#467 admission. Choosing logout closes the menu and opens one shared-Dialog
