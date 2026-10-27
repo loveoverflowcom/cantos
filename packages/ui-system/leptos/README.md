@@ -416,6 +416,22 @@ expression (#457); these require their own JVM runtime and visual review. Qualif
 limits own admission; preview registration alone grants none. Remaining migrations keep ownership
 of validation, locale and auth policy and remove app-local underline/halo overrides.
 
+### Guest profile card recipe (v4.3)
+
+Under `UiRoot expression=Expression::Theatre` the existing `Surface tone=PrimaryContainer
+variant=Profile` card scopes `ButtonVariant::AuthPrimary` and `AuthSecondary` to the contextual roles of
+token v0.9.0, with no new public API: sign-in is `theatreProfileAction` (Dark raspberry/cream, Light
+pink/plum, explicit hover and pressed fills, no state-layer gradient or filter), create-account is the
+card's inverse pair (`onPrimaryContainer` fill, `primaryContainer` ink). Both are filled capsules with one
+full-width, `size.authPrimary` minimum anatomy, no default border or shadow, and the label wraps without
+clipping. Blocked and loading actions keep the shared disabled colors and visible reason, and the
+`AuthOutlined`, regular and out-of-card auth actions keep their global roles. Inside
+`Surface variant=AccountGroup` the `ThemeCycleButton` is a filled circle from `theatreAccountControl`
+(Dark lavender, Light plum) with an inset focus ring in its own ink. Forced colors keeps the shared
+button border. The preview specimen renders Dark and Light side by side with a ready/loading/disabled
+select (`data-preview-state="theatre-guest-pair theatre-account-control"`, deliberately not registered in the shared catalog until CMP adopts the roles); an application adopts the recipe by composing
+the same Surface and buttons, never by repeating a color.
+
 ### Trailing action and the Theatre expression ([#452](https://github.com/loveoverflowcom/cantos/issues/452))
 
 The first real call sites arrived with the Theatre v4 design, so the slot is now typed:

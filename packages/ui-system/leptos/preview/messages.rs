@@ -11,6 +11,11 @@ pub mod tool {
     pub const THEATRE_INTRO: &str = "This subtree opts into Theatre expression; the rest of the gallery stays Standard. No app adopts it yet.";
     pub const THEATRE_CONTROL_HELP: &str =
         "The tonal theme action (48) and circular search action (52) use the same IconButton.";
+    pub const GUEST_HEADING: &str = "Guest profile card · design v4.3";
+    pub const GUEST_HELP: &str = "Sign-in is the contextual pink (Dark raspberry) role, create-account is the card's inverse pair, and the theme action is a filled circle in the account tile. Ordinary actions stay unchanged.";
+    pub const GUEST_STATE: &str = "Guest action state";
+    pub const GUEST_DARK: &str = "Dark";
+    pub const GUEST_LIGHT: &str = "Light";
     pub fn theatre_submissions(count: u32, query: &str) -> String {
         format!("Form submissions: {count} · query: {query}")
     }
@@ -461,6 +466,19 @@ pub mod theatre_fixture {
     pub const LANGUAGE: &str = "Ngôn ngữ";
     pub const VIETNAMESE: &str = "Tiếng Việt";
     pub const ENGLISH: &str = "English";
+    pub const GUEST_GREETING: &str = "Chào, Nguyễn Thị Ánh Nguyệt.";
+    pub const GUEST_INFO: &str = "Giữ những câu chuyện đã chọn và tìm lại dấu trang của bạn.";
+    pub const GUEST_SIGN_IN_LONG: &str =
+        "Đăng nhập để giữ những câu chuyện và dấu trang của Nguyễn Thị Ánh Nguyệt";
+    pub const GUEST_BLOCKED: &str = "Đang chờ máy chủ; hãy thử lại sau giây lát.";
+    pub const GUEST_THEME: &str = "Giao diện";
+    pub const GUEST_REGULAR: &str = "Hành động thường không đổi màu";
+    pub const THEME_DARK_MODE: &str = "Giao diện tối";
+    pub const THEME_DARK_NEXT: &str = "chuyển sang sáng";
+    pub const THEME_LIGHT_MODE: &str = "Giao diện sáng";
+    pub const THEME_LIGHT_NEXT: &str = "chuyển sang theo hệ thống";
+    pub const THEME_SYSTEM_MODE: &str = "Theo hệ thống";
+    pub const THEME_SYSTEM_NEXT: &str = "chuyển sang tối";
     pub const HERO_TITLE: &str = "Mở một miền tưởng tượng.";
     pub const HERO_SUBTITLE: &str = "Tiểu thuyết, truyện kể và podcast cho mỗi ngày.";
 }

@@ -352,3 +352,83 @@ fn the_docked_search_motion_is_a_web_seed_that_reduced_motion_zeroes_and_native_
         .is_some());
     assert!(css.contains("--cantos-web-search-close-duration: 0ms;"));
 }
+
+fn rule_for<'a>(css: &'a str, selector_tail: &str) -> &'a str {
+    let start = css
+        .find(selector_tail)
+        .unwrap_or_else(|| panic!("missing rule {selector_tail}"));
+    let body = &css[start..];
+    &body[..body.find('}').expect("closed rule")]
+}
+
+#[test]
+fn the_guest_card_pair_and_account_control_read_scoped_contextual_roles_only() {
+    let css = theatre_section();
+    let card =
+        ".cui-surface[data-tone=\"primary-container\"][data-variant=\"profile\"] .cui-button";
+    // Sign-in: the contextual role with explicit hover/pressed fills and no state-layer gradient.
+    let primary = rule_for(
+        css,
+        &format!("{card}[data-variant=\"auth-primary\"]:not(:disabled) {{"),
+    );
+    assert!(primary.contains("background-color: var(--cantos-color-theatre-profile-action);"));
+    assert!(primary.contains("background-image: none;"));
+    assert!(primary.contains("color: var(--cantos-color-theatre-on-profile-action);"));
+    assert!(rule_for(
+        css,
+        &format!("{card}[data-variant=\"auth-primary\"]:hover:not(:disabled) {{")
+    )
+    .contains("var(--cantos-color-theatre-profile-action-hover)"));
+    assert!(rule_for(
+        css,
+        &format!("{card}[data-variant=\"auth-primary\"]:active:not(:disabled) {{")
+    )
+    .contains("var(--cantos-color-theatre-profile-action-pressed)"));
+    // Create account: the card's inverse pair, filled and never outlined.
+    let secondary = rule_for(
+        css,
+        &format!("{card}[data-variant=\"auth-secondary\"]:not(:disabled) {{"),
+    );
+    assert!(secondary.contains("background-color: var(--cantos-color-on-primary-container);"));
+    assert!(secondary.contains("color: var(--cantos-color-primary-container);"));
+    assert!(!secondary.contains("border"), "{secondary}");
+    // One full-width, equal-height anatomy; blocked actions keep the shared disabled colors.
+    let shared = rule_for(
+        css,
+        &format!(
+            "{card}:where([data-variant=\"auth-primary\"], [data-variant=\"auth-secondary\"]) {{"
+        ),
+    );
+    assert!(shared.contains("inline-size: 100%;"));
+    assert!(shared.contains("min-block-size: var(--cantos-size-auth-primary);"));
+    let guest = css
+        .split("/* Guest card actions")
+        .nth(1)
+        .and_then(|section| section.split_once("*/"))
+        .expect("guest card section")
+        .1;
+    assert!(
+        guest.matches(":not(:disabled)").count() >= 4,
+        "blocked actions must not be recolored"
+    );
+    assert!(
+        !guest.contains("filter:"),
+        "contrast is a token decision, never a filter"
+    );
+    assert!(
+        !guest.contains("auth-outlined"),
+        "outlined actions keep their global roles"
+    );
+    // The theme action is a filled circle only inside an account tile, with an inset ink ring.
+    let tile = ".cui-surface[data-variant=\"account-group\"] .cui-theme-cycle-button";
+    let control = rule_for(css, &format!("{tile} {{"));
+    assert!(control.contains("var(--cantos-color-theatre-account-control);"));
+    assert!(control.contains("var(--cantos-color-theatre-on-account-control);"));
+    assert!(rule_for(css, &format!("{tile}:where(:hover, :active) {{"))
+        .contains("var(--cantos-color-theatre-account-control-hover)"));
+    let focus = rule_for(css, &format!("{tile}:focus-visible {{"));
+    assert!(focus.contains("outline-color: currentColor;"));
+    assert!(focus.contains("outline-offset: calc(var(--cantos-size-focus-width) * -1);"));
+    // Palette literals never enter the renderer template; both themes come from tokens.css.
+    assert!(!guest.contains('#'));
+}

@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651
+// Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.8.0";
+pub const VERSION: &str = "0.9.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -41,20 +41,27 @@ pub enum Token {
     ColorSurface,
     ColorSurfaceContainer,
     ColorSurfaceContainerHigh,
+    ColorTheatreAccountControl,
+    ColorTheatreAccountControlHover,
     ColorTheatreBackground,
     ColorTheatreFocus,
     ColorTheatreHero,
+    ColorTheatreOnAccountControl,
     ColorTheatreOnHero,
     ColorTheatreOnPeach,
     ColorTheatreOnPink,
     ColorTheatreOnPrimary,
     ColorTheatreOnPrimaryContainer,
+    ColorTheatreOnProfileAction,
     ColorTheatreOnSurface,
     ColorTheatreOnSurfaceVariant,
     ColorTheatrePeach,
     ColorTheatrePink,
     ColorTheatrePrimary,
     ColorTheatrePrimaryContainer,
+    ColorTheatreProfileAction,
+    ColorTheatreProfileActionHover,
+    ColorTheatreProfileActionPressed,
     ColorTheatreSurface,
     ColorTheatreSurfaceContainer,
     ColorTheatreSurfaceContainerHigh,
@@ -187,20 +194,27 @@ pub const ALL: &[Token] = &[
     Token::ColorSurface,
     Token::ColorSurfaceContainer,
     Token::ColorSurfaceContainerHigh,
+    Token::ColorTheatreAccountControl,
+    Token::ColorTheatreAccountControlHover,
     Token::ColorTheatreBackground,
     Token::ColorTheatreFocus,
     Token::ColorTheatreHero,
+    Token::ColorTheatreOnAccountControl,
     Token::ColorTheatreOnHero,
     Token::ColorTheatreOnPeach,
     Token::ColorTheatreOnPink,
     Token::ColorTheatreOnPrimary,
     Token::ColorTheatreOnPrimaryContainer,
+    Token::ColorTheatreOnProfileAction,
     Token::ColorTheatreOnSurface,
     Token::ColorTheatreOnSurfaceVariant,
     Token::ColorTheatrePeach,
     Token::ColorTheatrePink,
     Token::ColorTheatrePrimary,
     Token::ColorTheatrePrimaryContainer,
+    Token::ColorTheatreProfileAction,
+    Token::ColorTheatreProfileActionHover,
+    Token::ColorTheatreProfileActionPressed,
     Token::ColorTheatreSurface,
     Token::ColorTheatreSurfaceContainer,
     Token::ColorTheatreSurfaceContainerHigh,
@@ -334,20 +348,29 @@ impl Token {
             Self::ColorSurface => "--cantos-color-surface",
             Self::ColorSurfaceContainer => "--cantos-color-surface-container",
             Self::ColorSurfaceContainerHigh => "--cantos-color-surface-container-high",
+            Self::ColorTheatreAccountControl => "--cantos-color-theatre-account-control",
+            Self::ColorTheatreAccountControlHover => "--cantos-color-theatre-account-control-hover",
             Self::ColorTheatreBackground => "--cantos-color-theatre-background",
             Self::ColorTheatreFocus => "--cantos-color-theatre-focus",
             Self::ColorTheatreHero => "--cantos-color-theatre-hero",
+            Self::ColorTheatreOnAccountControl => "--cantos-color-theatre-on-account-control",
             Self::ColorTheatreOnHero => "--cantos-color-theatre-on-hero",
             Self::ColorTheatreOnPeach => "--cantos-color-theatre-on-peach",
             Self::ColorTheatreOnPink => "--cantos-color-theatre-on-pink",
             Self::ColorTheatreOnPrimary => "--cantos-color-theatre-on-primary",
             Self::ColorTheatreOnPrimaryContainer => "--cantos-color-theatre-on-primary-container",
+            Self::ColorTheatreOnProfileAction => "--cantos-color-theatre-on-profile-action",
             Self::ColorTheatreOnSurface => "--cantos-color-theatre-on-surface",
             Self::ColorTheatreOnSurfaceVariant => "--cantos-color-theatre-on-surface-variant",
             Self::ColorTheatrePeach => "--cantos-color-theatre-peach",
             Self::ColorTheatrePink => "--cantos-color-theatre-pink",
             Self::ColorTheatrePrimary => "--cantos-color-theatre-primary",
             Self::ColorTheatrePrimaryContainer => "--cantos-color-theatre-primary-container",
+            Self::ColorTheatreProfileAction => "--cantos-color-theatre-profile-action",
+            Self::ColorTheatreProfileActionHover => "--cantos-color-theatre-profile-action-hover",
+            Self::ColorTheatreProfileActionPressed => {
+                "--cantos-color-theatre-profile-action-pressed"
+            }
             Self::ColorTheatreSurface => "--cantos-color-theatre-surface",
             Self::ColorTheatreSurfaceContainer => "--cantos-color-theatre-surface-container",
             Self::ColorTheatreSurfaceContainerHigh => {
@@ -582,6 +605,14 @@ impl Token {
                 crate::Theme::Dark => "#463a4e",
                 crate::Theme::Light | crate::Theme::System => "#e7dfea",
             },
+            Self::ColorTheatreAccountControl => match theme {
+                crate::Theme::Dark => "#bfa0eb",
+                crate::Theme::Light | crate::Theme::System => "#291332",
+            },
+            Self::ColorTheatreAccountControlHover => match theme {
+                crate::Theme::Dark => "#d5b7f2",
+                crate::Theme::Light | crate::Theme::System => "#4a2d5e",
+            },
             Self::ColorTheatreBackground => match theme {
                 crate::Theme::Dark => "#21112d",
                 crate::Theme::Light | crate::Theme::System => "#fff2e9",
@@ -593,6 +624,10 @@ impl Token {
             Self::ColorTheatreHero => match theme {
                 crate::Theme::Dark => "#352142",
                 crate::Theme::Light | crate::Theme::System => "#c6a0f5",
+            },
+            Self::ColorTheatreOnAccountControl => match theme {
+                crate::Theme::Dark => "#291332",
+                crate::Theme::Light | crate::Theme::System => "#fff8ef",
             },
             Self::ColorTheatreOnHero => match theme {
                 crate::Theme::Dark => "#fff8ef",
@@ -613,6 +648,10 @@ impl Token {
             Self::ColorTheatreOnPrimaryContainer => match theme {
                 crate::Theme::Dark => "#291332",
                 crate::Theme::Light | crate::Theme::System => "#fff8ef",
+            },
+            Self::ColorTheatreOnProfileAction => match theme {
+                crate::Theme::Dark => "#fff8ef",
+                crate::Theme::Light | crate::Theme::System => "#291332",
             },
             Self::ColorTheatreOnSurface => match theme {
                 crate::Theme::Dark => "#fff8ef",
@@ -637,6 +676,18 @@ impl Token {
             Self::ColorTheatrePrimaryContainer => match theme {
                 crate::Theme::Dark => "#bfa0eb",
                 crate::Theme::Light | crate::Theme::System => "#291332",
+            },
+            Self::ColorTheatreProfileAction => match theme {
+                crate::Theme::Dark => "#a10f65",
+                crate::Theme::Light | crate::Theme::System => "#e8a2da",
+            },
+            Self::ColorTheatreProfileActionHover => match theme {
+                crate::Theme::Dark => "#900854",
+                crate::Theme::Light | crate::Theme::System => "#df94d0",
+            },
+            Self::ColorTheatreProfileActionPressed => match theme {
+                crate::Theme::Dark => "#790447",
+                crate::Theme::Light | crate::Theme::System => "#d17bbf",
             },
             Self::ColorTheatreSurface => match theme {
                 crate::Theme::Dark => "#281632",

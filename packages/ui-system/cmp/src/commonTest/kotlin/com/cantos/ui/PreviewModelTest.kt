@@ -96,7 +96,7 @@ class PreviewModelTest {
 
     @Test
     fun generated_density_aliases_and_motion_are_resolved_by_role() {
-        assertEquals("0.8.0", CantosTokens.version)
+        assertEquals("0.9.0", CantosTokens.version)
         assertEquals(CantosTokens.names.size, CantosTokens.names.distinct().size)
         assertEquals(48.0, CantosTokens.number("size.control", "compact"))
         assertEquals(48.0, CantosTokens.number("size.control", "comfortable"))

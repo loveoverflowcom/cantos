@@ -297,6 +297,20 @@
   gap: var(--cantos-space-md);
   align-items: start;
 }
+:where(.cantos-ui) .cui-preview .cui-guest-recipe {
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-panel);
+  background: var(--cantos-color-background);
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui) .cui-preview .cui-guest-recipe-title,
+:where(.cantos-ui) .cui-preview .cui-guest-recipe-greeting { margin: 0; }
+:where(.cantos-ui) .cui-preview .cui-guest-recipe-theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-md);
+}
 :where(.cantos-ui) .cui-preview .cui-theatre-hero {
   padding: var(--cantos-space-lg);
   border-radius: var(--cantos-web-shape-panel);
