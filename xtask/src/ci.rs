@@ -153,6 +153,51 @@ mod tests {
     }
 
     #[test]
+    fn forge_probe_qualification_is_independent_pinned_and_read_only() {
+        let workspace = Workspace::discover().unwrap();
+        let workflow =
+            std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
+                .unwrap();
+        let job = workflow
+            .split_once("  forge-probe-linux:\n")
+            .unwrap()
+            .1
+            .split_once("  web:\n")
+            .unwrap()
+            .0;
+        for required in [
+            "runs-on: ubuntu-24.04",
+            "timeout-minutes: 10",
+            "permissions:\n      contents: read",
+            "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+            "persist-credentials: false",
+            "musl-tools=1.2.4-2",
+            "rustup target add x86_64-unknown-linux-musl --toolchain 1.98.1",
+            "node-version: '22.23.4'",
+            "npm_config_registry: https://registry.npmjs.org",
+            "cargo xtask forge-probe package",
+            "cargo xtask forge-probe inspect",
+            "cargo xtask forge-probe qualify",
+            "path: artifacts/forge-probe/ci-linux/receipt.json",
+        ] {
+            assert!(job.contains(required), "missing {required}");
+        }
+        for forbidden in [
+            "needs:",
+            "secrets.",
+            "id-token:",
+            "packages: write",
+            "continue-on-error:",
+            "firebase deploy",
+            "--publish",
+            "oci-build",
+            "--skip",
+        ] {
+            assert!(!job.contains(forbidden), "forbidden {forbidden}");
+        }
+    }
+
+    #[test]
     fn the_manual_qualification_campaign_is_dispatch_only_and_calls_one_xtask_owner() {
         let workspace = Workspace::discover().unwrap();
         let workflow =
@@ -212,8 +257,8 @@ mod tests {
             workflow
                 .matches("run: rustup show active-toolchain")
                 .count(),
-            CiJob::ALL.len() + 1,
-            "every job, and the manual qualification campaign, must select rust-toolchain.toml"
+            CiJob::ALL.len() + 2,
+            "every job, including the two qualification lanes, must select rust-toolchain.toml"
         );
         assert!(
             !workflow.contains("RUSTUP_TOOLCHAIN:"),

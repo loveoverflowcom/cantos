@@ -65,6 +65,26 @@ Retain the receipt and package until deployment/recovery is reconciled. An inter
 without a complete receipt is not deployable; do not overwrite it. Prepare a fresh run after
 inspection. No command deletes an old bundle, cloud function, log, key, backup or other session.
 
+## Read-only Linux PR qualification
+
+The independent `forge-probe-linux` job in
+[repository-checks.yml](../../../.github/workflows/repository-checks.yml) checks out the exact
+PR head SHA (the event SHA for push/manual runs) on Ubuntu 24.04. Its ten-minute budget is
+separate from the broad workspace test job. It provisions Rust 1.98.1 with the musl target,
+Ubuntu `musl-tools=1.2.4-2` and Node 22.23.4, then calls the existing `self-test`, `package`,
+`inspect` and `qualify` commands. Rustup and the pinned official setup-node action obtain the
+compiler/runtime from their official distributions; apt uses Ubuntu's signed repositories and
+npm uses the pinned lockfile against `https://registry.npmjs.org`.
+
+The project and region are package fixtures only; no Firebase/GCP tool is invoked. The job has
+only `contents: read`, no custom secrets/cloud authentication or publisher, and checkout does
+not persist its token. It has no dependency on the repository/workspace jobs and does not skip
+or weaken them. The only retained test artifact is the successful package integrity receipt,
+not a registry image or deployed artifact. That receipt's source revision, target, file hashes,
+worker SHA-256 and mode bind the test output; the job log establishes the actual SDK/HTTP
+results. Source registration alone is not runtime acceptance. CI qualification remains separate
+from real Functions/IAM/cold-start/recovery acceptance.
+
 ## Operator-only cloud phase
 
 Source preparation authorizes no cloud write. Before a deploy the operator must explicitly

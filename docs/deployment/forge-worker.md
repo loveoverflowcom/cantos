@@ -77,7 +77,11 @@ Linux ABI, Node 22 or a deployed Function.
 The [isolated package policy and operator procedure](../../infra/firebase/functions/README.md)
 owns the locked Linux musl build, allowlisted source bundle, executable/ELF inspection, digest
 receipt, actual SDK/HTTP qualification and scoped deploy-plan commands. Node 22 is required for
-package qualification; no request compiles or downloads anything. `qualify` runs fault injection
+package qualification; no request compiles or downloads anything. The independent
+`forge-probe-linux` PR job provisions pinned tools on disposable Ubuntu and calls the existing
+package/qualification commands against the exact source head, with read-only permissions and
+no cloud credentials or publisher. Its receipt/logs can establish Linux package evidence, not
+deployed Functions acceptance. `qualify` runs fault injection
 only on a disposable local bundle, restores the original worker and never changes a cloud runtime.
 
 Source tests, host-native subprocess tests, a static ELF inspection, real Linux HTTP qualification,

@@ -634,10 +634,12 @@ validates arguments and prints the plan without child-tool or artifact effects. 
 the exact source inventory, hashes, relative config, static ELF and executable permissions.
 `qualify` requires real Linux x86_64 and Node 22, runs locked `npm ci --ignore-scripts`, then actual
 SDK discovery, loopback HTTP and fixed packaged Rust tests with local-only fault injection.
-`deploy-plan` only prints the scoped Firebase primitive, never runs it. No ordinary gate invokes
-packaging, npm installation, qualification or deployment; Python policy regressions run in the
-existing repository gate and trigger syntax/offline tests in `forge-functions`. Cloud remains a
-separately authorized operator phase. No Hosting/Distribution or production state is changed.
+`deploy-plan` only prints the scoped Firebase primitive, never runs it. Ordinary verify/preflight gates never invoke
+packaging or npm qualification. The independent read-only `forge-probe-linux` PR job provisions
+the pinned musl/Node toolchain and calls these existing commands on the exact PR head; it
+retains only a successful test receipt. Python policy regressions run in the existing repository
+gate and trigger syntax/offline tests in `forge-functions`. Cloud remains a separately authorized
+operator phase. No Hosting/Distribution or production state is changed.
 
 `verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
 against run-owned real files, then checks the embedded foundation in `packages/store-turso` and
