@@ -411,6 +411,38 @@ mod tests {
     }
 
     #[test]
+    fn account_cards_trim_chrome_and_wrap_under_large_text_instead_of_overflowing() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        // The query is relative to the account column and rem-based, so it follows text size.
+        assert!(css.contains(".theatre-account { container-type: inline-size; }"));
+        let narrow = css
+            .split("@container (max-width: 12rem) {")
+            .nth(1)
+            .and_then(|rest| rest.split("\n}").next())
+            .expect("narrow account container query");
+        for needle in [
+            ".theatre-account :is(.theatre-account-preferences, .theatre-account-profile).cui-surface",
+            ".theatre-action-rows > li { min-inline-size: 0; }",
+            ".theatre-guest-identity { display: flex; flex-wrap: wrap;",
+        ] {
+            assert!(narrow.contains(needle), "{needle}");
+        }
+        // Wrapping rows keep their controls whole: the theme row and locale field wrap, and the
+        // equal-size CTA pair keeps one height when a label wraps.
+        assert!(rule(".theatre-pref-theme").contains("flex-wrap: wrap"));
+        assert!(rule(".theatre-pref-locale.cui-select-field").contains("flex-wrap: wrap"));
+        assert!(
+            rule(".theatre-account-profile .theatre-auth-actions").contains("grid-auto-rows: 1fr")
+        );
+    }
+
+    #[test]
     fn theme_value_names_follow_the_cycle_modes() {
         assert_eq!(theme_value_key(Theme::Dark), Key::Dark);
         assert_eq!(theme_value_key(Theme::Light), Key::Light);
