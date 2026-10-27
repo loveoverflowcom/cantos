@@ -20,6 +20,8 @@ pub mod core;
 mod features;
 mod infrastructure;
 #[cfg(feature = "preview")]
+pub mod local_sample;
+#[cfg(feature = "preview")]
 pub mod membership_preview;
 pub mod messages;
 mod platform;

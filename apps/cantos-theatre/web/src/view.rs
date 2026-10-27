@@ -19,10 +19,12 @@ use crate::{
 };
 use cantos_ui::{Container, ContainerWidth, Density, Expression, Theme, UiRoot};
 #[cfg(feature = "preview")]
-use cantos_ui::{EmptyState, Select, Space, Stack, Surface, SurfaceTone};
+use cantos_ui::{
+    EmptyState, Select, SelectDensity, SelectLabelPlacement, Space, Stack, Surface, SurfaceTone,
+};
 use leptos::prelude::*;
 
-const NAV_ICON_SELECTED: &str = "check";
+pub(crate) const NAV_ICON_SELECTED: &str = "check";
 
 #[cfg(feature = "preview")]
 #[component]
@@ -392,13 +394,30 @@ mod live_shell;
 #[cfg(feature = "preview")]
 pub use live_shell::AuthPreview;
 pub use live_shell::LiveBoundary;
+#[cfg(feature = "preview")]
+pub(crate) use live_shell::{LiveBrand, LivePreferences, LiveRecovery};
 
 // Keep the existing shared foundation adoption at this root composition site.
 #[component]
-fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
+pub(crate) fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
     view! { <UiRoot theme density=Density::Comfortable expression=Expression::Theatre class="theatre-shell">{children()}</UiRoot> }
 }
 #[component]
-fn LiveContainer(children: Children) -> impl IntoView {
+pub(crate) fn LiveContainer(children: Children) -> impl IntoView {
     view! { <Container width=ContainerWidth::Wide>{children()}</Container> }
+}
+#[cfg(feature = "preview")]
+#[component]
+pub(crate) fn LiveLocaleSelect(
+    locale: RwSignal<Locale>,
+    on_locale: Callback<String>,
+) -> impl IntoView {
+    view! {
+        <Select id="theatre-live-locale" class="theatre-locale-field"
+            density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+            label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+            value=Signal::derive(move || locale.get().lang().to_owned())
+            options=crate::localization::locale_options()
+            on_input=on_locale/>
+    }
 }

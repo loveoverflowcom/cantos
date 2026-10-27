@@ -126,6 +126,57 @@ session material in `studio-token`; never print or share that file. It starts no
 does not provide a browser login workflow. Stop the host before reseeding, reset, operator
 access or any other process that opens this DB.
 
+### Inspect in Theatre Web (`?mode=local-db`)
+
+When `--sample-serve` is active, the test-hosted composition mounts three loopback-only read
+routes in front of the canonical `api_router`:
+
+- `GET /api/v1/sample-preview/works`
+- `GET /api/v1/sample-preview/works/{work_id}`
+- `GET|HEAD /api/v1/sample-preview/works/{work_id}/cover/{sha256}`
+
+These routes exist only in the `--sample-serve` test harness (`services/cantos-server/tests/support/sample_preview_http.rs`);
+the production `cantos-server` binary and canonical `api_router` never mount them. Each request
+must carry a loopback `Host` (`127.0.0.1:8080`, `localhost:8080`, `127.0.0.1:8082` or
+`localhost:8082`), an optional matching `http://` loopback `Origin`, no query string and `GET`
+(or `HEAD` for covers). The handler reads current Work, ContentUnit, ArtworkSelection and
+verified ImageAsset bytes from `server.db` and `media/objects/` in-process using the host's
+server-held `studio-token`, verifies exact membership against the six-Work / twelve-chapter
+dataset (`cantos-sample-catalog-v1`), and projects draft-safe metadata (`cantos.sample-preview.v1`)
+with `audio: "unavailable"`. It never exposes `studio-token`, private storage keys, filesystem
+paths, internal rights/provenance or manuscript body text to the browser.
+
+To browse the seeded Works in Theatre Web on localhost:
+
+1. Start the sample host in Terminal 1:
+
+   ```sh
+   cargo xtask seed theatre \
+     --sample-input /absolute/sample-source/sample-catalog.json \
+     --sample-media-source /absolute/sample-source \
+     --sample-root /absolute/sample-output \
+     --sample-serve
+   ```
+
+2. Start Theatre Web with the opt-in `preview` feature in Terminal 2 (Trunk serves
+   `127.0.0.1:8082` and proxies `/api/` to `127.0.0.1:8080`):
+
+   ```sh
+   TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web
+   ```
+
+3. Open `http://127.0.0.1:8082/?mode=local-db#discover` in a browser:
+   - **Discover (`#discover`):** loads `GET /api/v1/sample-preview/works` and renders the six
+     Works, their draft chapter counts (`Các chương: 2` / `Chapters: 2`) and the six original PNG
+     covers from `/api/v1/sample-preview/works/{work_id}/cover/{sha256}`.
+   - **Work detail (`#work/{work_id}`):** loads `GET /api/v1/sample-preview/works/{work_id}`,
+     renders the original cover, synopsis and two ordered draft chapters, and keeps every
+     chapter's Play control disabled (`Chưa có bản nghe mẫu` / `No sample listening edition`) with
+     zero playback, manifest or media-authorization requests.
+
+4. Stop both processes with Ctrl-C before reseeding, running `--reset` or starting another
+   process on `8080`/`8082` or the same `server.db`.
+
 ## Reset without deleting evidence
 
 Stop any process owning the sample DB first. Reset is explicit and limited to the marked
