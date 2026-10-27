@@ -2,6 +2,7 @@
 //! ownership, link existence and transaction guards are checked by the application boundary.
 pub mod content;
 pub mod delegation;
+pub mod metadata_disclosure;
 mod error;
 mod ids;
 mod metadata;

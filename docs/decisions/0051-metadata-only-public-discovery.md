@@ -1,7 +1,8 @@
 # ADR 0051: Metadata-only public discovery without playable audio (#539)
 
-- Status: **proposed** — records the #539 review and the missing owner decision; changes no
-  rule, route, schema, migration or client. ADR 0030 and ADR 0035 remain authoritative
+- Status: **accepted direction for the prepared sample only** (owner, 27 October 2026);
+  implementation and production acceptance are separate. The existing release-gated API
+  remains authoritative until a versioned implementation is accepted and deployed
 - Date: 2026-10-27
 - Decision owner: Cantos product owner, with Publication and Listening owners for the
   disclosure and playback rules
@@ -61,8 +62,13 @@ approval record, and already cannot stand in for cover disclosure (ADR 0033).
 
 ## Decision
 
-**Proposed, not accepted.** Keep the current release-gated rule until the owner records the
-choices below. Catalog create/edit without audio needs no change.
+On 27 October 2026 the owner approved option C for the six prepared sample Works and their
+chapters: make their metadata public after an explicit rights/source confirmation, while
+unavailable audio remains unplayable. The sample's current private/draft state is not itself
+publication; it needs the admitted owner action. This is not consent to publish other owners'
+content or other private drafts, cover assets or audio. Catalog create/edit without audio needs no change.
+The existing release-gated API stays in force until a separate versioned implementation is
+verified and deployed; an owner decision alone does not publish data.
 
 Recommended option **C**: an explicit, owner-recorded metadata disclosure.
 
@@ -88,13 +94,14 @@ Recommended option **C**: an explicit, owner-recorded metadata disclosure.
 | --- | --- | --- | --- |
 | A. Keep release-gated discovery (current) | No change; no disclosure surface; satisfies ADR 0030/0035 | Saved metadata is invisible to listeners until audio is approved; does not meet #539's display goal | Default until a decision is recorded |
 | B. Treat Work `visibility=public` as metadata publication | Small query change | Visibility is a mutable form field with no approval, rights or per-unit control; a draft becomes public by its creation default; contradicts ADR 0033 and the seeded-catalog boundary | Rejected: bypasses the publication gate |
-| C. Explicit owner metadata disclosure (recommended) | Separates metadata admission from playback; revocable and auditable; keeps old readers stable | New records, migration, Studio route and UX, a versioned Discovery shape and Web/CMP adoption; amends ADR 0030/0035 | Recommended, pending the choices below |
+| C. Explicit owner metadata disclosure | Separates metadata admission from playback; revocable and auditable; keeps old readers stable | New records, migration, Studio route and UX, a versioned Discovery shape and Web/CMP adoption; amends ADR 0030/0035 | Owner selected for the prepared sample; broader policy and implementation remain separate |
 | D. Studio-only "listener preview" of saved metadata | No public disclosure | Owners see a preview, listeners see nothing | Rejected as the #539 outcome; may complement C |
 
 ## Consequences
 
-- Product and user impact: none until accepted. Under C, listeners could see announced Works
-  and chapters before audio, with an explicit not-yet-playable state.
+- Product and user impact: the sample may be disclosed through an implemented and authorized
+  production flow; listeners can then see the specifically admitted metadata before audio, with
+  an explicit not-yet-playable state. The decision itself changes no deployed data.
 - Compatibility and migrations: none now. C needs a new Turso schema version and a versioned
   Discovery shape; strict v1 readers must not receive rows without `publication_id`.
 - Operations, storage, and production cost: none now. C adds disclosure records and a wider
@@ -102,7 +109,7 @@ Recommended option **C**: an explicit, owner-recorded metadata disclosure.
 - Implementation and recovery requirements: C must keep private, unlisted, archived, withdrawn
   and undisclosed records indistinguishable from absent ones, and never mint a release,
   placeholder URL or `.invalid` media to make a row look playable.
-- Deferred questions for the owner: who may record or withdraw a disclosure (owner only or a
+- Broader product questions not resolved by the sample-only approval: who may record or withdraw a disclosure (owner only or a
   delegate role); whether a Work disclosure implies its units or each unit needs its own;
   whether disclosed metadata is pinned or follows later Catalog edits; ordering and
   `first_published_at` for an unreleased Work; whether search and kind/language filters cover
@@ -115,6 +122,8 @@ Evidence for the context: source review at `939fe317` and the regression above
 (`example-tested`, real Studio HTTP, embedded Turso file and origin publication storage). Not
 covered: production data, the deployed API, browsers and devices.
 
-Revisit when the owner answers the deferred questions; then split C into reviewed slices
-(domain and persistence, Discovery contract version, Studio disclosure UX, Web, CMP), each with
-its own regression and acceptance evidence.
+Implement the approved sample slice with an explicit owner decision, revision-bound records,
+independent Work/unit consent, revocation, rights/source evidence and a new Discovery shape.
+Keep unresolved broader product choices out of that sample-specific authorization. Review
+domain and persistence, Discovery contract, Studio disclosure, Web and CMP with independent
+regression and acceptance evidence; do not treat one layer's PASS as completion of the others.
