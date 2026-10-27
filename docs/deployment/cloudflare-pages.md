@@ -154,13 +154,13 @@ Each failure stops the rest; unreached stages are `NOT_RUN`.
   a rewrite, and `/verify-email.html` answers `308` to it. Both spellings carry the entry no-store rule.
 - Theatre may publish Android App Links and iOS Universal Links association files from
   `infra/cloudflare/theatre/.well-known/`. They are delivery policy, reviewed in Git, never build
-  output. The validator admits only `assetlinks.json` (one `handle_all_urls` statement for
-  `com.cantos.theatre`, never the debug `.dev` application, with 1–4 uppercase SHA-256 release
-  certificate fingerprints) and `apple-app-site-association` (one `applinks` detail,
+  output. The validator admits only `assetlinks.json` (one or two `handle_all_urls` statements, one per distinct exact
+  `com.cantos.theatre` or `com.cantos.theatre.dev` package, each with 1–4 uppercase SHA-256
+  approved signing certificate fingerprints) and `apple-app-site-association` (one `applinks` detail,
   `<TEAMID>.com.cantos.theatre`, the single component `/verify-email`), and requires
   `Content-Type: application/json` for the extensionless Apple file in `_headers`. Every other
   dot-file and every association for Studio stays refused. **Neither file is committed yet:** the
-  release certificate fingerprint and Apple team ID are operator facts that were not available to
+  release/dev certificate fingerprints and Apple team ID are operator facts that were not available to
   this change; add them by reviewed PR, then deploy.
 - `_headers` sets `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, a `frame-ancestors 'none'` CSP and a camera/microphone/geolocation

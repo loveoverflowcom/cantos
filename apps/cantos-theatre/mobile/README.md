@@ -221,12 +221,21 @@ hold with monotonic elapsed time; their UNIX clocks still validate token deadlin
 Login. A signed-in listener keeps the current session and is pointed to Account for the explicit
 sign-out. Nothing signs in, out or switches automatically.
 
-Verified opening needs the release `assetlinks.json` on `cantos.cc`, which is not committed yet
-(release certificate fingerprint pending). It also needs the operator to switch the Firebase
-template and `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` to that URL. Until then, mailed links
-still open Web, and the stage 0 guidance stays accurate. Debug builds (`com.cantos.theatre.dev`)
-get no association. Exercise them with an explicit intent to the pinned URL, for example
-`adb shell am start -a android.intent.action.VIEW -n com.cantos.theatre.dev/com.cantos.theatre.app.TheatreActivity -d '<link>'`.
+Verified opening needs a reviewed `assetlinks.json` on `cantos.cc` with the actual approved
+certificate fingerprint for each Android package (`com.cantos.theatre` and/or
+`com.cantos.theatre.dev`). No association file or approved fingerprints are committed yet.
+A local debug keystore is not implicitly approved. The operator must also configure the Firebase
+template and `CANTOS_IDENTITY_FIREBASE_ACTION_HANDLER` for the pinned URL. When both apps are
+installed Android's verification, user defaults and resolver determine which opens; the URL does
+not identify the app that initiated signup. With no app or no OS handoff, Web remains the fallback.
+An explicit intent tests intake only and does not prove association. Record each installed APK's
+package, version, hash and public signer, then inspect `adb shell pm get-app-links` separately for
+each package and test actual email taps cold and warm. Do not log action URLs or proof values.
+The configured build-admitted API origin, never the incoming URL, selects the backend. A dev build
+using a local API cannot complete an operation issued by production Identity. The link does not
+identify its issuing backend, so the app cannot detect that mismatch before posting the password
+to its configured origin. Use a matching issuer/backend; verified association alone does not
+establish this binding. A pre-submit mismatch guard needs a separately reviewed contract.
 iOS source now feeds the same controller from both `NSUserActivityTypeBrowsingWeb.webpageURL`
 and SwiftUI's direct Universal Link delivery (`onOpenURL`). The App's one `CatalogOwner` is
 shared by its scenes; it forwards synchronously without a URL queue, scene storage or navigation

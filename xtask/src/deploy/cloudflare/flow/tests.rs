@@ -576,9 +576,13 @@ fn association_policy_is_theatre_only_and_refused_before_the_artifact_is_read() 
     let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
     assert_eq!(status_of(&report, Stage::Policy), Status::Pass);
     assert_eq!(status_of(&report, Stage::Bundle), Status::Pass);
-    // The debug application is never associated (ADR 0048), and Studio publishes none.
+    let mut rig = Rig::complete(HostedApp::CantosTheatre, "preview", "x");
+    rig.host.policy = Ok(associated("com.cantos.theatre.dev"));
+    let report = rig.run(&request_of(HostedApp::CantosTheatre, "preview", "x"));
+    assert_eq!(status_of(&report, Stage::Policy), Status::Pass);
+    // Unrelated packages and all Studio associations are refused.
     for (app, package) in [
-        (HostedApp::CantosTheatre, "com.cantos.theatre.dev"),
+        (HostedApp::CantosTheatre, "com.example.other"),
         (HostedApp::CantosStudio, "com.cantos.theatre"),
     ] {
         let mut rig = Rig::new(app);
