@@ -221,6 +221,8 @@ internal object PreviewToolCopy {
 
     /** Synthetic Vietnamese content for the Auth v4.3 tonal matrix; not an app translation. */
     object AuthTonal {
+        const val Confirmation = "Tôi sở hữu hộp thư này và xác nhận tạo tài khoản."
+        const val ConfirmationPending = "Đang tạo tài khoản."
         const val Title = "Đăng nhập"
         const val Email = "Địa chỉ email"
         const val EmailValue = "linh@example.com"

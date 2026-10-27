@@ -35,9 +35,9 @@ class LiveDesktopUiTest {
         try {
             runDesktopComposeUiTest(width = 390, height = 844) {
                 setContent { Box(Modifier.requiredSize(390.dp, 844.dp)) { LiveEnrollmentPreview(server.origin) } }
-                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("register-login").fetchSemanticsNodes().isNotEmpty() }
-                // The live window opens on Register; no signup is submitted. Go to the explicit sign-in.
-                onNodeWithTag("register-login").performScrollTo().performClick()
+                waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("register-email").fetchSemanticsNodes().isNotEmpty() }
+                // The live window opens on Register; header Back returns to Login without submitting.
+                onNodeWithTag("back").performClick()
                 waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("login-email").fetchSemanticsNodes().isNotEmpty() }
                 onNodeWithTag("login-email").performTextInput("listener@example.test")
                 onNodeWithTag("login-password").performTextInput("synthetic-test-password")

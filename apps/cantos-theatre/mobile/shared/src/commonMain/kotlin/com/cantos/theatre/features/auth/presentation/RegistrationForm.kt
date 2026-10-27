@@ -67,12 +67,8 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
             if (failure != null) ErrorText(status, live)
             else Text(status, live, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // Editing has nothing to cancel: Back (header) and the Login link already leave. Cancel appears
-        // only while a request is pending or its mail is awaited.
-        if (phase == RegistrationPhase.Submitting || phase == RegistrationPhase.Waiting) {
-            Button(copy.text(AuthText.RegisterCancel), { onIntent(RegistrationIntent.Cancel) },
-                variant = ButtonVariant.Text, icon = "close", controlModifier = Modifier.fillMaxWidth().testTag("register-cancel"))
-        }
+        // Header Back is the normal exit in every phase. The shell calls leave(), which fences
+        // pending results without claiming to recall mail or automatically resending a request.
         if (phase is RegistrationPhase.Failed && failure != RegistrationFailure.InvalidEmail || phase == RegistrationPhase.Cancelled) {
             Button(copy.text(if (failure == RegistrationFailure.Disabled || failure == RegistrationFailure.RateLimited) AuthText.RegisterRetry else AuthText.RegisterRestart),
                 { onIntent(RegistrationIntent.Restart) }, variant = ButtonVariant.AuthPrimary,

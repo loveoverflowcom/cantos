@@ -41,6 +41,7 @@ import kotlin.math.nextDown
 import kotlin.math.nextUp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -79,8 +80,11 @@ private fun ChoiceLabel(
     content: @Composable () -> Unit,
 ) {
     require(label.isNotBlank())
+    val tonal = LocalAuthActionScope.current.isTonal()
+    val focus = if (tonal) Modifier.cantosFocusFill(CantosShapes.control, tokenColor("color.primary"))
+        else Modifier.cantosFocus()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Row(controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus()
+        Row(controlModifier.heightIn(min = tokenDp("size.control")).then(focus)
             .choiceMessages(state, help, error).semantics { contentDescription = label }
             .then(interaction).padding(horizontal = tokenDp("space.xs")),
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
@@ -90,10 +94,10 @@ private fun ChoiceLabel(
                 color = if (state.canPress()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (choiceDescription(state, help, error).isNotBlank()) {
-            // The ring paints outside the native row. Keep supporting text beyond that paint
-            // with the normal message gap, and reserve it before focus so the layout stays still.
+            // Ordinary choices reserve space for their outset ring. The auth fill stays inside
+            // the row, so its supporting text needs only the normal message gap.
             Column(
-                modifier = Modifier.padding(top = tokenDp("size.focusOffset") + tokenDp("size.focusWidth")),
+                modifier = Modifier.padding(top = if (tonal) 0.dp else tokenDp("size.focusOffset") + tokenDp("size.focusWidth")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
             ) {
                 ChoiceMessages(state, help, error)

@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.preview.AuthTonalSpecimen
+import com.cantos.ui.generated.CantosTokens
 import java.io.File
 import kotlin.math.abs
 import kotlin.test.assertEquals
@@ -149,6 +150,29 @@ class TonalAuthRecipeTest {
                 assertTrue(!frames.idle.toPixelMap()[x, y].isNear(frames.focused.toPixelMap()[x, y], 0.02f),
                     "$name/${theme.tokenName}: focus is visible without a border")
             }
+        }
+    }
+
+    @Test
+    fun tonal_confirmation_focus_is_fill_and_default_confirmation_retains_its_ring() {
+        for (theme in Theme.entries) for (checked in listOf(false, true)) {
+            val tonal = capture(theme) { m ->
+                CompositionLocalProvider(tonalAuthActions()) {
+                    Checkbox("Tôi xác nhận", checked, {}, controlModifier = m.fillMaxWidth())
+                }
+            }
+            val ordinary = capture(theme) { m -> Checkbox("Tôi xác nhận", checked, {}, controlModifier = m.fillMaxWidth()) }
+            tonal.save("confirmation-$checked-${theme.tokenName}")
+            ordinary.save("confirmation-default-$checked-${theme.tokenName}")
+            val outset = CantosTokens.number("size.focusOffset") + CantosTokens.number("size.focusWidth") / 2
+            fun Frames.pixel(image: ImageBitmap, outside: Boolean): Color {
+                val x = (node.left - scene.left + node.width * 0.85f).toInt()
+                val y = (if (outside) node.top - scene.top - outset else node.center.y - scene.top).toInt()
+                return image.toPixelMap()[x, y]
+            }
+            assertTrue(tonal.pixel(tonal.idle, true).isNear(tonal.pixel(tonal.focused, true)), "tonal focus never paints outside the row")
+            assertTrue(!tonal.pixel(tonal.idle, false).isNear(tonal.pixel(tonal.focused, false), 0.02f), "focus remains visible as an interior fill")
+            assertTrue(!ordinary.pixel(ordinary.idle, true).isNear(ordinary.pixel(ordinary.focused, true)), "negative control sees the default outset ring")
         }
     }
 
