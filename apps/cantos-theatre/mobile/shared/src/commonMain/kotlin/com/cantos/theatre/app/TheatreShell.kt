@@ -8,8 +8,8 @@ import com.cantos.theatre.application.errors.ErrorAction
 import com.cantos.theatre.application.errors.ErrorCenterState
 import com.cantos.theatre.application.errors.ErrorEffect
 import com.cantos.theatre.application.errors.ErrorEvent
-import com.cantos.theatre.application.errors.ErrorKind
 import com.cantos.theatre.application.errors.ErrorKey
+import com.cantos.theatre.application.errors.ErrorKind
 import com.cantos.theatre.application.errors.ErrorOperation
 import com.cantos.theatre.application.errors.reduceErrors
 import com.cantos.theatre.application.errors.toErrorNotice
@@ -46,6 +46,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -53,7 +54,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -239,7 +239,7 @@ class TheatreShell(
             ShellEvent.LoadMore -> loadMore()
             ShellEvent.Refresh -> refresh()
             is ShellEvent.SetTheme -> preferences.setTheme(if (event.theme == ShellTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light)
-            is ShellEvent.SetLocale -> preferences.setLocale(if (event.locale == ShellLocale.English) PreferenceLocale.English else PreferenceLocale.Vietnamese)
+            is ShellEvent.SetLocale -> preferences.setLocale(event.locale.toPreferenceLocale())
             is ShellEvent.SetSpeed -> runtime.listening.playback.dispatch(PlaybackEvent.SpeedRequested(event.percent * 10))
             is ShellEvent.SetTimer -> setTimer(event.timer)
         }

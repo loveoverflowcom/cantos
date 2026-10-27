@@ -35,9 +35,10 @@ import com.cantos.theatre.presentation.model.ShellEpisode
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.ui.CantosShapes
-import com.cantos.ui.tokenDp
 import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenDp
 
 @Composable
 internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -72,8 +73,7 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
             FilledIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.ToggleSimulation) },
                 modifier = Modifier.size(tokenDp("size.control") + tokenDp("space.xl"))
                     .testTag("transport").semantics {
-                        contentDescription = copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode,
-                            "title" to episode.title)
+                        contentDescription = copy.text(if (state.transportRequested) ShellMessage.PauseEpisode(title = episode.title) else ShellMessage.PlayEpisode(title = episode.title))
                     }) {
                 Icon(if (state.transportRequested) rememberCantosIconVector("pause") else rememberCantosIconVector("play_arrow"), null,
                     modifier = Modifier.size(tokenDp("size.icon") + tokenDp("space.sm")))
@@ -94,7 +94,7 @@ internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: Shel
         verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { panel = PreferencePanel.Speed },
             modifier = Modifier.testTag("player-speed").focusRequester(speedFocus).semantics {
-                contentDescription = copy.text(CopyKey.SpeedCaption, "speed" to copy.speed(state.speedPercent))
+                contentDescription = copy.text(ShellMessage.SpeedCaption(speed = copy.speed(state.speedPercent)))
             }) {
             Icon(rememberCantosIconVector("speed"), null)
             Text(copy.speed(state.speedPercent))

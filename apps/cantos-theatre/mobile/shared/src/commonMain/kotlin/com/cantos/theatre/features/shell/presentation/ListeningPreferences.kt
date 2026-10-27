@@ -36,8 +36,8 @@ import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.SupportedUiSpeedPercents
-import com.cantos.ui.tokenDp
 import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenDp
 
 internal enum class PreferencePanel(val title: CopyKey?) {
     Theme(CopyKey.Theme), Language(CopyKey.Language), Speed(CopyKey.Speed), Timer(CopyKey.Timer),
@@ -92,7 +92,7 @@ internal fun PreferenceDialog(
         title = {
             val title = panel.title
             if (title != null) Text(copy.text(title))
-            else diagnostics?.let { Text(if (state.locale == ShellLocale.Vietnamese) it.title.vi else it.title.en) }
+            else diagnostics?.let { Text(it.title) }
         },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -103,7 +103,7 @@ internal fun PreferenceDialog(
                             state.theme == theme, "theme-$theme", selectedFocus) { choose(ShellEvent.SetTheme(theme)) }
                     }
                     PreferencePanel.Language -> ShellLocale.entries.forEach { locale ->
-                        PreferenceOption(copy.text(if (locale == ShellLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English),
+                        PreferenceOption(locale.autonym,
                             state.locale == locale, "locale-$locale", selectedFocus) { choose(ShellEvent.SetLocale(locale)) }
                     }
                     PreferencePanel.Speed -> SupportedUiSpeedPercents.forEach { speed ->

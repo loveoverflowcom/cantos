@@ -1,12 +1,13 @@
 package com.cantos.theatre.features.auth.presentation
 
-import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.theatre.application.identity.AccountLoginFailure
+import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.theatre.domain.identity.RegistrationFailure
 import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.generated.AuthKey
 
 internal class AuthCopy(private val locale: ShellLocale) {
-    fun text(key: AuthText): String = if (locale == ShellLocale.English) key.en else key.vi
+    fun text(key: AuthText): String = key.text(locale)
 
     fun registrationFailure(reason: RegistrationFailure): String = text(when (reason) {
         RegistrationFailure.InvalidEmail -> AuthText.RegisterInvalidEmail
@@ -20,7 +21,7 @@ internal class AuthCopy(private val locale: ShellLocale) {
     fun failure(reason: NativeAccountFailure, identity: AccountLoginFailure? = null): String {
         if (identity is AccountLoginFailure.RateLimited) {
             val seconds = identity.retryAfterSeconds
-            return if (seconds == null) text(AuthText.RetryLater) else text(AuthText.RetryAfter).replace("{seconds}", seconds.toString())
+            return if (seconds == null) text(AuthText.RetryLater) else legacyRetryAfter(locale, seconds)
         }
         if (identity != null) return text(when (identity) {
             AccountLoginFailure.InvalidCredentials -> AuthText.InvalidCredentials
@@ -41,186 +42,4 @@ internal class AuthCopy(private val locale: ShellLocale) {
  * Listener-facing resources for the optional account flow. The brand is only **Cantos**.
  * Nothing here is a name, count or entitlement: those need a real contract before display.
  */
-internal enum class AuthText(val vi: String, val en: String) {
-    Brand("Cantos", "Cantos"),
-    Back("Quay lại", "Back"),
-    ReturnHome("Về Khám phá", "Back to Discover"),
-    ReturnAccount("Về Tài khoản", "Back to Account"),
-    ReturnMembership("Về Membership", "Back to Membership"),
-    ReturnLogin("Về Đăng nhập", "Back to sign-in"),
-    ToggleTheme("Chuyển giao diện sáng tối", "Switch light and dark theme"),
-
-    LoginEyebrow("CANTOS · MỘT LẦN TRỞ LẠI", "CANTOS · A PLACE TO RETURN"),
-    LoginHeading("Câu chuyện đang đợi bạn.", "Your story is waiting."),
-    LoginHelp(
-        "Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể nghe ngay mà không cần đăng nhập.",
-        "Sign in to return to your library. Public stories are still available without signing in.",
-    ),
-    Password("Mật khẩu", "Password"),
-    PasswordRequired("Nhập mật khẩu.", "Enter your password."),
-    ShowPassword("Hiện mật khẩu", "Show password"),
-    HidePassword("Ẩn mật khẩu", "Hide password"),
-    InvalidCredentials("Không thể đăng nhập bằng thông tin này.", "Unable to sign in with these credentials."),
-    RetryLater("Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau.", "Sign-in is temporarily unavailable. Please try again later."),
-    RetryAfter("Vui lòng đợi {seconds} giây trước khi thử lại.", "Please wait {seconds} seconds before trying again."),
-    CantosIdLogin("Đăng nhập", "Sign in"),
-    CreateAccount("Tạo tài khoản Cantos", "Create a Cantos account"),
-    PasswordHelp(
-        "Dùng email và mật khẩu đã thiết lập sau khi xác minh hộp thư.",
-        "Use the email and password you set up after verifying your mailbox.",
-    ),
-    BrandHeading("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
-    BrandHelp(
-        "Có những câu chuyện chỉ cần lắng nghe. Có những miền tưởng tượng luôn chờ bạn.",
-        "Some stories only ask you to listen. Worlds of imagination are waiting for you.",
-    ),
-    BrandGenres("Truyện · Podcast · Kịch truyền thanh", "Stories · Podcasts · Audio drama"),
-    RestoreSession("Khôi phục phiên đã lưu", "Restore the saved session"),
-    NothingSaved("Thiết bị này chưa lưu phiên nào để khôi phục.", "This device has no saved session to restore."),
-    CancelLogin("Hủy đăng nhập", "Cancel sign-in"),
-    PendingReason("Đang đăng nhập. Không gửi yêu cầu lần hai.", "Signing in. A second request is not sent."),
-    PendingStatus("Đang xác minh phiên đăng nhập…", "Verifying the sign-in session…"),
-    UnavailableReason(
-        "Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai.",
-        "Sign-in is not available in this build. Public stories still play.",
-    ),
-    CleanupRequired(
-        "Cần hoàn tất xóa phiên cũ trước khi đăng nhập lại.",
-        "The previous session must be removed before you sign in again.",
-    ),
-    CleanupReason(
-        "Đăng nhập tạm dừng cho đến khi phiên cũ được xóa.",
-        "Sign-in is paused until the previous session is removed.",
-    ),
-    RetryCleanup("Thử xóa phiên lại", "Retry removing the session"),
-
-    FailureStorage("Không thể đọc phiên đã lưu trên thiết bị.", "The saved session on this device could not be read."),
-    FailureExpired("Phiên đã hết hạn. Vui lòng đăng nhập lại.", "The session expired. Please sign in again."),
-    FailureApi("Không thể xác minh phiên qua mạng. Vui lòng thử lại.", "The session could not be verified over the network. Please try again."),
-    FailureProtocol("Không thể xác minh phản hồi đăng nhập an toàn.", "The secure sign-in response could not be verified."),
-    FailureExhausted("Đăng nhập tạm thời không khả dụng. Vui lòng mở lại ứng dụng.", "Sign-in is temporarily unavailable. Please reopen the app."),
-
-    RegisterEyebrow("CANTOS ID · TÀI KHOẢN CỦA BẠN", "CANTOS ID · YOUR ACCOUNT"),
-    RegisterHeading("Một nơi để trở lại.", "A place to return to."),
-    RegisterHelp(
-        "Xác minh email trước, rồi đặt thông tin đăng nhập trong trình duyệt an toàn. Cantos không nhận mật khẩu tại đây.",
-        "Verify your email, then set up credentials in the secure browser. Cantos does not collect your password here.",
-    ),
-    SignupUnavailable(
-        "Đăng ký chưa sẵn sàng trên bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai.",
-        "Registration is not ready in this build. You can still sign in or play public stories.",
-    ),
-    RegisterDisabled(
-        "Máy chủ chưa bật đăng ký cho bản này. Bạn vẫn có thể đăng nhập hoặc nghe nội dung công khai.",
-        "Registration is not enabled by the server for this build. You can still sign in or play public stories.",
-    ),
-    RegisterEmail("Địa chỉ email", "Email address"),
-    RegisterSend("Gửi yêu cầu xác minh", "Request email verification"),
-    RegisterSending("Đang gửi yêu cầu…", "Submitting the request…"),
-    RegisterWaiting("Yêu cầu đã được tiếp nhận. Mở email xác minh trong hộp thư: Cantos sẽ mở trong trình duyệt để bạn xác minh và đặt mật khẩu. Xong bước đó, hãy quay lại ứng dụng này để đăng nhập. Phản hồi này chưa xác nhận email đã gửi hoặc tài khoản đã tạo.", "The request was accepted. Open the verification email: Cantos opens in your browser so you can verify and set your password. When that is done, come back to this app to sign in. This does not confirm delivery or account creation."),
-    RegisterCancel("Hủy đăng ký", "Cancel registration"),
-    RegisterCancelled("Đã dừng đăng ký tại đây. Hủy không thu hồi thao tác máy chủ đã hoàn tất.", "Registration stopped here. Cancellation cannot undo work already completed by the server."),
-    RegisterRestart("Bắt đầu yêu cầu mới", "Start a new request"),
-    RegisterRetry("Kiểm tra lại", "Check again"),
-    RegisterInvalidEmail("Nhập địa chỉ email hợp lệ.", "Enter a valid email address."),
-    RegisterDenied("Máy chủ từ chối yêu cầu đăng ký trên bản này.", "The server refused registration from this build."),
-    RegisterRateLimited("Bạn đã gửi quá nhiều yêu cầu. Hãy thử lại sau ít phút.", "Too many requests were sent. Please try again in a few minutes."),
-    RegisterSendUnknown("Chưa biết máy chủ đã nhận yêu cầu hay chưa. Kiểm tra hộp thư trước khi bắt đầu yêu cầu mới.", "The submission outcome is unknown. Check your inbox before starting a new request."),
-    RegisterLater("Để sau, về Khám phá", "Later, back to Discover"),
-
-    VerifyEyebrow("CANTOS ID · XÁC MINH EMAIL", "CANTOS ID · EMAIL VERIFICATION"),
-    VerifyHeading("Chọn mật khẩu cho tài khoản mới.", "Choose a password for your new account."),
-    VerifyHeadingDone("Tài khoản của bạn đã sẵn sàng.", "Your account is ready."),
-    VerifyHeadingUnusable("Liên kết này chưa dùng được.", "This link cannot be used."),
-    VerifyConfirmHelp(
-        "Liên kết đã được mở an toàn trong ứng dụng. Hãy chọn mật khẩu rồi xác nhận để tạo tài khoản. Chỉ mở liên kết thì chưa tạo gì và chưa đăng nhập.",
-        "The link opened safely in the app. Choose a password, then confirm to create your account. Opening the link alone creates nothing and does not sign you in.",
-    ),
-    VerifyPassword("Mật khẩu mới", "New password"),
-    VerifyPasswordRepeat("Nhập lại mật khẩu", "Repeat the password"),
-    VerifyPasswordHelp(
-        "Từ 8 đến 128 ký tự. Khoảng trắng được giữ nguyên và mật khẩu không được lưu trên thiết bị.",
-        "8 to 128 characters. Spaces are kept as typed and the password is never stored on this device.",
-    ),
-    VerifyPasswordShort("Mật khẩu cần ít nhất 8 ký tự.", "The password needs at least 8 characters."),
-    VerifyPasswordLong("Mật khẩu chỉ được tối đa 128 ký tự.", "The password can have at most 128 characters."),
-    VerifyPasswordMismatch("Hai mật khẩu chưa giống nhau.", "The two passwords do not match."),
-    VerifyConfirmCheckbox(
-        "Tôi là chủ hộp thư này và xác nhận tạo tài khoản Cantos với mật khẩu vừa nhập.",
-        "I own this mailbox and confirm creating a Cantos account with the password I just entered.",
-    ),
-    VerifyCreate("Tạo tài khoản", "Create account"),
-    VerifyCreateReason("Nhập mật khẩu hợp lệ hai lần và đánh dấu xác nhận.", "Enter a valid password twice and tick the confirmation."),
-    VerifyCompleting("Đang tạo tài khoản…", "Creating your account…"),
-    VerifyRetryHelp(
-        "Chưa biết tài khoản đã được tạo hay chưa. Hãy gửi lại đúng yêu cầu cũ: không cần nhập lại và mật khẩu không bị đổi. Nếu rời màn hình này, yêu cầu sẽ mất; khi đó hãy thử đăng nhập bằng mật khẩu bạn đã chọn.",
-        "We cannot tell whether the account was created. Send the same request again: nothing is retyped and the password is unchanged. If you leave this screen the request is lost; then try signing in with the password you chose.",
-    ),
-    VerifyRetryRateLimited(
-        "Có quá nhiều yêu cầu. Hãy đợi một lúc rồi gửi lại đúng yêu cầu cũ; mật khẩu không bị đổi.",
-        "Too many requests. Wait a while, then send the same request again; the password is unchanged.",
-    ),
-    VerifyRetrySame("Gửi lại đúng yêu cầu cũ", "Send the same request again"),
-    VerifyInvalidPassword(
-        "Mật khẩu chưa được chấp nhận. Chưa có gì được tạo; hãy chọn mật khẩu khác rồi xác nhận lại.",
-        "The password was not accepted. Nothing was created; choose another password and confirm again.",
-    ),
-    VerifyChoosePassword("Chọn mật khẩu khác", "Choose another password"),
-    VerifyLinkSpent(
-        "Liên kết này không còn dùng được: có thể đã hết hạn hoặc đã được dùng. Nếu bạn đã tạo tài khoản, hãy đăng nhập; nếu chưa, hãy yêu cầu email mới.",
-        "This link can no longer be used: it may have expired or already been used. If you already created an account, sign in; otherwise request another email.",
-    ),
-    VerifyForbidden("Máy chủ từ chối tạo tài khoản từ bản ứng dụng này.", "The server refused account creation from this build."),
-    VerifyNotConfigured(
-        "Máy chủ chưa mở tạo tài khoản cho bản này. Bạn vẫn có thể nghe nội dung công khai.",
-        "Account creation is not open for this build yet. You can still play public stories.",
-    ),
-    VerifyLinkUnreadable(
-        "Chưa đọc được liên kết xác minh an toàn. Hãy mở lại liên kết mới nhất từ email; nếu vẫn lỗi, bạn có thể yêu cầu email mới.",
-        "The verification link could not be read safely. Reopen the latest link from your email; if the problem continues, you can request another email.",
-    ),
-    VerifyCompletedSignedOut(
-        "Tài khoản đã được tạo. Hãy đăng nhập bằng email và mật khẩu bạn vừa chọn.",
-        "Your account was created. Sign in with the email and password you just chose.",
-    ),
-    VerifyCompletedSignedIn(
-        "Tài khoản mới đã được tạo. Bạn vẫn đang đăng nhập bằng tài khoản hiện tại. Để dùng tài khoản mới, hãy đăng xuất trong Tài khoản rồi đăng nhập lại.",
-        "The new account was created. You are still signed in with your current account. To use the new one, sign out in Account, then sign in.",
-    ),
-    VerifyOpenAccount("Mở Tài khoản", "Open Account"),
-
-    GuestBadge("Người nghe khách", "Guest listener"),
-    GuestHeading("Chào người nghe.", "Welcome, listener."),
-    GuestHelp(
-        "Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình.",
-        "You can still explore and play public stories. Sign in when you want to open your own library.",
-    ),
-    SignIn("Đăng nhập", "Sign in"),
-    CreateAccountShort("Tạo tài khoản", "Create an account"),
-    SignedBadge("Đã đăng nhập", "Signed in"),
-    MembershipBadge("Sắp ra mắt", "Coming soon"),
-    MembershipName("Cantos Membership", "Cantos Membership"),
-    MembershipHeading("Một người nghe. Một người đồng hành.", "A listener. A companion."),
-    MembershipHelp("Tìm hiểu chương trình hội viên khi bạn sẵn sàng.", "Learn about membership whenever you are ready."),
-    MembershipLearn("Tìm hiểu Membership", "Explore Membership"),
-    Appearance("Giao diện", "Appearance"),
-    AppearanceLight("Đang dùng giao diện sáng", "Using the light appearance"),
-    AppearanceDark("Đang dùng giao diện tối", "Using the dark appearance"),
-    ListeningSettings("Cài đặt nghe", "Listening settings"),
-    ListeningSettingsHint("Tốc độ, hẹn giờ và ngôn ngữ", "Speed, timer and language"),
-    Logout("Đăng xuất", "Sign out"),
-    SignedProfileName("Người nghe Cantos", "Cantos listener"),
-    MyMembership("Hội viên của tôi", "My membership"),
-    MembershipExplore("Tìm hiểu hội viên", "Explore membership"),
-    LibraryAndHistory("Thư viện & Lịch sử nghe", "Library & listening history"),
-    SupportTitle("Liên hệ hỗ trợ", "Contact support"),
-    SupportPending("Thông tin hỗ trợ đang cập nhật", "Support information is being updated"),
-    LogoutTitle("Đăng xuất khỏi Cantos?", "Sign out of Cantos?"),
-    LogoutBody(
-        "Bạn luôn có thể quay lại Cantos để tiếp tục câu chuyện của mình.",
-        "You can always return to Cantos to continue your story.",
-    ),
-    LogoutCancel("Quay lại", "Go back"),
-    LogoutPending("Đang đăng xuất…", "Signing out…"),
-    LogoutPendingReason("Yêu cầu đang được xử lý. Không gửi lần hai.", "The request is in progress. It is not sent twice."),
-}
+internal typealias AuthText = AuthKey

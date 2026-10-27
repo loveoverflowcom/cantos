@@ -1,5 +1,6 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.adapters.library.nativeLibraryController
 import com.cantos.theatre.adapters.preview.PreviewAccount
 import com.cantos.theatre.adapters.preview.PreviewCatalogPort
 import com.cantos.theatre.adapters.preview.PreviewCatalogScenario
@@ -9,26 +10,25 @@ import com.cantos.theatre.adapters.preview.PreviewLibraryApi
 import com.cantos.theatre.adapters.preview.PreviewListeningSeed
 import com.cantos.theatre.adapters.preview.PreviewPlaybackAccess
 import com.cantos.theatre.adapters.preview.PreviewStreamingEngine
-import com.cantos.theatre.adapters.library.nativeLibraryController
 import com.cantos.theatre.app.NativeSessionRuntime
 import com.cantos.theatre.app.NavigationEvent
 import com.cantos.theatre.app.TheatreRoute
 import com.cantos.theatre.app.TheatreShell
 import com.cantos.theatre.app.TheatreShellInputs
 import com.cantos.theatre.app.projectTheatreShell
-import com.cantos.theatre.application.identity.NativeAccountState
-import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
+import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.application.preferences.PreferencesState
+import com.cantos.theatre.domain.library.LibraryLoad
+import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.domain.membership.MembershipState
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.publication.WorkKey
-import com.cantos.theatre.domain.library.LibraryLoad
-import com.cantos.theatre.domain.library.LibrarySection
 import com.cantos.theatre.ports.LibraryLocalPort
 import com.cantos.theatre.ports.LocalePreferenceStore
 import com.cantos.theatre.presentation.model.ShellCatalogMode
@@ -107,7 +107,7 @@ class PreviewOwners(
     val preferences = PreferencesController(
         PreferencesState(
             if (seed.state.theme == ShellTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light,
-            if (seed.state.locale == ShellLocale.English) PreferenceLocale.English else PreferenceLocale.Vietnamese,
+            seed.state.locale.toPreferenceLocale(),
         ),
         localeStore,
     )

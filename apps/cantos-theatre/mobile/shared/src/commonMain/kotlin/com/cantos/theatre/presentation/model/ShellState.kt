@@ -28,8 +28,6 @@ enum class ShellCatalogMode { Ready, Loading, Empty, Error }
 
 enum class ShellTheme { Light, Dark }
 
-enum class ShellLocale { Vietnamese, English }
-
 enum class ShellTimer { Off, Fifteen, Thirty, EndOfEpisode }
 
 enum class ShellListeningFailure { MemoryStoreUnavailable, ReleaseUnavailable }
@@ -107,7 +105,7 @@ class ShellState(
     val query: String = "",
     val catalogMode: ShellCatalogMode = ShellCatalogMode.Ready,
     val theme: ShellTheme = ShellTheme.Light,
-    val locale: ShellLocale = ShellLocale.Vietnamese,
+    val locale: ShellLocale = ShellLocale.Default,
     val speedPercent: Int = 100,
     val timer: ShellTimer = ShellTimer.Off,
     val playbackStatus: PlaybackUiStatus = if (simulating) PlaybackUiStatus.Simulating else PlaybackUiStatus.Idle,

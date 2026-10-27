@@ -61,9 +61,6 @@ fun ErrorDialog(
         withFrameNanos { }
         runCatching { primaryFocus.requestFocus() }
     }
-    val params = remember(notice.parameters) {
-        notice.parameters.entries.map { (k, v) -> k to v }.toTypedArray()
-    }
     AlertDialog(
         shape = CantosShapes.overlay,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -87,7 +84,7 @@ fun ErrorDialog(
         },
         text = {
             Text(
-                copy.text(notice.messageKey.toCopyKey(), *params),
+                copy.text(notice.messageKey.toCopyKey()),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.verticalScroll(rememberScrollState()).testTag("error-dialog-body"),
             )

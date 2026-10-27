@@ -21,9 +21,9 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.cantos.theatre.resources.Res
 import com.cantos.theatre.presentation.model.HostConfigurationFault
 import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.resources.Res
 import com.cantos.theatre.resources.noto_sans_regular
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Logo
@@ -32,7 +32,6 @@ import com.cantos.ui.LogoVariant
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import org.jetbrains.compose.resources.Font
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * The explicit state of a host composed without production listening adapters. It is neither
@@ -45,7 +44,7 @@ import org.jetbrains.compose.resources.stringResource
 fun CantosListeningUnavailable(
     preferences: UiPreferences,
     modifier: Modifier = Modifier,
-    locale: ShellLocale = ShellLocale.Vietnamese,
+    locale: ShellLocale = ShellLocale.Default,
     fault: HostConfigurationFault? = null,
 ) {
     val resources = launchResources(locale)
@@ -65,14 +64,14 @@ fun CantosListeningUnavailable(
                 tone = if (preferences.theme == Theme.Dark) LogoTone.Dark else LogoTone.Light,
             )
             Text(
-                stringResource(title),
+                title,
                 Modifier.widthIn(max = 440.dp).semantics { heading(); testTag = "listening-unavailable-title" },
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
             )
             Text(
-                stringResource(body),
+                body,
                 Modifier.widthIn(max = 440.dp).semantics { testTag = "listening-unavailable-body" },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

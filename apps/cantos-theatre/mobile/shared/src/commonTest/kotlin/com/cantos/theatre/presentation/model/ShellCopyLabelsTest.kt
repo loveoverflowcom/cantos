@@ -1,5 +1,6 @@
 package com.cantos.theatre.presentation.model
 
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,37 +9,15 @@ import kotlin.test.assertTrue
 /** Listener-visible shared wording and formatting; the sandbox contributes no override here. */
 class ShellCopyLabelsTest {
     @Test
-    fun named_parameters_replace_every_placeholder_occurrence_in_both_locales() {
-        ShellLocale.entries.forEach { locale ->
-            val copy = ShellCopy(locale)
-            CopyKey.entries.forEach { key ->
-                val template = if (locale == ShellLocale.Vietnamese) key.vi else key.en
-                val occurrences = placeholderCounts(template)
-                val parameters = occurrences.keys.map { name -> name to "<$name-value>" }
-                val rendered = copy.text(key, *parameters.toTypedArray())
-                assertFalse(rendered.contains('{'), "${key.name} has an unresolved opening brace for $locale")
-                assertFalse(rendered.contains('}'), "${key.name} has an unresolved closing brace for $locale")
-                parameters.forEach { (name, replacement) ->
-                    assertEquals(
-                        occurrences.getValue(name),
-                        Regex(Regex.escape(replacement)).findAll(rendered).count(),
-                        "${key.name} did not substitute every $name occurrence for $locale",
-                    )
-                }
-            }
-        }
-    }
-
-    @Test
     fun supplied_titles_containing_placeholder_syntax_are_preserved_literally() {
         val title = "Lời hẹn {time}"
         assertEquals(
             "Mở dấu trang Lời hẹn {time}, 12:48",
-            ShellCopy(ShellLocale.Vietnamese).text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+            ShellCopy(ShellLocale.Vietnamese).text(ShellMessage.OpenBookmark(title = title, time = "12:48")),
         )
         assertEquals(
             "Open bookmark for Lời hẹn {time}, 12:48",
-            ShellCopy(ShellLocale.English).text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+            ShellCopy(ShellLocale.English).text(ShellMessage.OpenBookmark(title = title, time = "12:48")),
         )
     }
 
@@ -59,19 +38,19 @@ class ShellCopyLabelsTest {
         assertEquals("Tạo tài khoản", vietnamese.text(CopyKey.CreateAccount))
         assertEquals(
             "Tập 3 · Người giữ tiếng chuông",
-            vietnamese.text(CopyKey.EpisodeLabel, "index" to "3", "title" to title),
+            vietnamese.text(LegacyCopyKey.EpisodeLabel, "index" to "3", "title" to title),
         )
         assertEquals(
             "Episode 3 · Người giữ tiếng chuông",
-            english.text(CopyKey.EpisodeLabel, "index" to "3", "title" to title),
+            english.text(LegacyCopyKey.EpisodeLabel, "index" to "3", "title" to title),
         )
         assertEquals(
             "Mở dấu trang Người giữ tiếng chuông, 12:48",
-            vietnamese.text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+            vietnamese.text(ShellMessage.OpenBookmark(title = title, time = "12:48")),
         )
         assertEquals(
             "Open bookmark for Người giữ tiếng chuông, 12:48",
-            english.text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+            english.text(ShellMessage.OpenBookmark(title = title, time = "12:48")),
         )
     }
 

@@ -57,6 +57,28 @@ JVM classes only as a forbidden inventory; a Desktop Preview build cannot accept
 The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md) records current checks
 separately from the historical results cited below.
 
+## Generated UI resources
+
+The accepted [ADR0050](../../../docs/decisions/0050-localization-semantic-catalog.md) catalog
+owns shell, auth, Membership, optional launch and host-fault **text** resources. Run the existing
+`python3 scripts/localization_catalog.py --resources` primitive from the repository root;
+repository verification rejects incomplete translations and stale Kotlin/Rust projections.
+Generated plain keys and sealed named-argument messages live in `:shared`; there is no Web app
+or service import. `UiLocale` and locale-choice autonyms come from the same registry, and the read-only `ShellLocale` representation and exhaustive projection are generated from
+that registry. `PreferencesController` remains the only mutable locale authority. Canonical saved preference > explicit preview
+seed > generated Vietnamese default remains unchanged; there is no device-language negotiation.
+Native key/value ports, pre-acceptance refusal/retry, async durability limits and controller
+lifetimes remain intact. Launch uses generated text directly, so no second Compose XML resolver
+selects an implicit OS locale. Fonts/drawables still use Compose Resources.
+
+The [#507 evidence](../../../docs/evidence/cmp-localization-507.md) names actual target results.
+`LegacyShellCopy.kt`, `clockTime` and `LegacyRetryAfter.kt` preserve existing numeric behavior
+until actual ICU4X Kotlin/native bindings are qualified. A numeric/plural resource submitted to
+the text projection fails generation; it never silently acquires an English formatter. Test-only
+Japanese text is generated into `commonTest`, excluded from release choices and production
+source sets. JVM render/input evidence never establishes iOS, Android-device or screen-reader
+acceptance. Shared UI-system primitives continue receiving caller-injected labels.
+
 ## Native identity (Identity v1 only)
 
 Android and iOS compose first-party **Identity v1** through `NativeIdentityV1Client` and the

@@ -31,6 +31,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.LegacyCopyKey
+import com.cantos.theatre.presentation.model.PlaybackUiStatus
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEpisode
@@ -39,12 +41,12 @@ import com.cantos.theatre.presentation.model.ShellLibraryPhase
 import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
-import com.cantos.theatre.presentation.model.PlaybackUiStatus
 import com.cantos.theatre.presentation.model.clockTime
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.ui.CantosShapes
+import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
-import com.cantos.ui.rememberCantosIconVector
 
 @Composable
 internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
@@ -65,7 +67,7 @@ internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: Sh
         Slider(value = state.positionSeconds.toFloat(), onValueChange = { dispatch(ShellEvent.SeekTo(it.toInt())) },
             valueRange = 0f..episode.durationSeconds.toFloat(), modifier = Modifier.fillMaxWidth().testTag("seek").semantics {
                 contentDescription = copy.text(CopyKey.Position)
-                stateDescription = copy.text(CopyKey.PositionSpoken, "elapsed" to copy.spokenTime(state.positionSeconds), "total" to copy.spokenTime(episode.durationSeconds))
+                stateDescription = copy.text(ShellMessage.PositionSpoken(elapsed = copy.spokenTime(state.positionSeconds), total = copy.spokenTime(episode.durationSeconds)))
             })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(clockTime(state.positionSeconds), modifier = Modifier.testTag("elapsed"))
@@ -111,7 +113,7 @@ internal fun MiniPlayer(state: ShellState, catalog: ShellCatalogView, copy: Shel
                 color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
                 modifier = Modifier.weight(1f).testTag("mini-open").semantics {
                     role = Role.Button
-                    contentDescription = copy.text(CopyKey.OpenPlayer, "title" to episode.title)
+                    contentDescription = copy.text(ShellMessage.OpenPlayer(title = episode.title))
                     stateDescription = copy.text(playbackStatusKey(state.playbackStatus))
                 }) {
                 Row(verticalAlignment = Alignment.CenterVertically,
@@ -129,7 +131,7 @@ internal fun MiniPlayer(state: ShellState, catalog: ShellCatalogView, copy: Shel
                     containerColor = tokenColor("color.playerAccent"), contentColor = tokenColor("color.playerSurface")),
                 modifier = Modifier.size(tokenDp("size.control")).testTag("mini-transport")) {
                 Icon(if (state.transportRequested) rememberCantosIconVector("pause") else rememberCantosIconVector("play_arrow"),
-                    copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode, "title" to episode.title))
+                    copy.text(if (state.transportRequested) ShellMessage.PauseEpisode(title = episode.title) else ShellMessage.PlayEpisode(title = episode.title)))
             }
         }
     }
@@ -148,4 +150,4 @@ private fun playbackStatusKey(status: PlaybackUiStatus): CopyKey = when (status)
 
 /** "Episode 3 · Work" for numbered samples; only the work title when the source has no real number. */
 internal fun episodeLabel(episode: ShellEpisode, workTitle: String, copy: ShellCopy): String =
-    if (episode.numbered) copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to workTitle) else workTitle
+    if (episode.numbered) copy.text(LegacyCopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to workTitle) else workTitle

@@ -20,13 +20,15 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 ## Independent product work
 
-- Localization: [#167](https://github.com/loveoverflowcom/cantos/issues/167) reviews
-  [ADR 0050](../decisions/0050-localization-semantic-catalog.md) and the reversible
-  [#505 fixture/audit](../evidence/localization-foundation-505.md) before production catalog
-  adoption. [#506](https://github.com/loveoverflowcom/cantos/issues/506) owns Studio/Theatre
-  Leptos migration; [#507](https://github.com/loveoverflowcom/cantos/issues/507) owns Theatre
-  CMP migration. Preserve typed errors and arbitrary content-language tags; a fixture merge
-  does not select runtime/formatters or accept browser/device behavior.
+- Localization: accepted [ADR0050](../decisions/0050-localization-semantic-catalog.md) selects
+  the versioned semantic catalog, generated app APIs and pinned ICU4X/CLDR strategy.
+  [#505](https://github.com/loveoverflowcom/cantos/issues/505) retains foundation/contract
+  acceptance; [#506](https://github.com/loveoverflowcom/cantos/issues/506) owns Web runtime
+  acceptance. [#507](https://github.com/loveoverflowcom/cantos/issues/507) retains the
+  [CMP native binding/formatter boundary](../evidence/cmp-localization-507.md): qualify actual
+  ICU4X Kotlin/native targets before moving the preserved numeric consumers. Text generation,
+  JVM interaction and Android artifacts do not establish iOS/device or screen-reader acceptance.
+  Preserve typed errors, saved-preference refusal/retry and arbitrary content-language tags.
 
 - Studio CMS acceptance: preserve the [combined authoring, private-audio and publication
   boundary](../evidence/studio-cms-editorial-20261023.md) and qualify the remaining browser,

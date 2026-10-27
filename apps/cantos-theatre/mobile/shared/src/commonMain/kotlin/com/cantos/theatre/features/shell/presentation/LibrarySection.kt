@@ -14,9 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +42,7 @@ import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.theatre.presentation.model.emptyLibrarySections
+import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.theatre.presentation.model.isLibraryCompletelyEmpty
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.rememberCantosIconVector
@@ -162,7 +163,7 @@ internal fun ListeningPoint(
         },
         modifier = Modifier.fillMaxWidth().testTag(tag).semantics {
             role = Role.Button
-            contentDescription = copy.text(CopyKey.ResumeSampleName, "title" to unitTitle, "time" to copy.spokenTime(point.positionSeconds))
+            contentDescription = copy.text(ShellMessage.ResumeSampleName(title = unitTitle, time = copy.spokenTime(point.positionSeconds)))
         },
         color = if (reason == null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.large,
@@ -174,8 +175,7 @@ internal fun ListeningPoint(
                 Text(if (episode != null && point.titles == null) episodeLabel(episode, workTitle, copy) else workTitle, style = MaterialTheme.typography.bodySmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(unitTitle, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds),
-                    "total" to clockTime(durationSeconds)), style = MaterialTheme.typography.bodySmall)
+                Text(copy.text(ShellMessage.PositionCaption(elapsed = clockTime(point.positionSeconds), total = clockTime(durationSeconds))), style = MaterialTheme.typography.bodySmall)
                 if (reason != null) Text(copy.text(reason), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("$tag-reason"))
             }

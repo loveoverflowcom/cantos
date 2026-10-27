@@ -146,19 +146,17 @@ Kotlin rules below apply its taxonomy, containment and cancellation policy.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
-- **CMP localization before Composables.** Before adding a label, accessible name, state or
-  dialog, search shared `presentation/model/ShellCopy.kt`, `AuthCopy.kt`, `MembershipCopy.kt`
-  and `composeResources/values/strings.xml`; sandbox-only diagnostics use injected
-  `DemoShellCopyOverrides` in `:preview-sandbox`. Reuse keys within the actual owner; update both
-  languages and focused parity tests, not a new `*Copy` enum or hard-coded `Text("...")`. Launch
-  and unavailable presentations use explicit `stringResource` IDs selected from the same
-  app-owned locale projection; native preference adapters/evidence are in the
-  [#169 ledger](../../../docs/evidence/issue169-cmp-locale-acceptance.md). Compare Compose
-  Resources, moko-resources and Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
-  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167). Broader catalog/formatting and device-negotiation policy remain open; the bounded saved
-  preference rule does not select a localization library or domain-cache store. Keep mock preview
-  state injectable; a demo build never accepts #122's production APK/AAB exclusion. Do not
-  translate creator content or clear playback on locale changes.
+- **CMP localization before Composables.** Before adding copy, search the canonical
+  `packages/localization/catalog/v1/catalog.json`, generated Kotlin and existing semantic adapters.
+  Follow [localization ownership](../cantos-ui-design/references/localization.md) and accepted
+  [ADR0050](../../../docs/decisions/0050-localization-semantic-catalog.md): add complete resources,
+  regenerate and use typed keys/messages, including semantics, launch and typed host errors.
+  Domain/presentation locale representations and exhaustive projections are registry-generated;
+  one preference authority and native ports retain refusal/retry. No OS mutation or locale remount.
+  Numeric compatibility remains explicit until ICU4X Kotlin/native bindings and each target are
+  qualified; [#507 evidence](../../../docs/evidence/cmp-localization-507.md) lists those gaps.
+  Keep UI-system labels caller-injected and preview tools separate. Never translate content or
+  reset playback, auth, Library, input or focus on a UI-locale change.
 - **Honest evidence.** Cheapest deterministic test in `commonTest` first; OS behavior needs a
   named device, emulator or simulator; a missing environment is *blocked*, never *passed*.
   → [cmp-testing.md](references/cmp-testing.md)

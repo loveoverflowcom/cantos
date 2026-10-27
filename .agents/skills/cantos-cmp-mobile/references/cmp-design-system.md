@@ -217,8 +217,9 @@ exists, and none may be claimed from a duration token alone.
 Policy and existing source locations are in
 [localization.md](../../cantos-ui-design/references/localization.md#0-current-owners-interim-rules-and-open-choices).
 CMP **already** has paired vi/en copy in shared `presentation/model/ShellCopy.kt`,
-`AuthCopy.kt` and `MembershipCopy.kt`, and Compose Resources (`values/strings.xml` and
-`values-en/strings.xml`) for the optional launch presentation. Sandbox diagnostic
+`AuthCopy.kt` and `MembershipCopy.kt` over generated app-owned text resources. Launch and
+host-fault text uses the same selected locale and catalog through `LaunchResources.kt`; numeric
+compatibility and unqualified native ICU4X bindings remain explicit in the [#507 record](../../../../docs/evidence/cmp-localization-507.md). Sandbox diagnostic
 overrides are injected from `preview-sandbox/.../app/DemoShellCopy.kt`, not copied into
 `:shared`. Reuse current semantic keys within their actual owner while the
 architecture is undecided; never introduce a competing feature-local catalog

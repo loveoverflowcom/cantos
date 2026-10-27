@@ -24,6 +24,7 @@ import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.preferences.PreferenceTheme
+import com.cantos.theatre.application.preferences.PreferencesUpdate
 import com.cantos.theatre.domain.library.LibraryState
 import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.features.auth.presentation.AccountContent
@@ -41,18 +42,17 @@ import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.LocalCoverImages
 import com.cantos.theatre.features.shell.presentation.LocalShellCapabilities
-import com.cantos.theatre.features.shell.presentation.LocalShellCopyOverrides
 import com.cantos.theatre.features.shell.presentation.LocalShellLibraryHeader
+import com.cantos.theatre.features.shell.presentation.LocalShellLiveCopy
 import com.cantos.theatre.features.shell.presentation.LocalShellNotice
+import com.cantos.theatre.ports.CatalogCachePort
+import com.cantos.theatre.ports.CatalogCacheStatus
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCapabilities
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
-import com.cantos.theatre.application.preferences.PreferencesUpdate
-import com.cantos.theatre.ports.CatalogCachePort
-import com.cantos.theatre.ports.CatalogCacheStatus
 import com.cantos.ui.Density
 import com.cantos.ui.MotionPreference
 import com.cantos.ui.tokenDp
@@ -131,13 +131,13 @@ fun CantosTheatreApp(
         }
     }
     CompositionLocalProvider(
-        LocalShellCopyOverrides provides TheatreShellCopyOverrides,
+        LocalShellLiveCopy provides true,
         LocalCoverImages provides coverImages,
         // Real bookmarks exist when the durable Library owner does; a guest is guided to sign in, not shown a fake save.
         LocalShellCapabilities provides ShellCapabilities(bookmarks = shell.runtime.library != null),
         LocalShellNotice provides { _, copy -> CatalogNotice(cacheStatus, copy, dispatch) },
         LocalShellLibraryHeader provides {
-            LibraryHeader(library, accountView, shell.runtime.library != null, ShellCopy(locale, TheatreShellCopyOverrides), shell, dispatch)
+            LibraryHeader(library, accountView, shell.runtime.library != null, ShellCopy(locale, live = true), shell, dispatch)
         },
     ) {
         CantosPresentation(

@@ -39,9 +39,9 @@ import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.presentation.model.sampleState
 import com.cantos.theatre.presentation.model.sampleWorks
-import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.Test
 
 /** The production Library and player bookmark surfaces over supplied projections; each control's own event is asserted. */
 @OptIn(ExperimentalTestApi::class)
@@ -74,6 +74,17 @@ class BookmarkPresentationUiTest {
 
     private fun library(vararg rows: ShellBookmark) = sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Library), bookmarks = rows.toList())
     private fun ComposeUiTest.count(tag: String) = onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+
+    @Test
+    fun generated_bookmark_copy_keeps_content_tokens_literal_in_visible_and_accessible_text() {
+        val title = "Ánh đèn {time} %1\$s <b> cuối sân khấu"
+        val row = replaced.copy(titles = ShellRowTitles("Chuyện gốc", title))
+        for (locale in ShellLocale.entries) render(library(row), locale = locale) {
+            onNodeWithText("$title · 0:40").performScrollTo().assertExists()
+            onNodeWithTag("library-bookmark-b-replaced-open").assertContentDescriptionContains(title, substring = true)
+            onNodeWithTag("library-bookmark-b-replaced-delete").assertContentDescriptionContains(title, substring = true)
+        }
+    }
 
     @Test
     fun the_library_lists_each_bookmark_with_only_the_state_that_is_true_of_it() {

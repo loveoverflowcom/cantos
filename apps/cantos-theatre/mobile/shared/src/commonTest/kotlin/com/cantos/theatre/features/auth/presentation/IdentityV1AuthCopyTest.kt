@@ -1,7 +1,7 @@
 package com.cantos.theatre.features.auth.presentation
 
-import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.AccountLoginFailure
+import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.toAccountView
@@ -16,7 +16,11 @@ class IdentityV1AuthCopyTest {
             val copy = AuthCopy(locale)
             assertEquals(copy.text(AuthText.InvalidCredentials), copy.failure(NativeAccountFailure.Api, AccountLoginFailure.InvalidCredentials))
             assertEquals(copy.text(AuthText.RetryLater), copy.failure(NativeAccountFailure.Api, AccountLoginFailure.RetryLater))
-            assertEquals(copy.text(AuthText.RetryAfter).replace("{seconds}", "17"), copy.failure(NativeAccountFailure.Api, AccountLoginFailure.RateLimited(17)))
+            val retryAfter = when (locale) {
+                ShellLocale.Vietnamese -> "Vui lòng đợi 17 giây trước khi thử lại."
+                ShellLocale.English -> "Please wait 17 seconds before trying again."
+            }
+            assertEquals(retryAfter, copy.failure(NativeAccountFailure.Api, AccountLoginFailure.RateLimited(17)))
             assertEquals(copy.text(AuthText.RetryLater), copy.failure(NativeAccountFailure.Api, AccountLoginFailure.RateLimited(null)))
         }
         assertEquals(AccountView.Failed(NativeAccountFailure.Api, AccountLoginFailure.RateLimited(17)),

@@ -101,6 +101,21 @@
           }
         }
       }
+    },
+    "common.probe.unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể phát nội dung này."
+        },
+        "en": {
+          "text": "This content cannot be played."
+        },
+        "ja": {
+          "text": "このコンテンツは再生できません。"
+        }
+      }
     }
   }
 }
