@@ -312,6 +312,10 @@ separate operator adoption approval, retains complete cold native pairs and refu
 after a start intent. `release native-rehearse` is the disposable Linux synthetic upgrade/restore
 primitive in the manual OCI workflow; its report is independent of current-schema qualification,
 producer admission, generation state and live readiness. No production operation is implicit.
+Its adoption-only bridge selector derives readiness from the exact running container/network;
+it never publishes a port or accepts an arbitrary health address/command. The
+[pinned static executor delivery](docs/deployment/native-existing-host-migration.md#pinned-executor-delivery-without-a-host-compiler-change)
+keeps the compiler on the disposable builder and preserves exact-source workspace discovery.
 
 A service is a runnable process or independently managed infrastructure, not necessarily a Rust
 crate. Keep deployment/runtime assets under [infra/](infra/README.md), separate from application

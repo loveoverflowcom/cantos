@@ -35,6 +35,17 @@ jobs:
           fetch-depth: 0 # historical v23 registry is independently checked at its pinned source
       - name: Select pinned Rust toolchain for xtask
         run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin
+      - name: Build the static source-pinned deployment executor
+        run: |
+          set -Eeuo pipefail
+          # Disposable builder only: no compiler installation or containerized host execution on a VPS.
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+          rustup target add x86_64-unknown-linux-musl --toolchain 1.98.1
+          sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/cantos-native-executor
+          cargo xtask release native-executor-build --output artifacts/native-executor
+          # Root's historical rehearsal uses this exact immutable checkout, not the builder's cwd.
+          sudo chown -R root:root "/opt/cantos-native-executor/$GITHUB_SHA"
       - name: Log in to GHCR with a job-scoped authfile
         env:
           GITHUB_TOKEN_VALUE: ${{ secrets.GITHUB_TOKEN }}
@@ -98,13 +109,13 @@ jobs:
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v23.json | cut -d' ' -f1)
-          sudo env "PATH=$PATH" "RUSTUP_HOME=$HOME/.rustup" "CARGO_HOME=$HOME/.cargo" \
-            cargo xtask release native-rehearse \
-            --manifest "$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+          sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
+            release native-rehearse \
+            --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --baseline infra/oci/historical-v23.json --baseline-digest "$BASELINE_DIGEST" \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
-            --output artifacts/release-qualification/historical-v23-v24
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v23-v24"
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |
@@ -122,6 +133,7 @@ jobs:
           path: |
             artifacts/release-build/oci/
             artifacts/release-qualification/
+            artifacts/native-executor/
             ${{ runner.temp }}/oci-build-result.json
           if-no-files-found: error
           retention-days: 14

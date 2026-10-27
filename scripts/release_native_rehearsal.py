@@ -14,6 +14,7 @@ import time
 
 import release_artifact as contract
 import release_native_migration as migration
+import release_native_adapter_rehearsal as adapter_rehearsal
 import release_oci as oci
 import release_oci_qualify as qualify
 
@@ -51,6 +52,7 @@ def run(fixture, old, new):
     f.restart()
     f.call('historical_state')
     f.stop()
+    f.adapter_record = adapter_rehearsal.run(f)
     f.manifest = old
     f.databases = {s: f.work/'v23-restored'/s for s in oci.SERVICES}
     for service in oci.SERVICES:
@@ -86,7 +88,7 @@ def rehearse(root, args):
             finally:
                 fixture.close()
         record.update(status='PASS', evidence_level='integration-tested', execution_environment='linux-native-exact-images',
-                      checks=migration.HISTORICAL_CHECKS, backup_files=backups)
+                      checks=migration.HISTORICAL_CHECKS, backup_files=backups, host_adapter=fixture.adapter_record)
     except Exception as error:
         # Keep static assertion codes, never subprocess stderr, configuration or data rows.
         safe = isinstance(error, ValueError) and re.fullmatch(r'[A-Za-z0-9_:/.-]{1,256}', str(error))
