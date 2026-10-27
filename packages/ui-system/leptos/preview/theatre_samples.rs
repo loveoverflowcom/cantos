@@ -222,6 +222,14 @@ pub fn TheatreExpressionSamples(
                                 on_input=Callback::new(move |next| long_value.set(next))/>
                         </div>
 
+                        // Unqualified auth recipe candidate in the real Theatre token expression.
+                        <div class="cui-theatre-matrix" data-preview-state="auth-floating-tonal">
+                            <TextField id="theatre-auth-tonal-empty" label=fixture::EMAIL variant=TextFieldVariant::FloatingTonal kind=TextFieldKind::Email
+                                value=empty on_input=Callback::new(move |next| empty.set(next))/>
+                            <TextField id="theatre-auth-tonal-error" label=fixture::EMAIL variant=TextFieldVariant::FloatingTonal kind=TextFieldKind::Email
+                                value=invalid error=fixture::EMAIL_ERROR on_input=Callback::new(move |next| invalid.set(next))/>
+                        </div>
+
                         // theatre-trailing-eye: independent visibility per field.
                         <div class="cui-theatre-matrix" data-preview-state="theatre-trailing-eye">
                             <PasswordSample id="theatre-password" label_text=fixture::NEW_PASSWORD value=secret error=None/>

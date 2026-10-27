@@ -1217,6 +1217,37 @@
   line-height: var(--cantos-type-membership-title-line-height);
 }
 
+/* Preview-only auth recipe: tonal focus and error retain the Floating anatomy. Forced colors
+   retain the system border and focus indicator above until accessible runtime qualification. */
+@media not (forced-colors: active) {
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"],
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus-visible),
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus-visible) {
+    outline: none;
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) {
+    background: color-mix(in srgb, var(--cantos-color-primary) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-surface-container-high));
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) > .cui-field-label {
+    color: var(--cantos-color-primary);
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"][data-invalid="true"] {
+    background: var(--cantos-color-error-container);
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) {
+    background: color-mix(in srgb, var(--cantos-color-error) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-error-container));
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"] > .cui-field-label,
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) > .cui-field-label {
+    color: var(--cantos-color-error);
+  }
+}
+:where(.cantos-ui) .cui-field[data-recipe="auth-tonal"][data-recipe="auth-tonal"] > .cui-field-error svg {
+  inline-size: 1em;
+  block-size: 1em;
+  vertical-align: -0.15em;
+  margin-inline-end: var(--cantos-space-xs);
+}
 /* Theatre expression. Palette and weights arrive from the canonical expression remap in
    tokens.css; only renderer-local geometry lives here, scoped to data-expression="theatre" so a
    consumer that names no expression keeps every value above. Heights are minimums: text,
@@ -1330,7 +1361,7 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell {
   background: var(--cantos-color-surface-container);
 }
-:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-state="editable"] .cui-field-shell:hover {
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-state="editable"]:not([data-recipe="auth-tonal"]) .cui-field-shell:hover {
   background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"]:is([data-state="readonly"], [data-state="disabled"], [data-state="loading"]) .cui-field-shell {
@@ -1341,37 +1372,6 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] > .cui-field-error {
   padding: 0 var(--cantos-web-field-inset);
   background: transparent;
-}
-/* Preview-only auth recipe: tonal focus and error retain the Floating anatomy. Forced colors
-   retain the system border and focus indicator above until accessible runtime qualification. */
-@media not (forced-colors: active) {
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"],
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus-visible),
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus-visible) {
-    outline: none;
-  }
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) {
-    background: color-mix(in srgb, var(--cantos-color-primary) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-surface-container-high));
-  }
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) > .cui-field-label {
-    color: var(--cantos-color-primary);
-  }
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"][data-invalid="true"] {
-    background: var(--cantos-color-error-container);
-  }
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) {
-    background: color-mix(in srgb, var(--cantos-color-error) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-error-container));
-  }
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"] > .cui-field-label,
-  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) > .cui-field-label {
-    color: var(--cantos-color-error);
-  }
-}
-:where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] > .cui-field-error svg {
-  inline-size: 1em;
-  block-size: 1em;
-  vertical-align: -0.15em;
-  margin-inline-end: var(--cantos-space-xs);
 }
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip { transition: none; }
