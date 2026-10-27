@@ -62,6 +62,9 @@ enum Presentation {
     /// Discovery v1.2 (ADR 0033): `CoveredWork*` with a required nullable cover.
     #[serde(rename = "2")]
     Covered,
+    /// Explicit metadata-only discovery, with nullable playback (ADR 0051 sample slice).
+    #[serde(rename = "3")]
+    Metadata,
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -76,7 +79,7 @@ mod presentation_query_tests {
 
     #[test]
     fn presentation_query_is_an_explicit_closed_opt_in() {
-        for query in ["", "?presentation=1", "?presentation=2"] {
+        for query in ["", "?presentation=1", "?presentation=2", "?presentation=3"] {
             let uri: Uri = format!("/works{query}").parse().unwrap();
             assert_eq!(
                 Query::<WorkQuery>::try_from_uri(&uri)
@@ -102,7 +105,7 @@ mod presentation_query_tests {
         }
         for query in [
             "presentation=0",
-            "presentation=3",
+            "presentation=4",
             "presentation=true",
             "presentation=1&presentation=2",
             "presentation=",
@@ -181,6 +184,10 @@ async fn works(
             .covered_works(search, kind, language, limit, cursor)
             .await
             .map(|v| Json(v).into_response()),
+        Some(Presentation::Metadata) => service
+            .metadata_works(search, kind, language, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
     };
     result.unwrap_or_else(error)
 }
@@ -200,6 +207,10 @@ async fn work(
             .map(|v| Json(v).into_response()),
         Some(Presentation::Covered) => service
             .covered_work(&work)
+            .await
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Metadata) => service
+            .metadata_work(&work)
             .await
             .map(|v| Json(v).into_response()),
     };
@@ -225,6 +236,10 @@ async fn units(
             .map(|v| Json(v).into_response()),
         Some(Presentation::Covered) => service
             .covered_units(&work, limit, cursor)
+            .await
+            .map(|v| Json(v).into_response()),
+        Some(Presentation::Metadata) => service
+            .metadata_units(&work, limit, cursor)
             .await
             .map(|v| Json(v).into_response()),
     };

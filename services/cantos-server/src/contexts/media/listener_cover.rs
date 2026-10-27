@@ -167,7 +167,7 @@ impl ListenerService {
             .await
     }
 
-    fn shown(&self, row: &ReadItem, now: i64) -> Option<dto::CoverImage> {
+    pub(super) fn shown(&self, row: &ReadItem, now: i64) -> Option<dto::CoverImage> {
         let delivery = self.covers.as_ref()?;
         match cover_projection(row, now) {
             CoverProjection::Shown(cover) => Some(cover_image(

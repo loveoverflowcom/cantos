@@ -173,15 +173,15 @@ class PublicWork private constructor(
     val title: String,
     val description: String,
     val language: String,
-    val firstPublishedAtMs: Long,
+    val firstVisibleAtMs: Long,
     /** The Server-authorized cover, or null: the one legitimate no-cover state (never a reason). */
     val cover: PublicCover?,
 ) {
     override fun equals(other: Any?): Boolean = other is PublicWork && id == other.id && kind == other.kind &&
         title == other.title && description == other.description && language == other.language &&
-        firstPublishedAtMs == other.firstPublishedAtMs && cover == other.cover
+        firstVisibleAtMs == other.firstVisibleAtMs && cover == other.cover
 
-    override fun hashCode(): Int = listOf(id, kind, title, description, language, firstPublishedAtMs, cover).hashCode()
+    override fun hashCode(): Int = listOf(id, kind, title, description, language, firstVisibleAtMs, cover).hashCode()
     override fun toString(): String = "PublicWork(id=${id.value}, kind=$kind)"
 
     companion object {
@@ -191,13 +191,13 @@ class PublicWork private constructor(
             title: String,
             description: String,
             language: String,
-            firstPublishedAtMs: Long,
+            firstVisibleAtMs: Long,
             cover: PublicCover? = null,
         ): CatalogCheck<PublicWork> = when {
             title.isBlank() -> CatalogCheck.Invalid(CatalogViolation.BlankTitle)
-            firstPublishedAtMs !in 0..MaxSafeMillis -> CatalogCheck.Invalid(CatalogViolation.TimestampOutOfRange)
+            firstVisibleAtMs !in 0..MaxSafeMillis -> CatalogCheck.Invalid(CatalogViolation.TimestampOutOfRange)
             cover != null && cover.work != id -> CatalogCheck.Invalid(CatalogViolation.CoverWorkMismatch)
-            else -> CatalogCheck.Valid(PublicWork(id, kind, title, description, language, firstPublishedAtMs, cover))
+            else -> CatalogCheck.Valid(PublicWork(id, kind, title, description, language, firstVisibleAtMs, cover))
         }
     }
 }
@@ -209,9 +209,9 @@ class PublicUnit private constructor(
     val position: Int,
     val title: String,
     val description: String,
-    val publicationId: PublicationId,
-    val publishedAtMs: Long,
-    val durationMs: Long,
+    val publicationId: PublicationId?,
+    val publishedAtMs: Long?,
+    val durationMs: Long?,
 ) {
     override fun equals(other: Any?): Boolean = other is PublicUnit && id == other.id && kind == other.kind &&
         position == other.position && title == other.title && description == other.description &&
@@ -219,7 +219,7 @@ class PublicUnit private constructor(
 
     override fun hashCode(): Int =
         listOf(id, kind, position, title, description, publicationId, publishedAtMs, durationMs).hashCode()
-    override fun toString(): String = "PublicUnit(id=${id.value}, publication=${publicationId.value})"
+    override fun toString(): String = "PublicUnit(id=${id.value}, publication=${publicationId?.value})"
 
     companion object {
         fun of(
@@ -240,6 +240,13 @@ class PublicUnit private constructor(
             else -> CatalogCheck.Valid(
                 PublicUnit(id, kind, position.toInt(), title, description, publicationId, publishedAtMs, durationMs),
             )
+        }
+
+        /** An explicitly disclosed row without an eligible release has no playback identity. */
+        fun withoutAudio(id: PublicUnitId, kind: PublicUnitKind, position: Long, title: String, description: String): CatalogCheck<PublicUnit> = when {
+            position !in 0..Int.MAX_VALUE.toLong() -> CatalogCheck.Invalid(CatalogViolation.PositionOutOfRange)
+            title.isBlank() -> CatalogCheck.Invalid(CatalogViolation.BlankTitle)
+            else -> CatalogCheck.Valid(PublicUnit(id, kind, position.toInt(), title, description, null, null, null))
         }
     }
 }
@@ -289,7 +296,7 @@ class PublicUnitPage private constructor(val work: PublicWorkId, items: List<Pub
                 copy.size > MaxPageItems -> CatalogCheck.Invalid(CatalogViolation.PageTooLarge)
                 copy.any { it.kind != requested.kind.unitKind } -> CatalogCheck.Invalid(CatalogViolation.UnitKindMismatch)
                 copy.map { it.id }.toSet().size != copy.size -> CatalogCheck.Invalid(CatalogViolation.DuplicateUnit)
-                copy.map { it.publicationId }.toSet().size != copy.size ->
+                copy.mapNotNull { it.publicationId }.let { it.toSet().size != it.size } ->
                     CatalogCheck.Invalid(CatalogViolation.DuplicatePublication)
                 else -> CatalogCheck.Valid(PublicUnitPage(requested.id, copy, next))
             }

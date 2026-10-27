@@ -201,7 +201,7 @@ fn seed_preview(state: RwSignal<AccountViewState>, discovery: RwSignal<PublicDis
         if let Some(issued) = s.begin(DiscoveryQuery::default()) {
             s.finish(
                 &issued,
-                Ok(crate::contract::discovery::CoveredWorkPage {
+                Ok(crate::contract::discovery::MetadataWorkPage {
                     items: vec![],
                     next_cursor: None,
                 }),
@@ -425,26 +425,26 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                 WorkDetailPhase::Ready { work, units } => {
                     let first_pub = units
                         .rows()
-                        .first()
-                        .map(|u| u.publication_id.clone())
-                        .unwrap_or_default();
-                    let work_pres = WorkPresentation {
+                        .iter()
+                        .find_map(|u| u.playback.as_ref().map(|p| p.publication_id.clone()));
+                    let work_pres = first_pub.map(|first_pub| WorkPresentation {
                         work_id: id.to_string(),
                         publication_id: first_pub,
                         title: work.title.clone(),
                         kind: work.kind,
                         language: work.language.clone(),
-                    };
+                    });
                     let pubs = units
                         .rows()
                         .iter()
-                        .map(|u| {
-                            (
-                                u.publication_id.clone(),
+                        .filter_map(|u| {
+                            let playback = u.playback.as_ref()?;
+                            Some((
+                                playback.publication_id.clone(),
                                 AudioPresentation {
                                     work: WorkPresentation {
                                         work_id: id.to_string(),
-                                        publication_id: u.publication_id.clone(),
+                                        publication_id: playback.publication_id.clone(),
                                         title: work.title.clone(),
                                         kind: work.kind,
                                         language: work.language.clone(),
@@ -452,10 +452,10 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     unit_id: u.unit_id.clone(),
                                     unit_title: u.title.clone(),
                                 },
-                            )
+                            ))
                         })
                         .collect::<Vec<_>>();
-                    (Some((id.to_string(), Some(work_pres))), pubs)
+                    (Some((id.to_string(), work_pres)), pubs)
                 }
                 _ => (Some((id.to_string(), None)), Vec::new()),
             }

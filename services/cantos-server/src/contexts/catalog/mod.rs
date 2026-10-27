@@ -14,6 +14,7 @@ pub(crate) use application::owner_work::{
 pub(crate) use application::production_content::{
     pinned_content, production_content, restore_content, ProductionContent,
 };
+pub(crate) use application::sample_metadata_read::{sample_disclosed_work, SampleDisclosedWork};
 pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,

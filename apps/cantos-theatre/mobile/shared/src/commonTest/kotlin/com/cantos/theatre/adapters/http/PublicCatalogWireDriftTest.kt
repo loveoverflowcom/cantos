@@ -63,6 +63,7 @@ class PublicCatalogWireDriftTest {
 
     private enum class Shape {
         CoveredWorkPage, CoveredWork, UnitPage, ListenerError, Manifest, DefaultWorkPage, PresentedWorkPage, PresentedUnitPage,
+        MetadataWorkPage, MetadataWork, MetadataUnitPage, MetadataUnit,
     }
 
     /** Every shared fixture must be classified; a new file fails until reviewed. */
@@ -85,6 +86,12 @@ class PublicCatalogWireDriftTest {
         // #251 presentation=1: the native client reads Works at presentation=2 and Units at default v1.
         "presented_works.json" to Shape.PresentedWorkPage,
         "presented_units.json" to Shape.PresentedUnitPage,
+        "metadata/covered_works.json" to Shape.MetadataWorkPage,
+        "metadata/covered_work.json" to Shape.MetadataWork,
+        "metadata/presented_units.json" to Shape.MetadataUnitPage,
+        "metadata/units_republished.json" to Shape.MetadataUnitPage,
+        "metadata/unreleased.json" to Shape.MetadataUnit,
+        "metadata/released.json" to Shape.MetadataUnit,
     )
 
     private fun definition(name: String): JsonObject = defs.getValue(name).jsonObject
@@ -205,8 +212,29 @@ class PublicCatalogWireDriftTest {
                 Shape.Manifest -> assertRoundTrip(ManifestWire.serializer(), json, file)
                 Shape.PresentedWorkPage -> assertPresentationMissing(CoveredWorkPageWire.serializer(), json, file, "cover")
                 Shape.PresentedUnitPage -> assertPresentationRefused(UnitPageWire.serializer(), json, file, "ordinal")
+                Shape.MetadataWorkPage -> assertRoundTrip(MetadataWorkPageWire.serializer(), json, file)
+                Shape.MetadataWork -> assertRoundTrip(MetadataWorkWire.serializer(), json, file)
+                Shape.MetadataUnitPage -> assertRoundTrip(MetadataUnitPageWire.serializer(), json, file)
+                Shape.MetadataUnit -> assertRoundTrip(MetadataUnitWire.serializer(), json, file)
             }
         }
+    }
+
+    @Test
+    fun metadata_dtos_have_the_exact_required_schema_fields() {
+        val defs = Json.parseToJsonElement(CanonicalDiscoveryCorpus.metadataSchemaJson).jsonObject.getValue("\$defs").jsonObject
+        mapOf("work" to MetadataWorkWire.serializer(), "works" to MetadataWorkPageWire.serializer(),
+            "unit" to MetadataUnitWire.serializer(), "units" to MetadataUnitPageWire.serializer(),
+            "playback" to UnitPlaybackWire.serializer()).forEach { (name, serializer) ->
+            val schema = defs.getValue(name).jsonObject
+            assertEquals(JsonPrimitiveFalse, schema["additionalProperties"])
+            assertEquals(schema.getValue("properties").jsonObject.keys, serializer.descriptor.elementNames.toSet(), name)
+            assertEquals(schema.getValue("required").jsonArray.map { it.jsonPrimitive.content }.toSet(), serializer.descriptor.requiredNames(), name)
+        }
+        val noAudio = catalogJson.decodeFromString(MetadataUnitWire.serializer(), CanonicalDiscoveryCorpus.fixtureJsonByFile.getValue("metadata/unreleased.json"))
+        assertEquals(null, noAudio.playback)
+        assertIs<CatalogCheck.Valid<*>>(noAudio.toDomain())
+        assertFailsWith<SerializationException> { catalogJson.decodeFromString(MetadataUnitWire.serializer(), CanonicalDiscoveryCorpus.fixtureJsonByFile.getValue("metadata/unreleased.json").replace(",\"playback\":null", "")) }
     }
 
     /** A lower presentation level lacks [fields]; the strict covered reader must refuse it for exactly them. */
@@ -262,8 +290,8 @@ class PublicCatalogWireDriftTest {
         // Same unit identity and position, new immutable release: a version change, not a new row.
         assertEquals(first.id, republished.id)
         assertEquals(first.position, republished.position)
-        assertEquals("80000000-0000-4000-8000-000000000008", first.publicationId.value)
-        assertEquals("80000000-0000-4000-8000-000000000009", republished.publicationId.value)
+        assertEquals("80000000-0000-4000-8000-000000000008", first.publicationId!!.value)
+        assertEquals("80000000-0000-4000-8000-000000000009", republished.publicationId!!.value)
 
         val continuation = assertIs<CatalogCheck.Valid<PublicUnitPage>>(units("units_empty_continuation.json")).value
         assertTrue(continuation.items.isEmpty())

@@ -80,8 +80,8 @@ class TheatreShellBookmarkTest {
         val store = desktopLibraryStore(folder.resolve("library.sqlite").absolutePath)
         val work: PublicWork = PublicCatalogSamples.work(1, title = "Ánh đèn cuối sân khấu")
         val unit = PublicCatalogSamples.unit(1, durationMs = 125_000)
-        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId.value,
-            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs))
+        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value,
+            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs!!))
         val other = requireNotNull(AudioIdentity.of("10000000-0000-4000-8000-0000000000e1", "20000000-0000-4000-8000-0000000000e1",
             "30000000-0000-4000-8000-0000000000e1", "60000000-0000-4000-8000-0000000000e1", "c".repeat(64), 90_000))
         val wire = WireAudio(audio.workId, audio.unitId, audio.publicationId, audio.renditionId, audio.sha256, audio.durationMs)
@@ -181,7 +181,7 @@ class TheatreShellBookmarkTest {
             override suspend fun work(id: PublicWorkId) = PublicCatalogRead.Ready(work)
             override suspend fun units(work: PublicWork, cursor: CatalogCursor?) = PublicCatalogRead.Ready(PublicCatalogSamples.unitsPage(work, listOf(unit)))
         })
-        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId.value, "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs))
+        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value, "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs!!))
         val runtime = NativeSessionRuntime(scope, { decoder }, object : PlaybackAccessPort {
             override suspend fun manifest(publicationId: String) = PlaybackAccessResult.Accepted(audio)
             override suspend fun authorize(identity: AudioIdentity) = PlaybackAccessResult.Accepted(PlaybackGrant(PlaybackLocation("https://media.invalid/x"), 1_000))

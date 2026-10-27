@@ -13,6 +13,7 @@ use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, StoreError, Tx};
 
 mod sample_metadata;
+pub(super) mod sample_metadata_read;
 
 pub(super) const MAX_UNITS: usize = 1000;
 

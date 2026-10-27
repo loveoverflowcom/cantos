@@ -66,9 +66,11 @@ class PublicCatalogLiveOriginTest {
             } while (unitCursor != null)
             units.forEach { unit ->
                 assertTrue(canonical.matches(unit.id.value), "non-canonical unit id ${unit.id.value}")
-                assertTrue(canonical.matches(unit.publicationId.value), "non-canonical publication id ${unit.publicationId.value}")
+                unit.publicationId?.let { publication ->
+                    assertTrue(canonical.matches(publication.value), "non-canonical publication id ${publication.value}")
+                    assertTrue((unit.durationMs ?: 0) > 0)
+                } ?: assertEquals(null, unit.durationMs)
                 assertEquals(detail.kind.unitKind, unit.kind, "unit ${unit.id.value} kind for ${detail.kind}")
-                assertTrue(unit.durationMs > 0)
             }
             assertEquals(units.size, units.map { it.id }.toSet().size, "duplicate unit ids across pages of ${work.id.value}")
             units.forEach { assertTrue(allUnitIds.add(it.id.value), "unit ${it.id.value} listed under two works") }

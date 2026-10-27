@@ -64,6 +64,10 @@ data class UnitRequest(
     val workTitle: String,
 )
 
+/** Metadata without an eligible publication cannot become a playback request. */
+internal fun unitRequest(work: PublicWork, unit: PublicUnit): UnitRequest? =
+    unit.publicationId?.let { UnitRequest(work.id.value, unit.id.value, it.value, unit.title, work.title) }
+
 /** Every authority the old presentation is a read-only view of; nothing here is writable state. */
 class TheatreShellInputs(
     val navigation: NavigationState,
@@ -310,7 +314,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 
     /** A catalog unit names [audio] only when it is the same release; a newer release is another recording. */
     private fun exactUnit(audio: AudioIdentity): PublicUnit? =
-        known.unit(audio.unitId)?.unit?.takeIf { it.publicationId.value == audio.publicationId }
+        known.unit(audio.unitId)?.unit?.takeIf { it.publicationId?.value == audio.publicationId }
 
     /** Row titles, resolved once: the API's metadata for this exact release, else only what is provably it. */
     fun rowTitles(audio: AudioIdentity, presentation: LibraryPresentation<LibraryUnitInfo>): ShellRowTitles {
@@ -345,7 +349,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
         (if (entry.authoritative) extras else entry.units)[request.unitId] = ShellEpisode(
             ShellEpisodeId(request.unitId, workId), workId, entry.units.size + 1,
             request.title.ifBlank { unit?.title ?: copy.text(CopyKey.Work) },
-            unit?.let { seconds(it.durationMs) } ?: 0, numbered = false,
+            unit?.durationMs?.let(::seconds) ?: 0, numbered = false,
         )
     }
 
@@ -394,7 +398,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 
     private fun episode(workId: String, unit: PublicUnit, index: Int): ShellEpisode {
         val id = ShellWorkId(workId)
-        return ShellEpisode(ShellEpisodeId(unit.id.value, id), id, index, unit.title, seconds(unit.durationMs), numbered = false)
+        return ShellEpisode(ShellEpisodeId(unit.id.value, id), id, index, unit.title, unit.durationMs?.let(::seconds) ?: 0, numbered = false)
     }
 
     private fun seconds(durationMs: Long): Int = ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()

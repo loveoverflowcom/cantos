@@ -5,7 +5,7 @@
 //! the image element at another origin scheme, another Work's image, a credentialed URL or a
 //! private asset. It never builds a cover URL: the one admitted is used exactly as given. `null`
 //! is the legitimate no-cover state and is not examined here.
-use crate::contract::discovery::{CoverImage, CoveredWorkSummary};
+use crate::contract::discovery::{CoverImage, MetadataWorkSummary};
 use crate::core::public_ids::PublicWorkId;
 use cantos_web_auth::address::THEATRE_BASE;
 
@@ -21,7 +21,7 @@ pub fn is_admitted(work: PublicWorkId, cover: &CoverImage) -> bool {
 }
 
 /// A Work with no cover is admitted; one with a cover needs an admitted cover.
-pub fn work_is_admitted(work: &CoveredWorkSummary, id: PublicWorkId) -> bool {
+pub fn work_is_admitted(work: &MetadataWorkSummary, id: PublicWorkId) -> bool {
     work.cover
         .as_ref()
         .is_none_or(|cover| is_admitted(id, cover))
@@ -52,11 +52,11 @@ fn is_delivery_url(raw: &str, work: PublicWorkId, sha256: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::CoveredWorkPage;
+    use crate::contract::discovery::MetadataWorkPage;
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const COVERED: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
     );
 
     fn id() -> PublicWorkId {
@@ -64,13 +64,13 @@ mod tests {
     }
 
     fn cover() -> CoverImage {
-        let page: CoveredWorkPage = serde_json::from_str(COVERED).unwrap();
+        let page: MetadataWorkPage = serde_json::from_str(COVERED).unwrap();
         page.items[0].cover.clone().unwrap()
     }
 
     #[test]
     fn the_server_fixture_cover_is_admitted_and_its_null_is_too() {
-        let page: CoveredWorkPage = serde_json::from_str(COVERED).unwrap();
+        let page: MetadataWorkPage = serde_json::from_str(COVERED).unwrap();
         assert!(page.items[0].cover.is_some() && page.items[1].cover.is_none());
         assert!(is_admitted(id(), &cover()));
         assert!(work_is_admitted(&page.items[0], id()));

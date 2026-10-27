@@ -86,8 +86,8 @@ class TheatreShellLibraryTest {
         val store = desktopLibraryStore(folder.resolve("library.sqlite").absolutePath)
         val work: PublicWork = PublicCatalogSamples.work(1, title = "Ánh đèn cuối sân khấu")
         val unit = PublicCatalogSamples.unit(1, durationMs = 125_000)
-        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId.value,
-            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs))
+        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value,
+            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs!!))
         private val wireAudio = com.cantos.theatre.adapters.library.wire.AudioIdentity(
             audio.workId, audio.unitId, audio.publicationId, audio.renditionId, audio.sha256, audio.durationMs)
         val decoder = Decoder()

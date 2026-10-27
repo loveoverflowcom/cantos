@@ -70,6 +70,11 @@ const APPROVED_SAMPLE_IDS: [(&str, [&str; 2]); 6] = [
     ),
 ];
 
+/// Bounded approved identities; this is membership, never publication authority.
+pub(crate) fn approved_sample_ids() -> &'static [(&'static str, [&'static str; 2])] {
+    &APPROVED_SAMPLE_IDS
+}
+
 pub fn sample_membership(
     source_sha256: &str,
     work_id: &str,

@@ -151,6 +151,46 @@ internal data class UnitPageWire(
     @SerialName("next_cursor") val nextCursor: String?,
 )
 
+/** `presentation=3` keeps metadata separate from eligible audio. */
+@Serializable
+internal data class MetadataWorkWire(
+    @SerialName("work_id") val workId: String,
+    @SerialName("kind") val kind: WorkKindWire,
+    @SerialName("title") val title: String,
+    @SerialName("description") val description: String,
+    @SerialName("language") val language: String,
+    @SerialName("first_visible_at_ms") @Serializable(with = StrictJsonLong::class) val firstVisibleAtMs: Long,
+    @SerialName("unit_count") @Serializable(with = StrictJsonLong::class) val unitCount: Long,
+    @SerialName("cover") val cover: CoverImageWire?,
+)
+@Serializable
+internal data class MetadataWorkPageWire(
+    @SerialName("items") val items: List<MetadataWorkWire>,
+    @SerialName("next_cursor") val nextCursor: String?,
+)
+@Serializable
+internal data class UnitPlaybackWire(
+    @SerialName("publication_id") val publicationId: String,
+    @SerialName("published_at_ms") @Serializable(with = StrictJsonLong::class) val publishedAtMs: Long,
+    @SerialName("duration_ms") @Serializable(with = StrictJsonLong::class) val durationMs: Long,
+)
+@Serializable
+internal data class MetadataUnitWire(
+    @SerialName("unit_id") val unitId: String,
+    @SerialName("kind") val kind: UnitKindWire,
+    @SerialName("position") @Serializable(with = StrictJsonLong::class) val position: Long,
+    @SerialName("title") val title: String,
+    @SerialName("description") val description: String,
+    @SerialName("ordinal") @Serializable(with = StrictJsonLong::class) val ordinal: Long,
+    @SerialName("playback") val playback: UnitPlaybackWire?,
+)
+@Serializable
+internal data class MetadataUnitPageWire(
+    @SerialName("work_id") val workId: String,
+    @SerialName("items") val items: List<MetadataUnitWire>,
+    @SerialName("next_cursor") val nextCursor: String?,
+)
+
 @Serializable
 internal enum class ListenerErrorCodeWire {
     @SerialName("invalid_request") InvalidRequest,
@@ -247,6 +287,25 @@ internal fun UnitPageWire.toDomain(requested: PublicWork): CatalogCheck<PublicUn
         }
     }
 
+internal fun MetadataWorkWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
+    if (unitCount !in 0..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
+    else cover.toCover(id).then { checked -> PublicWork.of(id, kind.toDomain(), title, description, language, firstVisibleAtMs, checked) }
+}
+internal fun MetadataWorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain() }.then { works ->
+    nextCursor.toCursor().then { next -> PublicWorkPage.of(works, next) }
+}
+internal fun MetadataUnitWire.toDomain(): CatalogCheck<PublicUnit> = PublicUnitId.parse(unitId).then { id ->
+    if (ordinal !in 1..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
+    else if (playback == null) PublicUnit.withoutAudio(id, kind.toDomain(), position, title, description)
+    else PublicationId.parse(playback.publicationId).then { publication ->
+        PublicUnit.of(id, kind.toDomain(), position, title, description, publication, playback.publishedAtMs, playback.durationMs)
+    }
+}
+internal fun MetadataUnitPageWire.toDomain(requested: PublicWork): CatalogCheck<PublicUnitPage> =
+    PublicWorkId.parse(workId).then { pageWork ->
+        items.checkEach { it.toDomain() }.then { units -> nextCursor.toCursor().then { next -> PublicUnitPage.of(requested, pageWork, units, next) } }
+    }
+
 internal fun <T> CatalogCheck<T>.acceptedOrNull(): T? = (this as? CatalogCheck.Valid)?.value
 
 // --- transport ---------------------------------------------------------------------------------
@@ -261,6 +320,7 @@ const val CatalogBodyLimitBytes: Int = 4 * 1024 * 1024
 
 /** Discovery v1.2 `presentation` level that adds the required-nullable public `cover`. */
 const val CoverPresentation: Int = 2
+const val MetadataPresentation: Int = 3
 
 /** Explicit page size (the server default); a cursor is bound to the limit it was issued for. */
 const val CatalogPageLimit: Int = 20
@@ -296,19 +356,19 @@ class PublicCatalogHttpAdapter(
         // eligible catalog, never only the pages already present on this device.
         val path = if (query.text.isEmpty()) base else "${base.removeSuffix("/works")}/search"
         // presentation=2 is the cover capability and part of cursor identity: never mixed with v1.
-        val url = pageUrl(path, cursor) + "&presentation=$CoverPresentation" +
+        val url = pageUrl(path, cursor) + "&presentation=$MetadataPresentation" +
             (if (query.text.isNotEmpty()) "&q=${query.text.queryEncoded()}" else "") +
             (query.kind?.let { "&kind=${it.name.lowercase()}" } ?: "")
-        return read(url, cursor != null, CoveredWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
+        return read(url, cursor != null, MetadataWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
     }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> =
-        read("$base/${id.value}?presentation=$CoverPresentation", false, CoveredWorkSummaryWire.serializer()) { wire ->
+        read("$base/${id.value}?presentation=$MetadataPresentation", false, MetadataWorkWire.serializer()) { wire ->
             wire.toDomain().acceptedOrNull()?.takeIf { it.id == id }
         }
 
     override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> =
-        read(pageUrl("$base/${work.id.value}/units", cursor), cursor != null, UnitPageWire.serializer()) {
+        read(pageUrl("$base/${work.id.value}/units", cursor) + "&presentation=$MetadataPresentation", cursor != null, MetadataUnitPageWire.serializer()) {
             it.toDomain(work).acceptedOrNull()
         }
 

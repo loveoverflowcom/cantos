@@ -22,6 +22,34 @@ const WORK: &str = "b4630614-a59d-4a5f-8d34-ae9433f01d2a";
 const UNIT: &str = "98e5f9c9-9add-4dad-b0b3-03dcf110f120";
 const SHA: &str = "d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848212";
 
+#[test]
+fn metadata_wire_requires_explicit_nullable_playback_and_stays_distinct_from_v1() {
+    use crate::contract::theatre::discovery::{MetadataUnitSummary, PresentedUnitSummary};
+    let schema: serde_json::Value = serde_json::from_str(include_str!(
+        "../../contracts/theatre/discovery/v1/metadata.schema.json"
+    ))
+    .unwrap();
+    let validator = jsonschema::validator_for(&serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": schema["$defs"], "$ref": "#/$defs/unit"
+    }))
+    .unwrap();
+    for raw in [
+        include_str!("../../contracts/theatre/discovery/v1/fixtures/metadata/unreleased.json"),
+        include_str!("../../contracts/theatre/discovery/v1/fixtures/metadata/released.json"),
+    ] {
+        let value: serde_json::Value = serde_json::from_str(raw).unwrap();
+        assert!(validator.is_valid(&value));
+        let parsed: MetadataUnitSummary = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        assert!(serde_json::from_value::<PresentedUnitSummary>(value.clone()).is_err());
+        let mut missing = value;
+        missing.as_object_mut().unwrap().remove("playback");
+        assert!(!validator.is_valid(&missing));
+        assert!(serde_json::from_value::<MetadataUnitSummary>(missing).is_err());
+    }
+}
+
 fn request(op: String, work_revision: u64, unit_revision: Option<u64>) -> Request {
     Request::Disclose {
         operation_id: op,
@@ -61,6 +89,18 @@ async fn work(fixture: &ServerFixture, title: &str, synopsis: &str, kind: WorkKi
         )
         .await
         .unwrap();
+}
+
+async fn disclosed(
+    fixture: &ServerFixture,
+) -> Option<crate::contexts::catalog::SampleDisclosedWork> {
+    let connection = fixture.store().connection().await.unwrap();
+    let tx = connection.read().await.unwrap();
+    let result = crate::contexts::catalog::sample_disclosed_work(&tx, WORK)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    result
 }
 
 #[tokio::test]
@@ -228,12 +268,19 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
         serde_json::to_vec(&with_source(request(op.clone(), 2, None), &imported.id)).unwrap(),
     ))
     .unwrap();
-    let response = app.oneshot(http).await.unwrap();
+    let response = app.clone().oneshot(http).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     let first: crate::contract::studio::SampleMetadataDisclosureResponse =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!((first.sequence, first.decision.as_str()), (1, "disclosed"));
+    let visible = disclosed(&fixture).await.expect("owner-disclosed Work");
+    assert_eq!(visible.work.id().as_str(), WORK);
+    assert!(
+        visible.units.is_empty(),
+        "a Work decision does not disclose units"
+    );
+    assert!(visible.first_at >= 0);
     assert_eq!(
         fixture
             .store()
@@ -273,6 +320,175 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
         .await
         .unwrap();
     assert_eq!((unit.sequence, unit.decision.as_str()), (1, "disclosed"));
+    let visible = disclosed(&fixture).await.expect("owner-disclosed Work");
+    assert_eq!(visible.units.len(), 1);
+    assert_eq!(visible.units[0].id().as_str(), UNIT);
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get("/api/v1/theatre/works?presentation=2")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let old: serde_json::Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert!(old["items"].as_array().unwrap().is_empty());
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get("/api/v1/theatre/works?presentation=3")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let page: crate::contract::theatre::discovery::MetadataWorkPage =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].work_id, WORK);
+    assert_eq!(page.items[0].unit_count, 1);
+    assert!(page.items[0].cover.is_none());
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get(format!("/api/v1/theatre/works/{WORK}/units?presentation=3"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let page: crate::contract::theatre::discovery::MetadataUnitPage =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].unit_id, UNIT);
+    assert!(page.items[0].playback.is_none());
+    // Real eligible release plus the disclosed-only sample, across a one-item walk.
+    let released = fixture
+        .seed_work(
+            None,
+            &super::WorkSeed::podcast(71, "Published synthetic", &["Published episode"]),
+        )
+        .await;
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get("/api/v1/theatre/works?presentation=3&limit=1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let first_page: crate::contract::theatre::discovery::MetadataWorkPage =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let cursor = first_page
+        .next_cursor
+        .expect("two distinct Works require a continuation");
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get(format!(
+                "/api/v1/theatre/works?presentation=3&limit=1&cursor={cursor}"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let second_page: crate::contract::theatre::discovery::MetadataWorkPage =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let mut ids = vec![
+        first_page.items[0].work_id.clone(),
+        second_page.items[0].work_id.clone(),
+    ];
+    ids.sort();
+    let mut expected = vec![WORK.to_string(), released.work_id.clone()];
+    expected.sort();
+    assert_eq!(ids, expected);
+    assert!(second_page.next_cursor.is_none());
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get(format!(
+                "/api/v1/theatre/works/{}/units?presentation=3",
+                released.work_id
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let page: crate::contract::theatre::discovery::MetadataUnitPage =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(
+        page.items[0].playback.as_ref().unwrap().publication_id,
+        released.units[0]
+            .chain
+            .release_id
+            .as_ref()
+            .unwrap()
+            .as_str()
+    );
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get(format!(
+                "/api/v1/theatre/works?presentation=2&limit=1&cursor={cursor}"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "cursors cannot cross presentation boundaries"
+    );
+    fixture
+        .store()
+        .sample_metadata_decide(
+            ALICE,
+            WORK,
+            Some(UNIT),
+            Request::Withdraw {
+                operation_id: Uuid::new_v4().to_string(),
+            },
+        )
+        .await
+        .unwrap();
+    let visible = disclosed(&fixture).await.expect("Work remains disclosed");
+    assert!(visible.units.is_empty(), "unit withdrawal is independent");
+    fixture
+        .store()
+        .sample_metadata_decide(
+            ALICE,
+            WORK,
+            Some(UNIT),
+            with_source(
+                request(Uuid::new_v4().to_string(), 2, Some(1)),
+                &imported.id,
+            ),
+        )
+        .await
+        .unwrap();
+    assert_eq!(disclosed(&fixture).await.unwrap().units.len(), 1);
+    fixture
+        .exec("UPDATE actors SET active=0 WHERE id='alice'", &[])
+        .await
+        .unwrap();
+    assert!(
+        disclosed(&fixture).await.is_none(),
+        "disabled owner cannot be public"
+    );
+    fixture
+        .exec("UPDATE actors SET active=1 WHERE id='alice'", &[])
+        .await
+        .unwrap();
     let withdrawal = Request::Withdraw {
         operation_id: Uuid::new_v4().to_string(),
     };
@@ -285,6 +501,21 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
         (result.sequence, result.decision.as_str()),
         (2, "withdrawn")
     );
+    assert!(
+        disclosed(&fixture).await.is_none(),
+        "withdrawn parent hides its units"
+    );
+    let response = app
+        .clone()
+        .oneshot(
+            HttpRequest::get(format!("/api/v1/theatre/works/{WORK}?presentation=3"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    drop(app);
     fixture.restart().await;
     assert_eq!(
         fixture
@@ -301,6 +532,6 @@ async fn owner_decision_is_pinned_replayable_and_withdrawn_after_restart() {
                 &[]
             )
             .await,
-        3
+        5
     );
 }

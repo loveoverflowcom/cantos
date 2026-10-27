@@ -8,7 +8,7 @@
 //! `ordinal` come from the presentation DTOs (`presentation=1`); the loaded rows never supply a
 //! total, and the rank is neither an identity nor an author-assigned number.
 use crate::contract::discovery::{
-    CoveredWorkSummary, PresentedUnitPage, PresentedUnitSummary, UnitKind, WorkKind,
+    MetadataUnitPage, MetadataUnitSummary, MetadataWorkSummary, UnitKind, WorkKind,
 };
 use crate::core::public_ids::{canonical_uuid, PublicWorkId};
 use std::collections::BTreeSet;
@@ -62,7 +62,7 @@ pub const fn unit_kind_for(kind: WorkKind) -> UnitKind {
 }
 
 /// The detail must be the Work named by the route, with renderable public text.
-pub fn validate_work(work: &CoveredWorkSummary, expected: PublicWorkId) -> bool {
+pub fn validate_work(work: &MetadataWorkSummary, expected: PublicWorkId) -> bool {
     PublicWorkId::parse(&work.work_id) == Some(expected)
         && !work.title.trim().is_empty()
         && !work.language.trim().is_empty()
@@ -70,7 +70,7 @@ pub fn validate_work(work: &CoveredWorkSummary, expected: PublicWorkId) -> bool 
 }
 
 /// Page-local checks shared by the HTTP decoder and the state machine.
-pub fn validate_page(page: &PresentedUnitPage, work: PublicWorkId, kind: UnitKind) -> bool {
+pub fn validate_page(page: &MetadataUnitPage, work: PublicWorkId, kind: UnitKind) -> bool {
     let mut ids = BTreeSet::new();
     PublicWorkId::parse(&page.work_id) == Some(work)
         && page.items.len() <= UNIT_PAGE_LIMIT
@@ -81,7 +81,11 @@ pub fn validate_page(page: &PresentedUnitPage, work: PublicWorkId, kind: UnitKin
         })
         && page.items.iter().all(|unit| {
             canonical_uuid(&unit.unit_id).is_some()
-                && canonical_uuid(&unit.publication_id).is_some()
+                && unit.playback.as_ref().is_none_or(|playback| {
+                    canonical_uuid(&playback.publication_id).is_some()
+                        && playback.duration_ms > 0
+                        && playback.published_at_ms >= 0
+                })
                 && ids.insert(unit.unit_id.as_str())
                 && unit.kind == kind
                 && !unit.title.trim().is_empty()
@@ -156,7 +160,7 @@ pub enum ListNotice {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UnitList {
-    rows: Vec<PresentedUnitSummary>,
+    rows: Vec<MetadataUnitSummary>,
     /// Units answered by the current walk; a repeat within one walk is a protocol failure.
     walk_seen: BTreeSet<String>,
     walk_started: bool,
@@ -174,7 +178,7 @@ pub struct UnitList {
 }
 
 impl UnitList {
-    pub fn rows(&self) -> &[PresentedUnitSummary] {
+    pub fn rows(&self) -> &[MetadataUnitSummary] {
         &self.rows
     }
     pub fn status(&self) -> &PageStatus {
@@ -205,7 +209,7 @@ impl UnitList {
         self.unavailable.contains(unit_id)
     }
 
-    fn apply(&mut self, page: PresentedUnitPage) {
+    fn apply(&mut self, page: MetadataUnitPage) {
         for unit in page.items {
             self.walk_seen.insert(unit.unit_id.clone());
             self.unavailable.remove(&unit.unit_id);
@@ -259,7 +263,7 @@ pub enum WorkDetailPhase {
     NotFound,
     Failed(ReadFailure),
     Ready {
-        work: Box<CoveredWorkSummary>,
+        work: Box<MetadataWorkSummary>,
         units: Box<UnitList>,
     },
 }
@@ -337,7 +341,7 @@ impl WorkDetailState {
     pub fn finish_work(
         &mut self,
         ticket: &WorkTicket,
-        result: Result<CoveredWorkSummary, CatalogReadError>,
+        result: Result<MetadataWorkSummary, CatalogReadError>,
     ) -> Step {
         if ticket.generation != self.generation
             || self.work != Some(ticket.work)
@@ -363,7 +367,7 @@ impl WorkDetailState {
     pub fn finish_page(
         &mut self,
         ticket: &PageTicket,
-        result: Result<PresentedUnitPage, CatalogReadError>,
+        result: Result<MetadataUnitPage, CatalogReadError>,
     ) -> Step {
         if ticket.generation != self.generation
             || self.work != Some(ticket.work)
@@ -472,7 +476,7 @@ mod tests {
 
     /// The shared v1-shaped continuation fixtures carry no rows with an `ordinal`; rank them in
     /// list order, exactly as the presentation capability does.
-    fn fixture(json: &str) -> PresentedUnitPage {
+    fn fixture(json: &str) -> MetadataUnitPage {
         let mut value: serde_json::Value = serde_json::from_str(json).unwrap();
         for (index, item) in value["items"]
             .as_array_mut()
@@ -484,39 +488,43 @@ mod tests {
         }
         serde_json::from_value(value).unwrap()
     }
-    fn units_fixture() -> PresentedUnitPage {
+    fn units_fixture() -> MetadataUnitPage {
         fixture(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/presented_units.json"
         ))
     }
     fn work_id() -> PublicWorkId {
         PublicWorkId::parse(WORK).unwrap()
     }
-    fn work_summary() -> CoveredWorkSummary {
-        let page: crate::contract::discovery::CoveredWorkPage =
+    fn work_summary() -> MetadataWorkSummary {
+        let page: crate::contract::discovery::MetadataWorkPage =
             serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
         ))
             .unwrap();
         page.items.into_iter().next().unwrap()
     }
-    fn unit(n: u128, position: u32) -> PresentedUnitSummary {
-        PresentedUnitSummary {
+    fn unit(n: u128, position: u32) -> MetadataUnitSummary {
+        MetadataUnitSummary {
             unit_id: uuid::Uuid::from_u128(0x2000_0000_0000_4000_8000_0000_0000_0000 + n)
                 .to_string(),
             kind: UnitKind::Chapter,
             position,
             title: format!("Chương thử {n}"),
             description: String::new(),
-            publication_id: uuid::Uuid::from_u128(0x8000_0000_0000_4000_8000_0000_0000_0000 + n)
+            playback: Some(crate::contract::discovery::UnitPlayback {
+                publication_id: uuid::Uuid::from_u128(
+                    0x8000_0000_0000_4000_8000_0000_0000_0000 + n,
+                )
                 .to_string(),
-            published_at_ms: 5_000,
-            duration_ms: 61_000,
+                published_at_ms: 5_000,
+                duration_ms: 61_000,
+            }),
             ordinal: u64::from(position) + 1,
         }
     }
-    fn page(items: Vec<PresentedUnitSummary>, next: Option<&str>) -> PresentedUnitPage {
-        PresentedUnitPage {
+    fn page(items: Vec<MetadataUnitSummary>, next: Option<&str>) -> MetadataUnitPage {
+        MetadataUnitPage {
             work_id: WORK.into(),
             items,
             next_cursor: next.map(str::to_owned),
@@ -650,14 +658,14 @@ mod tests {
     #[test]
     fn terminal_empty_list_is_distinct_from_failure_and_from_an_intermediate_empty_page() {
         let (mut state, first) = ready();
-        let terminal: PresentedUnitPage = fixture(include_str!(
+        let terminal: MetadataUnitPage = fixture(include_str!(
             "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_end_empty.json"
         ));
         assert_eq!(state.finish_page(&first, Ok(terminal)), Step::Settled);
         assert!(units(&state).is_empty_terminal());
 
         let (mut state, first) = ready();
-        let continuation: PresentedUnitPage = fixture(include_str!(
+        let continuation: MetadataUnitPage = fixture(include_str!(
             "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_empty_continuation.json"
         ));
         let cursor = continuation.next_cursor.clone();
@@ -754,7 +762,8 @@ mod tests {
         );
 
         let mut republished = unit(2, 1);
-        republished.publication_id = uuid::Uuid::from_u128(99).to_string();
+        republished.playback.as_mut().unwrap().publication_id =
+            uuid::Uuid::from_u128(99).to_string();
         let Step::Settled = state.finish_page(
             &restart,
             Ok(page(
@@ -765,10 +774,7 @@ mod tests {
             panic!("a full page settles")
         };
         assert_eq!(ids(&state), vec![unit(1, 0).unit_id, unit(2, 1).unit_id]);
-        assert_eq!(
-            units(&state).rows()[1].publication_id,
-            republished.publication_id
-        );
+        assert_eq!(units(&state).rows()[1].playback, republished.playback);
         let third = state.load_more().unwrap();
         assert_eq!(third.cursor(), Some("lc1_fresh"));
         state.finish_page(&third, Ok(page(vec![unit(3, 2)], None)));
@@ -857,8 +863,8 @@ mod tests {
         else {
             panic!("restart")
         };
-        let republished: PresentedUnitPage = fixture(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_republished.json"
+        let republished: MetadataUnitPage = fixture(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/units_republished.json"
         ));
         assert_eq!(
             state.finish_page(&restart, Ok(republished.clone())),
@@ -868,10 +874,7 @@ mod tests {
         assert_eq!(list.rows().len(), 1);
         assert_eq!(list.rows()[0].unit_id, original.items[0].unit_id);
         assert_eq!(list.rows()[0].position, original.items[0].position);
-        assert_ne!(
-            list.rows()[0].publication_id,
-            original.items[0].publication_id
-        );
+        assert_ne!(list.rows()[0].playback, original.items[0].playback);
         assert_eq!(list.rows()[0], republished.items[0]);
         assert!(list.is_complete() && !list.is_unavailable(&original.items[0].unit_id));
     }

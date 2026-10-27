@@ -48,6 +48,7 @@ mod listener_cover;
 mod listener_cursor;
 mod listener_delivery;
 mod listener_media;
+mod listener_metadata;
 mod listener_projection;
 #[cfg(test)]
 pub(crate) use listener_application::PlaybackFixtureEligibility;

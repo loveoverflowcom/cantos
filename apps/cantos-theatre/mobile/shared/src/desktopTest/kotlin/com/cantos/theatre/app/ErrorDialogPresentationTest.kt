@@ -152,10 +152,10 @@ class ErrorDialogPresentationTest {
                 AudioIdentity.of(
                     work.id.value,
                     unit.id.value,
-                    unit.publicationId.value,
+                    unit.publicationId!!.value,
                     "60000000-0000-4000-8000-000000000006",
                     "b".repeat(64),
-                    unit.durationMs,
+                    unit.durationMs!!,
                 ),
             )
             var failManifest = true
