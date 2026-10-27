@@ -145,6 +145,11 @@ mod browser {
     }
 }
 
+/// The same "focus moved to a real element outside this wrapper" rule the account disclosure uses.
+pub(super) fn focus_left(event: &ev::FocusEvent, wrapper: NodeRef<html::Div>) -> bool {
+    browser::focus_left(event, wrapper)
+}
+
 const MENU_ID: &str = "theatre-account-menu";
 const ENTRY_ID: &str = "theatre-account-entry";
 const CANCEL_ID: &str = "theatre-logout-cancel";

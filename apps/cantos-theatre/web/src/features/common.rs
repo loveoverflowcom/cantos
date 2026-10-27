@@ -75,6 +75,18 @@ pub(crate) fn PersonGlyph() -> impl IntoView {
     }
 }
 
+/// Decorative "i" for the guest info trigger; the trigger's accessible name carries the meaning.
+#[component]
+pub(crate) fn InfoGlyph() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="8" r="1.25" fill="currentColor"/>
+            <path d="M12 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+    }
+}
+
 pub(crate) fn clock(locale: crate::messages::Locale, seconds: u32) -> String {
     crate::messages::clock_seconds(locale, u64::from(seconds))
 }

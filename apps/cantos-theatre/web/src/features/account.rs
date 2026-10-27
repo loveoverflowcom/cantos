@@ -4,6 +4,7 @@ use super::{
     account_ui::{account_ui, session_tone, AccountUi},
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
+    guest_identity::GuestIdentity,
 };
 #[cfg(feature = "preview")]
 use crate::app::{context::TheatreContext, routes::Route};
@@ -148,6 +149,22 @@ fn profile_status(
     move || messages::text(live_status_key(&ui.get()), locale.get())
 }
 
+/// The session settled as a guest with nothing to recover: the only phase whose status line,
+/// eyebrow and second help sentence are redundant. Checking, Failed and logout phases are not.
+const fn is_healthy_guest(phase: SessionPhase) -> bool {
+    matches!(phase, SessionPhase::Guest)
+}
+
+/// One supportive line: what signing in unlocks for a guest, the welcome for a signed-in listener.
+/// Other phases carry their own visible status instead.
+const fn profile_help(phase: SessionPhase) -> Option<CopyKey> {
+    match phase {
+        SessionPhase::Guest => Some(CopyKey::GuestHelp),
+        SessionPhase::SignedIn => Some(CopyKey::SignedHelp),
+        _ => None,
+    }
+}
+
 #[component]
 pub(crate) fn LiveAccount(
     state: ReadSignal<AccountViewState>,
@@ -163,20 +180,30 @@ pub(crate) fn LiveAccount(
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
-                <p class="theatre-eyebrow">{label(locale, CopyKey::AccountEyebrow)}</p>
+                <Show when=move || !is_healthy_guest(ui.get().phase)>
+                    <p class="theatre-eyebrow">{label(locale, CopyKey::AccountEyebrow)}</p>
+                </Show>
                 <h1 id="theatre-live-account-heading">{label(locale, CopyKey::AccountHeading)}</h1>
             </header>
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span>
+                    <Show when=move || is_healthy_guest(ui.get().phase)
+                        fallback=|| view! { <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span> }>
+                        <GuestIdentity locale/>
+                    </Show>
                     <h2>{profile_heading(ui, locale)}</h2>
-                    <p id="theatre-live-account-status" class="theatre-auth-feedback"
-                        data-tone=move || session_tone(ui.get().phase).as_str()
-                        role="status" aria-live="polite" aria-atomic="true">
-                        {profile_status(ui, locale)}
-                    </p>
-                    <p>{move || super::auth_copy::text(
-                        if ui.get().phase == SessionPhase::SignedIn { CopyKey::SignedHelp } else { CopyKey::GuestHelp }, locale.get())}</p>
+                    // A healthy guest has nothing to report: the heading and one line say it.
+                    // Every other phase keeps its live status, failure and recovery visible.
+                    <Show when=move || !is_healthy_guest(ui.get().phase)>
+                        <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                            data-tone=move || session_tone(ui.get().phase).as_str()
+                            role="status" aria-live="polite" aria-atomic="true">
+                            {profile_status(ui, locale)}
+                        </p>
+                    </Show>
+                    {move || profile_help(ui.get().phase).map(|key| view! {
+                        <p class="theatre-account-help">{label(locale, key)}</p>
+                    })}
                     <Show when=move || ui.get().can_authenticate>
                         <AuthActions state locale scope="theatre-account" on_login on_register/>
                     </Show>
@@ -478,6 +505,104 @@ mod tests {
             for forbidden in ["Cantos Theatre", "access_token", "session_id", "/studio"] {
                 assert!(!guest.contains(forbidden), "{forbidden}");
             }
+        });
+    }
+
+    fn visible_text(html: &str) -> String {
+        html.split('>')
+            .filter_map(|segment| segment.split('<').next())
+            .collect()
+    }
+
+    #[test]
+    fn healthy_guest_card_is_one_heading_one_line_two_actions_and_a_named_closed_info_control() {
+        use crate::features::auth_preview::guest;
+        Owner::new().with(|| {
+            for (language, heading, line, info, name, create) in [
+                (
+                    Locale::Vietnamese,
+                    "Chào bạn.",
+                    "Đăng nhập để mở thư viện của bạn.",
+                    "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập.",
+                    "Về chế độ nghe không đăng nhập",
+                    "Tạo tài khoản",
+                ),
+                (
+                    Locale::English,
+                    "Hello.",
+                    "Sign in to open your library.",
+                    "You can still explore and listen to public content without signing in.",
+                    "About listening without signing in",
+                    "Create account",
+                ),
+            ] {
+                let state = RwSignal::new(AccountViewState::default());
+                guest(state).unwrap();
+                let html = render_live(state.read_only(), RwSignal::new(language));
+                assert_eq!(html.matches("<h1").count(), 1);
+                // Redundant copy is gone: no eyebrow, no status line, no second help sentence.
+                for removed in [
+                    "theatre-eyebrow\">MỘT",
+                    "A LISTENING SPACE",
+                    "theatre-live-account-status",
+                    "Chưa đăng nhập vào Cantos",
+                    "You can still explore public stories",
+                    "Chào người nghe",
+                    "Welcome, listener",
+                ] {
+                    assert!(!html.contains(removed), "{removed}");
+                }
+                let text = visible_text(&html);
+                for shown in [heading, line, create] {
+                    assert!(text.contains(shown), "{shown}");
+                }
+                // The optional fact is behind a named control that starts closed and says what it opens.
+                assert!(html.contains(&format!("aria-label=\"{name}\"")), "{name}");
+                assert!(html.contains("aria-expanded=\"false\""));
+                assert!(html.contains("aria-controls=\"theatre-guest-info-panel\""));
+                let panel = html
+                    .split("id=\"theatre-guest-info-panel\"")
+                    .nth(1)
+                    .unwrap();
+                assert!(panel.split('>').next().unwrap().contains("hidden"));
+                assert!(panel.contains(info));
+                // The two existing actions keep their ids and callbacks; the secondary is outlined.
+                assert!(html.contains("id=\"theatre-account-login\""));
+                assert!(html.contains("id=\"theatre-account-register\""));
+                assert!(html.contains("data-variant=\"auth-outlined\""));
+                assert!(html.contains("data-guest=\"true\""));
+                assert!(
+                    !html.contains("Cantos</"),
+                    "no brand word in the action label"
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn unhealthy_guest_phases_keep_their_live_status_and_no_info_control() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let locale = RwSignal::new(Locale::Vietnamese);
+            // Checking: the live status stays, announced politely.
+            let checking = render_live(state.read_only(), locale);
+            assert!(checking.contains("id=\"theatre-live-account-status\""));
+            assert!(checking.contains("role=\"status\""));
+            assert!(checking.contains(messages::text(Key::AccountChecking, Locale::Vietnamese)));
+            assert!(!checking.contains("theatre-guest-info"));
+            assert!(checking.contains("theatre-eyebrow"));
+            // Failed: the failure text is visible with its retry control.
+            let issued = state.write().begin_refresh().unwrap();
+            state
+                .write()
+                .finish_session(issued, Err(AccountFailure::Unavailable), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                })
+                .unwrap();
+            let failed = render_live(state.read_only(), locale);
+            assert!(failed.contains(messages::text(Key::AccountUnavailable, Locale::Vietnamese)));
+            assert!(failed.contains("id=\"theatre-account-refresh\""));
+            assert!(!failed.contains("theatre-guest-info"));
         });
     }
 
