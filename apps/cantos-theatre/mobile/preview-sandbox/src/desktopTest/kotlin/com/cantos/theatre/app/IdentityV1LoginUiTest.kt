@@ -150,7 +150,7 @@ class IdentityV1LoginUiTest {
         onNodeWithTag("register-link").assertDoesNotExist(); onNodeWithTag("register-confirm").assertDoesNotExist()
         onNodeWithTag("register-setup").assertDoesNotExist()
         assertEquals(0, h.identity.loginRequests); assertEquals(0, h.identity.admissions)
-        onNodeWithTag("register-login").performScrollTo().performClick(); waitForIdle()
+        onNodeWithTag("back").performClick(); waitForIdle()
         assertEquals("", password()); assertEquals(0, h.identity.loginRequests)
     }
 }

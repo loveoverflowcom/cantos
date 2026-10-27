@@ -20,6 +20,7 @@ import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
 import com.cantos.ui.CantosTypography
+import com.cantos.ui.Checkbox
 import com.cantos.ui.DisabledReason
 import com.cantos.ui.FieldState
 import com.cantos.ui.IconButton
@@ -56,6 +57,9 @@ internal fun AuthTonalSpecimen(modifier: Modifier = Modifier, onEvent: (String) 
                     state = FieldState.Disabled(DisabledReason.of(T.Locked)))
             }
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Checkbox(T.Confirmation, false, {})
+                Checkbox(T.Confirmation, true, {})
+                Checkbox(T.Confirmation, true, {}, state = ButtonState.Disabled(DisabledReason.of(T.ConfirmationPending)))
                 Button(T.SignIn, { onEvent("tonal:primary") }, variant = ButtonVariant.AuthPrimary, icon = "login",
                     controlModifier = Modifier.fillMaxWidth())
                 Button(T.SignIn, {}, variant = ButtonVariant.AuthPrimary, icon = "login",

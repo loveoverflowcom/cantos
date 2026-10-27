@@ -23174,10 +23174,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Từ 8 đến 128 ký tự. Khoảng trắng được giữ nguyên và mật khẩu không được lưu trên thiết bị."
+          "text": "8–128 ký tự."
         },
         "en": {
-          "text": "8 to 128 characters. Spaces are kept as typed and the password is never stored on this device."
+          "text": "8–128 characters."
         }
       }
     },
@@ -23222,10 +23222,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tôi là chủ hộp thư này và xác nhận tạo tài khoản Cantos với mật khẩu vừa nhập."
+          "text": "Tôi sở hữu hộp thư này và xác nhận tạo tài khoản với mật khẩu vừa nhập."
         },
         "en": {
-          "text": "I own this mailbox and confirm creating a Cantos account with the password I just entered."
+          "text": "I own this mailbox and confirm creating an account with this password."
         }
       }
     },

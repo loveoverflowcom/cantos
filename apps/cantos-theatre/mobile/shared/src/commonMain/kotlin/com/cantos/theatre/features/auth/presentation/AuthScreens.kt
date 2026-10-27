@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -262,22 +268,14 @@ fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit,
                 tone = SurfaceTone.Container, variant = SurfaceVariant.Auth, inset = Space.Lg) {
                 Text(copy.text(AuthText.SignupUnavailable), style = MaterialTheme.typography.bodyMedium)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                Button(
-                    copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
-                    variant = if (registration == null) ButtonVariant.AuthPrimary else ButtonVariant.Text,
-                    icon = authActionIcon(AuthIntent.OpenLogin),
-                    controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
-                )
-                // With a working form the header Back and the Login link already leave; only the
-                // unavailable state, which offers nothing else to do, keeps the way back to Discover.
-                if (registration == null) Button(
-                    copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
-                    icon = authActionIcon(AuthIntent.OpenHome),
-                    variant = ButtonVariant.Text,
-                    controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
-                )
-            }
+            // Back already returns to Login. An unavailable owner keeps the distinct recovery to
+            // Discover, so a listener can browse without returning to an unavailable auth flow.
+            if (registration == null) Button(
+                copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
+                icon = authActionIcon(AuthIntent.OpenHome),
+                variant = ButtonVariant.Text,
+                controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
+            )
         }
     }
 }
@@ -335,8 +333,19 @@ private fun LoginForm(account: AccountView, copy: AuthCopy, onIntent: (AuthInten
 /** An independent 48 dp visibility toggle for one password field; the field owns no visibility state. */
 @Composable
 internal fun PasswordEye(visible: Boolean, copy: AuthCopy, modifier: Modifier = Modifier, onToggle: () -> Unit) {
+    val pointerPressed = remember { mutableStateOf(false) }
     IconButton(
         AccessibleName.of(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword)),
-        if (visible) "visibility_off" else "visibility", onToggle, controlModifier = modifier,
+        if (visible) "visibility_off" else "visibility", onToggle,
+        // A pointer press must not steal the editor's focus/selection or close its IME. Keep the
+        // eye keyboard-focusable between gestures and retain the shared accessibility actions.
+        controlModifier = modifier.focusProperties { canFocus = !pointerPressed.value }.pointerInput(Unit) {
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                pointerPressed.value = true
+                try { waitForUpOrCancellation(pass = PointerEventPass.Final) }
+                finally { pointerPressed.value = false }
+            }
+        },
     )
 }

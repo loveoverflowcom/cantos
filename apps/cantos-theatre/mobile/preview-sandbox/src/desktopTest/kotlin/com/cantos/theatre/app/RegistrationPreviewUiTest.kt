@@ -103,7 +103,8 @@ class RegistrationPreviewUiTest {
                 assertEquals(NativeAccountState.SignedOut, owners.account.state.value)
                 assertEquals(0, owners.identity.loginRequests)
                 capture("waiting-light-390x844", 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f)
-                click("register-login")
+                assertSingleExit()
+                click("back")
                 onNodeWithTag("login-primary").assertExists()
                 assertEquals(NativeAccountState.SignedOut, owners.account.state.value)
                 assertEquals(listOf("/api/v1/theatre/native/identity/signup"), api.paths.toList())
@@ -190,7 +191,7 @@ class RegistrationPreviewUiTest {
         }
     }
 
-    @Test fun a_503_leaves_the_mail_effect_unknown_and_explicit_cancel_after_waiting_returns_to_login_as_a_guest() {
+    @Test fun a_503_leaves_the_mail_effect_unknown_and_back_after_waiting_returns_to_login_as_a_guest() {
         ApiFixture().use { api ->
             api.status = 503
             runDesktopComposeUiTest(width = 390, height = 844) {
@@ -206,10 +207,15 @@ class RegistrationPreviewUiTest {
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
                 click("register-submit")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                click("register-cancel")
-                assertEquals(RegistrationPhase.Cancelled, registration.state.value.phase)
-                assertEquals(2, api.paths.size, "cancel sends nothing and recalls no mail")
-                click("register-login")
+                assertSingleExit()
+                click("back")
+                assertEquals(RegistrationPhase.Waiting, registration.state.value.phase)
+                assertEquals(2, api.paths.size, "Back sends nothing and recalls no mail")
+                onNodeWithTag("login-primary").assertExists()
+                click("login-create")
+                assertSingleExit()
+                assertEquals(RegistrationPhase.Waiting, registration.state.value.phase)
+                assertEquals(2, api.paths.size, "re-entering never resends an accepted request")
                 assertEquals(NativeAccountState.SignedOut, owner.account.state.value)
                 assertEquals(0, owner.identity.loginRequests)
             }
@@ -222,8 +228,7 @@ class RegistrationPreviewUiTest {
                 lateinit var registration: RegistrationController
                 mount(api, 390, 844, ShellTheme.Light, ShellLocale.Vietnamese, 1f) { _, c -> registration = c }
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Editing }
-                // Nothing is pending while editing: Back and the Login link already leave, so no Cancel.
-                onNodeWithTag("register-cancel").assertDoesNotExist()
+                assertSingleExit()
                 val register = onNodeWithTag("register-email").performScrollTo().fetchSemanticsNode().boundsInRoot
                 click("back")
                 val email = onNodeWithTag("login-email").performScrollTo().fetchSemanticsNode()
@@ -243,7 +248,7 @@ class RegistrationPreviewUiTest {
         }
     }
 
-    @Test fun submitting_keeps_one_cancel_and_waiting_keeps_it_until_the_listener_stops() {
+    @Test fun waiting_has_only_header_back_and_preserves_the_accepted_request() {
         ApiFixture().use { api ->
             runDesktopComposeUiTest(width = 390, height = 844) {
                 lateinit var registration: RegistrationController
@@ -252,10 +257,15 @@ class RegistrationPreviewUiTest {
                 onNodeWithTag("register-email").performScrollTo().performTextInput("a@example.test")
                 click("register-submit")
                 waitUntil(timeoutMillis = 10_000) { registration.state.value.phase == RegistrationPhase.Waiting }
-                onNodeWithTag("register-cancel").performScrollTo().assertIsEnabled()
+                assertSingleExit()
                 assertEquals(1, api.paths.size, "a single dispatch")
             }
         }
+    }
+
+    private fun ComposeUiTest.assertSingleExit() {
+        onNodeWithTag("back").assertExists()
+        for (tag in listOf("register-cancel", "register-login", "register-home")) onNodeWithTag(tag).assertDoesNotExist()
     }
 
     private fun ComposeUiTest.click(tag: String) {

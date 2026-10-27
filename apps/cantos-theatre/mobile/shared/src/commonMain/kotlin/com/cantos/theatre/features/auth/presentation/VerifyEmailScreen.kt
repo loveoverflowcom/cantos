@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -132,6 +135,7 @@ private fun PasswordForm(state: EmailVerificationState, copy: AuthCopy, onIntent
     // Two independent eyes: revealing one password never reveals the other.
     var passwordVisible by remember { mutableStateOf(false) }
     var repeatVisible by remember { mutableStateOf(false) }
+    val repeatFocus = remember { FocusRequester() }
     val pending = state.phase == VerificationPhase.Completing
     val fieldState = if (pending) FieldState.ReadOnly else FieldState.Editable
     // A hint appears once both fields have input, so an untouched form is not shown as an error.
@@ -142,6 +146,7 @@ private fun PasswordForm(state: EmailVerificationState, copy: AuthCopy, onIntent
             help = copy.text(AuthText.VerifyPasswordHelp),
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { repeatFocus.requestFocus() }),
             trailing = { PasswordEye(passwordVisible, copy, Modifier.testTag("verify-password-eye")) { passwordVisible = !passwordVisible } },
             controlModifier = Modifier.testTag("verify-password"))
         TextField(copy.text(AuthText.VerifyPasswordRepeat), state.repeat, { onIntent(VerificationIntent.Repeat(it)) },
@@ -150,7 +155,7 @@ private fun PasswordForm(state: EmailVerificationState, copy: AuthCopy, onIntent
             visualTransformation = if (repeatVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             trailing = { PasswordEye(repeatVisible, copy, Modifier.testTag("verify-repeat-eye")) { repeatVisible = !repeatVisible } },
-            controlModifier = Modifier.testTag("verify-repeat"))
+            controlModifier = Modifier.focusRequester(repeatFocus).testTag("verify-repeat"))
         Checkbox(copy.text(AuthText.VerifyConfirmCheckbox), state.confirmed, { onIntent(VerificationIntent.Confirm(it)) },
             modifier = Modifier.fillMaxWidth(),
             state = if (pending) ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.VerifyCompleting))) else ButtonState.Enabled,

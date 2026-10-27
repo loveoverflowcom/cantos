@@ -9,9 +9,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
@@ -20,9 +22,16 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextRange
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.identity.EmailVerificationController
@@ -162,6 +171,39 @@ class VerifyEmailFlowTest {
         onNodeWithTag("verify-create").performScrollTo().assertIsNotEnabled()
         onNodeWithTag("verify-confirm").performScrollTo().performClick()
         onNodeWithTag("verify-create").performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun independent_eyes_preserve_focus_selection_and_confirmation_while_next_moves_to_repeat() = scenario(signedIn = false) { f ->
+        runOnIdle { assertEquals(LinkReceipt.Shown, f.shell.receiveLink(link)) }
+        val first = onNodeWithTag("verify-password")
+        val repeat = onNodeWithTag("verify-repeat")
+        first.performScrollTo().performTextInput(password)
+        first.performImeAction()
+        repeat.assertIsFocused().performTextInput(password)
+        repeat.performTextInputSelection(TextRange(2, 5))
+        val selection = repeat.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange]
+        onNodeWithTag("verify-repeat-eye").performClick()
+        repeat.assertIsFocused()
+        assertEquals(selection, repeat.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange])
+        assertEquals(password, repeat.fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        assertTrue(first.fetchSemanticsNode().config[SemanticsProperties.EditableText].text != password)
+        onNodeWithTag("verify-password-eye").performClick()
+        assertEquals(password, first.fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        onNodeWithTag("verify-repeat-eye").performClick()
+        assertTrue(repeat.fetchSemanticsNode().config[SemanticsProperties.EditableText].text != password)
+        val eye = onNodeWithTag("verify-repeat-eye")
+        eye.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+        eye.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        assertEquals(password, repeat.fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        onNodeWithTag("verify-create").performScrollTo().assertIsNotEnabled()
+        assertEquals(0, f.completion.requests.size)
+        onNodeWithTag("verify-confirm").performScrollTo().performClick()
+        onNodeWithTag("verify-create").assertIsEnabled()
+        first.performScrollTo().performTextInput("x")
+        onNodeWithTag("verify-create").performScrollTo().assertIsNotEnabled()
+        assertFalse(f.verification.state.value.confirmed)
+        assertEquals(0, f.completion.requests.size)
     }
 
     @Test
