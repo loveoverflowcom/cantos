@@ -1342,6 +1342,37 @@
   padding: 0 var(--cantos-web-field-inset);
   background: transparent;
 }
+/* Preview-only auth recipe: tonal focus and error retain the Floating anatomy. Forced colors
+   retain the system border and focus indicator above until accessible runtime qualification. */
+@media not (forced-colors: active) {
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"],
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus-visible),
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus-visible) {
+    outline: none;
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) {
+    background: color-mix(in srgb, var(--cantos-color-primary) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-surface-container-high));
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell:has(> .cui-field-control:focus) > .cui-field-label {
+    color: var(--cantos-color-primary);
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"][data-invalid="true"] {
+    background: var(--cantos-color-error-container);
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) {
+    background: color-mix(in srgb, var(--cantos-color-error) calc(var(--cantos-state-focus-opacity) * 100%), var(--cantos-color-error-container));
+  }
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"] > .cui-field-label,
+  :where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] .cui-field-shell[data-invalid="true"]:has(> .cui-field-control:focus) > .cui-field-label {
+    color: var(--cantos-color-error);
+  }
+}
+:where(.cantos-ui) .cui-field[data-recipe="auth-tonal"] > .cui-field-error svg {
+  inline-size: 1em;
+  block-size: 1em;
+  vertical-align: -0.15em;
+  margin-inline-end: var(--cantos-space-xs);
+}
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip { transition: none; }
 }

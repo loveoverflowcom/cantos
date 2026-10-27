@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "8a04fcb80d704472ce1a115956f8e7fbc85df5e1c49fbfe97fd7c32de980e4cb",
+  "catalogSha256": "24132e8a637de0160cd57aed2165de9a5753083c3d65ca81e4642c4019b7c44a",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1276,6 +1276,7 @@
     "theatre.auth.signup_new_request": {},
     "theatre.auth.signup_not_configured": {},
     "theatre.auth.signup_password": {},
+    "theatre.auth.signup_password_heading": {},
     "theatre.auth.signup_password_help": {},
     "theatre.auth.signup_password_long": {},
     "theatre.auth.signup_password_mismatch": {},

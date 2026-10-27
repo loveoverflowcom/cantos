@@ -9,7 +9,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, LoginRefusal, SessionPhase},
         auth_navigation::{AuthRoute, AuthStep, ReturnDestination},
-        signup::SignupState,
+        signup::{SignupPhase, SignupState},
     },
     messages::{self, Key, Locale},
 };
@@ -101,7 +101,7 @@ fn auth_action_state(
     })
 }
 
-fn login_key_submits(key: &str, is_composing: bool, input_target: bool) -> bool {
+pub(crate) fn login_key_submits(key: &str, is_composing: bool, input_target: bool) -> bool {
     input_target && key == "Enter" && !is_composing
 }
 
@@ -110,6 +110,22 @@ fn password_eye_names(locale: Locale) -> Option<(AccessibleName, AccessibleName)
         AccessibleName::new(auth_copy::text(CopyKey::LoginShowPassword, locale)).ok()?,
         AccessibleName::new(auth_copy::text(CopyKey::LoginHidePassword, locale)).ok()?,
     ))
+}
+
+#[component]
+pub(crate) fn PasswordEye(
+    id: &'static str,
+    locale: RwSignal<Locale>,
+    revealed: RwSignal<bool>,
+) -> impl IntoView {
+    view! {
+        {move || password_eye_names(locale.get()).map(|(show, hide)| view! {
+            <IconButton id=id
+                name=Signal::derive(move || if revealed.get() { hide.clone() } else { show.clone() })
+                icon=Signal::derive(move || if revealed.get() { IconName::VisibilityOff } else { IconName::Visibility })
+                on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
+        })}
+    }
 }
 
 /// Entry actions of the account page: they open the explicit auth routes, behind the same
@@ -239,14 +255,7 @@ fn LoginForm(
                 state=field_state
                 on_input=Callback::new(move |value| password.set(value))
                 trailing=move || view! {
-                    // Validate both localized names before mounting; toggling only updates the
-                    // existing button's attributes, retaining keyboard focus on the eye.
-                    {move || password_eye_names(locale.get()).map(|(show, hide)| view! {
-                        <IconButton id="theatre-login-password-eye"
-                            name=Signal::derive(move || if revealed.get() { hide.clone() } else { show.clone() })
-                            icon=Signal::derive(move || if revealed.get() { IconName::VisibilityOff } else { IconName::Visibility })
-                            on_press=Callback::new(move |_| revealed.update(|shown| *shown = !*shown))/>
-                    })}
+                    <PasswordEye id="theatre-login-password-eye" locale revealed/>
                 }/>
             {move || availability.get().map(|availability| view! {
                 <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login state=availability
@@ -283,11 +292,6 @@ pub(crate) fn AuthPage(
     let ui = account_ui(state);
     let availability = auth_action_state(state, locale);
     let is_login = route.step == AuthStep::Login;
-    let heading = if is_login {
-        CopyKey::LoginHeading
-    } else {
-        CopyKey::RegisterHeading
-    };
     view! {
         <section class="theatre-auth" aria-labelledby="theatre-auth-heading">
             <div class="theatre-auth-top">
@@ -302,7 +306,8 @@ pub(crate) fn AuthPage(
                     <Logo tone=LogoTone::Dark class="theatre-logo-dark"/>
                 </a>
             </div>
-            <div class="theatre-auth-layout">
+            <div class=if is_login { "theatre-auth-layout" } else { "theatre-auth-layout theatre-auth-register-layout" }>
+                <Show when=move || is_login>
                 <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth inset=Space::None class="theatre-auth-story">
                     <div class="theatre-auth-art" aria-hidden="true">
                         <Logo variant=LogoVariant::Symbol tone=LogoTone::Light class="theatre-logo-light"/>
@@ -315,10 +320,17 @@ pub(crate) fn AuthPage(
                         <p class="theatre-muted">{label(locale, CopyKey::BrandGenres)}</p>
                     </div>
                 </Surface>
+                </Show>
                 <div class="theatre-auth-copy">
-                    <p class="theatre-eyebrow">{label(locale, if is_login { CopyKey::LoginEyebrow } else { CopyKey::RegisterEyebrow })}</p>
-                    <h1 id="theatre-auth-heading">{label(locale, heading)}</h1>
-                    <p class="theatre-muted">{label(locale, if is_login { CopyKey::LoginHelp } else { CopyKey::RegisterHelp })}</p>
+                    <Show when=move || is_login><p class="theatre-eyebrow">{label(locale, CopyKey::LoginEyebrow)}</p></Show>
+                    <h1 id="theatre-auth-heading">{move || auth_copy::text(if is_login {
+                        CopyKey::LoginHeading
+                    } else if matches!(signup.get().phase(), SignupPhase::AwaitingConfirmation | SignupPhase::Completing | SignupPhase::CompleteRetry(_) | SignupPhase::CompleteRefused(_)) {
+                        CopyKey::SignupPasswordHeading
+                    } else {
+                        CopyKey::RegisterHeading
+                    }, locale.get())}</h1>
+                    <Show when=move || is_login><p class="theatre-muted">{label(locale, CopyKey::LoginHelp)}</p></Show>
                     <Show when=move || is_login || ui.get().phase == SessionPhase::LogoutPending>
                         <p id="theatre-auth-status" class="theatre-auth-feedback"
                             data-tone=move || status_tone(&ui.get()).as_str()
@@ -399,9 +411,10 @@ mod tests {
                 );
                 assert!(!register.contains("id=\"theatre-auth-status\""));
                 assert!(!register.contains("id=\"theatre-auth-refresh\""));
-                assert_eq!(register.matches("role=\"status\"").count(), 1);
-                assert!(register.contains("id=\"theatre-signup-status\""));
-                assert!(register.contains("data-tone=\"neutral\""));
+                assert!(!register.contains("id=\"theatre-signup-status\""));
+                assert!(register.contains(auth_copy::text(CopyKey::RegisterHeading, language)));
+                assert!(!register.contains(auth_copy::text(CopyKey::RegisterHelp, language)));
+                assert!(!register.contains("theatre-auth-story"));
             }
             let mut pending = guest();
             let issued = pending.begin_logout().unwrap();
@@ -827,6 +840,7 @@ mod tests {
                 html.contains("theatre-signup-password") && html.contains("theatre-signup-repeat")
             );
             assert!(!html.contains("theatre-signup-email"));
+            assert!(html.contains(auth_copy::text(CopyKey::SignupPasswordHeading, language)));
             assert!(control(&html, "theatre-signup-confirm").contains("disabled"));
             assert!(!html.contains(&"de".repeat(32)));
             assert_eq!(

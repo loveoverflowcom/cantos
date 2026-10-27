@@ -1,7 +1,7 @@
 //! Web-owned mailbox-verified signup composition using the shared field and auth action variants.
 //! Opening the mailed link never sends anything: the owner chooses a password and confirms.
 use super::{
-    auth::label,
+    auth::{label, login_key_submits, PasswordEye},
     auth_copy::{self, CopyKey},
 };
 use crate::{
@@ -258,12 +258,18 @@ pub(crate) fn SignupPanel(
 ) -> impl IntoView {
     let email = EmailFieldBindings::new(state, locale);
     let secret = PasswordBindings::new(state, locale);
+    let password_revealed = RwSignal::new(false);
+    let repeat_revealed = RwSignal::new(false);
     let panel = NodeRef::<leptos::html::Div>::new();
     let previous_phase = StoredValue::new(state.get_untracked().phase());
     Effect::new(move |_| {
         let current = state.get();
         if previous_phase.get_value() != current.phase() {
             previous_phase.set_value(current.phase());
+            if !password_visible(current.phase()) {
+                password_revealed.set(false);
+                repeat_revealed.set(false);
+            }
             crate::platform::focus_in_signup(panel, focus_target(&current, login_via_back));
         }
     });
@@ -305,7 +311,11 @@ pub(crate) fn SignupPanel(
     };
     view! {
         <div class="theatre-signup" node_ref=panel>
-            <Show when=move || state.get().phase() != SignupPhase::SubmitFailed(SignupFailure::InvalidEmail)>
+            <Show when=move || {
+                let current = state.get();
+                current.submit_wait_seconds(clock_ms()).is_some()
+                    || !matches!(current.phase(), SignupPhase::Editing | SignupPhase::AwaitingConfirmation | SignupPhase::SubmitFailed(SignupFailure::InvalidEmail))
+            }>
                 <p id="theatre-signup-status" class="theatre-auth-feedback"
                     data-tone=move || status_tone(&state.get(), clock_ms()).as_str()
                     tabindex="-1" role="status" aria-live="polite" aria-atomic="true">
@@ -339,28 +349,39 @@ pub(crate) fn SignupPanel(
             <Show when=move || password_visible(state.get().phase())>
                 <form class="theatre-auth-actions" on:submit=move |event| { event.prevent_default(); on_confirm.run(()); }
                     on:keydown=move |event| {
-                        // Two fields and no submit button: Enter confirms explicitly, but never while
-                        // an IME is composing, and only a valid, ticked form builds a request.
-                        if event.key() == "Enter" && !event.is_composing() {
+                        use leptos::wasm_bindgen::JsCast;
+                        let input_target = event.target().is_some_and(|target| {
+                            target.dyn_ref::<leptos::web_sys::HtmlInputElement>()
+                                .is_some_and(|input| matches!(input.id().as_str(), "theatre-signup-password" | "theatre-signup-repeat"))
+                        });
+                        // Eye buttons retain native keyboard activation; Enter from an input
+                        // confirms only outside IME composition.
+                        if login_key_submits(&event.key(), event.is_composing(), input_target) {
                             event.prevent_default();
                             on_confirm.run(());
                         }
                     }>
-                    <TextField id="theatre-signup-password" kind=TextFieldKind::Password variant=TextFieldVariant::Floating
+                    <TextField id="theatre-signup-password" kind=Signal::derive(move || if password_revealed.get() { TextFieldKind::Text } else { TextFieldKind::Password }) variant=TextFieldVariant::Floating
                         label=secret.password_label
                         value=secret.password
                         autocomplete="new-password" required=true
                         state=secret.field_state
                         help=secret.password_help
                         error=secret.password_error
-                        on_input=Callback::new(move |value| state.update(|current| current.set_password(value)))/>
-                    <TextField id="theatre-signup-repeat" kind=TextFieldKind::Password variant=TextFieldVariant::Floating
+                        on_input=Callback::new(move |value| state.update(|current| current.set_password(value)))
+                        trailing=move || view! {
+                            <PasswordEye id="theatre-signup-password-eye" locale revealed=password_revealed/>
+                        }/>
+                    <TextField id="theatre-signup-repeat" kind=Signal::derive(move || if repeat_revealed.get() { TextFieldKind::Text } else { TextFieldKind::Password }) variant=TextFieldVariant::Floating
                         label=secret.repeat_label
                         value=secret.repeat
                         autocomplete="new-password" required=true
                         state=secret.field_state
                         error=secret.repeat_error
-                        on_input=Callback::new(move |value| state.update(|current| current.set_repeat(value)))/>
+                        on_input=Callback::new(move |value| state.update(|current| current.set_repeat(value)))
+                        trailing=move || view! {
+                            <PasswordEye id="theatre-signup-repeat-eye" locale revealed=repeat_revealed/>
+                        }/>
                     <Checkbox id="theatre-signup-confirm-box"
                         label=secret.confirm_label
                         checked=secret.confirmed
@@ -734,6 +755,12 @@ mod tests {
                 assert!(field.contains("type=\"password\""), "{field}");
                 assert!(field.contains("autocomplete=\"new-password\""), "{field}");
                 assert!(field.contains("value=\"\""), "{field}");
+                let eye = control(&html, &format!("{id}-eye"));
+                assert!(eye.contains("type=\"button\""), "{eye}");
+                assert!(
+                    eye.contains(auth_copy::text(CopyKey::LoginShowPassword, language)),
+                    "{eye}"
+                );
             }
             assert!(html.contains("type=\"checkbox\""));
             assert!(html.contains(auth_copy::text(CopyKey::SignupPasswordHelp, language)));
@@ -747,6 +774,14 @@ mod tests {
             // Only the controlled field mirrors the typed value; no status text repeats it.
             assert!(!ready.contains("aria-label=\"correct"));
         }
+    }
+
+    #[test]
+    fn password_enter_only_submits_from_input_outside_composition() {
+        assert!(login_key_submits("Enter", false, true));
+        assert!(!login_key_submits("Enter", true, true));
+        assert!(!login_key_submits("Enter", false, false));
+        assert!(!login_key_submits("Space", false, true));
     }
 
     #[test]
