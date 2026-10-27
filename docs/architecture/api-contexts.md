@@ -29,24 +29,24 @@ pure inspector, with no provider/model dependency. Media also reads editorial en
 owner/revision authorization in its narrow private development intake; it does not import
 production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `adapters/inbound/http`
 owns routers and maps
-errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
+errors; `platform` owns the Turso facade/registry, sessions and IDs,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
 enforces the allowed context edges.
 
 `src/application.rs` owns the concrete application `Store` and aggregate `StoreError`. It
-joins the PostgreSQL pool with Media's private-storage registry; it is not a new context or
-generic repository framework. `platform/postgres` implements connection/session plumbing and
+joins the one embedded Turso owner with Media's private-storage registry; it is not a new context
+or generic repository framework. `platform/store` implements statement/session plumbing and
 retains compatibility reexports of those types, with no Media import. Application use cases
 map their owned errors into the aggregate; pure domain decisions do not construct it.
 
-Application shells deliberately open/commit PostgreSQL transactions and call context-local
-`contexts/<context>/postgres` functions with authorization and locks in the same transaction.
+Application shells open/commit Turso units and call context-local `turso` adapters with
+current authorization in the same serialized writer unit. Read-only use cases use pinned snapshots.
+RPC, media I/O and provider observations stay outside writer units, followed by final rechecks.
 This refactor introduces no generic Repository/UnitOfWork or global outbound adapter tree.
 
 The checker places persistence by owner, not by engine. SQL naming a known table (in Rust
 strings, `.sql` files or text a file includes, DDL references included) belongs in the owning
-context's adapter module, `contexts/<context>/postgres` today or `contexts/<context>/turso` for
-the #333 port, or in platform code for platform tables. The operator seed's exact
+context's `turso` adapter module (file/directory layout varies), or in platform code for platform tables. The operator seed's exact
 (file, verb, table) inserts are the only platform access to context tables, and only the
 migration registry includes the whole schema. A backend name elsewhere (`application/turso/`, a
 top-level `turso/`) is not an adapter. Each adapter opens only its own backend, other context
@@ -61,18 +61,17 @@ cross-database reads still need runtime tests.
 
 `platform/bearer/core.rs` owns immutable, checked `SessionPolicy` values and pure lifetime/
 rotation decisions. It has no registration, OIDC, surface, credential syntax, HTTP or SQL
-dependency. Clock, proof/provider expiry and active/spent state arrive as facts. The server's
-exhaustive `bearer/client.rs` mapping chooses the existing Studio or Theatre policy, referring
-to the canonical registration IDs in `oidc/config.rs`. `BearerIdentity` checks the exact
-configuration/client match; its application and persistence callers resolve the policy through
-that single server-owned mapping. `bearer/credential.rs` owns opaque-token routing
-tags and protocol syntax. A tag is a routing hint, never admission evidence.
+dependency. Clock, authenticated-fact expiry and active/spent state arrive as facts.
+`platform/bearer/client.rs` maps the three stable registration names to checked Studio/Theatre
+policies; those names no longer identify an external OIDC client. Identity v1 credential syntax
+lives in `platform/identity_auth/credential.rs`; routing tags are never admission evidence.
 
-The [Bearer lifetime contract](../../services/cantos-server/contracts/auth/bearer/v1/README.md#lifetime-rotation-and-unknown-outcomes)
-keeps the exact TTLs, refusal/replay precedence and original absolute cap. The application and
-PostgreSQL shell retain roster checks, hash/client/issuer/family bindings, actor/family locks,
-provider I/O outside transactions and final-time rereads. This boundary does not implement
-#261's typed admission result or #295's Web-cookie migration.
+[Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) owns
+current email/password, Web-cookie and native-Bearer issuance/admission. The shared
+[SessionPolicy/lifetime contract](../../services/cantos-server/contracts/auth/bearer/v1/README.md#lifetime-rotation-and-unknown-outcomes)
+retains TTLs, replay refusal and the original absolute cap. Private RPC supplies fresh Identity
+facts; the Server binds actor, purpose, origin and session in `server.db`. The former provider
+Bearer/OIDC flow is retired. Neither a Studio session nor an Identity fact grants Admin authority.
 
 ## HTTP assembly and transport owners
 
@@ -92,7 +91,7 @@ session/query/header fencing and the admission lease around the handler live in
 Dependency arrows (not response/data flow) point from outer assembly and HTTP to application
 capabilities. Inner contexts never import this assembly or HTTP DTO compatibility methods.
 Moving the concrete handle from the former `composition.rs` to `application.rs` makes that
-distinction explicit without pulling Media storage ownership into PostgreSQL plumbing.
+distinction explicit without pulling Media storage ownership into generic persistence plumbing.
 
 | Existing host entrypoint | Identity/artwork selection | Static fallback |
 | --- | --- | --- |
@@ -117,11 +116,11 @@ object keys. See [private storage](object-storage.md) and
 ## Editorial application and document boundaries
 
 `script_ir` owns only read/validation, canonical encoding and diff. Editorial owns revision
-storage, current permissions, append/replay/CAS and editorial reviews. Its PostgreSQL adapter
+storage, current permissions, append/replay/CAS and editorial reviews. Its Turso adapter
 checks accepted sequences, exact canonical exports and both `sir-c1`/`sir-e1` digests before
 returning `RevisionFacts`/`ReviewFacts`; shared `append_revision` takes a `RevisionOperation`
 and admitted `ScriptContent`, never an HTTP save request. Facts confer no current access:
-callers still lock and authorize their resource in the existing transaction.
+callers still authorize their resource in the current transaction.
 
 Catalog and Media use those internal facts for exact owner/revision/digest binding. Production
 and Adaptation explicitly project facts through `editorial::document` when freezing the existing
@@ -141,15 +140,15 @@ pure diagnostic path constructs a wire error or imports HTTP.
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Partially implemented; opt-in Studio OIDC sessions |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Implemented native cookie sessions; roster and exact origin required; production acceptance separate |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress; separate Web/native identity | Public Discovery/Playback and Library/Progress cores plus opt-in identity implemented; default playback unavailable, unconfigured authentication denied; production acceptance pending |
-| `/api/v1/admin/*` | Separate platform authorization and audit | Opt-in [capability/revocation slice](admin-authorization.md); live provider acceptance pending |
+| `/api/v1/admin/*` | Separate platform authorization and audit | [Capability/revocation and audit core](admin-authorization.md); no production verifier composed, so fail closed |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../services/cantos-server/contracts/studio/briefs/v1/README.md) implemented for development |
 | Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../services/cantos-server/contracts/studio/audio-lifecycle/v1/README.md) implemented in development; separate [Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md) core with default unavailable delivery |
 | Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../services/cantos-server/contracts/studio/private-content-reads/v1/README.md): protected GET/HEAD/Range and refreshable access; no listener access |
 | Studio Work delegation | Owner session issues/revokes; separate `cantos_dlg_` bearer for one Work and closed Catalog actions | [Delegation v1](../../services/cantos-server/contracts/studio/delegation/v1/README.md) / [ADR 0028](../decisions/0028-work-scoped-delegation.md) and bounded Studio owner panel implemented; live acceptance separate |
 
-Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
+Catalog has pure domain, transactional application and Turso modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../services/cantos-server/contracts/studio/catalog/v1/README.md)
 defines work/content-unit mutations, deterministic pages and immutable Work history.
 [Content Identity](../../services/cantos-server/contracts/studio/content/v1/README.md) adds separate immutable content,
@@ -170,7 +169,7 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
 - `ingestion`: original manuscript bytes and extraction receipts.
 - `adaptation`: caller-owned proposal/acceptance, no model inference.
 - `catalog`: work/content-unit identities, metadata, authorization and immutable revisions through
-  application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
+  application use cases, Turso persistence and the authenticated Studio HTTP API.
 - `production`: declarative settings/rights/casting, immutable snapshots and approvals, plus
   Catalog-bound [Production Briefs](../../services/cantos-server/contracts/studio/briefs/v1/README.md) and scoped
   read-only producer grants. Source/export bytes are copied through owning-context entrypoints.
@@ -189,17 +188,16 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
 `contexts/listening` is downstream of Catalog and Media. It owns Library/progress/history,
 conditional revisions and durable operation receipts; Media continues to own public eligibility,
 publication and playback delivery. Its [v1 contract](../../services/cantos-server/contracts/theatre/library/v1/README.md)
-and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
-identity with default-deny composition and Server-owned Turso authority (business port incomplete). The separate
+and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate Theatre authority (Web cookie, native Bearer) with default-deny composition and Server-owned Turso authority. The separate
 [Platform identity registry](identity-registry.md) binds external identities but supplies no
 listener credential verification or authority from a Studio session.
 Catalog/Media exports provide owned transaction fences and bounded eligibility batches; Listening
-never reads their private tables directly. HTTP can compose the service/auth port, validate bearer
+never reads their private tables directly. HTTP can compose the service/auth port, validate channel-specific credential
 syntax and map typed errors, but cannot mint principals or run domain reconciliation.
 
-The architecture checker names this context/dependency direction and admits only the two host
-composition imports in its historical PostgreSQL regression module. The retained oracle reuses the canonical
-publication fixture to test sealed synthetic principals without a production mock-auth feature.
+The architecture checker names this context/dependency direction. Current native regressions
+reuse canonical publication fixtures and test-only principals without a production mock-auth feature;
+[the retirement ledger](server-turso/remaining-pg-retirement.md) preserves old PG assertions.
 This narrow test seam does not admit interface calls from production Listening adapters.
 
 ## Next contexts
@@ -215,17 +213,16 @@ commercial speech-provider adapter, synthesis retry system or speech-clip regist
 ## Transactions and external effects
 
 Creator authorization, upload intent, finalize idempotency, observed storage bytes,
-review permissions and publication must not race across owners or revisions. Database
-transactions lock the scoped authoritative rows; object uploads complete outside them and
+review permissions and publication must not race across owners or revisions. Serialized writer units re-read scoped authoritative facts; object uploads complete outside them and
 are verified before a separate finalized commit. All media stays private until approval.
 
-The historical `durable_*` and `speech_clips` SQL objects remain in applied migrations
-for upgrade integrity, but none of the active code writes generation jobs. A future schema
+The historical `durable_*` and `speech_clips` SQL objects remain in retained PostgreSQL
+migrations for upgrade integrity; they are not Server Turso business tables or live generation jobs. A future schema
 migration should add content/asset tables, not rewrite old migration checksums.
 
 ## Compatibility and verification
 
-Keep surviving `revisions`, `production`, `postgres` and read-only `wav_inspection`
+Keep surviving `revisions`, `production`, `store`, `http` and read-only `wav_inspection`
 aliases temporarily. Deleted provider/`tts`/`worker` legacy library reexports intentionally
 have no replacement: callers should integrate the external-audio API, not vendor SDKs.
 

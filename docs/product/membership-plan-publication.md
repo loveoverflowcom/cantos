@@ -43,7 +43,7 @@ crate, service, dependency or generic catalog abstraction.
 | Option | Suitable when / benefits | Costs, failure and recovery questions | Evidence needed to select |
 | --- | --- | --- | --- |
 | A. Versioned checked-in public manifest/configuration | Terms change infrequently; code review can approve a complete public snapshot | Public Git history cannot erase withdrawn terms. Define approval identity, validation, rollout consistency across API instances, reload rejection and withdrawal speed. Keep private drafts outside public Git | Product accepts public historical retention and deploy/reload latency; demonstrate atomic snapshot activation and rollback |
-| B. PostgreSQL draft → approved → published catalog | Named operators need changes independent of deployment and private drafts | Adds authoring authority, immutable approval binding, transactions, concurrent publication fences and retention/backup obligations. A public reader must project only the active approved snapshot | Product names operators and workflow; review authorization, draft isolation, upgrade/rollback and concurrent publication before schema |
+| B. Server-owned Turso draft → approved → published catalog | Named operators need changes independent of deployment and private drafts | Adds authoring authority, immutable approval binding, transactions, concurrent publication fences and retention/backup obligations. A public reader must project only the active approved snapshot | Product names operators and workflow; review authorization, draft isolation, upgrade/rollback and concurrent publication before schema |
 | C. External commercial catalog projection | An existing accepted source actually owns terms | Provider credentials, latency, privacy, availability and upstream revisions cannot be assumed. Remote calls must not occur during playback or supply access authority | Separate provider/policy/provenance and latency/privacy review; deterministic snapshot import, failure/withdrawal and cost boundaries accepted first |
 
 ## Decision matrix before a versioned contract
@@ -95,7 +95,7 @@ publication state.
    exact errors, compatibility and cache/withdrawal rules, tied to these real Web/CMP consumers.
    Only then add plan types/storage. Do not mint real commercial fixtures from design cards.
 3. Backend: pure validation/publication decision tests, then source adapter and anonymous
-   Theatre read projection. Add real disposable PostgreSQL tests only if option B is selected;
+   Theatre read projection. Add native file-backed Turso tests only if option B is selected;
    source/reload/concurrency acceptance still applies to the selected alternative.
 4. Client adoption: Web and CMP separately consume the accepted projection, preserve Back,
    fence late loads and retain receipt/account state. Observe relevant renderer interaction,
@@ -121,8 +121,8 @@ Docs-only handoff uses `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask 
 --changed-only`. Its repository/format result establishes hygiene, not runtime behavior.
 L2/L4/L5 implementation, publication/cache/version tests, real DB/provider/device and renderer
 acceptance are NOT_RUN in this boundary. Later implementations select the affected
-`cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify postgres`,
-`cargo xtask verify web` and `cargo xtask theatre-demo verify` checks through the existing
+`cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify turso`,
+`cargo xtask verify web` and `cargo xtask theatre-preview verify` checks through the existing
 [verification cadence](../../.agents/skills/cantos-engineering/references/verification-cadence.md).
 Exact focused test selectors depend on the accepted implementation; none exist for #176 yet.
 

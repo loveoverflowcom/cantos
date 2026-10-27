@@ -17,8 +17,9 @@ the explicit Cantos API origin. Catalog and authentication require separate API 
 browser acceptance; [#295](https://github.com/loveoverflowcom/cantos/issues/295) selects API-issued
 HttpOnly cookies on the custom domains, and this source now consumes the
 [Identity v1 contract](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) that way (no Bearer/OIDC
-fallback). That consumer has run against no backend or browser yet; static delivery establishes
-no playback.
+fallback). The [23 October native integration record](../../../docs/evidence/post-merge-integration-20261023.md)
+contains a bounded loopback browser journey; HTTPS/deployed and broader browser/device
+acceptance remain separate. Static delivery establishes no playback.
 The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
 module stays `cantos-theatre`. Its [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
 follows ADR 0041 direct Hosting/API addressing and exact-origin review. Cross-site authentication
@@ -380,7 +381,7 @@ Use the existing [xtask commands](../../../xtask/README.md), Rust 1.98.1,
 ```sh
 cargo xtask doctor
 cargo xtask build cantos-theatre --web
-# Native run owns private Server + Identity files; business catalog readiness remains incomplete.
+# Native run owns private Server + Identity files; public content requires an eligible release.
 cargo xtask run cantos-theatre --web
 cargo xtask verify repository
 cargo xtask verify rust
@@ -396,17 +397,14 @@ through 8082, plus the frontend HTML. An empty published catalog is a legitimate
 connection failure, non-JSON or an unavailable response cannot become an empty-success page.
 The optional `/session` route is not the anonymous Home readiness gate.
 
-**Compatibility proposal — pending review:** this is option A from
-[#183](https://github.com/loveoverflowcom/cantos/issues/183), changing the former frontend-only
-Theatre `run` behavior to match Studio. Use `app cantos-theatre --web` for the previous
-frontend-only workflow or for explicit offline previews. The
-[decision/evidence ledger](../../../docs/evidence/theatre-local-run.md) separates the proposed
-compatibility choice, implemented behavior and actual verification; the Draft PR claims no
-production or playback acceptance.
+The original [#183 proposal/evidence](../../../docs/evidence/theatre-local-run.md) records the
+change from frontend-only `run`. Current command behavior is owned by [xtask](../../../xtask/README.md):
+use `app cantos-theatre --web` for frontend-only work or explicit previews. Startup/readiness
+never establishes production or playback acceptance.
 
 Current `cargo xtask run cantos-theatre --web` owns Server + Identity with private native
-files and explicit migrations; `app` starts only Trunk against an existing API. Business schema
-porting is incomplete, so catalog readiness can fail. The old retained-PG `--test-cluster` lane
+files and explicit migrations; `app` starts only Trunk against an existing API. Native business
+adapters are implemented; a new development file has no public releases until explicitly prepared. The old retained-PG `--test-cluster` lane
 is a retired refusal. `seed theatre` also refuses while the native `catalog_http` fixture is
 absent; no fake publication or preserved/user database substitutes for that prerequisite.
 See the [current seed boundary](../../../docs/deployment/theatre-seeded-catalog.md).

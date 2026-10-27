@@ -1,8 +1,8 @@
 # Cantos Studio Catalog API v1
 
 The Studio catalog manages immutable Work and ContentUnit identity, revisioned metadata,
-ordering and soft archive. Shared raw Rust DTOs live in
-[`api/src/catalog.rs`](../../../../src/contract/studio/catalog.rs), shape and supported values in
+ordering and soft archive. Server-owned raw Rust DTOs live in
+[`contract/studio/catalog.rs`](../../../../src/contract/studio/catalog.rs), shape and supported values in
 [`schema/catalog/v1.schema.json`](catalog.schema.json), and literal acceptance and
 rejection examples in [`fixtures/catalog/v1`](fixtures/README.md).
 This is the backend slice of [#66](https://github.com/loveoverflowcom/cantos/issues/66);
@@ -60,7 +60,7 @@ The API has no restore endpoint. Successful mutation replies preserve the result
 `work` and affected `units`; reorder replies contain an empty `units` list, so callers read the
 bounded unit page to obtain the final order.
 
-Revisions start at 1 and stay within PostgreSQL signed 64-bit range. Work edits, archive and
+Revisions start at 1 and stay within signed 64-bit range. Work edits, archive and
 reorder carry `expected_revision` for the Work. Unit creation carries
 `expected_work_revision`; a unit edit/archive carries both its `expected_revision` and the
 parent's `expected_work_revision`. Every child mutation appends a Work revision in the same
@@ -195,10 +195,10 @@ unavailable. Shared root enum additions do not create endpoints in other surface
 ## Verification boundary
 
 Run the canonical repository gates with Rust 1.98.1: `cargo xtask verify repository`,
-`cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify postgres`, and
+`cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify turso`, and
 `cargo xtask preflight --changed-only`. Shared consumer tests establish raw wire shapes and
 PATCH representation; HTTP tests establish routes, error/status/schema conformance and guards;
-real disposable PostgreSQL/restart tests establish transaction, retry and immutable history
-behavior. A DTO or fixture alone does not establish an implemented HTTP endpoint, a browser UX,
+native file-backed/restart suites exercise transaction, retry and immutable history
+behavior ([mapping](../../../../../../docs/architecture/server-turso/remaining-pg-retirement.md)). A DTO or fixture alone does not establish an implemented HTTP endpoint, a browser UX,
 production rights, publication or external audio intake. Report commands actually run and all
 remaining gates accurately.

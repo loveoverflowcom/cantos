@@ -1,35 +1,21 @@
 # Private production inputs — v1 contract
 
 Issue [#5](https://github.com/loveoverflowcom/cantos/issues/5) adds casting and authorization
-records to the existing local Studio backend. [Shared Rust DTOs](../../../../src/contract/studio/production.rs) and the
+records to the existing local Studio backend. [Server-owned Rust DTOs](../../../../src/contract/studio/production.rs) and the
 [JSON Schema](production.schema.json) define wire shape; the pure server production
 module validates controls, resolves speech inputs, estimates planning cost, computes the digest
 and evaluates current eligibility. [ADR 0007](../../../../../../docs/decisions/0007-casting-production-inputs.md)
 is proposed for production adoption. [Execution evidence](../../../../../../docs/evidence/casting-production-inputs.md)
 owns which checks actually ran.
 
-HTTP remains a planning data pipeline: requests do not call TTS/LLM, install a runtime, reserve
-money or create accepted audio. Two reference entries keep `reference_only: true`. The local
-eSpeak NG 1.52.0 descriptor exposes adapter-supported Vietnamese identities with
-`reference_only: false`; runtime presence is checked by the explicit local probe. Four Google
-Cloud TTS entries (`google-chirp3-hd`, `google-neural2`, `google-wavenet`, `google-standard`)
-declare the documented vi-VN voices and controls of [ADR 0011](../../../../../../docs/decisions/0011-google-cloud-tts-adapter.md),
-not account availability. Like eSpeak, a Google binding freezes only with an explicit `neutral`
-delivery at intensity `0` and text admissible to that adapter (`invalid_google_text`,
-`google_text_too_large`); resolved lines pin `google-cloud-tts-synthesize-3` and
-`wav-pcm-s16le-mono-24000-v1`. Every entry keeps `billable_dispatch_available: false`.
-Approval grants no agent permission to spend. The [receipt contract](../../../historical/tts-receipt-v1.md) owns the
-separate user-invoked local and Google sample probes. The JSON Schema enumerates every
-implemented provider, model, voice, adapter version and output contract; the server remains
-authoritative for which combinations a capability allows.
-
-The optional `vieneu-nano-local` descriptor appends a separate research-only entry with its
-exact pinned model, `duc-tri`/`my-duyen` presets and neutral/default controls. It has
-`reference_only: false` but `billable_dispatch_available: false`; this denotes a concrete research
-adapter, not production rights. Its invocation boundary refuses production before runtime/model
-I/O independently of approval. Model/preset provenance and live evidence are recorded in
-[the neural slice](../../../../../../docs/evidence/local-neural-tts.md). Existing entries, catalog version,
-production-p1 encoding, frozen snapshots, shared DTOs and JSON Schema are unchanged.
+HTTP is a planning data pipeline: it never calls TTS/LLM, installs a runtime, reserves money or
+creates accepted audio. The versioned provider/model/voice descriptors and frozen adapter/profile
+names are preserved planning metadata, including legacy `reference_only` fields. They do not
+prove a local runtime is installed or a commercial account/voice is available. Every entry has
+`billable_dispatch_available: false`. [ADR 0018](../../../../../../docs/decisions/0018-external-audio-production.md)
+owns the current external-production boundary; local/Google/neural sample execution in older
+ADRs and receipt records is retired Server history. Producers separately record provenance,
+rights and actual execution evidence. JSON Schema and domain validation still own allowed combinations.
 
 ## Routes and current permissions
 
@@ -123,7 +109,7 @@ For each dialogue, count Unicode scalar values of resolved effective text and co
 independently rounded line estimates and their units with checked bounds; dialogue is the
 future send unit. No binary floating point or provider billing assumption is used.
 Equal-to-budget is permitted; greater-than-budget
-blocks. Versions, unit/rate/money values remain within the PostgreSQL signed 64-bit contract;
+blocks. Versions, unit/rate/money values remain within the signed 64-bit contract;
 overflow is rejected explicitly. Input integer fields require integer JSON tokens in Rust;
 JSON Schema implementations may admit integer-valued decimal spellings, so server admission is
 authoritative at that boundary. Unknown is neither zero nor unlimited.
@@ -183,15 +169,12 @@ path and inert detail. Studio copy localizes typed findings; a disabled control 
 
 ## Persistence, retry and bounds
 
-Migration 0006 appends `production_settings`, `production_rights_claims`,
-`production_snapshots` and `production_approvals` on the same PostgreSQL authority. Immutable
-triggers reject update/delete/truncate. Runtime roles get SELECT/INSERT on production facts and
-EXECUTE on the migration-owner's narrow `production_lock_actor(text)` /
-`production_lock_member(text,text)` helpers. No authority-table UPDATE privilege is granted.
-Fixed search path/qualified SQL and revoked PUBLIC execution bound these share-lock helpers;
-[server rollout grants](../../../../README.md#casting-and-production-input-authorization)
-name the exact signatures. Current actor,
-session, owner/membership and script locks make permission checks and decisions transactional.
+Native migration 19 owns production settings, rights, snapshots and approvals in `server.db`.
+Immutable guards reject UPDATE/DELETE and replacement/upsert attempts; the application uses
+checked constructors and the serialized writer for current actor/session/membership checks.
+There is no embedded equivalent of PG roles, EXECUTE grants or SECURITY DEFINER lock helpers.
+The [native mapping](../../../../../../docs/architecture/server-turso/remaining-pg-retirement.md)
+records the trust shift and test roots. Original PG SQL/checksums remain historical inputs.
 The operation identity is `(script, actor, operation_id)` within each operation kind; exact
 serialized request values reconcile one original record. Changed requests under an existing
 key return `operation_reused`; retries do not bypass current backend access. The client keeps

@@ -7,10 +7,10 @@ and the [checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary
 
 | Order | Owner | Next reviewable boundary | Acceptance dependency |
 | --- | --- | --- | --- |
-| 1 | [#333](https://github.com/loveoverflowcom/cantos/issues/333) | Port each business schema/adapter and retained PG oracle to file-backed Turso; repair historical ownership inventory inputs without changing their meaning | Preserve invariant mappings, immutable migrations, writer/admission/receipt semantics; opening the owner is not HTTP parity |
+| 1 | [#333](https://github.com/loveoverflowcom/cantos/issues/333) | Qualify remaining native parity/tooling gaps against the implemented business adapters and retired-oracle ledger; do not re-port completed contexts | Preserve invariant mappings, immutable migrations, writer/admission/receipt semantics; opening the owner is not HTTP parity |
 | 2 | [#335](https://github.com/loveoverflowcom/cantos/issues/335) | Qualify actual Server/Identity HTTP and Web cookie/native Bearer journeys and rebind remaining provider-era policy tests | Existing RPC, actor/session foundation and first-party consumers; do not rebuild them or restore provider workflows |
-| 3 | [#336](https://github.com/loveoverflowcom/cantos/issues/336) | Accept two production binaries/two files, Linux isolation, D1 Kani, restore/migration rehearsal and comparable footprint | Independent core/model/file evidence stays separate from browser/device and deployed acceptance |
-| 4 | [#384](https://github.com/loveoverflowcom/cantos/issues/384) | Measure one ready consumer, optimize Turso SQL/index, then evaluate one selective cache | The measured module's native port and production representation, including `presentation=1`; incremental engines DEFER |
+| 3 | Qualification evidence; residual ownership must be confirmed | Reconcile remaining process, restore/migration, Linux/Kani and footprint evidence against actual current inputs | The closed #336 campaign is historical; closure does not refresh its unrun/source-bound evidence |
+| 4 | [#384](https://github.com/loveoverflowcom/cantos/issues/384) | Measure one ready consumer, optimize Turso SQL/index, then evaluate ArcSwap snapshots or bounded Quick Cache entries (no Moka) | The measured module's native port and production representation, including `presentation=1`; incremental engines DEFER |
 | 5 | [#348](https://github.com/loveoverflowcom/cantos/issues/348) | Qualify exact OCI pair/admission and the same-schema NATIVE_READY upgrade/recovery consumer; separately implement first-native/legacy cutover | Packaging source exists; native acceptance, production inventory and operator authorization precede host effects |
 
 New native and release work branches from latest `origin/develop` and targets `develop`.
@@ -30,8 +30,9 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
   JVM interaction and Android artifacts do not establish iOS/device or screen-reader acceptance.
   Preserve typed errors, saved-preference refusal/retry and arbitrary content-language tags.
   The [three-PR integration review](../evidence/localization-review-511-513.md) records bounded
-  generator repairs stacked on the unmerged CMP branch; retain its dependency before eventual
-  `develop` integration and the separate native/release acceptance checks.
+  generator repairs and their original stacked-branch provenance. CMP generated resources and
+  those repairs are now present in `develop`; do not schedule their original integration again.
+  Native formatter/release acceptance remains separate.
 
 - Studio CMS acceptance: preserve the [combined authoring, private-audio and publication
   boundary](../evidence/studio-cms-editorial-20261023.md) and qualify the remaining browser,

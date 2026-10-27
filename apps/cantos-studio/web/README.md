@@ -7,13 +7,14 @@
 > controls retain separate browser and production acceptance boundaries
 > ([#66](https://github.com/loveoverflowcom/cantos/issues/66), [#8](https://github.com/loveoverflowcom/cantos/issues/8)).
 
-`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the native Axum/Turso (business port incomplete)
+`cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the native Axum/Turso
 revision API. Its text-first workspace has scene/act/character navigation, native dialogue,
 narration, emotion, pronunciation and cue controls, and a source/validation/change inspector.
 Import, proposal review and accepted-revision editing keep their state mounted when switching
 workspace sections. Advanced complete JSON is optional; unsupported documents stay available
 there without projection or silent field deletion. Casting and immutable production-input
-review use that same authority; audio production and Cantos Theatre remain planned. Cantos
+review use that same authority. External producers own audio production; Theatre Web/CMP
+consume published releases, with their own runtime acceptance. Cantos
 provides a data/tool pipeline: generation belongs to the user's chosen Gemini, ChatGPT or Codex
 host under their control. Cantos has no AI API client or generation runtime. Fixture and live host
 evidence are separately recorded in the
@@ -60,7 +61,8 @@ The explicit, manual `deploy firebase` can publish this app's static bundle to F
 use the explicit Cantos API origin. [#295](https://github.com/loveoverflowcom/cantos/issues/295)
 selects Web cookies on the custom domains; this client now consumes the
 [Identity auth v1](../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie session. Direct-origin
-sign-in remains gated by backend/browser acceptance (none ran). Never upload private Studio content to a preview, which is public.
+sign-in has bounded [loopback evidence](../../../docs/evidence/post-merge-integration-20261023.md);
+HTTPS/deployed and broader browser acceptance remain separate. Never upload private Studio content to a preview, which is public.
 Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
 name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
 [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
@@ -76,8 +78,8 @@ startup or change the existing private/session cache boundary.
 `cargo xtask run cantos-studio --web` starts the native Server + Identity with private files,
 explicit migrations, distinct surface origins and Trunk on 8081. `app cantos-studio --web`
 starts only Trunk against an API already listening. Retained-PG `--test-cluster`/`verify postgres`
-commands are retired; prior browser walkthroughs remain source-bound history. Business porting
-and actual browser/login acceptance are separate from build/source checks.
+commands are retired; prior browser walkthroughs remain source-bound history. Native business
+adapters are implemented; browser/login and production acceptance remain separate from build/source checks.
 
 ## Login entry and writing desk
 
@@ -199,12 +201,15 @@ constant, `REVISION_CODEC`, picks JSON (shipped) or the explicitly configured Pr
 Responses are decoded by their own `Content-Type`, and a request is never retried in the other
 representation. The [pilot build and rollback](#protobuf-pilot-build-and-rollback) section records
 the activation boundary and commands. The browser does not decide backend permissions or Script IR validity.
-`services/cantos-server/src/contract/` is shared with Axum; no server crate enters the WASM dependency graph.
+Studio owns `src/contract/`; Axum owns a separate representation under
+`services/cantos-server/src/contract/`. Both check the canonical service-owned schemas and
+fixtures ([ADR 0046](../../../docs/decisions/0046-service-owned-contracts.md)); no server crate enters WASM.
 
-Vietnamese/English resources cover every async/error state. The root owns a typed `Locale`
-(`vi-VN` first render) and mirrors it onto `<html lang>`; namespaces not yet migrated read a
-read-only `english` adapter until the [localization decision](../../../docs/evidence/leptos-localization-spike.md)
-is recorded. The switch writes only that locale signal, never draft or session state. Semantic labels, polite status,
+The accepted [semantic catalog](../../../packages/localization/README.md) generates app-owned
+resources and the supported locale registry under [ADR0050](../../../docs/decisions/0050-localization-semantic-catalog.md).
+The root locale owner mirrors the selected tag onto `<html lang>` and persists explicit choices;
+storage refusal is visible. Switching locale preserves draft/session state. The original
+[localization spike](../../../docs/evidence/leptos-localization-spike.md) is historical evidence. Semantic labels, polite status,
 visible focus and keyboard-operable controls use native HTML. Guarded aria-disabled actions
 remain focusable with a reason. No animation or audio is implemented. Page-return handling
 reapplies controlled values if Safari restores WASM state but clears autocomplete-off fields.
@@ -445,7 +450,7 @@ attempt, is listed). Grant status text never relies on color; "expired" compares
 The four revision/validation routes have a typed Protobuf transport configured by the
 `revision-protobuf` Cargo feature. No feature is enabled by default: the shipped build remains
 JSON while [ADR 0023](../../../docs/decisions/0023-versioned-protobuf-wire.md)'s compatibility,
-PostgreSQL, browser and performance activation gates remain open. The opt-in build is for
+Native persistence/HTTP, browser and performance activation gates remain open. The opt-in build is for
 explicit pilot validation, not evidence that those gates passed.
 
 From the repository root, using the same installed tools/profile for both builds:
@@ -470,7 +475,7 @@ continues to call Studio routes rather than introducing a legacy-alias consumer.
 
 Host tests exercise the real pure wire adapter against independent Python goldens and the real
 editor reducer. They do not establish actual browser network counts, AbortController behavior,
-proxy behavior or PostgreSQL acceptance. Those are independent runtime gates, including save,
+proxy behavior or native persistence acceptance. Those are independent runtime gates, including save,
 lost body, timeout/navigation cancellation, exact reload and JSON rollback.
 
 ## Private Work artwork

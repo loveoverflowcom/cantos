@@ -48,10 +48,10 @@ and P/Q different canonical contact intents under the future accepted policy.
 | Scenario | Required observation / policy to settle | Independent oracle and layer |
 | --- | --- | --- |
 | Submit X/P, then replay X/P | Return the same authoritative receipt/result without a second application | Pure classification; real row/count/identity comparison after replay and restart |
-| Concurrent X/P on two connections | One durable intent/receipt association; neither response invents a receipt | Real PostgreSQL transaction race and final persisted result |
+| Concurrent X/P on two connections | One durable intent/receipt association; neither response invents a receipt | Real file-backed Turso writer race and final persisted result |
 | Reuse X with Q or incompatible intent version | Typed conflict and unchanged X/P; define canonical binding before computing it | Independent expected binding vectors; real no-row-change assertion |
 | Submit Y/P when X/P is already current | Distinguish `duplicate-current` from same-operation replay; select uniqueness scope and which per-intent outcome Y records | Pure duplicate matrix, then concurrent SQL including two accounts; no disclosure of another account's contact |
-| Commit X/P, drop response, restart | Remain unknown until authorized reconciliation or same-X/P retry confirms the persisted result | Fault injection after commit/before response, host and PostgreSQL restart, compare exact receipt |
+| Commit X/P, drop response, restart | Remain unknown until authorized reconciliation or same-X/P retry confirms the persisted result | Fault injection after commit/before response, host and Turso owner restart, compare exact receipt |
 | Reconcile while original request is still in flight | A momentary missing row is not proof of definite failure; keep X/P bound and retry safely | Pause before commit, read from a second connection, resume write; no new Y/Q while X is unresolved |
 | Reject before commit or storage is unavailable | Typed definite rejection versus unknown outcome; no fake success; define which failures leave a durable operation binding | Transaction rollback/fault injection with unchanged-state and exact response assertions |
 | Edit after known failure versus unknown | Unchanged known-failure retry keeps X/P; permitted edit starts a new intent only after definite failure; unknown stays bound | Shared Web/CMP accepted vectors for fields, operation and callback fence |
@@ -92,8 +92,8 @@ and P/Q different canonical contact intents under the future accepted policy.
 | L2/L3 preview diagnostic privacy | New deterministic redaction regressions for draft/payload and nested state/attempt formatting; actual output belongs in the PR | Does not audit raw-field logging, durable storage or all diagnostic sinks |
 | L2 production intent/receipt and errors | BLOCKED / NOT_RUN; contract decisions unresolved | Backend and Web/CMP reviewers, unassigned; accept worksheet/fixtures, then `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | L4 production orchestration / mocked integration | NOT_RUN; no submit/reconcile adapter added | Backend owner, unassigned; after accepted core, exercise exact timeout/retry/error paths via the affected Rust suites; report named doubles |
-| L5 real PostgreSQL and HTTP | BLOCKED / NOT_RUN; no production contract/migration/route | Backend/identity owners, unassigned; after implementation, `cargo xtask verify postgres` on a disposable cluster; all applicable matrix races/restart/denial cases required |
-| L5 Web/CMP live and native/provider acceptance | BLOCKED / NOT_RUN; no receipt adapter or accepted contact collection | #129/#130 with #12; `cargo xtask verify web`, `cargo xtask theatre-demo verify`, then named real browser/device/provider observations for the implemented flows; builds/JVM tests are insufficient |
+| L5 native Turso and HTTP | BLOCKED / NOT_RUN; no production contract/migration/route | Backend/identity owners, unassigned; after implementation, `cargo xtask verify turso` plus the future Server-owned native HTTP/receipt tests; all applicable matrix races/restart/denial cases required |
+| L5 Web/CMP live and native/provider acceptance | BLOCKED / NOT_RUN; no receipt adapter or accepted contact collection | #129/#130 with #12; `cargo xtask verify web`, `cargo xtask theatre-preview verify`, then named real browser/device/provider observations for the implemented flows; builds/JVM tests are insufficient |
 
 Handoff runs `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only`
 on the final diff and records exact selected gates/output in the PR. There is no new fixture

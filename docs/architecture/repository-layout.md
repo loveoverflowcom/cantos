@@ -26,11 +26,11 @@ anonymous public discovery Home, published-unit playback and separate account/au
 Save, progress, history and resume synchronization, with an explicit session-only UI mock at
 `?mode=mock`. Real issuer, multi-device and deployed playback/delivery acceptance remain separate. See the
 [Web implementation boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
-Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md): its
+Theatre Mobile has a [live production composition and isolated preview](../../apps/cantos-theatre/mobile/README.md): its
 production-safe `:shared` KMP module contains the UI/domain/application and ports, and the
 separate JVM-only `:preview-sandbox` module contains mock external ports and Desktop Preview composition.
 A production Android host composes `:shared` only. Its debug build browses the anonymous public
-catalog through a production HTTP adapter when an API origin is configured (`cargo xtask
+catalog through a production HTTP adapter using an admitted API origin (explicit override or `https://api.cantos.cc` default) (`cargo xtask
 theatre-host android-debug`); release accepts an explicit HTTPS origin, and its release graph
 and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host android-release`.
 The separate iOS `Cantos` project/scheme links the `CantosTheatre` production framework from
@@ -63,7 +63,7 @@ apps/
 services/
   cantos-forge-functions/  Producer core/local CLI outside the API (package cantos-forge) FOUNDATION
     behavior/              Module-owned Quint model, manifest and capability document (registered in specs/behavior/catalog.json)
-  cantos-server/           Rust + Axum + embedded Turso (business port incomplete) (package cantos-server)  IMPLEMENTED
+  cantos-server/           Rust + Axum + embedded Turso (native business adapters; production acceptance separate) (package cantos-server)  IMPLEMENTED
     contracts/             Canonical Studio/Theatre/Admin/auth schemas, protos, fixtures by surface/module/version
     behavior/              Module-owned Quint models, manifests and capability documents, grouped by context (media/, identity/)
     src/contract/          The Server's own Rust representation of those contracts (a wire leaf)
@@ -116,7 +116,7 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   module/source checks from the production host's release artifact checks; a demo build never
   stands for them.
 - **RELEASE BOUNDARY** is the production Android host (`com.cantos.theatre`): a real application
-  module that composes `:shared` only and browses the real catalog when an API origin is configured.
+  module that composes `:shared` only and browses the real catalog using an admitted API origin (explicit override or `https://api.cantos.cc` default).
   Its unsigned release graph and APK/AAB are inspected for sandbox exclusion; catalog integration
   does not establish native listening, a signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
@@ -187,19 +187,20 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   implemented. The API is split by surface into three route groups with separate routers, DTO modules, authentication
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
   core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
-  (opt-in [Admin capability/revocation and audit](admin-authorization.md); live provider acceptance pending; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
+  ([Admin capability/revocation and audit](admin-authorization.md) core; no composed native verifier, so production fails closed; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
   Domain rules and the one Server Turso owner stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
-  Adaptation, reference-only Production, pure Media inspection and the internal Catalog
-  API, plus immutable Production Brief export and scoped development read grants; external
-  audio intake and publication remain planned ([API contexts](api-contexts.md)).
+  Adaptation, Production planning/rights/instructions, Catalog/Content, Media private intake/review/publication
+  and Listening/Library, plus immutable Brief exports and scoped producer grants. Live delivery
+  and browser/device acceptance remain separate ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
 - **Firebase Hosting is configuration, not code.** `infra/firebase/hosting/` holds the tracked
   Hosting policy and a mapping example for the explicit, manual
   `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
-  Web app's static bundle: the Server, Identity and storage stay outside it. The VPS
-  [edge](../../infra/edge/README.md) serves those bundles and the API on one origin per app
-  ([ADR 0039](../decisions/0039-vps-production-runtime.md)).
+  Web app's static bundle: the Server, Identity and storage stay outside it. The retained VPS
+  [edge](../../infra/edge/README.md) describes the legacy same-origin topology;
+  [ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) selects direct static Hosting
+  with an explicit API origin and exact per-surface CORS.
 - **Infrastructure and command orchestration are separate.** [`infra/`](../../infra/README.md)
   owns deployment/runtime assets, including the edge configuration and Firebase Hosting policy.
   `xtask/` owns typed command planning, validation and explicit execution, not a second copy of

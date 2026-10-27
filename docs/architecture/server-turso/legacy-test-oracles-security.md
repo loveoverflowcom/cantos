@@ -1,5 +1,10 @@
 # Security and schema PostgreSQL oracle inventory
 
+> **Historical source-only review.** NEEDS_PORT and missing-adapter statements below describe
+> the original pinned inventory, not current `develop`. The subsequent
+> [native retirement mapping](remaining-pg-retirement.md) and [exact oracle ledger](remaining-pg-oracles.json)
+> supersede those porting conclusions. Preserve the old assertions and evidence as history.
+
 > Source-bound record of the earlier six-file retirement (#395). The remaining 17 files are now
 > retired by [the native port](remaining-pg-retirement.md), with an [exact 183-test mapping](remaining-pg-oracles.json).
 > Historical environment/NEEDS_PORT observations below apply only to their pinned source.

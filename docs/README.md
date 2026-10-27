@@ -4,8 +4,9 @@ Read the [product brief](product/brief.md), [architecture overview](architecture
 and the relevant owning contract before implementing. The [current queue](work-plan/README.md)
 contains next steps; GitHub issues and PRs own live execution status.
 
-The current working branch is an [incomplete native checkpoint](architecture/server-turso-porting.md#checkpoint-boundary).
-Its boundary takes precedence over legacy operating instructions while the context port is unfinished.
+The [native source boundary](architecture/server-turso-porting.md#checkpoint-boundary) uses Turso
+for all Server business contexts. Native HTTP, browser/device, restore and deployed acceptance
+remain separately qualified; legacy PG/provider instructions are historical recovery inputs.
 
 ## Authority and lifecycle
 
@@ -39,14 +40,14 @@ then [Identity auth v1](../services/cantos-server/contracts/auth/identity-auth/v
 | --- | --- |
 | Product scope and invariants | [Brief](product/brief.md), [business rules](product/business-rules.md), [production pipeline](product/production-pipeline.md) |
 | Runtime boundaries and repository ownership | [Overview](architecture/overview.md), [API contexts](architecture/api-contexts.md), [single-listener Server composition](architecture/server-http-composition.md), [layout and platform matrix](architecture/repository-layout.md), [services](../services/README.md), [infra assets](../infra/README.md) |
-| Persistence and remaining business port | [Shared store](../packages/store-turso/README.md), [readiness](architecture/native-persistence-readiness.md), [porting guide](architecture/server-turso-porting.md#checkpoint-boundary); PG schema/cutover material is historical migration input |
+| Persistence and native acceptance | [Shared store](../packages/store-turso/README.md), [readiness](architecture/native-persistence-readiness.md), [porting guide](architecture/server-turso-porting.md#checkpoint-boundary); PG schema/cutover material is historical migration input |
 | Catalog, content, briefs and private audio | [Contract index](../services/cantos-server/contracts/README.md), [API service guide](../services/cantos-server/README.md), [live client matrix](work-plan/live-client-api-matrix.md) |
-| Private storage and owner artwork | [Object storage](architecture/object-storage.md), [artwork contract](../services/cantos-server/contracts/studio/artwork/v1/README.md); public cover policy accepted in [ADR 0033](decisions/0033-release-pinned-public-cover.md); Server backend (disclosure, `presentation=2`, origin cover route) implemented by #171, Web/CMP adoption pending (#158/#159) |
+| Private storage and owner artwork | [Object storage](architecture/object-storage.md), [artwork contract](../services/cantos-server/contracts/studio/artwork/v1/README.md); public cover policy accepted in [ADR 0033](decisions/0033-release-pinned-public-cover.md); Server backend (disclosure, `presentation=2`, origin cover route) implemented by #171, Web/CMP consumers implemented; browser/device and deployed acceptance remain separate (#158/#159) |
 | Publication and listener delivery | [Publication contract](../services/cantos-server/contracts/studio/publication/v1/README.md), [delivery evidence gates](decisions/0038-publication-streaming-evidence-gates.md), [origin-mode proposal](decisions/0032-theatre-origin-playback-delivery.md), [catalog state handoff](work-plan/theatre-catalog-state-handoff.md) |
 | Identity and account activation | [Identity v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md), [RPC](../services/cantos-identity/contracts/identity/v1/README.md), [registry](architecture/identity-registry.md), [Identity service](../services/cantos-identity/README.md); Web cookie/native Bearer, browser/device acceptance separate |
 | Producer tools and private drafts | [Forge ADR](decisions/0022-cantos-forge-producer-cli.md), [Forge implemented commands](../services/cantos-forge-functions/README.md), [worker acceptance](deployment/forge-worker.md), [story workspace](production/story-workspace.md) |
 | Script/editor and production craft | [Script IR](architecture/script-ir.md), [editor acceptance](assurance/script-editor-acceptance.md), [radio score](production/radio-score.md), [craft](production/audio-drama-craft.md), [listening protocol](production/listening-review-protocol.md) |
-| Semantic localization | [Accepted ADR0050](decisions/0050-localization-semantic-catalog.md), [resource/runtime owner](../packages/localization/README.md), [Web #506 evidence](evidence/web-localization-506.md); CMP/native adoption remains #507 |
+| Semantic localization | [Accepted ADR0050](decisions/0050-localization-semantic-catalog.md), [resource/runtime owner](../packages/localization/README.md), [Web #506 evidence](evidence/web-localization-506.md); CMP text/locale generation is implemented; native formatter qualification remains #507 |
 | Web/CMP UI | [UI system](design/ui-system.md), [shared preview catalog](../packages/ui-system/README.md), [mobile architecture](architecture/mobile.md), [UI migration](architecture/ui-system-migration.md) |
 | Wire transport | [Wire codec](architecture/wire-codec.md), [Protobuf policy](../services/cantos-server/contracts/studio/editorial/v1/protobuf.md); JSON default and existing MessagePack compatibility remain scoped |
 | Local checks and deployment | [xtask](../xtask/README.md), [seeded Theatre catalog runbook](deployment/theatre-seeded-catalog.md), [retained legacy topology/runbook](deployment/vps-production.md), [Hosting tooling](deployment/firebase-hosting.md), [Cloudflare Pages publisher](deployment/cloudflare-pages.md), [CircleCI artifact builds](deployment/circleci-builds.md), [Google Secret Manager custody and `secrets` helper](deployment/google-secret-manager.md) |

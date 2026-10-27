@@ -17,10 +17,10 @@ is historical; do not restart it at completed #66.
 | Scoped private Audio Lifecycle and filesystem/S3 adapters | #7/#9/#10: real integrity, authorization, review and private-provider acceptance |
 | Publication core and immutable release pointers | #11/#170: accepted delivery policy, configured real storage/Range/expiry/withdrawal, retained-release safety |
 | Discovery and separate Library/Progress backend | #172: public-state/pagination gaps; #13/#14 real Web/native audio; #15/#16/#17 background/offline/sync |
-| Kanidm identity adapters and default-disabled Firebase enrollment | #174/#191/#206: accept real signup/login under [ADR 0036](../decisions/0036-firebase-enrollment-proof.md); reuse the implemented mailbox-proof/one-shot-setup flow, with privilege, action-ingress and live origin/session gates still separate |
+| Native Identity password/mailbox facts and Server sessions | Reuse [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md) and the [verification-only provider bridge](../architecture/firebase-verification.md); qualify remaining #334/#335 browser/device/origin/recovery gates without provider login or OIDC setup |
 | Forge local artifact/register/validate/export foundation | #203: shared local/Functions producer execution with private Drive drafts, then explicit API admission |
-| Infrastructure assets and command surface | #212 separates edge/Hosting assets into `infra/` from `xtask` orchestration; no deployment acceptance or Forge move. #203 owns the future producer service-location and concrete Functions consumer |
-| Manual Hosting and demo distribution tooling | #199/#184: separately authorized live-origin or tester acceptance |
+| Infrastructure assets and command surface | #212 separates edge/Hosting assets into `infra/` from `xtask` orchestration; no deployment acceptance or Forge move. #203 owns the remaining trusted invocation and concrete Functions/provider/Drive execution |
+| Manual Hosting and development/production APK distribution tooling | #199/#184: separately authorized live-origin or tester acceptance |
 | Build-only release packaging and requested Cloudflare transition | #277 artifact promotion → #278 selected publisher → #280 real cutover/recovery/Hosting retirement; #279 submit/status is optional. Independent runbook/offline-report source does not satisfy live acceptance. Reconcile #237's old Firebase naming portion rather than running it in parallel. |
 
 Public-cover (#157/#171), P1 metadata/transcripts (#177/#178), optional membership (#175/#176),
@@ -40,9 +40,10 @@ than adding another dependency/status table per session.
 - **Theatre:** real authorized releases, seek/expiry/withdrawal, native lifecycle and durable
   progress/offline behavior on the named clients. A mock player or empty discovery page is not
   listening acceptance.
-- **Identity:** authorized mailbox proof, safe setup delivery and genuine OIDC/API session
-  evidence under reviewed provider/issuer authority and origins; local fixtures and a registration
-  receipt never establish authenticated access. Keep unaccepted activation disabled.
+- **Identity:** operation-bound mailbox proof, safe email-action return, native password facts
+  over authenticated private RPC and correctly scoped Server sessions (Web cookie/native Bearer).
+  Local fixtures, a proof or registration receipt never grant a session or Studio/Admin authority;
+  qualify remaining browser/device, restore and deployed gates independently.
 - **Forge:** local/cloud parity, authorized private draft I/O, recorded billable attempts and
   uncertain-outcome recovery, followed by explicit admission; generation never publishes.
 

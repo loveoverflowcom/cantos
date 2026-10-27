@@ -20,8 +20,9 @@ flowchart TD
 ```
 
 Solid edges describe implemented source boundaries, not full deployed/runtime acceptance.
-The embedded owner, actors and native session foundation exist; business migration slots and
-PostgreSQL-shaped context queries remain unported. Dashed Forge edges describe #203's planned
+The embedded owner, actors, native sessions and all Server-owned business adapters use Turso.
+Migrations 12–23 implement the business ports; v24 adds public-cover disclosures. Immutable
+placeholder versions 4–11 remain registered history, not unfinished implementation slots. Dashed Forge edges describe #203's planned
 trusted invocation, provider/Drive execution and API handoff; local artifact/attempt/worker cores
 exist, HTTP fails closed. Static Hosting/Pages, Functions and OCI hosting have independent owners.
 
@@ -39,7 +40,8 @@ Pure typed domain decisions sit inside application use cases and context-owned p
 HTTP/storage adapters. Editorial/Ingestion/Adaptation retain immutable revisions and provenance;
 Catalog/Content own Works/Units and revisions; Production owns instructions, rights and read grants;
 Media/Publication own private admission, QC/approval and immutable release pointers; Listening
-owns account-scoped Library/progress. Apps share contracts, never service crates or each other's UI.
+owns account-scoped Library/progress. Apps consume service-owned contracts through their own representations, never service crates
+or each other's UI.
 
 <a id="data-and-delivery"></a>
 
@@ -50,10 +52,12 @@ from an old TTS/DBSP document.
 
 ## Current evidence and next work
 
-[Readiness](native-persistence-readiness.md) separates foundation from #333 business porting,
-#335 HTTP/browser/device integration and #336 restore/Kani/isolation/footprint acceptance.
+[Readiness](native-persistence-readiness.md) separates implemented native persistence from
+#333/#335 parity and HTTP/browser/device qualification. The #336 records retain source-bound
+restore/Kani/isolation/footprint evidence and gaps; issue closure is not a fresh runtime result.
 [Read optimization](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
 follows #384: measured Turso SQL/index first, selective cache later; incremental engines DEFER.
-Historical SQL, migration checksums, mappings and PG tests remain immutable porting oracles;
+Historical SQL/checksums and commit-pinned PG tests remain migration oracles;
+the [native replacement ledger](server-turso/remaining-pg-retirement.md) owns retired-test dispositions;
 source-bound PASS is never current native acceptance. [#348](../deployment/native-oci-release.md)
 owns OCI production admission/activation separately. No source cleanup deletes data or changes a host.

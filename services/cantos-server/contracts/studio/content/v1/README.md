@@ -2,7 +2,7 @@
 
 This implemented JSON API adds immutable content beneath existing Catalog Work/ContentUnit
 identity. [ADR 0019](../../../../../../docs/decisions/0019-content-identity.md) owns the authority split.
-Shared raw DTOs: [content.rs](../../../../src/contract/studio/content.rs); [JSON Schema](content.schema.json);
+Server-owned raw DTOs: [content.rs](../../../../src/contract/studio/content.rs); [JSON Schema](content.schema.json);
 [synthetic fixtures](fixtures/README.md). It creates no audio or production brief.
 
 ## Routes
@@ -27,7 +27,7 @@ There is no edit, delete, review, approval, upload or publication endpoint for a
 
 Append requires a new canonical lowercase UUID `id`, actor-scoped UUID `operation_id`,
 `expected_revision` (content sequence, 0 for first append), positive `expected_work_revision`
-and `details`. Sequence counters stay within PostgreSQL signed 64-bit range. No caller may
+and `details`. Sequence counters stay within signed 64-bit range. No caller may
 supply owner, timestamps, lifecycle, recorded actor, digests or current head. Unknown fields
 are rejected, including fields on the empty recording variant.
 
@@ -75,7 +75,8 @@ text/note and sorted rights refs. Semantic body variant and language remain expl
 
 Stored DTOs are reparsed through domain constructors; recomputed digests and relational IDs,
 sequence and actor must agree. The head foreign key binds unit, revision ID and sequence.
-UPDATE/DELETE/TRUNCATE of revisions are rejected by PostgreSQL; corrections append.
+Turso schema guards reject revision UPDATE/DELETE and replacement/upsert attempts; corrections append.
+PostgreSQL TRUNCATE/role enforcement survives only in historical migration records.
 
 ## Authorization, retries and errors
 

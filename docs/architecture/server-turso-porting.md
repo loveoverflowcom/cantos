@@ -1,10 +1,9 @@
-# Porting one Server context from PostgreSQL to embedded Turso (`server.db`)
+# Server persistence on embedded Turso (`server.db`)
 
-Audience: an engineer/agent porting ONE context. Read this fully, then the sources it names.
-Goal of the whole migration: `cantos-server` serves every use case from ONE embedded Turso file
-(`server.db`) with the same domain meaning, API behavior, IDs, revisions, hashes, receipts and
-immutability as the PostgreSQL implementation. PostgreSQL is being deleted; there is no fallback,
-no dual write, no compatibility shim at the end.
+This is the maintenance reference for native Server persistence. The business port is implemented;
+remaining parity, data-conversion and production acceptance are separate. Preserve IDs, revisions,
+hashes, receipts and immutability in the one embedded `server.db`. There is no PG fallback or dual write.
+The original per-context task allocation is historical; it does not constrain today's documentation work.
 
 ## Checkpoint boundary
 
@@ -35,7 +34,8 @@ This is source and local behavioral evidence, not completed production or data-c
 The invariant is unchanged ownership and immutable receipts while swapping storage; the current
 foundation tests cover checked rows, transaction rollback, writer ordering, snapshots, session
 admission and unknown commit outcomes. Each context port must add its own real-file evidence.
-No queue ordering change is needed: context porting remains the next dependency.
+New work qualifies or repairs concrete gaps in the existing ports; do not schedule already
+implemented contexts again. Version 24 adds `media_cover_disclosures` after the business port.
 
 ## 0. The pieces that already exist (do not rebuild them)
 
@@ -50,8 +50,8 @@ No queue ordering change is needed: context porting remains the next dependency.
 
 PostgreSQL source of truth for your tables, constraints, functions and triggers:
 `services/cantos-server/schema/0001_current.sql` (+ `0002`/`0003`/`0004`). The pinned PostgreSQL adapter history is the behavioral comparison source; current adapters
-are `src/contexts/<ctx>/turso*.rs` (name varies). PG-era integration tests were moved to
-`services/cantos-server/legacy-pg-tests/**` (if present): they are your regression oracles.
+are `src/contexts/<ctx>/turso*.rs` (name varies). The former `services/cantos-server/legacy-pg-tests/**` tree is retired; use its pinned
+history and native replacements as regression references.
 The [coverage ledger](server-turso/legacy-test-oracles.md) inventories all retained files,
 assertions and partial native mappings. It establishes no whole-file parity. The direct
 `scripts/test_postgres.py` entrypoint refuses before setup; its unreachable historical implementation is removed. Keep unmatched oracles until the owning native boundary runs.
@@ -139,42 +139,20 @@ decode through checked narrowing. An `INSERT` names its columns, so a rebuilt or
 cannot silently rebind positional parameters; `SELECT *` stays acceptable only where the decoder
 reads by column name.
 
-## 3. Your work product (in this order)
+## 3. Maintaining a context
 
-1. Read: this guide; your tables in `0001_current.sql` (and later versions) incl. every function/trigger
-   that touches them; your adapter files; your application use cases (`src/contexts/<ctx>/application*`);
-   the owner docs for the domain (`docs/**` named in AGENTS.md and the matching `.agents/skills/cantos-*`
-   `SKILL.md` that owns the domain: engineering, and the context's owner skill); the legacy PG tests.
-2. Inventory: for your tables list every PG constraint/trigger/function/index and its Turso mechanism
-   (section 6), plus every PG-ism in your adapter SQL.
-3. Migration: `src/platform/turso/<context>.sql` at your assigned version; register in `MIGRATIONS`.
-   Fail-closed CHECKs, FKs, guards, indexes with the same predicates as PG (add only what is needed).
-4. Adapter: rewrite SQL in your context's persistence adapter; rename the adapter module from `postgres`
-   to `turso` (file `turso.rs` / `turso/` dir) and fix imports; remove all `FOR …` (the PostgreSQL-era
-   `LockMode` argument no longer exists).
-   Keep function signatures/decisions where possible so application code changes stay small.
-5. Application: restructure units only where required by rule 4 (no I/O in a unit, no nested units),
-   replace `clock_timestamp()` style time by `tx.now_micros()`, keep session admission in the unit.
-6. Tests (file-backed, no PostgreSQL, no network):
-   - schema tests: each CHECK/guard/FK/immutability reached through the engine (not through the adapter),
-     including REPLACE/upsert bypass attempts;
-   - adapter tests over `ServerFixture`: success, conflict/zero-row, replay/idempotency, rollback after a
-     failed step, restart (`restart()`), lost-acknowledgement for receipt writes, corrupt-row decoders
-     (write a bad row with fixture SQL → `CorruptRevision`/`Corrupt`, never served);
-   - port the legacy PG integration suites: keep every assertion/oracle that still has meaning, translate SQL
-     fixtures, replace PG-only checks (roles/grants/`SHOW server_version`) with their Turso equivalents or drop
-     them with a stated reason. Move each ported file back out of `legacy-pg-tests/` (delete the legacy copy).
-     HTTP-level suites build the router with `ServerFixture` (see `tests/support/*` for what exists).
-   - race tests where PG tests had concurrency (two tasks, one winner).
-7. Docs: write `docs/architecture/server-turso/<context>.md` (new file; do not edit other docs) with the mapping
-   table (source rule → mechanism → test), trust shift, what is not established. Do NOT edit
-   `docs/architecture/server-turso-schema.md`, `native-table-ownership.json`, `0001-0004` SQL, AGENTS.md,
-   skills or guards; report statements elsewhere that your work makes false.
-8. Verify (cheap first): `cargo check -p cantos-server --lib --tests`, then
-   `cargo test -p cantos-server --lib <your module filter>`, then the specific `--test <name>` targets you
-   ported; `cargo clippy -p cantos-server --all-targets --locked -- -D warnings` (touched files clean);
-   `cargo fmt -p cantos-server -- --check`. Env: `env CARGO_INCREMENTAL=0 TMPDIR=/private/tmp`.
-   Do not run the whole suite repeatedly.
+1. Read its domain/application/adapter, current DDL, owning contract and native test mapping.
+   Use pinned PG history only when comparing a preserved invariant.
+2. For a schema change, append the next free version at fetched HEAD. Never edit a registered
+   migration or fill versions 4–11. Keep SQL with its owning context and re-admit current authority
+   in the mutation's unit; keep external I/O outside that unit.
+3. Exercise the affected native file/HTTP tests, including exact errors, rollback, same-operation
+   replay, restart and corruption/concurrency cases appropriate to the change. Maintain the
+   source-rule → mechanism → test mapping; do not restore deleted PG suites or retired gates.
+4. Update the owning docs and run focused checks followed by final-diff preflight under the
+   [verification cadence](../../.agents/skills/cantos-engineering/references/verification-cadence.md).
+   `cargo xtask verify rust`, `verify turso` and `verify contracts` own native checks; source or
+   file evidence never accepts production, browser/device or data conversion.
 
 ## 4. Anti-patterns to refuse
 
@@ -209,9 +187,8 @@ one `mod` line in `platform/turso/mod.rs` for your schema test module). If you n
 
 Then sections: Trust shift, Concurrency/ordering notes (which use cases changed shape and why), Not established.
 
-## 7. Report (final message)
+## 7. Handoff
 
-Commit SHAs; migration version; tables ported (with counts); table: PG object → mechanism → test; use cases
-restructured (I/O out of units, nested units removed); tests ported/added/dropped with reasons;
-commands run with cwd/result (PASS/FAIL/NOT_RUN); facade changes; statements elsewhere made false;
-residual gaps and exact blockers.
+Report changed invariants, migration versions if any, source-rule mappings and the exact checks
+actually run. Keep file/HTTP/process/browser/device/deployed evidence separate. Record missing
+acceptance and blockers without reviving old port assignments or claiming production readiness.

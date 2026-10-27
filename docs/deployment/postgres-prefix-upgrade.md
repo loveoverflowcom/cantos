@@ -3,8 +3,10 @@
 This guide describes the retired PostgreSQL/Kanidm/two-API source path. Its executor is disabled;
 `deploy vps` and legacy `api` releases refuse before effects. The
 [native OCI contract](native-oci-release.md) owns #348's current packaging and activation gaps.
-The [native checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary) is incomplete
-and must not be deployed over an existing host/database. No native activation command exists.
+The [native business port](../architecture/server-turso-porting.md#checkpoint-boundary) is implemented.
+`cargo xtask release native-upgrade` is limited to an existing NATIVE_READY host and an admitted
+same-schema pair; it cannot convert or replace a legacy PostgreSQL/Kanidm installation.
+First-native/legacy cutover and production recovery acceptance remain separate #348 work.
 
 [Original runbook at `b2611c3d`](https://github.com/loveoverflowcom/cantos/blob/b2611c3db3896ce9733280a319008924ee8bf974/docs/deployment/postgres-prefix-upgrade.md) preserves exact recovery, topology, SQL-registry,
 accepted-write, off-host backup and cutover constraints for authorized legacy investigation.

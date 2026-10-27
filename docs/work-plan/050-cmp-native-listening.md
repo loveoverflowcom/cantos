@@ -1,12 +1,13 @@
 # Listen natively on Android and iOS
 
-Current review boundary: the requested [step-2 native runtime](../evidence/theatre-native-step2.md)
-depends on unmerged #247 at `cc1e56b`. Production Android/iOS roots now compose native streaming,
+Current review boundary: qualify the existing native runtime and current consumers. The
+[step-2 record](../evidence/theatre-native-step2.md) preserves its original #247/`cc1e56b`
+dependency as history, not an unmerged prerequisite to recreate. Production Android/iOS roots now compose native streaming,
 API-confirmed identity, Library and the account SQLDelight/outbox owners; default missing
 identity configuration fails closed. Android packaging/JVM/SQLite results do not accept device
 playback, native force-stop, cross-client sync or iOS Ogg/Opus compatibility. Keep #14/#15/#17/#35/
 #191/#174/#184/#179/#180 open for their actual gates. The explicit demo and #122 artifact
-exclusion remain independent; downloads/bookmarks are not fabricated. Review the exact source
+exclusion remain independent; downloads remain a roadmap boundary; release-bound bookmarks use the existing Library contract. Review the exact source
 and evidence before widening activation or declaring this work complete. The production roots
 now mount the demo's `CantosPresentation` experience as `CantosTheatreApp` over those owners
 ([unified application](../evidence/theatre-cmp-unified-application.md)); the simplified

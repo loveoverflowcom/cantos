@@ -1,7 +1,7 @@
 # Discover and listen in Theatre Web
 
 Current review boundary: real playback/integration under #13/#158/#170/#172. Anonymous live
-discovery and separate account/readonly Library client code already exist; reuse them and
+discovery and separate account/Library synchronization code already exist; reuse them and
 their [actual Web boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
 The explicit mock player is not real playback. The guest playback slice
 [#269](https://github.com/loveoverflowcom/cantos/issues/269) is recorded in its

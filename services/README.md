@@ -5,7 +5,7 @@ It describes source/configuration, never observed deployment or complete runtime
 
 | Service | Ownership | Source boundary |
 | --- | --- | --- |
-| [cantos-server](cantos-server/README.md) | Studio/Theatre/Admin HTTP, actors, application sessions and business authority in `server.db` | One native listener and embedded owner; business SQL/schema port is incomplete |
+| [cantos-server](cantos-server/README.md) | Studio/Theatre/Admin HTTP, actors, application sessions and business authority in `server.db` | One native listener and embedded owner; native business schemas/adapters implemented, production acceptance separate |
 | [cantos-identity](cantos-identity/README.md) | Password/mailbox/security state in `identity.db`; private authenticated UDS RPC | Native executable; facts never grant Server sessions or resource authorization |
 | Object storage | Private filesystem or explicitly configured S3 media | Externally managed; no lifecycle/deletion command |
 | [Forge](cantos-forge-functions/README.md) | External producer CLI/finite worker | Separate from serving/login; no registered mandatory process or accepted live Functions/provider execution |
@@ -23,9 +23,9 @@ and [Identity v1](cantos-server/contracts/auth/identity-auth/v1/README.md).
 ## Runtime policy
 
 `cargo xtask run` owns the two foreground native processes, private development files and socket.
-Theatre Web `run` also supervises a disposable local Auth Emulator under the
+Theatre Web `run --local-mail firebase` explicitly supervises a disposable local Auth Emulator under the
 [verification-provider amendment](../docs/architecture/firebase-verification.md); its native
-proof bridge keeps credential/session authority native. Other local targets keep mail disabled.
+proof bridge keeps credential/session authority native. Local runs default to mail disabled; the synthetic Resend fixture supplies no usable proof.
 This fixture is not a production service or a mandatory native-test dependency.
 Migrations are explicit; serve refuses missing/unmigrated files. `services list|validate` inspects
 the inventory. Container lifecycle, Kanidm and PostgreSQL verification commands are retired
@@ -33,7 +33,8 @@ refusals, not setup instructions. Native dev/E2E/Kani has no Podman dependency.
 
 Production packaging follows [#348](../docs/deployment/native-oci-release.md): GHCR digests and
 Podman/Quadlet. Image production, admission, host activation and live acceptance are separate;
-no command activates a native host yet. [infra](../infra/README.md) owns deployment assets.
+`cargo xtask release native-upgrade` is limited to an existing NATIVE_READY host and a
+same-schema admitted pair; first-native/legacy cutover remains separate. [infra](../infra/README.md) owns deployment assets.
 Historical PG/provider assets and deployed-state records are recovery/migration inputs only;
 source cleanup authorizes no service, data, WAL, volume, media or account deletion. Firebase
 Hosting, Functions, App Distribution, Drive and Forge retain their separate owners.
