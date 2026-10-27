@@ -269,3 +269,155 @@ async fn creator_intake_to_explicit_publication_uses_real_origin_bytes_and_recon
         bytes
     );
 }
+
+/// #539: Catalog metadata is created, edited and kept without audio. Under ADR 0030/0035 a
+/// public-visibility Work with no eligible release discloses nothing anonymously (`200 []`,
+/// `404`); the first approved release later lists the same Work/unit identities.
+#[tokio::test]
+async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps_its_ids() {
+    let _media_lane = native_sql::media_lane().await;
+    let mut a = AudioHarness::new_visibility(true, "opus-mono-24-v1", true).await;
+    let publication_root = PrivateRoot::new();
+    let work = a.brief["work"]["id"].as_str().unwrap().to_owned();
+    let audio_free =
+        json!({"submissions":0,"renditions":0,"reviews":0,"candidates":0,"revocations":0});
+    assert_eq!(a.counts().await, audio_free);
+
+    let created =
+        a.h.json("GET", &format!("/works/{work}"), Some(ALICE), None)
+            .await
+            .success(StatusCode::OK);
+    assert_eq!(created["details"]["visibility"], "public");
+    let work_title = "Ánh đèn cuối sân khấu — bản sửa chưa có âm thanh";
+    let edited =
+        a.h.json(
+            "PATCH",
+            &format!("/works/{work}"),
+            Some(ALICE),
+            Some(json!({"operation_id":operation(),"expected_revision":created["revision"],"details":{"title":work_title}})),
+        )
+        .await
+        .success(StatusCode::OK)["work"]
+            .clone();
+    assert_eq!(edited["id"], work);
+    assert_eq!(
+        edited["revision"],
+        created["revision"].as_u64().unwrap() + 1
+    );
+    let unit_path = format!("/content-units/{}", a.unit);
+    let unit_before =
+        a.h.json("GET", &unit_path, Some(ALICE), None)
+            .await
+            .success(StatusCode::OK);
+    let unit_title = "Tập một — đã sửa, chờ âm thanh";
+    a.h.json(
+        "PATCH",
+        &unit_path,
+        Some(ALICE),
+        Some(json!({"operation_id":operation(),"expected_revision":unit_before["revision"],"expected_work_revision":edited["revision"],"details":{"title":unit_title}})),
+    )
+    .await
+    .success(StatusCode::OK);
+    let unit_after =
+        a.h.json("GET", &unit_path, Some(ALICE), None)
+            .await
+            .success(StatusCode::OK);
+    assert_eq!(
+        (unit_after["id"].as_str(), unit_after["work_id"].as_str()),
+        (Some(a.unit.as_str()), Some(work.as_str()))
+    );
+    assert_eq!(
+        unit_after["revision"],
+        unit_before["revision"].as_u64().unwrap() + 1
+    );
+    assert_eq!(unit_after["details"]["title"], unit_title);
+    let catalog = a.h.counts().await;
+    assert_eq!(
+        (catalog["works"].clone(), catalog["units"].clone()),
+        (json!(1), json!(1))
+    );
+    assert_eq!(a.counts().await, audio_free);
+
+    // Public visibility alone is not a metadata disclosure: every anonymous read stays closed.
+    for list in [
+        "/works".to_owned(),
+        "/works?presentation=1".to_owned(),
+        "/search?q=%C3%81nh%20%C4%91%C3%A8n".to_owned(),
+    ] {
+        assert_eq!(
+            theatre_call(a.h.app.clone(), "GET", &list).await,
+            (StatusCode::OK, json!({"items":[],"next_cursor":null})),
+            "{list}"
+        );
+    }
+    for detail in [format!("/works/{work}"), format!("/works/{work}/units")] {
+        let (status, body) = theatre_call(a.h.app.clone(), "GET", &detail).await;
+        assert_eq!(
+            (status, &body["code"]),
+            (StatusCode::NOT_FOUND, &json!("not_found")),
+            "{detail}"
+        );
+    }
+
+    // Audio arrives later through the existing intake, review, rights and approval gates.
+    let bytes = a.root.encode("24k");
+    let request = a.request(&bytes).await;
+    let submission = request["id"].as_str().unwrap().to_owned();
+    assert_eq!(request["binding"]["work_id"], work);
+    assert_eq!(request["binding"]["unit_id"], a.unit);
+    a.prepare(request.clone()).await;
+    let rendition = upload(a.h.app.clone(), &submission, UPLOAD, bytes)
+        .await
+        .success(StatusCode::OK);
+    let (candidate, _, _) = approve_candidate(
+        &a.h,
+        &a.unit,
+        &submission,
+        &rendition,
+        now(&a.h).await + 3_600_000,
+    )
+    .await;
+    a.h.app = origin_router(&a.h, &publication_root.0);
+    let published =
+        a.h.json(
+            "POST",
+            &format!(
+                "/content-units/{}/release-candidates/{}/publish",
+                a.unit,
+                candidate["id"].as_str().unwrap()
+            ),
+            Some(ALICE),
+            Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"expected_pointer_version":0,"expected_active_release_id":null})),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let release = published["release"]["id"].as_str().unwrap();
+
+    let (status, page) = theatre_call(a.h.app.clone(), "GET", "/works").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["items"].as_array().unwrap().len(), 1, "{page}");
+    assert_eq!(
+        (&page["items"][0]["work_id"], &page["items"][0]["title"]),
+        (&json!(work), &json!(work_title))
+    );
+    let (status, units) =
+        theatre_call(a.h.app.clone(), "GET", &format!("/works/{work}/units")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(units["items"].as_array().unwrap().len(), 1, "{units}");
+    assert_eq!(
+        (
+            &units["items"][0]["unit_id"],
+            &units["items"][0]["title"],
+            &units["items"][0]["publication_id"]
+        ),
+        (&json!(a.unit), &json!(unit_title), &json!(release))
+    );
+    // Adding audio created no Catalog identity or revision.
+    assert_eq!(a.h.counts().await, catalog);
+    assert_eq!(
+        a.h.json("GET", &unit_path, Some(ALICE), None)
+            .await
+            .success(StatusCode::OK),
+        unit_after
+    );
+}
