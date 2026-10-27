@@ -31,7 +31,7 @@ use crate::{
 };
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, LogoVariant, Select,
-    SelectDensity, SelectLabelPlacement, SelectOption, Theme, ThemeCycleButton,
+    SelectDensity, SelectLabelPlacement, Theme, ThemeCycleButton,
 };
 use leptos::prelude::*;
 
@@ -300,6 +300,15 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let locale = RwSignal::new(preference.locale);
     let locale_warning = RwSignal::new(preference.warning);
     let theme = RwSignal::new(Theme::System);
+    // The only writer of the locale preference: the header and Account selectors both call it.
+    let on_locale = Callback::new(move |value: String| {
+        if let Some(selected) = Locale::from_lang(&value) {
+            locale.set(selected);
+            locale_warning.set(crate::localization::save_preference(selected).err());
+        } else {
+            locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported));
+        }
+    });
     let main = NodeRef::<leptos::html::Main>::new();
     // One owner for the page: the player, the listener's intent and the display facts of what
     // plays. Routes and Work details only read them and send intents.
@@ -986,13 +995,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                 label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
                                 value=Signal::derive(move || locale.get().lang().to_owned())
-                                options={Locale::supported().map(|option| SelectOption {
-                                    lang: Some(option.lang().to_owned()),
-                                    ..SelectOption::new(option.lang(), option.autonym())
-                                }).collect::<Vec<_>>()}
-                                on_input=Callback::new(move |value: String| {
-                                    if let Some(selected) = Locale::from_lang(&value) { locale.set(selected); locale_warning.set(crate::localization::save_preference(selected).err()); } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
-                                })/>
+                                options=crate::localization::locale_options()
+                                on_input=on_locale/>
                             <crate::features::account_menu::AccountEntry state=state.read_only() locale route=nav.route on_logout/>
                         </div>
                     </header>
@@ -1007,7 +1011,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
                                     on_refresh on_logout
                                     on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
-                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart, focus)| {

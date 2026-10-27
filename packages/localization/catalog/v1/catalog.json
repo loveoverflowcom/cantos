@@ -5960,6 +5960,18 @@
         }
       }
     },
+    "theatre.auth.membership_status_unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có thông tin"
+        },
+        "en": {
+          "text": "No information yet"
+        }
+      }
+    },
     "theatre.auth.membership_learn": {
       "args": {},
       "exposure": "production",
