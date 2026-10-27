@@ -15,8 +15,8 @@ from test_verify_behavior_registry import federate, real_catalog
 
 class BehaviorContracts(unittest.TestCase):
     def setUp(self):
-        # The first registered runnable capability, resolved whether it is inline or a pointer.
-        self.cap = behavior.load_catalog(behavior.ROOT)[0]
+        # Pin the capability these fixture expectations describe, independent of registry order.
+        self.cap = behavior.load_catalog(behavior.ROOT, "cantos.media.private-audio-admission")[0]
 
     def typecheck_fixture(self, variables, module="forge_attempt", definitions=(), qualifier="val"):
         declarations = [{"kind": "var", "name": name, "id": index + 1000}
@@ -121,6 +121,7 @@ class BehaviorContracts(unittest.TestCase):
         selected = behavior.load_catalog(behavior.ROOT)
         # Explicit capability counts pin the reviewed selection and each sensitivity control set.
         expected = {
+            "cantos.media.sample-metadata": (4, 4, 4),
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
             "cantos.media.public-cover-projection": (17, 6, 12),
