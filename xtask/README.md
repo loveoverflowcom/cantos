@@ -445,9 +445,10 @@ for a Web profile must match its Trunk origin. Server uses `CANTOS_SERVER_DATABA
 `DATABASE_URL`. Identity owns its own file and socket. Socket/TCP readiness is not authentication,
 business HTTP parity, publication, browser/device or deployed acceptance.
 
-Theatre offline previews require explicit `TRUNK_BUILD_FEATURES=preview` plus `?mode=mock`,
-`?mode=auth-preview` or `?mode=membership-preview`. Production release tooling removes/refuses
-preview overrides; a preview supplies no real account/playback acceptance.
+Theatre offline and local-sample previews require explicit `TRUNK_BUILD_FEATURES=preview` plus
+`?mode=mock`, `?mode=auth-preview`, `?mode=membership-preview` or `?mode=local-db`. Production
+release tooling removes/refuses preview overrides; a preview supplies no real account/playback
+acceptance.
 
 ### seed
 
@@ -465,9 +466,11 @@ filesystem media and a manifest preserving the input's explicitly mock MP3 metad
 creates no audio acceptance or publication. No flags select a production/user DB.
 
 `--sample-serve` first performs that import/verification and then serves the same real Server
-router and Store on `127.0.0.1:8080` until Ctrl-C. It refuses an occupied port. This test-hosted
-development composition starts no Identity and is distinct from the standalone Server binary,
-browser login, public catalog or Web/CMP/device acceptance. Keep `studio-token` private.
+router and Store on `127.0.0.1:8080` until Ctrl-C, plus the bounded loopback
+`/api/v1/sample-preview/*` read adapter for `?mode=local-db` in a `TRUNK_BUILD_FEATURES=preview`
+Theatre Web build. It refuses an occupied port. This test-hosted development composition starts
+no Identity and is distinct from the standalone Server binary, browser login, public catalog or
+Web/CMP/device acceptance. Keep `studio-token` private.
 
 `--sample-root DIR --reset` checks the output ownership marker and both exclusive DB owner locks,
 then archives the whole sample root to a sibling `.retired-<timestamp>-<pid>` directory. It

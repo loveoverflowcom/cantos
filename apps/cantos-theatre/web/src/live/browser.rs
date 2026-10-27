@@ -3,15 +3,15 @@ use super::{classify, Failure, ProbePhase};
 use gloo_net::http::Request;
 use web_sys::wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{AbortController, RequestCredentials};
-pub(super) struct Deadline {
+pub(crate) struct Deadline {
     window: web_sys::Window,
-    pub(super) controller: AbortController,
+    pub(crate) controller: AbortController,
     timer: i32,
     timed_out: std::rc::Rc<std::cell::Cell<bool>>,
     _callback: Closure<dyn FnMut()>,
 }
 impl Deadline {
-    pub(super) fn failure_kind(&self) -> crate::application::errors::ErrorKind {
+    pub(crate) fn failure_kind(&self) -> crate::application::errors::ErrorKind {
         if self.timed_out.get() {
             crate::application::errors::ErrorKind::Timeout
         } else {
@@ -54,7 +54,7 @@ pub async fn probe(controller: AbortController) -> ProbePhase {
         Err(_) => ProbePhase::Failed(Failure::Transport),
     }
 }
-pub(super) fn deadline(controller: AbortController) -> Result<Deadline, ()> {
+pub(crate) fn deadline(controller: AbortController) -> Result<Deadline, ()> {
     let window = web_sys::window().ok_or(())?;
     let abort = controller.clone();
     let timed_out = std::rc::Rc::new(std::cell::Cell::new(false));

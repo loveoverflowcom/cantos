@@ -19,6 +19,10 @@ fn main() {
         cantos_theatre::live::Mode::MembershipPreview => {
             leptos::mount::mount_to_body(cantos_theatre::membership_preview::MembershipPreview)
         }
+        #[cfg(feature = "preview")]
+        cantos_theatre::live::Mode::LocalDb => {
+            leptos::mount::mount_to_body(cantos_theatre::local_sample::LocalSampleApp)
+        }
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
