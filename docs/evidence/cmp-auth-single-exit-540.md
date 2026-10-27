@@ -57,7 +57,7 @@ JVM input is synthetic; this does not establish native IME composition or screen
 The local evidence root is ignored `artifacts/agent-runs/540/` in the issue worktree. It retains
 the original failing regression, subsequent diagnostics, command logs and design images. The
 Mac disconnected twice. iCloud later made the original Documents worktree dataless, including its Git pointer. Resident source edits were byte-verified and transferred into `/tmp/cantos-540-recovered`; the original worktree and its dataless evidence remain preserved. The interrupted multi-file patch was read back before retrying. The two small evicted source deltas and new state-matrix test were restored from this session's recorded patches, and generated resources were regenerated. No iCloud setting was changed.
-The main checkout was clean and fast-forwarded to the base above. Cleanup removed only verified
+The main checkout was clean and fast-forwarded to the initial base above; the recovery branch then integrated the refreshed base. Cleanup removed only verified
 empty Kotlin compiler directories, preserving screenshots, reports, receipts, audit locks and
 all other worktrees. No caffeinate or iCloud setting was changed.
 
@@ -73,7 +73,7 @@ all other worktrees. No caffeinate or iCloud setting was changed.
 | AC-08 | Separate from JVM and Android | iOS `NOT_RUN`: no booted simulator and installed Kotlin/Native 2.2.0/2.4.20 do not match 2.2.20 |
 | AC-09 | `RegistrationExitUiTest`: every phase, both locales; real shell pending/late-response regression | Native Back remains in AC-07/08 |
 | AC-10 | State/destination audit above; production registration/verification recovery tests | Native navigation/AT remains in AC-07/08 |
-| AC-11 | Only actual exit/copy/input gaps changed; no recipe or global focus rewrite | Device focus/IME remains pending |
+| AC-11 | Only actual exit/copy/input gaps changed; existing tonal recipe extended without a fork or global focus rewrite | Device focus/IME remains pending |
 | AC-12 | Four assertions fail against unchanged production source; all-phase, pending-leave and recovery regressions | Issue checklist/comment synchronization and final-head results recorded in GitHub |
 
 Quint lookup: the old `cantos.identity.theatre-registration` capability is deprecated and
