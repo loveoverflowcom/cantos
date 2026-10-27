@@ -1,7 +1,8 @@
 # Admin v1
 
-Dedicated `/api/v1/admin` backend capability. Default unavailable without a separately configured
-Admin verifier and operator-applied function grants; no Studio/Theatre/producer credential grants
+Dedicated `/api/v1/admin` backend capability. The native core and Turso audit/revocation
+adapter exist, but no production Admin verifier is composed; routes fail closed. No PG function
+grant applies to the native store; no Studio/Theatre/producer credential grants
 access. The [authorization policy](../../../../../../docs/architecture/admin-authorization.md) owns issuer,
 role, freshness, local revocation and audit semantics.
 

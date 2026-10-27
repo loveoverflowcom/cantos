@@ -1,6 +1,12 @@
-# Kanidm browser gateway qualification
+# Kanidm browser gateway qualification — historical
 
-Status: default-deny method/path gateway source implemented for pinned Kanidm 1.10.5,
+> **Retained legacy ingress/recovery record.** Native authentication uses
+> [Identity v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md);
+> the Server's Kanidm/OIDC adapters are retired. The policy/evidence below does not configure
+> native signup/login or authorize a live ingress change. Preserve installed legacy resources
+> until separately accepted cutover/recovery.
+
+Historical status: default-deny method/path gateway source implemented for pinned Kanidm 1.10.5,
 with local Caddy 2.11.7 routing evidence. Live deployment, sanitized real browser traces,
 issuer/callback and credential-mechanism acceptance remain separate gates. No running
 configuration changes when this file or the Caddyfile changes. The

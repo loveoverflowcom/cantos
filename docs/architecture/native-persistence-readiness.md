@@ -2,34 +2,36 @@
 
 ## Current source boundary
 
-The [Server porting guide](server-turso-porting.md#checkpoint-boundary) owns the incomplete
-checkpoint. `services/manifest.toml` registers two native processes, each with one Turso file.
-The Server composes `platform/turso` through `platform/store`; Identity owns `identity.db` and
-private authenticated UDS RPC. The Server reaches Identity only through the RPC client.
+The [Server source boundary](server-turso-porting.md#checkpoint-boundary) and actual registry
+own current implementation. `services/manifest.toml` registers two native processes, each with
+one Turso file. The Server composes `platform/turso` through `platform/store`; Identity owns
+`identity.db` and private authenticated UDS RPC. The Server reaches Identity only through RPC.
 
-| Layer | Implemented source | Remaining acceptance |
+| Layer | Implemented source | Separate acceptance |
 | --- | --- | --- |
-| Shared store | [Owned database](../../packages/store-turso/README.md), migration registry, serialized writer and pinned readers | Engine qualification is separate from business/HTTP acceptance |
-| Server foundation | [Turso owner](../../services/cantos-server/src/platform/turso/mod.rs), [facade](../../services/cantos-server/src/platform/store/mod.rs), actor registry, native sessions and development sessions | Business migration slots remain incomplete; context SQL/test ports under #333 |
-| Server business ports | [CMP read/Library closure](server-turso/cmp-business-api.md) and [Editorial/Ingestion](server-turso/editorial-ingestion.md), appended migrations 12–16 | Remaining Catalog/Adaptation/Production/Admin/Media write ports and full non-auth HTTP parity remain #333 work |
-| Identity | [Service](../../services/cantos-identity/README.md), password/mailbox/security-state persistence and private RPC | Provisioning/recovery/restore and named acceptance under #334/#336 |
-| Auth consumers | [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), Web cookie and CMP Bearer adapters | Production two-binary HTTP, browser/device, restore and D1 evidence remain separately owned by #335/#336 |
-| Tooling | [Native commands](../../xtask/README.md), explicit migration, run-owned development directories and socket readiness | Seeding/catalog HTTP and host activation are not accepted merely from startup |
+| Shared store | [Owned database](../../packages/store-turso/README.md), checksummed registry, serialized writer, pinned readers and verified backup | Engine qualification does not establish every business/HTTP journey |
+| Server foundation | [Turso owner](../../services/cantos-server/src/platform/turso/mod.rs), [facade](../../services/cantos-server/src/platform/store/mod.rs), actor registry, native and development sessions | Production process, contention and recovery qualification |
+| Server business contexts | Migrations 12–23 cover all 69 Server-owned tables in the legacy ownership manifest; v24 adds cover disclosures. Catalog, Editorial/Ingestion, Adaptation, Production, Admin, Media/Publication and Listening use native adapters | [Replacement ledger](server-turso/remaining-pg-retirement.md) maps actual native tests; remaining parity/data-conversion and production acceptance stay explicit |
+| Identity | [Service](../../services/cantos-identity/README.md), password/mailbox/security-state persistence and private RPC | Production provisioning, recovery/restore and browser/device qualification |
+| Auth consumers | [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md), Web cookie and CMP Bearer adapters | [23 October loopback integration](../evidence/post-merge-integration-20261023.md) is bounded evidence, not HTTPS/deployed or all-device acceptance |
+| Tooling | [Native commands](../../xtask/README.md), explicit migrations, run-owned directories and socket readiness; opt-in [prepared sample](../deployment/theatre-seeded-catalog.md) | Plain seed refusal, sample-only private assets, public release policy and host activation are distinct boundaries |
 
 ## Porting and retirement
 
-Preserve legacy [PG schema inventory](../../services/cantos-server/schema/README.md), invariant
-mappings and the [ported/retired oracle record](server-turso/remaining-pg-retirement.md) of the
-former `legacy-pg-tests`. PostgreSQL-shaped source names do not establish a PostgreSQL runtime,
-nor does opening Turso establish completed business schema.
-The ownership scanner still inventories historical PG declarations, including its missing legacy
-registry source; repairing that input without changing its meaning is a #333 follow-up.
+Preserve the legacy [PG schema inventory](../../services/cantos-server/schema/README.md),
+checksums, invariant mappings and [ported/retired oracle record](server-turso/remaining-pg-retirement.md).
+The former 23-file/251-test PG tree has been retired; original assertions remain traceable in
+commit-pinned records and the replacement ledger. Do not recreate old test files or run the
+retired `verify postgres` gate. Registered placeholder versions 4–11 must not be filled in.
 
 Keep short atomic write units, late authorization rechecks, receipts and unknown-commit handling.
-Do not create an auth-only second Server DB, read Identity's file or claim cross-DB atomicity.
-Read performance follows [#384](https://github.com/loveoverflowcom/cantos/issues/384): SQL/index
-first, measured selective cache later; incremental engines DEFER.
+The Server facade bounds writer acquisition to five seconds; this alone is not a load/latency
+qualification. Do not create an auth-only second Server DB, read Identity's file or claim
+cross-DB atomicity. Read performance follows [#384](https://github.com/loveoverflowcom/cantos/issues/384):
+measure Turso SQL/index first; then consider ArcSwap snapshots or bounded Quick Cache entries.
+Moka is excluded and incremental engines are deferred by that owner decision.
 
 No database, WAL, backup, media, account or installed service is retired by source cleanup.
-Without completed production inventory and owner decision, migration remains Tier B. Native OCI
-packaging/activation is separately gated by [#348](../deployment/native-oci-release.md).
+Without production inventory and owner decision, data conversion remains Tier B. Native OCI
+qualification/admission, same-schema NATIVE_READY upgrades and first-native/legacy cutover have
+separate boundaries in [#348's release contract](../deployment/native-oci-release.md).

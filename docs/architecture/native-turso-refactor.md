@@ -12,8 +12,8 @@ owns execution and acceptance; its five checkpoints are [foundation #332](https:
 The selected direction is now partially implemented: Server and Identity are native processes,
 each owning a separate Turso file. The shared store, actor/session foundation, private RPC,
 first-party Web cookie and CMP/native Bearer consumers exist. The
-[porting checkpoint](server-turso-porting.md#checkpoint-boundary) owns the remaining business
-schema/SQL gap. A successful file open/build does not establish HTTP parity or native acceptance.
+[source boundary](server-turso-porting.md#checkpoint-boundary) records implemented native
+business schemas/adapters and their separate parity/production acceptance. A successful file open/build does not establish HTTP parity or native acceptance.
 
 The original baseline `develop@cccb547c08585e1266e26b2b07ead3a2c887697e` used `services/cantos-api`,
 PostgreSQL, Kanidm and two API processes. That is history, not current source or fresh deployed
@@ -59,8 +59,8 @@ accepted; a documentation amendment does not authorize a runtime bypass.
 | --- | --- |
 | Identity `service` implements Theatre mailbox-confirmed signup, Argon2id password authentication (Theatre, and Studio under [ADR 0045](../decisions/0045-v1-email-password-sign-in.md)) and `GetSecurityState` over private UDS RPC | The [service guide](../../services/cantos-identity/README.md#verification) records source-bound prior runs; this amendment runs no authentication tests. |
 | Studio password is implemented in Identity: [the core](../../services/cantos-identity/src/domain/admission.rs) admits `(Studio, Password)` beside the deferred `UserVerifiedPasskey`, and the Server's roster decides Studio entry | Prior runs are recorded in [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md#verification); this amendment runs none. Studio provisioning remains absent; a password result is never relabelled as passkey assurance. |
-| [Server foundation](native-persistence-readiness.md) composes Turso sessions/ActorId bindings; business port remains incomplete | Historical transitional PG E2E never qualifies native HTTP parity. |
-| [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has first-party Identity v1 Bearer coordination/secure storage | Web cookie/fetch/XHR/session-restore wiring exists in source; real first-party v1 browser journeys remain pending, with separate browser/device acceptance. |
+| [Server](native-persistence-readiness.md) composes Turso sessions/ActorId bindings and all business adapters; production acceptance remains separate | Historical transitional PG E2E never qualifies native HTTP parity. |
+| [Shared Web auth](../../packages/web-auth/README.md) now consumes the Server's v1 Web cookie endpoints (source only; no Bearer fallback); [CMP](../../apps/cantos-theatre/mobile/README.md#opt-in-native-identity) has first-party Identity v1 Bearer coordination/secure storage | Web cookie/fetch/XHR/session-restore wiring exists in source; the [23 October loopback journey](../evidence/post-merge-integration-20261023.md) records bounded real first-party login/write/restart/logout, with HTTPS/deployed and broader browser/device acceptance separate. |
 
 The #335 backend slice consumes the authenticated RPC implementation and draft contract;
 completion of every Server Turso adapter was not a prerequisite. Final #336 native acceptance still needs the

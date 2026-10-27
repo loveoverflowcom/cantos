@@ -21,8 +21,8 @@ archived handoffs and source-bound evidence are not active plans; proposed ADRs 
 policy. Inspect actual code before treating a module, schema, command or API as implemented.
 
 The current user's instructions take priority. The Server now composes embedded Turso
-`server.db`; Identity exclusively owns `identity.db`. Business schema/SQL porting remains
-incomplete: follow the [checkpoint](docs/architecture/server-turso-porting.md#checkpoint-boundary).
+`server.db`; Identity exclusively owns `identity.db`. Business schemas/adapters now use Turso;
+production/data-conversion acceptance remains separate: follow the [source boundary](docs/architecture/server-turso-porting.md#checkpoint-boundary).
 Retained PostgreSQL epoch-2 schema, checksum history and test oracles are migration inputs,
 not an active runtime workflow. Never edit registered migration SQL or infer business acceptance
 from successful owner startup. Preserve Rust/Axum/Leptos/CMP and native playback. Keep docs in
@@ -76,7 +76,7 @@ for scope versus implementation status.
 
 - Begin with a modular monolith; add a service, crate or generic abstraction only for a concrete consumer and reviewed need.
 - Domain rules and versioned Script IR must not depend on HTTP, UI frameworks, a specific AI provider or Narrative Forge internals.
-- Preserve durable metadata, revision history, producer receipts and release pointers in the authoritative store: Server-owned Turso (business port incomplete). Store verified received media in private object storage until review/publication.
+- Preserve durable metadata, revision history, producer receipts and release pointers in the authoritative store: Server-owned Turso (production/data-conversion acceptance separate). Store verified received media in private object storage until review/publication.
 - Do not invoke AI during listener playback. Preserve immutable publication manifests and cached renditions.
 - Keep private drafts, voice assets and previews inaccessible to public delivery. Enforce permissions in the backend.
 - Mobile uses CMP with platform-native audio adapters; no WebView audio player.
@@ -167,9 +167,11 @@ The [#295 owner amendment](https://github.com/loveoverflowcom/cantos/issues/295)
 HttpOnly/Secure Web cookies on the custom domains; both Web apps now consume the
 [Identity auth v1](services/cantos-server/contracts/auth/identity-auth/v1/README.md) cookie endpoints through
 [`packages/web-auth`](packages/web-auth/README.md) (email/password, no OIDC popup or Bearer fallback),
-while browser and real Server/Identity acceptance remain pending. Native keeps its opaque Bearer.
+with bounded [loopback integration evidence](docs/evidence/post-merge-integration-20261023.md);
+HTTPS/deployed and broader browser/device acceptance remain separate. Native keeps its opaque Bearer.
 Exact-origin CORS, CSRF and separate surface authority remain required.
-Use the [current production runbook](docs/deployment/vps-production.md), not old deployment records.
+Use the [native OCI release contract](docs/deployment/native-oci-release.md) for current operations;
+the [legacy VPS runbook](docs/deployment/vps-production.md) retains recovery history only.
 An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
 
 The requested Cloudflare transition follows the [rollout/recovery runbook](docs/deployment/cloudflare-rollout.md)

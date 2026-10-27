@@ -1,5 +1,13 @@
 # Theatre catalog state coverage (#172)
 
+> **Historical state/PG-walk review.** The tables and execution results below describe the pinned
+> 16 October sources, not current `develop`. Current native tests are wired from
+> `services/cantos-server/tests/catalog_http_turso.rs`, including `support/theatre_catalog_walk_http_turso.rs`;
+> the [replacement ledger](../architecture/server-turso/remaining-pg-retirement.md) owns dispositions.
+> Use the current [Discovery contract](../../services/cantos-server/contracts/theatre/discovery/v1/README.md),
+> [client matrix](live-client-api-matrix.md) and owning source before acting on old gaps.
+> `verify postgres` and old `*_postgres` targets are retired.
+
 Review input for [#172](https://github.com/loveoverflowcom/cantos/issues/172), consumed by
 [#158](https://github.com/loveoverflowcom/cantos/issues/158) (Web W01–W03) and
 [#159](https://github.com/loveoverflowcom/cantos/issues/159) (CMP M01–M06). It maps each client
@@ -136,7 +144,7 @@ these small correctness fixtures establish no latency, throughput or optimizatio
 
 | Id | Gap | Why it matters | Proposed next step | Owner |
 | --- | --- | --- | --- | --- |
-| G1 | Regression coverage added by the PostgreSQL follow-up above: several Works/units, publication changes between pages, rights expiry, retry/filter scope, immutable anchors and equal-position UUID ordering | SQL regressions can duplicate/skip stable rows even when the pure keyset model passes | Run the existing full `cargo xtask verify postgres` gate; the follow-up PR records actual local results. These bounded interleavings do not establish arbitrary simultaneous schedules or query performance | BE; Web/CMP recovery acceptance stays with #158/#159 |
+| G1 | Regression coverage added by the PostgreSQL follow-up above: several Works/units, publication changes between pages, rights expiry, retry/filter scope, immutable anchors and equal-position UUID ordering | SQL regressions can duplicate/skip stable rows even when the pure keyset model passes | For current inputs, select the native `catalog_http_turso` suites through the existing Rust/Turso workflow; the original follow-up PR records only its historical local results. These bounded interleavings do not establish arbitrary simultaneous schedules or query performance | BE; Web/CMP recovery acceptance stays with #158/#159 |
 | G2 | **Closed by the earlier pure-core/service-guard slice.** `after_unit` sits next to `after_work`; `ListenerService::units` returns `Corrupt` for a reader row not strictly after the cursor key. No Units Kani harness was added | A faulty reader is rejected instead of silently producing a duplicate/skip | G1 now exercises the real SQL continuation and tie-break alongside the unchanged guard; formal proof of the complete SQL query is not claimed | BE |
 | G3 | Cursor vault is process-local | Behind more than one API process, `invalid_cursor` is spurious | [ADR 0035 §5](../decisions/0035-theatre-catalog-unit-availability.md#decision); decide a shared/stateless cursor before replication | Platform/Publication |
 | G4 | Schema allows `duration_ms: 0`; the domain never emits it | Readers cannot tell `0` is corrupt | Optional `minimum: 1` tightening, compatible; ADR 0035 §3 | Contract owner |

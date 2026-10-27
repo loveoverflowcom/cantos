@@ -28,7 +28,8 @@ authentication and authenticated private UDS RPC. It returns facts, never applic
 Web cookie and native Bearer consumers exist; browser/device acceptance is separate.
 
 **Native business adapters now use Turso; production acceptance remains pending.** Appended
-migrations 12–23 cover all 69 Server-owned business tables. The [retirement record](docs/architecture/server-turso/remaining-pg-retirement.md)
+migrations 12–23 cover all 69 Server-owned business tables from the legacy inventory; v24
+adds owner public-cover disclosures. The [retirement record](docs/architecture/server-turso/remaining-pg-retirement.md)
 maps 17 removed files / 183 legacy PG tests to actual native boundaries and retired mechanisms;
 the earlier six files / 68 tests were retired by the merged PR #395. No archived Rust oracle remains. Provider authentication is removed and
 Admin fails closed. Retained PostgreSQL schema/checksum history and recovery assets remain
@@ -42,7 +43,8 @@ Private filesystem/S3 adapters retain immutable original-target resolution and s
 Publication requires rights, QC and approval; private media never implies public delivery.
 
 Read optimization follows [#384](https://github.com/loveoverflowcom/cantos/issues/384): measure
-the actual consumer, optimize Turso SQL/index first, then consider selective ArcSwap/Moka cache.
+the actual consumer, optimize Turso SQL/index first, then consider ArcSwap for immutable snapshots
+or Quick Cache for bounded keyed entries; Moka is excluded by the owner decision in #384.
 Incremental engines are DEFER; DBSP's implementation/feature/gate are retired.
 
 ## Repository
@@ -104,8 +106,8 @@ recipient. Theatre runs default to mail disabled; `--local-mail firebase` retain
 native action/proof lane. Synthetic delivery is separate from signup/provider acceptance.
 
 Follow [CONTRIBUTING](CONTRIBUTING.md) and [AGENTS](AGENTS.md): resolve the requested base once,
-fetch and pin its SHA for branch/diff/review/preflight. Native work targets
-`refactor/cantos-native-turso`; the eventual integration PR to `develop` is a separate epic gate.
+fetch and pin its SHA for branch/diff/review/preflight. New work branches from latest
+`origin/develop` and targets `develop`; PR #400 merged the retired `refactor/cantos-native-turso` integration branch.
 Verify focused changes during development, then hand off the final diff once. Record actual
 PASS/FAIL/NOT_RUN/UNSUPPORTED with independent model, file, HTTP, browser/device and deployed
 states. Historical PASS cannot qualify today's implementation.

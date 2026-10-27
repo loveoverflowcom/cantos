@@ -15,7 +15,7 @@ No new route is added to the deprecated Studio alias, Theatre or Admin.
 | `/scripts/{script}/audio-intents/{intent}` | [Intake v1](../../audio-intake/v1/README.md), immutable legacy receipt and verified media metadata |
 | `/content-units/{unit}/audio-submissions/{submission}` | [Lifecycle v1](../../audio-lifecycle/v1/README.md), exact admitted rendition/profile/provenance/review metadata |
 
-Canonical bounded manuscript text, original imports and Script IR exports stay in PostgreSQL.
+Canonical bounded manuscript text, original imports and Script IR exports stay in Server-owned Turso metadata.
 The owning readers verify their established digest schemes. Catalog existence does not grant
 private script/source/rights access to a listener.
 

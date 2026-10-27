@@ -3,7 +3,7 @@
 Status: **implemented native session foundation over Server-owned Turso**. The Server reaches
 Identity through authenticated private RPC and consumes fresh facts. Web cookie and CMP/native
 Bearer consumers exist. Production two-binary HTTP, browser/device, live SMTP and deployed
-acceptance remain separate; business porting is incomplete. Previous PostgreSQL journey results
+acceptance remain separate; native business adapters are implemented. Previous PostgreSQL journey results
 in [Verification](#verification) are historical, not native HTTP acceptance.
 Rust DTOs: [`identity_auth`](../../../../src/contract/auth/identity_auth.rs), [`bearer`](../../../../src/contract/auth/bearer.rs);
 JSON Schema: [identity-auth-v1.schema.json](identity-auth.schema.json).

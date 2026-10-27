@@ -3,7 +3,7 @@
 > **Native business port; production acceptance pending.** `Store`, `cantos-migrate`,
 > `cantos-operator` and the host use `CANTOS_SERVER_DATABASE` (`server.db`), never `DATABASE_URL`.
 > Appended migrations 12–23 now cover all 69 Server-owned business tables, development sessions
-> and infrastructure history. Studio Catalog, Adaptation, Production, Media/artwork, Admin audit
+> and infrastructure history; v24 adds public-cover disclosures. Studio Catalog, Adaptation, Production, Media/artwork, Admin audit
 > and publication adapters execute native SQL. See the [checkpoint](../../docs/architecture/server-turso-porting.md#checkpoint-boundary)
 > and [17-file/183-oracle retirement](../../docs/architecture/server-turso/remaining-pg-retirement.md).
 > Native Identity v1 owns authentication; production Admin still has no verifier and denies
@@ -185,14 +185,16 @@ Native playback belongs to the following CMP step.
 
 [#348](../../docs/deployment/native-oci-release.md) selects GHCR digest pairs and Podman/Quadlet.
 Source packaging/admission, actual images, host activation and deployed acceptance are separate.
-No native activation command exists. Legacy VPS assets are recovery/migration inputs; documentation
+The host-local `cargo xtask release native-upgrade` supports only an existing NATIVE_READY
+host and an admitted same-schema image pair, with cold backups and recovery fences. First-native/legacy
+cutover remains separate. Legacy VPS assets are recovery/migration inputs; documentation
 cleanup changes no runtime, data, account, media or installed service.
 
 ## Rename from `cantos-api`
 
 `services/cantos-server` is canonical. `services/cantos-api` source links in pinned evidence refer
-to history; do not recreate a second Server implementation. Business adapters and archived test
-oracles may legitimately retain PostgreSQL vocabulary while the port is incomplete.
+to history; do not recreate a second Server implementation. Current business adapters use Turso. Retained PG schema and commit-pinned test
+oracles preserve migration history; the former `legacy-pg-tests` Rust files have been retired.
 
 ## Local verification
 

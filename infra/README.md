@@ -8,13 +8,13 @@ validation, build/capture, provider invocation and attributable receipts.
 | Location | Owns | Explicit operation |
 | --- | --- | --- |
 | [`local-mail/resend-local/`](local-mail/resend-local/README.md) | Approved synthetic-only Resend HTTP fixture lock, release hashes and guarded launcher; no Identity proof provider | `cargo xtask run resend-local`; no automatic install or live mail |
-| [`vps/`](vps/README.md) | Native/legacy Quadlet assets and retained PG/provider recovery inputs | Native activation is pending #348; old `deploy vps` refuses |
+| [`vps/`](vps/README.md) | Native/legacy Quadlet assets and retained PG/provider recovery inputs | `release native-upgrade` is same-schema NATIVE_READY only; first-native cutover remains #348; old `deploy vps` refuses |
 | [`oci/`](oci) | Native Server/Identity image definitions and compatibility identifiers | `release oci-build` produces candidates; `cargo xtask release oci-qualify` tests the exact pair on disposable Linux ([fixture](../docs/assurance/native-oci-qualification.md), [contract](../docs/deployment/native-oci-release.md)); never deploys |
 | [`edge/`](edge/README.md) | Caddy ingress/TLS/routing policy (run as the `cantos-edge` Quadlet unit) and a DuckDNS updater example | installed by `cantos-vps`; never an implicit deploy side effect |
 | [`firebase/hosting/`](firebase/hosting/README.md) | Static Hosting policy and placeholder project/site mapping | `cargo xtask deploy firebase <app> --web --project ID --channel CHANNEL` |
 | [`cloudflare/`](cloudflare/README.md) | Cloudflare Pages Direct Upload policy (`<app>/_headers`, `404.html`), private-mapping example and the pinned Wrangler lockfile | `cargo xtask deploy cloudflare <app> --web --account ID --project NAME --branch BRANCH --environment production\|preview --artifact DIR` ([runbook](../docs/deployment/cloudflare-pages.md), [rollout](../docs/deployment/cloudflare-rollout.md)); offline `cargo xtask hosting-report` never publishes |
 | [`google-secret-manager/`](google-secret-manager/README.md) | Nonsecret Secret Manager inventory: secret IDs, environment, consumer, env/file contract, format and reviewed numeric pins; never values | `cargo xtask secrets inventory\|status\|import` ([runbook](../docs/deployment/google-secret-manager.md)); never a build, CI or deploy side effect |
-| [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel demo --app-id ID --groups GROUPS` |
+| [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel development --api-origin https://api.example.org --app-id ID --groups GROUPS --dry-run` |
 
 Functions deployment configuration belongs under `infra/firebase/functions` **when a concrete
 consumer exists**. [#203](https://github.com/loveoverflowcom/cantos/issues/203) locates the
@@ -24,14 +24,15 @@ packaging feasibility gate remain distinct from deployment. There is no Function
 configuration or deployment command here today.
 Do not infer native Rust Functions support or deploy readiness from this target directory.
 
-The [current production topology/runbook](../docs/deployment/vps-production.md) is the sole
-current destination/operation guide. ADR 0041's direct Hosting direction supersedes the old
+The [native OCI contract](../docs/deployment/native-oci-release.md) owns current image/admission
+and bounded upgrade operations. The [legacy topology/runbook](../docs/deployment/vps-production.md)
+retains recovery history and is not a native activation guide. ADR 0041's direct Hosting direction supersedes the old
 Web-proxy default; retained source assets and installed assets must be reconciled separately.
 
 ## Boundaries and path resolution
 
 - Hosting builds/publishes exactly one selected Web app. App Distribution builds/distributes the
-  supported Theatre demo Android APK to explicit recipients. Neither starts edge/local services,
+  supported Theatre development or production Android APK to explicit recipients. Neither starts edge/local services,
   deploys Functions, selects an implicit project, performs bootstrap or changes DNS/IAM/billing.
 - [`services/manifest.toml`](../services/manifest.toml) remains the typed local process inventory.
   The native process inventory stays in `services/`; retained PG/provider assets are historical migration inputs, not active setup definitions.

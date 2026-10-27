@@ -136,7 +136,9 @@ No native playback, background behavior, downloads, progress synchronization, AP
 ## Native integration implementation boundary
 
 The [step-2 runtime ledger](../evidence/theatre-native-step2.md) records the requested production
-native adapters and account/Library/SQLDelight/outbox composition, pinned to unmerged #247.
+native adapters and account/Library/SQLDelight/outbox composition at its original #247 snapshot.
+Current [CMP source and acceptance](../../apps/cantos-theatre/mobile/README.md) supersede that
+record's unmerged dependency and provider-auth descriptions; the snapshot remains historical.
 [ADR0042](../decisions/0042-native-streaming-runtime.md) records platform API/Swift bridge choices;
 [ADR0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) records scoped SQLDelight2.1.0
 adoption. Earlier mock-only implementation statements in historical evidence do not describe

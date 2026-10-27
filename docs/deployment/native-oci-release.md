@@ -26,8 +26,8 @@ the four qualification records after the manual Actions producer. It preserves t
 candidate, writes a separate bound result and never creates an operator admission.
 
 The `cantos-identity` executable (`migrate`/`serve`, private authenticated Unix-socket RPC) exists
-behind the crate's `service` feature; Server now composes embedded Turso foundation/sessions,
-with business schema/SQL incomplete. The fixture's synthetic HTTP/auth and same-schema restore
+behind the crate's `service` feature; Server composes embedded Turso for actors, sessions and all business contexts
+([source boundary](../architecture/server-turso-porting.md#checkpoint-boundary)). The fixture's synthetic HTTP/auth and same-schema restore
 scope does not accept all business journeys or a live host. Keep legacy runtime, principal, PG/Kanidm, ingress, media and
 recovery resources until #332–#336 provide actual accepted native journeys and recovery.
 Source review or an offline plan cannot classify a real host as `NEW`, `LEGACY` or `NATIVE_READY`.

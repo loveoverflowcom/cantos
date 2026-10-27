@@ -1,7 +1,7 @@
 # Cantos xtask
 
-> **Native checkpoint command override.** This branch has a partial tooling migration; this
-> paragraph overrides the legacy PostgreSQL/Kanidm commands and gate descriptions below.
+> **Current native command boundary.** Legacy PostgreSQL/Kanidm commands are retired
+> refusals, not setup steps; native Server/Identity commands use separate embedded files.
 > `build cantos-server` builds the Server binaries; `build cantos-identity` enables `service`.
 > `run cantos-server` plans explicit file migrations then Identity + Server under private
 > `target/native-dev/` directories with a short private Unix socket. `--dry-run` makes no
@@ -12,8 +12,9 @@
 > PostgreSQL, DBSP and provider-enrollment gates are removed from ordinary selection/CI.
 > Their explicit commands, Kanidm/service lifecycle, legacy VPS deploy and legacy API release
 > refuse with exit 2 before probes/effects. `services list|validate` remain read-only.
-> No native host activation is implemented. These command changes do not establish business
-> context or two-process runtime acceptance; see the [checkpoint boundary](../docs/architecture/server-turso-porting.md#checkpoint-boundary).
+> `release native-upgrade` is limited to an existing NATIVE_READY host and an admitted
+> same-schema pair; first-native/legacy cutover remains separate. Command implementation does
+> not establish production business or two-process runtime acceptance; see the [checkpoint boundary](../docs/architecture/server-turso-porting.md#checkpoint-boundary).
 
 
 `cargo xtask` is the repository-level command surface for building, running and verifying Cantos.
