@@ -1,4 +1,20 @@
-# Shared semantic contract v0.8.0
+# Shared semantic contract v0.9.0
+
+v0.9.0 adds the contextual guest-profile and account-tile roles of Account v4.3
+([#526](https://github.com/loveoverflowcom/cantos/issues/526)): seven themed `color.theatre*` roles,
+`ProfileAction` / `OnProfileAction` / `ProfileActionHover` / `ProfileActionPressed` and
+`AccountControl` / `OnAccountControl` / `AccountControlHover`. Nothing existing changes value, and the
+global `theatrePink`, `theatrePrimary` and every standard role stay as they were. Dark profile action is
+raspberry `#a10f65` with cream `#fff8ef` (hover `#900854`, pressed `#790447`); Light reuses the pink pair
+`#e8a2da` / `#291332` with hover `#df94d0` and pressed `#d17bbf`. The inverse secondary has no role of its
+own: it reads the card's `onPrimaryContainer` as fill and `primaryContainer` as ink. The account control
+is a lavender circle with plum ink in Dark (`#bfa0eb`, hover `#d5b7f2`) and the mirrored plum circle with
+cream ink in Light (`#291332`, hover `#4a2d5e`); the Light values are a derived mirror, not a design table
+row. Measured solid pairs (asserted by `scripts/test_ui_tokens.py`): Dark action text 7.19, Dark
+action/card boundary 3.41 (hover 4.02, pressed 4.91), Light action text 8.60, account control/tile 7.55 Dark.
+These are consumed only under `[data-expression="theatre"]`; the Web mapping and its scope are in the
+[Leptos guest recipe](../leptos/README.md#guest-profile-card-recipe-v43). The CMP renderer has not adopted
+the roles: its profile-card mapping is still the superseded v4.2b one, tracked separately.
 
 v0.8.0 adds the docked-search geometry of Search v4.3 ([#452](https://github.com/loveoverflowcom/cantos/issues/452)):
 `size.searchHeader` 72 (minimum header, grows with text), `shape.searchRest` 36 and `shape.searchOpen` 28

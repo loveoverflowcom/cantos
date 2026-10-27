@@ -1332,3 +1332,53 @@
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip { transition: none; }
 }
+/* Guest card actions (design v4.3, #526). Inside the profile card (PrimaryContainer + Profile) the
+   sign-in action is the contextual pink/raspberry role and create-account the card's inverse pair:
+   a filled pill with the card's own foreground as fill and its container as ink. Both share one
+   full-width, equal-height anatomy with no default border or shadow. Roles come from the themed
+   `theatreProfileAction*` tokens, so Dark contrast is a token decision, never a filter. Hover and
+   pressed are explicit fills (the state-layer gradient would shift the measured pair), blocked
+   actions keep the shared disabled colors, and ordinary or other auth actions are untouched. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button-field:has(> .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"])) {
+  display: grid;
+  inline-size: 100%;
+  justify-items: stretch;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"]) {
+  inline-size: 100%;
+  min-block-size: var(--cantos-size-auth-primary);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-primary"]:not(:disabled) {
+  background-color: var(--cantos-color-theatre-profile-action);
+  background-image: none;
+  color: var(--cantos-color-theatre-on-profile-action);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-primary"]:hover:not(:disabled) {
+  background-color: var(--cantos-color-theatre-profile-action-hover);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-primary"]:active:not(:disabled) {
+  background-color: var(--cantos-color-theatre-profile-action-pressed);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-secondary"]:not(:disabled) {
+  background-color: var(--cantos-color-on-primary-container);
+  color: var(--cantos-color-primary-container);
+}
+/* The card's container is also its inverse fill, so the focus ring reads from the fill's ink. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"]):focus-visible {
+  outline-color: var(--cantos-color-on-primary-container);
+}
+/* The theme action inside an account tile is a filled circle (Dark lavender, Light plum) so it
+   separates from the tile; focus is an inset ring in the control's own ink, which stays visible on
+   the circle where the page focus color would not. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-variant="account-group"] .cui-theme-cycle-button {
+  background-color: var(--cantos-color-theatre-account-control);
+  background-image: none;
+  color: var(--cantos-color-theatre-on-account-control);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-variant="account-group"] .cui-theme-cycle-button:where(:hover, :active) {
+  background-color: var(--cantos-color-theatre-account-control-hover);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-variant="account-group"] .cui-theme-cycle-button:focus-visible {
+  outline-color: currentColor;
+  outline-offset: calc(var(--cantos-size-focus-width) * -1);
+}

@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.8.0 sha256:225ef06fff286fcd49c0525c8eac91c95fb104fe3c21855c1a1ff42d9a269651
+// Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.8.0"
+    const val version: String = "0.9.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -46,20 +46,27 @@ object CantosTokens {
         TokenValue("color.surface", "color", "#fffcf7", "#2c2631", null, null, null),
         TokenValue("color.surfaceContainer", "color", "#eee8f1", "#372f3e", null, null, null),
         TokenValue("color.surfaceContainerHigh", "color", "#e7dfea", "#463a4e", null, null, null),
+        TokenValue("color.theatreAccountControl", "color", "#291332", "#bfa0eb", null, null, null),
+        TokenValue("color.theatreAccountControlHover", "color", "#4a2d5e", "#d5b7f2", null, null, null),
         TokenValue("color.theatreBackground", "color", "#fff2e9", "#21112d", null, null, null),
         TokenValue("color.theatreFocus", "color", "#6b3093", "#e0b8fc", null, null, null),
         TokenValue("color.theatreHero", "color", "#c6a0f5", "#352142", null, null, null),
+        TokenValue("color.theatreOnAccountControl", "color", "#fff8ef", "#291332", null, null, null),
         TokenValue("color.theatreOnHero", "color", "#1d0b28", "#fff8ef", null, null, null),
         TokenValue("color.theatreOnPeach", "color", "#462b19", "#ffe0c5", null, null, null),
         TokenValue("color.theatreOnPink", "color", "#291332", "#291332", null, null, null),
         TokenValue("color.theatreOnPrimary", "color", "#ffffff", "#291332", null, null, null),
         TokenValue("color.theatreOnPrimaryContainer", "color", "#fff8ef", "#291332", null, null, null),
+        TokenValue("color.theatreOnProfileAction", "color", "#291332", "#fff8ef", null, null, null),
         TokenValue("color.theatreOnSurface", "color", "#291332", "#fff8ef", null, null, null),
         TokenValue("color.theatreOnSurfaceVariant", "color", "#68506d", "#d5c2dc", null, null, null),
         TokenValue("color.theatrePeach", "color", "#ffd8ba", "#674733", null, null, null),
         TokenValue("color.theatrePink", "color", "#e8a2da", "#ed99de", null, null, null),
         TokenValue("color.theatrePrimary", "color", "#50276c", "#ed99de", null, null, null),
         TokenValue("color.theatrePrimaryContainer", "color", "#291332", "#bfa0eb", null, null, null),
+        TokenValue("color.theatreProfileAction", "color", "#e8a2da", "#a10f65", null, null, null),
+        TokenValue("color.theatreProfileActionHover", "color", "#df94d0", "#900854", null, null, null),
+        TokenValue("color.theatreProfileActionPressed", "color", "#d17bbf", "#790447", null, null, null),
         TokenValue("color.theatreSurface", "color", "#fffdf8", "#281632", null, null, null),
         TokenValue("color.theatreSurfaceContainer", "color", "#eaddf7", "#3c2748", null, null, null),
         TokenValue("color.theatreSurfaceContainerHigh", "color", "#ddc9f1", "#4f345e", null, null, null),

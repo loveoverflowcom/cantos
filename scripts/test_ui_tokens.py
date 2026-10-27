@@ -562,9 +562,43 @@ class ExpressionContract(unittest.TestCase):
 
 
 class CanonicalRepositoryTokens(unittest.TestCase):
+    def test_guest_profile_roles_match_the_v43_table_and_meet_their_floors(self):
+        """Design v4.3 (#526): Dark raspberry/cream, Light pink/dark, inverse secondary."""
+        source = validate(load_source(SOURCE.read_bytes()))
+        themes = source["themes"]
+        expected = {
+            "dark": {
+                "color.theatreProfileAction": "#a10f65", "color.theatreOnProfileAction": "#fff8ef",
+                "color.theatreProfileActionHover": "#900854", "color.theatreProfileActionPressed": "#790447",
+                "color.theatreAccountControl": "#bfa0eb", "color.theatreOnAccountControl": "#291332",
+                "color.theatreAccountControlHover": "#d5b7f2",
+            },
+            "light": {
+                "color.theatreProfileAction": "#e8a2da", "color.theatreOnProfileAction": "#291332",
+            },
+        }
+        for theme, roles in expected.items():
+            for role, value in roles.items():
+                self.assertEqual(themes[theme][role]["value"], value, f"{theme} {role}")
+        # Light reuses the existing pink pair; Dark is a new contextual role, never the global pink.
+        self.assertEqual(themes["light"]["color.theatreProfileAction"], themes["light"]["color.theatrePink"])
+        self.assertNotEqual(themes["dark"]["color.theatreProfileAction"], themes["dark"]["color.theatrePink"])
+        self.assertNotEqual(themes["dark"]["color.theatrePrimary"], themes["dark"]["color.theatreProfileAction"])
+        card = {theme: themes[theme]["color.theatrePrimaryContainer"]["value"] for theme in themes}
+        action = {theme: themes[theme]["color.theatreProfileAction"]["value"] for theme in themes}
+        ink = {theme: themes[theme]["color.theatreOnProfileAction"]["value"] for theme in themes}
+        self.assertGreaterEqual(contrast(action["dark"], card["dark"]), 3.4)
+        self.assertGreaterEqual(contrast(ink["dark"], action["dark"]), 7.18)
+        self.assertGreaterEqual(contrast(ink["light"], action["light"]), 8.59)
+        for theme in themes:
+            for state in ("Hover", "Pressed"):
+                fill = themes[theme][f"color.theatreProfileAction{state}"]["value"]
+                self.assertGreaterEqual(contrast(ink[theme], fill), 4.5, f"{theme} {state} text")
+                self.assertGreaterEqual(contrast(fill, card[theme]), 3, f"{theme} {state} boundary")
+
     def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
         source = validate(load_source(SOURCE.read_bytes()))
-        self.assertEqual(source["version"], "0.8.0")
+        self.assertEqual(source["version"], "0.9.0")
         self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
         self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
         self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))

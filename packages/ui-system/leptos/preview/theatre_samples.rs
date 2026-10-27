@@ -7,8 +7,9 @@ use super::messages::{theatre_fixture as fixture, tool};
 use cantos_ui::{
     AccessibleName, Avatar, AvatarSize, Button, ButtonState, ButtonVariant, Density,
     DisabledReason, Expression, FieldState, FilterChip, IconButton, IconName, Logo, LogoTone,
-    LogoVariant, Select, SelectDensity, SelectOption, Space, Stack, StackDirection, TextField,
-    TextFieldKind, TextFieldVariant, Theme, UiRoot,
+    LogoVariant, Select, SelectDensity, SelectOption, Space, Stack, StackDirection, Surface,
+    SurfaceTone, SurfaceVariant, TextField, TextFieldKind, TextFieldVariant, Theme,
+    ThemeCycleButton, ThemeCycleLabels, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -63,6 +64,87 @@ fn PasswordSample(
     }
 }
 
+const THEME_LABELS: ThemeCycleLabels = ThemeCycleLabels {
+    dark_mode: fixture::THEME_DARK_MODE,
+    dark_next: fixture::THEME_DARK_NEXT,
+    light_mode: fixture::THEME_LIGHT_MODE,
+    light_next: fixture::THEME_LIGHT_NEXT,
+    system_mode: fixture::THEME_SYSTEM_MODE,
+    system_next: fixture::THEME_SYSTEM_NEXT,
+};
+
+/// One theme of the guest recipe: the profile card pair, the account tile theme action and an
+/// ordinary action that must not change. The root's theme is fixed, so Dark and Light render
+/// side by side; the theme action cycles its own glyph without re-theming the column.
+#[component]
+fn GuestRecipeColumn(
+    id: &'static str,
+    title: &'static str,
+    theme: Theme,
+    state: Signal<ButtonState>,
+    presses: RwSignal<u32>,
+) -> impl IntoView {
+    let control = RwSignal::new(theme);
+    let press = Callback::new(move |_| presses.update(|count| *count += 1));
+    view! {
+        <UiRoot theme=theme expression=Expression::Theatre class="cui-guest-recipe" attr:data-guest-theme=id>
+            <Stack gap=Space::Md>
+                <h3 lang="en" class="cui-guest-recipe-title">{title}</h3>
+                <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg>
+                    <Stack gap=Space::Sm>
+                        <h4 class="cui-guest-recipe-greeting">{fixture::GUEST_GREETING}</h4>
+                        <p>{fixture::GUEST_INFO}</p>
+                        <Button id=format!("guest-sign-in-{id}") variant=ButtonVariant::AuthPrimary
+                            icon=IconName::Login state=state on_press=press>{fixture::GUEST_SIGN_IN_LONG}</Button>
+                        <Button id=format!("guest-create-{id}") variant=ButtonVariant::AuthSecondary
+                            icon=IconName::PersonAdd state=state on_press=press>{fixture::SIGN_UP}</Button>
+                    </Stack>
+                </Surface>
+                <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup inset=Space::Lg>
+                    <div class="cui-guest-recipe-theme">
+                        <span>{fixture::GUEST_THEME}</span>
+                        <ThemeCycleButton id=format!("guest-theme-{id}") theme=control
+                            labels=Signal::derive(|| THEME_LABELS)/>
+                    </div>
+                </Surface>
+                <Button id=format!("guest-regular-{id}") on_press=press>{fixture::GUEST_REGULAR}</Button>
+            </Stack>
+        </UiRoot>
+    }
+}
+
+/// Guest profile card recipe (#526): Dark and Light render together from the shared roles. The
+/// state select drives blocked actions, which keep their reason and emit no intent.
+#[component]
+fn GuestRecipeSamples() -> impl IntoView {
+    let mode = RwSignal::new("enabled".to_owned());
+    let presses = RwSignal::new(0u32);
+    let state = Signal::derive(move || match mode.get().as_str() {
+        "loading" => ButtonState::Loading(reason(fixture::GUEST_BLOCKED)),
+        "disabled" => ButtonState::Disabled(reason(fixture::GUEST_BLOCKED)),
+        _ => ButtonState::Enabled,
+    });
+    view! {
+        <div data-preview-state="theatre-guest-pair theatre-account-control">
+            <Stack gap=Space::Sm>
+                <h3 lang="en" class="cui-theatre-heading">{tool::GUEST_HEADING}</h3>
+                <p lang="en" class="cui-gallery-note">{tool::GUEST_HELP}</p>
+                <div lang="en"><Select id="theatre-guest-state" label=tool::GUEST_STATE value=mode
+                    on_input=Callback::new(move |value| mode.set(value))>
+                    <option value="enabled">{tool::READY}</option>
+                    <option value="loading">{tool::WAITING}</option>
+                    <option value="disabled">{tool::DISABLED}</option>
+                </Select></div>
+                <div class="cui-theatre-matrix">
+                    <GuestRecipeColumn id="dark" title=tool::GUEST_DARK theme=Theme::Dark state presses/>
+                    <GuestRecipeColumn id="light" title=tool::GUEST_LIGHT theme=Theme::Light state presses/>
+                </div>
+                <p lang="en" id="theatre-guest-output" class="cui-gallery-note">{move || tool::received_intents(presses.get())}</p>
+            </Stack>
+        </div>
+    }
+}
+
 #[component]
 pub fn TheatreExpressionSamples(
     theme: RwSignal<Theme>,
@@ -89,7 +171,7 @@ pub fn TheatreExpressionSamples(
     view! {
         <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-theatre"
             data-preview-component="theatre-expression"
-            data-preview-scenario="theatre-expression theatre-fields theatre-trailing-eye theatre-docked-search theatre-tonal theatre-docked theatre-selection theatre-utility theatre-group theatre-control theatre-header"
+            data-preview-scenario="theatre-expression theatre-fields theatre-trailing-eye theatre-docked-search theatre-tonal theatre-docked theatre-selection theatre-utility theatre-group theatre-control theatre-header theatre-guest-pair theatre-account-control"
             aria-labelledby="gallery-theatre-heading">
             <UiRoot theme=theme density=density expression=Expression::Theatre>
                 <div class="cui-theatre-sample">
@@ -188,6 +270,7 @@ pub fn TheatreExpressionSamples(
                         <p lang="en" class="cui-gallery-note" data-preview-state="theatre-tonal theatre-docked">
                             {tool::THEATRE_CONTROL_HELP}
                         </p>
+                        <GuestRecipeSamples/>
                         <div class="cui-theatre-hero" data-preview-state="theatre-expression">
                             <p class="cui-theatre-hero-title">{fixture::HERO_TITLE}</p>
                             <p>{fixture::HERO_SUBTITLE}</p>

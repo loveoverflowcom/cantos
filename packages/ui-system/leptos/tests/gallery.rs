@@ -894,6 +894,12 @@ fn every_registered_theatre_state_has_a_real_specimen_inside_the_expression_scop
         0,
         "each eye carries its own name"
     );
-    // Nothing outside the section opts in.
-    assert_eq!(html.matches("data-expression=\"theatre\"").count(), 1);
+    // Nothing outside the section opts in: its root plus the Dark and Light guest recipe roots,
+    // which need their own scope because a nested theme root redeclares every canonical role.
+    assert_eq!(html.matches("data-expression=\"theatre\"").count(), 3);
+    assert_eq!(
+        section.matches("data-expression=\"theatre\"").count(),
+        3,
+        "every opt-in root sits inside the Theatre section"
+    );
 }

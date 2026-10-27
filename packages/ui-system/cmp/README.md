@@ -466,7 +466,7 @@ implementation or a replacement for ordinary listening/editor shapes:
   Both overloads accept a decorative registry `icon` name. The 23 October anatomy centers the
   icon and label together without a circle; loading uses the separate progress cue. The
   text/control supplies the sole accessible name.
-- Guest CTA pair (design v4.2b, #517): `Surface(PrimaryContainer, Profile)` alone scopes
+- Guest CTA pair (design v4.2b, #517; superseded for Web by design v4.3, [#526](https://github.com/loveoverflowcom/cantos/issues/526), CMP parity not yet adopted): `Surface(PrimaryContainer, Profile)` alone scopes
   `AuthPrimary` and `AuthOutlined` to the card's own roles through an internal local, with no new
   public API. `AuthPrimary` fills with `color.onPrimaryContainer` and reads `color.primaryContainer`
   as text/icon; `AuthOutlined` is transparent with `color.onPrimaryContainer` text and a 1.5 dp
