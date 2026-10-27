@@ -286,14 +286,30 @@ pub(super) fn FieldMessages(
     reason: Signal<Option<DisabledReason>>,
     #[prop(optional)] error_icon: bool,
 ) -> impl IntoView {
+    // Keep the ordinary message's existing native markup unchanged; the decorative icon is
+    // present only in the explicitly selected tonal recipe.
+    let error_id = format!("{id}-error");
+    let error_message = if error_icon {
+        view! {
+            <p id=error_id class="cui-field-error" hidden=move || !has_text(&error.get())>
+                <span data-field-error-icon="true"><Icon name=IconName::WarningAmber/></span>
+                {move || error.get().unwrap_or_default()}
+            </p>
+        }
+        .into_any()
+    } else {
+        view! {
+            <p id=error_id class="cui-field-error" hidden=move || !has_text(&error.get())>
+                {move || error.get().unwrap_or_default()}
+            </p>
+        }
+        .into_any()
+    };
     view! {
         <p id=format!("{id}-help") class="cui-field-help" hidden=move || !has_text(&help.get())>
             {move || help.get().unwrap_or_default()}
         </p>
-        <p id=format!("{id}-error") class="cui-field-error" hidden=move || !has_text(&error.get())>
-            {error_icon.then(|| view! { <span data-field-error-icon="true"><Icon name=IconName::WarningAmber/></span> })}
-            {move || error.get().unwrap_or_default()}
-        </p>
+        {error_message}
         <p id=format!("{id}-reason") class="cui-field-help" hidden=move || reason.get().is_none()>
             {move || reason.get().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
         </p>
