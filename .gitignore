@@ -37,6 +37,9 @@ __pycache__/
 
 # Firebase/operator outputs are private regardless of configuration directory.
 firebase-debug*.log
+# Only xtask staging may contain the generated Forge region config and executable.
+/services/cantos-forge-functions/firebase/bin/
+/services/cantos-forge-functions/firebase/probe-config.json
 .firebaserc
 /infra/**/env.local
 /infra/**/data/

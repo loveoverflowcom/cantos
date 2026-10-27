@@ -16,13 +16,11 @@ validation, build/capture, provider invocation and attributable receipts.
 | [`google-secret-manager/`](google-secret-manager/README.md) | Nonsecret Secret Manager inventory: secret IDs, environment, consumer, env/file contract, format and reviewed numeric pins; never values | `cargo xtask secrets inventory\|status\|import` ([runbook](../docs/deployment/google-secret-manager.md)); never a build, CI or deploy side effect |
 | [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel development --api-origin https://api.example.org --app-id ID --groups GROUPS --dry-run` |
 
-Functions deployment configuration belongs under `infra/firebase/functions` **when a concrete
-consumer exists**. [#203](https://github.com/loveoverflowcom/cantos/issues/203) locates the
-producer implementation at [`services/cantos-forge-functions`](../services/cantos-forge-functions/README.md),
-with the existing `cantos-forge` crate/CLI identity. The thin supported-runtime wrapper and
-packaging feasibility gate remain distinct from deployment. There is no Functions deployment
-configuration or deployment command here today.
-Do not infer native Rust Functions support or deploy readiness from this target directory.
+[`firebase/functions/`](firebase/functions/README.md) owns the concrete private Forge smoke
+policy (#486/#212). Producer source and the pinned supported-runtime SDK remain in
+`services/cantos-forge-functions`; `cargo xtask forge-probe package|inspect|qualify|deploy-plan`
+owns local build/staging/qualification and a plan-only scoped Firebase primitive. There is no
+automatic deployment. Source and ELF inspection do not establish deployed Linux compatibility.
 
 The [native OCI contract](../docs/deployment/native-oci-release.md) owns current image/admission
 and bounded upgrade operations. The [legacy topology/runbook](../docs/deployment/vps-production.md)
@@ -46,8 +44,8 @@ Web-proxy default; retained source assets and installed assets must be reconcile
   same directory. Every provider invocation receives explicit project/config and working directory.
   Generated effective configuration and bundles are outputs, not editable policy authorities.
   `--dry-run` starts no tools, makes no provider request and writes no staging directory.
-- Future Functions packaging must similarly validate run-relative source paths and package the
-  Rust worker and supported-runtime wrapper together. It must not download compilers/encoders
+- Functions smoke packaging validates the run-relative `functions` source path and packages the
+  static Linux Rust worker and Node 22 wrapper together. It must not download compilers/encoders
   during invocation or use a source path escaping the Firebase project directory.
 
 ## Private files, migration and rollback

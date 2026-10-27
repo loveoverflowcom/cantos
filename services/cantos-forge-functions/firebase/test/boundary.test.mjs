@@ -363,6 +363,19 @@ test("a disconnected health probe aborts the worker and never emits a late resul
   assert.equal(f.response.statusCode, undefined);
 });
 
+test("an already disconnected health probe never spawns or writes a response", async () => {
+  let calls = 0;
+  const handler = makeProbeHandler({ runWorker: async () => { calls++; return probeCapabilities; } });
+  for (const disconnected of ["request", "response"]) {
+    const f = probeFixture("/health");
+    if (disconnected === "request") f.request.aborted = true;
+    else f.response.destroyed = true;
+    await handler(f.request, f.response);
+    assert.equal(f.response.body, undefined);
+  }
+  assert.equal(calls, 0);
+});
+
 test("revision is reflected only as a plain identifier and the probe never grants producer access", async () => {
   for (const revision of ["/srv/path", "a b", "x".repeat(129), "", 7, undefined]) {
     const f = probeFixture("/ping");

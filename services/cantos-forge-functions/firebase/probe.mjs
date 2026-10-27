@@ -26,6 +26,7 @@ export function makeProbeHandler({ runWorker, revision }) {
     if (request.path === "/ping") { send(200, { status: "live" }); return; }
 
     const abort = new AbortController();
+    if (request.aborted || response.destroyed) return;
     const disconnected = () => { if (!response.writableEnded) abort.abort(); };
     request.on("aborted", disconnected);
     response.on("close", disconnected);

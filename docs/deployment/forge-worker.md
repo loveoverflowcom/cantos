@@ -10,8 +10,10 @@ a Studio production workspace or a live Drive/Gemini integration.
 [`services/cantos-forge-functions`](../../services/cantos-forge-functions/README.md) owns one
 `cantos-forge` Rust library, the compatible offline `cantos-forge` CLI and the finite
 `cantos-forge-worker` binary. Its `firebase/` directory owns runtime transport/process source.
-`infra/firebase/functions` is the future deployment-policy destination, owned separately
-under #212. No Functions deploy/emulator command is implemented or implied by these paths.
+`infra/firebase/functions` owns the concrete isolated smoke policy coordinated with #212.
+`cargo xtask forge-probe` builds, inspects and locally qualifies that package and prints an
+operator-only deployment plan. It never invokes Firebase or enables cloud APIs. There is no
+automatic Functions deployment or emulator command.
 
 `cargo xtask build cantos-forge` builds the package's binaries. `cargo xtask verify forge`
 checks the producer package and the dependency-free Node wrapper tests. Neither command
@@ -50,9 +52,13 @@ No browser flag or environment switch bypasses this gate.
 ## Ping/health probe slice (#486)
 
 `firebase/probe.mjs` is the source for a narrow deployment smoke probe, exported by
-`index.mjs` as `forgeProbeHttp` with the fixed packaged worker. It is not a registered Firebase
-trigger: there is no `firebase-functions` dependency, Linux worker bundle, codebase config or
-deploy command, so nothing is deployed and cloud acceptance is `NOT_RUN`.
+`index.mjs` as `forgeProbeHttp` with the fixed packaged worker. The package entrypoint
+`functions.mjs` registers only `forgeSmokeProbe` using the pinned Firebase Functions Gen2 SDK.
+It defaults to private IAM invocation, no CORS, zero minimum instances, one maximum instance,
+one concurrent request, one CPU, 256 MiB and a ten-second function timeout. The worker retains
+its five-second deadline. Producer operations are not registered as a trigger. The generated
+package supplies an explicit region; source discovery without that package fails closed.
+Cloud acceptance remains separate from this source implementation.
 
 | Route | Result |
 | --- | --- |
@@ -68,12 +74,24 @@ grant gate. The probe checks run in the existing `cargo xtask verify forge` suit
 real local Node→Rust `health` run; that proves the wrapper contract on the host OS, not the
 Linux ABI, Node 22 or a deployed Function.
 
-Remaining acceptance before live probe evidence, in order: the Gen2 trigger and dependency
-with a private invoker default and its own codebase in `infra/firebase/functions` (#212); a
-reproducible Linux worker build and package with ABI, mode and digest checks; an
-operator-authorized scoped deploy to `cantos-a348b` after reading project, region, IAM, billing
-and existing functions; real `ping`/`health`/wrong-method transcripts, sanitized logs and a
-scoped rollback. Missing-binary and timeout faults stay offline fault injection.
+The [isolated package policy and operator procedure](../../infra/firebase/functions/README.md)
+owns the locked Linux musl build, allowlisted source bundle, executable/ELF inspection, digest
+receipt, actual SDK/HTTP qualification and scoped deploy-plan commands. Node 22 is required for
+package qualification; no request compiles or downloads anything. `qualify` runs fault injection
+only on a disposable local bundle, restores the original worker and never changes a cloud runtime.
+
+Source tests, host-native subprocess tests, a static ELF inspection, real Linux HTTP qualification,
+Firebase emulator observations and cloud acceptance are different evidence rows. The attempt
+Quint SSOT and generated API contracts are unchanged: this probe is stateless and neither
+reserves attempts nor changes a producer/consumer transport. Existing Forge mirror tests still
+cover the attempt model bindings; they do not prove cloud readiness.
+
+Before live acceptance the operator must select the region and invoker principal, verify billing/
+budget, API enablement, existing functions/codebases and IAM, then explicitly authorize the scoped
+write. Record actual returned URLs, function/revision/build identifiers, source and binary hashes,
+HTTP transcripts, sanitized logging and recovery observations. Missing prerequisites leave cloud
+`NOT_RUN`; the source PR can be reviewed independently. Do not enable APIs, grant IAM, make the
+probe public, use `--force`, or broaden deployment as part of source verification.
 
 ## Local attempt durability
 

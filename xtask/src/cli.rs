@@ -55,6 +55,8 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Explicit Forge smoke package/qualification; never deploys or changes cloud resources.
+    ForgeProbe(crate::forge_probe::ForgeProbeArgs),
     /// Build source-bound release artifacts locally or in CI; never deploys or signs.
     ReleaseBuild(crate::release_build::ReleaseBuildArgs),
     /// Resolve, package and explicitly promote source-bound releases (opt-in only).
