@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "0a6585d886481579e3ec97216bf92fd1a2e24eabe4163af81e435a42959f1eb7",
+  "catalogSha256": "a2576ad2f7399d1149deffc8701684c36d5e59c0c5a2134607c476ee9af62671",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1235,6 +1235,7 @@
     "theatre.auth.membership_help": {},
     "theatre.auth.membership_learn": {},
     "theatre.auth.membership_name": {},
+    "theatre.auth.membership_status_unknown": {},
     "theatre.auth.membership_unknown": {},
     "theatre.auth.open_account": {},
     "theatre.auth.open_library": {},

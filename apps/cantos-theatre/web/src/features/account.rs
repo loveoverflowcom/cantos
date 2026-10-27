@@ -7,14 +7,15 @@ use super::{
     guest_identity::GuestIdentity,
 };
 #[cfg(feature = "preview")]
-use crate::app::{context::TheatreContext, routes::Route};
+use crate::app::context::TheatreContext;
+use crate::app::routes::Route;
 use crate::{
     application::account_view::{AccountFailure, AccountViewState, SessionPhase},
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonVariant, IconName, Select, SelectOption, Space, Surface, SurfaceTone,
-    SurfaceVariant, Theme,
+    Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
+    SurfaceTone, SurfaceVariant, Theme, ThemeCycleButton,
 };
 use leptos::prelude::*;
 
@@ -165,11 +166,42 @@ const fn profile_help(phase: SessionPhase) -> Option<CopyKey> {
     }
 }
 
+/// The short, always-visible name of the active theme mode beside the icon-only cycle control.
+const fn theme_value_key(theme: Theme) -> Key {
+    match theme {
+        Theme::Dark => Key::Dark,
+        Theme::Light => Key::Light,
+        Theme::System => Key::System,
+    }
+}
+
+/// A navigation row: leading icon, one label, trailing chevron. The whole row is the target and
+/// keeps the route's own hash, so history and Back behave as for any other link.
+#[component]
+fn ActionRow(
+    id: &'static str,
+    route: Route,
+    asset: &'static str,
+    locale: RwSignal<Locale>,
+    label: Key,
+) -> impl IntoView {
+    view! {
+        <li>
+            <a id=id class="theatre-action-row" href=route.hash()>
+                {icon(asset)}
+                <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
+                <ChevronGlyph/>
+            </a>
+        </li>
+    }
+}
+
 #[component]
 pub(crate) fn LiveAccount(
     state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     theme: RwSignal<Theme>,
+    on_locale: Callback<String>,
     on_login: Callback<()>,
     on_register: Callback<()>,
     on_logout: Callback<()>,
@@ -217,10 +249,10 @@ pub(crate) fn LiveAccount(
                         <section aria-labelledby="theatre-account-membership-heading">
                             <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
                             <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
-                            <p>{label(locale, CopyKey::MembershipHelp)}</p>
-                            <p class="theatre-muted">{label(locale, CopyKey::MembershipUnknown)}</p>
+                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
+                            <p id="theatre-account-membership-status" class="theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
                             <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
-                                focus_on_press=true
+                                icon=IconName::Star focus_on_press=true
                                 on_press=Callback::new(move |_| on_membership.run(()))>
                                 {label(locale, CopyKey::MembershipLearn)}
                             </Button>
@@ -229,24 +261,23 @@ pub(crate) fn LiveAccount(
                     <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup inset=Space::Lg class="theatre-account-preferences">
                         <section aria-labelledby="theatre-account-preferences-heading">
                             <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                            <div class="theatre-account-theme">
-                                <Select id="theatre-account-theme"
-                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
-                                    value=Signal::derive(move || theme.get().as_str().to_owned())
-                                    described_by=Some("theatre-account-theme-help".to_owned())
-                                    options=Signal::derive(move || vec![
-                                        SelectOption::new("system", messages::text(Key::System, locale.get())).with_icon(IconName::Settings),
-                                        SelectOption::new("light", messages::text(Key::Light, locale.get())).with_icon(IconName::LightMode),
-                                        SelectOption::new("dark", messages::text(Key::Dark, locale.get())).with_icon(IconName::DarkMode),
-                                    ])
-                                    on_input=Callback::new(move |value: String| {
-                                        if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); }
-                                    })/>
-                                <p id="theatre-account-theme-help" class="theatre-muted">{label(locale, CopyKey::ThemeHelp)}</p>
+                            <div class="theatre-pref-row">
+                                <div class="theatre-pref-theme">
+                                    <span id="theatre-account-theme-label" class="theatre-pref-label">{move || messages::text(Key::Theme, locale.get())}</span>
+                                    <ThemeCycleButton id="theatre-account-theme" theme=theme
+                                        labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))/>
+                                    <span class="theatre-pref-value" aria-hidden="true">{move || messages::text(theme_value_key(theme.get()), locale.get())}</span>
+                                </div>
+                                <Select id="theatre-account-locale" class="theatre-pref-locale"
+                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                    label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+                                    value=Signal::derive(move || locale.get().lang().to_owned())
+                                    options=crate::localization::locale_options()
+                                    on_input=on_locale/>
                             </div>
-                            <ul class="theatre-account-links">
-                                <li><a href="#library">{label(locale, CopyKey::OpenLibrary)}</a></li>
-                                <li><a href="#settings">{label(locale, CopyKey::SettingsHelp)}</a></li>
+                            <ul class="theatre-action-rows">
+                                <ActionRow id="theatre-account-open-library" route=Route::Library asset="library_books" locale label=Key::Library/>
+                                <ActionRow id="theatre-account-open-settings" route=Route::Settings asset="settings" locale label=Key::Settings/>
                             </ul>
                             <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                                 <Button id="theatre-account-logout" icon=IconName::Logout variant=ButtonVariant::Text
@@ -286,10 +317,79 @@ mod tests {
         });
     }
 
+    #[test]
+    fn preferences_use_one_theme_cycle_and_locale_in_one_row_with_icon_action_rows() {
+        use crate::features::auth_preview::guest;
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                let locale = RwSignal::new(language);
+                guest(state).unwrap();
+                let html = render_live(state.read_only(), locale);
+                // One cycle control, no theme Select, no repeated retention sentence.
+                assert_eq!(html.matches("cui-theme-cycle-button").count(), 1, "{html}");
+                assert!(!html.contains("id=\"theatre-account-theme-help\""));
+                assert!(
+                    !html.contains(messages::text(Key::Theme, language))
+                        || html.contains("theatre-pref-label")
+                );
+                // Theme and locale share one row; the locale options come from the l10n owner.
+                let row = html
+                    .split("theatre-pref-row")
+                    .nth(1)
+                    .expect("preference row");
+                let row = row.split("theatre-action-rows").next().unwrap();
+                assert!(
+                    row.contains("theatre-account-theme") && row.contains("theatre-account-locale")
+                );
+                for option in Locale::supported() {
+                    assert!(row.contains(option.autonym()), "{}", option.autonym());
+                }
+                // Library and Settings are real route links with icon, label and chevron.
+                for (id, hash) in [
+                    ("theatre-account-open-library", Route::Library.hash()),
+                    ("theatre-account-open-settings", Route::Settings.hash()),
+                ] {
+                    let anchor = html.split(&format!("id=\"{id}\"")).nth(1).expect(id);
+                    let anchor = anchor.split("</a>").next().unwrap();
+                    assert!(anchor.contains(&format!("href=\"{hash}\"")), "{anchor}");
+                    assert!(anchor.contains("cui-icon") || anchor.contains("<svg"));
+                    assert!(anchor.contains("theatre-chevron"));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn membership_unknown_is_neutral_and_keeps_its_real_action() {
+        use crate::features::auth_preview::guest;
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let locale = RwSignal::new(Locale::Vietnamese);
+            guest(state).unwrap();
+            let html = render_live(state.read_only(), locale);
+            assert!(html.contains("Chưa có thông tin"));
+            assert!(html.contains("id=\"theatre-account-membership\""));
+            for claim in ["Sắp ra mắt", "Chưa mở đăng ký", "Coming soon"] {
+                assert!(!html.contains(claim), "{claim}");
+            }
+            locale.set(Locale::English);
+            assert!(render_live(state.read_only(), locale).contains("No information yet"));
+        });
+    }
+
+    #[test]
+    fn theme_value_names_follow_the_cycle_modes() {
+        assert_eq!(theme_value_key(Theme::Dark), Key::Dark);
+        assert_eq!(theme_value_key(Theme::Light), Key::Light);
+        assert_eq!(theme_value_key(Theme::System), Key::System);
+    }
+
     fn render_live(state: ReadSignal<AccountViewState>, locale: RwSignal<Locale>) -> String {
         let theme = RwSignal::new(Theme::System);
         let noop = Callback::new(|()| {});
-        view! { <LiveAccount state locale theme on_login=noop on_register=noop
+        let on_locale = Callback::new(|_: String| {});
+        view! { <LiveAccount state locale theme on_locale on_login=noop on_register=noop
         on_logout=noop on_refresh=noop on_membership=noop/> }
         .to_html()
     }
@@ -631,7 +731,7 @@ mod tests {
                 "Signed-in listener",
                 "Open my library",
                 "Sign out",
-                "Membership details are currently unavailable",
+                "No information yet",
                 "theatre-account-theme",
             ] {
                 assert!(html.contains(required), "{required}");

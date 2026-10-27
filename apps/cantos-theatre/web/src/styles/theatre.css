@@ -26,7 +26,7 @@ body { margin: 0; }
 }
 /* A painted shell (button, chip, destination, avatar, row, card) shows one focus perimeter that
    touches its own edge: zero gap, no halo. Hover and press never draw this stroke. */
-.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-guest-info-trigger, .theatre-account-menu-row, .theatre-auth-brand, .theatre-skip):focus-visible {
+.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-guest-info-trigger, .theatre-account-menu-row, .theatre-action-row, .theatre-auth-brand, .theatre-skip):focus-visible {
   outline-offset: 0;
 }
 /* Route changes move focus to <main> for assistive technology; the landmark itself is not a control. */
@@ -683,3 +683,27 @@ body { margin: 0; }
     background: color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent);
   }
 }
+
+/* Your space (v4.2): preferences share one row (theme cycle + language) and destinations are
+   action rows with a leading icon, one label and a trailing chevron over the full-width target. */
+.theatre-pref-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); margin-block: var(--cantos-space-md); }
+.theatre-pref-theme { display: inline-flex; align-items: center; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.theatre-pref-label { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); }
+.theatre-pref-value { font-weight: 600; overflow-wrap: anywhere; }
+.theatre-pref-locale { flex: 1 1 16rem; min-inline-size: min(100%, 14rem); }
+.theatre-pref-locale.cui-select-field { grid-template-columns: auto minmax(7rem, 1fr); align-items: center; }
+.theatre-pref-locale.cui-select-field > .cui-field-label { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); font-weight: 400; }
+.theatre-pref-locale .cui-select-value { flex: 0 1 auto; }
+.theatre-action-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
+.theatre-action-row {
+  display: flex; align-items: center; gap: var(--cantos-space-md);
+  box-sizing: border-box; inline-size: 100%; min-block-size: var(--cantos-size-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-control);
+  color: inherit; text-decoration: none;
+}
+.theatre-action-row .cui-icon, .theatre-action-row svg { flex: none; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
+.theatre-action-row-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
+.theatre-action-row .theatre-chevron { color: var(--cantos-color-on-surface-variant); }
+[dir="rtl"] .theatre-action-row .theatre-chevron { transform: scaleX(-1); }
+@media (hover: hover) { .theatre-action-row:hover { background: var(--cantos-color-surface-container); } }

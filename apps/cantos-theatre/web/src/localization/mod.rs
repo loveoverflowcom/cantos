@@ -70,6 +70,16 @@ pub fn save_preference(locale: Locale) -> Result<(), PreferenceWarning> {
         })
 }
 
+/// The one projection of the supported UI locales for every language selector.
+pub fn locale_options() -> Vec<cantos_ui::SelectOption> {
+    Locale::supported()
+        .map(|option| cantos_ui::SelectOption {
+            lang: Some(option.lang().to_owned()),
+            ..cantos_ui::SelectOption::new(option.lang(), option.autonym())
+        })
+        .collect()
+}
+
 pub fn theme_labels(locale: Locale) -> cantos_ui::ThemeCycleLabels {
     use generated::theme::{text, Key};
     cantos_ui::ThemeCycleLabels {
