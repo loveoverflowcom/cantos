@@ -19,9 +19,11 @@ def run(fixture):
     names = {service: f.prefix+'-bridge-'+service for service in oci.SERVICES}
     created = False
     try:
+        f.adapter_phase = 'BRIDGE_CREATE'
         f.pod('network', 'create', '--internal', '--subnet', '10.231.42.0/24', name)
         created = True
         network = json.loads(f.pod('network', 'inspect', name))[0]
+        f.adapter_phase = 'BRIDGE_START'
         for service in reversed(oci.SERVICES):
             options = f.options(service)
             index = options.index('--tmpfs')
@@ -47,6 +49,10 @@ def run(fixture):
                 return f.pod(*argv[1:])
 
         system = FixtureSystem()
+        f.adapter_phase = 'BRIDGE_RUNTIME_AND_HTTP'
+        # Whitelisted shape names only: never emit argv, env, addresses or subprocess stderr.
+        f.adapter_shapes = {service: type(system.inspect(service)['Config'].get('Entrypoint')).__name__
+                            for service in oci.SERVICES}
         deadline = time.monotonic()+30
         while True:
             try:
@@ -56,8 +62,10 @@ def run(fixture):
                 contract.require(time.monotonic() < deadline, 'BRIDGE_HTTP_NOT_READY')
                 time.sleep(0.2)
         for service in oci.SERVICES:
+            f.adapter_phase = 'BRIDGE_PROCESS_CHECK'
             system.check_container(request, service, system.inspect(service), [f.manifest['images'][service]])
         wrong = copy.deepcopy(request)
+        f.adapter_phase = 'BRIDGE_FOREIGN_NETWORK_CONTROL'
         wrong['health_url']['network_id'] = '0'*64
         try:
             system.health(wrong, f.manifest)

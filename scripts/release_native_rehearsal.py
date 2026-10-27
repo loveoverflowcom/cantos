@@ -80,6 +80,7 @@ def rehearse(root, args):
               'runner': {'system': platform.system(), 'machine': platform.machine()}, 'started_at': int(time.time()),
               'activation': 'NOT_RUN', 'admission': 'NOT_RUN', 'live_readiness': 'NOT_RUN'}
     contract.write_new(args.output/'attempt.json', record)
+    fixture = None
     try:
         with tempfile.TemporaryDirectory(prefix='cantos-historical-rehearsal-') as temporary:
             fixture = qualify.Fixture(root, Path(temporary), old, args.authfile)
@@ -92,7 +93,12 @@ def rehearse(root, args):
     except Exception as error:
         # Keep static assertion codes, never subprocess stderr, configuration or data rows.
         safe = isinstance(error, ValueError) and re.fullmatch(r'[A-Za-z0-9_:/.-]{1,256}', str(error))
-        record.update(status='FAIL', failure=str(error) if safe else type(error).__name__)
+        code = error.code if isinstance(error, migration.adapter.Refusal) else None
+        failure = code if code and re.fullmatch(r'[A-Z0-9_]{1,160}', code) else (str(error) if safe else type(error).__name__)
+        record.update(status='FAIL', failure=failure)
+        if hasattr(fixture, 'adapter_phase'):
+            record.update(adapter_phase=fixture.adapter_phase, entrypoint_shapes=fixture.adapter_shapes
+                          if hasattr(fixture, 'adapter_shapes') else {})
     contract.write_new(args.output/'historical-upgrade.json', record)
     return record
 

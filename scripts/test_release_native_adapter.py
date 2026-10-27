@@ -40,6 +40,8 @@ class Commands(unittest.TestCase):
             c = container(service)
             expected = ['serve'] if service == 'cantos-identity' else []
             self.assertEqual(adapter.command_view(service, c)['Args'], expected)
+            c['Config']['Entrypoint'] = '/usr/local/bin/'+service
+            self.assertEqual(adapter.command_view(service, c)['Args'], expected)
             if service == 'cantos-server':
                 c['Args'] = []
                 c['Config']['Cmd'] = []
@@ -52,7 +54,8 @@ class Commands(unittest.TestCase):
                              ('Args', ['/usr/local/bin/cantos-server', '/usr/local/bin/cantos-server'])]:
             with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, 'inspected command'):
                 adapter.command_view('cantos-server', container() | {field: value})
-        for field, value in [('Entrypoint', ['/bin/sh']), ('Entrypoint', None), ('Cmd', ['--help'])]:
+        for field, value in [('Entrypoint', ['/bin/sh']), ('Entrypoint', '/usr/local/bin/cantos-server --help'),
+                             ('Entrypoint', '/bin/sh'), ('Entrypoint', None), ('Cmd', ['--help'])]:
             c = container(); c['Config'][field] = value
             with self.assertRaisesRegex(ValueError, 'inspected command'):
                 adapter.command_view('cantos-server', c)

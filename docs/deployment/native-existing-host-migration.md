@@ -132,6 +132,8 @@ firewall or peer policy is changed. The independent same-schema lane remains loo
 
 Podman may report Server `Args` either as `[]` or as the one executable already in `Path` and
 `Config.Entrypoint`. Adoption accepts only those two metadata forms with an empty/null Cmd,
+and the entrypoint itself may be the exact executable string or its one-element array (Podman
+versions differ; no command string parsing or splitting is performed). It
 then requires the actual running process argv to be exactly that one executable. Identity still
 requires exactly its executable plus `serve`. Extra flags, shell wrappers, migration commands,
 entrypoint/Cmd disagreement or a changed PID/container/start identity refuse.
