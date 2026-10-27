@@ -132,7 +132,10 @@ class RealCatalogCompatibility(unittest.TestCase):
         capabilities, helpers = behavior.load_registry(behavior.ROOT)
         self.assertEqual(helpers, [])
         self.assertEqual([c["id"] for c in capabilities], [e["id"] for e in entries])
-        self.assertEqual(sum(1 for c in capabilities if c.get("model") is not None), 10)
+        self.assertEqual(
+            {c["id"] for c in capabilities if c.get("model") is not None},
+            {c["id"] for c in behavior.load_catalog(behavior.ROOT)},
+        )
         for resolved, entry in zip(capabilities, entries):
             with self.subTest(capability=entry["id"]):
                 if resolved.get("model") is None:
@@ -169,11 +172,12 @@ class RealCatalogCompatibility(unittest.TestCase):
         for cap in behavior.load_catalog(behavior.ROOT):
             self.assertEqual(cap["importClosure"], [], cap["id"])
 
-    def test_the_index_command_is_read_only_and_names_all_ten_runnable_models(self):
+    def test_the_index_command_is_read_only_and_names_all_runnable_models(self):
         result = subprocess.run([sys.executable, str(behavior.ROOT / "scripts/verify_behavior.py"), "--impact-index"],
                                 capture_output=True, text=True, cwd=behavior.ROOT, check=True)
         index = json.loads(result.stdout)
-        self.assertEqual(len(index["capabilities"]), 10)
+        self.assertEqual(set(index["capabilities"]), {cap["id"] for cap in behavior.load_catalog(behavior.ROOT)})
+        self.assertIn("cantos.media.sample-metadata", index["capabilities"])
         self.assertEqual(index["inputs"]["specs/behavior/identity/theatre_registration_tests.qnt"], ["*"])
         for argument in ("--setup", "--conformance"):
             failed = subprocess.run([sys.executable, str(behavior.ROOT / "scripts/verify_behavior.py"),
