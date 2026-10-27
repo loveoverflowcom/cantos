@@ -6,17 +6,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -69,20 +66,16 @@ fun VerifyEmailScreen(
     val copy = AuthCopy(locale)
     val phase = state.phase
     val signedIn = account == AccountView.SignedIn
+    AuthTonalScope {
     Column(Modifier.fillMaxWidth().testTag("verify-email"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            Text(copy.text(AuthText.VerifyEyebrow), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
-            Text(copy.text(verificationHeading(phase)), style = CantosTypography.authHeading,
-                modifier = Modifier.testTag("auth-heading").semantics { heading() })
-        }
+        Text(copy.text(verificationHeading(phase)), style = CantosTypography.authHeading,
+            modifier = Modifier.testTag("auth-heading").semantics { heading() })
         val message = copy.text(verificationMessage(phase, signedIn))
         val failed = phase is VerificationPhase.CompleteRefused || phase == VerificationPhase.LinkRefused ||
             phase == VerificationPhase.Idle
-        Text(message, Modifier.testTag("verify-status").semantics {
-            liveRegion = LiveRegionMode.Polite
-            if (failed) error(message)
-        }, style = MaterialTheme.typography.bodyMedium,
-            color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        val live = Modifier.testTag("verify-status").semantics { liveRegion = LiveRegionMode.Polite }
+        if (failed) ErrorText(message, live)
+        else Text(message, live, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         when (phase) {
             VerificationPhase.AwaitingConfirmation, VerificationPhase.Completing -> PasswordForm(state, copy, onIntent)
             is VerificationPhase.CompleteRetry -> Button(copy.text(AuthText.VerifyRetrySame), { onIntent(VerificationIntent.Retry) },
@@ -107,6 +100,7 @@ fun VerifyEmailScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -135,27 +129,28 @@ internal fun verificationMessage(phase: VerificationPhase, signedIn: Boolean): A
 
 @Composable
 private fun PasswordForm(state: EmailVerificationState, copy: AuthCopy, onIntent: (VerificationIntent) -> Unit) {
-    var visible by remember { mutableStateOf(false) }
+    // Two independent eyes: revealing one password never reveals the other.
+    var passwordVisible by remember { mutableStateOf(false) }
+    var repeatVisible by remember { mutableStateOf(false) }
     val pending = state.phase == VerificationPhase.Completing
     val fieldState = if (pending) FieldState.ReadOnly else FieldState.Editable
     // A hint appears once both fields have input, so an untouched form is not shown as an error.
     val issue = state.passwordIssue.takeIf { state.password.isNotEmpty() && state.repeat.isNotEmpty() }
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         TextField(copy.text(AuthText.VerifyPassword), state.password, { onIntent(VerificationIntent.Password(it)) },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal, state = fieldState,
             help = copy.text(AuthText.VerifyPasswordHelp),
-            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+            trailing = { PasswordEye(passwordVisible, copy, Modifier.testTag("verify-password-eye")) { passwordVisible = !passwordVisible } },
             controlModifier = Modifier.testTag("verify-password"))
         TextField(copy.text(AuthText.VerifyPasswordRepeat), state.repeat, { onIntent(VerificationIntent.Repeat(it)) },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal, state = fieldState,
             error = issue?.let { copy.text(it.label) },
-            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = if (repeatVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            trailing = { PasswordEye(repeatVisible, copy, Modifier.testTag("verify-repeat-eye")) { repeatVisible = !repeatVisible } },
             controlModifier = Modifier.testTag("verify-repeat"))
-        TextButton({ visible = !visible }, modifier = Modifier.align(Alignment.End), enabled = !pending) {
-            Text(copy.text(if (visible) AuthText.HidePassword else AuthText.ShowPassword))
-        }
         Checkbox(copy.text(AuthText.VerifyConfirmCheckbox), state.confirmed, { onIntent(VerificationIntent.Confirm(it)) },
             modifier = Modifier.fillMaxWidth(),
             state = if (pending) ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.VerifyCompleting))) else ButtonState.Enabled,

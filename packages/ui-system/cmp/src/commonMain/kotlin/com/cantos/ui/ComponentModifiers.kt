@@ -101,6 +101,26 @@ internal fun Modifier.cantosInsetPerimeter(
         }
 }
 
+/**
+ * A borderless focus indicator: while the node holds focus a [color] layer ([alpha]) is painted over
+ * its own [shape]. Unlike [cantosInsetPerimeter] it adds no stroke, so it never reads as a border.
+ */
+internal fun Modifier.cantosFocusFill(shape: Shape, color: Color, alpha: Float = TonalFocusFillAlpha): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    onFocusChanged { focused = it.isFocused }
+        .drawWithContent {
+            drawContent()
+            if (focused) {
+                // Every Cantos control shape is a uniformly rounded rectangle (see outlineCornerRadius).
+                val radius = outlineCornerRadius(shape.createOutline(size, layoutDirection, this))
+                drawRoundRect(color, size = size, cornerRadius = CornerRadius(radius), alpha = alpha)
+            }
+        }
+}
+
+/** Strong enough to read on both the lavender primary fill and a tonal container; below the 0.38 disabled layer. */
+internal const val TonalFocusFillAlpha: Float = 0.2f
+
 /** A fixed radius: the field and menu shells whose shape is a plain rounded rectangle. */
 internal fun Modifier.cantosInsetPerimeter(radius: Dp, invalid: Boolean = false, active: Boolean = false): Modifier =
     cantosInsetPerimeter(RoundedCornerShape(radius), invalid, active)

@@ -218,4 +218,25 @@ internal object PreviewToolCopy {
     const val AccountGroupHelp = "Appearance and listening settings form a quiet group without a decorative border."
     const val DialogFocusHelp = "Open the specimen, use Tab/Shift+Tab, then Escape or Đóng. Check that focus returns to its trigger; a preset does not establish the result."
     fun logoState(state: String) = "$LogoOfflineHelp · $state"
+
+    /** Synthetic Vietnamese content for the Auth v4.3 tonal matrix; not an app translation. */
+    object AuthTonal {
+        const val Title = "Đăng nhập"
+        const val Email = "Địa chỉ email"
+        const val EmailValue = "linh@example.com"
+        const val EmailInvalid = "linh@example"
+        const val EmailError = "Nhập địa chỉ email hợp lệ."
+        const val NewPassword = "Mật khẩu mới"
+        const val NewPasswordValue = "mật khẩu dài hơn tám"
+        const val RepeatPassword = "Nhập lại mật khẩu"
+        const val RepeatPasswordValue = "mật khẩu dài hơn chín"
+        const val Mismatch = "Hai mật khẩu chưa giống nhau."
+        const val Locked = "Đang gửi yêu cầu, chưa thể sửa email."
+        const val SignIn = "Đăng nhập"
+        const val Pending = "Đang đăng nhập. Không gửi yêu cầu lần hai."
+        const val Unavailable = "Đăng nhập chưa khả dụng trên bản này."
+        const val Route = "Tạo tài khoản Cantos"
+        const val ShowPassword = "Hiện mật khẩu"
+        const val HidePassword = "Ẩn mật khẩu"
+    }
 }

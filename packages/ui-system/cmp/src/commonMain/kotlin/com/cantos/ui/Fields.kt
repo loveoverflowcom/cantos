@@ -2,6 +2,7 @@ package com.cantos.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,7 +33,8 @@ internal val FloatingFieldMinHeight: Dp = 68.dp
 internal val FloatingFieldRadius: Dp = 16.dp
 
 /** The two shell variants share one anatomy; only the search field changes shape and minimum. */
-internal fun TextFieldVariant.isFloating(): Boolean = this == TextFieldVariant.Floating || this == TextFieldVariant.FloatingSearch
+internal fun TextFieldVariant.isFloating(): Boolean =
+    this == TextFieldVariant.Floating || this == TextFieldVariant.FloatingSearch || this == TextFieldVariant.FloatingTonal
 
 /** AuthTonal puts its label outside the shell and the docked search has none: its label is the prompt and the accessible name. */
 internal fun TextFieldVariant.hasFieldLabel(): Boolean = this != TextFieldVariant.AuthTonal && this != TextFieldVariant.FloatingSearch
@@ -68,13 +70,15 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String): Modifier = fillMaxWidth()
     .then(when (variant) {
         TextFieldVariant.AuthTonal -> Modifier.heightIn(min = tokenDp("size.authField"))
-        TextFieldVariant.Floating -> Modifier.heightIn(min = FloatingFieldMinHeight)
+        TextFieldVariant.Floating, TextFieldVariant.FloatingTonal -> Modifier.heightIn(min = FloatingFieldMinHeight)
         TextFieldVariant.FloatingSearch -> Modifier.heightIn(min = tokenDp("size.searchHeader"))
         TextFieldVariant.Regular -> Modifier
     })
     .then(when (variant) {
         // One inset perimeter owned by this field; no other control's focus geometry changes.
         TextFieldVariant.Floating -> Modifier.cantosInsetPerimeter(FloatingFieldRadius, invalid = messages.error != null)
+        // Auth v4.3: the tonal fill, label and caret carry focus and error; nothing is stroked.
+        TextFieldVariant.FloatingTonal -> Modifier
         // The docked search header: resting radius 36 (half of the 72 minimum), hover 1 / focus 2 inset.
         TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(RoundedCornerShape(tokenDp("shape.searchRest")), invalid = messages.error != null, hoverStroke = true)
         // The auth shell is painted, so it gets the same Fields v4 perimeter on its own shape.
@@ -95,6 +99,7 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextField
     // A non-editable shell is the same tone, paler: state is never carried by the fill alone.
     val quiet = lerp(tonal, tokenColor("color.surface"), FloatingQuietFillFraction)
     val floating = variant.isFloating()
+    val tonalRecipe = variant == TextFieldVariant.FloatingTonal
     val container = when {
         floating -> if (state == FieldState.Editable) tonal else quiet
         state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal -> tonal
@@ -108,17 +113,17 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextField
         unfocusedTextColor = content,
         disabledTextColor = secondary,
         errorTextColor = content,
-        focusedContainerColor = container,
+        focusedContainerColor = if (tonalRecipe && state == FieldState.Editable) tokenColor("color.surfaceContainerHigh") else container,
         unfocusedContainerColor = container,
         disabledContainerColor = if (floating) quiet else tokenColor("color.surfaceContainer"),
-        errorContainerColor = if (floating) container else tokenColor("color.errorContainer"),
+        errorContainerColor = if (floating && !tonalRecipe) container else tokenColor("color.errorContainer"),
         cursorColor = tokenColor("color.primary"),
         errorCursorColor = error,
         focusedIndicatorColor = Color.Transparent,
         unfocusedIndicatorColor = Color.Transparent,
         disabledIndicatorColor = Color.Transparent,
         errorIndicatorColor = if (variant == TextFieldVariant.Regular) error else Color.Transparent,
-        focusedLabelColor = if (floating) secondary else tokenColor("color.primary"),
+        focusedLabelColor = if (floating && !tonalRecipe) secondary else tokenColor("color.primary"),
         unfocusedLabelColor = secondary,
         disabledLabelColor = secondary,
         errorLabelColor = error,
@@ -135,11 +140,17 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextField
 private const val FloatingQuietFillFraction: Float = 0.5f
 
 @Composable
-private fun fieldSupportingText(messages: FieldMessages): (@Composable () -> Unit)? =
+private fun fieldSupportingText(messages: FieldMessages, errorIcon: Boolean = false): (@Composable () -> Unit)? =
     if (messages.description.isBlank()) null else ({
         Column {
             messages.help?.let { FieldHelp(it) }
-            messages.error?.let { FieldError(it) }
+            messages.error?.let { message ->
+                // Colour is never the only signal: the tonal recipe pairs the message with a glyph.
+                if (errorIcon) Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                    Icon("warning_amber", tint = tokenColor("color.error"))
+                    FieldError(message)
+                } else FieldError(message)
+            }
             messages.reason?.let { FieldHelp(it) }
         }
     })
@@ -164,7 +175,7 @@ private fun FieldFrame(
         Column(modifier, verticalArrangement = Arrangement.spacedBy(supportGap)) {
             if (variant == TextFieldVariant.AuthTonal) Text(label, style = MaterialTheme.typography.labelLarge)
             content(Modifier)
-            fieldSupportingText(messages)?.invoke()
+            fieldSupportingText(messages, errorIcon = variant == TextFieldVariant.FloatingTonal)?.invoke()
         }
     }
 }
@@ -172,7 +183,7 @@ private fun FieldFrame(
 @Composable
 private fun fieldShape(variant: TextFieldVariant): androidx.compose.ui.graphics.Shape = when (variant) {
     TextFieldVariant.AuthTonal -> CantosShapes.authField
-    TextFieldVariant.Floating -> RoundedCornerShape(FloatingFieldRadius)
+    TextFieldVariant.Floating, TextFieldVariant.FloatingTonal -> RoundedCornerShape(FloatingFieldRadius)
     TextFieldVariant.FloatingSearch -> RoundedCornerShape(tokenDp("shape.searchRest"))
     TextFieldVariant.Regular -> CantosShapes.reading
 }

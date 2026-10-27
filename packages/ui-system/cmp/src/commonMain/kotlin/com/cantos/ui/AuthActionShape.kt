@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidedValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
@@ -51,9 +52,21 @@ internal fun ButtonVariant.isAuth(): Boolean = when (this) {
  * [Surface] provides it for that card only; nothing global changes and callbacks, eligibility and
  * the disabled state stay with the button.
  */
-internal enum class AuthActionScope { Default, OnPrimaryContainer }
+internal enum class AuthActionScope { Default, OnPrimaryContainer, Tonal }
 
 internal val LocalAuthActionScope = staticCompositionLocalOf { AuthActionScope.Default }
+
+/** True under [tonalAuthActions]: no action in the subtree draws a stroke, ring or halo. */
+internal fun AuthActionScope.isTonal(): Boolean = this == AuthActionScope.Tonal
+
+/**
+ * Auth v4.3 Minimal Expressive: provide this around a subtree and every [Button], [BackButton] and
+ * [IconButton] in it is borderless at idle, focus, error and disabled. Containers stay tonal; keyboard
+ * and accessibility focus is a state-layer fill over the control's own shape ([cantosFocusFill]).
+ * Callbacks, eligibility, loading and disabled reasons are the caller's and do not change, and
+ * nothing outside the subtree does. Use `CompositionLocalProvider(tonalAuthActions()) { ... }`.
+ */
+fun tonalAuthActions(): ProvidedValue<*> = LocalAuthActionScope provides AuthActionScope.Tonal
 
 /** Both pair members share one pill height and one outline weight so the stacked pair is equal. */
 internal fun ButtonVariant.joinsContainerPair(scope: AuthActionScope): Boolean =
