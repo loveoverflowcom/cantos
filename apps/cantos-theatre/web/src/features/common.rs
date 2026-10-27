@@ -75,14 +75,14 @@ pub(crate) fn PersonGlyph() -> impl IntoView {
     }
 }
 
-/// Decorative "i" for the guest info trigger; the trigger's accessible name carries the meaning.
+/// The outlined person of the account card's compact avatar (v4.3). It takes the avatar's ink, so
+/// the card's own text role decides its contrast; the solid `PersonGlyph` stays for the header.
 #[component]
-pub(crate) fn InfoGlyph() -> impl IntoView {
+pub(crate) fn PersonOutlineGlyph() -> impl IntoView {
     view! {
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
-            <circle cx="12" cy="8" r="1.25" fill="currentColor"/>
-            <path d="M12 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="12" cy="8" r="3.75" fill="none" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M5 20v-1a7 7 0 0 1 14 0v1" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     }
 }

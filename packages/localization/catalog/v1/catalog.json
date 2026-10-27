@@ -5821,10 +5821,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chào bạn."
+          "text": "Chào người nghe."
         },
         "en": {
-          "text": "Hello."
+          "text": "Welcome, listener."
         }
       }
     },
