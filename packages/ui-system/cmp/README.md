@@ -281,8 +281,10 @@ its own copies of the same bytes. Glyph placement still needs an opened capture,
 resources for each product host remain necessary before app adoption.
 
 Reduced-motion inspection resolves the three canonical duration roles to zero. The pending
-ring turns once per `PendingRingTurnMillis` under full motion and holds a visible stationary arc
-under reduced motion (`pendingRingTurnMillis`); no canonical continuous-motion token exists yet.
+indicator (`LoadingIndicator`, shared by Button/IconButton and `LoadingState`, issue #528) turns once
+per `PendingRingTurnMillis` under full motion and holds a visible stationary arc under reduced motion
+(`pendingRingTurnMillis`); only the full-motion branch owns an infinite transition, so reduced motion
+runs no ticker. No canonical continuous-motion token exists yet.
 This is not a platform reduced-motion adapter or a claim about
 all Material ripple/native motion. Focus uses real Compose focus nodes with token-driven rings;
 select the focus preset or use Tab/Shift+Tab. Dialog dismissal requests focus restoration to its
@@ -310,6 +312,9 @@ entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM 
 - `AuthButtonReplayTest`: real touch dispatch; asserts the intent before the clock advances a
   frame, the hit box on every sampled frame and writes labelled `cmp-motion-auth-action-*`
   captures with a `frame` sidecar (recipe, mark, time, timebase).
+- `LoadingIndicatorTest`: `LoadingState` turns over a manual clock under full motion, is a stationary
+  arc under reduced motion, exposes its label as the state description with no glyph semantics of its
+  own, and leaves no loop behind once it leaves composition (#528).
 - `PendingRingAndFieldIndicatorTest`: the pending ring moves over a manual clock under full motion
   and stays stationary but painted under reduced motion; an `AuthTonal` field paints one inset
   perimeter (invalid 1 dp, focus 2 dp, focused-invalid 2 dp in the error colour) instead of

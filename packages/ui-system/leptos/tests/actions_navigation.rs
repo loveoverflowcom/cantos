@@ -16,7 +16,7 @@ fn pending_actions_replace_decorative_glyphs_with_progress_and_keep_names_and_re
                 )>"Lưu bản nháp của Nguyễn Thị Ánh Nguyệt"</Button>
             }
             .to_html();
-            assert!(html.contains("cui-action-progress"), "{html}");
+            assert!(html.contains("cui-loading-indicator"), "{html}");
             assert!(
                 !html.contains("<svg"),
                 "pending is neither disclosure nor success: {html}"
@@ -34,7 +34,7 @@ fn pending_actions_replace_decorative_glyphs_with_progress_and_keep_names_and_re
         }
         .to_html();
         assert!(html.contains("title=\"Thử lại bản nháp / Retry draft\""));
-        assert!(html.contains("cui-action-progress"));
+        assert!(html.contains("cui-loading-indicator"));
         assert!(!html.contains("<svg"));
     });
 }

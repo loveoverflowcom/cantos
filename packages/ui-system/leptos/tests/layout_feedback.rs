@@ -94,3 +94,43 @@ fn loading_announcement_is_not_permanently_suppressed_by_its_own_busy_state() {
     assert!(html.contains("role=\"status\""), "{html}");
     assert!(!html.contains("aria-busy="), "{html}");
 }
+
+#[test]
+fn loading_state_shows_one_shared_indicator_that_is_decorative_and_never_a_glyph() {
+    let html = view! { <LoadingState>"Đang tải danh sách"</LoadingState> }.to_html();
+    assert_eq!(html.matches("cui-loading-indicator").count(), 1, "{html}");
+    assert!(
+        html.contains("<span aria-hidden=\"true\" class=\"cui-loading-indicator\">"),
+        "{html}"
+    );
+    assert!(
+        !html.contains("<svg") && !html.contains("cui-loading-mark"),
+        "{html}"
+    );
+    assert!(
+        html.contains("Đang tải danh sách"),
+        "the label carries the status: {html}"
+    );
+}
+
+/// The loop must be tied to the pending mark alone and removed under reduced motion; otherwise a
+/// stationary state would still wake the compositor or an unrelated rule would loop forever.
+#[test]
+fn the_only_endless_animation_is_the_pending_indicator_and_reduced_motion_removes_it() {
+    let css = include_str!("../foundation.css");
+    let endless: Vec<_> = css
+        .lines()
+        .filter(|line| line.contains("infinite"))
+        .collect();
+    assert_eq!(endless.len(), 1, "{endless:?}");
+    assert!(endless[0].contains("cui-loading-turn"), "{}", endless[0]);
+    assert!(css.contains("@keyframes cui-loading-turn"));
+    let reduced = css
+        .match_indices("@media (prefers-reduced-motion: reduce)")
+        .map(|(start, _)| &css[start..])
+        .map(|rest| &rest[..rest.find("\n}").map_or(rest.len(), |end| end + 2)])
+        .find(|block| block.contains(".cui-loading-indicator"))
+        .expect("a reduced-motion block for the indicator");
+    assert!(reduced.contains("animation: none"), "{reduced}");
+    assert!(css.contains("--cantos-web-loading-turn: 1000ms"));
+}

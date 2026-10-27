@@ -4,6 +4,7 @@ mod model;
 mod platform;
 
 use crate::{
+    feedback::LoadingIndicator,
     fields::{descriptions, error_reference, has_text, FieldMessages},
     ChoiceState, FieldLabel, Icon, IconName, SelectDensity, SelectLabelPlacement,
 };
@@ -249,12 +250,12 @@ pub(super) fn MenuSelect(
                     </Show>
                     <span id=value_id class="cui-select-value" lang=move || current_lang.get()>{move || current_label.get()}</span>
                     {move || if state.get().is_loading() {
-                        view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                        view! { <LoadingIndicator/> }.into_any()
                     } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
                 </button>
                 <span class="cui-select-native-indicator" hidden=move || enhanced.get()>
                     {move || if state.get().is_loading() {
-                        view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                        view! { <LoadingIndicator/> }.into_any()
                     } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
                 </span>
             </div>
