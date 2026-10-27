@@ -44,6 +44,8 @@ import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.ui.CantosShapes
+import com.cantos.ui.Announcement
+import com.cantos.ui.LoadingState
 import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
@@ -62,8 +64,13 @@ internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: Sh
             color = MaterialTheme.colorScheme.tertiary)
         Text(episode.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
-        Text(copy.text(playbackStatusKey(state.playbackStatus)),
-            modifier = Modifier.testTag("simulation-status").semantics { liveRegion = LiveRegionMode.Polite })
+        val status = copy.text(playbackStatusKey(state.playbackStatus))
+        // Waiting on the engine shows the shared loading state; every other status stays plain text.
+        if (state.playbackStatus == PlaybackUiStatus.Loading || state.playbackStatus == PlaybackUiStatus.Buffering) {
+            LoadingState(status, Modifier.testTag("simulation-status").semantics(mergeDescendants = true) {}, announcement = Announcement.Polite)
+        } else {
+            Text(status, modifier = Modifier.testTag("simulation-status").semantics { liveRegion = LiveRegionMode.Polite })
+        }
         Slider(value = state.positionSeconds.toFloat(), onValueChange = { dispatch(ShellEvent.SeekTo(it.toInt())) },
             valueRange = 0f..episode.durationSeconds.toFloat(), modifier = Modifier.fillMaxWidth().testTag("seek").semantics {
                 contentDescription = copy.text(CopyKey.Position)

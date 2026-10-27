@@ -6,7 +6,7 @@ use super::{
 };
 use crate::contract::AudioSubmissionState;
 use crate::ui::{ActionButton, BlockReason};
-use cantos_ui::{ButtonVariant, Surface};
+use cantos_ui::{Announcement, ButtonVariant, LoadingState, Surface};
 use leptos::prelude::*;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -116,7 +116,7 @@ pub fn Dashboard(
                             <ActionButton id="dashboard-refresh" locale=locale variant=ButtonVariant::Text blocked=blocked on_press=Callback::new(move |_| on_refresh.run(()))>{move || text(Key::Refresh, locale.get())}</ActionButton></div>
                         <div id="dashboard-status" class="dashboard-status" tabindex="-1">
                             <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, locale.get())}</p></Show>
-                            <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><p role="status" aria-live="polite">{move || text(Key::Loading, locale.get())}</p></Show>
+                            <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><LoadingState announcement=Announcement::Polite>{move || text(Key::Loading, locale.get())}</LoadingState></Show>
                             <Show when=move || query.with(|q| matches!(q.read, CatalogRead::Failed(_)))>
                                 <div role="status" aria-live="polite"><h4>{move ||text(Key::ReadFailed,locale.get())}</h4><p>{move ||text(Key::RetryHelp,locale.get())}</p></div>
                             </Show>

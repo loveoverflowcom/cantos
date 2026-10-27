@@ -19,6 +19,8 @@ import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryPhase
 import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellListPhase
+import com.cantos.ui.Announcement
+import com.cantos.ui.LoadingState
 import com.cantos.ui.tokenDp
 
 /**
@@ -29,9 +31,8 @@ import com.cantos.ui.tokenDp
 internal fun ListFooter(phase: ShellListPhase, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, first: Boolean = false) {
     when (phase) {
         ShellListPhase.Complete -> Unit
-        ShellListPhase.Loading -> Text(copy.text(if (first) CopyKey.Loading else CopyKey.LoadingMore),
-            Modifier.testTag("list-loading").semantics { liveRegion = LiveRegionMode.Polite },
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ShellListPhase.Loading -> LoadingState(copy.text(if (first) CopyKey.Loading else CopyKey.LoadingMore),
+            Modifier.testTag("list-loading"), announcement = Announcement.Polite)
         ShellListPhase.More -> FilledTonalButton(shape = MaterialTheme.shapes.medium,
             onClick = { dispatch(ShellEvent.LoadMore) }, modifier = Modifier.testTag("list-load-more")) {
             Text(copy.text(CopyKey.LoadMore))
@@ -53,10 +54,9 @@ internal fun ListFooter(phase: ShellListPhase, copy: ShellCopy, dispatch: (Shell
 internal fun LibraryFooter(phase: ShellLibraryPhase, section: ShellLibrarySection, tag: String, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     when (phase) {
         ShellLibraryPhase.Complete -> Unit
-        ShellLibraryPhase.Loading, ShellLibraryPhase.LoadingMore -> Text(
+        ShellLibraryPhase.Loading, ShellLibraryPhase.LoadingMore -> LoadingState(
             copy.text(if (phase == ShellLibraryPhase.Loading) CopyKey.Loading else CopyKey.LoadingMore),
-            Modifier.testTag("$tag-loading").semantics { liveRegion = LiveRegionMode.Polite },
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Modifier.testTag("$tag-loading"), announcement = Announcement.Polite)
         ShellLibraryPhase.More -> FilledTonalButton(shape = MaterialTheme.shapes.medium,
             onClick = { dispatch(ShellEvent.LoadMoreLibrary(section)) }, modifier = Modifier.testTag("$tag-more")) {
             Text(copy.text(CopyKey.LoadMore))

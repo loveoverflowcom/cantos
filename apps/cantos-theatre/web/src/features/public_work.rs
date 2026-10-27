@@ -27,7 +27,8 @@ use crate::{
     messages::{self, text, Key, Locale},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, IconName,
+    AccessibleName, Announcement, BackButton, Button, ButtonState, ButtonVariant, DisabledReason,
+    IconName, LoadingState,
 };
 use leptos::prelude::*;
 
@@ -247,7 +248,9 @@ pub(crate) fn PublicWorkDetail(
             {move || match current.get() {
                 Shape::Loading => view! {
                     <h1 id=HEADING_ID tabindex="-1">{move || text(Key::AboutWork, locale.get())}</h1>
-                    <p class="theatre-public-state" role="status">{move || text(Key::PublicWorkLoading, locale.get())}</p>
+                    <LoadingState class="theatre-public-state" announcement=Announcement::Polite>
+                        {move || text(Key::PublicWorkLoading, locale.get())}
+                    </LoadingState>
                 }.into_any(),
                 Shape::NotFound => view! {
                     <div class="theatre-public-state theatre-panel">
@@ -1285,6 +1288,12 @@ mod tests {
         let ticket = loading.open(PublicWorkId::parse(WORK).unwrap()).unwrap();
         let html = render(loading.clone(), Locale::Vietnamese);
         assert!(html.contains("Đang mở tác phẩm…") && html.contains("aria-busy=\"true\""));
+        assert_eq!(
+            html.matches("cui-loading-indicator").count(),
+            1,
+            "one loader for one state: {html}"
+        );
+        assert!(html.contains("role=\"status\""), "{html}");
 
         let mut not_found = loading.clone();
         not_found.finish_work(&ticket, Err(CatalogReadError::NotFound));
