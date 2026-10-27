@@ -232,8 +232,12 @@ class RegistrationPreviewUiTest {
                 assertEquals(register.width, email.boundsInRoot.width)
                 assertEquals(register.height, password.boundsInRoot.height)
                 assertTrue(password.config.contains(SemanticsProperties.Password), "the shared field keeps password semantics")
-                assertTrue(email.config.contains(SemanticsProperties.ContentDescription), "both fields name themselves the same way")
-                assertTrue(password.config.contains(SemanticsProperties.ContentDescription))
+                // Floating fields name themselves with the native label inside their own shell, never a
+                // separate external label or a contentDescription override.
+                assertTrue(email.config[SemanticsProperties.Text].any { it.text == "Địa chỉ email" }, "both fields name themselves the same way")
+                assertTrue(password.config[SemanticsProperties.Text].any { it.text == "Mật khẩu" })
+                assertFalse(email.config.contains(SemanticsProperties.ContentDescription))
+                assertFalse(password.config.contains(SemanticsProperties.ContentDescription))
                 assertEquals(0, api.paths.size)
             }
         }

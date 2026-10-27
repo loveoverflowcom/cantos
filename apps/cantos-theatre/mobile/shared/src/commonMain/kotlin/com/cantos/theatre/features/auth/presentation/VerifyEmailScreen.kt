@@ -142,13 +142,13 @@ private fun PasswordForm(state: EmailVerificationState, copy: AuthCopy, onIntent
     val issue = state.passwordIssue.takeIf { state.password.isNotEmpty() && state.repeat.isNotEmpty() }
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         TextField(copy.text(AuthText.VerifyPassword), state.password, { onIntent(VerificationIntent.Password(it)) },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
             help = copy.text(AuthText.VerifyPasswordHelp),
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
             controlModifier = Modifier.testTag("verify-password"))
         TextField(copy.text(AuthText.VerifyPasswordRepeat), state.repeat, { onIntent(VerificationIntent.Repeat(it)) },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
             error = issue?.let { copy.text(it.label) },
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
