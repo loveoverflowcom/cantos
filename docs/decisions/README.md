@@ -9,6 +9,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 
 | ADR | Lifecycle | Scope / remaining boundary |
 | --- | --- | --- |
+| [0051 — Metadata-only discovery](0051-metadata-only-public-discovery.md) | Proposed (#539); no behavior change | Catalog already saves Works/units without audio; anonymous discovery stays release-gated (ADR 0030/0035) until the owner selects a disclosure authority, version boundary and Web/CMP disabled-Play adoption |
 | [0050 — Semantic localization](0050-localization-semantic-catalog.md) | Accepted direction; staged target qualification | Versioned JSON, app-owned generated APIs and a pinned ICU4X/CLDR strategy; saved preference then vi-VN, no device negotiation. Each #506/#507 namespace requires actual target/formatter evidence before adoption. |
 | [0049 — Synthetic local mail](0049-synthetic-local-mail.md) | Proposed runner design; bounded fixture implemented | Explicit synthetic Resend HTTP capture; Identity proof, provider and native acceptance remain separate |
 | [0044 — Native enrollment preview](0044-native-enrollment-preview.md) | Proposed development boundary | Shared CMP registration and separately enabled native admission; isolated full journey and native/production acceptance remain separate |

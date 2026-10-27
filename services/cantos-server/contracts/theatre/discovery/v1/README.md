@@ -32,6 +32,9 @@ approval, a current active owner, unexpired rights and no release withdrawal or 
 revocation. Both its pinned Work visibility and current Work visibility must be Public;
 current Work/unit archival removes access. Catalog's `draft` lifecycle is CMS metadata state,
 not an audio publication state; an approved active audio release is the publication authority.
+A Work or unit saved without such a release, even with Work visibility `public`, is therefore
+absent (`200` with `items: []`, or `not_found`); metadata-only discovery is only proposed in
+[ADR 0051](../../../../../../docs/decisions/0051-metadata-only-public-discovery.md).
 Private/unlisted/draft-only/staged/unapproved/retracted/superseded/expired records and absent
 records return the same anonymous `not_found` response. No previous-authorization history
 exists in this slice, so there is no public 410 existence disclosure or retained-release access.
