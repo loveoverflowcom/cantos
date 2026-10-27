@@ -136,6 +136,8 @@ pub enum TextFieldVariant {
     /// It rests as the placeholder and floats while focused or holding any value. Use an
     /// external label (`Regular`) for editors and labels too long to share a 64-unit shell.
     Floating,
+    /// Preview candidate: Floating anatomy with a tonal, borderless auth treatment.
+    FloatingTonal,
 }
 
 impl TextFieldVariant {
@@ -144,13 +146,13 @@ impl TextFieldVariant {
             Self::Regular => "regular",
             Self::AuthTonal => "auth-tonal",
             Self::AuthTonalSpacious => "auth-tonal-spacious",
-            Self::Floating => "floating",
+            Self::Floating | Self::FloatingTonal => "floating",
         }
     }
 
     pub const fn has_floating_label(self) -> bool {
         match self {
-            Self::Floating => true,
+            Self::Floating | Self::FloatingTonal => true,
             Self::Regular | Self::AuthTonal | Self::AuthTonalSpacious => false,
         }
     }
@@ -282,14 +284,32 @@ pub(super) fn FieldMessages(
     help: Signal<Option<String>>,
     error: Signal<Option<String>>,
     reason: Signal<Option<DisabledReason>>,
+    #[prop(optional)] error_icon: bool,
 ) -> impl IntoView {
+    // Keep the ordinary message's existing native markup unchanged; the decorative icon is
+    // present only in the explicitly selected tonal recipe.
+    let error_id = format!("{id}-error");
+    let error_message = if error_icon {
+        view! {
+            <p id=error_id class="cui-field-error" hidden=move || !has_text(&error.get())>
+                <span data-field-error-icon="true"><Icon name=IconName::WarningAmber/></span>
+                {move || error.get().unwrap_or_default()}
+            </p>
+        }
+        .into_any()
+    } else {
+        view! {
+            <p id=error_id class="cui-field-error" hidden=move || !has_text(&error.get())>
+                {move || error.get().unwrap_or_default()}
+            </p>
+        }
+        .into_any()
+    };
     view! {
         <p id=format!("{id}-help") class="cui-field-help" hidden=move || !has_text(&help.get())>
             {move || help.get().unwrap_or_default()}
         </p>
-        <p id=format!("{id}-error") class="cui-field-error" hidden=move || !has_text(&error.get())>
-            {move || error.get().unwrap_or_default()}
-        </p>
+        {error_message}
         <p id=format!("{id}-reason") class="cui-field-help" hidden=move || reason.get().is_none()>
             {move || reason.get().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
         </p>
@@ -418,9 +438,9 @@ fn InputField(
         view! { <>{label_view}{control}</> }.into_any()
     };
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-kind=move || input_type.get() data-state=move || state.get().as_str()>
+        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-recipe=(variant == TextFieldVariant::FloatingTonal).then_some("auth-tonal") data-kind=move || input_type.get() data-state=move || state.get().as_str()>
             {anatomy}
-            <FieldMessages id=id help=help error=error reason=reason/>
+            <FieldMessages id=id help=help error=error reason=reason error_icon=variant == TextFieldVariant::FloatingTonal/>
         </div>
     }
 }

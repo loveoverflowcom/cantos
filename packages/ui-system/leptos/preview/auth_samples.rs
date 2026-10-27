@@ -1,5 +1,8 @@
 //! Auth/account design-v2 specimens only. No identity, navigation or payment effects.
-use super::messages::tool;
+use super::{
+    messages::{specimen, tool, SpecimenKey},
+    recipe::Locale,
+};
 use cantos_ui::{
     AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
     DisabledReason, FieldState, IconName, Select, Space, Stack, Status, Surface, SurfaceTone,
@@ -98,6 +101,11 @@ pub fn AuthFieldSamples(
                     on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>{tool::TOGGLE_ERROR}</Button></div>
                 <p lang=tool::LANGUAGE_TAG>{tool::AUTH_CANDIDATE}</p>
                 <Stack gap=Space::Lg>
+                <div data-preview-scenario="auth-floating-tonal auth-field-focus auth-error auth-field-disabled auth-field-loading autofill forced-colors">
+                    <TextField id="auth-tonal-candidate" variant=TextFieldVariant::FloatingTonal kind=TextFieldKind::Email
+                        label=specimen(Locale::Vi, SpecimenKey::Email) value=text state=state error=error autocomplete="email"
+                        on_input=Callback::new(move |value| text.set(value))/>
+                </div>
                 <div data-preview-scenario="auth-tonal floating auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
                     <TextField id="auth-email" variant=TextFieldVariant::Floating kind=TextFieldKind::Email
                         label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"

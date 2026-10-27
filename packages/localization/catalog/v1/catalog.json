@@ -5245,10 +5245,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Một nơi để trở lại."
+          "text": "Đăng ký"
         },
         "en": {
-          "text": "A place to return to."
+          "text": "Register"
         }
       }
     },
@@ -5389,10 +5389,22 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Liên kết đã được mở an toàn. Hãy chọn mật khẩu rồi xác nhận để tạo tài khoản. Chỉ mở liên kết thì chưa tạo gì và chưa đăng nhập."
+          "text": "Nhập mật khẩu khớp và xác nhận tạo tài khoản."
         },
         "en": {
-          "text": "The link has been opened safely. Choose a password, then confirm to create your account. Opening the link alone creates nothing and does not sign you in."
+          "text": "Enter matching passwords and confirm account creation."
+        }
+      }
+    },
+    "theatre.auth.signup_password_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo mật khẩu"
+        },
+        "en": {
+          "text": "Create password"
         }
       }
     },
@@ -5425,10 +5437,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Từ 8 đến 128 ký tự. Khoảng trắng được giữ nguyên và mật khẩu không bao giờ được lưu trong trình duyệt."
+          "text": "8–128 ký tự"
         },
         "en": {
-          "text": "8 to 128 characters. Spaces are kept as typed and the password is never stored in the browser."
+          "text": "8–128 characters"
         }
       }
     },
@@ -5473,10 +5485,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tôi là chủ hộp thư này và xác nhận tạo tài khoản Cantos với mật khẩu vừa nhập."
+          "text": "Tôi xác nhận tạo tài khoản"
         },
         "en": {
-          "text": "I own this mailbox and confirm creating a Cantos account with the password I just entered."
+          "text": "I confirm account creation"
         }
       }
     },

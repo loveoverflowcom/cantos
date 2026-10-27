@@ -167,6 +167,24 @@ fn unified_back_keeps_one_named_target_and_the_host_owned_blocked_state() {
 }
 
 #[test]
+fn floating_tonal_candidate_keeps_native_error_associations_and_icon() {
+    let html = view! {
+        <TextField id="tonal-email" variant=TextFieldVariant::FloatingTonal kind=TextFieldKind::Email
+            label="Email của bạn" value="bad" autocomplete="email" error="Kiểm tra email"
+            on_input=Callback::new(|_: String| {})/>
+    }.to_html();
+    let input = opening_tag(&html, "input", "tonal-email");
+    assert!(html.contains("data-recipe=\"auth-tonal\""));
+    assert!(html.contains("data-variant=\"floating\""));
+    assert!(html.contains("for=\"tonal-email\""));
+    assert!(input.contains("aria-invalid=\"true\""));
+    assert!(input.contains("aria-errormessage=\"tonal-email-error\""));
+    assert!(html.contains("data-field-error-icon=\"true\""));
+    assert!(html.contains("aria-hidden=\"true\""));
+    assert!(html.contains("Kiểm tra email"));
+}
+
+#[test]
 fn auth_tonal_field_retains_raw_value_native_type_and_all_visible_descriptions() {
     let raw = "nguyễn-thị-ánh-nguyệt+<draft>@example.test";
     let html = view! {

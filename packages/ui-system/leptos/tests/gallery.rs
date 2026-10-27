@@ -572,6 +572,7 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     let field_extension = [
         "auth-tonal-spacious",
         "floating",
+        "auth-floating-tonal",
         "autofill",
         "forced-colors",
     ];

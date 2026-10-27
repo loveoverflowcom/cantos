@@ -166,6 +166,7 @@
         "auth-tonal",
         "auth-tonal-spacious",
         "floating",
+        "auth-floating-tonal",
         "autofill",
         "forced-colors",
         "long-vietnamese",
@@ -176,11 +177,11 @@
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Regular/AuthTonal, Floating and Theatre trailing-action specimens are implemented. Qualification and consumer acceptance are recorded separately."
+        "reason": "Regular/AuthTonal, Floating and Theatre trailing-action specimens are implemented; auth-floating-tonal is a preview candidate. Qualification and consumer acceptance are recorded separately."
       },
       "cmp": {
         "status": "implemented-unverified",
-        "reason": "Regular/AuthTonal and Theatre Floating/FloatingSearch with trailing actions are implemented. JVM qualification and device acceptance remain separate."
+        "reason": "Regular/AuthTonal and Theatre Floating/FloatingSearch with trailing actions and FloatingTonal auth specimens are implemented. JVM qualification and device acceptance remain separate."
       }
     },
     {
