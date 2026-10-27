@@ -47,7 +47,7 @@ internal fun RegistrationForm(state: RegistrationState, locale: ShellLocale, onI
         val editing = phase == RegistrationPhase.Editing || phase == RegistrationPhase.Submitting || failure == RegistrationFailure.InvalidEmail
         if (editing) {
             TextField(copy.text(AuthText.RegisterEmail), state.email, { onIntent(RegistrationIntent.Email(it)) },
-                modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal,
+                modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating,
                 state = if (phase == RegistrationPhase.Submitting) FieldState.ReadOnly else FieldState.Editable,
                 error = if (failure == RegistrationFailure.InvalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), controlModifier = Modifier.testTag("register-email"))

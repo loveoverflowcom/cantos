@@ -304,13 +304,13 @@ private fun LoginForm(account: AccountView, copy: AuthCopy, onIntent: (AuthInten
     val fieldState = if (account.canBeginLogin) FieldState.Editable else FieldState.ReadOnly
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         TextField(copy.text(AuthText.RegisterEmail), email, { email = it.take(254); invalidEmail = false },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
             error = if (invalidEmail) copy.text(AuthText.RegisterInvalidEmail) else null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
             controlModifier = Modifier.testTag("login-email"))
         TextField(copy.text(AuthText.Password), password, { password = it; invalidPassword = false },
-            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.AuthTonal, state = fieldState,
+            modifier = Modifier.fillMaxWidth(), variant = TextFieldVariant.Floating, state = fieldState,
             error = if (invalidPassword) copy.text(AuthText.PasswordRequired) else null,
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),

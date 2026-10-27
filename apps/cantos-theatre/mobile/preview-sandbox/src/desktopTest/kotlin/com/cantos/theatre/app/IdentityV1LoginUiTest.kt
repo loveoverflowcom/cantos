@@ -11,6 +11,8 @@ import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import org.junit.Test
 
 /** JVM production form/shell/controller interactions; no native secure-store or real auth claim. */
@@ -94,6 +96,19 @@ class IdentityV1LoginUiTest {
             onNodeWithText(message).assertExists()
             submit(); assertEquals(1, h.identity.loginRequests)
         }
+    }
+    // Floating keeps the label inside the field's own node; AuthTonal drew an external label and
+    // overrode the accessible name with a contentDescription.
+    private fun ComposeUiTest.assertFloatingLabel(tag: String, label: String) {
+        val config = onNodeWithTag(tag).performScrollTo().fetchSemanticsNode().config
+        assertTrue(config[SemanticsProperties.Text].any { it.text == label }, "$tag label inside the field: ${config[SemanticsProperties.Text]}")
+        assertFalse(SemanticsProperties.ContentDescription in config, "$tag keeps the native label as its name")
+    }
+    @Test fun login_and_register_fields_keep_their_label_inside_the_same_floating_shell() = run { _ ->
+        assertFloatingLabel("login-email", "Email address")
+        assertFloatingLabel("login-password", "Password")
+        onNodeWithTag("login-create").performScrollTo().performClick(); waitForIdle()
+        assertFloatingLabel("register-email", "Email address")
     }
     @Test fun signup_collects_email_only_and_check_mail_never_adopts_or_polls_a_session() = run { h ->
         onNodeWithTag("login-create").performScrollTo().performClick(); waitForIdle()

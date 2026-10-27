@@ -314,7 +314,7 @@ pub(crate) fn SignupPanel(
             </Show>
             <Show when=email_form_visible>
                 <form class="theatre-auth-actions" on:submit=move |event| { event.prevent_default(); on_submit.run(()); }>
-                    <TextField id="theatre-signup-email" kind=TextFieldKind::Email variant=TextFieldVariant::AuthTonal
+                    <TextField id="theatre-signup-email" kind=TextFieldKind::Email variant=TextFieldVariant::Floating
                         label=email.label
                         value=email.value
                         autocomplete="email" name="email" required=true
@@ -346,7 +346,7 @@ pub(crate) fn SignupPanel(
                             on_confirm.run(());
                         }
                     }>
-                    <TextField id="theatre-signup-password" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
+                    <TextField id="theatre-signup-password" kind=TextFieldKind::Password variant=TextFieldVariant::Floating
                         label=secret.password_label
                         value=secret.password
                         autocomplete="new-password" required=true
@@ -354,7 +354,7 @@ pub(crate) fn SignupPanel(
                         help=secret.password_help
                         error=secret.password_error
                         on_input=Callback::new(move |value| state.update(|current| current.set_password(value)))/>
-                    <TextField id="theatre-signup-repeat" kind=TextFieldKind::Password variant=TextFieldVariant::AuthTonal
+                    <TextField id="theatre-signup-repeat" kind=TextFieldKind::Password variant=TextFieldVariant::Floating
                         label=secret.repeat_label
                         value=secret.repeat
                         autocomplete="new-password" required=true
@@ -694,6 +694,34 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn signup_fields_use_the_same_floating_shell_as_login_with_the_label_inside() {
+        for language in [Locale::Vietnamese, Locale::English] {
+            let email = render(SignupState::default(), language);
+            assert_eq!(
+                email.matches("data-variant=\"floating\"").count(),
+                1,
+                "{email}"
+            );
+            assert!(!email.contains("data-variant=\"auth-tonal\""), "{email}");
+            let field = control(&email, "theatre-signup-email");
+            assert!(field.contains("type=\"email\""), "{field}");
+            assert!(field.contains("autocomplete=\"email\""), "{field}");
+            assert!(field.contains("required"), "{field}");
+
+            let password = render(awaiting(), language);
+            assert_eq!(
+                password.matches("data-variant=\"floating\"").count(),
+                2,
+                "{password}"
+            );
+            assert!(
+                !password.contains("data-variant=\"auth-tonal\""),
+                "{password}"
+            );
         }
     }
 
