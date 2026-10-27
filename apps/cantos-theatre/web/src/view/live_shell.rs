@@ -990,15 +990,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <header class="theatre-topbar">
                         // The rail owns the wordmark; the topbar says where the listener is.
                         <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
-                        <div class="theatre-topbar-actions">
-                            <Select id="theatre-live-locale" class="theatre-locale-field"
-                                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-                                value=Signal::derive(move || locale.get().lang().to_owned())
-                                options=crate::localization::locale_options()
-                                on_input=on_locale/>
-                            <crate::features::account_menu::AccountEntry state=state.read_only() locale route=nav.route on_logout/>
-                        </div>
+                        <LiveTopbarActions state=state.read_only() locale theme route=nav.route on_locale on_logout/>
                     </header>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
@@ -1060,6 +1052,35 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             </div>
             </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>
+    }
+}
+
+/// The header's utility row, in one fixed order: Locale, Theme, Avatar. `theme` is the same signal
+/// Account and Settings consume, so the three controls never hold separate mode state.
+#[component]
+fn LiveTopbarActions(
+    state: ReadSignal<AccountViewState>,
+    locale: RwSignal<Locale>,
+    theme: RwSignal<Theme>,
+    route: RwSignal<Route>,
+    on_locale: Callback<String>,
+    on_logout: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <div class="theatre-topbar-actions">
+            <Select id="theatre-live-locale" class="theatre-locale-field"
+                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+                value=Signal::derive(move || locale.get().lang().to_owned())
+                options=crate::localization::locale_options()
+                on_input=on_locale/>
+            <ThemeCycleButton
+                id="theatre-topbar-theme"
+                theme=theme
+                labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))
+            />
+            <crate::features::account_menu::AccountEntry state locale route on_logout/>
+        </div>
     }
 }
 
@@ -1168,6 +1189,23 @@ mod tests {
             1
         );
         assert!(!css.contains(".cui-field-control { border-radius"));
+    }
+
+    #[test]
+    fn topbar_actions_wrap_instead_of_shrinking_the_theme_and_avatar_targets() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        let actions = rule(".theatre-topbar-actions");
+        assert!(
+            actions.contains("flex-wrap: wrap") && actions.contains("justify-content: flex-end")
+        );
+        // No rule re-sizes the shared 44×44 theme target or the avatar from the app.
+        assert!(!css.contains(".cui-theme-cycle-button"));
     }
 
     #[test]
@@ -1299,6 +1337,94 @@ mod tests {
             assert_eq!(text(membership_back_key(member), Locale::Vietnamese), vi);
             assert_eq!(text(membership_back_key(member), Locale::English), en);
         }
+    }
+
+    fn topbar_html(theme: Theme, language: Locale, signed: bool) -> (String, RwSignal<Theme>) {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        let state = RwSignal::new(AccountViewState::default());
+        guest(state).unwrap();
+        if signed {
+            signed_in(state, PreviewActor::A).unwrap();
+        }
+        let locale = RwSignal::new(language);
+        let theme = RwSignal::new(theme);
+        let route = RwSignal::new(Route::Discover);
+        let html = view! {
+            <LiveTopbarActions state=state.read_only() locale theme route
+                on_locale=Callback::new(|_| ()) on_logout=Callback::new(|()| ())/>
+        }
+        .to_html();
+        (html, theme)
+    }
+
+    /// The control that went missing from the production header: Locale, then Theme, then Avatar.
+    #[test]
+    fn topbar_actions_render_locale_then_theme_then_avatar_with_one_theme_control() {
+        Owner::new().with(|| {
+            for signed in [false, true] {
+                for language in Locale::supported() {
+                    let (html, _) = topbar_html(Theme::Dark, language, signed);
+                    let at = |needle: &str| html.find(needle).unwrap_or_else(|| panic!("{needle}"));
+                    let locale = at("id=\"theatre-live-locale\"");
+                    let theme = at("id=\"theatre-topbar-theme\"");
+                    let avatar = at("theatre-avatar");
+                    assert!(locale < theme && theme < avatar, "{html}");
+                    assert_eq!(html.matches("cui-theme-cycle-button").count(), 1);
+                    assert_eq!(
+                        html.matches("id=\"theatre-topbar-theme-tooltip\"").count(),
+                        1
+                    );
+                    assert!(!html.contains("id=\"theatre-settings-theme\""));
+                    assert!(!html.contains("id=\"theatre-account-theme\""));
+                    assert!(html.contains("type=\"button\""));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn topbar_theme_names_the_current_mode_and_next_action_per_locale() {
+        Owner::new().with(|| {
+            for (theme, vi, en) in [
+                (
+                    Theme::Dark,
+                    "Tối · Chuyển sang Sáng",
+                    "Dark · Switch to Light",
+                ),
+                (
+                    Theme::Light,
+                    "Sáng · Chuyển sang Hệ thống",
+                    "Light · Switch to System",
+                ),
+                (
+                    Theme::System,
+                    "Hệ thống · Chuyển sang Tối",
+                    "System · Switch to Dark",
+                ),
+            ] {
+                let (html, _) = topbar_html(theme, Locale::Vietnamese, false);
+                assert!(html.contains(&format!("data-theme=\"{}\"", theme.as_str())));
+                assert!(html.contains(vi), "{vi}: {html}");
+                let (html, _) = topbar_html(theme, Locale::English, false);
+                assert!(html.contains(en), "{en}: {html}");
+            }
+        });
+    }
+
+    #[test]
+    fn topbar_theme_shares_the_signal_that_account_and_settings_read() {
+        Owner::new().with(|| {
+            let locale = RwSignal::new(Locale::Vietnamese);
+            let (_, theme) = topbar_html(Theme::System, Locale::Vietnamese, false);
+            // Account/Settings consumers take the same `RwSignal<Theme>`; one writer cycles all three.
+            assert_eq!(theme.get_untracked().cycle(), Theme::Dark);
+            theme.set(Theme::Dark);
+            let settings = view! { <LivePreferences locale theme/> }.to_html();
+            assert!(settings.contains("data-theme=\"dark\""));
+            theme.set(theme.get_untracked().cycle());
+            let settings = view! { <LivePreferences locale theme/> }.to_html();
+            assert!(settings.contains("data-theme=\"light\""));
+        });
     }
 
     #[test]

@@ -216,10 +216,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Những câu chuyện đang được chuẩn bị."
+          "text": "Chưa có câu chuyện nào"
         },
         "en": {
-          "text": "Stories are being prepared."
+          "text": "No stories yet"
         }
       }
     },
@@ -228,10 +228,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Danh mục công khai chưa có tác phẩm. Bạn có thể quay lại hoặc cập nhật sau."
+          "text": "Những câu chuyện mới sẽ xuất hiện tại đây."
         },
         "en": {
-          "text": "The public catalog has no stories yet. You can return or refresh later."
+          "text": "New stories will appear here."
         }
       }
     },
@@ -292,18 +292,6 @@
         },
         "en": {
           "text": "Try again"
-        }
-      }
-    },
-    "theatre.shell.public_home_refresh": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Cập nhật danh mục"
-        },
-        "en": {
-          "text": "Refresh catalog"
         }
       }
     },

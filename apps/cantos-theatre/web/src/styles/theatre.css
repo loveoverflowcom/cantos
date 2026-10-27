@@ -98,7 +98,7 @@ body { margin: 0; }
 .theatre-content { min-inline-size: 0; }
 .theatre-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-md); padding: var(--cantos-space-lg) var(--cantos-space-xl); color: var(--cantos-color-on-surface-variant); }
 .theatre-topbar p { margin: 0; }
-.theatre-topbar-actions { display: flex; align-items: center; gap: var(--cantos-space-md); }
+.theatre-topbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--cantos-space-md); }
 .theatre-demo-label { font-size: var(--cantos-type-metadata-size); }
 .theatre-main { padding: var(--cantos-space-md) var(--cantos-space-lg) var(--theatre-player-clearance); }
 .theatre-demo-notice { padding: var(--cantos-space-md); border-radius: var(--cantos-web-shape-reading); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
@@ -418,10 +418,13 @@ body { margin: 0; }
 .theatre-auth-brand .cui-logo { inline-size: 100%; block-size: auto; }
 .theatre-auth-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: center; }
 .theatre-auth-story { overflow: hidden; }
-.theatre-auth-art { min-block-size: 13rem; display: grid; place-items: center; background: var(--cantos-color-primary-container); padding: var(--cantos-space-xl); }
+/* The art panel is the Theatre hero surface; the Light/Dark Symbol tone below pairs with it (chip/panel 3.21:1 / 8.63:1). */
+.theatre-auth-art { min-block-size: 13rem; display: grid; place-items: center; background: var(--cantos-color-theatre-hero); padding: var(--cantos-space-xl); }
 .theatre-auth-art .cui-logo { inline-size: 7rem; block-size: auto; }
 .theatre-auth-story-copy { padding: var(--cantos-space-xl); }
 .theatre-auth-story-copy h2 { font-size: var(--cantos-type-headline-size); }
+/* Light accent on the lilac container is only 4.04:1; the hero accent pair reads 7.84:1 there. */
+.theatre-auth-story-copy .theatre-eyebrow { color: var(--cantos-color-theatre-hero-accent); }
 .theatre-auth-copy { padding: var(--cantos-space-md); min-inline-size: 0; }
 .theatre-auth-copy h1 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .theatre-auth-actions { display: grid; gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
@@ -559,7 +562,9 @@ body { margin: 0; }
 /* Dedicated Theatre hero roles are an app composition, without remapping the shared root. */
 .theatre-discovery-search-hero { display: grid; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
 .theatre-discovery-search-hero .theatre-discover-intro { margin: 0; align-items: flex-start; }
-.theatre-discovery-search-hero :where(.theatre-muted, .theatre-eyebrow) { color: inherit; }
+.theatre-discovery-search-hero .theatre-muted { color: inherit; }
+/* The eyebrow keeps its gold role on the lilac/plum hero: a dedicated pair, never the headline's color. */
+.theatre-discovery-search-hero .theatre-eyebrow { color: var(--cantos-color-theatre-hero-accent); }
 /* The shared docked search shell (Search v4.3, under the Theatre expression) owns the input and its
    one icon-only magnifier; the trailing column reserves the action's width at any text scale. */
 .theatre-public-search-main, .theatre-public-search-main > .cui-field { min-inline-size: 0; inline-size: 100%; }

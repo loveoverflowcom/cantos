@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.9.0 sha256:c422efece17864e4c301cd8c67a3f583ca873aea0a0faa5b0da61e92963ce527
+// Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -51,6 +51,7 @@ object CantosTokens {
         TokenValue("color.theatreBackground", "color", "#fff2e9", "#21112d", null, null, null),
         TokenValue("color.theatreFocus", "color", "#6b3093", "#e0b8fc", null, null, null),
         TokenValue("color.theatreHero", "color", "#c6a0f5", "#352142", null, null, null),
+        TokenValue("color.theatreHeroAccent", "color", "#5e3906", "#d9b57d", null, null, null),
         TokenValue("color.theatreOnAccountControl", "color", "#fff8ef", "#291332", null, null, null),
         TokenValue("color.theatreOnHero", "color", "#1d0b28", "#fff8ef", null, null, null),
         TokenValue("color.theatreOnPeach", "color", "#462b19", "#ffe0c5", null, null, null),

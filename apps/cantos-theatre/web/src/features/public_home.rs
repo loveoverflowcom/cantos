@@ -460,10 +460,6 @@ pub(crate) fn PublicHome(
                                 <EmptyArtwork kind=EmptyArtworkKind::Works/>
                                 <h3>{move || text(heading, locale.get())}</h3>
                                 <p>{move || text(help, locale.get())}</p>
-                                <Button id="theatre-home-refresh" icon=IconName::Refresh variant=ButtonVariant::Tonal
-                                    on_press=Callback::new(move |_| on_restart.run(()))>
-                                    {move || text(Key::PublicHomeRefresh, locale.get())}
-                                </Button>
                             </div>
                         }.into_any()
                     }
@@ -658,7 +654,7 @@ mod tests {
             (
                 Locale::Vietnamese,
                 "Đang mở những câu chuyện đã công bố…",
-                "Những câu chuyện đang được chuẩn bị.",
+                "Chưa có câu chuyện nào",
                 "Không có tác phẩm nào khớp.",
                 "Chưa mở được danh mục công khai.",
                 "Chưa đọc được danh mục công khai.",
@@ -668,7 +664,7 @@ mod tests {
             (
                 Locale::English,
                 "Opening published stories…",
-                "Stories are being prepared.",
+                "No stories yet",
                 "No stories match.",
                 "The public catalog could not be opened.",
                 "The public catalog response could not be read.",
@@ -682,7 +678,7 @@ mod tests {
                 answered(DiscoveryQuery::default(), Ok(page(vec![], None))),
                 locale,
             );
-            assert!(html.contains(empty) && html.contains(refresh), "{html}");
+            assert!(html.contains(empty) && !html.contains(refresh), "{html}");
             let html = render_with(
                 answered(filtered.clone(), Ok(page(vec![], None))),
                 filtered.clone(),
@@ -920,7 +916,12 @@ mod tests {
                 assert!(html.contains("assets/empty/light/cantos-empty-works.svg"));
                 assert!(html.contains("assets/empty/dark/cantos-empty-works.svg"));
                 assert!(!html.contains("href=\"#discover\""));
-                assert!(html.contains("id=\"theatre-home-refresh\""));
+                // A confirmed-empty catalog has nothing to refresh: no control, no copy that names one.
+                assert!(
+                    !html.contains("theatre-home-refresh") && !html.contains("Refresh catalog")
+                );
+                assert!(!html.contains("Cập nhật danh mục") && !html.contains("cập nhật sau"));
+                assert!(!html.contains("refresh later"));
             }
             for state in [
                 PublicDiscoveryState::default(),
@@ -936,6 +937,33 @@ mod tests {
 
     /// The completed-empty and no-results regions are one centered visual group; the other
     /// regions never borrow the empty composition.
+    /// The hero eyebrow is gold through the dedicated hero-accent role. A blanket `inherit` on it
+    /// would return it to the headline's color, and a hex literal would bypass the token owner.
+    #[test]
+    fn hero_eyebrow_uses_the_hero_accent_role_and_never_inherits_the_headline_color() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        let eyebrow = rule(".theatre-discovery-search-hero .theatre-eyebrow");
+        assert_eq!(
+            eyebrow.trim(),
+            "color: var(--cantos-color-theatre-hero-accent);"
+        );
+        assert!(!css
+            .contains(".theatre-discovery-search-hero :where(.theatre-muted, .theatre-eyebrow)"));
+        // Supporting copy keeps the hero's high-contrast ink; hierarchy comes from size and weight.
+        assert!(rule(".theatre-discovery-search-hero .theatre-muted").contains("color: inherit"));
+        assert!(rule(".theatre-auth-story-copy .theatre-eyebrow")
+            .contains("var(--cantos-color-theatre-hero-accent)"));
+        // The auth art panel is the hero surface its Light/Dark Symbol tone is paired with.
+        assert!(rule(".theatre-auth-art").contains("background: var(--cantos-color-theatre-hero)"));
+        assert!(!rule(".theatre-auth-art").contains("primary-container"));
+    }
+
     #[test]
     fn empty_regions_render_one_group_that_the_stylesheet_centers_without_a_fixed_height() {
         let css = include_str!("../styles/theatre.css");
@@ -969,12 +997,7 @@ mod tests {
             let group = &html[start..];
             let end = group.find("</div></div>").unwrap_or(group.len());
             let group = &group[..end];
-            for part in [
-                "data-artwork=\"works\"",
-                "<h3>",
-                "<p>",
-                "id=\"theatre-home-refresh\"",
-            ] {
+            for part in ["data-artwork=\"works\"", "<h3>", "<p>"] {
                 assert_eq!(group.matches(part).count(), 1, "{part}");
             }
         }
