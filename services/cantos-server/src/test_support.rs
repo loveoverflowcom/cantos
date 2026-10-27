@@ -251,3 +251,6 @@ impl FixtureSql for ServerFixture {
 
 #[cfg(test)]
 mod port_ack_tests;
+
+#[cfg(test)]
+mod sample_metadata_application_tests;

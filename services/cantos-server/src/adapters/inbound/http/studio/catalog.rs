@@ -5,7 +5,7 @@ use crate::contract::{
     studio::{
         ApiError, ArchiveContentUnitRequest, ArchiveWorkRequest, CreateContentUnitRequest,
         CreateWorkRequest, ErrorCode, FieldIssue, PatchContentUnitRequest, PatchWorkRequest,
-        ReorderContentUnitsRequest,
+        ReorderContentUnitsRequest, SampleMetadataDisclosureRequest,
     },
 };
 use axum::{
@@ -38,6 +38,14 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .route("/works/{work_id}/content-units/reorder", post(reorder))
         .route("/works/{work_id}/history", get(history))
+        .route(
+            "/works/{work_id}/sample-metadata-disclosures",
+            post(record_sample_work),
+        )
+        .route(
+            "/works/{work_id}/content-units/{unit_id}/sample-metadata-disclosures",
+            post(record_sample_unit),
+        )
         .route(
             "/content-units/{unit_id}",
             get(get_unit).patch(patch_unit).delete(archive_unit),
@@ -168,6 +176,53 @@ async fn create_work(
         StatusCode::CREATED,
     )
     .await
+}
+
+async fn sample_decision(
+    state: AppState,
+    headers: HeaderMap,
+    work: String,
+    unit: Option<String>,
+    body: SampleMetadataDisclosureRequest,
+) -> Response {
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state
+        .store
+        .sample_metadata_decide(&token, &work, unit.as_deref(), body)
+        .await
+    {
+        Ok(result) => (StatusCode::OK, Json(result)).into_response(),
+        Err(error) => catalog_error(error),
+    }
+}
+
+async fn record_sample_work(
+    State(state): State<AppState>,
+    CatalogId(work): CatalogId,
+    headers: HeaderMap,
+    CatalogBody(body): CatalogBody<SampleMetadataDisclosureRequest>,
+) -> Response {
+    sample_decision(state, headers, work, None, body).await
+}
+
+async fn record_sample_unit(
+    State(state): State<AppState>,
+    path: Result<Path<(String, String)>, axum::extract::rejection::PathRejection>,
+    headers: HeaderMap,
+    CatalogBody(body): CatalogBody<SampleMetadataDisclosureRequest>,
+) -> Response {
+    let Ok(Path((work, unit))) = path else {
+        return failure(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidRequest,
+            None,
+            vec![],
+        );
+    };
+    sample_decision(state, headers, work, Some(unit), body).await
 }
 async fn patch_work(
     State(state): State<AppState>,

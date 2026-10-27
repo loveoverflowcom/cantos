@@ -1188,3 +1188,6 @@ mod business;
 
 #[path = "../../test_support/historical_migration.rs"]
 mod historical;
+
+#[path = "sample_metadata_tests.rs"]
+mod sample_metadata;

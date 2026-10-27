@@ -23,6 +23,8 @@ mod artwork;
 pub use artwork::*;
 mod cover_disclosure;
 pub use cover_disclosure::*;
+mod sample_metadata_disclosure;
+pub use sample_metadata_disclosure::*;
 pub mod protobuf;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

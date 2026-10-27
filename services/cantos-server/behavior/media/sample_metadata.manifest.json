@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.media.sample-metadata",
+  "sourceRefs": ["docs/decisions/0051-metadata-only-public-discovery.md#decision", "services/cantos-server/src/contexts/catalog/domain/metadata_disclosure.rs"],
+  "model": "services/cantos-server/behavior/media/sample_metadata.qnt",
+  "module": "sample_metadata",
+  "scenarios": "services/cantos-server/behavior/media/sample_metadata_tests.qnt",
+  "scenarioModule": "sample_metadata_tests",
+  "inventory": "services/cantos-server/behavior/media/sample_metadata.md",
+  "properties": [
+    {"id": "cantos.media.sample-metadata.property.scope", "declaration": "scoped"},
+    {"id": "cantos.media.sample-metadata.property.separate-decisions", "declaration": "separateDecisions"},
+    {"id": "cantos.media.sample-metadata.property.live-gates", "declaration": "liveGates"},
+    {"id": "cantos.media.sample-metadata.property.playback-release", "declaration": "playbackNeedsRelease"}
+  ],
+  "runs": [
+    {"id": "cantos.media.sample-metadata.run.explicit-disclosures", "declaration": "explicitDisclosuresTest"},
+    {"id": "cantos.media.sample-metadata.run.outside-scope", "declaration": "outsideScopeTest"},
+    {"id": "cantos.media.sample-metadata.run.inactive", "declaration": "inactiveTest"},
+    {"id": "cantos.media.sample-metadata.run.eligible-release", "declaration": "eligibleReleaseTest"}
+  ],
+  "witnesses": [
+    {"id": "cantos.media.sample-metadata.witness.sample-shown", "declaration": "sampleShown"},
+    {"id": "cantos.media.sample-metadata.witness.no-unit", "declaration": "noUnitHidden"},
+    {"id": "cantos.media.sample-metadata.witness.inactive", "declaration": "inactiveHidden"},
+    {"id": "cantos.media.sample-metadata.witness.release", "declaration": "releasePlayable"}
+  ],
+  "simulation": {"backend": "typescript", "seed": "539", "samples": 500, "steps": 30, "scenarioSamples": 1, "witnessSamples": 1000, "timeoutSeconds": 60},
+  "controls": [
+    {"id": "cantos.media.sample-metadata.control.scope", "property": "cantos.media.sample-metadata.property.scope", "from": "s.scope and s.ownerActive", "to": "s.ownerActive"},
+    {"id": "cantos.media.sample-metadata.control.separate-decisions", "property": "cantos.media.sample-metadata.property.separate-decisions", "from": "s.work and s.unit)", "to": "s.work)"},
+    {"id": "cantos.media.sample-metadata.control.live-gates", "property": "cantos.media.sample-metadata.property.live-gates", "from": "s.scope and s.ownerActive", "to": "s.scope"},
+    {"id": "cantos.media.sample-metadata.control.playback-release", "property": "cantos.media.sample-metadata.property.playback-release", "from": "playable: s.released }", "to": "playable: s.released or s.unit }"}
+  ],
+  "aliases": []
+}

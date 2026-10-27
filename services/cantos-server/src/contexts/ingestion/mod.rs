@@ -10,4 +10,4 @@ pub use domain::extraction::{
     extract, EXTRACTOR_VERSION, MAX_BLOCKS, MAX_DECODED_BYTES, MAX_SOURCE_BYTES, MAX_XML_DEPTH,
     MAX_XML_EVENTS, MAX_ZIP_ENTRIES, MAX_ZIP_RATIO,
 };
-pub(crate) use turso::{imported_source, source_checksum};
+pub(crate) use turso::{imported_source, source_bytes, source_checksum};
