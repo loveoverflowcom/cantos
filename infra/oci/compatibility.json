@@ -2,5 +2,5 @@
   "identity_schema": "identity-migrations-v4",
   "rpc": "identity-rpc-v1",
   "security_state": "identity-security-store-v1",
-  "server_schema": "server-turso-epoch-1-v26"
+  "server_schema": "server-turso-epoch-1-v27"
 }

@@ -17,10 +17,14 @@ pub enum SampleMembership {
     OutsideApprovedSample,
 }
 
-/// Hash of the exact #427 input whose metadata the owner approved on 27 October 2026.
+/// Hash of the legacy #427 input. Its presence here is not evidence of publication rights.
 /// This is a scope fence, not evidence that an arbitrary stored snapshot matches that input.
 pub const APPROVED_SAMPLE_SOURCE_SHA256: &str =
     "d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848212";
+
+/// The separately generated, owner-authorized fictional replacement; never an arbitrary source.
+pub const FICTIONAL_SAMPLE_SOURCE_SHA256: &str =
+    "0ad007cb18d46b58df25dbc2e8ea98bf58bce752c9e6d640fc4a78a90ef779d6";
 
 /// Stable identities derived by #427's input mapping. A unit belongs only to the named Work.
 /// The caller must also validate the decoded pinned snapshot against the pinned source before
@@ -70,9 +74,74 @@ const APPROVED_SAMPLE_IDS: [(&str, [&str; 2]); 6] = [
     ),
 ];
 
+const FICTIONAL_SAMPLE_IDS: [(&str, [&str; 2]); 6] = [
+    (
+        "dbe1f751-0e5f-47d2-8910-62e2eafb2dcf",
+        [
+            "34202026-c07d-4ab6-82f3-37d3ed98b95e",
+            "7a509fab-775a-42d5-bf0e-406b2502e6ad",
+        ],
+    ),
+    (
+        "42661b77-c21d-4514-b2b2-40cdb17298f0",
+        [
+            "a84d1f6f-ba65-412b-862d-9569a01aee54",
+            "725784ed-9a24-42ab-83a9-0861191c0de1",
+        ],
+    ),
+    (
+        "e9f5296d-4c5e-4c65-90ea-58a418682069",
+        [
+            "5aec04fb-1a1d-49e3-ae7f-9cdeeb64d55e",
+            "cef0395b-da85-4624-aa49-8b38bc752d9e",
+        ],
+    ),
+    (
+        "97a3501c-5bf9-4dab-82eb-0393262d057e",
+        [
+            "f8a2ea82-8f34-4b01-acdc-68dc66a85059",
+            "fd9622e5-7db4-46be-af37-ab4b1f481457",
+        ],
+    ),
+    (
+        "1d2f6feb-4a05-427f-9989-0e4728d2cc06",
+        [
+            "5bff5046-a49b-4d44-bdb7-0d9def735dbd",
+            "c18090da-1bf3-43fa-b8f9-0dc70dce945d",
+        ],
+    ),
+    (
+        "9877af6b-81a7-4758-ab61-c4d3727f2bd0",
+        [
+            "3b375110-4b03-46fb-9524-cf56a29b05e9",
+            "e7de074e-d6c5-4846-8eac-527f985e49f6",
+        ],
+    ),
+];
+
 /// Bounded approved identities; this is membership, never publication authority.
 pub(crate) fn approved_sample_ids() -> &'static [(&'static str, [&'static str; 2])] {
     &APPROVED_SAMPLE_IDS
+}
+
+pub(crate) fn fictional_sample_ids() -> &'static [(&'static str, [&'static str; 2])] {
+    &FICTIONAL_SAMPLE_IDS
+}
+
+pub(crate) fn fictional_sample_subject(id: &str) -> bool {
+    FICTIONAL_SAMPLE_IDS
+        .iter()
+        .any(|(work, units)| *work == id || units.contains(&id))
+}
+
+pub(crate) fn sample_ids_for_source(
+    source_sha256: &str,
+) -> Option<&'static [(&'static str, [&'static str; 2])]> {
+    match source_sha256 {
+        APPROVED_SAMPLE_SOURCE_SHA256 => Some(&APPROVED_SAMPLE_IDS),
+        FICTIONAL_SAMPLE_SOURCE_SHA256 => Some(&FICTIONAL_SAMPLE_IDS),
+        _ => None,
+    }
 }
 
 pub fn sample_membership(
@@ -80,11 +149,11 @@ pub fn sample_membership(
     work_id: &str,
     unit_id: Option<&str>,
 ) -> SampleMembership {
-    if source_sha256 == APPROVED_SAMPLE_SOURCE_SHA256
-        && APPROVED_SAMPLE_IDS.iter().any(|(work, units)| {
+    if sample_ids_for_source(source_sha256).is_some_and(|ids| {
+        ids.iter().any(|(work, units)| {
             *work == work_id && unit_id.is_none_or(|unit| units.contains(&unit))
         })
-    {
+    }) {
         SampleMembership::Approved
     } else {
         SampleMembership::OutsideApprovedSample
@@ -95,6 +164,8 @@ pub fn sample_membership(
 /// No audio references or image paths are projected from this type.
 #[derive(Deserialize)]
 pub struct ApprovedSampleSource {
+    #[serde(skip)]
+    source_sha256: String,
     dataset_id: String,
     story_count: usize,
     chapter_count: usize,
@@ -137,14 +208,16 @@ fn sample_identity(key: &str, purpose: &str) -> String {
 impl ApprovedSampleSource {
     /// Validate the actual bytes before decoding any source-controlled values.
     pub fn parse(bytes: &[u8]) -> Result<Self, SampleSourceError> {
-        if bytes.len() != 16_102
-            || format!("{:x}", Sha256::digest(bytes)) != APPROVED_SAMPLE_SOURCE_SHA256
-        {
-            return Err(SampleSourceError::DigestMismatch);
-        }
-        let input: Self =
+        let hash = format!("{:x}", Sha256::digest(bytes));
+        let dataset = match (hash.as_str(), bytes.len()) {
+            (APPROVED_SAMPLE_SOURCE_SHA256, 16_102) => "cantos-sample-catalog-v1",
+            (FICTIONAL_SAMPLE_SOURCE_SHA256, 4_197) => "cantos-fictional-catalog-v2",
+            _ => return Err(SampleSourceError::DigestMismatch),
+        };
+        let mut input: Self =
             serde_json::from_slice(bytes).map_err(|_| SampleSourceError::InvalidInput)?;
-        if input.dataset_id != "cantos-sample-catalog-v1"
+        input.source_sha256 = hash;
+        if input.dataset_id != dataset
             || input.story_count != 6
             || input.chapter_count != 12
             || input.works.len() != 6
@@ -155,8 +228,7 @@ impl ApprovedSampleSource {
         let mut units = std::collections::BTreeSet::new();
         for work in &input.works {
             let id = sample_identity(&work.sample_key, "work");
-            if sample_membership(APPROVED_SAMPLE_SOURCE_SHA256, &id, None)
-                != SampleMembership::Approved
+            if sample_membership(&input.source_sha256, &id, None) != SampleMembership::Approved
                 || !works.insert(id.clone())
                 || work.chapters.len() != 2
             {
@@ -165,7 +237,7 @@ impl ApprovedSampleSource {
             for (index, unit) in work.chapters.iter().enumerate() {
                 let unit_id = sample_identity(&unit.sample_key, "chapter");
                 if unit.position != index as u32
-                    || sample_membership(APPROVED_SAMPLE_SOURCE_SHA256, &id, Some(&unit_id))
+                    || sample_membership(&input.source_sha256, &id, Some(&unit_id))
                         != SampleMembership::Approved
                     || !units.insert(unit_id)
                 {
@@ -177,6 +249,10 @@ impl ApprovedSampleSource {
             return Err(SampleSourceError::InvalidInput);
         }
         Ok(input)
+    }
+
+    pub(crate) fn source_sha256(&self) -> &str {
+        &self.source_sha256
     }
 
     /// Compare only the intended public fields, in addition to separately checking the stored
@@ -212,7 +288,12 @@ impl ApprovedSampleSource {
         use crate::contexts::catalog::domain::{
             ContentUnit, ContentUnitId, NewContentUnit, NewWork, UnitDetails, WorkDetails,
         };
-        let owner = crate::contexts::catalog::domain::OwnerId::parse("cantos_sample_seed_v1")?;
+        let owner_id = if self.source_sha256 == FICTIONAL_SAMPLE_SOURCE_SHA256 {
+            "cantos_fictional_seed_v2"
+        } else {
+            "cantos_sample_seed_v1"
+        };
+        let owner = crate::contexts::catalog::domain::OwnerId::parse(owner_id)?;
         let mut result = Vec::with_capacity(self.works.len());
         for item in &self.works {
             let work = crate::contexts::catalog::domain::Work::new(NewWork {
@@ -578,6 +659,36 @@ mod tests {
     }
 
     #[test]
+    fn fictional_and_legacy_memberships_are_disjoint_and_source_bound() {
+        for (work, units) in FICTIONAL_SAMPLE_IDS {
+            assert_eq!(
+                sample_membership(FICTIONAL_SAMPLE_SOURCE_SHA256, work, None),
+                SampleMembership::Approved
+            );
+            assert_eq!(
+                sample_membership(APPROVED_SAMPLE_SOURCE_SHA256, work, None),
+                SampleMembership::OutsideApprovedSample
+            );
+            for unit in units {
+                assert_eq!(
+                    sample_membership(FICTIONAL_SAMPLE_SOURCE_SHA256, work, Some(unit)),
+                    SampleMembership::Approved
+                );
+                assert_eq!(
+                    sample_membership(APPROVED_SAMPLE_SOURCE_SHA256, work, Some(unit)),
+                    SampleMembership::OutsideApprovedSample
+                );
+            }
+        }
+        for (work, _) in APPROVED_SAMPLE_IDS {
+            assert_eq!(
+                sample_membership(FICTIONAL_SAMPLE_SOURCE_SHA256, work, None),
+                SampleMembership::OutsideApprovedSample
+            );
+        }
+    }
+
+    #[test]
     fn an_unpinned_source_is_rejected_before_json_is_trusted() {
         assert!(matches!(
             ApprovedSampleSource::parse(b"{}"),
@@ -590,6 +701,7 @@ mod tests {
         use super::super::{NewWork, OwnerId, Work, WorkDetails, WorkId, WorkKind};
         // Internal test fixture for the pure decision; it is not an admitted external source.
         let source = ApprovedSampleSource {
+            source_sha256: APPROVED_SAMPLE_SOURCE_SHA256.into(),
             dataset_id: "cantos-sample-catalog-v1".into(),
             story_count: 6,
             chapter_count: 12,

@@ -6,8 +6,8 @@ use crate::contexts::{
     catalog::{
         domain::{
             metadata_disclosure::{
-                approved_sample_ids, authorize_publish, ApprovedSampleSource, MetadataEvidence,
-                PublishFacts, APPROVED_SAMPLE_SOURCE_SHA256,
+                authorize_publish, sample_ids_for_source, ApprovedSampleSource, MetadataEvidence,
+                PublishFacts, FICTIONAL_SAMPLE_SOURCE_SHA256,
             },
             sample_seed_request::{SampleSeedAction, SampleSeedRequest},
             ContentUnitId, WorkId,
@@ -17,7 +17,7 @@ use crate::contexts::{
     ingestion,
 };
 use crate::platform::{
-    operator::{sample_seed_principal, SAMPLE_SEED_ACTOR},
+    operator::{sample_seed_principal, FICTIONAL_SEED_ACTOR, SAMPLE_SEED_ACTOR},
     store::{Store, StoreError},
 };
 
@@ -51,20 +51,38 @@ pub async fn seed_sample(
         ),
         SampleSeedAction::Withdraw => None,
     };
+    if source
+        .as_ref()
+        .is_some_and(|value| value.source_sha256() != request.source_sha256)
+    {
+        return Err(StoreError::EvidenceUnavailable.into());
+    }
+    let actor = if request.source_sha256 == FICTIONAL_SAMPLE_SOURCE_SHA256 {
+        FICTIONAL_SEED_ACTOR
+    } else {
+        SAMPLE_SEED_ACTOR
+    };
+    let source_id = if actor == FICTIONAL_SEED_ACTOR {
+        "fictional_sample_catalog_v2"
+    } else {
+        SOURCE_ID
+    };
     let encoded = serde_json::to_vec(request).map_err(|_| StoreError::InvalidRequest)?;
     let fingerprint = turso::digest(&encoded);
     let mut conn = store.connection().await?;
     let tx = conn.transaction().await?;
-    if let Some(row) = turso::sample_seed::operation(&tx, &request.operation_id).await? {
+    if let Some(row) =
+        turso::sample_seed::operation(&tx, &request.operation_id, &request.source_sha256).await?
+    {
         let prior: String = row.try_get("fingerprint")?;
         if prior != fingerprint {
             return Err(CatalogStoreError::OperationReused);
         }
-        sample_seed_principal(&tx, false, APPROVED_SAMPLE_SOURCE_SHA256).await?;
+        sample_seed_principal(&tx, false, &request.source_sha256, actor).await?;
         tx.commit().await?;
         return Ok(());
     }
-    let prior_action = turso::sample_seed::latest(&tx)
+    let prior_action = turso::sample_seed::latest(&tx, &request.source_sha256)
         .await?
         .map(|row| row.try_get::<_, String>("action"))
         .transpose()?;
@@ -77,7 +95,8 @@ pub async fn seed_sample(
     let created = sample_seed_principal(
         &tx,
         request.action == SampleSeedAction::Publish,
-        APPROVED_SAMPLE_SOURCE_SHA256,
+        &request.source_sha256,
+        actor,
     )
     .await?;
     match request.action {
@@ -89,22 +108,31 @@ pub async fn seed_sample(
             let snapshots = source.sample_seed_snapshots(now)?;
             ingestion::record_pinned_sample_source(
                 &tx,
-                SAMPLE_SEED_ACTOR,
-                SOURCE_ID,
+                actor,
+                source_id,
                 &request.evidence_reference,
                 bytes.ok_or(StoreError::InvalidRequest)?,
             )
             .await?;
             let rights = sample_metadata_rights::record_seed_attestation(
                 &tx,
-                SAMPLE_SEED_ACTOR,
+                actor,
                 &request.operation_id,
-                SOURCE_ID,
+                source_id,
                 &request.evidence_reference,
                 &request.rights_statement,
+                &request.source_sha256,
             )
             .await?;
-            if !sample_metadata_rights::bound(&tx, SAMPLE_SEED_ACTOR, &rights, SOURCE_ID).await? {
+            if !sample_metadata_rights::bound(
+                &tx,
+                actor,
+                &rights,
+                source_id,
+                &request.source_sha256,
+            )
+            .await?
+            {
                 return Err(StoreError::EvidenceUnavailable.into());
             }
             for (work, units) in &snapshots {
@@ -120,7 +148,7 @@ pub async fn seed_sample(
                     evidence: MetadataEvidence::Confirmed,
                 })
                 .map_err(|_| StoreError::EvidenceUnavailable)?;
-                turso::save_work(&tx, work, SAMPLE_SEED_ACTOR, true).await?;
+                turso::save_work(&tx, work, actor, true).await?;
                 let work_id = work.id().as_str();
                 let digest: String = turso::sample_metadata::work_digest(&tx, work_id, 1)
                     .await?
@@ -132,12 +160,12 @@ pub async fn seed_sample(
                     "work",
                     work_id,
                     1,
-                    SAMPLE_SEED_ACTOR,
+                    actor,
                     1,
                     &digest,
                     None,
                     &None,
-                    SOURCE_ID,
+                    source_id,
                     &rights,
                     now,
                     &op,
@@ -157,7 +185,7 @@ pub async fn seed_sample(
                     if turso::load_unit(&tx, unit.id().as_str()).await?.is_some() {
                         return Err(CatalogStoreError::DuplicateId);
                     }
-                    turso::save_unit(&tx, unit, SAMPLE_SEED_ACTOR, true).await?;
+                    turso::save_unit(&tx, unit, actor, true).await?;
                     let id = unit.id().as_str();
                     let unit_digest = Some(
                         turso::sample_metadata::unit_digest(&tx, id, 1)
@@ -171,12 +199,12 @@ pub async fn seed_sample(
                         "unit",
                         id,
                         1,
-                        SAMPLE_SEED_ACTOR,
+                        actor,
                         1,
                         &digest,
                         Some(1),
                         &unit_digest,
-                        SOURCE_ID,
+                        source_id,
                         &rights,
                         now,
                         &op,
@@ -190,9 +218,11 @@ pub async fn seed_sample(
             if created {
                 return Err(StoreError::InvalidRequest.into());
             }
-            for (work_id, units) in approved_sample_ids() {
+            for (work_id, units) in
+                sample_ids_for_source(&request.source_sha256).ok_or(StoreError::InvalidRequest)?
+            {
                 let work = super::work(&tx, &WorkId::parse(work_id)?).await?;
-                if work.owner_id().as_str() != SAMPLE_SEED_ACTOR {
+                if work.owner_id().as_str() != actor {
                     return Err(StoreError::InvalidRequest.into());
                 }
                 for (kind, id) in
@@ -222,7 +252,7 @@ pub async fn seed_sample(
                         kind,
                         id,
                         sequence,
-                        SAMPLE_SEED_ACTOR,
+                        actor,
                         now,
                         &op,
                         &fingerprint,
@@ -237,7 +267,7 @@ pub async fn seed_sample(
         SampleSeedAction::Publish => "publish",
         SampleSeedAction::Withdraw => "withdraw",
     };
-    turso::sample_seed::insert(&tx, SAMPLE_SEED_ACTOR, action, request, &fingerprint, now).await?;
+    turso::sample_seed::insert(&tx, actor, action, request, &fingerprint, now).await?;
     tx.commit().await?;
     Ok(())
 }

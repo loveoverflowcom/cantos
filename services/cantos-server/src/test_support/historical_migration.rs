@@ -222,8 +222,8 @@ async fn historical_v24_ddl_failure_keeps_v23_history_and_repeated_attempts_cann
 }
 
 #[tokio::test]
-async fn v24_to_v26_preserves_history_and_existing_actor_and_refuses_old_serving() {
-    let run = TestRun::new("sample-metadata-v24-v26");
+async fn v24_to_v27_preserves_history_and_existing_actor_and_refuses_old_serving() {
+    let run = TestRun::new("sample-metadata-v24-v27");
     let path = run.path("server.db");
     let v24 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..24]).unwrap();
     let old = OwnedDatabase::open(OpenRequest::new(&path, v24, Intent::Migrate, clock()))
@@ -244,7 +244,7 @@ async fn v24_to_v26_preserves_history_and_existing_actor_and_refuses_old_serving
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 24,
-            latest: 26
+            latest: 27
         }))
     );
     assert_eq!(bytes(&path), before);
@@ -272,10 +272,47 @@ async fn v24_to_v26_preserves_history_and_existing_actor_and_refuses_old_serving
         Err(error) => assert_eq!(
             error,
             OpenError::Refused(Refusal::NewerThanBinary {
-                applied: 26,
+                applied: 27,
                 known: 24
             })
         ),
-        Ok(_) => panic!("v24 must refuse a migrated v26 file"),
+        Ok(_) => panic!("v24 must refuse a migrated v27 file"),
     }
+}
+
+#[tokio::test]
+async fn v26_to_v27_preserves_existing_sample_actor_and_action() {
+    let run = TestRun::new("fictional-sample-v26-v27");
+    let path = run.path("server.db");
+    let v26 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..26]).unwrap();
+    let old = OwnedDatabase::open(OpenRequest::new(&path, v26, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    let tx = old.begin_write().await.unwrap();
+    tx.execute(
+        "INSERT INTO actors(id) VALUES ('cantos_sample_seed_v1')",
+        (),
+    )
+    .await
+    .unwrap();
+    tx.execute("INSERT INTO sample_seed_principals VALUES ('cantos_sample_seed_v1','d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848212')", ()).await.unwrap();
+    tx.execute("INSERT INTO catalog_sample_seed_actions VALUES ('00000000-0000-4000-8000-000000000001','cantos_sample_seed_v1','publish','d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848212','synthetic operator','synthetic evidence','synthetic statement','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1)", ()).await.unwrap();
+    tx.commit().await.unwrap();
+    let prior = history_of(&old).await;
+    drop(old);
+    let current = open(&path, Intent::Migrate).await.unwrap();
+    current.owner().check_integrity().await.unwrap();
+    assert_eq!(history_of(current.owner()).await[..26], prior);
+    assert_eq!(
+        values(
+            &current,
+            "SELECT actor_id,action FROM catalog_sample_seed_actions"
+        )
+        .await,
+        vec![vec![text("cantos_sample_seed_v1"), text("publish")]]
+    );
+    assert_eq!(
+        values(&current, "SELECT count(*) FROM fictional_seed_principals").await,
+        vec![vec![Value::Integer(0)]]
+    );
 }

@@ -3,7 +3,7 @@ use super::CatalogStoreError;
 use crate::{
     contexts::{
         catalog::domain::metadata_disclosure::{
-            ApprovedSampleSource, APPROVED_SAMPLE_SOURCE_SHA256,
+            ApprovedSampleSource, APPROVED_SAMPLE_SOURCE_SHA256, FICTIONAL_SAMPLE_SOURCE_SHA256,
         },
         editorial::{self, EvidenceKind},
         ingestion,
@@ -40,9 +40,17 @@ pub(super) async fn record_seed_attestation(
     source_id: &str,
     evidence_reference: &str,
     rights_statement: &str,
+    source_sha256: &str,
 ) -> Result<String, StoreError> {
     let operation = normalized_uuid(operation)?;
-    if !valid_text(evidence_reference) || !valid_text(rights_statement) {
+    if !valid_text(evidence_reference)
+        || !valid_text(rights_statement)
+        || ![
+            APPROVED_SAMPLE_SOURCE_SHA256,
+            FICTIONAL_SAMPLE_SOURCE_SHA256,
+        ]
+        .contains(&source_sha256)
+    {
         return Err(StoreError::InvalidRequest);
     }
     let id = rights_id(&operation);
@@ -50,7 +58,7 @@ pub(super) async fn record_seed_attestation(
         version: "sample-metadata-rights-v1".into(),
         operation_id: operation,
         source_id: source_id.into(),
-        source_sha256: APPROVED_SAMPLE_SOURCE_SHA256.into(),
+        source_sha256: source_sha256.into(),
         evidence_reference: evidence_reference.into(),
         rights_statement: rights_statement.into(),
         confirm_metadata_rights: true,
@@ -73,6 +81,7 @@ pub(super) async fn bound(
     owner: &str,
     id: &str,
     source: &str,
+    expected_hash: &str,
 ) -> Result<bool, StoreError> {
     let Some(text) = editorial::evidence_description(tx, owner, "rights", id).await? else {
         return Ok(false);
@@ -84,7 +93,12 @@ pub(super) async fn bound(
         && normalized_uuid(&claim.operation_id).is_ok()
         && rights_id(&claim.operation_id) == id
         && claim.source_id == source
-        && claim.source_sha256 == APPROVED_SAMPLE_SOURCE_SHA256
+        && [
+            APPROVED_SAMPLE_SOURCE_SHA256,
+            FICTIONAL_SAMPLE_SOURCE_SHA256,
+        ]
+        .contains(&expected_hash)
+        && claim.source_sha256 == expected_hash
         && valid_text(&claim.evidence_reference)
         && valid_text(&claim.rights_statement)
         && claim.confirm_metadata_rights
@@ -128,7 +142,11 @@ impl Store {
         let bytes = ingestion::source_bytes(&tx, &owner, &claim.source_id)
             .await?
             .ok_or(StoreError::EvidenceUnavailable)?;
-        ApprovedSampleSource::parse(&bytes).map_err(|_| StoreError::EvidenceUnavailable)?;
+        let parsed =
+            ApprovedSampleSource::parse(&bytes).map_err(|_| StoreError::EvidenceUnavailable)?;
+        if parsed.source_sha256() != APPROVED_SAMPLE_SOURCE_SHA256 {
+            return Err(StoreError::EvidenceUnavailable.into());
+        }
         match editorial::evidence_description(&tx, &owner, "rights", &id).await? {
             Some(prior) if prior != description => return Err(CatalogStoreError::OperationReused),
             Some(_) => (),
