@@ -138,7 +138,7 @@ class AuthAccountUiTest {
         waitForIdle()
         h.identity.completeLogin(approve = false)
         waitForIdle()
-        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertExists()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.").assertExists()
         onNodeWithTag("login-primary").performScrollTo().assertIsEnabled()
         assertEquals(1, h.identity.loginRequests)
         assertEquals(0, h.identity.admissions)
@@ -172,7 +172,7 @@ class AuthAccountUiTest {
     @Test
     fun a_failed_attempt_stays_on_login_and_back_leaves_no_stale_status_on_the_guest_card() {
         val cases = listOf(
-            IdentityV1Failure.Unauthorized to "Không thể đăng nhập bằng thông tin này.",
+            IdentityV1Failure.Unauthorized to "Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.",
             IdentityV1Failure.RateLimited(17) to "Vui lòng đợi 17 giây trước khi thử lại.",
             IdentityV1Failure.ServiceUnavailable to "Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau.",
         )
@@ -225,7 +225,7 @@ class AuthAccountUiTest {
         waitForIdle()
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         onNodeWithTag("auth-status").assertDoesNotExist()
-        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertDoesNotExist()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.").assertDoesNotExist()
         onNodeWithTag("sign-in").assertIsEnabled()
     }
 
@@ -240,7 +240,7 @@ class AuthAccountUiTest {
         waitUntil(timeoutMillis = 5_000) { h.account.state.value is NativeAccountState.Failed }
         waitForIdle()
         onNodeWithTag("auth-status").assertExists()
-        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertExists()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.").assertExists()
     }
 
     @Test

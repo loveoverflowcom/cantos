@@ -57,6 +57,7 @@ import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
 import com.cantos.ui.CantosTypography
+import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.ui.DisabledReason
 import com.cantos.ui.FieldState
 import com.cantos.ui.Icon
@@ -183,6 +184,13 @@ internal fun loginState(account: AccountView, copy: AuthCopy): ButtonState = whe
 internal fun AccountView.offersRegistration(): Boolean =
     this == AccountView.SignedOut || this is AccountView.Failed || this == AccountView.CleanupRequired
 
+/**
+ * A credential attempt never offers a restore. A saved session that could not be read or verified
+ * (storage, network) is retried in place; expired, protocol and exhausted failures need a new sign-in.
+ */
+internal fun AccountView.Failed.offersRestoreRetry(): Boolean =
+    identityFailure == null && (reason == NativeAccountFailure.Storage || reason == NativeAccountFailure.Api)
+
 @Composable
 internal fun AccountStatus(account: AccountView, copy: AuthCopy, nothingSaved: Boolean = false) {
     val message = when (account) {
@@ -243,12 +251,14 @@ fun LoginScreen(
                         icon = authActionIcon(AuthIntent.RetryCleanup),
                         variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
                     )
-                    AccountView.SignedOut, is AccountView.Failed -> Button(
+                    // Startup already restores a saved session, so a clean Login offers no restore. Only the
+                    // failed read or verification of that saved session keeps one retry, beside its message.
+                    is AccountView.Failed -> if (account.offersRestoreRetry()) Button(
                         copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
                         icon = authActionIcon(AuthIntent.RestoreSession),
                         variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                     )
-                    AccountView.SignedIn, AccountView.Unavailable -> Unit
+                    AccountView.SignedOut, AccountView.SignedIn, AccountView.Unavailable -> Unit
                 }
             }
         }

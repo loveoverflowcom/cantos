@@ -132,6 +132,31 @@ class TonalAuthRecipeTest {
         }
     }
 
+    // #540 AC-13: the idle fill is Theatre Web's high container; focus mixes the primary state layer over it.
+    @Test
+    fun tonal_field_fill_matches_the_web_auth_roles_in_both_themes() {
+        Theme.entries.forEach { theme ->
+            fun role(name: String) = parseTokenColor(CantosTokens.color(CantosTokens.role(name, CantosExpression.Theatre.tokenName), theme.tokenName))
+            val frames = capture(theme) { m ->
+                TextField("Địa chỉ email", "", {}, Modifier.fillMaxWidth(), variant = TextFieldVariant.FloatingTonal, controlModifier = m)
+            }
+            val x = (frames.node.left - frames.scene.left + frames.node.width * 0.85f).toInt()
+            val y = (frames.node.center.y - frames.scene.top).toInt()
+            val high = role("color.surfaceContainerHigh")
+            val focusOpacity = CantosTokens.number("state.focusOpacity", "compact").toFloat()
+            assertTrue(frames.idle.toPixelMap()[x, y].isNear(high, 0.02f), "${theme.tokenName}: idle fill is surfaceContainerHigh")
+            assertTrue(frames.focused.toPixelMap()[x, y].isNear(androidx.compose.ui.graphics.lerp(high, role("color.primary"), focusOpacity), 0.02f),
+                "${theme.tokenName}: focus is the primary state layer over the high container")
+        }
+    }
+
+    // #540 AC-13: the tonal shell is softer than the 16 dp Floating/Search baseline, through the existing auth shape token.
+    @Test
+    fun tonal_field_radius_is_the_auth_shape_token_and_wider_than_the_floating_baseline() {
+        val authField = CantosTokens.number("shape.authField", "compact")
+        assertTrue(authField > FloatingFieldRadius.value, "auth field radius $authField must exceed ${FloatingFieldRadius.value}")
+    }
+
     @Test
     fun tonal_actions_draw_no_outline_and_show_focus_as_a_fill_inside_their_bounds() {
         val actions = mapOf<String, @Composable (Modifier) -> Unit>(

@@ -120,7 +120,7 @@ class IdentityV1LoginUiTest {
             input(); submit(); h.identity.completeLogin(true); waitForIdle()
             assertEquals("", password()); assertEquals(1, h.identity.loginRequests)
             val message = when (failure) {
-                IdentityV1Failure.Unauthorized -> if (locale == ShellLocale.English) "Unable to sign in with these credentials." else "Không thể đăng nhập bằng thông tin này."
+                IdentityV1Failure.Unauthorized -> if (locale == ShellLocale.English) "Unable to sign in with these credentials. Check your email and password, then try again." else "Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại."
                 is IdentityV1Failure.RateLimited -> if (locale == ShellLocale.English) "Please wait 17 seconds before trying again." else "Vui lòng đợi 17 giây trước khi thử lại."
                 else -> if (locale == ShellLocale.English) "Sign-in is temporarily unavailable. Please try again later." else "Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau."
             }

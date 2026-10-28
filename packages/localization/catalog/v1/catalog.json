@@ -22670,10 +22670,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không thể đăng nhập bằng thông tin này."
+          "text": "Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại."
         },
         "en": {
-          "text": "Unable to sign in with these credentials."
+          "text": "Unable to sign in with these credentials. Check your email and password, then try again."
         }
       }
     },
