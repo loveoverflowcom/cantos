@@ -102,8 +102,11 @@ access-request, invitation or Membership flow.
 | 400 | invalid input message |
 | refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
 
-The header toolbar uses localized language and theme-cycle buttons and, once the workspace is
-confirmed, an avatar trigger for the actor. The avatar opens a floating account group on wide
+The header toolbar uses a compact tonal language pill (short code and chevron, with full
+registry autonyms in the menu) and a separate tonal, icon-only theme-cycle button. Full localized
+accessible names and the Dark → Light → System cycle remain available. Once the workspace is
+confirmed, it shows a round avatar derived from the authenticated actor; the login entry has no
+placeholder identity. The avatar opens a floating account group on wide
 screens and a bottom sheet on narrow screens. Opening focuses its close button; Tab and Shift+Tab
 wrap through its visible enabled controls. Escape or the close button restores focus to the
 trigger; a press outside or focus leaving also closes it. Closing disposes the reauthentication
@@ -111,6 +114,8 @@ form, clears its typed credentials and rejects late updates to that form. Sessio
 stays in the session owner; closing the group does not assert cancellation of an in-flight server
 operation. This is not an aria-modal dialog and does not establish background inertness or
 screen-reader acceptance. See the [six-issue review evidence](../../../docs/evidence/studio-six-issue-review-20261026.md).
+The [topbar v7/v8 observations](../../../docs/evidence/studio-topbar-582.md) record the compact
+presentation, keyboard/contrast checks and remaining browser acceptance.
 
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
