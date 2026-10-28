@@ -13,6 +13,18 @@ import release_oci_fixture as driver
 
 
 class OperatorBoundary(unittest.TestCase):
+    def test_pull_failure_reports_only_a_fixed_class(self):
+        fixture = SimpleNamespace(podman=['podman'], authfile=Path('/private/auth'), root=Path('/'), env={},
+                                  image=lambda _: 'example/image@sha256:'+'a'*64)
+        for error, category in ((b'no space left on device private-token', 'STORAGE_EXHAUSTED'),
+                                (b'unauthorized private-token', 'REGISTRY_AUTH'),
+                                (b'unknown private-token', 'UNCLASSIFIED')):
+            with patch.object(qualify.subprocess, 'run', return_value=SimpleNamespace(returncode=125, stderr=error)):
+                with self.assertRaises(ValueError) as caught:
+                    qualify.pull_exact(fixture, 'server')
+                self.assertEqual(str(caught.exception), 'PODMAN_PULL_'+category)
+                self.assertNotIn('private-token', str(caught.exception))
+
     def test_wrong_platform_refuses_before_compiler_or_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp).resolve()/'artifact'

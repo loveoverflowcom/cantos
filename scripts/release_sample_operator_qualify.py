@@ -43,6 +43,36 @@ def request(action, operation_id, confirmed=True):
             'confirm_source': confirmed, 'confirm_metadata_rights': confirmed}
 
 
+def pull_failure_class(stderr):
+    # Podman errors can contain registry credentials or URLs. Report only a fixed class.
+    message = stderr.lower()
+    if b'no space left on device' in message or b'disk quota exceeded' in message:
+        return 'STORAGE_EXHAUSTED'
+    if b'too many requests' in message or b'toomanyrequests' in message:
+        return 'REGISTRY_RATE_LIMIT'
+    if b'unauthorized' in message or b'authentication required' in message:
+        return 'REGISTRY_AUTH'
+    if b'permission denied' in message:
+        return 'PERMISSION'
+    if b'manifest unknown' in message or b'manifest not found' in message:
+        return 'IMAGE_NOT_FOUND'
+    if b'x509:' in message or b'certificate verify failed' in message:
+        return 'TLS_CERTIFICATE'
+    if any(s in message for s in (b'connection refused', b'connection reset', b'connection timed out',
+                                   b'network is unreachable', b'no such host', b'tls handshake timeout')):
+        return 'NETWORK'
+    return 'UNCLASSIFIED'
+
+
+def pull_exact(fixture, service):
+    # Use the same isolated store and authfile as Fixture.pod, with strictly redacted
+    # diagnostic categories on failure; a failed pull still refuses qualification.
+    result = subprocess.run([*fixture.podman, 'pull', '--authfile', str(fixture.authfile), fixture.image(service)],
+                            cwd=fixture.root, env=fixture.env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=600, check=False)
+    contract.require(result.returncode == 0, 'PODMAN_PULL_'+pull_failure_class(result.stderr))
+
+
 def qualify_operator(root, args):
     manifest, _ = qualify.validate_input(root, args)
     contract.require(qualify.native_host() == manifest['platform'], 'native qualification platform mismatch')
@@ -72,7 +102,7 @@ def qualify_operator(root, args):
         f = qualify.Fixture(root, work, manifest, args.authfile)
         try:
             for service in oci.SERVICES:
-                f.pod('pull', '--authfile', str(args.authfile), f.image(service), timeout=600)
+                pull_exact(f, service)
                 qualify.inspect_identity(service, manifest['images'][service], manifest,
                                          json.loads(f.pod('image', 'inspect', f.image(service)))[0])
             f.migrate()
