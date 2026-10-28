@@ -61,6 +61,17 @@ jobs:
           set -Eeuo pipefail
           cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
             --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
+      - name: Build separate stopped-database sample operator
+        run: |
+          set -Eeuo pipefail
+          # The operator is extracted from the pinned build stage; it is not in the Server image.
+          if python3 scripts/release_sample_operator_build.py --output "$GITHUB_WORKSPACE/artifacts/sample-operator" \
+              > "$RUNNER_TEMP/sample-operator-build-status.json"; then
+            cat "$RUNNER_TEMP/sample-operator-build-status.json"
+          else
+            printf '%s\n' '{"status":"FAIL","admission":"NOT_RUN","activation":"NOT_RUN"}' \
+              > "$RUNNER_TEMP/sample-operator-build-status.json"
+          fi
       - name: Probe disposable systemd and Quadlet prerequisites
         run: |
           set -Eeuo pipefail
@@ -150,6 +161,33 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
+      - name: Qualify separate sample operator against the exact pair
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          OUTPUT="$RUNNER_TEMP/sample-operator-qualification-status.json"
+          if ! test -f artifacts/sample-operator/operator-build.json || ! test -f artifacts/sample-operator/cantos-operator; then
+            printf '%s\n' '{"status":"NOT_RUN","admission":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+          else
+            MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+            MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+            BUILD_DIGEST=$(sha256sum artifacts/sample-operator/operator-build.json | cut -d' ' -f1)
+            sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/sample-operator-auth.json"
+            trap 'sudo rm -f "$RUNNER_TEMP/sample-operator-auth.json"' EXIT
+            if sudo python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_sample_operator_qualify.py" \
+                --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+                --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+                --binary "$GITHUB_WORKSPACE/artifacts/sample-operator/cantos-operator" \
+                --build-record "$GITHUB_WORKSPACE/artifacts/sample-operator/operator-build.json" \
+                --build-record-digest "$BUILD_DIGEST" --authfile "$RUNNER_TEMP/sample-operator-auth.json" \
+                --output "$GITHUB_WORKSPACE/artifacts/release-qualification/sample-operator" > "$OUTPUT"; then
+              cat "$OUTPUT"
+            else
+              printf '%s\n' '{"status":"FAIL","admission":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+            fi
+          fi
       - name: Rehearse disposable systemd executor transitions
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
@@ -195,8 +233,11 @@ jobs:
             artifacts/release-build/oci/
             artifacts/release-qualification/
             artifacts/native-executor/
+            artifacts/sample-operator/
             ${{ runner.temp }}/oci-build-result.json
             ${{ runner.temp }}/native-systemd-prerequisites.json
             ${{ runner.temp }}/native-executor-rehearsal-status.json
+            ${{ runner.temp }}/sample-operator-build-status.json
+            ${{ runner.temp }}/sample-operator-qualification-status.json
           if-no-files-found: error
           retention-days: 14

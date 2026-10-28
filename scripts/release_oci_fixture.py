@@ -198,6 +198,20 @@ class Journey:
         self.http("POST", self.base + "login", 503, self.login)
         return ["identity-peer-transport-fails-closed"]
 
+    def sample_metadata(self, expected):
+        old, _ = self.http('GET', '/api/v1/theatre/works?presentation=2', 200)
+        page, _ = self.http('GET', '/api/v1/theatre/works?presentation=3', 200)
+        check(old.get('items') == [] and len(page.get('items', [])) == expected, 'sample-work-count')
+        total = 0
+        for work in page['items']:
+            check(work.get('cover') is None, 'sample-private-cover')
+            units, _ = self.http('GET', '/api/v1/theatre/works/'+work['work_id']+'/units?presentation=3', 200)
+            check(len(units.get('items', [])) == 2, 'sample-unit-count')
+            check(all(unit.get('playback') is None for unit in units['items']), 'sample-no-playback')
+            total += len(units['items'])
+        check(total == expected*2, 'sample-total-units')
+        return ['sample-v2-empty', 'sample-v3-counts', 'sample-no-private-cover-or-audio']
+
 
 def main():
     sink = MailSink()
@@ -215,6 +229,8 @@ def main():
             elif action == "revoked":
                 journey.session(401)
                 checks = ["revocation-persists-after-restart"]
+            elif action in ('sample_present', 'sample_withdrawn'):
+                checks = journey.sample_metadata(6 if action == 'sample_present' else 0)
             else:
                 raise CheckFailed("unknown-driver-command")
             print(json.dumps({"status": "PASS", "checks": checks}), flush=True)

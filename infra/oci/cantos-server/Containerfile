@@ -10,9 +10,9 @@ WORKDIR /src
 COPY . .
 RUN --mount=type=cache,id=cantos-oci-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=cantos-oci-server-target,target=/src/target \
-    cargo build --locked --release -p cantos-server --bin cantos-server --bin cantos-migrate \
+    cargo build --locked --release -p cantos-server --bin cantos-server --bin cantos-migrate --bin cantos-operator \
  && install -d /out \
- && install -m 0755 target/release/cantos-server target/release/cantos-migrate /out/
+ && install -m 0755 target/release/cantos-server target/release/cantos-migrate target/release/cantos-operator /out/
 
 FROM docker.io/library/debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483
 # No curl or shell tooling: the health probe is a binary the release provides, not a package here.
@@ -22,6 +22,7 @@ RUN apt-get update \
  && groupadd --system --gid 10001 cantos-server \
  && useradd --system --uid 10001 --gid cantos-server --home-dir /nonexistent --shell /usr/sbin/nologin cantos-server
 # cantos-migrate explicitly creates/upgrades server.db; serve never migrates at startup.
+# The privileged operator is extracted separately from the build stage, never into this image.
 COPY --from=build /out/cantos-server /out/cantos-migrate /usr/local/bin/
 ARG CANTOS_REVISION
 ARG CANTOS_CONFIGURATION
