@@ -280,7 +280,6 @@ fn LiveSection(
             <h2 id=heading_id.clone() class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
             <RequestEdge active=Signal::derive(move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.phase == PagePhase::Loading && ui.count > 0 && !ui.appending))) label=Key::LiveLibraryLoading locale/>
             <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| matches!(ui.phase, PagePhase::Idle | PagePhase::Loading) && ui.count == 0))><PendingRows compact=true/></Show>
-            <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.appending))><LoadingState>{move || messages::text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState></Show>
             <ul node_ref=list class="theatre-rows" aria-busy=move || (phase() == Some(PagePhase::Loading)).to_string()>
                 <For each=move || {
                     let ids = membership.get();
@@ -289,6 +288,7 @@ fn LiveSection(
                 } key=|id| id.clone()
                     children=move |work_id| view! { <rows::LiveRow state work_id section actions locale/> }/>
             </ul>
+            <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.appending))><LoadingState>{move || messages::text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState></Show>
             <div id=status_id(section) tabindex="-1" role="status" aria-live="polite"
                 class="theatre-library-feedback" data-empty=move || chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty)).to_string()>
                 <Show when=move || !all_empty.get() && chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
@@ -423,6 +423,35 @@ mod tests {
             <LiveLibrary state=RwSignal::new(s).read_only() locale=RwSignal::new(language) on_page=Callback::new(|_| {})/>
         }.to_html())
     }
+    #[test]
+    fn append_feedback_follows_the_retained_rows_and_ends_on_failure() {
+        let mut state = signed_in();
+        let first = state.begin_library(Section::Saved, false).unwrap();
+        let mut page: crate::contract::library::PresentedSavedPage = serde_json::from_slice(include_bytes!("../../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json")).unwrap();
+        page.next_cursor = Some("ab".repeat(32));
+        state
+            .finish_page(
+                &first,
+                Ok(crate::application::library::LibraryPage::Saved(page)),
+            )
+            .unwrap();
+        let append = state.begin_library(Section::Saved, false).unwrap();
+        let html = render(state.clone(), Locale::English);
+        let section = html.split_once("theatre-library-saved-heading").unwrap().1;
+        let list_end = section.find("</ul>").unwrap();
+        let indicator = section.find("cui-loading-state").unwrap();
+        assert!(
+            indicator > list_end,
+            "append must not insert content above the retained list: {section}"
+        );
+        state
+            .finish_page(&append, Err(AccountFailure::Unavailable))
+            .unwrap();
+        let html = render(state, Locale::English);
+        assert!(!html.contains("cui-loading-indicator"));
+        assert!(html.contains("Ánh đèn cuối sân khấu"));
+    }
+
     #[test]
     fn three_real_sections_render_release_metadata_and_uuid_links_without_mock_or_play_effects() {
         let mut s = signed_in();

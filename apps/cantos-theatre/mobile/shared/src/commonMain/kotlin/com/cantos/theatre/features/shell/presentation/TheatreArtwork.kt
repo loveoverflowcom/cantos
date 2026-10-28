@@ -132,7 +132,7 @@ private fun CoverArtwork(
                 contentScale = contentScale,
             )
         }
-        null -> com.cantos.ui.SurfacePulse(modifier, shape = shape)
+        null -> RequestPulse(modifier, shape = shape)
         CoverLoad.Unavailable -> ArtworkFallback(modifier, shape)
     }
 }

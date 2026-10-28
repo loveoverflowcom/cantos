@@ -120,6 +120,7 @@ fn requested_selection(state: &ButtonState, current: bool) -> Option<bool> {
 
 /// A controlled toggle button. The callback requests a new selection; the caller updates it.
 /// The visible label stays stable while `aria-pressed` describes the selected state.
+/// Loading retains keyboard focus with `aria-disabled`; the activation guard still refuses repeats.
 #[component]
 pub fn FilterChip(
     #[prop(into)] id: String,
@@ -137,7 +138,8 @@ pub fn FilterChip(
             <button id=id type="button" class=move || component_class("cui-filter-chip", &class.get())
                 aria-pressed=move || selected.get().to_string()
                 data-state=move || state.get().as_str()
-                disabled=move || !state.get().can_press()
+                disabled=move || matches!(state.get(), ButtonState::Disabled(_))
+                aria-disabled=move || (!state.get().can_press()).then_some("true")
                 aria-busy=move || state.get().is_busy().then_some("true")
                 aria-describedby=move || {
                     description_ids(&described_by.get(), state.get().reason().map(|_| reason_id_for_description.as_str()))

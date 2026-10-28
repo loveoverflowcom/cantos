@@ -46,6 +46,8 @@ pub(crate) fn PublicCover(
     class: &'static str,
     children: Children,
 ) -> impl IntoView {
+    let node = NodeRef::<leptos::html::Div>::new();
+    let active = crate::platform::loading_presence(node);
     let phase = RwSignal::new(if cover.is_some() {
         CoverPhase::Loading
     } else {
@@ -70,10 +72,10 @@ pub(crate) fn PublicCover(
         }
     });
     view! {
-        <div class=format!("theatre-cover {class}") data-kind=kind
+        <div node_ref=node class=format!("theatre-cover {class}") data-kind=kind
             data-cover=move || phase.get().name() style=ratio>
             <div class="theatre-cover-fallback" aria-hidden="true">{children()}</div>
-            <Show when=move || phase.get() == CoverPhase::Loading><div class="theatre-cover-pending"><SurfacePulse/></div></Show>
+            <Show when=move || phase.get() == CoverPhase::Loading><div class="theatre-cover-pending"><SurfacePulse active/></div></Show>
             {image}
         </div>
     }
@@ -133,5 +135,12 @@ mod tests {
         assert!(!html.contains("<img"), "{html}");
         assert!(!html.contains("style="), "{html}");
         assert!(html.contains("Truyện"));
+    }
+
+    #[test]
+    fn an_unobserved_pending_cover_keeps_a_static_placeholder() {
+        let html = render(Some(covered()));
+        assert!(html.contains("data-cover=\"loading\""));
+        assert!(html.contains("data-pulse=\"idle\""), "{html}");
     }
 }

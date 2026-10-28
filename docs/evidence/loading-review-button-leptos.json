@@ -1,0 +1,31 @@
+{
+  "component_id": "button",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28, scoped Web loading variants",
+  "reference": "Opened retained primitives-overview.png from asset commit 925b74cd3e9df2182b4c9ad9722d38cb370e3257 and fresh loopback gallery screenshots. Canonical issue anatomy; bounded DOM/keyboard/style review only, no pixel-match, native OS, screen-reader or real backend claim.",
+  "tokens_sha256": "afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08",
+  "source_sha256": "8c21983f9366c940888ae2c31208d87172a512778c85b6842200b48912855a77",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask preflight --profile local --changed-only --base origin/develop --skip repository --skip web-lint (native checkpoint only); cargo xtask verify web (WASM lint/build/gallery); full handoff result separately recorded in artifact",
+      "artifact": "docs/evidence/loading-review-20261028.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "CUA trusted gallery controls, read-only DOM/computed observations and opened reference/screenshots; exact scope in artifact",
+      "artifact": "docs/evidence/loading-review-20261028.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "CUA trusted gallery controls, read-only DOM/computed observations and opened reference/screenshots; exact scope in artifact",
+      "artifact": "docs/evidence/loading-review-20261028.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "CUA trusted gallery controls, read-only DOM/computed observations and opened reference/screenshots; exact scope in artifact",
+      "artifact": "docs/evidence/loading-review-20261028.md"
+    }
+  }
+}

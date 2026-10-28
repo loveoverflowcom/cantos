@@ -318,6 +318,9 @@ fn pending_chip_replaces_the_check_in_the_same_slot_and_keeps_selection_meaning(
             assert!(!pending.contains("<svg"), "the check is replaced, not stacked: {pending}");
             assert!(pending.contains(&format!("aria-pressed=\"{selected}\"")), "selection survives: {pending}");
             assert!(pending.contains("aria-busy=\"true\"") && pending.contains("role=\"status\""), "{pending}");
+            let control = pending.split_once("<button ").unwrap().1.split('>').next().unwrap();
+            assert!(!control.contains(" disabled"), "pending must preserve native focus: {control}");
+            assert!(control.contains("aria-disabled=\"true\""), "pending remains non-activatable: {control}");
             assert!(pending.contains("Đang lọc; không gửi lại."), "{pending}");
             assert!(pending.contains("Truyện của Nguyễn Thị Ánh Nguyệt"), "{pending}");
             assert!(!pending.contains("aria-label="), "the visible label is the name: {pending}");
