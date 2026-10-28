@@ -25197,6 +25197,45 @@
         }
       }
     },
+    "theatre.cmp_shell.system": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hệ thống"
+        },
+        "en": {
+          "text": "System"
+        }
+      }
+    },
+    "theatre.cmp_shell.switch_to_system": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chuyển sang Hệ thống"
+        },
+        "en": {
+          "text": "Switch to System"
+        }
+      }
+    },
+    "theatre.cmp_shell.theme_cycle": {
+      "args": {
+        "mode": "text",
+        "next": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{mode} · {next}"
+        },
+        "en": {
+          "text": "{mode} · {next}"
+        }
+      }
+    },
     "theatre.shell.discovery_displayed_context": {
       "args": {
         "query": "text",

@@ -26,7 +26,31 @@ enum class ShellLibrarySection { Continue, Saved, History, Bookmarks }
 
 enum class ShellCatalogMode { Ready, Loading, Empty, Error }
 
-enum class ShellTheme { Light, Dark }
+/** Resolved appearance. Components never interpret System as an implicit light theme. */
+enum class ShellTheme {
+    Light, Dark;
+    fun mode(): ShellThemeMode = when (this) {
+        Light -> ShellThemeMode.Light
+        Dark -> ShellThemeMode.Dark
+    }
+}
+
+/** The preference remains selected while a composition root resolves the host appearance. */
+enum class ShellThemeMode {
+    Light, Dark, System;
+
+    fun cycle(): ShellThemeMode = when (this) {
+        Dark -> Light
+        Light -> System
+        System -> Dark
+    }
+
+    fun resolve(systemIsDark: Boolean): ShellTheme = when (this) {
+        Light -> ShellTheme.Light
+        Dark -> ShellTheme.Dark
+        System -> if (systemIsDark) ShellTheme.Dark else ShellTheme.Light
+    }
+}
 
 enum class ShellTimer { Off, Fifteen, Thirty, EndOfEpisode }
 
@@ -261,6 +285,7 @@ sealed interface ShellEvent {
     /** Asks the source to re-read the current list from its start. */
     data object Refresh : ShellEvent
     data class SetTheme(val theme: ShellTheme) : ShellEvent
+    data class SetThemeMode(val mode: ShellThemeMode) : ShellEvent
     data class SetLocale(val locale: ShellLocale) : ShellEvent
     data class SetSpeed(val percent: Int) : ShellEvent
     data class SetTimer(val timer: ShellTimer) : ShellEvent

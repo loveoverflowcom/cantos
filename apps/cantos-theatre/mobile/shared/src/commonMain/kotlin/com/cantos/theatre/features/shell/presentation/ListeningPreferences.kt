@@ -33,7 +33,7 @@ import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellState
-import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.SupportedUiSpeedPercents
 import com.cantos.ui.rememberCantosIconVector
@@ -73,6 +73,7 @@ internal fun PreferenceDialog(
     state: ShellState,
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
+    themeMode: ShellThemeMode = state.theme.mode(),
     onDismiss: () -> Unit,
 ) {
     val diagnostics = LocalShellDiagnostics.current
@@ -98,9 +99,9 @@ internal fun PreferenceDialog(
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 when (panel) {
-                    PreferencePanel.Theme -> ShellTheme.entries.forEach { theme ->
-                        PreferenceOption(copy.text(if (theme == ShellTheme.Light) CopyKey.Light else CopyKey.Dark),
-                            state.theme == theme, "theme-$theme", selectedFocus) { choose(ShellEvent.SetTheme(theme)) }
+                    PreferencePanel.Theme -> ShellThemeMode.entries.forEach { theme ->
+                        PreferenceOption(copy.themeName(theme),
+                            themeMode == theme, "theme-$theme", selectedFocus) { choose(ShellEvent.SetThemeMode(theme)) }
                     }
                     PreferencePanel.Language -> ShellLocale.entries.forEach { locale ->
                         PreferenceOption(locale.autonym,

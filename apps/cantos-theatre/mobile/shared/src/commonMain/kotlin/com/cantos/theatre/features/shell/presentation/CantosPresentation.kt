@@ -41,7 +41,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Composable
@@ -94,6 +94,7 @@ import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellListeningFailure
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellWork
@@ -174,6 +175,9 @@ fun CantosPresentation(
     onErrorAction: (ErrorAction) -> Unit = {},
     onErrorDismiss: () -> Unit = {},
     errorReturnFocus: FocusRequester? = null,
+    // Appearance is resolved by the host; the controls retain the actual chosen mode.
+    themeMode: ShellThemeMode = state.theme.mode(),
+    accountSignedIn: Boolean = false,
 ) {
     var surfaceBounds by remember { mutableStateOf(Rect.Zero) }
     val copy = ShellCopy(state.locale, LocalShellLiveCopy.current)
@@ -199,8 +203,17 @@ fun CantosPresentation(
             Column(
                 Modifier.fillMaxSize().safeDrawingPadding().imePadding()
                     .onGloballyPositioned { surfaceBounds = it.boundsInWindow() }
-                    .onPointerEvent(PointerEventType.Press) { event ->
-                        event.changes.firstOrNull()?.let { overlays.dismissOutside(it.position + surfaceBounds.topLeft) }
+                    .pointerInput(overlays) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.type == PointerEventType.Press) {
+                                    event.changes.firstOrNull()?.let {
+                                        overlays.dismissOutside(it.position + surfaceBounds.topLeft)
+                                    }
+                                }
+                            }
+                        }
                     }.onPreviewKeyEvent {
                     if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && (overlays.active || canGoBack(state))) {
                         back()
@@ -216,7 +229,7 @@ fun CantosPresentation(
                         Box(Modifier.widthIn(max = AUTH_FRAME_MAX_WIDTH).fillMaxWidth()) { authHeader() }
                     }
                 }
-                else ShellHeader(state, copy, dispatch, entryFocus.account)
+                else ShellHeader(state, copy, dispatch, entryFocus.account, themeMode, accountSignedIn)
                 state.listeningFailure?.let { failure ->
                     Column(
                         Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
@@ -262,7 +275,7 @@ fun CantosPresentation(
                             ShellRoute.Login, ShellRoute.Register, ShellRoute.VerifyEmail -> authContent()
                             ShellRoute.MembershipPreview -> membershipContent()
                             ShellRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
-                            ShellRoute.Settings -> SettingsScreen(state, copy, dispatch)
+                            ShellRoute.Settings -> SettingsScreen(state, copy, dispatch, themeMode)
                             ShellRoute.Unavailable -> SelectionUnavailable(copy, dispatch)
                         }
                     }
@@ -319,7 +332,14 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
 }
 
 @Composable
-private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, accountFocus: FocusRequester) {
+private fun ShellHeader(
+    state: ShellState,
+    copy: ShellCopy,
+    dispatch: (ShellEvent) -> Unit,
+    accountFocus: FocusRequester,
+    themeMode: ShellThemeMode,
+    accountSignedIn: Boolean,
+) {
     val branded = topBarShowsBrandMark(state.route)
     BoxWithConstraints(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
@@ -361,14 +381,19 @@ private fun ShellHeader(state: ShellState, copy: ShellCopy, dispatch: (ShellEven
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"), Alignment.End),
             verticalAlignment = Alignment.CenterVertically) {
         TopBarThemeButton(
-            state.theme,
-            copy.text(if (state.theme == ShellTheme.Dark) CopyKey.SwitchToLight else CopyKey.SwitchToDark),
-            { dispatch(ShellEvent.SetTheme(if (state.theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) },
+            themeMode,
+            copy.themeAction(themeMode),
+            copy.themeName(themeMode),
+            { dispatch(ShellEvent.SetThemeMode(themeMode.cycle())) },
             Modifier.testTag("theme-toggle"),
         )
         if (state.route != ShellRoute.Account) {
-            TopBarAccountButton(copy.text(CopyKey.Account), { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
-                Modifier.focusRequester(accountFocus).testTag("account"))
+            TopBarAccountButton(
+                label = copy.text(CopyKey.Account),
+                signedIn = accountSignedIn,
+                onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
+                modifier = Modifier.focusRequester(accountFocus).testTag("account"),
+            )
         }
         }
         }
@@ -514,7 +539,13 @@ private fun SearchScreen(
                 modifier = Modifier.fillMaxWidth().onGloballyPositioned { dockBounds = it.boundsInWindow() },
                 controlModifier = Modifier.testTag("search-input").focusRequester(focus)
                     .onFocusChanged { if (it.isFocused && !restoring) expanded = true }
-                    .onPointerEvent(PointerEventType.Press) { expanded = true }
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                if (awaitPointerEvent().type == PointerEventType.Press) expanded = true
+                            }
+                        }
+                    }
                     .onGloballyPositioned { headerBottom = it.boundsInWindow().bottom }
                     .onPreviewKeyEvent {
                         if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && expanded) { collapse(); true } else false

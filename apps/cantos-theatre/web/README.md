@@ -135,6 +135,13 @@ sign-in sees **Đăng nhập / Tạo tài khoản**; a confirmed session shows n
 Idle/Checking, a failed lookup and an unresolved sign-out show the owner's own status line and
 recovery (`theatre-home-session-*`), so none of them is presented as a guest or as signed in.
 
+At narrow widths the header puts the official brand, tonal theme action and account entry on
+one row. The compact locale pill moves beside Discover/Library and retains its full accessible
+name, registry options and saved preference; desktop keeps Locale → Theme → Account. Header,
+navigation and content follow the same DOM/focus order as their visual order. The same theme
+signal serves the header, Account and Settings. A confirmed account receives the pink avatar
+container; other phases retain the anonymous account link.
+
 The header and menu still use the app-private `PersonGlyph`: shared `Avatar` has no two-renderer
 qualification record, so the text avatar (resolved initials, or a neutral `C` without a name)
 waits for #452/#467 admission. Choosing logout closes the menu and opens one shared-Dialog

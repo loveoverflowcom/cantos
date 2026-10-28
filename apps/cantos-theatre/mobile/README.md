@@ -18,7 +18,9 @@ save action. Catalog completeness, filtered no-results and retained partial data
 The app-owned empty artwork uses the supplied transparent Library PNG and theme-paired
 Works/History XML through Compose resources; its provenance is bundled in
 `shared/src/commonMain/composeResources/files/theatre_empty_artwork_provenance.json`.
-The header theme action dispatches the existing preference intent, and Discovery opens the
+The header cycles Dark → Light → System through the existing preference owner. The app root
+resolves System from the host appearance without replacing the selected mode; Settings shows
+the same selection. Theme remains memory-only. Discovery opens the
 existing query-on-change Search route. These compositions retain the current Standard Material
 presentation. Qualified Logo Symbol, FloatingSearch and the Library Button are adopted in the
 bounded continuation below. Avatar, tonal IconButton, FilterChip and UiRoot/Theatre expression
@@ -482,9 +484,12 @@ query-on-change/Clear contract. Library's invitation uses the qualified shared `
 The app-owned search containment reads the dedicated Theatre hero/foreground and heading-weight
 tokens. It does not enable the global Theatre expression or change account/Auth/Membership
 presentation. The one app-owned top bar (#532) composes the official Logo Symbol, a 48 dp tonal
-theme square and a 48 dp circular text-avatar account action from canonical Theatre roles and
-stable Material controls in the Shell feature; the avatar keeps the generic `C` fallback because
-no display name is held. Auth and Membership keep their focused-task headers (the layer guard
+theme square and a 48 dp circular account action from canonical Theatre roles and
+stable Material controls in the Shell feature. Its person glyph stays anonymous because no
+display name is held; only the actual signed-in account receives the pink container. Guests
+retain Account → Listening settings → Interface language. Shared pointer observation uses
+`pointerInput` so search reopening and outside dismissal compile on native targets too.
+Auth and Membership keep their focused-task headers (the layer guard
 forbids a cross-feature import), so their theme action awaits a shared owner. This is not the
 shared Avatar or tonal IconButton. Avatar, tonal shared IconButton, filters and expression adoption remain separate
 until their exact renderer scopes are admitted. Component qualification does not establish
