@@ -47,7 +47,8 @@ def rehearse(root, args):
             finally:
                 fixture.close()
         record.update(status='PASS', evidence_level='integration-tested', execution_environment='linux-native-exact-images',
-                      checks=CHECKS, backup_files=backups, host_adapter=fixture.adapter_record)
+                      checks=CHECKS, backup_files=backups, host_adapter=fixture.adapter_record,
+                      forward_bridge=getattr(fixture, 'forward_bridge_record', {'status':'NOT_RUN'}))
     except Exception as error:
         safe = isinstance(error, ValueError) and re.fullmatch(r'[A-Za-z0-9_:/.-]{1,256}', str(error))
         code = error.code if isinstance(error, migration.adapter.Refusal) else None

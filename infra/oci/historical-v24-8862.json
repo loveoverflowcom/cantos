@@ -1,0 +1,22 @@
+{
+  "source_sha": "8862acea2e52d6fa7b7ece07f03397487dff8b51",
+  "configuration_sha256": "c281415780297478549d6ef49507c784ade838ad672d57759646867a33ed4615",
+  "platform": "linux/amd64",
+  "compatibility": {
+    "identity_schema": "identity-migrations-v4",
+    "rpc": "identity-rpc-v1",
+    "security_state": "identity-security-store-v1",
+    "server_schema": "server-turso-epoch-1-v24",
+    "turso": "0.8.3"
+  },
+  "images": {
+    "cantos-identity": {
+      "config_digest": "sha256:e0bb7a8b0739b87be20046a68a2b76869922de0da21d9b373910d11f7d38f806",
+      "ref": "ghcr.io/loveoverflowcom/cantos-identity@sha256:1f737a9a4a30678e69f95b5a53e8f6febf8a49ec41e00b775ac9ea9fa573e61e"
+    },
+    "cantos-server": {
+      "config_digest": "sha256:e85f856003529dc3f2e2e7f7b80496c67beb178768be607036eeece8c6f51a7f",
+      "ref": "ghcr.io/loveoverflowcom/cantos-server@sha256:6720f8a6a30dc6f81f7d52aad00e4b2a67838a267113661987e8572ab09cb4b6"
+    }
+  }
+}

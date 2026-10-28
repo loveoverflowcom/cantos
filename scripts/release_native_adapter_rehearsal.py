@@ -10,6 +10,7 @@ import time
 import release_artifact as contract
 import release_native_adapter as adapter
 import release_native_migration as migration
+import release_native_forward as forward
 import release_oci as oci
 
 
@@ -73,6 +74,66 @@ def run(fixture):
             pass
         else:
             raise ValueError('BRIDGE_FOREIGN_NETWORK_ACCEPTED')
+
+        # Exercise the new recovery observer against these real containers and /proc. The
+        # unit and host-identity seams remain fixture doubles, so this is explicitly not a
+        # full systemd or transition-executor qualification.
+        class FixtureForwardSystem(forward.ForwardSystem):
+            def host_identity(self, request, release):
+                pass
+
+            def unit_policy(self, request, service):
+                pass
+
+            def inspect(self, service):
+                return json.loads(f.pod('inspect', names[service]))[0]
+
+            def command(self, argv):
+                contract.require(argv and argv[0] == 'podman', 'fixture podman boundary')
+                args = list(argv[1:])
+                for service in oci.SERVICES:
+                    token = 'name=^'+service+'$'
+                    if token in args:
+                        args[args.index(token)] = 'name=^'+names[service]+'$'
+                raw = f.pod(*args)
+                if args[:3] == ['ps', '--format', 'json'] and '--filter' not in args:
+                    rows = json.loads(raw)
+                    for row in rows:
+                        actual = row.get('Names', [])
+                        if isinstance(actual, str): actual = [actual]
+                        row['Names'] = [next((service for service in oci.SERVICES if name == names[service]), name)
+                                        for name in actual]
+                    return json.dumps(rows).encode()
+                return raw
+
+        f.adapter_phase = 'FORWARD_BRIDGE_RUNTIME'
+        forward_system = FixtureForwardSystem()
+        forward_system.recovery_host(request, f.manifest, f.manifest)
+        # A real third container with a read-only database bind must still be rejected even
+        # without an open database file. It has no network and is removed in the finally block.
+        foreign = f.prefix+'-foreign-bind'
+        foreign_started = False
+        try:
+            f.pod('run', '-d', '--name', foreign, '--network=none', '--read-only', '--cap-drop=ALL',
+                  '--security-opt=no-new-privileges', '--user', '10001:10001',
+                  '--mount', f'type=bind,src={f.databases["cantos-server"]},dst=/foreign,ro=true',
+                  '--entrypoint', '/bin/sleep', f.image('cantos-server'), '120')
+            foreign_started = True
+            f.names.append(foreign)
+            try:
+                forward_system.recovery_host(request, f.manifest, f.manifest)
+            except ValueError as error:
+                contract.require(str(error) == 'another container owns a database bind', 'unexpected foreign bind refusal')
+            else:
+                raise ValueError('FORWARD_FOREIGN_DATABASE_BIND_ACCEPTED')
+        finally:
+            if foreign_started:
+                f.pod('rm', '-f', foreign)
+                f.names.remove(foreign)
+        f.forward_bridge_record = {'status': 'PASS', 'source_sha': f.manifest['source_sha'],
+                                   'images': f.manifest['images'],
+                                   'checks': ['real-podman-forward-recovery-host','real-proc-argv','foreign-database-bind-fence'],
+                                   'systemd_unit_policy': 'NOT_RUN', 'executor_transition': 'NOT_RUN', 'activation': 'NOT_RUN'}
         return {'status': 'PASS', 'source_sha': f.manifest['source_sha'], 'images': f.manifest['images'],
                 'checks': adapter.CHECKS, 'activation': 'NOT_RUN'}
     finally:

@@ -61,6 +61,18 @@ jobs:
           set -Eeuo pipefail
           cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
             --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
+      - name: Probe disposable systemd and Quadlet prerequisites
+        run: |
+          set -Eeuo pipefail
+          # Rootful Podman info can initialize runner storage. Probe after the rootless
+          # build, and never treat prerequisites as executor or activation evidence.
+          if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
+              python3 scripts/release_native_executor_probe.py > "$RUNNER_TEMP/native-systemd-prerequisites.json"; then
+            cat "$RUNNER_TEMP/native-systemd-prerequisites.json"
+          else
+            printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' \
+              > "$RUNNER_TEMP/native-systemd-prerequisites.json"
+          fi
       - name: Pin the one published candidate from this run
         id: candidate
         env:
@@ -100,14 +112,16 @@ jobs:
             --output artifacts/release-qualification/exact-pair
       - name: Rehearse historical v24 to v27 and cold pair recovery
         env:
-          MANIFEST: ${{ steps.candidate.outputs.manifest }}
-          MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
+          # Bind the rehearsal to the qualified manifest that an operator can admit,
+          # not the pre-qualification candidate with different evidence bytes.
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
@@ -117,6 +131,52 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v27"
+      - name: Rehearse second pinned v24 pair to v27 and cold pair recovery
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+          BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24-8862.json | cut -d' ' -f1)
+          sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
+            release native-rehearse \
+            --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+            --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+            --baseline infra/oci/historical-v24-8862.json --baseline-digest "$BASELINE_DIGEST" \
+            --transition v24-v27 \
+            --authfile "$RUNNER_TEMP/historical-auth.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
+      - name: Rehearse disposable systemd executor transitions
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          # Results are separate from image qualification and never grant admission.
+          OUTPUT="$RUNNER_TEMP/native-executor-rehearsal-status.json"
+          if ! jq -e '.status == "PREREQUISITES_ONLY"' "$RUNNER_TEMP/native-systemd-prerequisites.json" > /dev/null; then
+            printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+          else
+            MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+            MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+            sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/systemd-fixture-auth.json"
+            trap 'sudo rm -f "$RUNNER_TEMP/systemd-fixture-auth.json"' EXIT
+            if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
+                python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_native_executor_rehearsal.py" \
+                --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+                --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+                --authfile "$RUNNER_TEMP/systemd-fixture-auth.json" \
+                --historical "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27/historical-upgrade.json" \
+                --output "$GITHUB_WORKSPACE/artifacts/release-qualification/executor-rehearsal" > "$OUTPUT"; then
+              cat "$OUTPUT"
+            else
+              printf '%s\n' '{"status":"FAIL","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+            fi
+          fi
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |
@@ -136,5 +196,7 @@ jobs:
             artifacts/release-qualification/
             artifacts/native-executor/
             ${{ runner.temp }}/oci-build-result.json
+            ${{ runner.temp }}/native-systemd-prerequisites.json
+            ${{ runner.temp }}/native-executor-rehearsal-status.json
           if-no-files-found: error
           retention-days: 14

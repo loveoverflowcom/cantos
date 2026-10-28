@@ -32,6 +32,7 @@ then the [native architecture](architecture/native-turso-refactor.md) and [retai
 The offline contract verifier is separate from publish, native qualification and live activation.
 The [exact-image Linux fixture](assurance/native-oci-qualification.md) owns synthetic pair
 qualification and receipt retrieval; it grants no admission or host authority.
+The [forward reconciliation and v24-to-v27 candidate](deployment/native-forward-v27.md) is separately reviewed and requires its own actual-host and executor rehearsal evidence.
 For first-party v1 auth and parallel migration, start with the
 [native owner amendment](architecture/native-turso-refactor.md#owner-amendment-v1-authentication-and-parallel-integration),
 then [Identity auth v1](../services/cantos-server/contracts/auth/identity-auth/v1/README.md) and the [private RPC](../services/cantos-identity/contracts/identity/v1/README.md). Older provider guides are retired history, not supported workflows.

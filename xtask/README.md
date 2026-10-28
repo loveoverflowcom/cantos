@@ -220,6 +220,12 @@ Explicit `--recover-attempt attempt-HEX` restores a cold pair only before servic
 after any possible accepted writes it refuses and requires forward recovery. It never creates
 an old release admission, changes proxy/data paths or bootstraps a runtime.
 
+`cargo xtask release native-forward` and `cargo xtask release native-migrate-v27` are the
+candidate [forward reconciliation and v24-to-v27 lane](../docs/deployment/native-forward-v27.md).
+They default to a host-local read-only plan and require separate pinned approvals and explicit
+execution for mutations. Pre-start restore and post-start forward reconciliation are distinct.
+File and fake-host tests do not qualify the executor or authorize production.
+
 `cargo xtask release native-rehearse --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
 --configuration-digest SHA256 --platform P --baseline PATH --baseline-digest SHA256 --output FRESH_DIR
 [--authfile PATH]` runs the old and new exact pairs on disposable native Linux with synthetic
