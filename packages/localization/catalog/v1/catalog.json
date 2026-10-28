@@ -10374,7 +10374,7 @@
           "text": "Chỉ đọc đúng bản đã tiếp nhận qua phiên Studio. Bản nghe thử không xác nhận QC hoặc quyền phát hành; hãy ghi bằng chứng thực tế."
         },
         "en": {
-          "text": "Reads the exact admitted rendition through the Studio session. Preview does not establish QC or publication rights; record actual evidence."
+          "text": "Plays the exact received rendition through the Studio session. Preview does not establish QC or publication rights; record actual evidence."
         }
       }
     },
@@ -11655,10 +11655,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không gian Studio riêng tư. Nội dung, chỉ dẫn và đánh giá đã lưu là bất biến. Phát hành cần xác nhận riêng từ server."
+          "text": "Không gian riêng tư của bạn. Mỗi lần lưu tạo một bản mới và không ghi đè bản cũ; phát hành cần được xác nhận riêng."
         },
         "en": {
-          "text": "Private Studio workspace. Stored content, briefs and audio reviews are immutable. Publication requires separate server confirmation."
+          "text": "Your private workspace. Each save creates a new revision and never overwrites an earlier one; publishing needs separate confirmation."
         }
       }
     },
@@ -11871,10 +11871,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Nội dung bất biến"
+          "text": "Nội dung"
         },
         "en": {
-          "text": "Immutable content"
+          "text": "Content"
         }
       }
     },
@@ -12087,10 +12087,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tiếp nhận âm thanh riêng tư"
+          "text": "Âm thanh riêng tư"
         },
         "en": {
-          "text": "Private audio admission"
+          "text": "Private audio"
         }
       }
     },
@@ -12195,10 +12195,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đánh giá của chủ sở hữu"
+          "text": "Đánh giá"
         },
         "en": {
-          "text": "Named owner review"
+          "text": "Review"
         }
       }
     },
@@ -12447,10 +12447,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đọc chương/tập trước. Head nội dung trả404 là chưa có bản, không phải bản rỗng đã lưu."
+          "text": "Chưa có nội dung đã lưu."
         },
         "en": {
-          "text": "Read the unit first. A 404 content head is absent, not an empty saved revision."
+          "text": "No saved content yet."
         }
       }
     },
@@ -24594,6 +24594,354 @@
         },
         "en": {
           "text": "This build has no network permission, so it can’t reach the server."
+        }
+      }
+    },
+    "studio.live.nav_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm và chương / tập"
+        },
+        "en": {
+          "text": "Works and chapters / episodes"
+        }
+      }
+    },
+    "studio.live.back_to_list": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn tác phẩm hoặc chương / tập"
+        },
+        "en": {
+          "text": "Choose a work or chapter / episode"
+        }
+      }
+    },
+    "studio.live.tasks_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Vùng làm việc"
+        },
+        "en": {
+          "text": "Workspace areas"
+        }
+      }
+    },
+    "studio.live.task_write": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Viết"
+        },
+        "en": {
+          "text": "Write"
+        }
+      }
+    },
+    "studio.live.task_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lịch sử"
+        },
+        "en": {
+          "text": "History"
+        }
+      }
+    },
+    "studio.live.task_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin"
+        },
+        "en": {
+          "text": "Details"
+        }
+      }
+    },
+    "studio.live.task_resources": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh bìa và ủy quyền"
+        },
+        "en": {
+          "text": "Cover and access"
+        }
+      }
+    },
+    "studio.live.task_audio": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Âm thanh"
+        },
+        "en": {
+          "text": "Audio"
+        }
+      }
+    },
+    "studio.live.new_work": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm mới"
+        },
+        "en": {
+          "text": "New work"
+        }
+      }
+    },
+    "studio.live.new_unit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chương / tập mới"
+        },
+        "en": {
+          "text": "New chapter / episode"
+        }
+      }
+    },
+    "studio.live.close_form": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng biểu mẫu"
+        },
+        "en": {
+          "text": "Close form"
+        }
+      }
+    },
+    "studio.live.create_kept": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng biểu mẫu không xóa phần bạn đã nhập trong tab này."
+        },
+        "en": {
+          "text": "Closing the form keeps what you typed in this tab."
+        }
+      }
+    },
+    "studio.live.no_work_selected": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn một tác phẩm để bắt đầu."
+        },
+        "en": {
+          "text": "Choose a work to begin."
+        }
+      }
+    },
+    "studio.live.no_unit_selected": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn hoặc tạo một chương / tập để viết."
+        },
+        "en": {
+          "text": "Choose or create a chapter / episode to write."
+        }
+      }
+    },
+    "studio.live.status_not_read": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc nội dung đã lưu"
+        },
+        "en": {
+          "text": "Saved content not read yet"
+        }
+      }
+    },
+    "studio.live.status_saving": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang lưu…"
+        },
+        "en": {
+          "text": "Saving…"
+        }
+      }
+    },
+    "studio.live.status_unsaved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Có thay đổi chưa lưu"
+        },
+        "en": {
+          "text": "Unsaved changes"
+        }
+      }
+    },
+    "studio.live.status_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu bản"
+        },
+        "en": {
+          "text": "Saved revision"
+        }
+      }
+    },
+    "studio.live.status_archived": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu trữ — chỉ đọc"
+        },
+        "en": {
+          "text": "Archived — read only"
+        }
+      }
+    },
+    "studio.live.revision_viewer": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đang xem"
+        },
+        "en": {
+          "text": "Revision being viewed"
+        }
+      }
+    },
+    "studio.live.revision_current": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản hiện tại"
+        },
+        "en": {
+          "text": "Current revision"
+        }
+      }
+    },
+    "studio.live.revision_historical": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản lịch sử — không thay bản hiện tại hay phần bạn đang viết."
+        },
+        "en": {
+          "text": "Historical revision — it changes neither the current revision nor your draft."
+        }
+      }
+    },
+    "studio.live.revision_none": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa mở bản nào. Chọn một phiên bản trong danh sách để xem."
+        },
+        "en": {
+          "text": "No revision open. Choose a revision from the list to view it."
+        }
+      }
+    },
+    "studio.live.diagnostics": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chi tiết kỹ thuật"
+        },
+        "en": {
+          "text": "Technical details"
+        }
+      }
+    },
+    "studio.live.archive_zone": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu trữ"
+        },
+        "en": {
+          "text": "Archive"
+        }
+      }
+    },
+    "studio.live.context_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang làm việc với"
+        },
+        "en": {
+          "text": "Currently working on"
+        }
+      }
+    },
+    "studio.live.work_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin tác phẩm"
+        },
+        "en": {
+          "text": "Work details"
+        }
+      }
+    },
+    "studio.live.unit_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin chương / tập"
+        },
+        "en": {
+          "text": "Chapter / episode details"
+        }
+      }
+    },
+    "studio.live.order_zone": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thứ tự"
+        },
+        "en": {
+          "text": "Order"
         }
       }
     }

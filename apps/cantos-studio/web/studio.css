@@ -431,3 +431,72 @@ body { margin: 0; }
 /* Exact production identifiers and native media controls stay inside narrow Studio sections. */
 .studio-shell .live-section :where(p, code) { min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; }
 .studio-shell .live-section audio { display: block; inline-size: 100%; max-inline-size: 100%; }
+
+/* Content workspace (#571): the selected Work and chapter stay in view, the chapter list sits
+   beside a calm writing area and one task area is shown at a time. Geometry only: control
+   anatomy and every colour are shared roles; all areas stay mounted, so hiding never drops a draft. */
+.studio-shell .cw { display: grid; gap: var(--cantos-space-md); min-inline-size: 0; }
+.studio-shell .cw-context { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-xs) var(--cantos-space-md); padding-block: var(--cantos-space-sm); background: var(--cantos-color-surface); }
+.studio-shell .cw-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cantos-space-xs) var(--cantos-space-md); min-inline-size: 0; flex: 1 1 18rem; }
+.studio-shell .cw-heading h2 { margin: 0; font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); color: var(--cantos-color-on-surface-variant); }
+.studio-shell .cw-trail { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cantos-space-xs) var(--cantos-space-sm); margin: 0; min-inline-size: 0; }
+.studio-shell .cw-trail-item { font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-title-weight); overflow-wrap: anywhere; }
+.studio-shell .cw-trail-sep { color: var(--cantos-color-on-surface-variant); }
+.studio-shell .cw-trail-sep::before { content: "\203A"; }
+.studio-shell .cw-browse { display: none; }
+.studio-shell .cw-state { margin: 0; padding: var(--cantos-space-xs) var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); font-size: var(--cantos-type-metadata-size); overflow-wrap: anywhere; }
+.studio-shell .cw-state[data-state="unsaved"], .studio-shell .cw-state[data-state="saving"] { background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); }
+.studio-shell .cw-state[data-state="saved"] { background: var(--cantos-color-success-container); color: var(--cantos-color-success); }
+.studio-shell .cw-state[data-state="read-only"] { background: var(--cantos-color-surface-container-high); }
+.studio-shell .cw-unsaved, .studio-shell .cw-feedback p { margin-block: 0 var(--cantos-space-xs); }
+.studio-shell .cw-feedback { margin-block: 0; padding: var(--cantos-space-xs) var(--cantos-space-md); }
+.studio-shell .cw-body { display: grid; grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr); gap: var(--cantos-space-lg); align-items: start; }
+.studio-shell .cw-nav, .studio-shell .cw-main { min-inline-size: 0; }
+.studio-shell .cw-nav { display: grid; gap: var(--cantos-space-md); padding: var(--cantos-space-sm); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-nav-section { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
+.studio-shell .cw-nav-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-xs); }
+.studio-shell .cw-nav-heading h3 { margin: 0; font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-nav .toolbar { margin-block: 0; gap: var(--cantos-space-xs); }
+.studio-shell .cw-nav .live-list { flex-direction: column; flex-wrap: nowrap; gap: var(--cantos-space-xs); margin: 0; }
+.studio-shell .cw-nav .live-list > li { min-inline-size: 0; }
+.studio-shell .cw-nav .live-list .cui-button { display: grid; justify-items: start; inline-size: 100%; text-align: start; border-inline-start: var(--cantos-space-xs) solid transparent; }
+.studio-shell .cw-nav .live-list .cui-button[aria-current="true"] { background: var(--cantos-color-surface-container-high); border-inline-start-color: var(--cantos-color-primary); }
+.studio-shell .cw-nav .live-list .cui-button > span, .studio-shell .cw-nav .live-list small { text-align: start; }
+.studio-shell .cw-tabs { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs); margin-block-end: var(--cantos-space-md); }
+.studio-shell .cw-tabs .cui-button[aria-pressed="true"] { font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-empty { margin-block: var(--cantos-space-md); }
+.studio-shell .cw-panel { min-inline-size: 0; }
+.studio-shell .cw-panel > h3, .studio-shell .cw-panel-head h3, .studio-shell .cw-block > h4 { margin-block: 0 var(--cantos-space-sm); font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); }
+.studio-shell .cw-panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-sm); }
+.studio-shell .cw-panel-head .toolbar { margin: 0; }
+.studio-shell .cw-block { margin-block-end: var(--cantos-space-lg); min-inline-size: 0; }
+.studio-shell .cw-form, .studio-shell .cw-form-stack { max-inline-size: 40rem; }
+.studio-shell .cw-form-stack { display: grid; gap: var(--cantos-space-md); min-inline-size: 0; }
+.studio-shell .cw-form-grid { grid-template-columns: minmax(0, 1fr); }
+.studio-shell .cw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-md); }
+.studio-shell .cw-manuscript textarea { min-block-size: clamp(14rem, 45dvh, 34rem); font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-editor-size); line-height: var(--cantos-type-editor-line-height); }
+.studio-shell .cw-archive { margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); max-inline-size: 40rem; }
+.studio-shell .cw-archive h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-archive p { margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .cw-viewer { margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-viewer h4 { margin-block: 0 var(--cantos-space-xs); }
+.studio-shell .cw-viewer-kind { margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .cw-viewer-kind[data-viewing="historical"] { color: var(--cantos-color-warning); }
+.studio-shell .cw-viewer code { overflow-wrap: anywhere; }
+.studio-shell #workspace-content .cw-reading { max-block-size: 28rem; font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-editor-size); line-height: var(--cantos-type-editor-line-height); background: var(--cantos-color-surface); }
+.studio-shell .cw-panel details > summary { color: var(--cantos-color-on-surface-variant); }
+@container studio (min-width: 45rem) {
+  /* Context and the chapter list follow the page while the writing area scrolls. */
+  .studio-shell .cw-context { position: sticky; inset-block-start: 0; z-index: 5; }
+  .studio-shell .cw-nav { position: sticky; inset-block-start: 5rem; max-block-size: calc(100dvh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
+}
+html:has(.cw-context) { scroll-padding-block-start: 5rem; }
+@container studio (max-width: 45rem) {
+  /* One pane at a time: the chapter list or the work area; the context header names where you are. */
+  .studio-shell .cw-body { grid-template-columns: minmax(0, 1fr); }
+  .studio-shell .cw[data-pane="browse"] .cw-main, .studio-shell .cw[data-pane="work"] .cw-nav { display: none; }
+  .studio-shell .cw[data-pane="work"] .cw-browse { display: inline-flex; }
+  .studio-shell .cw-state { margin-inline-start: 0; }
+  .studio-shell .cw-actions > *, .studio-shell .cw-panel-head .toolbar > * { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .studio-shell .cw * { scroll-behavior: auto; transition: none; } }

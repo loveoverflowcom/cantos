@@ -398,6 +398,30 @@ Failed or cancelled reads retain the last accepted page. Paging does not change 
 Work/unit, the Content append base, the saved current head or any unsaved draft. A page count is
 never presented as a total, and paging never makes a partial unit set eligible for ordering.
 
+### Task-region composition (#571)
+
+The same controllers are composed by task instead of one long page. A context header names the
+selected Work and chapter / episode with their revisions and a truthful editor status; a rail
+lists Works and chapters beside the work area; the work area shows one of **Write**, **History**,
+**Details**, **Cover and access** or **Audio**, plus a width-limited creation form opened from
+the rail. Every area stays mounted and is only hidden (`hidden`/`inert`), so per-unit drafts,
+submitted snapshots, focus targets and private upload fencing keep their lifetimes. Below one
+container width of 45 rem the rail and the work area become two panes with an explicit
+back control; `live/layout.rs` holds the pure task/pane resolution, the editor-status rule and
+the head-versus-historical-revision rule, and none of them keeps state or grants a capability.
+
+The editor status says *not read*, *no saved content*, *saved revision rN*, *unsaved changes*,
+*saving* or *archived — read only* from the draft owner's save base, the selected parents'
+lifecycle and the pending request. It never reports a save the Server has not acknowledged, and a
+missing head (404) is *no saved content*, not a load failure or an empty saved revision.
+History keeps the opened revision apart from the current head; the raw document is behind a
+labelled disclosure. Recover/cancel controls appear only while the request owner reports a
+pending or recoverable exchange; unavailable pages are not offered at all, so no generic disabled
+reason is repeated. Archived Work or chapter makes the content, metadata and create-chapter
+actions unavailable in the UI with the existing lifecycle predicate; reads, history and exact
+retry stay available, and the Server remains the authority. The typed per-operation feedback and
+keyed row projections are owned by #570 and are not implemented here.
+
 Workspace field issues show guidance from the existing vi-VN/en copy owner before the unchanged
 `path · rule` diagnostic. Known Catalog/Content validation rules select semantic guidance; unknown
 rules receive a localized review instruction. Guidance and diagnostics remain escaped text. This
