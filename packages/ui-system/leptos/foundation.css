@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581 template-sha256:8da9ea085eceaf4b4d4073793b8f45ccb464eded64b2446119e68e52ec7465e0
+/* Generated from Cantos UI tokens v0.10.0 sha256:7059f4181127f6573934ab7446c870a37577cb457b75fc46a3ee8b3181441965 template-sha256:b0eef4ff2f14c97d7e23cf75acc9686e650fde1a70ade8c7649ea224bfecf510
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -316,25 +316,66 @@
   justify-content: center;
   flex-shrink: 0;
 }
-/* The shared indeterminate indicator (buttons, selects and LoadingState). The adjacent localized
-   text or reason announces waiting; the arc never implies disclosure, success or a percentage.
-   One turn is a Web design seed, not a canonical role: no continuous-motion token exists yet and the
-   CMP renderer keeps its own constant. It turns only while mounted (pending) and is a stationary,
-   still visible arc under reduced motion, so no loop or timer runs there. A hidden ancestor
-   (display: none) also ends it. Rotation is a compositor transform, so layout never moves. */
+/* The MicroArc: the shared indeterminate indicator (buttons, chips, selects and LoadingState). One
+   fixed 270 degree monochrome arc with round ends, 16 (compact) or 20 (standard) logical units with a
+   2-unit stroke from size.loadingArc*. The adjacent localized text or reason announces waiting; the arc
+   never implies disclosure, success or a percentage. One turn is a Web design seed, not a canonical
+   role: no continuous-motion token exists yet and the CMP renderer keeps its own constant. It turns
+   only while mounted (pending) and is a stationary, still visible arc under reduced motion, so no loop
+   or timer runs there. A hidden ancestor (display: none) also ends it. Rotation is a compositor
+   transform on the frame, so layout never moves. Frame, stroke and caps are rem tokens, so they follow
+   the root font size together. */
 :where(.cantos-ui) {
   --cantos-web-loading-turn: 1000ms;
 }
 :where(.cantos-ui) .cui-loading-indicator {
+  --cantos-web-loading-frame: var(--cantos-size-loading-arc-compact);
+  --cantos-web-loading-cap: var(--cantos-size-loading-arc-stroke);
+  position: relative;
   box-sizing: border-box;
   display: inline-block;
   flex-shrink: 0;
-  inline-size: var(--cantos-size-icon);
-  block-size: var(--cantos-size-icon);
-  border: var(--cantos-size-focus-width) solid currentColor;
-  border-inline-end-color: transparent;
+  inline-size: var(--cantos-web-loading-frame);
+  block-size: var(--cantos-web-loading-frame);
   border-radius: var(--cantos-shape-pill);
+  /* Twelve o'clock clockwise to nine o'clock, then a ring mask of one stroke. */
+  background: conic-gradient(currentColor 0 270deg, transparent 270deg 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--cantos-size-loading-arc-stroke)), #000 calc(100% - var(--cantos-size-loading-arc-stroke)));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--cantos-size-loading-arc-stroke)), #000 calc(100% - var(--cantos-size-loading-arc-stroke)));
   animation: cui-loading-turn var(--cantos-web-loading-turn) linear infinite;
+}
+:where(.cantos-ui) .cui-loading-indicator[data-size="standard"] {
+  --cantos-web-loading-frame: var(--cantos-size-loading-arc);
+}
+/* The two round ends: stroke-wide dots centered on the arc, at twelve and nine o'clock. */
+:where(.cantos-ui) .cui-loading-indicator::before,
+:where(.cantos-ui) .cui-loading-indicator::after {
+  content: "";
+  position: absolute;
+  inline-size: var(--cantos-web-loading-cap);
+  block-size: var(--cantos-web-loading-cap);
+  border-radius: var(--cantos-shape-pill);
+  background: currentColor;
+}
+:where(.cantos-ui) .cui-loading-indicator::before {
+  top: 0;
+  left: calc(50% - var(--cantos-web-loading-cap) / 2);
+}
+:where(.cantos-ui) .cui-loading-indicator::after {
+  top: calc(50% - var(--cantos-web-loading-cap) / 2);
+  left: 0;
+}
+/* A host slot keeps the glyph's footprint while the smaller arc replaces it, so the label and the
+   control never shift between ready and pending. */
+:where(.cantos-ui) :where(.cui-button-icon, .cui-chip-check, .cui-loading-slot) {
+  min-inline-size: var(--cantos-size-icon);
+  min-block-size: var(--cantos-size-icon);
+}
+:where(.cantos-ui) .cui-loading-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 @keyframes cui-loading-turn {
   to { transform: rotate(360deg); }
@@ -534,10 +575,12 @@
 }
 :where(.cantos-ui) .cui-chip-check {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   visibility: hidden;
   flex-shrink: 0;
 }
-:where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] .cui-chip-check {
+:where(.cantos-ui) :where(.cui-filter-chip[aria-pressed="true"], .cui-filter-chip[aria-busy="true"]) .cui-chip-check {
   visibility: visible;
 }
 :where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip):where(:hover, :active):not(:disabled) {
@@ -1335,7 +1378,7 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip .cui-chip-check {
   display: none;
 }
-:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip[aria-pressed="true"] .cui-chip-check {
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip:where([aria-pressed="true"], [aria-busy="true"]) .cui-chip-check {
   display: inline-flex;
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip {

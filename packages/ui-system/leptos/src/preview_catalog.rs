@@ -476,7 +476,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.9.0";
+pub const TOKEN_VERSION: &str = "0.10.0";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -1514,6 +1514,36 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "dimension",
         light: "1.25rem",
         dark: "1.25rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "size.loadingArc",
+        css_variable: "--cantos-size-loading-arc",
+        kind: "dimension",
+        light: "1.25rem",
+        dark: "1.25rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "size.loadingArcCompact",
+        css_variable: "--cantos-size-loading-arc-compact",
+        kind: "dimension",
+        light: "1rem",
+        dark: "1rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "size.loadingArcStroke",
+        css_variable: "--cantos-size-loading-arc-stroke",
+        kind: "dimension",
+        light: "0.125rem",
+        dark: "0.125rem",
         compact: None,
         comfortable: None,
         alias_of: None,

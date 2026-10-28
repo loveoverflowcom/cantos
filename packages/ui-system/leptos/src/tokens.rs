@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
+// Generated from Cantos UI tokens v0.10.0 sha256:7059f4181127f6573934ab7446c870a37577cb457b75fc46a3ee8b3181441965
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.9.0";
+pub const VERSION: &str = "0.10.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -110,6 +110,9 @@ pub enum Token {
     SizeFocusWidth,
     SizeIcon,
     SizeIconCompact,
+    SizeLoadingArc,
+    SizeLoadingArcCompact,
+    SizeLoadingArcStroke,
     SizeSearchAction,
     SizeSearchHeader,
     SizeStatusSymbol,
@@ -264,6 +267,9 @@ pub const ALL: &[Token] = &[
     Token::SizeFocusWidth,
     Token::SizeIcon,
     Token::SizeIconCompact,
+    Token::SizeLoadingArc,
+    Token::SizeLoadingArcCompact,
+    Token::SizeLoadingArcStroke,
     Token::SizeSearchAction,
     Token::SizeSearchHeader,
     Token::SizeStatusSymbol,
@@ -423,6 +429,9 @@ impl Token {
             Self::SizeFocusWidth => "--cantos-size-focus-width",
             Self::SizeIcon => "--cantos-size-icon",
             Self::SizeIconCompact => "--cantos-size-icon-compact",
+            Self::SizeLoadingArc => "--cantos-size-loading-arc",
+            Self::SizeLoadingArcCompact => "--cantos-size-loading-arc-compact",
+            Self::SizeLoadingArcStroke => "--cantos-size-loading-arc-stroke",
             Self::SizeSearchAction => "--cantos-size-search-action",
             Self::SizeSearchHeader => "--cantos-size-search-header",
             Self::SizeStatusSymbol => "--cantos-size-status-symbol",
@@ -758,6 +767,9 @@ impl Token {
             Self::SizeFocusWidth => "0.1875rem",
             Self::SizeIcon => "1.5rem",
             Self::SizeIconCompact => "1.25rem",
+            Self::SizeLoadingArc => "1.25rem",
+            Self::SizeLoadingArcCompact => "1rem",
+            Self::SizeLoadingArcStroke => "0.125rem",
             Self::SizeSearchAction => "3.25rem",
             Self::SizeSearchHeader => "4.5rem",
             Self::SizeStatusSymbol => "4.5rem",

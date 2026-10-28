@@ -1,12 +1,14 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -17,6 +19,13 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.width
+import com.cantos.ui.generated.CantosTokens
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -104,6 +113,104 @@ class LoadingIndicatorTest {
             pending = false
             waitForIdle()
             onAllNodesWithTag("pending").assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun micro_arc_frames_are_16_and_20_and_a_slot_keeps_the_glyph_footprint() {
+        runDesktopComposeUiTest(width = 200, height = 120) {
+            mainClock.autoAdvance = false
+            setContent {
+                BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = true)) {
+                    Row {
+                        Box(Modifier.testTag("compact")) { LoadingIndicator() }
+                        Box(Modifier.testTag("standard")) { LoadingIndicator(size = LoadingSize.Standard) }
+                        Box(Modifier.testTag("slot")) { LoadingIndicator(slot = Dp(24f)) }
+                    }
+                }
+            }
+            val compact = onNodeWithTag("compact")
+            compact.assertWidthIsEqualTo(Dp(16f)).assertHeightIsEqualTo(Dp(16f))
+            onNodeWithTag("standard").assertWidthIsEqualTo(Dp(20f)).assertHeightIsEqualTo(Dp(20f))
+            // The 16 unit arc replaces a 24 unit glyph, so the slot, not the arc, sets the footprint.
+            onNodeWithTag("slot").assertWidthIsEqualTo(Dp(24f)).assertHeightIsEqualTo(Dp(24f))
+            assertEquals(16.0, CantosTokens.number("size.loadingArcCompact"))
+            assertEquals(20.0, CantosTokens.number("size.loadingArc"))
+            assertEquals(2.0, CantosTokens.number("size.loadingArcStroke"))
+            assertEquals(24.0, CantosTokens.number("size.icon"))
+            assertEquals(270f, LoadingArcSweepDegrees)
+        }
+    }
+
+    @Test
+    fun micro_arc_ends_are_round_and_the_arc_is_one_270_degree_stroke() {
+        runDesktopComposeUiTest(width = 120, height = 120) {
+            mainClock.autoAdvance = false
+            setContent {
+                BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = true)) {
+                    Box(Modifier.padding(tokenDp("space.lg"))) {
+                        Box(Modifier.testTag("arc")) { LoadingIndicator(size = LoadingSize.Standard) }
+                    }
+                }
+            }
+            mainClock.advanceTimeByFrame()
+            val pixels = onNodeWithTag("arc").captureToImage().toPixelMap()
+            val tint = pixels[10, 0]
+            val hollow = pixels[10, 10]
+            fun filled(x: Int, y: Int) = imageDistance(pixels[x, y], hollow) > 0.5
+            assertTrue(filled(10, 1), "the arc starts at twelve o'clock")
+            assertTrue(filled(19, 10), "the arc passes three o'clock")
+            assertTrue(filled(10, 19), "the arc passes six o'clock")
+            assertTrue(filled(1, 10), "the arc ends at nine o'clock")
+            // Round caps extend past each end; a butt cap would leave these pixels empty.
+            assertTrue(filled(9, 1), "the start cap is round, past twelve o'clock")
+            assertTrue(filled(1, 9), "the end cap is round, past nine o'clock")
+            assertTrue(!filled(3, 3), "the missing quarter between nine and twelve o'clock stays open")
+            assertTrue(!filled(10, 10), "the arc is a ring, not a disc")
+            assertTrue(tint != hollow)
+        }
+    }
+
+    private fun imageDistance(a: androidx.compose.ui.graphics.Color, b: androidx.compose.ui.graphics.Color): Double =
+        (kotlin.math.abs(a.red - b.red) + kotlin.math.abs(a.green - b.green) + kotlin.math.abs(a.blue - b.blue) +
+            kotlin.math.abs(a.alpha - b.alpha)).toDouble()
+
+    /** Ready and pending chip widths for one expression and selection. */
+    private fun chipWidths(expression: CantosExpression, selected: Boolean): Pair<Dp, Dp> {
+        var ready = Dp(0f)
+        var pending = Dp(0f)
+        for (loading in listOf(false, true)) {
+            runDesktopComposeUiTest(width = 400, height = 160) {
+                mainClock.autoAdvance = false
+                var calls = 0
+                setContent {
+                    BundledPreviewCaptureRoot(preferences = UiPreferences(reducedMotion = true, expression = expression)) {
+                        FilterChip(
+                            label = label, selected = selected, onSelect = { calls++ },
+                            state = if (loading) ButtonState.Loading(DisabledReason.of("Đang lọc; không gửi lại."))
+                            else ButtonState.Enabled,
+                            controlModifier = Modifier.testTag("chip"),
+                        )
+                    }
+                }
+                mainClock.advanceTimeByFrame()
+                val width = onNodeWithTag("chip").getUnclippedBoundsInRoot().width
+                if (loading) {
+                    pending = width
+                    onNodeWithTag("chip").performClick()
+                    assertEquals(0, calls, "a pending chip dispatches nothing")
+                    onNodeWithText("Đang lọc; không gửi lại.").fetchSemanticsNode()
+                } else ready = width
+            }
+        }
+        return ready to pending
+    }
+
+    @Test
+    fun a_selected_chip_keeps_its_width_when_the_arc_replaces_the_check_in_the_same_slot() {
+        for (expression in CantosExpression.entries) {
+            val (ready, pending) = chipWidths(expression, selected = true)
+            assertEquals(ready, pending, "$expression: the arc takes the check's slot, so the chip does not move")
         }
     }
 }

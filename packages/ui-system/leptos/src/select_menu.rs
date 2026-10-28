@@ -268,12 +268,12 @@ pub(super) fn MenuSelect(
                         }}
                     </span>
                     {move || if state.get().is_loading() {
-                        view! { <LoadingIndicator/> }.into_any()
+                        view! { <span class="cui-loading-slot"><LoadingIndicator/></span> }.into_any()
                     } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
                 </button>
                 <span class="cui-select-native-indicator" hidden=move || enhanced.get()>
                     {move || if state.get().is_loading() {
-                        view! { <LoadingIndicator/> }.into_any()
+                        view! { <span class="cui-loading-slot"><LoadingIndicator/></span> }.into_any()
                     } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}
                 </span>
             </div>

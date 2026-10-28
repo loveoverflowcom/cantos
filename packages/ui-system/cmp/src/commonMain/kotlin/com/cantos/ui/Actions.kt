@@ -226,7 +226,7 @@ private fun ActionIcon(icon: String?, state: ButtonState) {
 @Composable
 private fun ActionGlyph(icon: String?, state: ButtonState, tint: Color) {
     if (state is ButtonState.Loading) {
-        LoadingIndicator(tint = tint)
+        LoadingIndicator(tint = tint, slot = tokenDp("size.icon"))
     } else if (icon != null) {
         Icon(icon, tint = tint)
     }
@@ -371,6 +371,17 @@ private class ChipShape(private val fraction: Float, private val restingRadius: 
 }
 
 /**
+ * The chip's leading slot: pending shows the arc in the slot the check occupies, selected shows the
+ * check, and selection survives while pending through the chip's own `selected` state. A ready
+ * unselected chip has no leading slot, so it gains one when it turns pending, as it does on selection.
+ */
+private fun chipLeadingIcon(selected: Boolean, state: ButtonState): (@Composable () -> Unit)? = when {
+    state is ButtonState.Loading -> ({ LoadingIndicator(slot = tokenDp("size.icon")) })
+    selected -> ({ Icon("check") })
+    else -> null
+}
+
+/**
  * Standard keeps the Material filter chip. The Theatre expression reads selection by check, tone and
  * shape: unselected is a tonal reading-radius chip centered on its label, selected an ink capsule
  * that gains the check. The chip keeps its left edge, top and 48-unit height, so the press point
@@ -398,7 +409,7 @@ fun FilterChip(
                 onClick = { if (state.canPress()) onSelect(!selected) },
                 enabled = state.canPress(),
                 label = { Text(label) },
-                leadingIcon = if (selected) ({ Icon("check") }) else null,
+                leadingIcon = chipLeadingIcon(selected, state),
                 shape = chipShape,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = tokenColor("color.surfaceContainer"),
@@ -425,7 +436,7 @@ fun FilterChip(
                 onClick = { if (state.canPress()) onSelect(!selected) },
                 enabled = state.canPress(),
                 label = { Text(label) },
-                leadingIcon = if (selected) ({ Icon("check") }) else null,
+                leadingIcon = chipLeadingIcon(selected, state),
                 modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
             )
         }

@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
+// Generated from Cantos UI tokens v0.10.0 sha256:7059f4181127f6573934ab7446c870a37577cb457b75fc46a3ee8b3181441965
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.9.0"
+    const val version: String = "0.10.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -115,6 +115,9 @@ object CantosTokens {
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
+        TokenValue("size.loadingArc", "dimension", "20", "20", null, null, null),
+        TokenValue("size.loadingArcCompact", "dimension", "16", "16", null, null, null),
+        TokenValue("size.loadingArcStroke", "dimension", "2", "2", null, null, null),
         TokenValue("size.searchAction", "dimension", "52", "52", null, null, null),
         TokenValue("size.searchHeader", "dimension", "72", "72", null, null, null),
         TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),
