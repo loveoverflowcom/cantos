@@ -304,6 +304,17 @@ Arc cycle until [#586](https://github.com/loveoverflowcom/cantos/issues/586) ado
 and `…HighOpacity` over `motion.loadingPulse.cycle` (`surfacePulseFor`); the caller owns size and shape,
 the fill clears its semantics, alpha is read in the layer block, and reduced motion or `active = false`
 holds `SurfacePulseRestingAlpha` with no infinite transition.
+`EdgeProgress(active, visible, foreground, label, modifier, announcement)` (#587) consumes the
+canonical `LoadingCycle.Edge` (1200 ms) and `size.loadingEdge` (2 dp). Required host facts keep it
+controlled: only in-flight, visible, foreground work creates the Full-motion ticker; terminal,
+hidden/background or disposed state cancels it. Reduced composes no infinite transition and shows
+a centered static 25% segment. The fixed quarter width is anatomy, not request percentage. The
+straight track reads `primaryContainer`/`primary` and clips the draw phase; no frame recomposes or
+relayouts a list. Its slot remains when inactive. The localized semantic label is present only
+while showing, with opt-in announcements. The host owns viewport/lifecycle adapters, one primary
+indicator, request timing and field/focus geometry. The `edge-progress` gallery has host-controlled
+search/list placements and terminal/interruption cases. No new application imports occur here.
+
 This is not a platform reduced-motion adapter or a claim about
 all Material ripple/native motion. Focus uses real Compose focus nodes with token-driven rings;
 select the focus preset or use Tab/Shift+Tab. Dialog dismissal requests focus restoration to its

@@ -78,6 +78,7 @@ import com.cantos.ui.IconButton
 import com.cantos.ui.Link
 import com.cantos.ui.LoadingState
 import com.cantos.ui.SurfacePulse
+import com.cantos.ui.EdgeProgress
 import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
@@ -659,6 +660,9 @@ internal fun ComponentExample(
         PreviewExample.Status -> Status(feedback, modifier, tone, announce = state == "announcement")
         PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier,
             announcement = if (state == "announcement") Announcement.Polite else Announcement.Off)
+        PreviewExample.EdgeProgress -> EdgeProgressSamples(state, modifier) { active, visible, foreground, name, edgeModifier ->
+            EdgeProgress(active, visible, foreground, name, edgeModifier, Announcement.Polite)
+        }
         PreviewExample.SurfacePulse -> {
             val stage = PulseStage.fromState(state)
             Column(modifier.pulseRegionSemantics(stage), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {

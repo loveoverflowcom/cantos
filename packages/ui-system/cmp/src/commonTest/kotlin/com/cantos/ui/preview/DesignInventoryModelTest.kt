@@ -16,9 +16,9 @@ class DesignInventoryModelTest {
     @Test
     fun existing_specimens_are_exactly_the_preview_catalog_and_its_native_examples() {
         val ids = existing.map { it.id }.sorted()
-        // SurfacePulse (#585) is a registry addition after the immutable v3 export: no design specimen maps to it yet.
-        assertEquals(PreviewCatalog.components.map { it.id }.filter { it != "surface-pulse" }.sorted(), ids)
-        assertEquals(PreviewExample.entries.map { it.id }.filter { it != "surface-pulse" }.sorted(), ids)
+        // SurfacePulse (#585) and EdgeProgress (#587) are registry additions after the immutable v3 export: no design specimen maps to it yet.
+        assertEquals(PreviewCatalog.components.map { it.id }.filter { it !in setOf("surface-pulse", "edge-progress") }.sorted(), ids)
+        assertEquals(PreviewExample.entries.map { it.id }.filter { it !in setOf("surface-pulse", "edge-progress") }.sorted(), ids)
         assertEquals(ids.size, ids.toSet().size)
         existing.forEach { assertEquals(listOf(it.id), it.componentIds, "an existing specimen maps to its own API") }
     }

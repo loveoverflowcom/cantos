@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-use crate::{Icon, IconName};
+use crate::{AccessibleName, Icon, IconName};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StatusTone {
@@ -129,6 +129,34 @@ pub fn SurfacePulse(
     view! {
         <span class=move || format!("cui-surface-pulse {}", class.get())
             data-pulse=move || if active.get() { "running" } else { "idle" } aria-hidden="true"></span>
+    }
+}
+
+/// Controlled indeterminate edge for a retained-content region. The host supplies request,
+/// viewport visibility and foreground lifecycle facts; success/error/cancel set `active=false`.
+/// No request, clock, focus or field state is inferred here. Keep this mounted in a reserved slot
+/// (or a host overlay); inactive/hidden/background states keep its height but paint nothing.
+/// The label lives outside the decorative clip and must be outside the host's aria-busy region.
+/// Announcements are opt-in and do not change on animation frames. Reduced motion keeps a static
+/// quarter-width segment. A host that hides an ancestor must also clear `visible`.
+#[component]
+pub fn EdgeProgress(
+    #[prop(into)] active: Signal<bool>,
+    #[prop(into)] visible: Signal<bool>,
+    #[prop(into)] foreground: Signal<bool>,
+    #[prop(into)] label: Signal<AccessibleName>,
+    #[prop(optional)] announcement: Announcement,
+    #[prop(optional, into)] class: Signal<String>,
+) -> impl IntoView {
+    let showing = Signal::derive(move || active.get() && visible.get() && foreground.get());
+    view! {
+        <div class=move || format!("cui-edge-progress {}", class.get())
+            data-active=move || if showing.get() { "true" } else { "false" }>
+            <span class="cui-edge-track" aria-hidden="true"><span class="cui-edge-segment"></span></span>
+            <span class="cui-edge-status" role=announcement.role() aria-atomic="true">
+                {move || showing.get().then(|| label.get().as_str().to_owned())}
+            </span>
+        </div>
     }
 }
 

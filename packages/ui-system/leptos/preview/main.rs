@@ -18,6 +18,7 @@ pub mod auth_samples;
 pub mod catalog;
 pub mod design_samples;
 mod discovery;
+pub mod edge_progress_samples;
 pub mod foundation_samples;
 pub mod interaction_samples;
 mod logo_samples;

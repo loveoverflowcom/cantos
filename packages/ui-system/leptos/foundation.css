@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08 template-sha256:d4ad8892c3c2f9f3998fbbb514814b7e65bcb59df479f527d184908461f6293b
+/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08 template-sha256:7559ba413dae7ff9ec0307dd1cf4222a300de73abc0635c15fadeaa43807cb8f
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -412,6 +412,50 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-surface-pulse[data-pulse="running"] { animation: none; }
+}
+/* EdgeProgress owns only this straight, reserved 2-unit slot. A quarter-width segment crosses a
+   clipped track in one canonical linear cycle; transform never changes field/list geometry. */
+:where(.cantos-ui) .cui-edge-progress {
+  position: relative;
+  inline-size: 100%;
+  block-size: var(--cantos-size-loading-edge);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+:where(.cantos-ui) .cui-edge-track {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  background: var(--cantos-color-primary-container);
+  visibility: hidden;
+}
+:where(.cantos-ui) .cui-edge-progress[data-active="true"] .cui-edge-track { visibility: visible; }
+:where(.cantos-ui) .cui-edge-segment {
+  display: block;
+  inline-size: 25%;
+  block-size: 100%;
+  background: var(--cantos-color-primary);
+  transform: translateX(150%);
+}
+:where(.cantos-ui) .cui-edge-progress[data-active="true"] .cui-edge-segment {
+  animation: cui-edge-travel var(--cantos-motion-loading-edge-cycle) linear infinite;
+}
+@keyframes cui-edge-travel {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(400%); }
+}
+/* The accessible status stays outside the clip and never receives aria-busy. */
+:where(.cantos-ui) .cui-edge-status {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-edge-progress[data-active="true"] .cui-edge-segment { animation: none; }
 }
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);

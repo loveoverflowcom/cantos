@@ -284,6 +284,9 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let press = Callback::new(move |_| host.log(format!("{} press", log_id.get_value())));
     let label = Signal::derive(move || fixture_label(host.recipe.get()).to_owned());
     let content = match component {
+        ComponentId::EdgeProgress => view! {
+            <super::edge_progress_samples::EdgeProgressSamples id=control_id initial_state=state.as_str() visible=Signal::derive(move || active.get()) locale=Signal::derive(move || host.recipe.get().locale)/>
+        }.into_any(),
         ComponentId::AuthTonal => {
             let field_state = Signal::derive(move || match state {
                 ScenarioState::Disabled => FieldState::Disabled(blocked_reason.get()),

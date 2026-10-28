@@ -94,7 +94,7 @@ class DesignInventoryViewTest {
         compose.onNodeWithText("Opened badge from the design inventory. Registration is not qualification.").assertExists()
         // Back on Components with the filters cleared: the chosen component is displayed, not filtered away.
         compose.onNodeWithText("feedback · badge").assertIsDisplayed()
-        compose.onNodeWithText("33 components").assertExists()
+        compose.onNodeWithText("34 components").assertExists()
         compose.onNodeWithText("Design v3 inventory").assertDoesNotExist()
     }
 

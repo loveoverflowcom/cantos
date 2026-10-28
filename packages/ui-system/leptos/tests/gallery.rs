@@ -602,9 +602,10 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     let specimens = preview::preview_catalog::DESIGN_SPECIMENS;
     assert_eq!(specimens.len(), 102);
     let components = preview::preview_catalog::COMPONENTS;
-    // The 32 baseline APIs plus SurfacePulse, which no design specimen maps to yet.
-    assert_eq!(components.len(), 33);
+    // The 32 baseline APIs plus SurfacePulse and EdgeProgress, which no design specimen maps to yet.
+    assert_eq!(components.len(), 34);
     assert!(components.iter().any(|api| api.id == "surface-pulse"));
+    assert!(components.iter().any(|api| api.id == "edge-progress"));
     // The immutable v3 inventory still describes the 198-state baseline. Web repair
     // scenarios add diagnostics without promoting a proposed API or qualification.
     let select_extension = [
@@ -673,6 +674,12 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     assert_eq!(
         components.iter().map(|api| api.states.len()).sum::<usize>()
             - surface_pulse.states.len()
+            - components
+                .iter()
+                .find(|api| api.id == "edge-progress")
+                .unwrap()
+                .states
+                .len()
             - select_extension.len()
             - back_extension.len()
             - field_extension.len()
@@ -687,7 +694,10 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
             .count(),
         70
     );
-    for component in components.iter().filter(|api| api.id != surface_pulse.id) {
+    for component in components
+        .iter()
+        .filter(|api| api.id != surface_pulse.id && api.id != "edge-progress")
+    {
         let specimen = specimens
             .iter()
             .find(|entry| entry.id == component.id)

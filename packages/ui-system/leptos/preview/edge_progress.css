@@ -1,0 +1,7 @@
+:where(.cantos-ui) .cui-edge-specimen { display: grid; gap: var(--cantos-space-sm); }
+:where(.cantos-ui) .cui-edge-diagnostics { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+:where(.cantos-ui) .cui-edge-slot { block-size: var(--cantos-size-loading-edge); }
+:where(.cantos-ui) .cui-edge-outcome { margin: 0; min-block-size: 3lh; }
+:where(.cantos-ui) .cui-edge-retained { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); }
+:where(.cantos-ui) .cui-edge-retained-action { color: var(--cantos-color-primary); }
+:where(.cantos-ui) .cui-edge-retained p { margin-block-end: 0; }

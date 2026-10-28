@@ -1,7 +1,7 @@
 use cantos_ui::{
-    Announcement, Badge, Container, ContainerWidth, EmptyState, ErrorState, Grid, GridColumns,
-    LoadingState, Space, Stack, StackDirection, Status, StatusTone, Surface, SurfacePulse,
-    SurfaceTone,
+    AccessibleName, Announcement, Badge, Container, ContainerWidth, EdgeProgress, EmptyState,
+    ErrorState, Grid, GridColumns, LoadingState, Space, Stack, StackDirection, Status, StatusTone,
+    Surface, SurfacePulse, SurfaceTone,
 };
 use leptos::prelude::*;
 
@@ -124,10 +124,11 @@ fn the_only_endless_animations_are_loading_primitives_and_reduced_motion_removes
         .lines()
         .filter(|line| line.contains("infinite"))
         .collect();
-    assert_eq!(endless.len(), 2, "{endless:?}");
+    assert_eq!(endless.len(), 3, "{endless:?}");
     for (animation, mark) in [
         ("cui-loading-turn", ".cui-loading-indicator"),
         ("cui-surface-pulse", ".cui-surface-pulse"),
+        ("cui-edge-travel", ".cui-edge-segment"),
     ] {
         assert_eq!(
             endless
@@ -150,6 +151,71 @@ fn the_only_endless_animations_are_loading_primitives_and_reduced_motion_removes
         assert!(reduced.contains("animation: none"), "{reduced}");
     }
     assert!(css.contains("--cantos-web-loading-turn: 1000ms"));
+}
+
+#[test]
+fn edge_progress_needs_all_three_host_facts_and_never_suppresses_its_own_status() {
+    for active in [false, true] {
+        for visible in [false, true] {
+            for foreground in [false, true] {
+                let html = Owner::new().with(|| view! {
+                    <EdgeProgress active=active visible=visible foreground=foreground
+                        label=AccessibleName::new("Đang cập nhật <danh sách>").unwrap() announcement=Announcement::Polite/>
+                }.to_html());
+                let showing = active && visible && foreground;
+                assert!(
+                    html.contains(if showing {
+                        "data-active=\"true\""
+                    } else {
+                        "data-active=\"false\""
+                    }),
+                    "{html}"
+                );
+                assert_eq!(
+                    html.contains("Đang cập nhật &lt;danh sách&gt;"),
+                    showing,
+                    "{html}"
+                );
+                assert_eq!(html.matches("cui-edge-track").count(), 1, "{html}");
+                assert!(html.contains("role=\"status\""), "{html}");
+                for forbidden in [
+                    "aria-busy",
+                    "progressbar",
+                    "aria-valuenow",
+                    "tabindex",
+                    "<input",
+                ] {
+                    assert!(!html.contains(forbidden), "{forbidden}: {html}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn edge_progress_is_a_reserved_straight_token_height_with_a_clipped_quarter_segment() {
+    let css = include_str!("../foundation.css");
+    let start = css.find(".cui-edge-progress {").unwrap();
+    let slot = &css[start..start + css[start..].find('}').unwrap()];
+    assert!(
+        slot.contains("block-size: var(--cantos-size-loading-edge)"),
+        "{slot}"
+    );
+    assert!(
+        !slot.contains("animation"),
+        "the slot does not move: {slot}"
+    );
+    let start = css.find(".cui-edge-segment {").unwrap();
+    let segment = &css[start..start + css[start..].find('}').unwrap()];
+    assert!(segment.contains("inline-size: 25%"), "{segment}");
+    assert!(css.contains("overflow: hidden;"));
+    assert!(css.contains("cui-edge-progress[data-active=\"true\"] .cui-edge-segment {\n  animation: cui-edge-travel var(--cantos-motion-loading-edge-cycle) linear infinite;"));
+    assert!(
+        css.contains("from { transform: translateX(-100%); }")
+            && css.contains("to { transform: translateX(400%); }")
+    );
+    assert!(include_str!("../tokens.css").contains("--cantos-motion-loading-edge-cycle: 1200ms;"));
+    assert!(include_str!("../tokens.css").contains("--cantos-size-loading-edge: 0.125rem;"));
 }
 
 #[test]

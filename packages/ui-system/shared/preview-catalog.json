@@ -484,6 +484,30 @@
       }
     },
     {
+      "id": "edge-progress",
+      "name": "EdgeProgress",
+      "family": "feedback",
+      "states": [
+        "idle",
+        "pending",
+        "success",
+        "error",
+        "cancel",
+        "hidden",
+        "background",
+        "disposed",
+        "list-pending"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Controlled straight edge with reserved search/list placement; scoped runtime qualification is recorded separately."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Controlled straight edge with injected visibility/lifecycle and motion; JVM evidence is separate from native runtime and screen-reader acceptance."
+      }
+    },
+    {
       "id": "empty-state",
       "name": "EmptyState",
       "family": "feedback",
@@ -898,6 +922,13 @@
       "evidence": {
         "leptos": "docs/evidence/ui-requal-20261027-nav-item-leptos.json",
         "cmp": "docs/evidence/ui-requal-20261027-nav-item-cmp.json"
+      }
+    },
+    {
+      "component_id": "edge-progress",
+      "evidence": {
+        "leptos": "docs/evidence/edge-progress-587-leptos-qualification.json",
+        "cmp": "docs/evidence/edge-progress-587-cmp-qualification.json"
       }
     }
   ]
