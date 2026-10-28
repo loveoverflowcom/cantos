@@ -27,6 +27,9 @@ mod sql;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+#[cfg(feature = "testing")]
+pub mod search_probe;
+
 pub use database::{
     BackupError, BackupReceipt, OpenRequest, OwnedDatabase, ReadConnection, Rows, WriteTransaction,
     DEFAULT_BUSY_TIMEOUT,

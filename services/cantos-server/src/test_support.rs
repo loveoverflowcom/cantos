@@ -27,6 +27,18 @@ pub mod library;
 mod world;
 pub use world::{Chain, Corruption, SeededUnit, SeededWork, Stage, UnitSeed, WorkSeed};
 
+/// Explicit persistent dataset fixtures use the same Server owner with a controlled clock.
+/// The caller owns the private directory/marker; this never provisions a login identity.
+pub async fn open_dataset_store(
+    path: impl Into<std::path::PathBuf>,
+    intent: Intent,
+    clock: Arc<dyn Clock>,
+) -> Result<Store, crate::platform::turso::ServerDatabaseError> {
+    Ok(Store::from_database(
+        ServerDatabase::open(path, intent, clock).await?,
+    ))
+}
+
 pub struct ServerFixture {
     run: TestRun,
     clock: Arc<dyn Clock>,

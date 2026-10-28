@@ -494,6 +494,18 @@ The command adds no gate. Pure command/parser regressions belong to the existing
 the prepared-media import/serve campaign remains explicit. Do not restore PostgreSQL setup or
 use a persistent/user database to bypass a prerequisite. Identity/user data is separate.
 
+### Localhost dataset profiles
+
+`cargo xtask seed dataset --action list|plan|create|verify|serve|archive` selects the
+Server-owned [versioned localhost profiles](../docs/deployment/localhost-datasets.md).
+`--profile NAME`, `--seed N` (default 568), profile-bounded `--size N` and an absolute
+`--dataset-root DIR` identify one private root outside Git. List/plan are read-only;
+create/verify use real Turso and Catalog HTTP, serve is loopback test-hosted (no Identity login),
+and archive uses the same marker/owner-locked preservation primitive as the fixed sample.
+Dataset options cannot mix with Theatre/sample/retired options. Heavy 1k/10k/retained-capacity
+and engine capability runs remain explicit; ordinary gates run only bounded regressions.
+No production schema, sample principal, search default or credential policy changes.
+
 ### Explicit local service infrastructure
 
 `cargo xtask services list|validate` reads the native inventory and starts nothing. The old
