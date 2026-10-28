@@ -26,7 +26,9 @@ pub use button::{
     EmptyDisabledReason, IconButton,
 };
 pub use dialog::{Dialog, DialogCloseReason, DialogError};
-pub use feedback::{Announcement, Badge, EmptyState, ErrorState, LoadingState, Status, StatusTone};
+pub use feedback::{
+    Announcement, Badge, EmptyState, ErrorState, LoadingState, Status, StatusTone, SurfacePulse,
+};
 pub use fields::{
     Checkbox, ChoiceState, FieldDensity, FieldError, FieldHelp, FieldLabel, FieldState,
     NumberField, Radio, RangeField, SearchDock, Select, SelectDensity, SelectLabelPlacement,

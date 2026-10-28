@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0")
+VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0", "0.9.0", "0.10.0")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",
@@ -45,7 +45,9 @@ FAMILY_TYPES = {
     "breakpoint": "dimension", "elevation": "shadow",
 }
 TYPE_SUBTYPES = {"size": "dimension", "lineHeight": "number", "weight": "fontWeight"}
-MOTION_SUBTYPES = {"duration": "duration", "easing": "cubicBezier"}
+# A `cycle` is the period of a continuous loading animation. It is a duration, but under reduced
+# motion the animation is stationary rather than zero-length, so it has no reduced-motion mapping.
+MOTION_SUBTYPES = {"duration": "duration", "cycle": "duration", "easing": "cubicBezier"}
 ROLE = re.compile(r"[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)+")
 COLOR = re.compile(r"#[0-9a-f]{6}")
 TOP_LEVEL = {
@@ -184,6 +186,8 @@ def _token(role, token):
     elif kind == "duration":
         if type(value) is not int or value < 0:
             raise ValueError(f"{role}: duration must be a nonnegative integer")
+        if role.endswith(".cycle") and value == 0:
+            raise ValueError(f"{role}: a continuous cycle must be positive")
     elif kind == "cubicBezier":
         if (not isinstance(value, list) or len(value) != 4
                 or any(not _finite(number) or not 0 <= number <= 1 for number in value)):
@@ -289,11 +293,13 @@ def validate(source):
     # Every shared duration needs an explicit reduced-motion mapping. This also
     # preserves the required historical intents while accepting scoped new ones.
     duration_roles = {role for role, token in source["tokens"].items()
-                      if token["type"] == "duration"}
+                      if token["type"] == "duration" and not role.endswith(".cycle")}
     _object(source["reduced_motion"], "reduced_motion", REDUCED_ROLES | duration_roles)
     for role, value in source["reduced_motion"].items():
         if role not in source["tokens"] or source["tokens"][role]["type"] != "duration":
             raise ValueError(f"{role}: reduced motion requires a shared duration token")
+        if role.endswith(".cycle"):
+            raise ValueError(f"{role}: a continuous cycle is stationary under reduced motion, not zero")
         if type(value) is not int or value != 0:
             raise ValueError(f"{role}: reduced motion duration must be zero")
     _object(source["density"], "density", {"compact", "comfortable"})

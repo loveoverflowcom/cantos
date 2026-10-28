@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
+/* Generated from Cantos UI tokens v0.10.0 sha256:57e985566d8b335fdd565b9dc5fd0bfd974723aee0335f9e395fa5c848db8e2f
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -69,6 +69,11 @@
   --cantos-motion-effects-easing: cubic-bezier(0.2, 0, 0, 1);
   --cantos-motion-emphasis-duration: 260ms;
   --cantos-motion-feedback-duration: 140ms;
+  --cantos-motion-loading-arc-cycle: 1000ms;
+  --cantos-motion-loading-edge-cycle: 1200ms;
+  --cantos-motion-loading-pulse-cycle: 1400ms;
+  --cantos-motion-loading-pulse-easing: cubic-bezier(0.42, 0, 0.58, 1);
+  --cantos-motion-loading-reveal-duration: 150ms;
   --cantos-motion-navigation-duration: 260ms;
   --cantos-motion-shape-duration: 220ms;
   --cantos-shape-account-group: 1.75rem;
@@ -105,6 +110,9 @@
   --cantos-size-focus-width: 0.1875rem;
   --cantos-size-icon: 1.5rem;
   --cantos-size-icon-compact: 1.25rem;
+  --cantos-size-loading-arc-regular: 1.25rem;
+  --cantos-size-loading-arc-small: 1rem;
+  --cantos-size-loading-edge: 0.125rem;
   --cantos-size-search-action: 3.25rem;
   --cantos-size-search-header: 4.5rem;
   --cantos-size-status-symbol: 4.5rem;
@@ -120,6 +128,9 @@
   --cantos-state-disabled-opacity: 0.46;
   --cantos-state-focus-opacity: 0.12;
   --cantos-state-hover-opacity: 0.08;
+  --cantos-state-loading-pulse-high-opacity: 0.85;
+  --cantos-state-loading-pulse-low-opacity: 0.6;
+  --cantos-state-loading-pulse-reduced-opacity: 0.7;
   --cantos-state-pressed-opacity: 0.12;
   --cantos-type-auth-heading-line-height: 1.22;
   --cantos-type-auth-heading-size: 2rem;
@@ -383,6 +394,7 @@
   .cantos-ui:not([data-theme="light"]):not([data-theme="dark"]) {
     --cantos-motion-emphasis-duration: 0ms;
     --cantos-motion-feedback-duration: 0ms;
+    --cantos-motion-loading-reveal-duration: 0ms;
     --cantos-motion-navigation-duration: 0ms;
     --cantos-motion-shape-duration: 0ms;
   }

@@ -340,6 +340,36 @@
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-loading-indicator { animation: none; }
 }
+/* SurfacePulse: one monochrome fill that fades 0.60 -> 0.85 -> 0.60 over a canonical cycle
+   (--cantos-motion-loading-pulse-cycle), so every placeholder in a group shares one beat. It is
+   opacity only, never a gradient sweep, an asset or per-layout keyframes, and it never moves layout.
+   The caller owns size, aspect ratio and corner radius (the fill takes its parent's box and
+   radius); the fill color is a Web design seed over the outline-variant role. Reduced motion holds
+   the static middle opacity and, like an idle or unmounted pulse, runs no animation at all. A hidden
+   ancestor (display: none) ends it too. */
+:where(.cantos-ui) {
+  --cantos-web-surface-pulse-fill: var(--cantos-color-outline-variant);
+}
+:where(.cantos-ui) .cui-surface-pulse {
+  box-sizing: border-box;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  border-radius: inherit;
+  background-color: var(--cantos-web-surface-pulse-fill);
+  opacity: var(--cantos-state-loading-pulse-reduced-opacity);
+}
+:where(.cantos-ui) .cui-surface-pulse[data-pulse="running"] {
+  animation: cui-surface-pulse var(--cantos-motion-loading-pulse-cycle) var(--cantos-motion-loading-pulse-easing) infinite;
+}
+@keyframes cui-surface-pulse {
+  0%, 100% { opacity: var(--cantos-state-loading-pulse-low-opacity); }
+  50% { opacity: var(--cantos-state-loading-pulse-high-opacity); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-surface-pulse[data-pulse="running"] { animation: none; }
+}
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);
   border-radius: var(--cantos-web-auth-capsule);

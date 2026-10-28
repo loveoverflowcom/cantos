@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581
+// Generated from Cantos UI tokens v0.10.0 sha256:57e985566d8b335fdd565b9dc5fd0bfd974723aee0335f9e395fa5c848db8e2f
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.9.0"
+    const val version: String = "0.10.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -78,6 +78,11 @@ object CantosTokens {
         TokenValue("motion.effects.easing", "cubicBezier", "[0.2,0,0,1]", "[0.2,0,0,1]", null, null, null),
         TokenValue("motion.emphasis.duration", "duration", "260", "260", null, null, null),
         TokenValue("motion.feedback.duration", "duration", "140", "140", null, null, null),
+        TokenValue("motion.loadingArc.cycle", "duration", "1000", "1000", null, null, null),
+        TokenValue("motion.loadingEdge.cycle", "duration", "1200", "1200", null, null, null),
+        TokenValue("motion.loadingPulse.cycle", "duration", "1400", "1400", null, null, null),
+        TokenValue("motion.loadingPulse.easing", "cubicBezier", "[0.42,0,0.58,1]", "[0.42,0,0.58,1]", null, null, null),
+        TokenValue("motion.loadingReveal.duration", "duration", "150", "150", null, null, null),
         TokenValue("motion.navigation.duration", "duration", "260", "260", null, null, null),
         TokenValue("motion.shape.duration", "duration", "220", "220", null, null, null),
         TokenValue("shape.accountGroup", "dimension", "28", "28", null, null, null),
@@ -115,6 +120,9 @@ object CantosTokens {
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
+        TokenValue("size.loadingArcRegular", "dimension", "20", "20", null, null, null),
+        TokenValue("size.loadingArcSmall", "dimension", "16", "16", null, null, null),
+        TokenValue("size.loadingEdge", "dimension", "2", "2", null, null, null),
         TokenValue("size.searchAction", "dimension", "52", "52", null, null, null),
         TokenValue("size.searchHeader", "dimension", "72", "72", null, null, null),
         TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),
@@ -130,6 +138,9 @@ object CantosTokens {
         TokenValue("state.disabledOpacity", "number", "0.46", "0.46", null, null, null),
         TokenValue("state.focusOpacity", "number", "0.12", "0.12", null, null, null),
         TokenValue("state.hoverOpacity", "number", "0.08", "0.08", null, null, null),
+        TokenValue("state.loadingPulseHighOpacity", "number", "0.85", "0.85", null, null, null),
+        TokenValue("state.loadingPulseLowOpacity", "number", "0.6", "0.6", null, null, null),
+        TokenValue("state.loadingPulseReducedOpacity", "number", "0.7", "0.7", null, null, null),
         TokenValue("state.pressedOpacity", "number", "0.12", "0.12", null, null, null),
         TokenValue("type.authHeading.lineHeight", "number", "1.22", "1.22", null, null, null),
         TokenValue("type.authHeading.size", "dimension", "32", "32", null, null, null),
@@ -162,7 +173,7 @@ object CantosTokens {
     )
     val names: List<String> = entries.map { it.name }
     private val byName = entries.associateBy { it.name }
-    private val reducedRoles = setOf("motion.emphasis.duration", "motion.feedback.duration", "motion.navigation.duration", "motion.shape.duration")
+    private val reducedRoles = setOf("motion.emphasis.duration", "motion.feedback.duration", "motion.loadingReveal.duration", "motion.navigation.duration", "motion.shape.duration")
     /** Opt-in role remaps; standard is the absence of an expression and is never remapped. */
     val expressionNames: List<String> = listOf("standard", "theatre")
     private val expressionRoles: Map<String, Map<String, String>> = mapOf("theatre" to mapOf("color.background" to "color.theatreBackground", "color.focus" to "color.theatreFocus", "color.onPrimary" to "color.theatreOnPrimary", "color.onPrimaryContainer" to "color.theatreOnPrimaryContainer", "color.onSurface" to "color.theatreOnSurface", "color.onSurfaceVariant" to "color.theatreOnSurfaceVariant", "color.primary" to "color.theatrePrimary", "color.primaryContainer" to "color.theatrePrimaryContainer", "color.surface" to "color.theatreSurface", "color.surfaceContainer" to "color.theatreSurfaceContainer", "color.surfaceContainerHigh" to "color.theatreSurfaceContainerHigh", "type.authHeading.weight" to "type.theatreHeading.weight", "type.headline.weight" to "type.theatreHeading.weight", "type.label.weight" to "type.theatreControl.weight", "type.membershipTitle.weight" to "type.theatreHeading.weight", "type.title.weight" to "type.theatreHeading.weight"))

@@ -66,6 +66,9 @@ pub mod tool {
     pub const EMPTY: &str = "Empty";
     pub const LOADING: &str = "Loading";
     pub const LOADING_ANNOUNCEMENT: &str = "Loading with polite announcement";
+    pub const SURFACE_PULSE: &str = "SurfacePulse placeholders (running)";
+    pub const SURFACE_PULSE_IDLE: &str = "SurfacePulse placeholders (idle)";
+    pub const SURFACE_PULSE_READY: &str = "SurfacePulse revealed content";
     pub const ERROR: &str = "Error";
     pub const SUCCESS: &str = "Success";
     pub const LAYOUT: &str = "Composed layout and reading region";

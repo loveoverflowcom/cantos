@@ -21,7 +21,7 @@ acceptance: see [Evidence](#evidence-and-not-run).
 
 The two renderers share intent, size (`size.icon`), stroke (`size.focusWidth`), the 270° arc and the
 1000 ms turn; they share no runtime. Not a canonical token: no continuous-motion role exists yet, so
-each renderer keeps one named constant (see [motion](../../.agents/skills/cantos-ui-design/references/motion.md)).
+each renderer keeps one named constant (see [motion](../../.agents/skills/cantos-ui-design/references/motion.md)). *Superseded in part by [#585](surface-pulse-585.md): the canonical `motion.loadingArc.cycle` role now exists; the shipped arcs adopt it in #586.*
 
 The indicator is deliberately **not** a public component: it is consumed through the registered
 Button, Select and `LoadingState`, so the catalog inventory gains no entry. Consequently `LoadingState`

@@ -97,6 +97,63 @@ fn loading_preview_discovery_includes_announcing_state_with_native_status_semant
 }
 
 #[test]
+fn surface_pulse_specimens_name_one_region_and_hide_every_placeholder_from_assistive_technology() {
+    let entry = preview::preview_catalog::COMPONENTS
+        .iter()
+        .find(|entry| entry.id == "surface-pulse")
+        .expect("registered SurfacePulse");
+    assert_eq!(entry.states, ["running", "idle", "revealed"]);
+    for (mode, busy, running, label) in [
+        ("pulse", true, true, "Đang tải danh sách tác phẩm"),
+        ("pulse-idle", true, false, "Đang tải danh sách tác phẩm"),
+        ("pulse-ready", false, false, "Danh sách tác phẩm"),
+    ] {
+        let html =
+            Owner::new().with(|| view! { <preview::Gallery initial_feedback=mode/> }.to_html());
+        let start = html
+            .find("class=\"cui-pulse-specimen\"")
+            .unwrap_or_else(|| panic!("{mode}: specimen"));
+        let region = &html[html[..start].rfind('<').unwrap()..];
+        let region = &region[..region.find("</section>").unwrap_or(region.len())];
+        assert_eq!(region.matches("role=\"group\"").count(), 1, "{mode}");
+        assert!(
+            region.contains(&format!("aria-label=\"{label}\"")),
+            "{mode}"
+        );
+        assert_eq!(region.contains("aria-busy=\"true\""), busy, "{mode}");
+        assert_eq!(!region.contains("data-pulse=\"idle\""), running, "{mode}");
+        assert_eq!(region.contains("data-pulse=\"running\""), running, "{mode}");
+        assert!(
+            !region.contains("role=\"status\"") && !region.contains("role=\"alert\""),
+            "{mode}"
+        );
+        // Every placeholder fill is decorative and the cover, title bar and rows are all present.
+        assert!(
+            region.matches("class=\"cui-surface-pulse").count() >= 8,
+            "{mode}"
+        );
+        for fill in region
+            .split("<span")
+            .skip(1)
+            .filter(|part| part.contains("cui-surface-pulse"))
+        {
+            assert!(
+                fill.split('>')
+                    .next()
+                    .unwrap()
+                    .contains("aria-hidden=\"true\""),
+                "{mode}: {fill}"
+            );
+        }
+        assert!(
+            region.contains("Ánh đèn cuối sân khấu") && region.contains("Ỗ, Ữ"),
+            "{mode}"
+        );
+        assert!(region.contains("lang=\"en\""), "{mode}");
+    }
+}
+
+#[test]
 fn registrations_have_unique_ids_and_every_family_has_a_real_sample_anchor() {
     let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
     let mut registered = BTreeSet::new();
@@ -545,7 +602,9 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     let specimens = preview::preview_catalog::DESIGN_SPECIMENS;
     assert_eq!(specimens.len(), 102);
     let components = preview::preview_catalog::COMPONENTS;
-    assert_eq!(components.len(), 32);
+    // The 32 baseline APIs plus SurfacePulse, which no design specimen maps to yet.
+    assert_eq!(components.len(), 33);
+    assert!(components.iter().any(|api| api.id == "surface-pulse"));
     // The immutable v3 inventory still describes the 198-state baseline. Web repair
     // scenarios add diagnostics without promoting a proposed API or qualification.
     let select_extension = [
@@ -606,8 +665,14 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
         let api = components.iter().find(|api| api.id == id).unwrap();
         assert!(api.states.contains(&state), "{id} omits {state}");
     }
+    // SurfacePulse (#585) is an addition to the registry, not part of the v3 baseline.
+    let surface_pulse = components
+        .iter()
+        .find(|api| api.id == "surface-pulse")
+        .unwrap();
     assert_eq!(
         components.iter().map(|api| api.states.len()).sum::<usize>()
+            - surface_pulse.states.len()
             - select_extension.len()
             - back_extension.len()
             - field_extension.len()
@@ -622,7 +687,7 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
             .count(),
         70
     );
-    for component in components {
+    for component in components.iter().filter(|api| api.id != surface_pulse.id) {
         let specimen = specimens
             .iter()
             .find(|entry| entry.id == component.id)

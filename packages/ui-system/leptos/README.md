@@ -40,10 +40,21 @@ and visible reason. Both native disabled and the dispatch guard block repeated a
 reason uses a polite status region. `DisabledReason::new` and `AccessibleName::new` reject blank text.
 The same state is used by IconButton and FilterChip; selected state stays caller-owned.
 
+`SurfacePulse` (issue #585) is the shared placeholder fill for a cover frame, title bar or list row: one
+decorative `span.cui-surface-pulse` (`aria-hidden`) that takes its parent's box and radius, so the caller owns
+size, aspect ratio and corner shape. Full motion fades its opacity 0.60 → 0.85 → 0.60 over
+`--cantos-motion-loading-pulse-cycle` (1400 ms) with the shared ease-in-out; there is no gradient sweep, asset
+or per-layout keyframe. Reduced motion, `active=false`, a hidden ancestor and unmounting all run no animation, and a
+resting fill is the static `--cantos-state-loading-pulse-reduced-opacity` (0.70). The host names the surrounding region
+(`role="group"` + `aria-busy`) and never exposes each block; the reveal to content uses
+`--cantos-motion-loading-reveal-duration` (150 ms, 0 under reduced motion). The fill color is the Web seed
+`--cantos-web-surface-pulse-fill` over `color.outlineVariant`. Specimens live in the existing gallery's feedback
+section (`surface_pulse_samples.rs`); no application imports it yet.
+
 Button and IconButton replace a decorative action glyph with the shared `LoadingIndicator`
 (issue #528) while loading, including a Button without an icon. The indicator is one decorative
 arc used by buttons, selects and `LoadingState`: it turns once per `--cantos-web-loading-turn`
-(1000 ms, a Web design seed, not a canonical role) only while it is mounted and is a stationary
+(1000 ms, a Web design seed; the canonical `motion.loadingArc.cycle` exists but this arc adopts it later, #586) only while it is mounted and is a stationary
 visible arc under `prefers-reduced-motion`, so the label or reason is always the status. The original label and localized reason stay
 visible; progress is neither a disclosure chevron nor a success marker. IconButton also exposes
 its reactive accessible name as a native title tooltip. Glyphs remain 24 logical units with an

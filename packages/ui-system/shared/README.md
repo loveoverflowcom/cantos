@@ -1,4 +1,27 @@
-# Shared semantic contract v0.9.0
+# Shared semantic contract v0.10.0
+
+v0.10.0 adds the Loading v1 foundation of [#585](https://github.com/loveoverflowcom/cantos/issues/585)
+for the three primitives of the Pulse · Arc · Line set. Nothing existing changes value; the 140 ms
+`motion.feedback.duration` and the finite CMP `MotionSpec` bound (1000 ms) are untouched.
+
+| Role | Value | Meaning |
+| --- | --- | --- |
+| `motion.loadingPulse.cycle` | 1400 ms | one full SurfacePulse beat (alpha low → high → low); a reversing renderer plays two 700 ms halves |
+| `motion.loadingArc.cycle` | 1000 ms | one turn of the indeterminate arc (not yet consumed by the shipped arcs; issue 2 adopts it) |
+| `motion.loadingEdge.cycle` | 1200 ms | one pass of the edge progress line (issue 3 adopts it) |
+| `motion.loadingPulse.easing` | cubic-bezier(0.42, 0, 0.58, 1) | ease-in-out of each pulse half |
+| `motion.loadingReveal.duration` | 150 ms | placeholder → loaded content; finite, so reduced motion maps it to 0 |
+| `state.loadingPulseLowOpacity` / `High` / `Reduced` | 0.60 / 0.85 / 0.70 | pulse extremes and the static fill under reduced motion or while inactive |
+| `size.loadingArcSmall` / `Regular` | 16 / 20 | arc sizes (issue 2) |
+| `size.loadingEdge` | 2 | edge progress thickness (issue 3) |
+
+A `.cycle` role is a `duration` with its own meaning: a continuous animation repeats for as long as its
+host keeps it mounted, so it is not a finite transition and has **no** reduced-motion mapping. Under
+reduced motion the primitive holds a static state and runs no animation at all; mapping a cycle to
+0 ms would be a zero-length loop, so the generator refuses a zero cycle and a `reduced_motion` entry
+for one. Web resolves the roles to `--cantos-motion-loading-*`; CMP reads them through `LoadingCycle` /
+`surfacePulseFor` in `MotionPolicy.kt` without raising `MaxMotionDurationMillis`.
+
 
 v0.9.0 adds the contextual guest-profile and account-tile roles of Account v4.3
 ([#526](https://github.com/loveoverflowcom/cantos/issues/526)): seven themed `color.theatre*` roles,

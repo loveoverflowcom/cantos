@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.9.0 sha256:82d2613562b4d6f59a4a9cb15e6a76e7b5a6a0d6eb38502cbb4c023d2eaa0581 template-sha256:8da9ea085eceaf4b4d4073793b8f45ccb464eded64b2446119e68e52ec7465e0
+/* Generated from Cantos UI tokens v0.10.0 sha256:57e985566d8b335fdd565b9dc5fd0bfd974723aee0335f9e395fa5c848db8e2f template-sha256:0c5374472f82fec1d3496fa96a36fbcf80f67f29e285496c5428789b1b2c9d58
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -341,6 +341,36 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-loading-indicator { animation: none; }
+}
+/* SurfacePulse: one monochrome fill that fades 0.60 -> 0.85 -> 0.60 over a canonical cycle
+   (--cantos-motion-loading-pulse-cycle), so every placeholder in a group shares one beat. It is
+   opacity only, never a gradient sweep, an asset or per-layout keyframes, and it never moves layout.
+   The caller owns size, aspect ratio and corner radius (the fill takes its parent's box and
+   radius); the fill color is a Web design seed over the outline-variant role. Reduced motion holds
+   the static middle opacity and, like an idle or unmounted pulse, runs no animation at all. A hidden
+   ancestor (display: none) ends it too. */
+:where(.cantos-ui) {
+  --cantos-web-surface-pulse-fill: var(--cantos-color-outline-variant);
+}
+:where(.cantos-ui) .cui-surface-pulse {
+  box-sizing: border-box;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  border-radius: inherit;
+  background-color: var(--cantos-web-surface-pulse-fill);
+  opacity: var(--cantos-state-loading-pulse-reduced-opacity);
+}
+:where(.cantos-ui) .cui-surface-pulse[data-pulse="running"] {
+  animation: cui-surface-pulse var(--cantos-motion-loading-pulse-cycle) var(--cantos-motion-loading-pulse-easing) infinite;
+}
+@keyframes cui-surface-pulse {
+  0%, 100% { opacity: var(--cantos-state-loading-pulse-low-opacity); }
+  50% { opacity: var(--cantos-state-loading-pulse-high-opacity); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-surface-pulse[data-pulse="running"] { animation: none; }
 }
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);
