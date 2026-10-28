@@ -140,7 +140,15 @@ impl Store {
                 {
                     return Err(StoreError::InvalidRequest.into());
                 }
-                if !super::sample_metadata_rights::bound(&tx, actor, rights_id, source_id).await? {
+                if !super::sample_metadata_rights::bound(
+                    &tx,
+                    actor,
+                    rights_id,
+                    source_id,
+                    APPROVED_SAMPLE_SOURCE_SHA256,
+                )
+                .await?
+                {
                     return Err(StoreError::EvidenceUnavailable.into());
                 }
                 let bytes = ingestion::source_bytes(&tx, actor, source_id)

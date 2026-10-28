@@ -18,6 +18,7 @@ use crate::platform::identity::domain::{ActorId, ExternalIdentityKey};
 
 // Real-engine seed barriers, kept with the cross-context fixture code.
 include!("../../test_support/sample_seed_candidate_tests.rs");
+include!("../../test_support/fictional_sample_candidate_tests.rs");
 
 #[test]
 fn the_service_registry_keeps_the_persisted_server_marker() {

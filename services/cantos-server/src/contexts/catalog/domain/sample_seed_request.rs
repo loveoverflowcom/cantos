@@ -3,7 +3,7 @@
 //! This request names the entire pinned sample; it cannot select another owner, source or Work.
 //! The operator reference is self-declared and must not be described as a Studio identity.
 
-use super::metadata_disclosure::APPROVED_SAMPLE_SOURCE_SHA256;
+use super::metadata_disclosure::{APPROVED_SAMPLE_SOURCE_SHA256, FICTIONAL_SAMPLE_SOURCE_SHA256};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -46,7 +46,12 @@ impl SampleSeedRequest {
         {
             return Err(SampleSeedRequestError::InvalidOperation);
         }
-        if self.source_sha256 != APPROVED_SAMPLE_SOURCE_SHA256 {
+        if ![
+            APPROVED_SAMPLE_SOURCE_SHA256,
+            FICTIONAL_SAMPLE_SOURCE_SHA256,
+        ]
+        .contains(&self.source_sha256.as_str())
+        {
             return Err(SampleSeedRequestError::WrongSource);
         }
         if !valid_text(&self.operator_reference)

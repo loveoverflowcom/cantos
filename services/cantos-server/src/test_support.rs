@@ -253,6 +253,8 @@ impl FixtureSql for ServerFixture {
 mod port_ack_tests;
 
 #[cfg(test)]
+mod fictional_sample_operator_tests;
+#[cfg(test)]
 mod sample_metadata_application_tests;
 #[cfg(test)]
 mod sample_seed_operator_tests;

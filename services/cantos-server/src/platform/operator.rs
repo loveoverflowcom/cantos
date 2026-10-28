@@ -11,6 +11,7 @@ use crate::platform::{
 };
 
 pub(crate) const SAMPLE_SEED_ACTOR: &str = "cantos_sample_seed_v1";
+pub(crate) const FICTIONAL_SEED_ACTOR: &str = "cantos_fictional_seed_v2";
 
 /// Reserve the fixed sample actor only when its ID is genuinely unused. This helper is called
 /// only by a stopped-database operator transaction; it cannot adopt a pre-existing actor.
@@ -18,28 +19,28 @@ pub(crate) async fn sample_seed_principal(
     tx: &crate::platform::store::Tx<'_>,
     create: bool,
     source_sha256: &str,
+    actor_id: &str,
 ) -> Result<bool, StoreError> {
-    let marker = tx
-        .query_opt(
+    let (query, insert) = match actor_id {
+        SAMPLE_SEED_ACTOR => (
             "SELECT source_sha256 FROM sample_seed_principals WHERE actor_id=?1",
-            &[&SAMPLE_SEED_ACTOR],
-        )
-        .await?;
+            "INSERT INTO sample_seed_principals(actor_id,source_sha256) VALUES(?1,?2)",
+        ),
+        FICTIONAL_SEED_ACTOR => (
+            "SELECT source_sha256 FROM fictional_seed_principals WHERE actor_id=?1",
+            "INSERT INTO fictional_seed_principals(actor_id,source_sha256) VALUES(?1,?2)",
+        ),
+        _ => return Err(StoreError::InvalidRequest),
+    };
+    let marker = tx.query_opt(query, &[&actor_id]).await?;
     let actor = tx
-        .query_opt(
-            "SELECT active FROM actors WHERE id=?1",
-            &[&SAMPLE_SEED_ACTOR],
-        )
+        .query_opt("SELECT active FROM actors WHERE id=?1", &[&actor_id])
         .await?;
     match (marker, actor) {
         (None, None) if create => {
-            tx.execute("INSERT INTO actors(id) VALUES(?1)", &[&SAMPLE_SEED_ACTOR])
+            tx.execute("INSERT INTO actors(id) VALUES(?1)", &[&actor_id])
                 .await?;
-            tx.execute(
-                "INSERT INTO sample_seed_principals(actor_id,source_sha256) VALUES(?1,?2)",
-                &[&SAMPLE_SEED_ACTOR, &source_sha256],
-            )
-            .await?;
+            tx.execute(insert, &[&actor_id, &source_sha256]).await?;
             Ok(true)
         }
         (Some(marker), Some(actor)) => {

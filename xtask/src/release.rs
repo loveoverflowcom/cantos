@@ -233,7 +233,7 @@ pub enum Action {
         #[arg(long)]
         baseline_digest: String,
         /// Explicit bounded transition; older v23 -> v24 behavior remains the default.
-        #[arg(long, value_parser = ["v23-v24", "v24-v25", "v24-v26"], default_value = "v23-v24")]
+        #[arg(long, value_parser = ["v23-v24", "v24-v25", "v24-v26", "v24-v27"], default_value = "v23-v24")]
         transition: String,
     },
     /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
@@ -365,6 +365,9 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
     } = action
     {
         let script = match action {
+            Action::NativeRehearse { transition, .. } if transition == "v24-v27" => {
+                "scripts/release_native_v27_rehearsal.py"
+            }
             Action::NativeRehearse { transition, .. } if transition == "v24-v26" => {
                 "scripts/release_native_v26_rehearsal.py"
             }

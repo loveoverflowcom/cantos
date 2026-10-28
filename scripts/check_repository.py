@@ -176,6 +176,7 @@ TABLE_OWNER = {
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform", "cantos_schema": "platform",
     "actor_external_identities": "platform",
     "sample_seed_principals": "platform",
+    "fictional_seed_principals": "platform",
     "bearer_flows": "platform", "bearer_families": "platform", "bearer_tokens": "platform",
     "identity_sessions": "platform", "identity_session_tokens": "platform",
     "admin_audit": "platform", "admin_operations": "platform", "admin_access_revocations": "platform",

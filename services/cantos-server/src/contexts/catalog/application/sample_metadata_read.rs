@@ -3,7 +3,11 @@
 use crate::contexts::{
     catalog::{
         domain::{
-            metadata_disclosure::{approved_sample_ids, ApprovedSampleSource},
+            metadata_disclosure::{
+                approved_sample_ids, fictional_sample_ids, fictional_sample_subject,
+                ApprovedSampleSource, APPROVED_SAMPLE_SOURCE_SHA256,
+                FICTIONAL_SAMPLE_SOURCE_SHA256,
+            },
             ContentUnit, Lifecycle, Revision, Visibility, Work,
         },
         turso,
@@ -36,21 +40,28 @@ async fn exact_source(
     let source_hash: String = get(row, "source_sha256")?;
     let rights_id: String = get(row, "rights_id")?;
     let rights_kind: String = get(row, "rights_kind")?;
-    if stored_owner != owner
-        || rights_kind != "rights"
-        || source_hash != super::super::domain::metadata_disclosure::APPROVED_SAMPLE_SOURCE_SHA256
-    {
+    let subject: String = get(row, "subject_id")?;
+    let expected_hash = if fictional_sample_subject(&subject) {
+        FICTIONAL_SAMPLE_SOURCE_SHA256
+    } else {
+        APPROVED_SAMPLE_SOURCE_SHA256
+    };
+    if stored_owner != owner || rights_kind != "rights" || source_hash != expected_hash {
         return Err(StoreError::CorruptRevision);
     }
-    if !super::sample_metadata_rights::bound(tx, owner, &rights_id, &source_id).await? {
+    if !super::sample_metadata_rights::bound(tx, owner, &rights_id, &source_id, expected_hash)
+        .await?
+    {
         return Ok(None);
     }
     let Some(bytes) = ingestion::source_bytes(tx, owner, &source_id).await? else {
         return Ok(None);
     };
-    Ok(Some(
-        ApprovedSampleSource::parse(&bytes).map_err(|_| StoreError::CorruptRevision)?,
-    ))
+    let source = ApprovedSampleSource::parse(&bytes).map_err(|_| StoreError::CorruptRevision)?;
+    if source.source_sha256() != expected_hash {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(Some(source))
 }
 
 fn revision(row: &Row, column: &str) -> Result<Revision, StoreError> {
@@ -89,7 +100,11 @@ pub(crate) async fn sample_disclosed_work(
     tx: &Tx<'_>,
     id: &str,
 ) -> Result<Option<SampleDisclosedWork>, StoreError> {
-    let Some((_, ids)) = approved_sample_ids().iter().find(|(work, _)| *work == id) else {
+    let Some((_, ids)) = approved_sample_ids()
+        .iter()
+        .chain(fictional_sample_ids())
+        .find(|(work, _)| *work == id)
+    else {
         return Ok(None);
     };
     let Some(row) = latest(tx, "work", id).await? else {

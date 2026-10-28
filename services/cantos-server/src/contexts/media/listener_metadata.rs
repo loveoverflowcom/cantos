@@ -9,8 +9,8 @@ use super::{
 };
 use crate::{
     contexts::catalog::{
-        domain::metadata_disclosure::approved_sample_ids, sample_disclosed_work,
-        SampleDisclosedWork,
+        domain::metadata_disclosure::{approved_sample_ids, fictional_sample_ids},
+        sample_disclosed_work, SampleDisclosedWork,
     },
     contract::theatre::discovery as dto,
     platform::store::{Store, Tx},
@@ -229,7 +229,7 @@ impl ListenerService {
         let tx = connection.read().await?;
         let now = listener::unit_millis(&tx);
         let mut samples = Vec::new();
-        for (id, _) in approved_sample_ids() {
+        for (id, _) in approved_sample_ids().iter().chain(fictional_sample_ids()) {
             if let Some(value) = sample(&tx, id, now, self.covers.is_some()).await? {
                 samples.push(value);
             }

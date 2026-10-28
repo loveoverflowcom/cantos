@@ -1,14 +1,14 @@
 # Sample metadata operator
 
 This is a stopped-database operator capability for only the six Works and twelve units
-identified by ADR 0051. It does not issue a login or grant a release. The pinned source
+identified by ADR 0051 or the separately pinned fictional replacement. It does not issue a login or grant a release. The pinned source
 digest is a scope check, not proof of rights; the operator must obtain a real source and
 metadata-rights confirmation from the rights holder before a publication attempt. A
 synthetic test attestation must never be used for production.
 
 Before use, complete the normal image qualification, admission, backup and migration
 procedure. Stop the Server and acquire exclusive ownership of its current migrated
-database. A migration to v26 requires its own approved backup and recovery plan. This
+database. A migration to v27 requires its own approved backup and recovery plan. This
 document does not authorize a production command or replace that admission.
 
 Supply a private JSON request file with these exact keys:
@@ -25,6 +25,15 @@ Supply a private JSON request file with these exact keys:
   "confirm_metadata_rights": true
 }
 ```
+
+For the separately generated fictional replacement, use source SHA-256
+`0ad007cb18d46b58df25dbc2e8ea98bf58bce752c9e6d640fc4a78a90ef779d6`
+and the exact bytes in `services/cantos-server/tests/fixtures/fictional-sample-metadata.json`.
+Its provenance is recorded beside the source. The product owner authorized this original
+fictional metadata for this task; the production request must reference the actual provenance
+and state that authorization truthfully. Do not use a synthetic test claim or assert that the
+older source has been cleared. The two source hashes select distinct fixed principals, records,
+and withdrawal scopes; they do not let an operator choose arbitrary works or owners.
 
 The operator reference is self-declared audit context, not an authenticated Studio identity
 or cryptographic signature. The exact source file is supplied separately; it remains private
