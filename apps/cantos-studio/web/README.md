@@ -115,6 +115,10 @@ screen-reader acceptance. See the [six-issue review evidence](../../../docs/evid
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
 request authority. No summary endpoint, portfolio total, QC count or demo record is added.
+The desk is work-first: the bounded Work list follows the heading and actions, **Continue** is a
+short block shown only for a selected Work (and its selected unit), and the audio and script tools
+form a secondary column. Audio status, the private-review explanation and the candidate line
+appear only from facts actually read; pagination offers only the directions that exist.
 Import, new Work, current Work, audio and script-editor actions open the existing mounted
 workspaces. Returning to the desk preserves authoring text and request snapshots; pane return
 retains native caret/selection/scroll without copying manuscript text into navigation state.

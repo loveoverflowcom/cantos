@@ -142,3 +142,53 @@ screen-reader/complete Tab walkthrough, English runtime layouts, actual browser 
 fidelity require separate acceptance. Backend/persistence behavior, API contracts, audio bytes,
 rights, review/publication rules and native clients are unchanged and receive no new acceptance
 claim. Production gate owners remain authoritative; this PR is part of #131.
+
+## Compact writing desk — 28 October redesign delta (#131)
+
+Source: `develop@7b132b49` after the 28 October owner review (screenshot
+`12-recovery-sign-in-again-reaches-workspace.png`: oversized resume card, one-row list inside a
+large card, long audio explanation with no chapter selected). The delta is presentation only:
+`live/dashboard.rs`, `studio.css`, four dashboard copy entries in the localization catalog (and the
+digest headers every generated consumer carries). No API, session, draft, permission or selector
+change; the existing callbacks, ids and blocked/pending projections are unchanged.
+
+| Claim / failure mode | Oracle | Evidence held |
+| --- | --- | --- |
+| The Work list follows the heading and actions and precedes resume, audio and tools | `work_list_follows_the_heading_and_precedes_resume_and_tools` (SSR order) | native SSR |
+| No resume card without a selection; a short hint appears instead; every entrypoint stays rendered | `without_a_selection_there_is_a_short_hint_and_no_resume_block` | native SSR |
+| Audio lines, explanation and "not read" line follow facts actually read | `audio_notes` table test (pure core) | native unit |
+| Pagination shows only existing directions; none on a single page | `pagination_offers_only_the_directions_that_exist` | native SSR |
+| Failed/unread/loading never render a successful empty page; blocked recovery stays reachable | existing dashboard tests, updated | native SSR |
+
+**Layout observation (harness, not the app).** The real `Dashboard` and `WorkspaceNavigation`
+markup (native SSR) was loaded in Chromium with the real `tokens.css`, `foundation.css` and
+`studio.css`, before (`develop@89c5964c`) and after, one selected Work with a long Vietnamese title,
+CSS px, DPR 1, light theme. The harness has no topbar, session, cookies, network or WASM, and is
+not Studio runtime acceptance. Top of the Work list: 1280 400 → 160, 768 562 → 302, 390 745 → 299,
+320 745 → 329; no horizontal page overflow at 1280/1024/768/390/320 in either state. Dark theme
+was opened at 1024 (list, selected marker, resume and tools legible).
+
+**Real app (WASM) on an authorized local session.** A temporary, uncommitted test fixture started
+the real `cantos-identity` executable (real Argon2id, run-owned loopback SMTP sink, file-backed
+Turso), signed one synthetic account up through the mailed link, and hosted the production Studio
+API router on `127.0.0.1:18080` with that account's subject as the Studio roster; `trunk serve`
+on `localhost:8083` served the debug CSR Studio and proxied `/api/`. This is the #565 fixture
+pattern, not production provisioning, HTTPS, a deployed origin or a real mailbox. Chromium in the
+app browser pane (version not exposed), vi-VN, DPR 1. Real form login reached the writing desk;
+the Work was created through the real create form (one Work, long Vietnamese title).
+
+| Observation (this branch unless stated) | Result |
+| --- | --- |
+| Empty list, login → desk | List card with the existing empty copy; Import primary, New work secondary; audio and tools as a compact secondary column |
+| Top of Work list, one Work, none selected, 1280 | `develop@7b132b49`: 438; this branch: 271 (CSS px) |
+| Top of Work list, Work selected, 1280 / 768 / 390 / 320 | 238 / 380 / 433 / 463; no horizontal page overflow at any width (topbar included) |
+| 320 CSS px with root text 200% (not browser page zoom), dark | no horizontal overflow; list starts at 1300 because the stacked topbar (#558) and nav strip precede it |
+| Dark theme at 1280 | list, selected marker, resume and tools legible |
+| Keyboard: focus on the Work row | 3 px solid focus ring visible on the row |
+| Resume → Content → Back (Enter) → Resume | selection stayed marked (`aria-current`); an unsaved title edit and its selection range (4–9) survived the round trip; focus moved to the desk heading on Back and back into the edited field on return; the unsaved-changes notice stayed |
+
+An earlier Back attempt on this branch left focus on `<body>`; it was a keypress delivered while
+the Content pane was still settling, and the identical steps repeated cleanly (clean `develop`
+behaves the same in the stable case). Not observed: English layout, screen reader, Firefox/WebKit,
+real page zoom, session expiry/account-switch during a fetch on the new layout, and a populated
+multi-page list (one Work only), so the pagination controls were exercised by SSR tests only.

@@ -60,6 +60,24 @@ fn lifecycle(value: &str, locale: crate::localization::Locale) -> &str {
     }
 }
 
+/// Which audio lines the facts actually read warrant; an unread state never fills a card.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AudioNotes {
+    state: bool,
+    not_read: bool,
+    candidate: bool,
+    help: bool,
+}
+
+fn audio_notes(unit_selected: bool, submission_read: bool, candidate_read: bool) -> AudioNotes {
+    AudioNotes {
+        state: submission_read,
+        not_read: unit_selected && !submission_read,
+        candidate: candidate_read,
+        help: submission_read || candidate_read,
+    }
+}
+
 fn audio_state(state: AudioSubmissionState, locale: crate::localization::Locale) -> &'static str {
     text(
         match state {
@@ -90,6 +108,19 @@ pub fn Dashboard(
     on_next: Callback<()>,
     on_pick: Callback<String>,
 ) -> impl IntoView {
+    let has_selection = Signal::derive(move || facts.with(|f| f.work.is_some()));
+    let has_pages = Signal::derive(move || {
+        facts.with(|f| f.works_next.is_some() || f.pages.previous_works().is_some())
+    });
+    let notes = Signal::derive(move || {
+        facts.with(|f| {
+            audio_notes(
+                f.unit.is_some(),
+                f.submission.is_some(),
+                f.candidate.is_some(),
+            )
+        })
+    });
     view! {
         <section id="studio-dashboard" class="studio-dashboard" aria-labelledby="dashboard-title">
             <header class="dashboard-heading">
@@ -100,20 +131,13 @@ pub fn Dashboard(
                 </div>
             </header>
             <div class="dashboard-grid">
-                <Surface class="dashboard-resume">
-                    <section aria-labelledby="dashboard-resume-title">
-                        <p class="dashboard-eyebrow">{move || text(Key::Resume, locale.get())}</p>
-                        <h3 id="dashboard-resume-title" lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.work.as_ref().map(|w| w.details.title.clone()).unwrap_or_else(|| text(Key::NoSelection, locale.get()).into()))}</h3>
-                        <Show when=move || facts.with(|f| f.unit.is_some())>
-                            <p>{move || text(Key::SelectedUnit, locale.get())}" · "<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>
-                        </Show>
-                        <Show when=move ||facts.with(|f|f.work.is_some())><ActionButton id="dashboard-continue" locale=locale blocked=Signal::derive(move || session_pending.get() || facts.with(|f| f.work.is_none())) reason=BlockReason::ContextReady on_press=Callback::new(move |_| on_continue.run(()))>{move || text(Key::Continue, locale.get())}</ActionButton></Show>
-                    </section>
-                </Surface>
                 <Surface class="dashboard-works">
                     <section aria-labelledby="dashboard-works-title">
-                        <div class="dashboard-heading"><h3 id="dashboard-works-title" tabindex="-1">{move || text(Key::Works, locale.get())}</h3>
+                        <div class="dashboard-section-heading"><h3 id="dashboard-works-title" tabindex="-1">{move || text(Key::Works, locale.get())}</h3>
                             <ActionButton id="dashboard-refresh" locale=locale variant=ButtonVariant::Text blocked=blocked on_press=Callback::new(move |_| on_refresh.run(()))>{move || text(Key::Refresh, locale.get())}</ActionButton></div>
+                        <Show when=move || query.with(|q| q.read == CatalogRead::Ready) && !has_selection.get() && facts.with(|f| !f.works.is_empty())>
+                            <p class="help dashboard-hint">{move || text(Key::NoSelection, locale.get())}</p>
+                        </Show>
                         <div id="dashboard-status" class="dashboard-status" tabindex="-1">
                             <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, locale.get())}</p></Show>
                             <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><LoadingState announcement=Announcement::Polite>{move || text(Key::Loading, locale.get())}</LoadingState></Show>
@@ -128,7 +152,8 @@ pub fn Dashboard(
                             {move || facts.with(|f| f.works.clone()).into_iter().map(|work| {
                                 let id = work.id.clone();
                                 let selected_id = work.id.clone();
-                                view! { <li class="dashboard-work-row">
+                                let current_id = work.id.clone();
+                                view! { <li class="dashboard-work-row" aria-current=move || facts.with(|f| f.work.as_ref().is_some_and(|w| w.id == current_id)).then_some("true")>
                                     <ActionButton id=format!("dashboard-work-{}", work.id) locale=locale variant=ButtonVariant::Text
                                         blocked=Signal::derive(move || session_pending.get() || (blocked.get() && facts.with(|f| f.work.as_ref().is_none_or(|w| w.id != selected_id))))
                                         on_press=Callback::new(move |_| on_pick.run(id.clone()))><span lang=work.details.language>{work.details.title}</span></ActionButton>
@@ -136,27 +161,40 @@ pub fn Dashboard(
                                 </li> }
                             }).collect_view()}
                         </ul>
-                        <Show when=move || query.with(|q| q.read == CatalogRead::Ready)>
-                            <p class="help">{move || text(if facts.with(|f| f.works_next.is_some()) { Key::More } else { Key::End }, locale.get())}</p>
+                        <Show when=move || has_pages.get()>
+                            <div class="toolbar dashboard-pages"><Show when=move || facts.with(|f| f.pages.previous_works().is_some())><ActionButton id="dashboard-previous" locale=locale reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.pages.previous_works().is_none())) on_press=Callback::new(move |_| on_previous.run(()))>{move || text(Key::Previous, locale.get())}</ActionButton></Show>
+                            <Show when=move ||facts.with(|f|f.works_next.is_some())><ActionButton id="dashboard-next" locale=locale reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.works_next.is_none())) on_press=Callback::new(move |_| on_next.run(()))>{move || text(Key::Next, locale.get())}</ActionButton></Show></div>
                         </Show>
-                        <div class="toolbar"><ActionButton id="dashboard-previous" locale=locale reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.pages.previous_works().is_none())) on_press=Callback::new(move |_| on_previous.run(()))>{move || text(Key::Previous, locale.get())}</ActionButton>
-                        <Show when=move ||facts.with(|f|f.works_next.is_some())><ActionButton id="dashboard-next" locale=locale reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.works_next.is_none())) on_press=Callback::new(move |_| on_next.run(()))>{move || text(Key::Next, locale.get())}</ActionButton></Show></div>
                     </section>
                 </Surface>
-                <Surface class="dashboard-audio">
-                    <section aria-labelledby="dashboard-audio-title">
-                        <h3 id="dashboard-audio-title">{move || text(Key::Audio, locale.get())}</h3>
-                        <p>{move || facts.with(|f| f.submission.as_ref().map(|s| audio_state(s.state, locale.get())).unwrap_or_else(|| text(Key::AudioNotRead, locale.get())))}</p>
-                        <Show when=move || facts.with(|f| f.candidate.is_some())><p>{move || text(Key::Candidate, locale.get())}</p></Show>
-                        <p class="help">{move || text(Key::AudioHelp, locale.get())}</p>
-                        <ActionButton id="dashboard-audio" locale=locale variant=ButtonVariant::Tonal blocked=session_pending on_press=Callback::new(move |_| on_audio.run(()))>{move || text(Key::OpenAudio, locale.get())}</ActionButton>
-                    </section>
-                </Surface>
-                <Surface class="dashboard-tools"><section aria-labelledby="dashboard-editor-title">
-                    <h3 id="dashboard-editor-title">{move || text(Key::Editor, locale.get())}</h3>
-                    <p>{move || text(Key::EditorHelp, locale.get())}</p>
-                    <ActionButton id="dashboard-editor" locale=locale variant=ButtonVariant::Text blocked=session_pending on_press=Callback::new(move |_| on_editor.run(()))>{move || text(Key::OpenEditor, locale.get())}</ActionButton>
-                </section></Surface>
+                <div class="dashboard-secondary">
+                    <Show when=move || has_selection.get()>
+                        <Surface class="dashboard-resume">
+                            <section aria-labelledby="dashboard-resume-title">
+                                <p class="dashboard-eyebrow">{move || text(Key::Resume, locale.get())}</p>
+                                <h3 id="dashboard-resume-title" lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.work.as_ref().map(|w| w.details.title.clone()).unwrap_or_default())}</h3>
+                                <Show when=move || facts.with(|f| f.unit.is_some())>
+                                    <p>{move || text(Key::SelectedUnit, locale.get())}" · "<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>
+                                </Show>
+                                <ActionButton id="dashboard-continue" locale=locale blocked=Signal::derive(move || session_pending.get() || facts.with(|f| f.work.is_none())) reason=BlockReason::ContextReady on_press=Callback::new(move |_| on_continue.run(()))>{move || text(Key::Continue, locale.get())}</ActionButton>
+                            </section>
+                        </Surface>
+                    </Show>
+                    <Surface class="dashboard-tools">
+                        <section aria-labelledby="dashboard-audio-title">
+                            <h3 id="dashboard-audio-title">{move || text(Key::Audio, locale.get())}</h3>
+                            <Show when=move || notes.get().state><p>{move || facts.with(|f| f.submission.as_ref().map(|s| audio_state(s.state, locale.get())).unwrap_or_default())}</p></Show>
+                            <Show when=move || notes.get().not_read><p class="help">{move || text(Key::AudioNotRead, locale.get())}</p></Show>
+                            <Show when=move || notes.get().candidate><p>{move || text(Key::Candidate, locale.get())}</p></Show>
+                            <Show when=move || notes.get().help><p class="help">{move || text(Key::AudioHelp, locale.get())}</p></Show>
+                            <ActionButton id="dashboard-audio" locale=locale variant=ButtonVariant::Tonal blocked=session_pending on_press=Callback::new(move |_| on_audio.run(()))>{move || text(Key::OpenAudio, locale.get())}</ActionButton>
+                        </section>
+                        <section aria-labelledby="dashboard-editor-title">
+                            <h3 id="dashboard-editor-title">{move || text(Key::Editor, locale.get())}</h3>
+                            <ActionButton id="dashboard-editor" locale=locale variant=ButtonVariant::Tonal blocked=session_pending on_press=Callback::new(move |_| on_editor.run(()))>{move || text(Key::OpenEditor, locale.get())}</ActionButton>
+                        </section>
+                    </Surface>
+                </div>
             </div>
         </section>
     }
@@ -200,7 +238,7 @@ mod tests {
                 assert_eq!(html.contains(text(Key::EmptyTitle, crate::localization::Locale::Vietnamese)), empty, "{html}");
                 assert!(!html.contains("Tổng số"));
                 assert!(html.contains(text(Key::Refresh, crate::localization::Locale::Vietnamese)));
-                assert!(html.contains(text(Key::Previous, crate::localization::Locale::Vietnamese)));
+                assert!(!html.contains("id=\"dashboard-previous\""), "a single page has no pagination: {html}");
                 assert!(!html.contains("id=\"dashboard-continue\""));
             }
         });
@@ -281,5 +319,171 @@ mod tests {
                 assert_eq!(facts.get_untracked().work, Some(work.clone()));
             }
         });
+    }
+
+    fn work(id: &str, title: &str) -> CatalogWork {
+        let request: CreateWorkRequest = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/create-story.json"
+        )).unwrap();
+        let mut work = CatalogWork {
+            id: id.into(),
+            kind: request.kind,
+            owner_id: "alice".into(),
+            details: request.details,
+            lifecycle: "draft".into(),
+            revision: 3,
+            created_at: 0,
+            updated_at: 0,
+        };
+        work.details.title = title.into();
+        work
+    }
+
+    fn render(facts: Facts, read: CatalogRead) -> String {
+        let noop = Callback::new(|()| {});
+        view! { <Dashboard facts=RwSignal::new(facts) query=RwSignal::new(DashboardQuery { context: Some(("alice".into(), 1)), read })
+            locale=Signal::stored(crate::localization::Locale::Vietnamese) blocked=Signal::derive(|| false) session_pending=Signal::derive(|| false)
+            on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_previous=noop on_next=noop
+            on_pick=Callback::new(|_: String| {})/> }.to_html()
+    }
+
+    #[test]
+    fn work_list_follows_the_heading_and_precedes_resume_and_tools() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let selected = work("10000000-0000-4000-8000-000000000001", "Lời hẹn");
+            let facts = Facts {
+                work: Some(selected.clone()),
+                works: vec![selected],
+                ..Facts::default()
+            };
+            let html = render(facts, CatalogRead::Ready);
+            let at = |needle: &str| {
+                html.find(needle)
+                    .unwrap_or_else(|| panic!("{needle}: {html}"))
+            };
+            assert!(at("id=\"dashboard-import\"") < at("dashboard-work-list"));
+            assert!(at("dashboard-work-list") < at("id=\"dashboard-continue\""));
+            assert!(at("id=\"dashboard-continue\"") < at("id=\"dashboard-audio\""));
+            assert!(at("id=\"dashboard-audio\"") < at("id=\"dashboard-editor\""));
+            assert_eq!(html.matches("aria-current=\"true\"").count(), 1, "{html}");
+        });
+    }
+
+    #[test]
+    fn without_a_selection_there_is_a_short_hint_and_no_resume_block() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let facts = Facts {
+                works: vec![work("10000000-0000-4000-8000-000000000001", "Lời hẹn")],
+                ..Facts::default()
+            };
+            let html = render(facts, CatalogRead::Ready);
+            assert!(
+                html.contains(text(
+                    Key::NoSelection,
+                    crate::localization::Locale::Vietnamese
+                )),
+                "{html}"
+            );
+            assert!(
+                !html.contains(text(Key::Resume, crate::localization::Locale::Vietnamese)),
+                "{html}"
+            );
+            assert!(!html.contains("id=\"dashboard-continue\""), "{html}");
+            assert!(!html.contains("aria-current"), "{html}");
+            for id in [
+                "dashboard-import",
+                "dashboard-create-work",
+                "dashboard-audio",
+                "dashboard-editor",
+            ] {
+                assert!(
+                    html.contains(&format!("id=\"{id}\"")),
+                    "{id} stays reachable: {html}"
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn pagination_offers_only_the_directions_that_exist() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let one = work("10000000-0000-4000-8000-000000000001", "Lời hẹn");
+            let single = render(
+                Facts {
+                    works: vec![one.clone()],
+                    ..Facts::default()
+                },
+                CatalogRead::Ready,
+            );
+            assert!(
+                !single.contains("dashboard-previous") && !single.contains("dashboard-next"),
+                "{single}"
+            );
+            let paged = render(
+                Facts {
+                    works: vec![one],
+                    works_next: Some("cursor".into()),
+                    ..Facts::default()
+                },
+                CatalogRead::Ready,
+            );
+            assert!(
+                paged.contains("id=\"dashboard-next\"") && !paged.contains("dashboard-previous"),
+                "first page has no previous control: {paged}"
+            );
+        });
+    }
+
+    #[test]
+    fn audio_lines_follow_the_facts_actually_read() {
+        let notes = |unit, submission, candidate| audio_notes(unit, submission, candidate);
+        assert_eq!(
+            notes(false, false, false),
+            AudioNotes {
+                state: false,
+                not_read: false,
+                candidate: false,
+                help: false
+            }
+        );
+        assert_eq!(
+            notes(true, false, false),
+            AudioNotes {
+                state: false,
+                not_read: true,
+                candidate: false,
+                help: false
+            }
+        );
+        assert_eq!(
+            notes(true, true, false),
+            AudioNotes {
+                state: true,
+                not_read: false,
+                candidate: false,
+                help: true
+            }
+        );
+        assert_eq!(
+            notes(false, true, true),
+            AudioNotes {
+                state: true,
+                not_read: false,
+                candidate: true,
+                help: true
+            }
+        );
+        assert_eq!(
+            notes(true, false, true),
+            AudioNotes {
+                state: false,
+                not_read: true,
+                candidate: true,
+                help: true
+            }
+        );
     }
 }
