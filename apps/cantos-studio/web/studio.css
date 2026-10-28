@@ -221,7 +221,7 @@ body { margin: 0; }
 }
 /* Header toolbar: compact fields and the avatar share one 48-unit interaction row (40-unit painted
    fields and avatar), so the brand, selects and account entry sit on a single centered baseline. */
-.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-sm); align-items: center; margin-inline-start: auto; }
+.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-sm); align-items: center; }
 .studio-shell .studio-language-button {
   inline-size: 2.75rem;
   block-size: 2.75rem;
@@ -249,27 +249,24 @@ body { margin: 0; }
 /* The topbar's icon-only theme cycle keeps its shared 44x44 target in narrow containers, where
    generic toolbar buttons go full width (it would wrap under the language selector at 320px). */
 .studio-shell .studio-topbar > .cui-button-field { inline-size: auto; }
-/* Topbar v7/v8 (#582): reuse the shared tonal select and rounded-square icon action, including
-   their hover, focus and forced-colour states. Only the Studio toolbar's full-width rule needs
-   overriding; the theme action retains its shared 44px target. */
-.studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button {
-  inline-size: auto;
+/* Topbar v7/v8 (#582). Language is a compact tonal pill: the short code (the full autonym stays the
+   accessible name) and a chevron, with no language icon and trimmed inline padding so the pill hugs
+   its content while the 44px block target and the visible focus ring are kept. Theme is the shared
+   icon-only tonal action (a rounded square, no label); the avatar stays a circle. Both tonal fills
+   read the semantic container/on-surface roles, so Light, Dark and System keep their paired contrast.
+   The selector outranks the shared Theatre compact-select fill, and focus keeps the shared ring. */
+.studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background-color: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
 }
-/* This is the rightmost anonymous control. Keep its tooltip inside the viewport even when
-   the header wraps or its localized text grows. */
-.studio-shell .studio-topbar > .cui-theme-cycle-field > .cui-tooltip {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  transform: none;
-  inline-size: max-content;
-  max-inline-size: calc(100vw - 2 * var(--cantos-space-md));
-  white-space: normal;
-  overflow-wrap: anywhere;
+.studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
-.studio-shell .studio-language-field .cui-select-trigger { padding-inline: var(--cantos-space-inset); }
+.studio-shell .studio-language-field .cui-icon { color: var(--cantos-color-on-surface); }
+.studio-shell .studio-language-field .cui-select-trigger { padding-inline: var(--cantos-space-sm); }
 .studio-shell .studio-language-field .cui-field-control { border-radius: var(--cantos-shape-pill); }
 .studio-shell .studio-language-field .cui-select-value { flex: 0 1 auto; }
-.studio-shell .studio-language-field .cui-select-short { font-weight: var(--cantos-type-label-weight); text-transform: capitalize; }
+.studio-shell .studio-language-field .cui-select-short { font-weight: var(--cantos-type-label-weight); }
 .studio-shell .studio-language-tip { display: contents; }
 .studio-shell .studio-language-field.cui-select-field { grid-template-columns: minmax(0, 1fr); }
 .studio-shell .studio-language-field > .cui-field-label { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.cantos.ui.generated.CantosTokens
 
 // Renderer-local geometry from the Theatre v4 design (board 5), in logical dp rather than Web CSS
 // pixels. Both are minimums: the label, value and text scale grow the shell, nothing is clipped.
@@ -110,8 +111,11 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant, docked: Bo
     val quiet = lerp(tonal, tokenColor("color.surface"), FloatingQuietFillFraction)
     val floating = variant.isFloating()
     val tonalRecipe = variant == TextFieldVariant.FloatingTonal
+    val high = tokenColor("color.surfaceContainerHigh")
     val container = when {
         docked -> Color.Transparent
+        // Web Auth parity: an editable tonal shell rests on the high container, a locked one on the container.
+        tonalRecipe -> if (state == FieldState.Editable) high else tonal
         floating -> if (state == FieldState.Editable) tonal else quiet
         state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal -> tonal
         else -> tokenColor("color.surfaceContainerHigh")
@@ -124,9 +128,12 @@ private fun fieldColors(state: FieldState, variant: TextFieldVariant, docked: Bo
         unfocusedTextColor = content,
         disabledTextColor = secondary,
         errorTextColor = content,
-        focusedContainerColor = if (tonalRecipe && state == FieldState.Editable) tokenColor("color.surfaceContainerHigh") else container,
+        // Focus is the same primary state layer the Web recipe mixes over the high container.
+        focusedContainerColor = if (tonalRecipe && state == FieldState.Editable) {
+            lerp(high, tokenColor("color.primary"), CantosTokens.number("state.focusOpacity", LocalUiPreferences.current.density.tokenName).toFloat())
+        } else container,
         unfocusedContainerColor = container,
-        disabledContainerColor = if (floating) quiet else tokenColor("color.surfaceContainer"),
+        disabledContainerColor = if (floating && !tonalRecipe) quiet else tonal,
         errorContainerColor = if (floating && !tonalRecipe) container else tokenColor("color.errorContainer"),
         cursorColor = tokenColor("color.primary"),
         errorCursorColor = error,
@@ -223,7 +230,9 @@ private fun FieldFrame(
 @Composable
 private fun fieldShape(variant: TextFieldVariant): androidx.compose.ui.graphics.Shape = when (variant) {
     TextFieldVariant.AuthTonal -> CantosShapes.authField
-    TextFieldVariant.Floating, TextFieldVariant.FloatingTonal -> RoundedCornerShape(FloatingFieldRadius)
+    TextFieldVariant.Floating -> RoundedCornerShape(FloatingFieldRadius)
+    // Auth's softer corner is the token the auth shell already owns; Search and Floating keep 16.
+    TextFieldVariant.FloatingTonal -> CantosShapes.authField
     TextFieldVariant.FloatingSearch -> RoundedCornerShape(tokenDp("shape.searchRest"))
     TextFieldVariant.Regular -> CantosShapes.reading
 }

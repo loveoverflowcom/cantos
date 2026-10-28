@@ -61,8 +61,8 @@ class GuestAccountStatusTest {
         for (locale in ShellLocale.entries) for (theme in ShellTheme.entries) render(refused, LoginAttempt.Settled(refused), locale, theme) {
             onNodeWithTag("account-profile").assertExists()
             onNodeWithTag("auth-status").assertDoesNotExist()
-            onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertDoesNotExist()
-            onNodeWithText("Unable to sign in with these credentials.").assertDoesNotExist()
+            onNodeWithText("Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.").assertDoesNotExist()
+            onNodeWithText("Unable to sign in with these credentials. Check your email and password, then try again.").assertDoesNotExist()
             // The guest is still a resting state that may try again; nothing is faked as signed in.
             onNodeWithTag("sign-in").performScrollTo().assertIsEnabled()
             onNodeWithTag("create-account").performScrollTo().assertIsEnabled()
@@ -73,7 +73,7 @@ class GuestAccountStatusTest {
     @Test
     fun the_same_failure_without_a_login_attempt_stays_visible() = render(refused, LoginAttempt.None) {
         onNodeWithTag("auth-status").assertExists()
-        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertExists()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này. Hãy kiểm tra email và mật khẩu rồi thử lại.").assertExists()
     }
 
     @Test
