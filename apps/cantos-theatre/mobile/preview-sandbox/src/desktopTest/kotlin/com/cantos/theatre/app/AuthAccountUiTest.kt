@@ -2,6 +2,7 @@ package com.cantos.theatre.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -21,11 +22,16 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.RegistrationResult
+import com.cantos.theatre.ports.IdentityV1Failure
 import com.cantos.theatre.adapters.preview.PreviewAccount
 import com.cantos.theatre.adapters.preview.PreviewLoginMode
 import com.cantos.theatre.app.PreviewOwners
 import com.cantos.theatre.app.PreviewTestRoot
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.junit.Test
 
@@ -40,13 +46,15 @@ class AuthAccountUiTest {
         width: Int = 390,
         height: Int = 844,
         textScale: Float = 1f,
+        backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
         body: ComposeUiTest.(PreviewOwners) -> Unit,
     ) = runDesktopComposeUiTest(width = width, height = height) {
         lateinit var owners: PreviewOwners
         setContent {
             Box(Modifier.requiredSize(width.dp, height.dp)) {
                 // The login response is held so each test decides when, and whether, it arrives.
-                PreviewTestRoot(textScale = textScale, onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
+                PreviewTestRoot(textScale = textScale, backHandler = backHandler,
+                    onOwners = { it.identity.mode = PreviewLoginMode.Hold; owners = it })
             }
         }
         body(owners)
@@ -155,6 +163,84 @@ class AuthAccountUiTest {
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         onNodeWithTag("sign-in").assertIsEnabled()
         onNodeWithTag("open-library").assertDoesNotExist()
+    }
+
+    private enum class BackKind { Header, System }
+
+    // #579: the attempt's message is Login feedback. Header and system Back share one shell path,
+    // and the owner keeps its Failed state: Back hides a label, it never resets the account.
+    @Test
+    fun a_failed_attempt_stays_on_login_and_back_leaves_no_stale_status_on_the_guest_card() {
+        val cases = listOf(
+            IdentityV1Failure.Unauthorized to "Không thể đăng nhập bằng thông tin này.",
+            IdentityV1Failure.RateLimited(17) to "Vui lòng đợi 17 giây trước khi thử lại.",
+            IdentityV1Failure.ServiceUnavailable to "Đăng nhập tạm thời chưa khả dụng. Vui lòng thử lại sau.",
+        )
+        for ((failure, message) in cases) for (kind in BackKind.entries) {
+            var systemBack: (() -> Unit)? = null
+            run(backHandler = { enabled, onBack -> systemBack = onBack.takeIf { enabled } }) { h ->
+                h.identity.loginFailure = failure
+                openLoginFromAccount()
+                submitLogin()
+                waitForIdle()
+                h.identity.completeLogin(approve = false)
+                waitForIdle()
+                onNodeWithTag("auth-status").assertExists()
+                onNodeWithText(message).assertExists()
+
+                when (kind) {
+                    BackKind.Header -> onNodeWithTag("back").performClick()
+                    BackKind.System -> runOnIdle { assertNotNull(systemBack, "Login owns system Back").invoke() }
+                }
+                waitForIdle()
+                onNodeWithTag("sign-in").assertIsFocused().assertIsEnabled()
+                onNodeWithTag("auth-status").assertDoesNotExist()
+                onNodeWithText(message).assertDoesNotExist()
+                assertIs<NativeAccountState.Failed>(h.account.state.value, "$failure after $kind Back")
+                assertEquals(1, h.identity.loginRequests, "Back never replays the request")
+
+                // Re-entry starts clean, and a retry reports its own result on Login again.
+                onNodeWithTag("sign-in").performScrollTo().performClick()
+                waitForIdle()
+                onNodeWithTag("auth-status").assertDoesNotExist()
+                onNodeWithText(message).assertDoesNotExist()
+                submitLogin()
+                waitForIdle()
+                h.identity.completeLogin(approve = false)
+                waitForIdle()
+                onNodeWithText(message).assertExists()
+                assertEquals(2, h.identity.loginRequests)
+            }
+        }
+    }
+
+    @Test
+    fun back_during_a_pending_login_leaves_no_status_when_a_late_refusal_arrives() = run { h ->
+        openLoginFromAccount()
+        submitLogin()
+        waitForIdle()
+        onNodeWithTag("back").performClick()
+        waitForIdle()
+        h.identity.completeLogin(approve = false)
+        waitForIdle()
+        assertEquals(NativeAccountState.SignedOut, h.account.state.value)
+        onNodeWithTag("auth-status").assertDoesNotExist()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertDoesNotExist()
+        onNodeWithTag("sign-in").assertIsEnabled()
+    }
+
+    @Test
+    fun a_failure_the_login_entry_did_not_request_stays_on_the_guest_card() = run { h ->
+        // Negative control: the same typed refusal, reached without a Login attempt, is account status.
+        onNodeWithTag("account").performClick()
+        waitForIdle()
+        h.identity.mode = PreviewLoginMode.Deny
+        val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("listener@example.test")).value
+        runOnIdle { h.account.login(email, "preview-only") }
+        waitUntil(timeoutMillis = 5_000) { h.account.state.value is NativeAccountState.Failed }
+        waitForIdle()
+        onNodeWithTag("auth-status").assertExists()
+        onNodeWithText("Không thể đăng nhập bằng thông tin này.").assertExists()
     }
 
     @Test

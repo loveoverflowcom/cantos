@@ -52,8 +52,9 @@ import com.cantos.ui.rememberCantosIconVector
 /**
  * Guest or signed-in Account. It shows only facts the account owner may project: no actor, no
  * session, no display name, no total or conflict. [loginFocus] lets the app root restore focus
- * to the entry that opened Login when Back returns here. [backOverlay] is how the open sign-out
- * confirmation sheet hands the host its dismissal, so Back closes the sheet before the route.
+ * to the entry that opened Login when Back returns here. [loginAttempt] names the failure that is
+ * feedback for an attempt made on Login, which the guest card does not repeat. [backOverlay] is how
+ * the open sign-out confirmation sheet hands the host its dismissal, so Back closes the sheet first.
  */
 @Composable
 fun AccountContent(
@@ -62,15 +63,23 @@ fun AccountContent(
     account: AccountView,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
+    loginAttempt: LoginAttempt = LoginAttempt.None,
     backOverlay: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     val copy = AuthCopy(locale)
     if (account == AccountView.SignedIn) SignedInAccount(copy, theme, onIntent, backOverlay)
-    else GuestAccount(copy, theme, account, onIntent, loginFocus)
+    else GuestAccount(copy, theme, account, loginAttempt, onIntent, loginFocus)
 }
 
 @Composable
-private fun GuestAccount(copy: AuthCopy, theme: ShellTheme, account: AccountView, onIntent: (AuthIntent) -> Unit, loginFocus: FocusRequester) {
+private fun GuestAccount(
+    copy: AuthCopy,
+    theme: ShellTheme,
+    account: AccountView,
+    loginAttempt: LoginAttempt,
+    onIntent: (AuthIntent) -> Unit,
+    loginFocus: FocusRequester,
+) {
     Surface(Modifier.fillMaxWidth().testTag("account-profile"), tone = SurfaceTone.PrimaryContainer,
         variant = SurfaceVariant.Profile, inset = Space.Lg) {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
@@ -83,7 +92,8 @@ private fun GuestAccount(copy: AuthCopy, theme: ShellTheme, account: AccountView
                 style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
                 modifier = Modifier.semantics { heading() })
             Text(copy.text(AuthText.GuestHelp), style = MaterialTheme.typography.bodyMedium)
-            AccountStatus(account, copy)
+            // A failed attempt's message stays on Login; recovery, pending and other failures stay here.
+            if (!loginAttempt.owns(account)) AccountStatus(account, copy)
             Button(
                 copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
                 variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
