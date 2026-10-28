@@ -62,12 +62,19 @@ receipts preserve replay, and the fixture closes/reopens the actual Turso owner.
 The manifest preserves author/narrator/genre/tags and mock MP3 input without inventing those
 production catalog fields or audio acceptance. `--sample-serve` serves this test-hosted Server
 router on loopback after verification; it starts no Identity and does not qualify the standalone
-binary or Web/CMP login. Public discovery still requires an accepted release, and
+binary or Web/CMP login. Ordinary public discovery requires an accepted release; the exact six
+fictional Works have a separate, source-bound [metadata disclosure](../../docs/decisions/0051-metadata-only-public-discovery.md).
+That grants no image permission, and
 [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)'s public cover additionally
 needs a newer eligible release pinning the image and the owner's explicit
 [cover disclosure](contracts/studio/cover-disclosure/v1/README.md); it is shown only on a host that
 composes public media with private storage (#171). Private image admission never implies public
 display.
+The [#574 proposal](contracts/studio/cover-disclosure/v1/metadata-proposal.md) adds an explicit,
+revision-bound metadata image consent, private evidence binding and append-only migration 28.
+Its listener capability is default-off and its recording method has no HTTP route. No existing
+clearance, fictional sample asset or production composition is opted in; owner policy, actual
+image rights and a non-login operator intake remain separate gates.
 Reset archives only a marker-bound sample root after taking both exclusive DB owner locks; it
 never deletes DB/WAL/media/evidence or opens Identity's file.
 

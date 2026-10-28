@@ -1,5 +1,8 @@
 # Studio cover disclosure v1
 
+The [proposed metadata-only scope](metadata-proposal.md) is an unmounted application method;
+it does not change the accepted release-only HTTP contract below.
+
 The owner's public-display decision for one exact admitted Work image, as accepted in
 [ADR 0033](../../../../../../docs/decisions/0033-release-pinned-public-cover.md) rule 2. It is a
 sibling of [private Work artwork v1](../../artwork/v1/README.md) and is mounted with those routes
