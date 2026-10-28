@@ -293,6 +293,40 @@ fn chip_selection_is_controlled_and_blocking_does_not_erase_selection() {
 }
 
 #[test]
+fn pending_chip_replaces_the_check_in_the_same_slot_and_keeps_selection_meaning() {
+    let owner = Owner::new();
+    owner.with(|| {
+        for selected in [false, true] {
+            let ready = view! {
+                <FilterChip id="mine" selected=selected on_change=Callback::new(|_| ())>
+                    "Truyện của Nguyễn Thị Ánh Nguyệt"
+                </FilterChip>
+            }
+            .to_html();
+            assert!(ready.contains("cui-chip-check") && ready.contains("<svg"), "{ready}");
+            assert!(!ready.contains("cui-loading-indicator"), "{ready}");
+
+            let pending = view! {
+                <FilterChip id="mine" selected=selected on_change=Callback::new(|_| ())
+                    state=ButtonState::Loading(DisabledReason::new("Đang lọc; không gửi lại.").unwrap())>
+                    "Truyện của Nguyễn Thị Ánh Nguyệt"
+                </FilterChip>
+            }
+            .to_html();
+            assert_eq!(pending.matches("cui-chip-check").count(), 1, "same slot: {pending}");
+            assert_eq!(pending.matches("cui-loading-indicator").count(), 1, "{pending}");
+            assert!(!pending.contains("<svg"), "the check is replaced, not stacked: {pending}");
+            assert!(pending.contains(&format!("aria-pressed=\"{selected}\"")), "selection survives: {pending}");
+            assert!(pending.contains("aria-busy=\"true\"") && pending.contains("role=\"status\""), "{pending}");
+            assert!(pending.contains("Đang lọc; không gửi lại."), "{pending}");
+            assert!(pending.contains("Truyện của Nguyễn Thị Ánh Nguyệt"), "{pending}");
+            assert!(!pending.contains("aria-label="), "the visible label is the name: {pending}");
+            assert_eq!(pending.matches("<button ").count(), 1, "{pending}");
+        }
+    });
+}
+
+#[test]
 fn theme_cycle_shows_the_short_mode_name_only_when_asked_and_keeps_the_full_accessible_name() {
     let owner = Owner::new();
     owner.with(|| {

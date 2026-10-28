@@ -72,7 +72,7 @@ fun Status(
 fun LoadingState(text: String, modifier: Modifier = Modifier, announcement: Announcement = Announcement.Off) {
     Row(modifier.announcement(announcement).semantics { stateDescription = text },
         horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        LoadingIndicator()
+        LoadingIndicator(size = LoadingSize.Standard)
         Text(text)
     }
 }

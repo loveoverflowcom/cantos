@@ -291,7 +291,9 @@ its own copies of the same bytes. Glyph placement still needs an opened capture,
 resources for each product host remain necessary before app adoption.
 
 Reduced-motion inspection resolves the three canonical duration roles to zero. The pending
-indicator (`LoadingIndicator`, shared by Button/IconButton and `LoadingState`, issue #528) turns once
+indicator (`LoadingIndicator`, the MicroArc of #586: a 270° arc with round ends, 16 dp in a button/chip slot or
+20 dp in `LoadingState`, `size.loadingArcStroke` 2; shared by Button/IconButton, a pending FilterChip that
+replaces the check in the same slot, and `LoadingState`, issue #528) turns once
 per `PendingRingTurnMillis` under full motion and holds a visible stationary arc under reduced motion
 (`pendingRingTurnMillis`); only the full-motion branch owns an infinite transition, so reduced motion
 runs no ticker. No canonical continuous-motion token exists yet.

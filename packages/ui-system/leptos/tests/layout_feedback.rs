@@ -100,7 +100,7 @@ fn loading_state_shows_one_shared_indicator_that_is_decorative_and_never_a_glyph
     let html = view! { <LoadingState>"Đang tải danh sách"</LoadingState> }.to_html();
     assert_eq!(html.matches("cui-loading-indicator").count(), 1, "{html}");
     assert!(
-        html.contains("<span aria-hidden=\"true\" class=\"cui-loading-indicator\">"),
+        html.contains("<span data-size=\"standard\" aria-hidden=\"true\" class=\"cui-loading-indicator\"></span>"),
         "{html}"
     );
     assert!(
@@ -133,4 +133,62 @@ fn the_only_endless_animation_is_the_pending_indicator_and_reduced_motion_remove
         .expect("a reduced-motion block for the indicator");
     assert!(reduced.contains("animation: none"), "{reduced}");
     assert!(css.contains("--cantos-web-loading-turn: 1000ms"));
+}
+
+/// MicroArc: 16 and 20 logical units, a 2-unit stroke, a 270 degree arc and round ends, all from
+/// canonical tokens rather than component-local numbers, drawn by the stylesheet so a host that
+/// mounts the bare span (Studio's `FormSubmit`) gets the same mark.
+#[test]
+fn micro_arc_reads_size_stroke_and_caps_from_canonical_tokens() {
+    let tokens = include_str!("../tokens.css");
+    assert!(tokens.contains("--cantos-size-loading-arc-compact: 1rem;"));
+    assert!(tokens.contains("--cantos-size-loading-arc: 1.25rem;"));
+    assert!(tokens.contains("--cantos-size-loading-arc-stroke: 0.125rem;"));
+    let css = include_str!("../foundation.css");
+    let start = css
+        .find(":where(.cantos-ui) .cui-loading-indicator {")
+        .expect("indicator rule");
+    let block = &css[start..start + css[start..].find("\n}").expect("rule end")];
+    assert!(
+        block.contains("--cantos-web-loading-frame: var(--cantos-size-loading-arc-compact)"),
+        "{block}"
+    );
+    assert!(
+        block.contains("conic-gradient(currentColor 0 270deg, transparent 270deg 360deg)"),
+        "{block}"
+    );
+    assert!(
+        block.contains("var(--cantos-size-loading-arc-stroke)"),
+        "{block}"
+    );
+    assert!(css.contains(".cui-loading-indicator[data-size=\"standard\"] {\n  --cantos-web-loading-frame: var(--cantos-size-loading-arc);"));
+    for end in ["::before", "::after"] {
+        assert!(
+            css.contains(&format!(":where(.cantos-ui) .cui-loading-indicator{end}")),
+            "{end}"
+        );
+    }
+    assert!(css.contains("--cantos-web-loading-cap: var(--cantos-size-loading-arc-stroke)"));
+    assert!(
+        !css[start..start + 1400].contains("border: var(--cantos-size-focus-width)"),
+        "the old 3-unit border ring is gone"
+    );
+}
+
+/// The arc is smaller than the glyph it replaces, so the host slot (not the arc) holds the footprint.
+#[test]
+fn glyph_slots_keep_their_footprint_while_the_smaller_arc_replaces_the_glyph() {
+    let css = include_str!("../foundation.css");
+    let rule = css
+        .find(":where(.cui-button-icon, .cui-chip-check, .cui-loading-slot) {")
+        .expect("slot rule");
+    let block = &css[rule..rule + css[rule..].find("}").expect("end")];
+    assert!(
+        block.contains("min-inline-size: var(--cantos-size-icon)"),
+        "{block}"
+    );
+    assert!(
+        block.contains("min-block-size: var(--cantos-size-icon)"),
+        "{block}"
+    );
 }

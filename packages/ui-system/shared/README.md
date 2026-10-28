@@ -1,4 +1,10 @@
-# Shared semantic contract v0.9.0
+# Shared semantic contract v0.10.0
+
+v0.10.0 adds the MicroArc loading-indicator dimensions of Loading v1 2/4
+([#586](https://github.com/loveoverflowcom/cantos/issues/586)): `size.loadingArcCompact` 16 (button, chip,
+select slot), `size.loadingArc` 20 (section/footer) and `size.loadingArcStroke` 2 logical units. Nothing
+existing changes value. The 1000 ms arc turn stays a per-renderer seed until the continuous-motion
+token group of [#585](https://github.com/loveoverflowcom/cantos/issues/585) lands.
 
 v0.9.0 adds the contextual guest-profile and account-tile roles of Account v4.3
 ([#526](https://github.com/loveoverflowcom/cantos/issues/526)): seven themed `color.theatre*` roles,

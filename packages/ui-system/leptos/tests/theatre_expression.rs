@@ -280,9 +280,12 @@ fn a_chip_reads_by_shape_and_tone_with_an_interruptible_transition_that_reduced_
         css.contains(".cui-filter-chip .cui-chip-check {\n  display: none;"),
         "an unselected chip is centered on its label"
     );
-    assert!(css.contains(
-        ".cui-filter-chip[aria-pressed=\"true\"] .cui-chip-check {\n  display: inline-flex;"
-    ));
+    assert!(
+        css.contains(
+            ".cui-filter-chip:where([aria-pressed=\"true\"], [aria-busy=\"true\"]) .cui-chip-check {\n  display: inline-flex;"
+        ),
+        "selection or pending opens the slot that holds the check or the arc"
+    );
     let reduced = css
         .rfind("@media (prefers-reduced-motion: reduce)")
         .unwrap();

@@ -81,14 +81,36 @@ pub fn Status(
     }
 }
 
-/// The one indeterminate indicator, internal to the package so it is consumed through the registered
-/// components (Button, Select, `LoadingState`) and needs no catalog entry of its own: an arc that turns while it is mounted and stays a visible
-/// stationary arc under `prefers-reduced-motion`. It is decorative: the adjacent localized text or
-/// reason owns the pending announcement, so it never shows a percentage, a check or a disclosure
+/// The two MicroArc frames, 16 and 20 logical units (`size.loadingArcCompact`/`size.loadingArc`).
+/// Compact sits in a button, chip or select slot; Standard is the section/footer frame. The frame
+/// never changes the hit target: the host keeps its own slot and control size.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum LoadingSize {
+    #[default]
+    Compact,
+    Standard,
+}
+
+impl LoadingSize {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Compact => "compact",
+            Self::Standard => "standard",
+        }
+    }
+}
+
+/// The one indeterminate indicator (the MicroArc), internal to the package so it is consumed through
+/// the registered components (Button, Select, FilterChip, `LoadingState`) and needs no catalog entry
+/// of its own: one fixed 270 degree monochrome arc with round ends that turns while it is mounted
+/// and stays a visible stationary arc under `prefers-reduced-motion`. The arc is drawn by the
+/// stylesheet alone (an empty element), so a host that mounts the bare `cui-loading-indicator` span,
+/// as Studio's `FormSubmit` does, gets the same mark. It is decorative: the adjacent localized text
+/// or reason owns the pending announcement, so it never shows a percentage, a check or a disclosure
 /// glyph. Mount it only while work is ongoing; unmounting (or a hidden ancestor) ends the animation.
 #[component]
-pub(crate) fn LoadingIndicator() -> impl IntoView {
-    view! { <span class="cui-loading-indicator" aria-hidden="true"></span> }
+pub(crate) fn LoadingIndicator(#[prop(optional)] size: LoadingSize) -> impl IntoView {
+    view! { <span class="cui-loading-indicator" data-size=size.as_str() aria-hidden="true"></span> }
 }
 
 /// Indeterminate loading with visible localized text. The indicator turns under full motion and
@@ -102,7 +124,7 @@ pub fn LoadingState(
     view! {
         <div class=move || format!("cui-loading-state {}", class.get())
             data-state="loading" role=announcement.role()>
-            <LoadingIndicator/>
+            <LoadingIndicator size=LoadingSize::Standard/>
             <div>{children()}</div>
         </div>
     }
