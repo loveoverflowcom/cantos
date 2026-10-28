@@ -379,3 +379,9 @@ pub(crate) fn focus_after_unit_page(id: String) {
         }
     });
 }
+
+mod search_dock;
+pub(crate) use search_dock::{
+    bind_search_dock, click_is_search_input, focus_is_search_input, focus_search_input,
+    focus_search_result,
+};

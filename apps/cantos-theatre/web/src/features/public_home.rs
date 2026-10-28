@@ -209,14 +209,93 @@ fn WorkCover(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SearchKeyAction {
+    Ignore,
+    Collapse,
+    FirstResult,
+    LastResult,
+    Submit,
+}
+
+fn search_key_action(key: &str, composing: bool, code: u32, text_field: bool) -> SearchKeyAction {
+    if composing || code == 229 {
+        return SearchKeyAction::Ignore;
+    }
+    match (key, text_field) {
+        ("Escape", _) => SearchKeyAction::Collapse,
+        ("ArrowDown", true) => SearchKeyAction::FirstResult,
+        ("ArrowUp", true) => SearchKeyAction::LastResult,
+        ("Enter", true) => SearchKeyAction::Submit,
+        _ => SearchKeyAction::Ignore,
+    }
+}
+
+/// Real currently applied Discovery data; editing does not invent autocomplete results.
+#[component]
+fn SearchDockResults(
+    state: RwSignal<PublicDiscoveryState>,
+    applied: RwSignal<DiscoveryQuery>,
+    locale: RwSignal<Locale>,
+    on_retry: Callback<()>,
+    on_restart: Callback<()>,
+    on_load_more: Callback<()>,
+    on_open_work: Callback<PublicWorkId>,
+) -> impl IntoView {
+    view! {
+        <div class="theatre-search-dock-results" role="region" aria-label=move || text(Key::StoryShelf, locale.get())>
+            {move || match state.with(|s| region(s.phase())) {
+                Region::Loading => view! { <LoadingState announcement=Announcement::Polite>{move || text(Key::PublicHomeLoading, locale.get())}</LoadingState> }.into_any(),
+                Region::Failed(failure) => {
+                    let message = match failure {
+                        PublicDiscoveryFailure::Diagnostic(kind) => crate::messages::error_key(kind),
+                        PublicDiscoveryFailure::Unavailable => Key::PublicHomeUnavailable,
+                        PublicDiscoveryFailure::Protocol => Key::PublicHomeProtocol,
+                    };
+                    view! {
+                        <p role="status">{move || text(message, locale.get())}</p>
+                        <Button id="theatre-search-dock-retry" on_press=Callback::new(move |_| on_retry.run(()))>{move || text(Key::PublicRetry, locale.get())}</Button>
+                    }.into_any()
+                },
+                Region::Expired => view! {
+                    <p role="status">{move || text(Key::DiscoveryExpired, locale.get())}</p>
+                    <Button id="theatre-search-dock-restart" on_press=Callback::new(move |_| on_restart.run(()))>{move || text(Key::DiscoveryRestart, locale.get())}</Button>
+                }.into_any(),
+                Region::Empty => view! { <p role="status">{move || text(if applied.with(|q| q.is_unfiltered()) { Key::PublicHomeEmpty } else { Key::DiscoveryNoMatches }, locale.get())}</p> }.into_any(),
+                Region::Incomplete | Region::Ready => view! {
+                    <ul class="theatre-search-result-list">
+                        <For each=move || state.with(|s| s.rows().to_vec()) key=|w| w.work_id.clone() children=move |work| {
+                            let id = PublicWorkId::parse(&work.work_id);
+                            view! { <li><button type="button" on:click=move |_| { if let Some(id) = id { on_open_work.run(id); } }>{work.title}</button></li> }
+                        }/>
+                    </ul>
+                    <Show when=move || state.with(|s| region(s.phase())) == Region::Incomplete>
+                        <p role="status">{move || text(Key::DiscoveryIncomplete, locale.get())}</p>
+                        <Button id="theatre-search-dock-more" on_press=Callback::new(move |_| on_load_more.run(()))>{move || text(Key::DiscoveryKeepSearching, locale.get())}</Button>
+                    </Show>
+                }.into_any(),
+            }}
+        </div>
+    }
+}
+
 #[component]
 fn SearchForm(
     applied: RwSignal<DiscoveryQuery>,
     locale: RwSignal<Locale>,
     on_search: Callback<DiscoveryQuery>,
+    state: RwSignal<PublicDiscoveryState>,
+    on_retry: Callback<()>,
+    on_restart: Callback<()>,
+    on_load_more: Callback<()>,
+    on_open_work: Callback<PublicWorkId>,
     children: Children,
 ) -> impl IntoView {
     let panel = NodeRef::<leptos::html::Div>::new();
+    let expanded = RwSignal::new(false);
+    let composing = RwSignal::new(false);
+    let restoring = RwSignal::new(false);
+    crate::platform::bind_search_dock(panel, expanded);
     let initial = applied.get_untracked();
     let search = RwSignal::new(initial.text().to_owned());
     let kind = RwSignal::new(initial.kind());
@@ -230,14 +309,19 @@ fn SearchForm(
     });
     // Discovery never narrows by content language (#424). The listener's earlier language choice
     // is the interface locale, not a catalogue filter; no content-language preference exists yet.
-    let submit =
-        move || match DiscoveryQuery::new(&search.get_untracked(), kind.get_untracked(), "") {
+    let submit = move || {
+        if composing.get_untracked() {
+            return;
+        }
+        expanded.set(true);
+        match DiscoveryQuery::new(&search.get_untracked(), kind.get_untracked(), "") {
             Ok(query) => {
                 error.set(None);
                 on_search.run(query);
             }
             Err(refused) => error.set(Some(refused)),
-        };
+        }
+    };
     let search_error = Signal::derive(move || {
         error
             .get()
@@ -246,12 +330,23 @@ fn SearchForm(
     let filtered = move || !applied.get().is_unfiltered();
     view! {
         <div node_ref=panel class="theatre-public-search"
+            on:focusin=move |event| { if !restoring.get_untracked() && crate::platform::focus_is_search_input(&event) { expanded.set(true); } }
+            on:click=move |event| { if crate::platform::click_is_search_input(&event) { expanded.set(true); } }
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
                 // composing. On a chip or button it keeps its own activation.
-                if event.key() == "Enter" && !event.is_composing() && from_text_field(&event) {
-                    event.prevent_default();
-                    submit();
+                match search_key_action(&event.key(), event.is_composing() || composing.get_untracked(), event.key_code(), from_text_field(&event)) {
+                    SearchKeyAction::Ignore => {},
+                    SearchKeyAction::Collapse => {
+                        event.prevent_default(); restoring.set(true);
+                        crate::platform::focus_search_input(panel);
+                        expanded.set(false); restoring.set(false);
+                    }
+                    SearchKeyAction::FirstResult | SearchKeyAction::LastResult => {
+                        event.prevent_default(); expanded.set(true);
+                        crate::platform::focus_search_result(panel, event.key() == "ArrowUp");
+                    }
+                    SearchKeyAction::Submit => { event.prevent_default(); submit(); }
                 }
             }>
             <div class="theatre-discovery-search-hero">
@@ -260,9 +355,35 @@ fn SearchForm(
                     <TextField id="theatre-discovery-search" kind=TextFieldKind::Search
                         variant=TextFieldVariant::Floating
                         label=Signal::derive(move || text(Key::DiscoverySearchLabel, locale.get()).to_owned())
-                        value=search on_input=Callback::new(move |value| search.set(value))
+                        value=search on_input=Callback::new(move |value| { search.set(value); expanded.set(true); })
+                        on_composition_start=Callback::new(move |_| composing.set(true))
+                        on_composition_end=Callback::new(move |_| composing.set(false))
+                        dock=cantos_ui::SearchDock { id: "theatre-search-dock".into(), expanded: expanded.into(),
+                            content: (move || view! {
+                                <div class="theatre-search-dock-heading">
+                                    <span>{move || text(Key::StoryShelf, locale.get())}</span>
+                                    <Button id="theatre-search-collapse" variant=ButtonVariant::Text
+                                        on_press=Callback::new(move |_| {
+                                            restoring.set(true); crate::platform::focus_search_input(panel);
+                                            expanded.set(false); restoring.set(false);
+                                        })>{move || text(Key::SearchCollapse, locale.get())}</Button>
+                                </div>
+                                <SearchDockResults state applied locale on_retry on_restart on_load_more on_open_work/>
+                            }).into() }
+
                         error=search_error autocomplete="off"
                         trailing=move || view! {
+                            <span class="theatre-search-clear-slot">
+                            <Show when=move || !search.get().is_empty()>
+                                {move || AccessibleName::new(text(Key::SearchClearInput, locale.get())).ok().map(|name| view! {
+                                    <IconButton id="theatre-search-clear-input" variant=ButtonVariant::Text icon=IconName::Close name
+                                        on_press=Callback::new(move |_| {
+                                            search.set(String::new()); error.set(None); expanded.set(true);
+                                            crate::platform::focus_search_input(panel);
+                                        })/>
+                                })}
+                            </Show>
+                            </span>
                             // The one magnifier (Search v4.3): an icon-only action whose localized
                             // name is its accessible text; Enter and this press share `submit`.
                             {move || AccessibleName::new(text(Key::DiscoverySearchSubmit, locale.get())).ok().map(|name| view! {
@@ -414,7 +535,7 @@ pub(crate) fn PublicHome(
     });
     view! {
         <section class="theatre-public-home" aria-labelledby="theatre-public-home-heading">
-            <SearchForm applied locale on_search>
+            <SearchForm applied locale on_search state on_retry on_restart on_load_more on_open_work>
             <header class="theatre-discover-intro">
                 <div class="theatre-discover-intro-copy">
                     <p class="theatre-eyebrow">{move || text(Key::PublicHomeEyebrow, locale.get())}</p>
@@ -510,6 +631,36 @@ mod tests {
     use crate::application::public_discovery::DiscoveryReadError;
     use crate::contract::discovery::MetadataWorkPage;
     use crate::features::auth_preview::{guest, logout_pending, signed_in, PreviewActor};
+
+    #[test]
+    fn search_keyboard_never_commits_or_dismisses_an_active_ime_and_native_buttons_keep_enter() {
+        for key in ["Enter", "Escape", "ArrowDown", "ArrowUp"] {
+            assert_eq!(
+                search_key_action(key, true, 13, true),
+                SearchKeyAction::Ignore
+            );
+            assert_eq!(
+                search_key_action(key, false, 229, true),
+                SearchKeyAction::Ignore
+            );
+        }
+        assert_eq!(
+            search_key_action("Enter", false, 13, true),
+            SearchKeyAction::Submit
+        );
+        assert_eq!(
+            search_key_action("Enter", false, 13, false),
+            SearchKeyAction::Ignore
+        );
+        assert_eq!(
+            search_key_action("Escape", false, 27, false),
+            SearchKeyAction::Collapse
+        );
+        assert_eq!(
+            search_key_action("Tab", false, 9, true),
+            SearchKeyAction::Ignore
+        );
+    }
 
     fn guest_account() -> RwSignal<AccountViewState> {
         let account = RwSignal::new(AccountViewState::default());

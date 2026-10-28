@@ -538,3 +538,12 @@ retained Dialog input specimens remain native HTML. CMP in-place Tab selection/n
 navigation and HTML anchors are explicitly different. No existing Web library API or app import
 changes. See [session 2 evidence](../../../docs/evidence/cmp-ui-system-session2.md) for the 48
 executed package tests, real Safari observations and incomplete acceptance matrix.
+
+### Search v4.3 body
+
+`TextField`'s optional `SearchDock` extends the existing Floating search anatomy. The caller owns
+the expanded signal and body content; the existing shell paints one header/body perimeter.
+Closed content remains mounted, inert and hidden from accessibility. Opening changes the body
+track and radius; input/action bounds stay on the header track. The caller provides viewport
+clearance through `--cantos-web-search-available`. It supplies no suggestions, network, query
+normalization or submit policy. The `theatre-docked-search` specimen exercises this extension.

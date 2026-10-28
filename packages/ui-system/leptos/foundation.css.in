@@ -32,6 +32,8 @@
    and close 200, with the shared feedback duration (140) for the content. Native renderers keep
    their existing motion scheme. Reduced motion updates at once. */
 :where(.cantos-ui) {
+  --cantos-web-search-available: 50dvh;
+  --cantos-web-search-travel: var(--cantos-space-sm);
   --cantos-web-search-open-duration: 280ms;
   --cantos-web-search-open-easing: cubic-bezier(0.2, 0, 0, 1);
   --cantos-web-search-close-duration: 200ms;
@@ -42,6 +44,8 @@
   :where(.cantos-ui) {
     --cantos-web-search-open-duration: 0ms;
     --cantos-web-search-close-duration: 0ms;
+    --cantos-web-search-effects-duration: 0ms;
+    --cantos-web-search-travel: 0px;
   }
 }
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
@@ -1435,4 +1439,56 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-variant="account-group"] .cui-theme-cycle-button:focus-visible {
   outline-color: currentColor;
   outline-offset: calc(var(--cantos-size-focus-width) * -1);
+}
+
+/* Search v4.3: the field shell owns header, fill, perimeter and body. Header tracks never
+   change during morphing. Only the second grid track expands; the body scrolls independently. */
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell[data-docked="true"] {
+  grid-template-rows: minmax(var(--cantos-size-search-header), auto) auto;
+  overflow: clip;
+  transition: border-radius var(--cantos-web-search-close-duration) var(--cantos-web-search-close-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell[data-docked="true"] > :is(.cui-field-control, .cui-field-trailing, .cui-field-label) {
+  grid-row: 1 / 2;
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field-shell[data-docked="true"] .cui-search-dock {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows var(--cantos-web-search-close-duration) var(--cantos-web-search-close-easing),
+    opacity var(--cantos-web-search-effects-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell[data-docked="true"][data-expanded="true"] {
+  border-radius: var(--cantos-shape-search-open);
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: calc(-1 * var(--cantos-size-focus-width));
+  transition-duration: var(--cantos-web-search-open-duration);
+  transition-timing-function: var(--cantos-web-search-open-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field-shell[data-docked="true"][data-expanded="true"] .cui-search-dock {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition-duration: var(--cantos-web-search-open-duration), var(--cantos-web-search-effects-duration);
+  transition-timing-function: var(--cantos-web-search-open-easing), var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-clip { min-block-size: 0; overflow: hidden; }
+:where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-scroll {
+  box-sizing: border-box;
+  max-block-size: min(28rem, max(0px, calc(var(--cantos-web-search-available, 50dvh) - env(safe-area-inset-bottom))));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--cantos-space-md);
+  transform: translateY(var(--cantos-web-search-travel));
+  transition: transform var(--cantos-web-search-effects-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui)[data-expression="theatre"] [data-expanded="true"] .cui-search-dock-scroll { transform: translateY(0); }
+
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell[data-docked="true"][data-expanded="true"][data-invalid="true"] {
+  outline-color: var(--cantos-color-error);
 }

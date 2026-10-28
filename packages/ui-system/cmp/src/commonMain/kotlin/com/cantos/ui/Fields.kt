@@ -1,10 +1,20 @@
 package com.cantos.ui
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -67,7 +77,7 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 )
 
 @Composable
-private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String): Modifier = fillMaxWidth()
+private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String, docked: Boolean = false): Modifier = fillMaxWidth()
     .then(when (variant) {
         TextFieldVariant.AuthTonal -> Modifier.heightIn(min = tokenDp("size.authField"))
         TextFieldVariant.Floating, TextFieldVariant.FloatingTonal -> Modifier.heightIn(min = FloatingFieldMinHeight)
@@ -80,7 +90,7 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
         // Auth v4.3: the tonal fill, label and caret carry focus and error; nothing is stroked.
         TextFieldVariant.FloatingTonal -> Modifier
         // The docked search header: resting radius 36 (half of the 72 minimum), hover 1 / focus 2 inset.
-        TextFieldVariant.FloatingSearch -> Modifier.cantosInsetPerimeter(RoundedCornerShape(tokenDp("shape.searchRest")), invalid = messages.error != null, hoverStroke = true)
+        TextFieldVariant.FloatingSearch -> if (docked) Modifier else Modifier.cantosInsetPerimeter(RoundedCornerShape(tokenDp("shape.searchRest")), invalid = messages.error != null, hoverStroke = true)
         // The auth shell is painted, so it gets the same Fields v4 perimeter on its own shape.
         TextFieldVariant.AuthTonal -> Modifier.cantosInsetPerimeter(CantosShapes.authField, invalid = messages.error != null)
         // Regular is the Standard expression's field (its error is an underline indicator); no Theatre
@@ -94,13 +104,14 @@ private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldV
     }
 
 @Composable
-private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextFieldColors {
+private fun fieldColors(state: FieldState, variant: TextFieldVariant, docked: Boolean = false): TextFieldColors {
     val tonal = tokenColor("color.surfaceContainer")
     // A non-editable shell is the same tone, paler: state is never carried by the fill alone.
     val quiet = lerp(tonal, tokenColor("color.surface"), FloatingQuietFillFraction)
     val floating = variant.isFloating()
     val tonalRecipe = variant == TextFieldVariant.FloatingTonal
     val container = when {
+        docked -> Color.Transparent
         floating -> if (state == FieldState.Editable) tonal else quiet
         state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal -> tonal
         else -> tokenColor("color.surfaceContainerHigh")
@@ -155,6 +166,14 @@ private fun fieldSupportingText(messages: FieldMessages, errorIcon: Boolean = fa
         }
     })
 
+/** Search v4.3's action inset is derived from the canonical 72 header and 52 action. */
+private fun fieldTrailing(variant: TextFieldVariant, trailing: (@Composable () -> Unit)?): (@Composable () -> Unit)? =
+    trailing?.let { content -> {
+        if (variant == TextFieldVariant.FloatingSearch) {
+            Box(Modifier.padding(end = (tokenDp("size.searchHeader") - tokenDp("size.searchAction")) / 2)) { content() }
+        } else content()
+    } }
+
 /**
  * Auth and floating fields keep help outside the painted boundary, so the perimeter and fill wrap
  * only the control. AuthTonal also puts its label outside; Floating keeps it inside the shell.
@@ -165,9 +184,30 @@ private fun FieldFrame(
     variant: TextFieldVariant,
     messages: FieldMessages,
     label: String,
+    dockExpanded: Boolean? = null,
+    dockContent: (@Composable () -> Unit)? = null,
     content: @Composable (Modifier) -> Unit,
 ) {
-    if (variant == TextFieldVariant.Regular) {
+    if (variant == TextFieldVariant.FloatingSearch && dockExpanded != null && dockContent != null) {
+        val preference = LocalUiPreferences.current.motion
+        val spec = motionFor(MotionIntent.Navigation, MotionProperty.Spatial, preference)
+        val radius by animateFloatAsState(
+            if (dockExpanded) tokenDp("shape.searchOpen").value else tokenDp("shape.searchRest").value,
+            spec.toAnimationSpec(), label = "search-radius",
+        )
+        val shape = RoundedCornerShape(radius.dp)
+        Column(modifier.background(tokenColor("color.surfaceContainer"), shape)
+            .cantosInsetPerimeter(shape, invalid = messages.error != null, active = dockExpanded, hoverStroke = true)
+            .clip(shape).animateContentSize(animationSpec = when (spec) {
+                MotionSpec.Instant -> snap()
+                is MotionSpec.Timed -> tween(spec.durationMillis, easing = CubicBezierEasing(spec.easing.x1, spec.easing.y1, spec.easing.x2, spec.easing.y2))
+            })) {
+            content(Modifier)
+            // Removal is synchronous: a closed/closing body never keeps focusable children.
+            if (dockExpanded) dockContent()
+        }
+        fieldSupportingText(messages)?.invoke()
+    } else if (variant == TextFieldVariant.Regular) {
         content(modifier)
     } else {
         val supportGap = if (variant.isFloating()) tokenDp("space.xs")
@@ -206,17 +246,19 @@ private fun ControlledTextField(
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: (@Composable () -> Unit)? = null,
+    dockExpanded: Boolean? = null,
+    dockContent: (@Composable () -> Unit)? = null,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
-    FieldFrame(modifier, variant, messages, label) { frameModifier ->
+    FieldFrame(modifier, variant, messages, label, dockExpanded, dockContent) { frameModifier ->
         MaterialTextField(
             value = value,
             onValueChange = { if (state.acceptsInput()) onValueChange(it) },
-            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
+            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label, dockExpanded != null),
             label = if (variant.hasFieldLabel()) ({ Text(label) }) else null,
             placeholder = if (variant == TextFieldVariant.FloatingSearch) ({ Text(label) }) else null,
-            trailingIcon = trailing,
+            trailingIcon = fieldTrailing(variant, trailing),
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,
@@ -227,7 +269,7 @@ private fun ControlledTextField(
             keyboardActions = keyboardActions.guardedBy(state),
             visualTransformation = visualTransformation,
             shape = fieldShape(variant),
-            colors = fieldColors(state, variant),
+            colors = fieldColors(state, variant, dockExpanded != null),
             supportingText = if (variant == TextFieldVariant.Regular) fieldSupportingText(messages) else null,
         )
     }
@@ -261,7 +303,7 @@ private fun ControlledTextField(
             modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
             label = if (variant.hasFieldLabel()) ({ Text(label) }) else null,
             placeholder = if (variant == TextFieldVariant.FloatingSearch) ({ Text(label) }) else null,
-            trailingIcon = trailing,
+            trailingIcon = fieldTrailing(variant, trailing),
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,
@@ -301,6 +343,9 @@ fun TextField(
     controlModifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: (@Composable () -> Unit)? = null,
+    // Optional body of the canonical search shell; the caller owns state, clamp and requests.
+    dockExpanded: Boolean? = null,
+    dockContent: (@Composable () -> Unit)? = null,
 ) {
     ControlledTextField(
         label = label,
@@ -317,6 +362,8 @@ fun TextField(
         controlModifier = controlModifier,
         visualTransformation = visualTransformation,
         trailing = trailing,
+        dockExpanded = dockExpanded,
+        dockContent = dockContent,
     )
 }
 

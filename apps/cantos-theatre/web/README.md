@@ -76,12 +76,14 @@ with long text and use the existing neutral cover fallback; design sample covers
 catalog content. Completed-empty catalog and filtered no-results remain distinct, with bundled
 decorative works artwork and existing recovery actions, never Discover-to-Discover navigation.
 
-The intro and existing Floating search share a bounded, app-owned hero using the canonical
-`theatreHero`/`theatreOnHero` and bold Theatre heading roles. The existing visibly labelled Search
-Button is docked in the admitted field's trailing slot; submit, IME, history and Clear still have
-one owner. Filters remain outside that hero, before results. The live brand uses the admitted
-official Symbol at the canonical 44-unit mark size with a 12-unit gap before Cantos. Its one
-link retains paired decorative tones and existing navigation.
+The intro and shared Floating search use the canonical Theatre hero/heading roles. Search v4.3
+extends that same `TextField` shell with an inert-on-collapse dock, one trailing magnifier and a
+separate Clear control. Its body shows the current real Discovery rows and loading/error/empty
+states; there is no autocomplete API. Typing alone never submits on Web. Enter/magnifier retain
+IME guards, validation, raw query and URL/Back/Forward semantics. Collapse keeps the draft query;
+Clear restores input focus. The body scrolls inside bounds measured from the visual viewport,
+including its keyboard resize, and respects safe-area/reduced-motion policy. Filters stay outside.
+Shared component preview qualification and browser/device coverage are recorded independently.
 
 The [app-owned empty artwork](empty-artwork.md) is packaged from the actual v4 handoff,
 with unchanged source hashes and no runtime Drive access. This bounded adoption consumes the

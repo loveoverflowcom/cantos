@@ -25064,6 +25064,54 @@
           "text": "New content revision saved."
         }
       }
+    },
+    "theatre.shell.search_collapse": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn"
+        },
+        "en": {
+          "text": "Collapse"
+        }
+      }
+    },
+    "theatre.shell.search_clear_input": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa nội dung tìm kiếm"
+        },
+        "en": {
+          "text": "Clear search text"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_collapse": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn"
+        },
+        "en": {
+          "text": "Collapse"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_clear_input": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa nội dung tìm kiếm"
+        },
+        "en": {
+          "text": "Clear search text"
+        }
+      }
     }
   }
 }

@@ -24,8 +24,15 @@ presentation. Qualified Logo Symbol, FloatingSearch and the Library Button are a
 bounded continuation below. Avatar, tonal IconButton, FilterChip and UiRoot/Theatre expression
 still await admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
 
+The Search route now uses the shared FloatingSearch dock: one shell owns its stable input
+header, trailing search action and the existing catalog result/state composition. Typing keeps
+the existing query-on-change owner; the magnifier and IME Search dispatch `SubmitSearch`.
+Collapse retains the raw query and restores input focus; clear keeps focus. The body scrolls
+within the measured viewport after safe/IME insets. JVM desktop tests exercise the production
+composition over declared preview ports; they do not establish Android/iOS keyboard acceptance.
+
 **Public cover ([#159](https://github.com/loveoverflowcom/cantos/issues/159), ADR 0033).** Work
-list, search and detail reads send `presentation=2` and strictly decode the v1.2 covered DTOs
+list, search and detail reads send `presentation=3` and strictly decode the metadata-capable DTOs
 (unit reads stay on default v1). `PublicCover` admits only the exact
 `https://{origin}/api/v1/theatre/works/{work}/cover/{sha256}` delivery shape; any other shape
 refuses the page. `PublicCoverHttp` reads the image anonymously, bounded by `byte_length`, and
@@ -37,6 +44,9 @@ fallback. Android decodes with `BitmapFactory`; **iOS has no cover boundary yet*
 bridge carries `String` bodies), so iOS shows the fallback. Player, mini-player and Library artwork
 are unchanged. Only desktop JVM tests and an Android debug compile were run; no emulator, device or
 real-server image read.
+The separate [metadata cover proposal](../../../services/cantos-server/contracts/studio/cover-disclosure/v1/metadata-proposal.md)
+does not enable images for the fictional metadata-only catalog; no client-side workaround or
+fallback release is created.
 
 **Desktop Preview ([#287](https://github.com/loveoverflowcom/cantos/issues/287)).** `:preview-sandbox`
 is a JVM-desktop-only module (one `desktop` target; no Android or iOS target, framework or source

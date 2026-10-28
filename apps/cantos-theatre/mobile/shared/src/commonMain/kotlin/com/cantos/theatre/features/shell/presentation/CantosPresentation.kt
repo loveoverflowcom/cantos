@@ -31,6 +31,18 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
@@ -129,6 +141,7 @@ val LocalShellLibraryHeader = staticCompositionLocalOf<(@Composable () -> Unit)?
  * supply slots composed from the shared design-v2 primitives; their bounded admission is recorded
  * separately. The shell owns only where the slots sit, never an account decision.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CantosPresentation(
     state: ShellState,
@@ -156,6 +169,7 @@ fun CantosPresentation(
     onErrorDismiss: () -> Unit = {},
     errorReturnFocus: FocusRequester? = null,
 ) {
+    var surfaceBounds by remember { mutableStateOf(Rect.Zero) }
     val copy = ShellCopy(state.locale, LocalShellLiveCopy.current)
     val notice = LocalShellNotice.current
     // An open confirmation sheet owns Back before the route stack does.
@@ -176,7 +190,11 @@ fun CantosPresentation(
     ) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
-                Modifier.fillMaxSize().safeDrawingPadding().imePadding().onPreviewKeyEvent {
+                Modifier.fillMaxSize().safeDrawingPadding().imePadding()
+                    .onGloballyPositioned { surfaceBounds = it.boundsInWindow() }
+                    .onPointerEvent(PointerEventType.Press) { event ->
+                        event.changes.firstOrNull()?.let { overlays.dismissOutside(it.position + surfaceBounds.topLeft) }
+                    }.onPreviewKeyEvent {
                     if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && (overlays.active || canGoBack(state))) {
                         back()
                         true
@@ -208,7 +226,8 @@ fun CantosPresentation(
                 }
                 val scroll = rememberRouteScroll(state.stack, membershipScreen)
                 val framed = state.route == ShellRoute.MembershipPreview || state.route.isAccountTask()
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                var viewportBottom by remember { mutableStateOf(0f) }
+                Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { viewportBottom = it.boundsInWindow().bottom }, contentAlignment = Alignment.TopCenter) {
                     Column(
                         Modifier.widthIn(max = if (state.route.isAccountTask()) AUTH_FRAME_MAX_WIDTH else tokenDp("breakpoint.expanded"))
                             .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (framed) "space.section" else "space.md"))
@@ -224,7 +243,7 @@ fun CantosPresentation(
                         )
                         when (val route = state.route) {
                             ShellRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
-                            ShellRoute.Search -> SearchScreen(state, catalog, copy, dispatch)
+                            ShellRoute.Search -> SearchScreen(state, catalog, copy, dispatch, viewportBottom) { bounds, onBack -> BackOverlay(overlays, onBack, bounds) }
                             ShellRoute.Library -> LibraryScreen(state, catalog, copy, dispatch)
                             is ShellRoute.Work -> {
                                 val work = catalog.work(route.id)
@@ -426,8 +445,27 @@ private fun WorkSummary(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+private fun SearchScreen(
+    state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit,
+    viewportBottom: Float, backOverlay: @Composable (Rect, () -> Unit) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    var restoring by remember { mutableStateOf(false) }
+    var headerBottom by remember { mutableStateOf(0f) }
+    var dockBounds by remember { mutableStateOf(Rect.Zero) }
+    val density = LocalDensity.current
+    val bodyHeight = with(density) { (viewportBottom - headerBottom).coerceAtLeast(0f).toDp() }
+    val collapse = {
+        restoring = true
+        focus.requestFocus()
+        expanded = false
+        restoring = false
+    }
+    if (expanded) backOverlay(dockBounds, collapse)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
     Surface(Modifier.fillMaxWidth().testTag("search-hero"),
         color = tokenColor("color.theatreHero"), contentColor = tokenColor("color.theatreOnHero"),
         shape = MaterialTheme.shapes.extraLarge) {
@@ -436,27 +474,56 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
                 fontWeight = FontWeight(CantosTokens.number("type.theatreHeading.weight").toInt())),
                 modifier = Modifier.semantics { heading() })
             TextField(
-                label = copy.text(CopyKey.SearchLabel), value = state.query, onValueChange = { dispatch(ShellEvent.Search(it)) },
-                modifier = Modifier.fillMaxWidth(), controlModifier = Modifier.testTag("search-input"),
+                label = copy.text(CopyKey.SearchLabel), value = state.query,
+                onValueChange = { expanded = true; dispatch(ShellEvent.Search(it)) },
+                modifier = Modifier.fillMaxWidth().onGloballyPositioned { dockBounds = it.boundsInWindow() },
+                controlModifier = Modifier.testTag("search-input").focusRequester(focus)
+                    .onFocusChanged { if (it.isFocused && !restoring) expanded = true }
+                    .onPointerEvent(PointerEventType.Press) { expanded = true }
+                    .onGloballyPositioned { headerBottom = it.boundsInWindow().bottom }
+                    .onPreviewKeyEvent {
+                        if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && expanded) { collapse(); true } else false
+                    },
                 variant = TextFieldVariant.FloatingSearch,
+                dockExpanded = expanded,
+                dockContent = {
+                    Column(Modifier.fillMaxWidth().heightIn(max = bodyHeight)
+                        .verticalScroll(rememberScrollState()).padding(tokenDp("space.md")).testTag("search-dock"),
+                        verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                        TextButton(onClick = collapse, modifier = Modifier.testTag("search-collapse")) { Text(copy.text(CopyKey.SearchCollapse)) }
+                        SearchResults(state, catalog, copy, dispatch)
+                    }
+                },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { dispatch(ShellEvent.SubmitSearch) }),
-                // Search v4.3: the dock holds exactly one magnifier; clearing lives outside it.
                 trailing = {
-                    IconButton(onClick = { dispatch(ShellEvent.SubmitSearch) }, modifier = Modifier.size(tokenDp("size.control")).testTag("search-submit")) {
-                        Icon(rememberCantosIconVector("search"), copy.text(CopyKey.SearchSubmit))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(tokenDp("size.control"))) {
+                        if (state.query.isNotEmpty()) IconButton(onClick = {
+                            dispatch(ShellEvent.Search("")); focus.requestFocus(); expanded = true
+                        }, modifier = Modifier.size(tokenDp("size.control")).testTag("search-clear")) {
+                            Icon(rememberCantosIconVector("close"), copy.text(CopyKey.SearchClearInput))
+                        }
+                        }
+                        com.cantos.ui.IconButton(
+                            name = com.cantos.ui.AccessibleName.of(copy.text(CopyKey.SearchSubmit)), icon = "search",
+                            onPress = { expanded = true; dispatch(ShellEvent.SubmitSearch) },
+                            variant = com.cantos.ui.ButtonVariant.Primary, circular = true,
+                            controlModifier = Modifier.size(tokenDp("size.searchAction")).testTag("search-submit"),
+                        )
                     }
                 },
             )
-            if (state.query.isNotEmpty()) {
-                TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Search("")) }, modifier = Modifier.testTag("search-clear")) {
-                    Text(copy.text(CopyKey.SearchClear))
-                }
-            }
         }
     }
+    // The same real owner result is shown outside the shell only after it closes.
+    if (!expanded) SearchResults(state, catalog, copy, dispatch)
+    }
+}
+
+@Composable
+private fun SearchResults(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     val works = filteredWorks(state, catalog)
-    // A partial list has no honest total: the count is shown only once the list is complete.
     if (catalog.worksPhase == ShellListPhase.Complete) {
         Text(copy.text(LegacyCopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
     }
@@ -464,10 +531,7 @@ private fun SearchScreen(state: ShellState, catalog: ShellCatalogView, copy: She
         state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch, state.theme, state.query)
         works.isEmpty() && catalog.worksPhase != ShellListPhase.Complete -> ListFooter(catalog.worksPhase, copy, dispatch, first = true)
         works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch, state.theme, state.query)
-        else -> {
-            WorkShelf(works, state, copy, dispatch)
-            ListFooter(catalog.worksPhase, copy, dispatch)
-        }
+        else -> { WorkShelf(works, state, copy, dispatch); ListFooter(catalog.worksPhase, copy, dispatch) }
     }
 }
 
