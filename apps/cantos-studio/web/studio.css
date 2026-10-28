@@ -249,40 +249,21 @@ body { margin: 0; }
 /* The topbar's icon-only theme cycle keeps its shared 44x44 target in narrow containers, where
    generic toolbar buttons go full width (it would wrap under the language selector at 320px). */
 .studio-shell .studio-topbar > .cui-button-field { inline-size: auto; }
-/* Topbar pills (#558 AC-06). The language trigger shows its short code (the full autonym stays the
-   accessible name) and the theme cycle shows its short mode name; the theme pill grows in width
-   only, keeping the 44px block target and a visible focus ring. */
-.studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button {
-  inline-size: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--cantos-space-xs);
-  padding-inline: var(--cantos-space-md);
-  background-color: transparent;
-  color: var(--cantos-color-theatre-account-control);
-  border: var(--cantos-web-stroke-active) solid currentColor;
-  font-family: var(--cantos-type-family-ui);
-  font-size: var(--cantos-type-label-size);
-  font-weight: var(--cantos-type-label-weight);
-  white-space: nowrap;
-}
-.studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button:focus-visible { outline-offset: var(--cantos-size-focus-offset); }
-/* Topbar v6 (#558 AC-06): one hue per theme from the Theatre account-control role (lavender in Dark,
-   deep purple in Light). The language pill is filled with its paired foreground; the theme pill is
-   transparent and its stroke, label and icon take the same role colour. The selectors outrank the
-   shared Theatre compact-select tonal fill, and the inset focus ring flips to the paired foreground
-   so it stays visible on the fill. */
+/* Topbar v7/v8 (#582). Language is a compact tonal pill: the short code (the full autonym stays the
+   accessible name) and a chevron, with no language icon and trimmed inline padding so the pill hugs
+   its content while the 44px block target and the visible focus ring are kept. Theme is the shared
+   icon-only tonal action (a rounded square, no label); the avatar stays a circle. Both tonal fills
+   read the semantic container/on-surface roles, so Light, Dark and System keep their paired contrast.
+   The selector outranks the shared Theatre compact-select fill, and focus keeps the shared ring. */
 .studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
-  background-color: var(--cantos-color-theatre-account-control);
-  color: var(--cantos-color-theatre-on-account-control);
+  background-color: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
 }
 .studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
-  background-color: var(--cantos-color-theatre-account-control-hover);
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
-.studio-shell .studio-language-field .cui-field-control:is(:focus-visible, [aria-expanded="true"]) { outline-color: var(--cantos-color-theatre-on-account-control); }
-.studio-shell .studio-language-field .cui-icon { color: var(--cantos-color-theatre-on-account-control); }
-.studio-shell .studio-language-field .cui-select-trigger { padding-inline: var(--cantos-space-md); }
+.studio-shell .studio-language-field .cui-icon { color: var(--cantos-color-on-surface); }
+.studio-shell .studio-language-field .cui-select-trigger { padding-inline: var(--cantos-space-sm); }
 .studio-shell .studio-language-field .cui-field-control { border-radius: var(--cantos-shape-pill); }
 .studio-shell .studio-language-field .cui-select-value { flex: 0 1 auto; }
 .studio-shell .studio-language-field .cui-select-short { font-weight: var(--cantos-type-label-weight); }
