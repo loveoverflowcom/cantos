@@ -776,7 +776,7 @@ class TheatreExpressionTokens(unittest.TestCase):
             for theme in ("light", "dark"):
                 self.assertIn((theme, f"color.theatreOn{role}", f"color.theatre{role}"), measured)
 
-    def test_expression_remaps_the_standard_roles_and_never_changes_studio_values(self):
+    def test_expression_remaps_the_standard_roles_and_leaves_a_consumer_without_one_unchanged(self):
         remap = self.source["expressions"]["theatre"]
         self.assertEqual(remap["color.primary"], "color.theatrePrimary")
         self.assertEqual(remap["type.headline.weight"], "type.theatreHeading.weight")

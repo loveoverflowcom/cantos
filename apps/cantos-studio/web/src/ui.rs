@@ -1,7 +1,7 @@
 //! Studio presentation adapters. Values, permissions and effects remain app-owned.
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Checkbox, ChoiceState, Dialog, DialogError, DisabledReason,
-    ErrorState, IconName, LinkHref, NavItem, Select,
+    ErrorState, Expression, IconName, LinkHref, NavItem, Select,
 };
 use leptos::{ev::MouseEvent, prelude::*};
 
@@ -9,6 +9,10 @@ use crate::messages::{
     self,
     workspace::{text, Key},
 };
+
+/// Studio shares Theatre's Expressive palette, weights and control geometry (#559); density,
+/// layout and reading intensity stay Studio's own. One constant so every Studio root agrees.
+pub const STUDIO_EXPRESSION: Expression = Expression::Theatre;
 
 /// Authored content keeps its declared language; this adapter has no interface-locale input.
 #[component]
@@ -841,5 +845,49 @@ mod review_checkbox_tests {
                 assert_eq!(calls.get_untracked(),0);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod expression_tests {
+    use super::STUDIO_EXPRESSION;
+
+    #[test]
+    fn studio_selects_a_generated_expression_on_every_root() {
+        let attribute = STUDIO_EXPRESSION
+            .attribute()
+            .expect("Studio names an expression");
+        assert!(
+            cantos_ui::tokens::EXPRESSIONS.contains(&attribute),
+            "{attribute}"
+        );
+        let view = include_str!("view.rs");
+        let roots = view.matches("<UiRoot ").count();
+        let expressive = view
+            .matches("density=Density::Comfortable expression=STUDIO_EXPRESSION>")
+            .count();
+        assert_eq!(
+            (roots, expressive),
+            (4, 4),
+            "a Studio root fell back to Standard"
+        );
+    }
+
+    #[test]
+    fn studio_entry_art_is_the_hero_surface_not_a_selection_ink_block() {
+        let css = include_str!("../studio.css");
+        let rule = css
+            .lines()
+            .find(|line| line.starts_with(".studio-shell .entry-artwork {"))
+            .unwrap();
+        assert!(
+            rule.contains("background: var(--cantos-color-theatre-hero)"),
+            "{rule}"
+        );
+        assert!(
+            rule.contains("color: var(--cantos-color-theatre-on-hero)"),
+            "{rule}"
+        );
+        assert!(!rule.contains("primary-container"), "{rule}");
     }
 }

@@ -46,9 +46,11 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 
 Dynamic system colors must not silently replace Cantos's identity. Shared values belong in the
 canonical source, with generated CSS/Rust/Kotlin, contrast checks and native theme mappings.
-Studio and Theatre vary density/layout, not palettes, with one scoped exception: the opt-in
-[Theatre expression](../../packages/ui-system/shared/README.md#theatre-expression-v070) remaps
-standard roles for a Theatre subtree from the same source and never touches Studio. The
+Studio and Theatre vary density/layout, not palettes. Both Web apps select the opt-in
+[Theatre expression](../../packages/ui-system/shared/README.md#theatre-expression-v070), which remaps
+standard roles for that subtree from the same source ([#559](https://github.com/loveoverflowcom/cantos/issues/559)
+supersedes Studio Quiet Surfaces v1's Standard choice); Studio keeps a creator-tool reading intensity
+through its own layout and density, and a consumer that names no expression keeps the standard roles. The
 [foundation evidence](../evidence/ui-system-foundation.md)
 separates source/compile checks from pending runtime appearance, motion and interaction review.
 

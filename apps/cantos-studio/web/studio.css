@@ -315,7 +315,8 @@ body { margin: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
-.studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); padding: var(--cantos-space-xl); }
+/* The art panel is the Expressive hero surface (Theatre's auth art uses the same pair); under the expression primaryContainer is selection ink, not a brand block. */
+.studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); padding: var(--cantos-space-xl); }
 .studio-shell .entry-artwork .cui-logo { inline-size: 11rem; block-size: auto; }
 .studio-shell .entry-story-copy { padding: var(--cantos-space-xl); }
 .studio-shell .entry-story-copy h2 { max-inline-size: 16ch; margin-block: var(--cantos-space-sm); font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); }

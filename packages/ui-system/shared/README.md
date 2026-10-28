@@ -94,7 +94,14 @@ geometry roles are untouched.
 | Web | `UiRoot expression=Expression::Theatre` → `data-expression="theatre"`; the generated rule is declared after every theme block and again for the system-dark selector, so it holds in light, dark and system themes | no attribute, no rule applies |
 | CMP | `UiPreferences(expression = CantosExpression.Theatre)`; `tokenColor`, the Material scheme and `typeStyle` resolve through the generated `CantosTokens.role(name, expression)` | `CantosExpression.Standard` resolves every role to itself |
 
-Studio opts out by default and has no consumer that selects the expression. The generator refuses
+Theatre Web and, since [#559](https://github.com/loveoverflowcom/cantos/issues/559), every Studio Web
+root select the expression (`STUDIO_EXPRESSION` in `apps/cantos-studio/web/src/ui.rs`): one palette and
+weight remap, no second named profile and no forked hex. Studio keeps its own density, layout and reading
+intensity. The expression's contextual selectors (docked search, filter chips, the guest profile card and
+account tile) have no Studio consumer and match nothing there; the floating field, compact select and
+tonal action rules apply to both. A consumer that names no expression (the component preview default, any
+future app) still resolves exactly the standard roles. The superseded Studio Quiet Surfaces v1 choice of
+Standard is replaced for the Web renderer only; CMP has no Studio consumer. The generator refuses
 an expression that changes a role's type or theme scope, chains remaps, names a non-canonical role
 or weakens any contrast pair its swap touches (every pair is re-measured in both themes). The
 exact solid-pair measurements for the roles that matter, computed by `scripts/ui_tokens.py` and
