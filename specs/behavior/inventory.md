@@ -12,6 +12,7 @@ Each runnable capability keeps its authority table beside its model; the registr
 
 | Stable capability ID | Lifecycle | Inventory |
 | --- | --- | --- |
+| `cantos.media.sample-metadata` | draft | [sample_metadata.md](../../services/cantos-server/behavior/media/sample_metadata.md) |
 | `cantos.media.private-audio-admission` | draft | [private_audio_admission.md](../../services/cantos-server/behavior/media/private_audio_admission.md) |
 | `cantos.media.public-playback-delivery` | draft | [public_playback_delivery.md](../../services/cantos-server/behavior/media/public_playback_delivery.md) |
 | `cantos.media.public-cover-projection` | draft | [public_cover_projection.md](../../services/cantos-server/behavior/media/public_cover_projection.md) |

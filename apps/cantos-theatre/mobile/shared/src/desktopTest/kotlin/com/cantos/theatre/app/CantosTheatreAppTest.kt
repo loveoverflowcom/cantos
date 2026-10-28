@@ -71,8 +71,8 @@ class CantosTheatreAppTest {
     ) {
         val work = works.first()
         val unit = units.getValue(work).first()
-        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId.value,
-            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs))
+        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value,
+            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs!!))
         val engine = Decoder()
         var factories = 0
         var authorizations = 0

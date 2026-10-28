@@ -3,7 +3,7 @@
 //! control and each unit's control only express an intent; the root resolves the exact release
 //! and owns the one player. Opening this page never plays anything.
 use crate::contract::{
-    discovery::{CoveredWorkSummary, PresentedUnitSummary, UnitKind, WorkKind},
+    discovery::{MetadataUnitSummary, MetadataWorkSummary, UnitKind, WorkKind},
     library::{AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation},
 };
 use crate::{
@@ -50,12 +50,12 @@ pub(crate) struct ListenTarget {
 }
 
 impl ListenTarget {
-    fn of(row: &PresentedUnitSummary) -> Self {
-        Self {
+    fn of(row: &MetadataUnitSummary) -> Option<Self> {
+        Some(Self {
             unit_id: row.unit_id.clone(),
-            publication_id: row.publication_id.clone(),
+            publication_id: row.playback.as_ref()?.publication_id.clone(),
             title: row.title.clone(),
-        }
+        })
     }
 }
 
@@ -111,19 +111,25 @@ impl ListenControls {
         Some((track.publication(), playing))
     }
 
-    fn state_of(self, row: &PresentedUnitSummary) -> RowListen {
+    fn state_of(self, row: &MetadataUnitSummary) -> RowListen {
+        let Some(playback) = &row.playback else {
+            return RowListen::Ready;
+        };
         let current = self.current();
         self.listen
-            .with(|listen| row_listen(listen, current, &row.publication_id))
+            .with(|listen| row_listen(listen, current, &playback.publication_id))
     }
 
     /// Pause what plays, otherwise ask the root to resolve and play this unit.
-    fn press(self, row: &PresentedUnitSummary) {
+    fn press(self, row: &MetadataUnitSummary) {
+        let Some(target) = ListenTarget::of(row) else {
+            return;
+        };
         match self.state_of(row) {
             RowListen::Playing => self.player.dispatch(Event::PauseRequested),
             RowListen::Preparing => (),
             RowListen::Ready | RowListen::Failed(_) => {
-                self.on_listen.run(ListenTarget::of(row));
+                self.on_listen.run(target);
             }
         }
     }
@@ -290,7 +296,7 @@ pub(crate) fn PublicWorkDetail(
 
 #[component]
 fn WorkSaveControl(
-    work: CoveredWorkSummary,
+    work: MetadataWorkSummary,
     first_publication_id: Signal<Option<String>>,
     locale: RwSignal<Locale>,
     controls: WorkSyncControls,
@@ -397,7 +403,7 @@ fn ReadyWork(
     state: RwSignal<WorkDetailState>,
     locale: RwSignal<Locale>,
     listen: ListenControls,
-    work: CoveredWorkSummary,
+    work: MetadataWorkSummary,
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
     sync_controls: Option<WorkSyncControls>,
@@ -449,13 +455,14 @@ fn ReadyWork(
                     units
                         .rows()
                         .iter()
-                        .find(|row| !units.is_unavailable(&row.unit_id))
+                        .find(|row| !units.is_unavailable(&row.unit_id) && row.playback.is_some())
                         .cloned()
                 })
             })
             .flatten()
     };
-    let first_pub = Signal::derive(move || first().map(|row| row.publication_id));
+    let first_pub =
+        Signal::derive(move || first().and_then(|row| row.playback.map(|p| p.publication_id)));
     let listen_state = Signal::derive(move || match first() {
         None => DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
             .map(ButtonState::Disabled)
@@ -546,7 +553,7 @@ fn ReadyWork(
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct UnitRowUi {
-    row: PresentedUnitSummary,
+    row: MetadataUnitSummary,
     unavailable: bool,
 }
 
@@ -582,7 +589,7 @@ fn press_current_unit(state: ReadSignal<WorkDetailState>, unit_id: &str, listen:
 fn UnitRow(
     state: ReadSignal<WorkDetailState>,
     unit_id: String,
-    work: CoveredWorkSummary,
+    work: MetadataWorkSummary,
     lang: String,
     locale: RwSignal<Locale>,
     listen: ListenControls,
@@ -600,22 +607,30 @@ fn UnitRow(
                 .unwrap_or(RowListen::Ready)
         })
     };
-    let button_state = Signal::derive(move || match row_state() {
-        RowListen::Preparing => row
-            .with(|r| {
-                r.as_ref().and_then(|r| {
-                    DisabledReason::new(messages::message(
+    let button_state = Signal::derive(move || {
+        if row.with(|r| r.as_ref().is_some_and(|r| r.row.playback.is_none())) {
+            DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
+                .map(ButtonState::Disabled)
+                .unwrap_or_default()
+        } else {
+            match row_state() {
+                RowListen::Preparing => row
+                    .with(|r| {
+                        r.as_ref().and_then(|r| {
+                            DisabledReason::new(messages::message(
                         locale.get(),
                         crate::localization::generated::Message::TheatreShellListenUnitPreparing {
                             arg_title: &(r.row.title.clone()),
                         },
                     ))
                     .ok()
-                })
-            })
-            .map(ButtonState::Loading)
-            .unwrap_or_default(),
-        _ => ButtonState::Enabled,
+                        })
+                    })
+                    .map(ButtonState::Loading)
+                    .unwrap_or_default(),
+                _ => ButtonState::Enabled,
+            }
+        }
     });
     let verb = move || match row_state() {
         RowListen::Playing => Key::ListenPause,
@@ -626,9 +641,10 @@ fn UnitRow(
         let controls = sync_controls?;
         row.with(|r| {
             let r = r.as_ref()?;
+            let publication_id = &r.row.playback.as_ref()?.publication_id;
             controls.account.with(|a| {
                 a.sync()
-                    .and_then(|s| s.progress_for(&r.row.publication_id))
+                    .and_then(|s| s.progress_for(publication_id))
                     .and_then(|p| p.record.clone())
             })
         })
@@ -658,28 +674,42 @@ fn UnitRow(
                 ResumeAttemptState::Restored {
                     publication_id,
                     position_ms,
-                } if publication_id == &r.row.publication_id => Some(messages::message(
-                    locale.get(),
-                    crate::localization::generated::Message::TheatreShellLiveResumeRestored {
-                        arg_time: &(clock(locale.get(), position_ms / 1000)),
-                    },
-                )),
+                } if r
+                    .row
+                    .playback
+                    .as_ref()
+                    .is_some_and(|p| publication_id == &p.publication_id) =>
+                {
+                    Some(messages::message(
+                        locale.get(),
+                        crate::localization::generated::Message::TheatreShellLiveResumeRestored {
+                            arg_time: &(clock(locale.get(), position_ms / 1000)),
+                        },
+                    ))
+                }
                 ResumeAttemptState::Refused {
                     publication_id,
                     reason,
-                } if publication_id == &r.row.publication_id => Some(
-                    text(
-                        match reason {
-                            ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
-                            ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
-                            ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
-                                Key::LiveResumeLoadFailed
-                            }
-                        },
-                        locale.get(),
+                } if r
+                    .row
+                    .playback
+                    .as_ref()
+                    .is_some_and(|p| publication_id == &p.publication_id) =>
+                {
+                    Some(
+                        text(
+                            match reason {
+                                ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
+                                ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
+                                ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
+                                    Key::LiveResumeLoadFailed
+                                }
+                            },
+                            locale.get(),
+                        )
+                        .to_owned(),
                     )
-                    .to_owned(),
-                ),
+                }
                 _ => None,
             })
         })
@@ -689,7 +719,12 @@ fn UnitRow(
     let seconds = move || {
         row.with(|r| {
             r.as_ref()
-                .map(|r| u32::try_from(r.row.duration_ms / 1000).unwrap_or(u32::MAX))
+                .and_then(|r| {
+                    r.row
+                        .playback
+                        .as_ref()
+                        .map(|p| u32::try_from(p.duration_ms / 1000).unwrap_or(u32::MAX))
+                })
                 .unwrap_or_default()
         })
     };
@@ -711,7 +746,7 @@ fn UnitRow(
                         <p class="theatre-muted" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.description.clone()).unwrap_or_default())}</p>
                     </Show>
                     <p class="theatre-muted theatre-public-unit-duration">
-                        <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.row.duration_ms > 0)) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
+                        <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.row.playback.as_ref().is_some_and(|p| p.duration_ms > 0))) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
                             <span aria-hidden="true">{move || clock(locale.get(), seconds())}</span>
                             <span class="cui-sr-only">{move || messages::message(locale.get(), crate::localization::generated::Message::TheatreShellPublicWorkDurationDescription { arg_duration: &(messages::spoken_time(locale.get(), seconds())) })}</span>
                         </Show>
@@ -744,7 +779,8 @@ fn UnitRow(
                                 on_press=Callback::new(move |_| {
                                     let Some(controls) = sync_controls else { return; };
                                     let Some(current) = state.with_untracked(|s| id.with_value(|id| unit_row_ui(s, id))).filter(|r| !r.unavailable) else { return; };
-                                    let Some(rec) = controls.account.with_untracked(|a| a.sync().and_then(|s| s.progress_for(&current.row.publication_id)).and_then(|p| p.record.clone())).filter(|r| r.position_ms > 0) else { return; };
+                                    let Some(publication_id) = current.row.playback.as_ref().map(|p| p.publication_id.as_str()) else { return; };
+                                    let Some(rec) = controls.account.with_untracked(|a| a.sync().and_then(|s| s.progress_for(publication_id)).and_then(|p| p.record.clone())).filter(|r| r.position_ms > 0) else { return; };
                                     let w = work.get_value();
                                     let pres = AudioPresentation { work: WorkPresentation { work_id: w.work_id, publication_id: rec.audio.publication_id.clone(), title: w.title, kind: w.kind, language: w.language }, unit_id: current.row.unit_id, unit_title: current.row.title };
                                     controls.on_resume.run((rec.audio, rec.position_ms, ResumeStatus::ExactAvailable, Some(pres)));
@@ -763,7 +799,7 @@ fn UnitRow(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::{CoveredWorkPage, PresentedUnitPage};
+    use crate::contract::discovery::{MetadataUnitPage, MetadataWorkPage};
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
@@ -772,36 +808,40 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
-    fn fixture_work() -> CoveredWorkSummary {
-        let page: CoveredWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+    fn fixture_work() -> MetadataWorkSummary {
+        let page: MetadataWorkPage = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
         ))
         .unwrap();
         page.items.into_iter().next().unwrap()
     }
-    fn fixture_units() -> PresentedUnitPage {
+    fn fixture_units() -> MetadataUnitPage {
         serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/presented_units.json"
         ))
         .unwrap()
     }
-    fn unit(n: u128, title: &str) -> PresentedUnitSummary {
-        PresentedUnitSummary {
+    fn unit(n: u128, title: &str) -> MetadataUnitSummary {
+        MetadataUnitSummary {
             unit_id: uuid::Uuid::from_u128(0x2000_0000_0000_4000_8000_0000_0000_0000 + n)
                 .to_string(),
             kind: UnitKind::Chapter,
             position: 7,
             title: title.into(),
             description: "Một đoạn mô tả đã công bố.".into(),
-            publication_id: uuid::Uuid::from_u128(0x8000_0000_0000_4000_8000_0000_0000_0000 + n)
+            playback: Some(crate::contract::discovery::UnitPlayback {
+                publication_id: uuid::Uuid::from_u128(
+                    0x8000_0000_0000_4000_8000_0000_0000_0000 + n,
+                )
                 .to_string(),
-            published_at_ms: 5_000,
-            duration_ms: 754_000,
+                published_at_ms: 5_000,
+                duration_ms: 754_000,
+            }),
             ordinal: n as u64,
         }
     }
     fn fixture_manifest(
-        row: &PresentedUnitSummary,
+        row: &MetadataUnitSummary,
     ) -> crate::contract::discovery::PublicationManifest {
         let mut manifest: crate::contract::discovery::PublicationManifest =
             serde_json::from_str(include_str!(
@@ -810,11 +850,11 @@ mod tests {
             .unwrap();
         manifest.work_id = WORK.into();
         manifest.unit_id = row.unit_id.clone();
-        manifest.publication_id = row.publication_id.clone();
+        manifest.publication_id = row.playback.as_ref().unwrap().publication_id.clone();
         manifest
     }
-    fn page(items: Vec<PresentedUnitSummary>, next: Option<&str>) -> PresentedUnitPage {
-        PresentedUnitPage {
+    fn page(items: Vec<MetadataUnitSummary>, next: Option<&str>) -> MetadataUnitPage {
+        MetadataUnitPage {
             work_id: WORK.into(),
             items,
             next_cursor: next.map(str::to_owned),
@@ -822,7 +862,7 @@ mod tests {
     }
     /// A ready Work with its page-one request in flight.
     fn opened(
-        work: CoveredWorkSummary,
+        work: MetadataWorkSummary,
     ) -> (WorkDetailState, crate::application::public_work::PageTicket) {
         let mut state = WorkDetailState::default();
         let ticket = state.open(PublicWorkId::parse(WORK).unwrap()).unwrap();
@@ -868,7 +908,7 @@ mod tests {
         }
     }
 
-    fn replace_walk(state: &mut WorkDetailState, items: Vec<PresentedUnitSummary>) {
+    fn replace_walk(state: &mut WorkDetailState, items: Vec<MetadataUnitSummary>) {
         let more = state.load_more().unwrap();
         let Step::Continue(first) = state.finish_page(&more, Err(CatalogReadError::InvalidCursor))
         else {
@@ -939,11 +979,14 @@ mod tests {
                 match field {
                     0 => updated.title = "Tên hiện tại".into(),
                     1 => updated.description = "Mô tả hiện tại".into(),
-                    2 => updated.duration_ms = 123_000,
+                    2 => updated.playback.as_mut().unwrap().duration_ms = 123_000,
                     3 => updated.ordinal = 12,
                     4 => updated.position = 18,
-                    5 => updated.published_at_ms = 55_000,
-                    6 => updated.publication_id = uuid::Uuid::from_u128(999).to_string(),
+                    5 => updated.playback.as_mut().unwrap().published_at_ms = 55_000,
+                    6 => {
+                        updated.playback.as_mut().unwrap().publication_id =
+                            uuid::Uuid::from_u128(999).to_string()
+                    }
                     _ => unreachable!(),
                 }
                 state.update(|s| replace_walk(s, vec![updated.clone()]));
@@ -959,7 +1002,7 @@ mod tests {
                 id.with_value(|id| press_current_unit(state.read_only(), id, listen));
                 assert_eq!(
                     targets.lock().unwrap().last(),
-                    Some(&ListenTarget::of(&updated))
+                    ListenTarget::of(&updated).as_ref()
                 );
             }
             let count = targets.lock().unwrap().len();
@@ -969,6 +1012,34 @@ mod tests {
             id.with_value(|id| press_current_unit(state.read_only(), id, listen));
             assert_eq!(targets.lock().unwrap().len(), count);
             assert_eq!(row.get(), None);
+        });
+    }
+
+    #[test]
+    fn disclosed_unit_without_audio_is_visible_but_never_dispatches_listen() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        Owner::new().with(|| {
+            let mut item = unit(1, "Chương chưa có audio");
+            item.playback = None;
+            let (mut initial, first) = opened(fixture_work());
+            initial.finish_page(&first, Ok(page(vec![item.clone()], None)));
+            let html = render(initial.clone(), Locale::Vietnamese);
+            assert!(html.contains("Chương chưa có audio"));
+            assert!(html.contains("disabled"));
+            let state = RwSignal::new(initial);
+            let calls = Arc::new(AtomicUsize::new(0));
+            let observed = calls.clone();
+            let listen = ListenControls {
+                on_listen: Callback::new(move |_| {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                }),
+                ..controls()
+            };
+            press_current_unit(state.read_only(), &item.unit_id, listen);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
         });
     }
 
@@ -1167,7 +1238,8 @@ mod tests {
         };
         use std::sync::{Arc, Mutex};
         let row = unit(2, "Chương hai");
-        let publication = uuid::Uuid::parse_str(&row.publication_id).unwrap();
+        let publication =
+            uuid::Uuid::parse_str(&row.playback.as_ref().unwrap().publication_id).unwrap();
         Owner::new().with(|| {
             let pressed = Arc::new(Mutex::new(Vec::new()));
             let recorded = pressed.clone();
@@ -1183,14 +1255,14 @@ mod tests {
             assert_eq!(pressed.lock().unwrap().len(), 1);
             assert_eq!(
                 pressed.lock().unwrap()[0].publication_id,
-                row.publication_id
+                row.playback.as_ref().unwrap().publication_id
             );
 
             // A resolving intent shows preparing and a second press asks for nothing.
             let request = ReleaseRequest::parse(
                 PublicWorkId::parse(WORK).unwrap(),
                 &row.unit_id,
-                &row.publication_id,
+                &row.playback.as_ref().unwrap().publication_id,
             )
             .unwrap();
             let label = ListenLabel {
@@ -1238,12 +1310,13 @@ mod tests {
     fn row_state_is_derived_from_intent_then_failure_then_the_session_only() {
         use crate::core::public_track::ReleaseRequest;
         let row = unit(3, "Chương ba");
-        let publication = uuid::Uuid::parse_str(&row.publication_id).unwrap();
+        let publication =
+            uuid::Uuid::parse_str(&row.playback.as_ref().unwrap().publication_id).unwrap();
         let other = uuid::Uuid::from_u128(7);
         let request = ReleaseRequest::parse(
             PublicWorkId::parse(WORK).unwrap(),
             &row.unit_id,
-            &row.publication_id,
+            &row.playback.as_ref().unwrap().publication_id,
         )
         .unwrap();
         let label = crate::application::public_listen::ListenLabel {
@@ -1258,17 +1331,32 @@ mod tests {
             (Some((publication, true)), RowListen::Playing),
             (Some((other, true)), RowListen::Ready),
         ] {
-            assert_eq!(row_listen(&idle, current, &row.publication_id), expected);
+            assert_eq!(
+                row_listen(
+                    &idle,
+                    current,
+                    &row.playback.as_ref().unwrap().publication_id
+                ),
+                expected
+            );
         }
         let mut resolving = ListenState::default();
         let ticket = resolving.begin(request, label).unwrap();
         assert_eq!(
-            row_listen(&resolving, Some((publication, true)), &row.publication_id),
+            row_listen(
+                &resolving,
+                Some((publication, true)),
+                &row.playback.as_ref().unwrap().publication_id
+            ),
             RowListen::Preparing
         );
         resolving.finish(&ticket, Err(CatalogReadError::NotFound));
         assert_eq!(
-            row_listen(&resolving, None, &row.publication_id),
+            row_listen(
+                &resolving,
+                None,
+                &row.playback.as_ref().unwrap().publication_id
+            ),
             RowListen::Failed(ListenFailure::NotFound)
         );
         // Another unit's failure or progress never colors this row.
@@ -1389,7 +1477,7 @@ mod tests {
         let (mut state, first) = opened(podcast);
         let mut episode = unit(3, "Trò chuyện bên hiên nhà");
         episode.kind = UnitKind::Episode;
-        episode.duration_ms = 0;
+        episode.playback = None;
         state.finish_page(&first, Ok(page(vec![episode.clone()], Some("lc1_old"))));
         let second = state.load_more().unwrap();
         let Step::Continue(restart) =
@@ -1604,14 +1692,14 @@ mod tests {
                 accepted_at_ms: 5_000,
             });
             sync.finish_progress_read(
-                &row.publication_id,
+                &row.playback.as_ref().unwrap().publication_id,
                 Some(ProgressRecord {
                     audio: AudioIdentity {
                         work_id: WORK.into(),
                         unit_id: row.unit_id.clone(),
-                        publication_id: row.publication_id.clone(),
+                        publication_id: row.playback.as_ref().unwrap().publication_id.clone(),
                         rendition_id: uuid::Uuid::from_u128(99).to_string(),
-                        duration_ms: row.duration_ms,
+                        duration_ms: row.playback.as_ref().unwrap().duration_ms,
                         sha256: "a".repeat(64),
                     },
                     position_ms: 125_000,
@@ -1626,7 +1714,7 @@ mod tests {
                 None,
             );
             sync.set_resume_attempt(ResumeAttemptState::Restored {
-                publication_id: row.publication_id.clone(),
+                publication_id: row.playback.as_ref().unwrap().publication_id.clone(),
                 position_ms: 125_000,
             });
         });

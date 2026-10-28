@@ -10,6 +10,8 @@ use super::storage;
 pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
+pub(super) mod sample_metadata;
+pub(super) mod sample_seed;
 
 const WORK_COLUMNS: &str =
     "w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest";
@@ -154,6 +156,39 @@ pub(super) async fn load_unit(tx: &Tx<'_>, id: &str) -> Result<Option<ContentUni
         .await?
         .as_ref()
         .map(decode_unit_row)
+        .transpose()
+}
+
+/// Load an exact historical unit, checking its immutable parent and snapshot bytes.
+pub(super) async fn load_unit_revision(
+    tx: &Tx<'_>,
+    id: &str,
+    revision: Revision,
+) -> Result<Option<ContentUnit>, StoreError> {
+    let row = tx.query_opt(
+        "SELECT u.id,u.work_id,u.work_kind,u.kind,r.revision,r.snapshot,r.snapshot_digest FROM catalog_units u JOIN catalog_unit_revisions r ON r.unit_id=u.id WHERE u.id=?1 AND r.revision=?2 AND r.revision<=u.head_revision",
+        &[&id, &checked_number(revision.get())?],
+    ).await?;
+    row.as_ref()
+        .map(|row| {
+            let bytes: Vec<u8> = corrupt(row.try_get("snapshot"))?;
+            let checksum: String = corrupt(row.try_get("snapshot_digest"))?;
+            if digest(&bytes) != checksum {
+                return Err(StoreError::CorruptRevision);
+            }
+            let kind: String = corrupt(row.try_get("work_kind"))?;
+            let unit = decode_unit(&bytes, storage::work_kind(&kind)?)?;
+            if unit.id().as_str() != corrupt(row.try_get::<_, String>("id"))?
+                || unit.work_id().as_str() != corrupt(row.try_get::<_, String>("work_id"))?
+                || unit.kind().as_str() != corrupt(row.try_get::<_, String>("kind"))?
+                || unit.revision() != revision.get()
+                || checked_number(unit.revision()).map_err(|_| StoreError::CorruptRevision)?
+                    != corrupt(row.try_get::<_, i64>("revision"))?
+            {
+                return Err(StoreError::CorruptRevision);
+            }
+            Ok(unit)
+        })
         .transpose()
 }
 

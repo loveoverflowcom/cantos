@@ -19,7 +19,7 @@ import release_oci as oci
 import release_oci_qualify as qualify
 
 
-def run(fixture, old, new):
+def run(fixture, old, new, old_version='v23', new_version='v24'):
     f = fixture
     for release in (old, new):
         f.manifest = release
@@ -34,15 +34,15 @@ def run(fixture, old, new):
     f.call('signup')
     f.call('historical_state')
     f.stop()
-    backups = {s: qualify.cold_copy(path, f.work/'v23-backup'/s) for s, path in f.databases.items()}
+    backups = {s: qualify.cold_copy(path, f.work/(old_version+'-backup')/s) for s, path in f.databases.items()}
     f.manifest = new
     before = qualify.directory_record(f.databases['cantos-server'])
     f.pod('run', '--rm', '--network=none', *f.options('cantos-server'), '--entrypoint',
           '/usr/local/bin/cantos-migrate', f.image('cantos-server'), '--check', expected=1)
     qualify.require(before == qualify.directory_record(f.databases['cantos-server']), 'PENDING_SCHEMA_CHECK_CHANGED_BYTES')
-    f.databases = {s: f.work/'v24-upgrade'/s for s in oci.SERVICES}
+    f.databases = {s: f.work/(new_version+'-upgrade')/s for s in oci.SERVICES}
     for service in oci.SERVICES:
-        qualify.cold_copy(f.work/'v23-backup'/service, f.databases[service], backups[service])
+        qualify.cold_copy(f.work/(old_version+'-backup')/service, f.databases[service], backups[service])
     f.migrate()
     f.migrate()
     for service in oci.SERVICES:
@@ -54,10 +54,10 @@ def run(fixture, old, new):
     f.stop()
     f.adapter_record = adapter_rehearsal.run(f)
     f.manifest = old
-    f.databases = {s: f.work/'v23-restored'/s for s in oci.SERVICES}
+    f.databases = {s: f.work/(old_version+'-restored')/s for s in oci.SERVICES}
     for service in oci.SERVICES:
-        qualify.cold_copy(f.work/'v23-backup'/service, f.databases[service], backups[service])
-    # No migrate call here: restoring v24 then calling an old migrator cannot fake recovery.
+        qualify.cold_copy(f.work/(old_version+'-backup')/service, f.databases[service], backups[service])
+    # No migrate call here: the old binary must serve the unchanged cold baseline restore.
     f.restart()
     f.call('historical_state')
     f.stop()

@@ -95,7 +95,9 @@ test("missing binary degrades health while ping remains live", async () => {
 });
 
 test("malformed reply and private stderr never become a healthy or leaked response", async () => {
-  await withFault("#!/bin/sh\nprintf 'synthetic-private-marker' >&2\nprintf 'broken'\n", async () => {
+  // Read the request before replying: an immediate exit can race the parent write and produce
+  // worker_input_failed, which tests a different failure than the malformed response below.
+  await withFault("#!/bin/sh\n/bin/cat >/dev/null\nprintf 'synthetic-private-marker' >&2\nprintf 'broken'\n", async () => {
     const reply = await request("/health");
     assert.equal(reply.status, 503);
     assert.equal(reply.body.error, "invalid_worker_reply");

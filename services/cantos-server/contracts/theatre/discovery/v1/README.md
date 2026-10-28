@@ -158,8 +158,30 @@ Browser-origin addressing of a deployed API (CORS, CDN) remains separate accepta
 `GET /works/{work}/units`. Omitting the query preserves every default v1 field and value;
 existing strict Rust and Kotlin readers reject unknown fields, so enriched responses use
 separate reviewed DTOs rather than adding fields to `WorkSummary` or `UnitSummary`.
-`presentation=2` selects [public cover v1.2](#public-cover-v12-composition-gated); any other value is `invalid_request`. The capability is part of cursor identity:
+`presentation=2` selects [public cover v1.2](#public-cover-v12-composition-gated);
+`presentation=3` selects the sample metadata shape described below; any other value is
+`invalid_request`. The capability is part of cursor identity:
 a cursor cannot switch between default and presentation responses.
+
+### Sample metadata presentation (explicit opt-in)
+
+`presentation=3` selects [the metadata schema](metadata.schema.json) on Work list, search,
+detail and unit list. It combines currently eligible releases with the independently disclosed
+six approved sample Works and their separately disclosed units. An owner must confirm source
+and metadata rights; current public visibility, active ownership and non-archival remain live
+gates. Withdrawal hides a metadata-only row, including child rows if the Work is withdrawn.
+Release eligibility is unchanged, and release-pinned metadata wins for released rows. A Work
+may have zero visible units. No private cover is exposed: an unreleased Work has `cover: null`;
+a release's existing cover policy remains in force.
+
+Units carry a required `playback` field: `null` means no eligible audio, while an object carries
+the real eligible release ID, publication time and duration. Clients must not request a manifest,
+authorization or media for `null`. No placeholder IDs, media URLs or publication timestamps are
+manufactured. `first_visible_at_ms` anchors Works by earliest sample disclosure or first release;
+units order by their disclosed position or their release's existing anchor, then UUID. Counts,
+ranks and eligibility are evaluated on each request and may change between cursor pages.
+The opaque cursor is bound to this presentation and query. Existing representations do not
+include metadata-only Works or units.
 
 | Opt-in DTO | Added field | Meaning |
 | --- | --- | --- |

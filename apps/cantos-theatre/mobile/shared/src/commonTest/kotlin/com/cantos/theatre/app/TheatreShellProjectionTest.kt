@@ -62,6 +62,7 @@ import com.cantos.theatre.domain.publication.WorkKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -77,6 +78,24 @@ class TheatreShellProjectionTest {
 
     private fun token(): Long = catalog.issued
 
+    @Test
+    fun disclosed_unit_without_audio_is_shown_as_unavailable() {
+        val story = work(1, kind = PublicWorkKind.Story)
+        val template = unit(1)
+        val pending = assertIs<com.cantos.theatre.domain.catalog.CatalogCheck.Valid<com.cantos.theatre.domain.catalog.PublicUnit>>(
+            com.cantos.theatre.domain.catalog.PublicUnit.withoutAudio(template.id, template.kind, template.position.toLong(), "Chương chưa có audio", "")
+        ).value
+        send(PublicCatalogIntent.OpenWork(story))
+        send(WorkResolved(token(), PublicCatalogRead.Ready(story)))
+        send(UnitsResolved(token(), PublicCatalogRead.Ready(unitsPage(story, listOf(pending)))))
+        val episode = projectTheatreShell(inputs()).catalog.work(ShellWorkId(story.id.value))!!.episodes.single()
+        assertEquals("Chương chưa có audio", episode.title)
+        assertEquals(0, episode.durationSeconds)
+        assertNull(pending.publicationId)
+        assertNull(unitRequest(story, pending), "no publication means no playback request")
+        assertEquals(template.publicationId?.value, unitRequest(story, template)?.publicationId)
+    }
+
     private fun inputs(
         navigation: NavigationState = NavigationState(),
         known: KnownCatalog = KnownCatalog().merge(catalog),
@@ -90,7 +109,7 @@ class TheatreShellProjectionTest {
         ShellTheme.Light, locale, "", ShellLibraryTab.Continuing, ShellTimer.Off)
 
     private fun audio(workNumber: Int, unitNumber: Int, durationMs: Long = 61_000) = requireNotNull(AudioIdentity.of(
-        work(workNumber).id.value, unit(unitNumber).id.value, unit(unitNumber).publicationId.value,
+        work(workNumber).id.value, unit(unitNumber).id.value, unit(unitNumber).publicationId!!.value,
         "60000000-0000-4000-8000-000000000006", "b".repeat(64), durationMs))
 
     private fun session(audio: AudioIdentity, positionMs: Long = 5_000, intent: PlaybackIntent = PlaybackIntent.Play) = PlaybackState(
@@ -228,7 +247,7 @@ class TheatreShellProjectionTest {
         assertEquals(PlaybackUiStatus.Paused, paused.state.playbackStatus)
         assertEquals(false, paused.state.transportRequested)
 
-        val request = UnitRequest(work(1).id.value, unit(2).id.value, unit(2).publicationId.value, "Chương hai", "Tên truyện")
+        val request = UnitRequest(work(1).id.value, unit(2).id.value, unit(2).publicationId!!.value, "Chương hai", "Tên truyện")
         val pending = projectTheatreShell(inputs(playback = session(first), requested = request))
         assertEquals(unit(2).id.value, pending.state.selectedEpisode.value)
         assertEquals(PlaybackUiStatus.Loading, pending.state.playbackStatus)
@@ -283,14 +302,14 @@ class TheatreShellProjectionTest {
     // --- Library presentation (#297) ------------------------------------------------------------
 
     private fun unitInfo(workNumber: Int, unitNumber: Int, workTitle: String, unitTitle: String, kind: LibraryWorkKind = LibraryWorkKind.Story) =
-        LibraryUnitInfo(LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId.value, workTitle, kind, "vi-VN"), unit(unitNumber).id.value, unitTitle)
+        LibraryUnitInfo(LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId!!.value, workTitle, kind, "vi-VN"), unit(unitNumber).id.value, unitTitle)
 
     @Test
     fun a_library_row_for_a_work_the_catalog_never_listed_is_named_by_the_apis_presentation() {
         val info = unitInfo(7, 7, "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói", "Một tiếng chuông trong sương")
         val library = LibraryState(account = "actor-a",
             saved = listOf(SavedEntry(work(8).id.value, true, 2, LibrarySync.Confirmed,
-                LibraryPresentation.Available(LibraryWorkInfo(work(8).id.value, unit(8).publicationId.value, "Sơn Hà Ký", LibraryWorkKind.Podcast, "vi-VN")))),
+                LibraryPresentation.Available(LibraryWorkInfo(work(8).id.value, unit(8).publicationId!!.value, "Sơn Hà Ký", LibraryWorkKind.Podcast, "vi-VN")))),
             continueListening = listOf(ContinueEntry(audio(7, 7, 125_000), 40_000, 3, LibraryResume.ExactAvailable, LibrarySync.Confirmed, LibraryPresentation.Available(info))),
             history = listOf(HistoryEntry(audio(7, 7, 125_000), 1, LibraryResume.ExactAvailable, LibraryPresentation.Available(info))))
         val view = projectTheatreShell(inputs(library = library))
@@ -321,7 +340,7 @@ class TheatreShellProjectionTest {
         // The listener's stored audio is an older release of the same unit with another duration.
         val old = requireNotNull(AudioIdentity.of(story.id.value, catalogUnit.id.value, "30000000-0000-4000-8000-0000000000aa",
             "60000000-0000-4000-8000-0000000000aa", "c".repeat(64), 90_000))
-        assertTrue(old.publicationId != catalogUnit.publicationId.value)
+        assertTrue(old.publicationId != catalogUnit.publicationId!!.value)
         val replaced = LibraryState(account = "actor-a",
             continueListening = listOf(ContinueEntry(old, 30_000, 1, LibraryResume.ReleaseReplaced, LibrarySync.Confirmed, LibraryPresentation.Unavailable)))
         val row = projectTheatreShell(inputs(library = replaced)).state.progress.single()
@@ -392,7 +411,7 @@ class TheatreShellProjectionTest {
 
     private val bookmarkId = "b0000000-0000-4000-8000-000000000001"
     private fun info(workNumber: Int, unitNumber: Int, unitTitle: String) = LibraryUnitInfo(
-        LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId.value, "Ánh đèn cuối sân khấu", LibraryWorkKind.Story, "vi-VN"),
+        LibraryWorkInfo(work(workNumber).id.value, unit(unitNumber).publicationId!!.value, "Ánh đèn cuối sân khấu", LibraryWorkKind.Story, "vi-VN"),
         unit(unitNumber).id.value, unitTitle)
 
     @Test

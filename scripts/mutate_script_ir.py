@@ -102,7 +102,7 @@ def main():
         for member in ("services/cantos-server", "services/cantos-identity", "services/cantos-forge-functions",
                        "apps/cantos-theatre/web",
                        "apps/cantos-studio/web", "packages/store-turso", "packages/web-auth",
-                       "packages/ui-system", "xtask"):
+                       "packages/ui-system", "packages/localization/rust", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         # Only the unmutated baseline may need a cold isolated-target compilation.

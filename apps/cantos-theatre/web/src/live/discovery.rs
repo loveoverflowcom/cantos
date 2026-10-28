@@ -1,9 +1,9 @@
 //! Anonymous JSON discovery reads of the Work list. No identity cookie, credential, write or
 //! player effect. The request is always the one canonical `GET /works` with the opt-in
-//! `presentation=2` capability (Discovery v1.2), so every row carries its public `unit_count` and
+//! `presentation=3` capability (Discovery v1.2), so every row carries its public `unit_count` and
 //! its required-nullable public `cover`.
 use super::public_work::{classify_error, is_json};
-use crate::contract::discovery::CoveredWorkPage;
+use crate::contract::discovery::MetadataWorkPage;
 use crate::{
     application::{
         public_discovery::{DiscoveryQuery, DiscoveryReadError, PUBLIC_WORK_PAGE_LIMIT},
@@ -26,7 +26,7 @@ pub fn works_path(query: &DiscoveryQuery, cursor: Option<&str>) -> String {
         serializer.append_pair(name, &value);
     }
     serializer.append_pair("limit", &PUBLIC_WORK_PAGE_LIMIT.to_string());
-    serializer.append_pair("presentation", "2");
+    serializer.append_pair("presentation", "3");
     if let Some(cursor) = cursor {
         serializer.append_pair("cursor", cursor);
     }
@@ -39,7 +39,7 @@ pub fn decode_response(
     content_type: Option<&str>,
     body: &[u8],
     cursor_sent: bool,
-) -> Result<CoveredWorkPage, DiscoveryReadError> {
+) -> Result<MetadataWorkPage, DiscoveryReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
             CatalogReadError::Diagnostic(kind) => DiscoveryReadError::Diagnostic(kind),
@@ -55,7 +55,7 @@ pub fn decode_response(
     if body.len() > MAX_RESPONSE_BYTES || !is_json(content_type) {
         return Err(DiscoveryReadError::Protocol);
     }
-    let page: CoveredWorkPage =
+    let page: MetadataWorkPage =
         serde_json::from_slice(body).map_err(|_| DiscoveryReadError::Protocol)?;
     let mut ids = BTreeSet::new();
     if page.items.len() > PUBLIC_WORK_PAGE_LIMIT
@@ -75,7 +75,7 @@ pub fn decode_response(
 #[cfg(target_arch = "wasm32")]
 pub async fn load(
     ticket: &crate::application::public_discovery::DiscoveryTicket,
-) -> Result<CoveredWorkPage, DiscoveryReadError> {
+) -> Result<MetadataWorkPage, DiscoveryReadError> {
     let path = works_path(ticket.query(), ticket.cursor());
     let (status, content_type, body) = super::public_work::get(&path, MAX_RESPONSE_BYTES)
         .await
@@ -95,10 +95,10 @@ pub async fn load(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::{CoverImage, CoverMime, CoveredWorkSummary, WorkKind};
+    use crate::contract::discovery::{CoverImage, CoverMime, MetadataWorkSummary, WorkKind};
 
     const PAGE: &[u8] = include_bytes!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
     );
     const EMPTY: &[u8] = include_bytes!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/empty.json"
@@ -117,7 +117,7 @@ mod tests {
     );
     const JSON: Option<&str> = Some("application/json; charset=utf-8");
 
-    fn decode(body: &[u8]) -> Result<CoveredWorkPage, DiscoveryReadError> {
+    fn decode(body: &[u8]) -> Result<MetadataWorkPage, DiscoveryReadError> {
         decode_response(200, JSON, body, false)
     }
     fn query(text: &str, kind: Option<WorkKind>, language: &str) -> DiscoveryQuery {
@@ -128,11 +128,11 @@ mod tests {
     fn every_read_is_the_one_canonical_covered_works_request() {
         assert_eq!(
             works_path(&DiscoveryQuery::default(), None),
-            "/api/v1/theatre/works?limit=20&presentation=2"
+            "/api/v1/theatre/works?limit=20&presentation=3"
         );
         assert_eq!(
             works_path(&query("Ánh đèn & ma", Some(WorkKind::Story), "VI-vn"), None),
-            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20&presentation=2"
+            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20&presentation=3"
         );
     }
 
@@ -141,7 +141,7 @@ mod tests {
         let path = works_path(&query("đèn", None, ""), Some("lc1_a+b/c=&d"));
         assert_eq!(
             path,
-            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&presentation=2&cursor=lc1_a%2Bb%2Fc%3D%26d"
+            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&presentation=3&cursor=lc1_a%2Bb%2Fc%3D%26d"
         );
         // Decoding the query string returns exactly the typed values: nothing was lost or merged.
         let pairs: Vec<(String, String)> =
@@ -153,7 +153,7 @@ mod tests {
             [
                 ("q", "đèn"),
                 ("limit", "20"),
-                ("presentation", "2"),
+                ("presentation", "3"),
                 ("cursor", "lc1_a+b/c=&d")
             ]
             .map(|(n, v)| (n.to_owned(), v.to_owned()))
@@ -198,8 +198,9 @@ mod tests {
         );
         assert_eq!(decode(v1), Err(DiscoveryReadError::Protocol));
         let mut value: serde_json::Value = serde_json::from_slice(PAGE).unwrap();
+        value["items"][0]["unit_count"] = serde_json::json!(0);
+        assert!(decode(&serde_json::to_vec(&value).unwrap()).is_ok());
         for bad in [
-            serde_json::json!(0),
             serde_json::json!(-1),
             serde_json::json!(9_007_199_254_740_992_u64),
         ] {
@@ -428,12 +429,12 @@ mod tests {
 
     #[test]
     fn twenty_maximum_length_legal_catalog_records_fit_the_bounded_response() {
-        let page = CoveredWorkPage {
+        let page = MetadataWorkPage {
             items: (1..=20)
                 .map(|id| {
                     let work_id = uuid::Uuid::from_u128(id).to_string();
                     let sha256 = "a".repeat(64);
-                    CoveredWorkSummary {
+                    MetadataWorkSummary {
                         cover: Some(CoverImage {
                             url: format!(
                                 "https://{}.example/api/v1/theatre/works/{work_id}/cover/{sha256}",
@@ -451,7 +452,7 @@ mod tests {
                         title: "T".repeat(512),
                         description: "\"".repeat(16_384),
                         language: format!("vi-x{}-abcd", "-abcdefgh".repeat(6)),
-                        first_published_at_ms: 1,
+                        first_visible_at_ms: 1,
                         unit_count: 9_007_199_254_740_991,
                     }
                 })

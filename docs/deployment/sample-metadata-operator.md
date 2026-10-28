@@ -1,0 +1,43 @@
+# Sample metadata operator
+
+This is a stopped-database operator capability for only the six Works and twelve units
+identified by ADR 0051. It does not issue a login or grant a release. The pinned source
+digest is a scope check, not proof of rights; the operator must obtain a real source and
+metadata-rights confirmation from the rights holder before a publication attempt. A
+synthetic test attestation must never be used for production.
+
+Before use, complete the normal image qualification, admission, backup and migration
+procedure. Stop the Server and acquire exclusive ownership of its current migrated
+database. A migration to v26 requires its own approved backup and recovery plan. This
+document does not authorize a production command or replace that admission.
+
+Supply a private JSON request file with these exact keys:
+
+```json
+{
+  "operation_id": "<new canonical UUID>",
+  "action": "publish",
+  "source_sha256": "d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848212",
+  "operator_reference": "<operator-provided reference>",
+  "evidence_reference": "<reference to the verified source and rights evidence>",
+  "rights_statement": "<the actual metadata rights assertion>",
+  "confirm_source": true,
+  "confirm_metadata_rights": true
+}
+```
+
+The operator reference is self-declared audit context, not an authenticated Studio identity
+or cryptographic signature. The exact source file is supplied separately; it remains private
+and is never projected to listeners. The request names no owner or arbitrary Work. The
+transaction refuses an occupied reserved actor ID or a conflicting sample Work, and commits
+all admitted metadata and the action receipt together. Running the same operation again with
+the identical request is a replay; changing its request is rejected. After qualified admission,
+the stopped-file operator command is `cantos-operator sample-metadata REQUEST_JSON SOURCE_JSON`.
+
+To withdraw, submit another request with a new operation ID and `action` set to `withdraw`,
+then run `cantos-operator withdraw-sample-metadata REQUEST_JSON`. The references and statement
+must describe the withdrawal; the two confirmation fields need not be true for withdrawal.
+The action and per-subject decisions are append-only. This first bounded implementation does
+not support a new publication after withdrawal; replaying the original publication cannot
+undo a later withdrawal. Both commands require `CANTOS_SERVER_DATABASE` to name the stopped
+Server's database. Never put secrets or a proposed password in either request.

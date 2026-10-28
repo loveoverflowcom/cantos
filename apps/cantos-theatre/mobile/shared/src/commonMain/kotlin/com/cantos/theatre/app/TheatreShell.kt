@@ -477,7 +477,8 @@ class TheatreShell(
             navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
             return
         }
-        start(UnitRequest(work.id.value, unit.unit.id.value, unit.unit.publicationId.value, unit.unit.title, work.title))
+        val request = unitRequest(work, unit.unit) ?: return
+        start(request)
         navigate(NavigationEvent.OpenPlayer)
     }
 

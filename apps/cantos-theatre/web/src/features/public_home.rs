@@ -4,7 +4,7 @@
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches. The
 //! intro's account slot reads the same mounted [`AccountViewState`] as the header avatar.
-use crate::contract::discovery::{CoverImage, CoveredWorkSummary, WorkKind};
+use crate::contract::discovery::{CoverImage, MetadataWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
     application::{
@@ -300,7 +300,7 @@ fn SearchForm(
 
 #[component]
 fn WorkCard(
-    work: CoveredWorkSummary,
+    work: MetadataWorkSummary,
     locale: RwSignal<Locale>,
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
@@ -508,7 +508,7 @@ mod tests {
     use super::*;
     use crate::application::account_view::AccountFailure;
     use crate::application::public_discovery::DiscoveryReadError;
-    use crate::contract::discovery::CoveredWorkPage;
+    use crate::contract::discovery::MetadataWorkPage;
     use crate::features::auth_preview::{guest, logout_pending, signed_in, PreviewActor};
 
     fn guest_account() -> RwSignal<AccountViewState> {
@@ -546,29 +546,29 @@ mod tests {
     fn render(state: PublicDiscoveryState, locale: Locale) -> String {
         render_with(state, DiscoveryQuery::default(), locale)
     }
-    fn work(title: &str) -> CoveredWorkSummary {
-        CoveredWorkSummary {
+    fn work(title: &str) -> MetadataWorkSummary {
+        MetadataWorkSummary {
             work_id: "00000000-0000-0000-0000-000000000001".into(),
             kind: WorkKind::Story,
             title: title.into(),
             description: "Ngày mai, mình có diễn tiếp không?".into(),
             language: "vi-VN".into(),
-            first_published_at_ms: 1,
+            first_visible_at_ms: 1,
             unit_count: 3,
             cover: None,
         }
     }
     fn answered(
         query: DiscoveryQuery,
-        result: Result<CoveredWorkPage, DiscoveryReadError>,
+        result: Result<MetadataWorkPage, DiscoveryReadError>,
     ) -> PublicDiscoveryState {
         let mut state = PublicDiscoveryState::default();
         let ticket = state.begin(query).unwrap();
         state.finish(&ticket, result);
         state
     }
-    fn page(items: Vec<CoveredWorkSummary>, next: Option<&str>) -> CoveredWorkPage {
-        CoveredWorkPage {
+    fn page(items: Vec<MetadataWorkSummary>, next: Option<&str>) -> MetadataWorkPage {
+        MetadataWorkPage {
             items,
             next_cursor: next.map(str::to_owned),
         }
@@ -802,8 +802,8 @@ mod tests {
         (&html[start..=end], &html[end + 1..content_end])
     }
 
-    fn work_with(id: u8, title: &str) -> CoveredWorkSummary {
-        CoveredWorkSummary {
+    fn work_with(id: u8, title: &str) -> MetadataWorkSummary {
+        MetadataWorkSummary {
             work_id: format!("00000000-0000-0000-0000-{id:012}"),
             ..work(title)
         }
@@ -811,8 +811,8 @@ mod tests {
 
     #[test]
     fn a_card_shows_its_own_authorized_cover_and_a_null_cover_keeps_the_kind_fallback() {
-        let covered: CoveredWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+        let covered: MetadataWorkPage = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
         ))
         .unwrap();
         let cover = covered.items[0].cover.clone().unwrap();

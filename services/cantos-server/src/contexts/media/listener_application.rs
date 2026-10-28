@@ -65,7 +65,7 @@ impl From<ListenerDomainError> for ListenerError {
         }
     }
 }
-fn clock() -> Result<i64, ListenerError> {
+pub(super) fn clock() -> Result<i64, ListenerError> {
     i64::try_from(
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -148,6 +148,8 @@ pub struct ListenerService {
     cursors: Arc<CursorVault>,
     presented_cursors: Arc<CursorVault>,
     covered_cursors: Arc<CursorVault>,
+    pub(super) metadata_cursors: Arc<CursorVault>,
+    pub(super) metadata_store: Option<Store>,
     delivery: Arc<dyn PlaybackDelivery>,
     /// Present only when trusted composition enabled origin delivery (proposed ADR 0032).
     pub(super) media: Option<OriginPlayback>,
@@ -196,7 +198,12 @@ impl ListenerService {
 }
 impl ListenerService {
     pub fn new(store: Store) -> Self {
-        Self::from_parts(Arc::new(TursoRead(store)), Arc::new(UnavailablePlayback))
+        let mut service = Self::from_parts(
+            Arc::new(TursoRead(store.clone())),
+            Arc::new(UnavailablePlayback),
+        );
+        service.metadata_store = Some(store);
+        service
     }
     fn from_parts(read: Arc<dyn ListenerRead>, delivery: Arc<dyn PlaybackDelivery>) -> Self {
         Self {
@@ -204,6 +211,8 @@ impl ListenerService {
             cursors: Arc::new(CursorVault::default()),
             presented_cursors: Arc::new(CursorVault::default()),
             covered_cursors: Arc::new(CursorVault::default()),
+            metadata_cursors: Arc::new(CursorVault::default()),
+            metadata_store: None,
             delivery,
             media: None,
             media_lanes: Arc::new(Semaphore::new(MEDIA_LANES)),

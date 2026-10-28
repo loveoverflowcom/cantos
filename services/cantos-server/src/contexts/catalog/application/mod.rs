@@ -12,6 +12,12 @@ use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, StoreError, Tx};
 
+mod sample_metadata;
+pub(super) mod sample_metadata_read;
+mod sample_metadata_rights;
+mod sample_seed_operator;
+pub use sample_seed_operator::seed_sample;
+
 pub(super) const MAX_UNITS: usize = 1000;
 
 #[derive(Debug)]
@@ -27,6 +33,11 @@ pub enum CatalogStoreError {
 impl From<StoreError> for CatalogStoreError {
     fn from(error: StoreError) -> Self {
         Self::Storage(error)
+    }
+}
+impl From<crate::platform::store::Error> for CatalogStoreError {
+    fn from(error: crate::platform::store::Error) -> Self {
+        Self::Storage(StoreError::from(error))
     }
 }
 impl From<CatalogError> for CatalogStoreError {

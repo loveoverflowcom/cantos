@@ -18,6 +18,20 @@ async fn history_of(owner: &OwnedDatabase) -> Vec<Vec<Value>> {
     out
 }
 
+async fn owner_values(owner: &OwnedDatabase, sql: &str) -> Vec<Vec<Value>> {
+    let reader = owner.reader().await.unwrap();
+    let mut rows = reader.query(sql, ()).await.unwrap();
+    let mut out = Vec::new();
+    while let Some(row) = rows.next().await.unwrap() {
+        out.push(
+            (0..rows.column_count())
+                .map(|i| row.get_value(i).unwrap())
+                .collect(),
+        );
+    }
+    out
+}
+
 /// Historical upgrade evidence starts with the exact registered prefix, never a fresh v24
 /// file called a v23 fixture. This snapshot covers opaque Unicode/BLOB revisions and both
 /// live and revoked authority; the separate Linux rehearsal owns the real two-image journey.
@@ -27,6 +41,8 @@ async fn historical_v23_upgrade_preserves_rows_checksums_and_revocation_and_is_r
     let path = run.path("server.db");
     let old_registry =
         Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..23]).unwrap();
+    let v24_registry =
+        Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..24]).unwrap();
     let old = OwnedDatabase::open(OpenRequest::new(
         &path,
         old_registry,
@@ -83,31 +99,48 @@ async fn historical_v23_upgrade_preserves_rows_checksums_and_revocation_and_is_r
     old.check_integrity().await.unwrap();
     drop(old);
     let before = bytes(&path);
-    assert_eq!(
-        refused(&path, Intent::Serve).await,
-        ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
-            applied: 23,
-            latest: 24
-        }))
-    );
+    match OwnedDatabase::open(OpenRequest::new(
+        &path,
+        v24_registry,
+        Intent::Serve,
+        clock(),
+    ))
+    .await
+    {
+        Err(error) => assert_eq!(
+            error,
+            OpenError::Refused(Refusal::PendingMigrations {
+                applied: 23,
+                latest: 24
+            })
+        ),
+        Ok(_) => panic!("v24 serving must refuse a v23 file"),
+    }
     assert_eq!(bytes(&path), before);
     for _ in 0..2 {
-        let upgraded = open(&path, Intent::Migrate).await.unwrap();
-        upgraded.owner().check_integrity().await.unwrap();
-        assert_eq!(history_of(upgraded.owner()).await[..23], history);
+        let upgraded = OwnedDatabase::open(OpenRequest::new(
+            &path,
+            v24_registry,
+            Intent::Migrate,
+            clock(),
+        ))
+        .await
+        .unwrap();
+        upgraded.check_integrity().await.unwrap();
+        assert_eq!(history_of(&upgraded).await[..23], history);
         assert_eq!(
-            values(&upgraded, "SELECT snapshot FROM catalog_work_revisions").await,
+            owner_values(&upgraded, "SELECT snapshot FROM catalog_work_revisions").await,
             vec![vec![Value::Blob(snapshot.as_bytes().to_vec())]]
         );
         assert_eq!(
-            values(&upgraded, "SELECT id,active FROM actors ORDER BY id").await,
+            owner_values(&upgraded, "SELECT id,active FROM actors ORDER BY id").await,
             vec![
                 vec![text("alice"), Value::Integer(1)],
                 vec![text("bob"), Value::Integer(0)]
             ]
         );
         assert_eq!(
-            values(
+            owner_values(
                 &upgraded,
                 "SELECT id,revoked,revoked_reason FROM identity_sessions ORDER BY id"
             )
@@ -118,7 +151,7 @@ async fn historical_v23_upgrade_preserves_rows_checksums_and_revocation_and_is_r
             ]
         );
         assert_eq!(
-            values(&upgraded, "SELECT count(*) FROM media_cover_disclosures").await,
+            owner_values(&upgraded, "SELECT count(*) FROM media_cover_disclosures").await,
             vec![vec![Value::Integer(0)]]
         );
     }
@@ -185,5 +218,64 @@ async fn historical_v24_ddl_failure_keeps_v23_history_and_repeated_attempts_cann
         .unwrap();
         assert_eq!(history_of(&old).await, history);
         old.check_integrity().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn v24_to_v26_preserves_history_and_existing_actor_and_refuses_old_serving() {
+    let run = TestRun::new("sample-metadata-v24-v26");
+    let path = run.path("server.db");
+    let v24 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..24]).unwrap();
+    let old = OwnedDatabase::open(OpenRequest::new(&path, v24, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    let tx = old.begin_write().await.unwrap();
+    tx.execute(
+        "INSERT INTO actors(id,active) VALUES('alice',1),('bob',0)",
+        (),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    let prior = history_of(&old).await;
+    drop(old);
+    let before = bytes(&path);
+    assert_eq!(
+        refused(&path, Intent::Serve).await,
+        ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
+            applied: 24,
+            latest: 26
+        }))
+    );
+    assert_eq!(bytes(&path), before);
+    for _ in 0..2 {
+        let current = open(&path, Intent::Migrate).await.unwrap();
+        current.owner().check_integrity().await.unwrap();
+        assert_eq!(history_of(current.owner()).await[..24], prior);
+        assert_eq!(
+            values(&current, "SELECT id,active FROM actors ORDER BY id").await,
+            vec![
+                vec![text("alice"), Value::Integer(1)],
+                vec![text("bob"), Value::Integer(0)]
+            ]
+        );
+        assert_eq!(
+            values(
+                &current,
+                "SELECT count(*) FROM catalog_sample_metadata_disclosures"
+            )
+            .await,
+            vec![vec![Value::Integer(0)]]
+        );
+    }
+    match OwnedDatabase::open(OpenRequest::new(&path, v24, Intent::Serve, clock())).await {
+        Err(error) => assert_eq!(
+            error,
+            OpenError::Refused(Refusal::NewerThanBinary {
+                applied: 26,
+                known: 24
+            })
+        ),
+        Ok(_) => panic!("v24 must refuse a migrated v26 file"),
     }
 }

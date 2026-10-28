@@ -8,7 +8,7 @@
 //! cursor is opaque and bound to its query, an empty page with a cursor is not the end, a
 //! failed page is retried with the same cursor, and `invalid_cursor` needs a fresh walk that is
 //! never merged into the old snapshot. The list ends only with `next_cursor: null`.
-use crate::contract::discovery::{CoveredWorkPage, CoveredWorkSummary, WorkKind};
+use crate::contract::discovery::{MetadataWorkPage, MetadataWorkSummary, WorkKind};
 use std::collections::BTreeSet;
 
 /// The same bound drives the anonymous request, decoder and public page notice.
@@ -223,7 +223,7 @@ enum Status {
 pub struct PublicDiscoveryState {
     generation: u64,
     query: DiscoveryQuery,
-    rows: Vec<CoveredWorkSummary>,
+    rows: Vec<MetadataWorkSummary>,
     seen: BTreeSet<String>,
     cursor: Option<String>,
     /// Page one of the current walk has answered.
@@ -249,7 +249,7 @@ impl PublicDiscoveryState {
         &self.query
     }
 
-    pub fn rows(&self) -> &[CoveredWorkSummary] {
+    pub fn rows(&self) -> &[MetadataWorkSummary] {
         &self.rows
     }
 
@@ -353,7 +353,7 @@ impl PublicDiscoveryState {
     pub fn finish(
         &mut self,
         ticket: &DiscoveryTicket,
-        result: Result<CoveredWorkPage, DiscoveryReadError>,
+        result: Result<MetadataWorkPage, DiscoveryReadError>,
     ) -> Step {
         if ticket.generation != self.generation || self.status != Status::Loading {
             return Step::Ignored;
@@ -431,21 +431,21 @@ impl PublicDiscoveryState {
 mod tests {
     use super::*;
 
-    fn work(n: u128, title: &str) -> CoveredWorkSummary {
-        CoveredWorkSummary {
+    fn work(n: u128, title: &str) -> MetadataWorkSummary {
+        MetadataWorkSummary {
             work_id: uuid::Uuid::from_u128(0x1000_0000_0000_4000_8000_0000_0000_0000 + n)
                 .to_string(),
             kind: WorkKind::Story,
             title: title.into(),
             description: "Nội dung đã được công bố.".into(),
             language: "vi-VN".into(),
-            first_published_at_ms: 1,
+            first_visible_at_ms: 1,
             unit_count: 3,
             cover: None,
         }
     }
-    fn page(items: Vec<CoveredWorkSummary>, next: Option<&str>) -> CoveredWorkPage {
-        CoveredWorkPage {
+    fn page(items: Vec<MetadataWorkSummary>, next: Option<&str>) -> MetadataWorkPage {
+        MetadataWorkPage {
             items,
             next_cursor: next.map(str::to_owned),
         }

@@ -117,7 +117,7 @@ pub(super) fn publication_manifest(publication: &ListenerPublication) -> dto::Pu
     }
 }
 
-fn work_kind(kind: WorkKind) -> dto::WorkKind {
+pub(super) fn work_kind(kind: WorkKind) -> dto::WorkKind {
     match kind {
         WorkKind::Novel => dto::WorkKind::Novel,
         WorkKind::Story => dto::WorkKind::Story,
@@ -125,7 +125,7 @@ fn work_kind(kind: WorkKind) -> dto::WorkKind {
     }
 }
 
-fn unit_kind(kind: ContentUnitKind) -> dto::UnitKind {
+pub(super) fn unit_kind(kind: ContentUnitKind) -> dto::UnitKind {
     match kind {
         ContentUnitKind::Chapter => dto::UnitKind::Chapter,
         ContentUnitKind::Episode => dto::UnitKind::Episode,

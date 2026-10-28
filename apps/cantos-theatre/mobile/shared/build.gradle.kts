@@ -127,10 +127,12 @@ val generatedDiscoveryDirectory = layout.buildDirectory.dir("generated/discovery
 val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
     val fixtures = discoveryContract.resolve("fixtures")
     val schema = discoveryContract.resolve("discovery.schema.json")
+    val metadataSchema = discoveryContract.resolve("metadata.schema.json")
     // The v1.2 cover fixtures live in a subdirectory so the default-v1 corpus above is unchanged;
     // they enter the same map under a `cover/` key.
-    inputs.files(fileTree(fixtures) { include("*.json", "cover/*.json") })
+    inputs.files(fileTree(fixtures) { include("*.json", "cover/*.json", "metadata/*.json") })
     inputs.file(schema)
+    inputs.file(metadataSchema)
     outputs.dir(generatedDiscoveryDirectory)
     doLast {
         fun utf8(file: File): String {
@@ -156,7 +158,7 @@ val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
         }
         fun jsonIn(directory: File) = directory.listFiles()?.filter { it.isFile && it.extension == "json" }?.sortedBy { it.name }
             ?: error("Discovery fixtures are missing: ${directory.name}")
-        val files = jsonIn(fixtures).map { it.name to it } + jsonIn(fixtures.resolve("cover")).map { "cover/${it.name}" to it }
+        val files = jsonIn(fixtures).map { it.name to it } + jsonIn(fixtures.resolve("cover")).map { "cover/${it.name}" to it } + jsonIn(fixtures.resolve("metadata")).map { "metadata/${it.name}" to it }
         check(files.isNotEmpty()) { "Discovery fixture corpus cannot be empty" }
         val output = generatedDiscoveryDirectory.get().asFile.resolve(
             "com/cantos/theatre/adapters/http/CanonicalDiscoveryCorpus.kt",
@@ -167,6 +169,7 @@ val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
             appendLine("package com.cantos.theatre.adapters.http")
             appendLine("internal object CanonicalDiscoveryCorpus {")
             appendLine("    val schemaJson: String = ${quoted(utf8(schema))}")
+            appendLine("    val metadataSchemaJson: String = ${quoted(utf8(metadataSchema))}")
             appendLine("    val fixtureJsonByFile: Map<String, String> = mapOf(")
             files.forEach { (key, file) -> appendLine("        ${quoted(key)} to ${quoted(utf8(file))},") }
             appendLine("    )")

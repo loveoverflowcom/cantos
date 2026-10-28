@@ -541,7 +541,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     }
     if (work.detailPhase != ShellDetailPhase.Ready) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        val firstEpisode = work.episodes.firstOrNull()
+        val firstEpisode = work.episodes.firstOrNull { it.durationSeconds > 0 }
         Button(shape = MaterialTheme.shapes.medium, enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
             onClick = { firstEpisode?.let { dispatch(ShellEvent.OpenEpisode(it.id)) } }) {
             Icon(rememberCantosIconVector("play_arrow"), null)

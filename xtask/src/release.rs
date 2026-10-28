@@ -232,6 +232,9 @@ pub enum Action {
         baseline: PathBuf,
         #[arg(long)]
         baseline_digest: String,
+        /// Explicit bounded transition; older v23 -> v24 behavior remains the default.
+        #[arg(long, value_parser = ["v23-v24", "v24-v25", "v24-v26"], default_value = "v23-v24")]
+        transition: String,
     },
     /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
     /// it to GHCR and write an unadmitted candidate. Never activates a host or marks it eligible.
@@ -361,10 +364,15 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         ..
     } = action
     {
-        let script = if matches!(action, Action::NativeRehearse { .. }) {
-            "scripts/release_native_rehearsal.py"
-        } else {
-            "scripts/release_oci_qualify.py"
+        let script = match action {
+            Action::NativeRehearse { transition, .. } if transition == "v24-v26" => {
+                "scripts/release_native_v26_rehearsal.py"
+            }
+            Action::NativeRehearse { transition, .. } if transition == "v24-v25" => {
+                "scripts/release_native_v25_rehearsal.py"
+            }
+            Action::NativeRehearse { .. } => "scripts/release_native_rehearsal.py",
+            _ => "scripts/release_oci_qualify.py",
         };
         let mut command = command.args([
             script.into(),
@@ -1077,6 +1085,7 @@ mod tests {
             output: "out".into(),
             baseline: "old.json".into(),
             baseline_digest: "old-digest".into(),
+            transition: "v23-v24".into(),
         };
         let cmd = command(&Workspace::discover().unwrap(), &action);
         assert_eq!(cmd.args[0], "scripts/release_native_rehearsal.py");
@@ -1084,5 +1093,52 @@ mod tests {
             .args
             .windows(4)
             .any(|values| values == ["--baseline", "old.json", "--baseline-digest", "old-digest"]));
+        let modern = Action::NativeRehearse {
+            manifest: "manifest.json".into(),
+            manifest_digest: "digest".into(),
+            source_sha: "source".into(),
+            configuration_digest: "configuration".into(),
+            platform: "linux/amd64".into(),
+            authfile: None,
+            output: "out".into(),
+            baseline: "old.json".into(),
+            baseline_digest: "old-digest".into(),
+            transition: "v24-v25".into(),
+        };
+        assert_eq!(
+            command(&Workspace::discover().unwrap(), &modern).args[0],
+            "scripts/release_native_v25_rehearsal.py"
+        );
+        let Action::NativeRehearse {
+            manifest,
+            manifest_digest,
+            source_sha,
+            configuration_digest,
+            platform,
+            authfile,
+            output,
+            baseline,
+            baseline_digest,
+            ..
+        } = modern
+        else {
+            unreachable!()
+        };
+        let latest = Action::NativeRehearse {
+            manifest,
+            manifest_digest,
+            source_sha,
+            configuration_digest,
+            platform,
+            authfile,
+            output,
+            baseline,
+            baseline_digest,
+            transition: "v24-v26".into(),
+        };
+        assert_eq!(
+            command(&Workspace::discover().unwrap(), &latest).args[0],
+            "scripts/release_native_v26_rehearsal.py"
+        );
     }
 }

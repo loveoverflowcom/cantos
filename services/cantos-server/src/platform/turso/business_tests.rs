@@ -172,6 +172,8 @@ async fn a_binary_of_eleven_refuses_the_current_file_and_a_diverged_slice_is_nev
     let altered: &'static [Migration] = Box::leak(
         MIGRATIONS
             .iter()
+            // Stop at the altered slice: later migrations legitimately depend on its tables.
+            .take(12)
             .copied()
             .map(|migration| {
                 if migration.version == 12 {

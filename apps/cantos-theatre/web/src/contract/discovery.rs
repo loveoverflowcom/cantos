@@ -18,6 +18,23 @@ fn required_nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     Option::<T>::deserialize(deserializer)
 }
 
+fn safe_integer<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+    let value = u64::deserialize(deserializer)?;
+    if value <= 9_007_199_254_740_991 {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom("expected a JSON-safe integer"))
+    }
+}
+fn safe_timestamp<'de, D: Deserializer<'de>>(deserializer: D) -> Result<i64, D::Error> {
+    let value = i64::deserialize(deserializer)?;
+    if (0..=9_007_199_254_740_991).contains(&value) {
+        Ok(value)
+    } else {
+        Err(serde::de::Error::custom("expected a JSON-safe timestamp"))
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkKind {
@@ -114,6 +131,60 @@ pub struct PresentedUnitSummary {
 pub struct PresentedUnitPage {
     pub work_id: String,
     pub items: Vec<PresentedUnitSummary>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+
+/// Opt-in public metadata, with no implied audio release.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataWorkSummary {
+    pub work_id: String,
+    pub kind: WorkKind,
+    pub title: String,
+    pub description: String,
+    pub language: String,
+    #[serde(deserialize_with = "safe_timestamp")]
+    pub first_visible_at_ms: i64,
+    #[serde(deserialize_with = "safe_integer")]
+    pub unit_count: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub cover: Option<CoverImage>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataWorkPage {
+    pub items: Vec<MetadataWorkSummary>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UnitPlayback {
+    pub publication_id: String,
+    #[serde(deserialize_with = "safe_timestamp")]
+    pub published_at_ms: i64,
+    #[serde(deserialize_with = "positive_safe_integer")]
+    pub duration_ms: u64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataUnitSummary {
+    pub unit_id: String,
+    pub kind: UnitKind,
+    pub position: u32,
+    pub title: String,
+    pub description: String,
+    #[serde(deserialize_with = "positive_safe_integer")]
+    pub ordinal: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub playback: Option<UnitPlayback>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataUnitPage {
+    pub work_id: String,
+    pub items: Vec<MetadataUnitSummary>,
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }

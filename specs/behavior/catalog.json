@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "capabilities": [
     {
+      "id": "cantos.media.sample-metadata",
+      "lifecycle": "draft",
+      "owner": "services/cantos-server/src/contexts/catalog/domain/metadata_disclosure.rs",
+      "manifestPath": "services/cantos-server/behavior/media/sample_metadata.manifest.json"
+    },
+    {
       "id": "cantos.media.private-audio-admission",
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/contexts/media/domain/lifecycle.rs",

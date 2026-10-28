@@ -1,7 +1,7 @@
 //! Anonymous public Work detail and unit-page reads. No identity cookie, credential, write,
 //! playback authorization or player effect. Decoding is pure and strict over the shared DTOs.
 use crate::contract::discovery::{
-    CoveredWorkSummary, ListenerError, ListenerErrorCode, PresentedUnitPage, UnitKind,
+    ListenerError, ListenerErrorCode, MetadataUnitPage, MetadataWorkSummary, UnitKind,
 };
 use crate::{
     application::public_work::{validate_page, validate_work, CatalogReadError, UNIT_PAGE_LIMIT},
@@ -16,17 +16,17 @@ const MAX_WORK_BYTES: usize = 262_144;
 const MAX_PAGE_BYTES: usize = 2_097_152;
 const MAX_ERROR_BYTES: usize = 4_096;
 
-/// The Work read opts in to `presentation=2` (public `unit_count` and the required-nullable
-/// `cover`); the unit read stays on `presentation=1` (each unit's `ordinal`, identical at v1.2).
+/// The Work read opts in to `presentation=3` (public `unit_count` and the required-nullable
+/// `cover`); the unit read stays on `presentation=3` (each unit's `ordinal`, identical at v1.2).
 /// The strict v1 DTOs are never extended.
 pub fn work_path(work: PublicWorkId) -> String {
-    format!("{THEATRE_BASE}/works/{work}?presentation=2")
+    format!("{THEATRE_BASE}/works/{work}?presentation=3")
 }
 
 /// The cursor is opaque: it is only form-encoded, never parsed or persisted.
 pub fn units_path(work: PublicWorkId, cursor: Option<&str>) -> String {
     let mut path =
-        format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}&presentation=1");
+        format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}&presentation=3");
     if let Some(cursor) = cursor {
         path.push_str("&cursor=");
         path.extend(url::form_urlencoded::byte_serialize(cursor.as_bytes()));
@@ -82,7 +82,7 @@ pub fn decode_work(
     content_type: Option<&str>,
     body: &[u8],
     expected: PublicWorkId,
-) -> Result<CoveredWorkSummary, CatalogReadError> {
+) -> Result<MetadataWorkSummary, CatalogReadError> {
     if status != 200 {
         return Err(match classify_error(status, content_type, body) {
             // The detail read sends no cursor.
@@ -93,7 +93,7 @@ pub fn decode_work(
     if body.len() > MAX_WORK_BYTES || !is_json(content_type) {
         return Err(CatalogReadError::Protocol);
     }
-    let work: CoveredWorkSummary =
+    let work: MetadataWorkSummary =
         serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
     if !validate_work(&work, expected) {
         return Err(CatalogReadError::Protocol);
@@ -108,7 +108,7 @@ pub fn decode_units(
     work: PublicWorkId,
     kind: UnitKind,
     cursor_sent: bool,
-) -> Result<PresentedUnitPage, CatalogReadError> {
+) -> Result<MetadataUnitPage, CatalogReadError> {
     if status != 200 {
         return match classify_error(status, content_type, body) {
             // Page one carries no cursor, so it cannot be an invalid cursor.
@@ -119,7 +119,7 @@ pub fn decode_units(
     if body.len() > MAX_PAGE_BYTES || !is_json(content_type) {
         return Err(CatalogReadError::Protocol);
     }
-    let page: PresentedUnitPage =
+    let page: MetadataUnitPage =
         serde_json::from_slice(body).map_err(|_| CatalogReadError::Protocol)?;
     if !validate_page(&page, work, kind) {
         return Err(CatalogReadError::Protocol);
@@ -168,7 +168,7 @@ pub(super) async fn get(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn load_work(work: PublicWorkId) -> Result<CoveredWorkSummary, CatalogReadError> {
+pub async fn load_work(work: PublicWorkId) -> Result<MetadataWorkSummary, CatalogReadError> {
     let (status, content_type, body) = get(&work_path(work), MAX_WORK_BYTES).await?;
     decode_work(status, content_type.as_deref(), &body, work)
 }
@@ -176,7 +176,7 @@ pub async fn load_work(work: PublicWorkId) -> Result<CoveredWorkSummary, Catalog
 #[cfg(target_arch = "wasm32")]
 pub async fn load_units(
     ticket: &crate::application::public_work::PageTicket,
-) -> Result<PresentedUnitPage, CatalogReadError> {
+) -> Result<MetadataUnitPage, CatalogReadError> {
     let (status, content_type, body) =
         get(&units_path(ticket.work(), ticket.cursor()), MAX_PAGE_BYTES).await?;
     decode_units(
@@ -195,10 +195,10 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const WORKS: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/cover/covered_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
     );
     const UNITS: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/presented_units.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/presented_units.json"
     );
     const CONTINUATION: &str = include_str!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_empty_continuation.json"
@@ -207,7 +207,7 @@ mod tests {
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_end_empty.json"
     );
     const REPUBLISHED: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/units_republished.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/units_republished.json"
     );
     const NOT_FOUND: &str = include_str!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/not_found.json"
@@ -257,7 +257,7 @@ mod tests {
         status: u16,
         body: &str,
         cursor_sent: bool,
-    ) -> Result<PresentedUnitPage, CatalogReadError> {
+    ) -> Result<MetadataUnitPage, CatalogReadError> {
         decode_units(
             status,
             JSON,
@@ -272,11 +272,11 @@ mod tests {
     fn paths_use_the_theatre_group_canonical_id_and_an_encoded_opaque_cursor() {
         assert_eq!(
             work_path(work()),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=2"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=3"
         );
         assert_eq!(
             units_path(work(), None),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20&presentation=1"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20&presentation=3"
         );
         assert!(units_path(work(), Some("lc1_a+b/c=&d")).ends_with("&cursor=lc1_a%2Bb%2Fc%3D%26d"));
     }
@@ -329,7 +329,7 @@ mod tests {
             .replace("0001/cover", "0002/cover");
         foreign["cover"]["url"] = url.into();
         let foreign = serde_json::to_vec(&foreign).unwrap();
-        // The presentation=1 detail has no `cover` key at all.
+        // The presentation=3 detail has no `cover` key at all.
         for body in [missing, foreign] {
             assert_eq!(
                 decode_work(200, JSON, &body, work()),
@@ -397,10 +397,7 @@ mod tests {
         assert!(end.items.is_empty() && end.next_cursor.is_none());
         let republished = units(200, REPUBLISHED, false).unwrap();
         assert_eq!(republished.items[0].unit_id, first.items[0].unit_id);
-        assert_ne!(
-            republished.items[0].publication_id,
-            first.items[0].publication_id
-        );
+        assert_ne!(republished.items[0].playback, first.items[0].playback);
     }
 
     #[test]
@@ -435,6 +432,24 @@ mod tests {
             "a story's units are chapters"
         );
         let valid: serde_json::Value = serde_json::from_str(UNITS).unwrap();
+        let mut no_audio = valid.clone();
+        no_audio["items"][0]["playback"] = serde_json::Value::Null;
+        assert!(
+            units(200, &serde_json::to_string(&no_audio).unwrap(), false)
+                .unwrap()
+                .items[0]
+                .playback
+                .is_none()
+        );
+        let mut missing = valid.clone();
+        missing["items"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("playback");
+        assert_eq!(
+            units(200, &serde_json::to_string(&missing).unwrap(), false),
+            Err(CatalogReadError::Protocol)
+        );
         let mutate = |edit: &dyn Fn(&mut serde_json::Value)| {
             let mut value = valid.clone();
             edit(&mut value);
@@ -443,7 +458,7 @@ mod tests {
         for bad in [
             mutate(&|v| v["work_id"] = serde_json::json!("10000000-0000-4000-8000-000000000002")),
             mutate(&|v| v["items"][0]["unit_id"] = serde_json::json!("unit-1")),
-            mutate(&|v| v["items"][0]["publication_id"] = serde_json::json!("")),
+            mutate(&|v| v["items"][0]["playback"]["publication_id"] = serde_json::json!("")),
             mutate(&|v| v["items"][0]["title"] = serde_json::json!("  ")),
             mutate(&|v| v["items"][0]["availability"] = serde_json::json!("withdrawn")),
             mutate(&|v| {

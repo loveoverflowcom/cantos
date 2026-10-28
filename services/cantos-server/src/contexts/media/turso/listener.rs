@@ -520,6 +520,40 @@ fn unit_after<'a>(
     }
 }
 
+/// Rank insertion for one disclosed-only sample unit among eligible releases, in this snapshot.
+pub(in crate::contexts::media) async fn released_units_before(
+    tx: &Tx<'_>,
+    work: &str,
+    position: u32,
+    id: &str,
+    now: i64,
+) -> Result<u64, ListenerError> {
+    let from = relation();
+    let sql = format!("SELECT count(*) AS n {from} AND x.work_id=?2 AND (ordering.first_position<?3 OR (ordering.first_position=?3 AND x.unit_id<?4))");
+    let row = tx
+        .query_one(&sql, &[&now, &work, &i64::from(position), &id])
+        .await?;
+    u64::try_from(row.try_get::<_, i64>("n")?).map_err(|_| ListenerError::Corrupt)
+}
+
+pub(in crate::contexts::media) async fn presented_unit(
+    tx: &Tx<'_>,
+    work: &str,
+    unit: &str,
+    now: i64,
+) -> Result<Option<ReadItem>, ListenerError> {
+    let relation = presented_relation();
+    let sql = format!(
+        "WITH eligible AS ({relation} AND x.work_id=?2) SELECT * FROM eligible WHERE unit_id=?3"
+    );
+    let rows = tx.query(&sql, &[&now, &work, &unit]).await?;
+    Ok(presented_batch(tx, rows, 1, false, now)
+        .await?
+        .0
+        .into_iter()
+        .next())
+}
+
 pub(in crate::contexts::media) async fn works(
     tx: &Tx<'_>,
     q: &DiscoveryQuery,
@@ -596,7 +630,7 @@ pub(in crate::contexts::media) async fn publication(
 
 /// Attach each representative release's pinned cover facts in the same pinned snapshot: three
 /// bounded statements for the whole page, never one per item.
-async fn with_covers(
+pub(in crate::contexts::media) async fn with_covers(
     tx: &Tx<'_>,
     (mut items, next): (Vec<ReadItem>, Option<Keyset>),
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
@@ -726,7 +760,7 @@ pub(crate) async fn library_presentations(
         .collect())
 }
 
-async fn library_current_items(
+pub(in crate::contexts::media) async fn library_current_items(
     tx: &Tx<'_>,
     units: &[String],
     now: i64,

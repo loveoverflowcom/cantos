@@ -45,13 +45,15 @@ class PublicCatalogHttpTransportTest {
     private val unitCursor = "lc1_" + "b".repeat(64)
 
     private fun workJson(id: String, kind: String, title: String, cover: String = "null") =
-        """{"work_id":"$id","kind":"$kind","title":"$title","description":"Một lời hẹn chưa bao giờ nói ra.","language":"vi-VN","first_published_at_ms":5000,"unit_count":3,"cover":$cover}"""
+        """{"work_id":"$id","kind":"$kind","title":"$title","description":"Một lời hẹn chưa bao giờ nói ra.","language":"vi-VN","first_visible_at_ms":5000,"unit_count":3,"cover":$cover}"""
 
     private fun coverJson(work: String, sha: String) =
         """{"url":"https://api.cantos.example/api/v1/theatre/works/$work/cover/$sha","sha256":"$sha","content_type":"image/png","width_px":1024,"height_px":1024,"byte_length":2048,"alt_text":"Sân khấu tối, một ngọn đèn vàng."}"""
 
-    private fun unitJson(n: Int, kind: String, publication: Int) =
-        """{"unit_id":"20000000-0000-4000-8000-00000000000$n","kind":"$kind","position":$n,"title":"Chương $n","description":"","publication_id":"80000000-0000-4000-8000-00000000000$publication","published_at_ms":5000,"duration_ms":${n * 61_000}}"""
+    private fun unitJson(n: Int, kind: String, publication: Int?): String {
+        val playback = publication?.let { """{"publication_id":"80000000-0000-4000-8000-00000000000$it","published_at_ms":5000,"duration_ms":${n * 61_000}}""" } ?: "null"
+        return """{"unit_id":"20000000-0000-4000-8000-00000000000$n","kind":"$kind","position":$n,"title":"Chương $n","description":"","ordinal":$n,"playback":$playback}"""
+    }
 
     private class Server(handler: (HttpExchange) -> Unit) : AutoCloseable {
         val server: HttpServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
@@ -85,16 +87,16 @@ class PublicCatalogHttpTransportTest {
             val query = exchange.requestURI.rawQuery
             requests += "$path?$query"
             when {
-                path == "/api/v1/theatre/works" && query == "limit=20&presentation=2" -> exchange.json(200,
+                path == "/api/v1/theatre/works" && query == "limit=20&presentation=3" -> exchange.json(200,
                     """{"items":[${workJson(work1, "story", "Ánh đèn cuối sân khấu", coverJson(work1, "a".repeat(64)))},${workJson(work2, "podcast", "Người dẫn chuyện")}],"next_cursor":"$cursor1"}""")
-                path == "/api/v1/theatre/works" && query == "limit=20&cursor=$cursor1&presentation=2" -> exchange.json(200,
+                path == "/api/v1/theatre/works" && query == "limit=20&cursor=$cursor1&presentation=3" -> exchange.json(200,
                     """{"items":[${workJson(work3, "novel", "Tiếng chuông trong sương")}],"next_cursor":null}""")
-                path == "/api/v1/theatre/works/$work1" && query == "presentation=2" -> exchange.json(200,
+                path == "/api/v1/theatre/works/$work1" && query == "presentation=3" -> exchange.json(200,
                     workJson(work1, "story", "Ánh đèn cuối sân khấu", coverJson(work1, "a".repeat(64))))
-                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20" -> exchange.json(200,
+                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&presentation=3" -> exchange.json(200,
                     """{"work_id":"$work1","items":[${unitJson(1, "chapter", 1)},${unitJson(2, "chapter", 2)}],"next_cursor":"$unitCursor"}""")
-                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&cursor=$unitCursor" -> exchange.json(200,
-                    """{"work_id":"$work1","items":[${unitJson(3, "chapter", 3)}],"next_cursor":null}""")
+                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&cursor=$unitCursor&presentation=3" -> exchange.json(200,
+                    """{"work_id":"$work1","items":[${unitJson(3, "chapter", null)}],"next_cursor":null}""")
                 else -> exchange.json(404, """{"code":"not_found","retryable":false}""")
             }
         }.use { server ->
@@ -117,18 +119,18 @@ class PublicCatalogHttpTransportTest {
                     assertEquals(work1, (detail.phase as DetailPhase.Ready).work.id.value)
                     val units = detail.units!!.items
                     assertEquals((1..3).map { "20000000-0000-4000-8000-00000000000$it" }, units.map { it.id.value })
-                    assertEquals((1..3).map { "80000000-0000-4000-8000-00000000000$it" }, units.map { it.publicationId.value })
-                    assertEquals(listOf(61_000L, 122_000L, 183_000L), units.map { it.durationMs })
+                    assertEquals(listOf("80000000-0000-4000-8000-000000000001", "80000000-0000-4000-8000-000000000002", null), units.map { it.publicationId?.value })
+                    assertEquals(listOf(61_000L, 122_000L, null), units.map { it.durationMs })
                 }
                 controller.close()
             } finally { scope.cancel() }
             assertEquals(
                 listOf(
-                    "/api/v1/theatre/works?limit=20&presentation=2",
-                    "/api/v1/theatre/works?limit=20&cursor=$cursor1&presentation=2",
-                    "/api/v1/theatre/works/$work1?presentation=2",
-                    "/api/v1/theatre/works/$work1/units?limit=20",
-                    "/api/v1/theatre/works/$work1/units?limit=20&cursor=$unitCursor",
+                    "/api/v1/theatre/works?limit=20&presentation=3",
+                    "/api/v1/theatre/works?limit=20&cursor=$cursor1&presentation=3",
+                    "/api/v1/theatre/works/$work1?presentation=3",
+                    "/api/v1/theatre/works/$work1/units?limit=20&presentation=3",
+                    "/api/v1/theatre/works/$work1/units?limit=20&cursor=$unitCursor&presentation=3",
                 ),
                 requests.toList(),
             )

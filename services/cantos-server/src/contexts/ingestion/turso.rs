@@ -209,3 +209,27 @@ pub(crate) async fn source_checksum(
     }
     Ok(Some(checksum))
 }
+
+/// Return the exact owner-bound source bytes only after the existing integrity check passes.
+/// The caller must still authorize access and must never project these private bytes publicly.
+pub(crate) async fn source_bytes(
+    tx: &Tx<'_>,
+    owner: &str,
+    id: &str,
+) -> Result<Option<Vec<u8>>, StoreError> {
+    if source_checksum(tx, owner, id).await?.is_none() {
+        return Ok(None);
+    }
+    let row = tx
+        .query_one(
+            "SELECT original_text,original_bytes FROM source_records WHERE owner_id=?1 AND id=?2",
+            &[&owner, &id],
+        )
+        .await?;
+    let bytes: Option<Vec<u8>> = row.try_get("original_bytes")?;
+    let text: Option<String> = row.try_get("original_text")?;
+    bytes
+        .or_else(|| text.map(String::into_bytes))
+        .map(Some)
+        .ok_or(StoreError::CorruptRevision)
+}

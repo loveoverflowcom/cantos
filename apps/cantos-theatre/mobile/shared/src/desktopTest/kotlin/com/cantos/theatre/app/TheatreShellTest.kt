@@ -60,8 +60,8 @@ class TheatreShellTest {
     private class Fixture(scope: CoroutineScope) {
         val work: PublicWork = PublicCatalogSamples.work(1, title = "Ánh đèn cuối sân khấu")
         val unit: PublicUnit = PublicCatalogSamples.unit(1, durationMs = 125_000)
-        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId.value,
-            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs))
+        val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value,
+            "60000000-0000-4000-8000-000000000006", "b".repeat(64), unit.durationMs!!))
         val decoder = Decoder()
         val queries = mutableListOf<PublicCatalogQuery>()
         val catalog = PublicCatalogController(scope, object : PublicCatalogPort {

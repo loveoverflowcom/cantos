@@ -168,6 +168,56 @@ pub struct PresentedUnitPage {
     #[serde(deserialize_with = "required_nullable")]
     pub next_cursor: Option<String>,
 }
+
+/// Opt-in metadata disclosure presentation. No field here implies audio publication.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataWorkSummary {
+    pub work_id: String,
+    pub kind: WorkKind,
+    pub title: String,
+    pub description: String,
+    pub language: String,
+    pub first_visible_at_ms: i64,
+    pub unit_count: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub cover: Option<CoverImage>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataWorkPage {
+    pub items: Vec<MetadataWorkSummary>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UnitPlayback {
+    pub publication_id: String,
+    pub published_at_ms: i64,
+    pub duration_ms: u64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataUnitSummary {
+    pub unit_id: String,
+    pub kind: UnitKind,
+    pub position: u32,
+    pub title: String,
+    pub description: String,
+    #[serde(deserialize_with = "positive_safe_integer")]
+    pub ordinal: u64,
+    #[serde(deserialize_with = "required_nullable")]
+    pub playback: Option<UnitPlayback>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataUnitPage {
+    pub work_id: String,
+    pub items: Vec<MetadataUnitSummary>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub next_cursor: Option<String>,
+}
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct PublicationManifest {

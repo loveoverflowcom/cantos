@@ -294,6 +294,22 @@ pub(crate) async fn register_evidence(
     Ok(())
 }
 
+/// Read an owner-bound immutable claim, never an anonymous disclosure.
+pub(crate) async fn evidence_description(
+    tx: &Tx<'_>,
+    owner: &str,
+    kind: &str,
+    id: &str,
+) -> Result<Option<String>, StoreError> {
+    tx.query_opt(
+        "SELECT description FROM script_evidence WHERE owner_id=?1 AND kind=?2 AND id=?3",
+        &[&owner, &kind, &id],
+    )
+    .await?
+    .map(|row| row.try_get(0).map_err(StoreError::from))
+    .transpose()
+}
+
 /// Registers an evidence record unless that identity is already recorded.
 pub(crate) async fn ensure_evidence(
     tx: &Tx<'_>,

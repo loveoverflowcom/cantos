@@ -1,0 +1,18 @@
+{
+  "work_id": "10000000-0000-4000-8000-000000000003",
+  "kind": "novel",
+  "title": "Mùa nước nổi",
+  "description": "Một ngôi làng ven sông và những người ở lại.",
+  "language": "vi-VN",
+  "unit_count": 12,
+  "cover": {
+    "url": "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000003/cover/5e8d0c2a4f6b8d0e2c4a6f8b0d2e4c6a8f0b2d4e6c8a0f2b4d6e8c0a2f4b6d8e",
+    "sha256": "5e8d0c2a4f6b8d0e2c4a6f8b0d2e4c6a8f0b2d4e6c8a0f2b4d6e8c0a2f4b6d8e",
+    "content_type": "image/png",
+    "width_px": 1024,
+    "height_px": 1024,
+    "byte_length": 524288,
+    "alt_text": "Con thuyền nhỏ giữa cánh đồng ngập nước lúc hoàng hôn."
+  },
+  "first_visible_at_ms": 3000
+}
