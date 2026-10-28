@@ -6908,6 +6908,30 @@
         }
       }
     },
+    "studio.entry.session_refused": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Studio chưa nhận phiên đăng nhập"
+        },
+        "en": {
+          "text": "Studio did not accept this session"
+        }
+      }
+    },
+    "studio.entry.session_refused_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản đã được xác nhận nhưng Studio vẫn từ chối dữ liệu. Đăng nhập lại; nếu vẫn lặp lại, xoá cookie của trang này rồi tải lại."
+        },
+        "en": {
+          "text": "Your account was confirmed but Studio still refused the data. Sign in again; if it repeats, clear this site's cookies and reload."
+        }
+      }
+    },
     "studio.entry.dashboard": {
       "args": {},
       "exposure": "production",
@@ -6953,18 +6977,6 @@
         },
         "en": {
           "text": "Return to Studio sign-in"
-        }
-      }
-    },
-    "studio.entry.retry": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Thử lại"
-        },
-        "en": {
-          "text": "Try again"
         }
       }
     },

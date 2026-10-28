@@ -138,6 +138,25 @@ pub struct SessionState {
     epoch: u64,
     pending: bool,
     actor: Option<String>,
+    /// Denial-triggered re-reads since a protected response last proved the session.
+    rechecks: u8,
+    /// A protected route kept denying a session the API confirmed: recovery is explicit.
+    held: bool,
+}
+
+/// How many times a protected denial may re-read a session the API just confirmed before the
+/// shell stops and asks the person to sign in again. One re-read covers a real expiry or an
+/// account switch in another tab; a second denial without any protected success in between is
+/// not transient, and repeating it forever is a request loop (#566).
+const DENIAL_RECHECKS: u8 = 1;
+
+/// What the shell does after a protected route denied the current session.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Recovery {
+    /// Hide private content and read the session once more.
+    Observe,
+    /// Hide private content and wait for an explicit sign-in; nothing is requested.
+    Hold,
 }
 
 impl SessionState {
@@ -149,6 +168,21 @@ impl SessionState {
     }
     pub fn actor(&self) -> Option<&str> {
         self.actor.as_deref()
+    }
+    /// The API confirmed a session but protected routes keep refusing it.
+    pub fn held(&self) -> bool {
+        self.held && !self.pending && self.actor.is_none()
+    }
+    pub fn needs_proof(&self) -> bool {
+        self.rechecks > 0 && !self.pending
+    }
+
+    /// A protected response was admitted: the confirmed session works, so a later denial is a
+    /// fresh event with its full re-read budget again.
+    pub fn prove(&mut self) {
+        if !self.pending {
+            self.rechecks = 0;
+        }
     }
 
     /// Authentication presentation and the owner of retained browser drafts are separate facts.
@@ -176,6 +210,8 @@ impl SessionState {
                 epoch,
                 pending: true,
                 actor: None,
+                rechecks: self.rechecks,
+                held: false,
             },
             SessionTicket(epoch),
         ))
@@ -193,21 +229,110 @@ impl SessionState {
             epoch: self.epoch,
             pending: false,
             actor: actor.filter(|actor| !actor.is_empty()),
+            rechecks: self.rechecks,
+            held: false,
         }
     }
 
+    /// Close local authority on the person's own action (cancel, logout, a new sign-in). It also
+    /// restores the full re-read budget: a new credential is a new session to judge.
     pub fn invalidated(&self) -> Self {
         Self {
             epoch: self.epoch.saturating_add(1),
             pending: false,
             actor: None,
+            rechecks: 0,
+            held: false,
         }
+    }
+
+    /// A protected route denied this session. Private content is hidden either way; only the
+    /// first denial since the last protected success may read the session again.
+    pub fn denied(&self) -> (Self, Recovery) {
+        let hold = self.rechecks >= DENIAL_RECHECKS;
+        let next = Self {
+            epoch: self.epoch.saturating_add(1),
+            pending: false,
+            actor: None,
+            rechecks: if hold {
+                self.rechecks
+            } else {
+                self.rechecks + 1
+            },
+            held: hold,
+        };
+        (
+            next,
+            if hold {
+                Recovery::Hold
+            } else {
+                Recovery::Observe
+            },
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn confirmed(state: &SessionState, actor: &str) -> SessionState {
+        let (checking, ticket) = state.begin().unwrap();
+        checking.settled(ticket, Some(actor.into()))
+    }
+
+    #[test]
+    fn a_confirmed_session_that_protected_routes_keep_denying_is_reread_once_then_held() {
+        let first = confirmed(&SessionState::default(), "alice");
+        let (hidden, recovery) = first.denied();
+        assert_eq!(recovery, Recovery::Observe);
+        assert!(hidden.actor().is_none() && !hidden.held());
+        assert!(!hidden.projects_owner("alice"));
+        // The re-read confirms the same session and the protected route denies it again: the
+        // loop of #566 stops here instead of reading the session forever.
+        let again = confirmed(&hidden, "alice");
+        let (held, recovery) = again.denied();
+        assert_eq!(recovery, Recovery::Hold);
+        assert!(held.held() && held.actor().is_none() && !held.pending());
+        assert!(!held.projects_owner("alice"));
+        assert_ne!(held.epoch(), again.epoch());
+    }
+
+    #[test]
+    fn a_protected_success_restores_the_reread_budget_but_an_explicit_sign_in_does_too() {
+        let (hidden, _) = confirmed(&SessionState::default(), "alice").denied();
+        let mut proven = confirmed(&hidden, "alice");
+        assert!(proven.needs_proof());
+        proven.prove();
+        assert!(!proven.needs_proof());
+        assert_eq!(proven.denied().1, Recovery::Observe);
+        // Without a proof the budget stays spent, however many reads happen in between.
+        let spent = confirmed(&confirmed(&hidden, "alice"), "alice");
+        assert_eq!(spent.denied().1, Recovery::Hold);
+        // A person's sign-in is a new credential: held state and budget both reset.
+        let (held, _) = spent.denied();
+        let signing_in = held.invalidated();
+        assert!(!signing_in.held() && !signing_in.needs_proof());
+        assert_eq!(
+            confirmed(&signing_in, "alice").denied().1,
+            Recovery::Observe
+        );
+    }
+
+    #[test]
+    fn a_new_observation_leaves_the_hold_without_refunding_the_budget() {
+        let (held, _) =
+            confirmed(&confirmed(&SessionState::default(), "a").denied().0, "a").denied();
+        assert!(held.held());
+        let (checking, ticket) = held.begin().unwrap();
+        assert!(!checking.held() && checking.pending());
+        // Signed out after the re-read: a plain login, not a held entry.
+        assert!(!checking.settled(ticket, None).held());
+        // Confirmed again and denied again: held at once, still no free request loop.
+        let (checking, ticket) = held.begin().unwrap();
+        let confirmed_again = checking.settled(ticket, Some("a".into()));
+        assert_eq!(confirmed_again.denied().1, Recovery::Hold);
+    }
+
     #[test]
     fn a_delayed_denial_cannot_hide_b_or_a_newer_observation_of_a() {
         let a = SessionFence::new("00000000-0000-4000-8000-000000000001").unwrap();

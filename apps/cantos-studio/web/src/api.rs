@@ -75,6 +75,7 @@ impl Drop for RequestDeadline {
 pub struct StudioHttp {
     session: Option<ClientSession>,
     on_denial: Option<Callback<ApiError>>,
+    on_admitted: Option<Callback<()>>,
 }
 
 pub struct ObservedSession {
@@ -97,6 +98,7 @@ impl StudioHttp {
         Self {
             session: None,
             on_denial: None,
+            on_admitted: None,
         }
     }
     /// Capture synchronously before scheduling a request; a queued A attempt never adopts B.
@@ -119,6 +121,14 @@ impl StudioHttp {
             ..self
         }
     }
+    /// Report each protected answer the API admitted for the current presentation, so the shell
+    /// can tell a session that works from one it only keeps confirming (#566).
+    pub fn with_admitted(self, on_admitted: Callback<()>) -> Self {
+        Self {
+            on_admitted: Some(on_admitted),
+            ..self
+        }
+    }
     pub fn notify_denial<T>(self, result: Result<T, ApiError>) -> Result<T, ApiError> {
         if let Err(error) = &result {
             if error.code == ErrorCode::Unauthenticated {
@@ -127,8 +137,9 @@ impl StudioHttp {
         }
         result
     }
-    pub(crate) fn invalidate_projection(self, error: &ApiError) {
-        let matches = CURRENT_FENCE.with(|current| {
+    /// Whether this request still belongs to the presentation currently shown.
+    fn is_current(self) -> bool {
+        CURRENT_FENCE.with(|current| {
             let current = current.get();
             current_attempt(
                 self.fence(),
@@ -136,10 +147,19 @@ impl StudioHttp {
                 current.map(|s| s.fence),
                 current.map_or(0, |s| s.epoch),
             )
-        });
-        if matches {
+        })
+    }
+    pub(crate) fn invalidate_projection(self, error: &ApiError) {
+        if self.is_current() {
             if let Some(callback) = self.on_denial {
                 callback.run(error.clone());
+            }
+        }
+    }
+    fn admitted(self) {
+        if self.is_current() {
+            if let Some(callback) = self.on_admitted {
+                callback.run(());
             }
         }
     }
@@ -210,7 +230,13 @@ fn received(
             api.invalidate_projection(&error);
             Err(error)
         }
-        other => api.notify_denial(other.map_err(auth_error)),
+        other => {
+            let result = api.notify_denial(other.map_err(auth_error));
+            if result.is_ok() {
+                api.admitted();
+            }
+            result
+        }
     }
 }
 
