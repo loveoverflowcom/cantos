@@ -99,6 +99,14 @@ pub fn api_router(state: AppState) -> Router {
     Assembly::new(state, None, None).build()
 }
 
+/// Disposable test composition only; no executable or request can select the proposed policy.
+#[cfg(test)]
+pub(crate) fn metadata_cover_test_router(state: AppState, listener: ListenerService) -> Router {
+    let mut assembly = Assembly::new(state, None, None);
+    assembly.services.listener = listener;
+    assembly.build()
+}
+
 /// Trusted host override; requests cannot replace publication delivery.
 pub fn router_with_publication_delivery(
     state: AppState,

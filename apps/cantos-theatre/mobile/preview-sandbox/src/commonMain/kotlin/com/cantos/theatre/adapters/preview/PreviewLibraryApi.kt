@@ -267,7 +267,7 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
     }
 
     private fun workPresentation(work: PreviewWork) = WorkPresentation(
-        work.work.id.value, work.units.first().publicationId.value, work.work.title, work.work.kind.name.lowercase(), work.work.language,
+        work.work.id.value, requireNotNull(work.units.first().publicationId).value, work.work.title, work.work.kind.name.lowercase(), work.work.language,
     )
 
     private fun audioOf(unitId: String): WireAudio? = PreviewFixtures.unit(unitId)?.let { (work, unit) ->

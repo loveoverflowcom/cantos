@@ -174,6 +174,13 @@ Release eligibility is unchanged, and release-pinned metadata wins for released 
 may have zero visible units. No private cover is exposed: an unreleased Work has `cover: null`;
 a release's existing cover policy remains in force.
 
+The [proposed #574 extension](../../../../../../docs/decisions/0033-release-pinned-public-cover.md#proposed-574-metadata-only-extension--not-accepted-or-activated)
+implements a separately enabled metadata-cover policy in the listener application. It requires a
+new exact-revision metadata-image binding as well as same-image consent; old decisions cannot
+acquire this scope. Production composition does not enable it. The nullable cover shape, release
+precedence, origin revalidation and all older reader shapes stay unchanged. Synthetic SQL/HTTP/
+private-storage tests do not establish permission for the six real generated cover images.
+
 Units carry a required `playback` field: `null` means no eligible audio, while an object carries
 the real eligible release ID, publication time and duration. Clients must not request a manifest,
 authorization or media for `null`. No placeholder IDs, media URLs or publication timestamps are

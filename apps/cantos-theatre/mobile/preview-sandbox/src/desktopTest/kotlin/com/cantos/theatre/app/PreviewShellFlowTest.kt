@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
@@ -124,10 +125,17 @@ class PreviewShellFlowTest {
         input.performTextReplacement("Đèn")
         untilNoTag("work-$sonHa")
         onNodeWithTag("work-$denKhua").assertExists()
+        input.performTextReplacement("  Đèn  ")
+        onNodeWithTag("search-collapse").performClick()
+        input.assertIsFocused().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("  Đèn  ")))
+        onNodeWithTag("search-dock").assertDoesNotExist()
+        input.performClick()
+        onNodeWithTag("search-dock").assertExists()
         input.performTextReplacement("không có trong tủ sách")
         untilNoTag("work-$denKhua")
         onNodeWithTag("search-clear").performClick()
         input.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
+        input.assertIsFocused()
         untilTag("work-$canhBuom")
         onNodeWithTag("work-$sonHa").assertExists()
         assertEquals("", owners.shell.ui.value.query)

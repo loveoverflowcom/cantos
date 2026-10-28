@@ -114,6 +114,44 @@ delivery admission of rule 5 (`public_cover::project_public_cover`, `admit_cover
 
 ## Validation and revisit conditions
 
+### Proposed #574 metadata-only extension — not accepted or activated
+
+The reviewable implementation adds a separate metadata-image scope. It does **not** widen any
+existing release clearance. Production composition leaves this capability disabled and no HTTP
+route or operator image import invokes it. Owner acceptance and exact-image permission remain
+prerequisites; the six generated fictional covers have no approved public-display decision.
+
+- Catalog must first resolve a current source/rights-verified sample metadata disclosure. Its
+  immutable Work snapshot supplies the exact revision for `artwork_at`; the private head is never
+  a cover candidate. Current visibility, archive, owner disablement and metadata withdrawal keep
+  their existing denial behavior.
+- An authenticated active owner may record a new image clearance **and** an append-only
+  `media_metadata_cover_bindings` record in one transaction. The binding names that clearance's
+  server sequence, the expected current Work revision and a private evidence reference for this
+  metadata-image permission. Admitted image provenance/rights remain private. The application
+  method is `CoverDisclosureService::record_metadata`; it is deliberately unmounted.
+- Existing decisions have no binding and cannot show metadata-only images. The latest image
+  decision must be a current clearance with a binding equal to the disclosed Work revision.
+  Renewal creates a new decision/binding; scope/evidence changes with an old operation ID fail.
+  A generic later clearance cannot inherit this scope. Revocation and half-open expiry remove it.
+- Replacing or clearing private artwork advances the Work revision. Nothing public changes until
+  metadata is disclosed at the new revision and, for an image, a new exact-revision consent is
+  recorded. A clear remains a tombstone. Withdrawn metadata never falls back to an older snapshot.
+- A representative eligible audio release always takes precedence, including when its selected
+  cover is absent or undisclosed. Metadata-cover consent does not publish audio or grant playback.
+- The same origin URL, anonymous denial, actual-byte integrity check, ETag and `public, no-cache`
+  rules apply. GET/HEAD re-resolve scope; opening bytes rechecks admission afterwards. Public
+  `presentation=3` shapes are unchanged; v1/1/2 do not acquire metadata-only Works.
+
+Version 28 only appends the empty binding table; no grants or image data are backfilled. The
+bounded metadata page hydrates all cover bindings through the existing three-statement reader,
+without a per-Work cover query or new cache. No performance improvement is claimed.
+
+The fictional principal is intentionally non-login. Production activation also needs a separately
+reviewed, explicitly authorized operator intake/consent workflow that preserves this property;
+creating a Studio session for it is not a workaround. The proposal and synthetic tests establish
+neither that workflow nor permission for the original six generated PNGs.
+
 The pure kernel's example, bounded-exhaustive and registered (not run) Kani checks, the
 `admit_cover_fetch` tests and the draft Quint capability exercise rules 1–3 and 5. Discovery
 v1.2 schema/DTO/fixture conformance tests exercise rule 6. #171 adds file-backed `server.db`

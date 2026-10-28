@@ -16,6 +16,11 @@
 
 ## Context
 
+The [proposed #574 image extension in ADR0033](0033-release-pinned-public-cover.md#proposed-574-metadata-only-extension--not-accepted-or-activated)
+adds a separately gated exact-revision image-consent mechanism. It remains disabled in production
+composition and does not infer image rights from the accepted metadata direction. Fictional image
+permissions and a non-login operator intake path remain prerequisites; audio/playback are unchanged.
+
 #539 asks that Works and chapters/episodes be saved before audio exists, that audio be added
 later without recreating them, and that metadata which is allowed to be public be shown by
 Theatre with a disabled Play control while no playable media exists. It also reports

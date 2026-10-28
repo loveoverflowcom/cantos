@@ -1,0 +1,112 @@
+Printing with useUnmergedTree = 'false'
+Node #9389 at (l=0.0, t=0.0, r=1100.0, b=900.0)px, Tag: 'issue453-root'
+ |-Node #9390 at (l=0.0, t=0.0, r=1100.0, b=900.0)px
+   IsContainer = 'true'
+    |-Node #9447 at (l=8.0, t=4.0, r=56.0, b=52.0)px, Tag: 'back'
+    | ContentDescription = '[Back]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9449 at (l=56.0, t=6.0, r=100.0, b=50.0)px, Tag: 'header-logo'
+    | ClearAndSetSemantics = 'true'
+    |-Node #9450 at (l=112.0, t=15.0, r=980.0, b=42.0)px, Tag: 'header-title'
+    | Text = '[Cantos]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #9452 at (l=988.0, t=4.0, r=1036.0, b=52.0)px, Tag: 'theme-toggle'
+    | ContentDescription = '[Switch to dark appearance]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9455 at (l=1044.0, t=4.0, r=1092.0, b=52.0)px, Tag: 'account'
+    | ContentDescription = '[Account]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9394 at (l=130.0, t=56.0, r=970.0, b=577.0)px, Tag: 'screen'
+    | IsTraversalGroup = 'true'
+    | PaneTitle = 'Search'
+    | VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    | Actions = [ScrollBy, ScrollByOffset]
+    |  |-Node #9396 at (l=146.0, t=72.0, r=954.0, b=561.0)px, Tag: 'search-hero'
+    |    IsContainer = 'true'
+    |     |-Node #9398 at (l=166.0, t=92.0, r=264.0, b=130.0)px
+    |     | Text = '[Search]'
+    |     | [Heading]
+    |     | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |     |-Node #9399 at (l=166.0, t=146.0, r=934.0, b=541.0)px
+    |        |-Node #9400 at (l=166.0, t=146.0, r=934.0, b=218.0)px, Tag: 'search-input'
+    |        | ContentDataType = 'PlatformContentDataType(type=1)'
+    |        | ContentDescription = '[Work, episode or genre]'
+    |        | EditableText = 'Đèn'
+    |        | Focused = 'true'
+    |        | ImeAction = 'Search'
+    |        | InputText = 'Đèn'
+    |        | IsEditable = 'true'
+    |        | TextSelectionRange = 'TextRange(3, 3)'
+    |        | Actions = [GetTextLayoutResult, InsertTextAtCursor, OnAutofillText, OnClick, OnLongClick, PasteText, PerformImeAction, RequestFocus, SetSelection, SetText]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #9409 at (l=824.0, t=158.0, r=872.0, b=206.0)px, Tag: 'search-clear'
+    |        |  | ContentDescription = '[Clear search text]'
+    |        |  | Focused = 'false'
+    |        |  | Role = 'Button'
+    |        |  | Actions = [OnClick, RequestFocus]
+    |        |  | MergeDescendants = 'true'
+    |        |  |-Node #9413 at (l=872.0, t=156.0, r=924.0, b=208.0)px
+    |        |    Actions = [OnLongClick]
+    |        |    MergeDescendants = 'true'
+    |        |     |-Node #9415 at (l=872.0, t=156.0, r=924.0, b=208.0)px, Tag: 'search-submit'
+    |        |       ContentDescription = '[Search]'
+    |        |       CustomActions = '[CustomAccessibilityAction(label=Search, action=com.cantos.ui.ActionsKt$$Lambda/0x0000000e013cf558@7bfc3126)]'
+    |        |       Focused = 'false'
+    |        |       Role = 'Button'
+    |        |       Actions = [OnClick, RequestFocus]
+    |        |       MergeDescendants = 'true'
+    |        |-Node #9514 at (l=166.0, t=218.0, r=934.0, b=541.0)px, Tag: 'search-dock'
+    |          IsTraversalGroup = 'true'
+    |          VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    |          Actions = [ScrollBy, ScrollByOffset]
+    |           |-Node #9515 at (l=182.0, t=238.0, r=265.0, b=278.0)px, Tag: 'search-collapse'
+    |           | Focused = 'false'
+    |           | Role = 'Button'
+    |           | Text = '[Collapse]'
+    |           | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |           | MergeDescendants = 'true'
+    |           |-Node #9518 at (l=182.0, t=290.0, r=221.0, b=306.0)px
+    |           | Text = '[1 work]'
+    |           | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |           |-Node #9523 at (l=182.0, t=314.0, r=542.0, b=525.0)px, Tag: 'work-10000000-0000-4000-8000-000000000002'
+    |             ContentDescription = '[Explore Đèn Khuya]'
+    |             Focused = 'false'
+    |             IsContainer = 'true'
+    |             Text = '[Podcast, Đèn Khuya, Một ô cửa còn sáng và những cuộc trò chuyện dịu dàng giữa đêm yên.]'
+    |             Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |             MergeDescendants = 'true'
+    |              |-Node #9536 at (l=198.0, t=465.0, r=342.0, b=505.0)px, Tag: 'save-card-10000000-0000-4000-8000-000000000002'
+    |                ContentDescription = '[Save work Đèn Khuya]'
+    |                Focused = 'false'
+    |                Role = 'Button'
+    |                StateDescription = 'Save work'
+    |                Text = '[Save work]'
+    |                Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |                MergeDescendants = 'true'
+    |-Node #9423 at (l=0.0, t=820.0, r=1100.0, b=900.0)px
+      IsContainer = 'true'
+       |-Node #9424 at (l=0.0, t=820.0, r=1100.0, b=900.0)px
+         [SelectableGroup]
+          |-Node #9425 at (l=0.0, t=820.0, r=546.0, b=900.0)px, Tag: 'nav-discovery'
+          | Focused = 'false'
+          | Role = 'Tab'
+          | Selected = 'true'
+          | Text = '[Discover]'
+          | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+          | MergeDescendants = 'true'
+          |-Node #9434 at (l=554.0, t=820.0, r=1100.0, b=900.0)px, Tag: 'nav-library'
+            Focused = 'false'
+            Role = 'Tab'
+            Selected = 'false'
+            Text = '[My library]'
+            Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+            MergeDescendants = 'true'

@@ -21,6 +21,7 @@ struct Sample {
     disclosure: SampleDisclosedWork,
     representative: Option<ReadItem>,
     units: Vec<ReadItem>,
+    cover: Option<super::turso::cover::PinnedCoverFacts>,
 }
 
 async fn sample(
@@ -54,7 +55,27 @@ async fn sample(
         disclosure,
         representative: representative.into_iter().next(),
         units,
+        cover: None,
     }))
+}
+
+/// Three bounded statements for every metadata-pinned cover, reusing the existing indexed
+/// artwork/asset/disclosure reader. No per-Work cover query or application cache is added.
+async fn hydrate_metadata_covers(tx: &Tx<'_>, samples: &mut [Sample]) -> Result<(), ListenerError> {
+    use super::turso::cover::{pinned_cover_facts, PinnedWork};
+    let pinned: Vec<_> = samples
+        .iter()
+        .map(|s| PinnedWork {
+            work_id: s.disclosure.work.id().as_str().into(),
+            owner_id: s.disclosure.work.owner_id().as_str().into(),
+            revision: s.disclosure.work.revision(),
+        })
+        .collect();
+    let mut facts = pinned_cover_facts(tx, &pinned).await?;
+    for sample in samples {
+        sample.cover = facts.remove(sample.disclosure.work.id().as_str());
+    }
+    Ok(())
 }
 
 fn sample_summary(
@@ -101,7 +122,7 @@ fn sample_summary(
             language: w.details().language.clone(),
             first_visible_at_ms: s.disclosure.first_at,
             unit_count: s.disclosure.units.len() as u64,
-            cover: None,
+            cover: service.shown_metadata_cover(w, s.cover.as_ref(), now),
         })
     }
 }
@@ -234,6 +255,9 @@ impl ListenerService {
                 samples.push(value);
             }
         }
+        if self.metadata_covers && self.covers.is_some() {
+            hydrate_metadata_covers(&tx, &mut samples).await?;
+        }
         let excluded: BTreeSet<_> = samples
             .iter()
             .map(|v| v.disclosure.work.id().as_str().to_owned())
@@ -302,7 +326,12 @@ impl ListenerService {
         let connection = store.connection().await?;
         let tx = connection.read().await?;
         let now = listener::unit_millis(&tx);
-        let sample = sample(&tx, &work, now, self.covers.is_some()).await?;
+        let mut sample = sample(&tx, &work, now, self.covers.is_some()).await?;
+        if self.metadata_covers && self.covers.is_some() {
+            if let Some(ref mut sample) = sample {
+                hydrate_metadata_covers(&tx, std::slice::from_mut(sample)).await?;
+            }
+        }
         let mut released = if sample.is_none() {
             listener::presented_work(&tx, &work, now).await?.0
         } else {

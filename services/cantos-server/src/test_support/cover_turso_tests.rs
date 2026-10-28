@@ -279,6 +279,114 @@ fn refusal<T>(result: Result<T, ListenerError>) -> ListenerError {
 const ALT_A: &str = "Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống.";
 const ALT_B: &str = "Bìa mới: tấm rèm nhung đỏ khép hờ.";
 
+#[path = "metadata_cover_turso_tests.rs"]
+mod metadata;
+
+#[tokio::test]
+async fn metadata_consent_is_explicit_revision_bound_atomic_and_replay_safe() {
+    let world = World::new().await;
+    let image = world
+        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .await;
+    world.select(Some(&image), ALT_A).await;
+    let revision = world.head_revision().await;
+    let service = CoverDisclosureService::new(world.store.clone());
+    let request = studio_dto::RecordMetadataCoverDisclosureRequest {
+        expected_work_revision: revision,
+        evidence_reference: "synthetic-metadata-image-public-permission".into(),
+        disclosure: studio_dto::RecordCoverDisclosureRequest {
+            operation_id: uuid::Uuid::new_v4().to_string(),
+            image_asset_digest: image.digest.clone(),
+            decision: studio_dto::CoverDisclosureKind::Cleared,
+            valid_until_ms: Some((world.now_ms() + 10_000) as u64),
+        },
+    };
+    let mut stale = request.clone();
+    stale.expected_work_revision -= 1;
+    assert!(
+        matches!(service.record_metadata(TOKEN, &world.work.work_id, stale).await,
+        Err(CoverDisclosureApplicationError::Storage(crate::platform::store::StoreError::StaleRevision(r))) if r == revision)
+    );
+    assert_eq!(
+        world
+            .fixture
+            .count("SELECT count(*) FROM media_cover_disclosures", &[])
+            .await,
+        0
+    );
+    let first = service
+        .record_metadata(TOKEN, &world.work.work_id, request.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        service
+            .record_metadata(TOKEN, &world.work.work_id, request.clone())
+            .await
+            .unwrap(),
+        first
+    );
+    let mut changed = request.clone();
+    changed.evidence_reference = "different-permission".into();
+    assert!(matches!(
+        service
+            .record_metadata(TOKEN, &world.work.work_id, changed)
+            .await,
+        Err(CoverDisclosureApplicationError::Storage(
+            crate::platform::store::StoreError::OperationReused
+        ))
+    ));
+    // The same operation cannot be replayed through the old unscoped API.
+    assert!(matches!(
+        service
+            .record(TOKEN, &world.work.work_id, request.disclosure.clone())
+            .await,
+        Err(CoverDisclosureApplicationError::Storage(
+            crate::platform::store::StoreError::OperationReused
+        ))
+    ));
+    let connection = world.store.connection().await.unwrap();
+    let tx = connection.read().await.unwrap();
+    let facts = super::pinned_cover_facts(
+        &tx,
+        &[super::PinnedWork {
+            work_id: world.work.work_id.clone(),
+            owner_id: "alice".into(),
+            revision,
+        }],
+    )
+    .await
+    .unwrap();
+    assert_eq!(facts[&world.work.work_id].metadata_revision, Some(revision));
+    tx.commit().await.unwrap();
+    assert_eq!(
+        world
+            .fixture
+            .count("SELECT count(*) FROM media_metadata_cover_bindings", &[])
+            .await,
+        1
+    );
+    for sql in [
+        "UPDATE media_metadata_cover_bindings SET evidence_reference='changed'",
+        "DELETE FROM media_metadata_cover_bindings",
+        "INSERT OR REPLACE INTO media_metadata_cover_bindings SELECT * FROM media_metadata_cover_bindings",
+    ] { assert!(world.fixture.exec(sql, &[]).await.is_err()); }
+    // A new legacy decision never silently inherits the metadata-only scope.
+    world.disclose(&image, None).await.unwrap();
+    let tx = connection.read().await.unwrap();
+    let facts = super::pinned_cover_facts(
+        &tx,
+        &[super::PinnedWork {
+            work_id: world.work.work_id.clone(),
+            owner_id: "alice".into(),
+            revision,
+        }],
+    )
+    .await
+    .unwrap();
+    assert_eq!(facts[&world.work.work_id].metadata_revision, None);
+    tx.commit().await.unwrap();
+}
+
 #[tokio::test]
 async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() {
     let mut world = World::new().await;

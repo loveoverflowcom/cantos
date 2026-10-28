@@ -26,6 +26,7 @@ pub(in crate::contexts::media) struct PinnedCoverFacts {
     pub disclosure: Option<CoverDisclosureRecord>,
     /// A stored row of this Work failed admission. The cover alone falls back; the page stays.
     pub corrupt: bool,
+    pub metadata_revision: Option<u64>,
 }
 
 /// One pinned Work snapshot of a representative release.
@@ -41,7 +42,7 @@ WHERE c.work_metadata_revision=(SELECT max(c2.work_metadata_revision) FROM media
 const SELECTED_ASSETS: &str =
     "SELECT * FROM media_image_assets WHERE id IN (SELECT value FROM json_each(?1))";
 const LATEST_DISCLOSURES: &str = "WITH wanted AS (SELECT json_extract(value,'$[0]') AS work_id,json_extract(value,'$[1]') AS digest FROM json_each(?1))
-SELECT d.* FROM wanted w JOIN media_cover_disclosures d ON d.work_id=w.work_id AND d.image_asset_digest=w.digest
+SELECT d.*,m.work_metadata_revision AS metadata_revision,m.evidence_reference AS metadata_evidence FROM wanted w JOIN media_cover_disclosures d ON d.work_id=w.work_id AND d.image_asset_digest=w.digest LEFT JOIN media_metadata_cover_bindings m ON m.work_id=d.work_id AND m.disclosure_sequence=d.sequence
 WHERE d.sequence=(SELECT max(d2.sequence) FROM media_cover_disclosures d2 WHERE d2.work_id=w.work_id AND d2.image_asset_digest=w.digest)";
 
 fn json<T: serde::Serialize>(value: &T) -> Result<String, StoreError> {
@@ -123,6 +124,20 @@ pub(in crate::contexts::media) async fn pinned_cover_facts(
             entry.corrupt = true;
             continue;
         };
+        let revision: Option<i64> = corrupt(row.try_get("metadata_revision"))?;
+        let evidence: Option<String> = corrupt(row.try_get("metadata_evidence"))?;
+        match (revision, evidence) {
+            (Some(revision), Some(evidence))
+                if revision > 0
+                    && !evidence.trim().is_empty()
+                    && evidence.len() <= 1024
+                    && !evidence.chars().any(char::is_control) =>
+            {
+                entry.metadata_revision = Some(revision as u64);
+            }
+            (None, None) => {}
+            _ => entry.corrupt = true,
+        }
         // A decision recorded by anyone but the pinned owner is no consent: leave it undecided.
         if owners.get(&work).map(String::as_str) != Some(record.owner_id().as_str()) {
             continue;
@@ -225,6 +240,38 @@ pub(in crate::contexts::media) async fn insert_disclosure(
             StoreError::from(error)
         }
     })?;
+    Ok(())
+}
+
+pub(in crate::contexts::media) async fn metadata_binding(
+    tx: &Tx<'_>,
+    record: &CoverDisclosureRecord,
+) -> Result<Option<(u64, String)>, StoreError> {
+    let row = tx.query_opt("SELECT work_metadata_revision,evidence_reference FROM media_metadata_cover_bindings WHERE work_id=?1 AND disclosure_sequence=?2",
+        &[&record.work_id().as_str(), &checked_number(record.sequence())?]).await?;
+    row.map(|row| {
+        let revision: i64 = corrupt(row.try_get("work_metadata_revision"))?;
+        let evidence: String = corrupt(row.try_get("evidence_reference"))?;
+        if revision <= 0
+            || evidence.trim().is_empty()
+            || evidence.len() > 1024
+            || evidence.chars().any(char::is_control)
+        {
+            return Err(StoreError::CorruptRevision);
+        }
+        Ok((revision as u64, evidence))
+    })
+    .transpose()
+}
+
+pub(in crate::contexts::media) async fn insert_metadata_binding(
+    tx: &Tx<'_>,
+    record: &CoverDisclosureRecord,
+    revision: u64,
+    evidence: &str,
+) -> Result<(), StoreError> {
+    tx.execute("INSERT INTO media_metadata_cover_bindings(work_id,disclosure_sequence,work_metadata_revision,evidence_reference) VALUES(?1,?2,?3,?4)",
+        &[&record.work_id().as_str(), &checked_number(record.sequence())?, &checked_number(revision)?, &evidence]).await?;
     Ok(())
 }
 

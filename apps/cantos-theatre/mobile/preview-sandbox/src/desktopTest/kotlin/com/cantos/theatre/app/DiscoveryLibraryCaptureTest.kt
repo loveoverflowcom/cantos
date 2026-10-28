@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -38,13 +39,16 @@ class DiscoveryLibraryCaptureTest {
             scrollTo = "save-card-${PreviewWorkIds.SonHa.value}")
         capture("search-390-dark-vi", PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn", theme = ShellTheme.Dark)), 390, 844)
         capture("search-no-results-320-dark-en-text2", PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "no matching story", theme = ShellTheme.Dark, locale = ShellLocale.English)), 320, 800, 2f)
+        capture("search-dock-390-dark-vi", PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn", theme = ShellTheme.Dark)), 390, 844, openSearch = true)
+        capture("search-dock-1100-light-en", PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn", locale = ShellLocale.English)), 1100, 900, openSearch = true)
+        capture("search-dock-no-results-320-dark-en-text2", PreviewSeed(previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "no matching story", theme = ShellTheme.Dark, locale = ShellLocale.English)), 320, 800, 2f, openSearch = true)
         capture("catalog-empty-390-light-vi", PreviewSeed(previewState(catalogMode = ShellCatalogMode.Empty)), 390, 844)
         capture("history-empty-390-dark-vi", PreviewSeed(previewState(stack = listOf(ShellRoute.Library, ShellRoute.History), theme = ShellTheme.Dark), signedIn = true), 390, 844)
     }
 
     private fun PreviewSeed.withAppearance(theme: ShellTheme, locale: ShellLocale) = copy(state = state.copy(theme = theme, locale = locale))
 
-    private fun capture(name: String, seed: PreviewSeed, width: Int, height: Int, scale: Float = 1f, scrollTo: String? = null) {
+    private fun capture(name: String, seed: PreviewSeed, width: Int, height: Int, scale: Float = 1f, scrollTo: String? = null, openSearch: Boolean = false) {
         lateinit var owners: PreviewOwners
         runDesktopComposeUiTest(width = width, height = height) {
             setContent {
@@ -62,6 +66,7 @@ class DiscoveryLibraryCaptureTest {
             }
             waitForIdle()
             if (scrollTo != null) onNodeWithTag(scrollTo).performScrollTo()
+            if (openSearch) onNodeWithTag("search-input").performClick()
             waitForIdle()
             val root = onNodeWithTag("issue453-root")
             val bitmap = root.captureToImage()
