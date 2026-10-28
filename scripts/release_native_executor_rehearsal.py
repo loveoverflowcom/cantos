@@ -58,14 +58,15 @@ def provisional(path, operation, previous, target_release, source_sha):
         'execution_environment': 'linux-native-systemd-podman-exact-images', 'activation': 'NOT_RUN'}))
 
 
-def record(operation, previous, target_release, source_sha, manifest_digest):
+def record(operation, previous, target_release, source_sha, manifest_digest, provenance):
     checks = forward.FORWARD_EXECUTOR_CHECKS if operation == forward.FORWARD else forward.MIGRATION_EXECUTOR_CHECKS
     result = {'schema_version': 1, 'operation': operation+'_EXECUTOR_REHEARSAL', 'status': 'PASS',
             'executor_source': source_sha, 'previous': migration.new_identity(previous),
             'target': migration.new_identity(target_release), 'checks': checks,
             'evidence_level': 'integration-tested', 'execution_environment': 'linux-native-systemd-podman-exact-images',
             'activation': 'NOT_RUN', 'live_business_acceptance': 'NOT_RUN',
-            'fixture_scope': 'synthetic-runner-real-systemd-podman-executor-functions'}
+            'fixture_scope': 'synthetic-runner-real-systemd-podman-executor-functions',
+            'synthetic_receipt_sha256': provenance}
     if manifest_digest is not None:
         result['target_manifest_sha256'] = manifest_digest
     return result
@@ -139,6 +140,7 @@ def run(root, args):
     request, raw, approval, inventory = history.create(layout, old23, running24, v23_roots,
                                                         args.source_sha, 'c'*64, fixture_marker)
     marker_bytes = (native.STATE/'in-progress.json').read_bytes()
+    provenance = {'historical_start_intent': hashlib.sha256(marker_bytes).hexdigest()}
     PHASE = 'ACCEPT_SYNTHETIC_WRITE'
     actor = journey.signup(system, layout)
     PHASE = 'FORWARD_CRASH_REPLAY'
@@ -151,6 +153,7 @@ def run(root, args):
     contract.require(result['status'] == 'RECONCILED_AFTER_INTERRUPTION' and
                      (native.STATE/result['attempt']/'original-intent.json').read_bytes() == marker_bytes,
                      'forward replay did not preserve marker')
+    provenance['forward_receipt'] = native.digest_file(native.STATE/result['attempt']/'receipt.json')
     contract.require(journey.login(system, layout) == actor, 'accepted v24 user did not survive forward recovery')
     PHASE = 'MIGRATION_PRESTART_CRASH'
     mrequest, mraw, mapproval, minventory = migration_request(native.STATE, request, running24, target27, args)
@@ -160,6 +163,7 @@ def run(root, args):
               lambda: live.execute(mrequest, mraw, mapproval, minventory, old23, running24, target27, system))
     marker = native.pinned(native.STATE/'in-progress.json', None)
     contract.require(marker['phase'] == 'MIGRATE_INTENT', 'prestart crash boundary mismatch')
+    provenance['prestart_cold_backup'] = marker['backup_sha256']
     recovery_inventory = contract.canonical({'fixture': 'prestart-restore'})
     recovery = recovery_approval(mrequest, mraw, live.ROLLBACK, recovery_inventory)
     PHASE = 'ROLLBACK_RENAME_CRASH_REPLAY'
@@ -170,6 +174,7 @@ def run(root, args):
     result = live.rollback(mrequest, mraw, recovery, recovery_inventory, old23, running24, target27, system)
     contract.require(result['status'] == 'OBSERVED_V24_RESTORED' and journey.login(system, layout) == actor,
                      'prestart restore did not preserve synthetic user')
+    provenance['prestart_rollback_receipt'] = native.digest_file(native.STATE/result['attempt']/'rollback-receipt.json')
     PHASE = 'MIGRATION_POSTSTART_CRASH'
     # A successful login while the child is stopped proves a write was accepted after start.
     accepted = {}
@@ -180,6 +185,7 @@ def run(root, args):
               lambda: live.execute(mrequest, mraw, mapproval, minventory, old23, running24, target27, system),
               on_stopped=write_after_start)
     contract.require(accepted.get('actor_id') == actor, 'poststart accepted actor mismatch')
+    provenance['poststart_intent'] = native.digest_file(native.STATE/'in-progress.json')
     try:
         live.rollback(mrequest, mraw, recovery, recovery_inventory, old23, running24, target27, system)
     except ValueError:
@@ -193,6 +199,9 @@ def run(root, args):
     contract.require(result['status'] == 'OBSERVED_FORWARD_RECONCILED', 'poststart reconciliation failed')
     journey.verify_session(system, layout, accepted)
     contract.require(journey.login(system, layout) == actor, 'accepted actor did not survive v27 recovery')
+    provenance['poststart_forward_receipt'] = native.digest_file(native.STATE/result['attempt']/'receipt.json')
+    sources = {Path(module.__file__).name: native.digest_file(Path(module.__file__))
+               for module in (forward, live, fixture, history, journey, trace)}
     # Only after all controls pass may these actual, source/image-bound records leave the VM.
     PHASE = 'WRITE_RESULTS'
     contract.require(args.output.is_absolute() and not args.output.exists() and not args.output.is_symlink() and
@@ -201,10 +210,12 @@ def run(root, args):
     with tempfile.TemporaryDirectory(prefix='cantos-executor-result-') as temporary:
         stage = Path(temporary)/'result'
         stage.mkdir(mode=0o700)
-        contract.write_new(stage/'forward-executor-rehearsal.json',
-                           record(forward.FORWARD, running24, running24, args.source_sha, None))
-        contract.write_new(stage/'migration-executor-rehearsal.json',
-                           record(forward.MIGRATE, running24, target27, args.source_sha, args.manifest_digest))
+        first = record(forward.FORWARD, running24, running24, args.source_sha, None, provenance)
+        second = record(forward.MIGRATE, running24, target27, args.source_sha, args.manifest_digest, provenance)
+        first['source_file_sha256'] = sources
+        second['source_file_sha256'] = sources
+        contract.write_new(stage/'forward-executor-rehearsal.json', first)
+        contract.write_new(stage/'migration-executor-rehearsal.json', second)
         contract.require(stage.stat().st_dev == args.output.parent.stat().st_dev, 'same-filesystem result staging required')
         os.rename(stage, args.output)
         native.sync_directory(args.output.parent)

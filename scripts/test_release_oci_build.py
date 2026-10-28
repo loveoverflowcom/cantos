@@ -68,6 +68,19 @@ def images():
 REF = "ghcr.io/loveoverflowcom/{}@sha256:{}"
 
 
+class BuildDiagnostics(unittest.TestCase):
+    def test_build_failure_only_reports_a_fixed_indicator(self):
+        for stderr, expected in [(b'no space left on device secret-value', 'NO_SPACE_INDICATOR'),
+                                 (b'connection refused secret-value', 'NETWORK_INDICATOR'),
+                                 (b'unclassified secret-value', 'OTHER')]:
+            with self.subTest(expected=expected), patch.object(build.subprocess, 'run',
+                    return_value=SimpleNamespace(returncode=1, stdout=b'', stderr=stderr)):
+                with self.assertRaises(ValueError) as observed:
+                    build.sh(Path('/fixture'), ['podman', 'build'])
+                self.assertEqual(str(observed.exception), 'command failed: podman build '+expected)
+                self.assertNotIn('secret-value', str(observed.exception))
+
+
 class ProducerContract(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

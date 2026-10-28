@@ -33,6 +33,7 @@ POLICY = ("rust-toolchain.toml", "Cargo.lock", COMPATIBILITY, "scripts/release_o
           *(CONTAINERFILE.format(s) for s in oci.SERVICES))
 MACHINES = {"x86_64": "linux/amd64", "aarch64": "linux/arm64"}
 GATE_REASON = "producer builds and publishes only; this gate has no execution here"
+PHASE = 'PREFLIGHT'
 
 
 # Only process/runtime locations, never provider tokens or ambient registry authentication.
@@ -45,7 +46,18 @@ def sh(root, argv, *, env=None):
     result = subprocess.run(argv, cwd=root, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             env=env, timeout=7200)
     # Never echo output: build logs and push errors can carry registry or credential detail.
-    contract.require(result.returncode == 0, "command failed: " + argv[0] + " " + argv[1])
+    # A small, fixed classification for a failed local image build helps distinguish a full
+    # disk or unreachable registry without exposing any stderr or remote-supplied text.
+    reason = "command failed: " + argv[0] + " " + argv[1]
+    if result.returncode != 0 and argv[:2] == ['podman', 'build']:
+        data = result.stderr.lower()
+        category = ('NO_SPACE_INDICATOR' if b'no space left on device' in data else
+                    'RATE_LIMIT_INDICATOR' if b'too many requests' in data or b'rate limit' in data else
+                    'NETWORK_INDICATOR' if any(s in data for s in (b'timed out', b'temporary failure in name resolution',
+                                                                  b'connection refused', b'network is unreachable')) else
+                    'PERMISSION_INDICATOR' if b'permission denied' in data else 'OTHER')
+        reason += ' '+category
+    contract.require(result.returncode == 0, reason)
     return result.stdout.decode()
 
 
@@ -255,11 +267,14 @@ def save_attempt(output, record):
 
 
 def produce(root, args, env=os.environ):
+    global PHASE
+    PHASE = 'PREFLIGHT'
     sha = preflight(root, args.platform)
     producer = producer_identity(args.producer, env, sha, args.build_id)
     configuration = configuration_identity(root, sha, args.platform)
     compat = compatibility(root, sha)
     members = host_members(root, sha)
+    PHASE = 'VALIDATE_INPUTS'
     if args.publish:
         contract.require(args.authfile is not None, "explicit private authfile required")
         registry.load_authfile(args.authfile)  # Refuse unsafe files/helpers before any build or push.
@@ -273,13 +288,16 @@ def produce(root, args, env=os.environ):
             contract.copy_verified(args.authfile, private_auth, record, limit=registry.MAX_AUTH_BYTES)
             private_auth.chmod(0o600)
             registry.load_authfile(private_auth)
+        PHASE = 'LOCAL_BUILD'
         local = build_pair(root, sha, configuration, args.platform, work)
+        PHASE = 'POST_BUILD_PREFLIGHT'
         contract.require(preflight(root, args.platform) == sha, "source changed during the build")
         if not args.publish:
             return {"kind": "cantos-native-oci-build", "operation": "BUILD_ONLY", "source_sha": sha,
                     "configuration_sha256": configuration, "platform": args.platform,
                     "images": {s: {"config_digest": local[s][1]} for s in oci.SERVICES},
                     "gates": {"build": "PASS", "publish": "NOT_RUN", "registry-readback": "NOT_RUN"}}
+        PHASE = 'RECORD_PUBLISH_ATTEMPT'
         output = root / args.output / sha / configuration / uuid.uuid4().hex
         contract.require(not output.exists(), "fresh publication attempt required")
         private_attempt_directory(output)
@@ -291,12 +309,14 @@ def produce(root, args, env=os.environ):
         save_attempt(output, attempt)
         images = {}
         for service in oci.SERVICES:
+            PHASE = 'PUSH_'+service.upper().replace('-', '_')
             attempt["images"][service]["state"] = "unknown"
             save_attempt(output, attempt)  # A crash from here onward requires reconciliation, never replay.
             digest = push(root, service, local[service][1], sha, private_auth, work)
             attempt["images"][service].update(state="confirmed", digest=digest)
             save_attempt(output, attempt)
             images[service] = {"ref": REGISTRY + service + "@" + digest, "config_digest": local[service][1]}
+        PHASE = 'ASSEMBLE_CANDIDATE'
         manifest, bundle, evidence, records = candidate(sha, configuration, args.platform, producer, compat,
                                                        images, members)
         admission = {"schema_version": 1,
@@ -309,6 +329,7 @@ def produce(root, args, env=os.environ):
         oci.verify_bundle(root, output / "candidate/runtime.tar", manifest)
         attempt["registry_readback"] = "unknown"
         save_attempt(output, attempt)
+        PHASE = 'REGISTRY_READBACK'
         observed = registry.observe(manifest, plan, authfile=private_auth)
         attempt["registry_readback"] = "PASS"
         save_attempt(output, attempt)
@@ -333,7 +354,10 @@ def main():
     try:
         result = produce(Path(__file__).resolve().parents[1], args)
     except Exception as error:  # noqa: BLE001 - report a safe class, never remote or credential text
-        parser.exit(1, "native OCI build refused: " + type(error).__name__ +
+        message = str(error)
+        permitted = re.fullmatch(r'command failed: podman build (?:NO_SPACE_INDICATOR|RATE_LIMIT_INDICATOR|NETWORK_INDICATOR|PERMISSION_INDICATOR|OTHER)', message)
+        detail = '; '+message if isinstance(error, ValueError) and permitted else ''
+        parser.exit(1, "native OCI build refused at " + PHASE + ": " + type(error).__name__ + detail +
                     "; inspect retained publish-attempt.json before retrying; remote outcome may be unknown\n")
     print(json.dumps(result, sort_keys=True))
 
