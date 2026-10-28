@@ -784,7 +784,7 @@ pub fn Studio() -> impl IntoView {
                             } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
                         })/>
                     </span>
-                    <ThemeCycleButton id="theme-select" theme=theme show_label=true labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
+                    <ThemeCycleButton id="theme-select" theme=theme variant=ButtonVariant::Tonal labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
                     <AccountEntry actor=authenticated_actor
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
                         open=account_menu_open

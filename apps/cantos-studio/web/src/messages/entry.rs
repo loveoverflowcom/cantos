@@ -170,39 +170,56 @@ mod tests {
         assert!(!rule.contains("visibility: hidden"), "{rule}");
     }
 
-    #[test]
-    fn studio_topbar_v6_fills_language_and_outlines_theme_in_one_primary_hue() {
-        let css = include_str!("../../studio.css");
-        let theme = css
-            .split(".studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button {")
+    /// The language fill rule, matched by its exact selector so a hover rule cannot satisfy it.
+    fn language_fill_rule(css: &str) -> &str {
+        css.split(".studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density=\"compact\"] .cui-field-control:not(:disabled):not([readonly]):not([aria-invalid=\"true\"]) {")
             .nth(1)
             .and_then(|rest| rest.split('}').next())
-            .expect("the theme pill rule exists");
-        assert!(theme.contains("background-color: transparent"), "{theme}");
+            .expect("the language pill fill rule exists")
+    }
+
+    #[test]
+    fn studio_topbar_v7_language_pill_is_tonal_semantic_and_compact() {
+        let css = include_str!("../../studio.css");
+        let fill = language_fill_rule(css);
         assert!(
-            theme.contains("color: var(--cantos-color-theatre-account-control)"),
-            "{theme}"
-        );
-        // The stroke follows the label and icon colour, so all three share one hue.
-        assert!(theme.contains("solid currentColor"), "{theme}");
-        let language = css
-            .lines()
-            .position(|line| {
-                line.starts_with(".studio-shell[data-expression] .studio-language-field")
-            })
-            .map(|at| css.lines().skip(at).take(4).collect::<Vec<_>>().join("\n"))
-            .expect("the language pill fill rule exists");
-        assert!(
-            language.contains("background-color: var(--cantos-color-theatre-account-control)"),
-            "{language}"
+            fill.contains("background-color: var(--cantos-color-surface-container-high)"),
+            "{fill}"
         );
         assert!(
-            language.contains("color: var(--cantos-color-theatre-on-account-control)"),
-            "{language}"
+            fill.contains("color: var(--cantos-color-on-surface)"),
+            "{fill}"
         );
-        // A fill-coloured ring would vanish on the filled pill.
+        // v6 filled the pill with the account-control hue and painted a ring in its ink.
+        assert!(
+            !css.contains("account-control"),
+            "v6 account-control hue was retired"
+        );
+        // v8: the trigger's inline padding is the small step, not the medium one.
         assert!(css.lines().any(|line| line
-            .contains(".studio-language-field .cui-field-control:is(:focus-visible")
-            && line.contains("outline-color: var(--cantos-color-theatre-on-account-control)")));
+            .contains(".studio-language-field .cui-select-trigger")
+            && line.contains("padding-inline: var(--cantos-space-sm)")));
+        // The shared focus ring stays: no local outline override on the language control.
+        assert!(!css
+            .lines()
+            .any(|line| line.contains(".studio-language-field") && line.contains("outline")));
+    }
+
+    #[test]
+    fn studio_topbar_v7_theme_is_the_shared_icon_only_tonal_action() {
+        let css = include_str!("../../studio.css");
+        // The v6 outlined, labelled theme pill is gone; the shared 44x44 tonal rounded square applies.
+        assert!(
+            !css.contains(".cui-theme-cycle-button"),
+            "no local theme-pill override"
+        );
+        let view = include_str!("../view.rs");
+        let theme = view
+            .split("<ThemeCycleButton")
+            .nth(1)
+            .and_then(|rest| rest.split("/>").next())
+            .expect("the topbar renders the theme cycle");
+        assert!(theme.contains("variant=ButtonVariant::Tonal"), "{theme}");
+        assert!(!theme.contains("show_label"), "{theme}");
     }
 }
