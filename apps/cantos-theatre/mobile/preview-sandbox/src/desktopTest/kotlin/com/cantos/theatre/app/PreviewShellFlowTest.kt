@@ -258,9 +258,11 @@ class PreviewShellFlowTest {
     }
 
     @Test
-    fun the_loading_scenario_keeps_the_query_and_an_empty_catalog_offers_a_way_back_to_discover() {
+    fun loading_keeps_query_without_retry_and_complete_empty_keeps_navigation_available() {
         run(PreviewSeed(previewState(stack = listOf(ShellRoute.Search), query = "Sơn Hà", catalogMode = ShellCatalogMode.Loading))) { owners ->
-            untilTag("retry")
+            untilTag("catalog-loading")
+            onNodeWithTag("retry").assertDoesNotExist()
+            onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
             onNodeWithTag("search-input").assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Sơn Hà")),
             )
