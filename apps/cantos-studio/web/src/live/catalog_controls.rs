@@ -153,6 +153,7 @@ mod browser {
         contract::{ArchiveContentUnitRequest, ArchiveWorkRequest, ReorderContentUnitsRequest},
         live::{
             copy::{text, Key},
+            projection::{self, Refusal},
             workspace::{uuid, Dispatch},
             ClientError, Command, Facts, Reply,
         },
@@ -171,7 +172,7 @@ mod browser {
 
     #[component]
     pub(in crate::live) fn WorkControls(
-        facts: RwSignal<Facts>,
+        #[prop(into)] facts: Signal<Facts>,
         dispatch: Dispatch,
         locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
@@ -204,21 +205,19 @@ mod browser {
         on_cleanup(move || {
             let _ = dirty.try_set(false);
         });
-        let cannot_edit = Signal::derive(move || {
-            blocked.get()
-                || facts.with(|facts| {
-                    facts
-                        .work
-                        .as_ref()
-                        .is_none_or(|work| work.lifecycle != "draft")
-                })
+        // The shared lifecycle projection; the Work's own archived state gets its specific reason.
+        let refusal = Signal::derive(move || {
+            facts.with(|facts| projection::edit_work(facts.work.as_ref()).err())
         });
-        let Ok(reason) = crate::ui::LocalizedReason::new(BlockReason::ReadOnly) else {
+        let cannot_edit = Signal::derive(move || blocked.get() || refusal.get().is_some());
+        let Ok(reason) = crate::ui::LocalizedReason::new(BlockReason::Busy) else {
             return ().into_any();
         };
         let reason = StoredValue::new(reason);
         let field_state = Signal::derive(move || {
-            if cannot_edit.get() {
+            if refusal.get() == Some(Refusal::WorkArchived) {
+                FieldState::ReadOnly
+            } else if cannot_edit.get() {
                 FieldState::Disabled(reason.with_value(|reason| reason.get(locale.get())))
             } else {
                 FieldState::Editable
@@ -234,6 +233,7 @@ mod browser {
                         state=field_state class="live-field" value=Signal::derive(move ||draft.with(|draft|draft.synopsis.clone()))
                         on_input=Callback::new(move |value|draft.update(|draft|draft.synopsis=value))/>
             </div>
+            <p class="help cw-reason" id="live-work-reason" role="status" hidden=move||refusal.get()!=Some(Refusal::WorkArchived)>{move||text(Key::ReasonWorkArchived,locale.get())}</p>
             <div class="cw-actions">
                 <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() { return; }
@@ -276,7 +276,7 @@ mod browser {
 
     #[component]
     pub(in crate::live) fn UnitControls(
-        facts: RwSignal<Facts>,
+        #[prop(into)] facts: Signal<Facts>,
         dispatch: Dispatch,
         locale: Signal<crate::localization::Locale>,
         blocked: Signal<bool>,
@@ -286,14 +286,7 @@ mod browser {
         let cannot_edit = Signal::derive(move || {
             blocked.get()
                 || facts.with(|facts| {
-                    facts
-                        .work
-                        .as_ref()
-                        .is_none_or(|work| work.lifecycle != "draft")
-                        || facts
-                            .unit
-                            .as_ref()
-                            .is_none_or(|unit| unit.lifecycle != "draft")
+                    projection::edit_unit(facts.work.as_ref(), facts.unit.as_ref()).is_err()
                 })
         });
         let order = move |direction| {

@@ -18,9 +18,14 @@ pub mod copy;
 pub mod dashboard;
 mod dashboard_copy;
 #[cfg(any(target_arch = "wasm32", test))]
+mod feedback;
+#[cfg(any(target_arch = "wasm32", test))]
 mod field_issues;
 #[cfg(any(target_arch = "wasm32", test))]
 mod layout;
+// Dashboard consumes the row-identity helper on every target; the rest is workspace-only.
+#[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
+mod projection;
 
 mod consent;
 pub use consent::ReviewConsent;

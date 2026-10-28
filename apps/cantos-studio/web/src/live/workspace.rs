@@ -2,7 +2,9 @@
 use super::{
     browser,
     copy::{self, text, Key},
+    feedback::{self, Outcome, Target},
     layout::{self, EditorStatus, Pane, Task, Viewing},
+    projection::{self, Refusal},
     *,
 };
 use crate::contract::*;
@@ -25,6 +27,9 @@ pub(super) struct Dispatch {
     pub(super) complete: Callback<(Command, Result<Reply, ClientError>)>,
     pub(super) api: crate::api::StudioHttp,
     pub(super) progress: Option<Callback<artwork::platform::Transfer>>,
+    /// Event-time admission of a *new* intent against the current selection. Retry and receipt
+    /// reconciliation of an existing intent never pass through it.
+    pub(super) admit: Option<Callback<Command, bool>>,
 }
 impl Dispatch {
     pub(super) fn abort(self) {
@@ -53,6 +58,9 @@ impl Dispatch {
         self.start(command, target);
     }
     fn start(self, command: Command, page_focus: Option<&'static str>) {
+        if self.admit.is_some_and(|admit| !admit.run(command.clone())) {
+            return;
+        }
         let Some((sending, ticket)) = self
             .state
             .get_untracked()
@@ -466,6 +474,11 @@ pub fn ContentWorkspace(
     let delegation_busy = RwSignal::new(false);
     let dispatch = Dispatch {
         progress: None,
+        admit: Some(Callback::new(move |command: Command| {
+            facts
+                .with_untracked(|f| projection::admit(&command, f.work.as_ref(), f.unit.as_ref()))
+                .is_ok()
+        })),
         state,
         session_pending,
         abort,
@@ -613,10 +626,7 @@ pub fn ContentWorkspace(
                             }
                         }
                     }
-                    Err(ClientError::Http { status: 404, error })
-                        if error.code == ErrorCode::NotFound
-                            && matches!(command, Command::ContentHead { .. }) =>
-                    {
+                    Err(error) if feedback::is_missing_head(&command, &error) => {
                         let Command::ContentHead { unit } = &command else {
                             return;
                         };
@@ -1081,12 +1091,86 @@ pub fn ContentWorkspace(
     let has_unit = Signal::derive(move || facts.with(|f| f.unit.is_some()));
     let shown = Signal::derive(move || layout::resolve(task.get(), has_work.get(), has_unit.get()));
     let hide_area = move |area: Task| shown.get() != Some(area);
-    // The same lifecycle predicate the Work and chapter controls apply; reads stay available.
-    let work_read_only =
-        Signal::derive(move || facts.with(|f| layout::read_only_lifecycle(f.work.as_ref(), None)));
-    let read_only = Signal::derive(move || {
-        facts.with(|f| layout::read_only_lifecycle(f.work.as_ref(), f.unit.as_ref()))
+    // One capability projection feeds fields, buttons and event-time admission; reads stay open.
+    let work_refusal =
+        Signal::derive(move || facts.with(|f| projection::edit_work(f.work.as_ref()).err()));
+    let unit_refusal = Signal::derive(move || {
+        facts.with(|f| projection::edit_unit(f.work.as_ref(), f.unit.as_ref()).err())
     });
+    let lifecycle_refusal = Signal::derive(move || {
+        facts.with(|f| projection::lifecycle_reason(f.work.as_ref(), f.unit.as_ref()))
+    });
+    let read_only = Signal::derive(move || lifecycle_refusal.get().is_some());
+    let reason_text = move |refusal: Option<Refusal>| -> String {
+        refusal
+            .and_then(Refusal::reason_key)
+            .map(|key| text(key, locale.get()).to_owned())
+            .unwrap_or_default()
+    };
+    let work_ids = Memo::new(move |_| {
+        facts.with(|f| projection::row_ids(f.works.iter().map(|work| work.id.as_str())))
+    });
+    let unit_ids = Memo::new(move |_| {
+        facts.with(|f| projection::row_ids(f.units.iter().map(|unit| unit.id.as_str())))
+    });
+    let report = Memo::new(move |_| state.with(feedback::feedback));
+    // Names the operation and target a settled outcome answers; a title is looked up by ID, so a
+    // removed or unlisted entity simply has none.
+    let feedback_context = move || -> String {
+        let report = report.get();
+        let locale = locale.get();
+        let title = facts.with(|f| match &report.target {
+            Target::Work(id) => f
+                .work
+                .iter()
+                .chain(f.works.iter())
+                .find(|work| &work.id == id)
+                .map(|work| work.details.title.clone()),
+            Target::Unit(id) => f
+                .unit
+                .iter()
+                .chain(f.units.iter())
+                .find(|unit| &unit.id == id)
+                .map(|unit| unit.details.title.clone()),
+            Target::None => None,
+        });
+        // An outcome about something no longer selected always names its task, so it cannot be
+        // read as the result of what is open now.
+        let selected = facts.with(|f| {
+            report.target.is_selected(
+                f.work.as_ref().map(|work| work.id.as_str()),
+                f.unit.as_ref().map(|unit| unit.id.as_str()),
+            )
+        });
+        let label = match report.outcome {
+            Outcome::Failed | Outcome::Unknown | Outcome::Working => true,
+            Outcome::Done | Outcome::MissingHead => !selected,
+            Outcome::Idle => false,
+        }
+        .then(|| report.operation.label_key())
+        .flatten()
+        .map(|key| text(key, locale).to_owned());
+        [label, title]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
+    let outcome_text = move || -> &'static str {
+        let report = report.get();
+        let locale = locale.get();
+        text(
+            match report.outcome {
+                Outcome::Idle => Key::Idle,
+                Outcome::Working => Key::Pending,
+                Outcome::Done => report.operation.done_key(),
+                Outcome::MissingHead => Key::NoContent,
+                Outcome::Failed => Key::Failed,
+                Outcome::Unknown => Key::Ambiguous,
+            },
+            locale,
+        )
+    };
     let field_state = Signal::derive(move || {
         if read_only.get() {
             FieldState::ReadOnly
@@ -1145,8 +1229,9 @@ pub fn ContentWorkspace(
                     <p class="cw-state" role="status" data-state=move ||editor_status.get().as_str() hidden=move ||!has_unit.get()>{move ||editor_status_text()}</p>
                 </header>
                 <p class="cw-unsaved" role="status" hidden=move ||!drafts.with(super::drafts::AuthoringDrafts::has_unsaved)>{move ||text(Key::UnsavedDrafts,locale.get())}</p>
-                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" hidden=move ||state.with(|s|s.phase()==Phase::Idle)><p>{move ||state.with(|s|text(match s.phase() {Phase::Idle=>Key::Idle,Phase::Pending=>Key::Pending,Phase::Ready=>Key::Ready,Phase::Failed=>Key::Failed,Phase::Ambiguous=>Key::Ambiguous},locale.get()))}</p>
-                    {move ||state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default())}
+                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" data-outcome=move ||format!("{:?}",report.get().outcome) hidden=move ||state.with(|s|s.phase()==Phase::Idle)><p>{outcome_text}</p>
+                    <p class="cw-feedback-target" hidden=move ||feedback_context().is_empty()>{feedback_context}</p>
+                    {move ||if report.get().outcome==Outcome::MissingHead {String::new()} else {state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default()).to_owned()}}
                     <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,locale.get())}else{""}}</p>
                     <super::field_issues::FieldIssues locale=locale issues=Signal::derive(move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}))/>
                     <div class="toolbar" hidden=move ||state.with(|s|s.phase()!=Phase::Pending&&!s.can_reconcile()&&!s.can_retry())><span hidden=move ||state.with(|s|s.phase()!=Phase::Pending)><ActionButton id="live-cancel" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|{cancel_request.run(());focus_workspace_field("live-status");})>{move ||text(Key::Cancel,locale.get())}</ActionButton></span>
@@ -1161,16 +1246,28 @@ pub fn ContentWorkspace(
                             <div class="toolbar cw-pager"><ActionButton id="live-works" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,locale.get())}</ActionButton>
                             <span hidden=move ||facts.with(|f|f.pages.previous_works().is_none())><ActionButton id="live-works-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_works().is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f|f.pages.previous_works()) { read_works.run(cursor); } })>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                             <span hidden=move ||facts.with(|f|f.works_next.is_none())><ActionButton id="live-works-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
-                            <ul id="live-works-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::WorkResults,locale.get())>{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();let current=w.id.clone();view! {<li><button class="cui-button" data-variant="text" type="button" aria-current=move ||facts.with(|f|f.work.as_ref().is_some_and(|work|work.id==current)).then_some("true") disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())><span lang=w.details.language.clone()>{w.details.title}</span><small>{move ||copy::labelled_revision(copy::work_kind(&w.kind,locale.get()),w.revision)}</small></button></li>}}).collect_view()}</ul>
+                            <ul id="live-works-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::WorkResults,locale.get())>
+                                <For each=move||work_ids.get() key=|id|id.clone() children=move |id| {
+                                    let row=Memo::new({let id=id.clone();move |_|facts.with(|f|f.works.iter().find(|work|work.id==id).cloned())});
+                                    let current=id.clone();
+                                    view! {<li><button class="cui-button" data-variant="text" type="button" data-lifecycle=move||row.get().map(|w|w.lifecycle) aria-current=move ||facts.with(|f|f.work.as_ref().is_some_and(|work|work.id==current)).then_some("true") disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())><span lang=move||row.get().map(|w|w.details.language)>{move||row.get().map(|w|w.details.title)}</span><small>{move ||row.get().map(|w|copy::labelled_revision(copy::work_kind(&w.kind,locale.get()),w.revision))}</small></button></li>}
+                                }/>
+                            </ul>
                         </section>
                         <Show when=move ||has_work.get()>
                             <section class="cw-nav-section" aria-labelledby="live-units-heading">
                                 <div class="cw-nav-heading"><h3 id="live-units-heading">{move ||text(Key::Unit,locale.get())}</h3>
-                                    <ActionButton id="live-new-unit" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_read_only.get()) on_press=Callback::new(move |_| { task.set(Task::CreateUnit); pane.set(Pane::Work); focus_workspace_field("live-unit-title"); })>{move ||text(Key::NewUnit,locale.get())}</ActionButton></div>
+                                    <ActionButton id="live-new-unit" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| { task.set(Task::CreateUnit); pane.set(Pane::Work); focus_workspace_field("live-unit-title"); })>{move ||text(Key::NewUnit,locale.get())}</ActionButton></div>
                                 <div class="toolbar cw-pager"><ActionButton id="live-refresh-units" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| { if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send_page(Command::Units {work:work.id,cursor:None});} })>{move ||text(Key::RefreshUnits,locale.get())}</ActionButton>
                                 <span hidden=move ||facts.with(|f|f.pages.previous_units().is_none())><ActionButton id="live-units-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_units().is_none())) on_press=Callback::new(move |_| {if let Some((work,cursor))=facts.with_untracked(|f|Some((f.work.as_ref()?.id.clone(),f.pages.previous_units()?))) {dispatch.send_page(Command::Units {work,cursor});}})>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                                 <span hidden=move ||facts.with(|f|f.units_next.is_none())><ActionButton id="live-units-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.units_next.is_none())) on_press=Callback::new(move |_| {if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send_page(Command::Units {work:work.id,cursor:facts.with_untracked(|f|f.units_next.clone())});}})>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
-                                <ul id="live-units-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::UnitResults,locale.get())>{move ||facts.with(|f|f.units.clone()).into_iter().map(|u| {let id=u.id.clone();let current=u.id.clone();view! {<li><button type="button" class="cui-button" data-variant="text" aria-current=move ||facts.with(|f|f.unit.as_ref().is_some_and(|unit|unit.id==current)).then_some("true") disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())><span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{u.details.title}</span><small>{move ||copy::labelled_revision(copy::unit_kind(&u.kind,locale.get()),u.revision)}</small></button></li>}}).collect_view()}</ul>
+                                <ul id="live-units-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::UnitResults,locale.get())>
+                                    <For each=move||unit_ids.get() key=|id|id.clone() children=move |id| {
+                                        let row=Memo::new({let id=id.clone();move |_|facts.with(|f|f.units.iter().find(|unit|unit.id==id).cloned())});
+                                        let current=id.clone();
+                                        view! {<li><button type="button" class="cui-button" data-variant="text" data-lifecycle=move||row.get().map(|u|u.lifecycle) aria-current=move ||facts.with(|f|f.unit.as_ref().is_some_and(|unit|unit.id==current)).then_some("true") disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())><span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move||row.get().map(|u|u.details.title)}</span><small>{move ||row.get().map(|u|copy::labelled_revision(copy::unit_kind(&u.kind,locale.get()),u.revision))}</small></button></li>}
+                                    }/>
+                                </ul>
                             </section>
                         </Show>
                     </aside>
@@ -1202,8 +1299,9 @@ pub fn ContentWorkspace(
                                 <TextField id="live-unit-title" label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned()) value=new_unit_title on_input=Callback::new(move |value|new_unit_title.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-unit-description" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned()) value=new_unit_description on_input=Callback::new(move |value|new_unit_description.set(value)) class="live-field"/>
                             </div>
                             <p class="help">{move ||text(Key::CreateKept,locale.get())}</p>
-                            <div class="cw-actions">                    <ActionButton id="live-create-unit" locale=locale variant=ButtonVariant::Primary reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_read_only.get()) on_press=Callback::new(move |_| {
-                            if blocked.get_untracked() { return; }
+                            <p class="help cw-reason" role="status" hidden=move||work_refusal.get().and_then(Refusal::reason_key).is_none()>{move||reason_text(work_refusal.get())}</p>
+                            <div class="cw-actions">                    <ActionButton id="live-create-unit" locale=locale variant=ButtonVariant::Primary reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| {
+                            if blocked.get_untracked() || work_refusal.get_untracked().is_some() { return; }
                             if !confirm_context_change(false) { return; }
                             dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:new_unit_title.get_untracked(),description:new_unit_description.get_untracked(),source:None,script:None,content_digest:None}}})})());
                         })>{move ||text(Key::CreateUnit,locale.get())}</ActionButton>
@@ -1215,6 +1313,7 @@ pub fn ContentWorkspace(
                                 <div class="cw-panel-head"><h3 id="live-write-title">{move ||text(Key::Content,locale.get())}</h3>
                                     <div class="toolbar"><ActionButton id="live-content-head" locale=locale variant=ButtonVariant::Text icon=IconName::Refresh reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_head.run(()))>{move ||text(Key::ReadHead,locale.get())}</ActionButton>
                                     <ActionButton id="live-open-editor" locale=locale variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=session_pending on_press=Callback::new(move |_|open_selected_editor.run(()))>{move ||text(Key::OpenEditor,locale.get())}</ActionButton></div></div>
+                                <p class="help cw-reason" id="live-content-reason" role="status" hidden=move||lifecycle_refusal.get().is_none()>{move||reason_text(lifecycle_refusal.get())}</p>
                                 <fieldset class="live-content-fields" disabled=move ||content_locked.get()><legend class="cui-sr-only">{move ||text(Key::Content,locale.get())}</legend>
                                                         <super::content_kind::ContentKindSelect locale=locale value=body.into() locked=Signal::derive(move ||content_locked.get()||read_only.get())
                             editor_script_available=Signal::derive(move ||editor_script.with(|script|script.is_some()))
@@ -1222,7 +1321,10 @@ pub fn ContentWorkspace(
                                     <div hidden=move ||body.get()!="editor-script"><p class="help">{move ||text(Key::ScriptBindingHelp,locale.get())}</p>
                                     <p><code>{move ||facts.with(|f|drafts.with(|drafts|drafts.content(&f.unit_id()).script.map(|script|copy::script_binding(&script)).unwrap_or_default()))}</code></p></div>
                                     <TextArea id="live-manuscript" label=Signal::derive(move ||text(Key::Text,locale.get()).to_owned()) value=manuscript on_input=Callback::new(move |value|manuscript.set(value)) state=field_state class="live-field cw-manuscript" rows=14/><TextArea id="live-provenance" label=Signal::derive(move ||text(Key::Provenance,locale.get()).to_owned()) value=provenance on_input=Callback::new(move |value|provenance.set(value)) state=field_state class="live-field"/><TextField id="live-content-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=content_rights on_input=Callback::new(move |value|content_rights.set(value)) state=field_state class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
-                                    <div class="cw-actions">                    <ActionButton id="live-append-content" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||read_only.get()||facts.with(|f|drafts.with(|drafts|drafts.content_base(&f.unit_id()).is_none()||drafts.content(&f.unit_id()).details().is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(w,u)=context(facts)?;let expected_revision=drafts.with_untracked(|drafts|drafts.content_base(&u.id)).ok_or(ClientError::InvalidInput)?;let details=drafts.with_untracked(|drafts|drafts.content(&u.id).details()).ok_or(ClientError::InvalidInput)?;let request=AppendContentRequest {operation_id:uuid()?,id:uuid()?,expected_revision,expected_work_revision:w.revision,details};drafts.update(|drafts|drafts.submitted_content(&u.id,&request));Ok(Command::AppendContent {unit:u.id,request})})()))>{move ||text(Key::SaveContent,locale.get())}</ActionButton></div>
+                                    <div class="cw-actions">                    <ActionButton id="live-append-content" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()||facts.with(|f|drafts.with(|drafts|drafts.content_base(&f.unit_id()).is_none()||drafts.content(&f.unit_id()).details().is_none()))) on_press=Callback::new(move |_|{
+                                        // Admission precedes the draft's submitted-snapshot mark, so a refused press changes nothing.
+                                        if blocked.get_untracked()||unit_refusal.get_untracked().is_some() {return;}
+                                        dispatch.build((|| {let(w,u)=context(facts)?;let expected_revision=drafts.with_untracked(|drafts|drafts.content_base(&u.id)).ok_or(ClientError::InvalidInput)?;let details=drafts.with_untracked(|drafts|drafts.content(&u.id).details()).ok_or(ClientError::InvalidInput)?;let request=AppendContentRequest {operation_id:uuid()?,id:uuid()?,expected_revision,expected_work_revision:w.revision,details};drafts.update(|drafts|drafts.submitted_content(&u.id,&request));Ok(Command::AppendContent {unit:u.id,request})})())})>{move ||text(Key::SaveContent,locale.get())}</ActionButton></div>
                                 </fieldset>
                                 <p class="help">{move ||text(Key::Help,locale.get())}</p>
                             </Show>
@@ -1258,8 +1360,11 @@ pub fn ContentWorkspace(
                             <p class="help" hidden=move ||has_unit.get()||!has_work.get()>{move ||text(Key::NoUnitSelected,locale.get())}</p>
                             <Show when=move ||has_unit.get()>
                                 <section class="cw-block" aria-labelledby="live-unit-details-title"><h4 id="live-unit-details-title">{move ||text(Key::UnitDetails,locale.get())}</h4>
+                                    <p class="help cw-reason" id="live-unit-reason" role="status" hidden=move||lifecycle_refusal.get()!=Some(Refusal::UnitArchived)>{move||reason_text(lifecycle_refusal.get())}</p>
                                     <div class="cw-form-stack">                <TextField id="live-selected-unit-title" state=field_state label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned()) value=unit_title on_input=Callback::new(move |value|unit_title.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-selected-unit-description" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned()) value=description on_input=Callback::new(move |value|description.set(value)) state=field_state class="live-field"/></div>
-                                    <div class="cw-actions">                <ActionButton id="live-patch-unit" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||read_only.get()) on_press=Callback::new(move |_|dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id.clone(),request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:drafts.with_untracked(|drafts|drafts.metadata_base(&u.id)).ok_or(ClientError::InvalidInput)?,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})()))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
+                                    <div class="cw-actions">                <ActionButton id="live-patch-unit" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()) on_press=Callback::new(move |_|{
+                                        if blocked.get_untracked()||unit_refusal.get_untracked().is_some() {return;}
+                                        dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id.clone(),request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:drafts.with_untracked(|drafts|drafts.metadata_base(&u.id)).ok_or(ClientError::InvalidInput)?,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})())})>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
                                                     <ActionButton id="live-reload-unit-metadata" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                         if blocked.get_untracked() { return; }
                         if let Some(unit) = facts.with_untracked(|facts| facts.unit.clone()) {

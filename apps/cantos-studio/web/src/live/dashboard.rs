@@ -1,6 +1,6 @@
 //! App-owned overview of the existing workspace projection and request authority.
 use super::{
-    copy::work_kind,
+    copy::{self, work_kind},
     dashboard_copy::{text, Key},
     ClientError, Facts, Reply,
 };
@@ -93,8 +93,8 @@ fn audio_state(state: AudioSubmissionState, locale: crate::localization::Locale)
 
 #[component]
 pub fn Dashboard(
-    facts: RwSignal<Facts>,
-    query: RwSignal<DashboardQuery>,
+    #[prop(into)] facts: Signal<Facts>,
+    #[prop(into)] query: Signal<DashboardQuery>,
     locale: Signal<crate::localization::Locale>,
     blocked: Signal<bool>,
     session_pending: Signal<bool>,
@@ -109,6 +109,10 @@ pub fn Dashboard(
     on_pick: Callback<String>,
 ) -> impl IntoView {
     let has_selection = Signal::derive(move || facts.with(|f| f.work.is_some()));
+    // Row membership and order only; title, kind, lifecycle and revision are read per ID.
+    let work_ids = Memo::new(move |_| {
+        facts.with(|f| super::projection::row_ids(f.works.iter().map(|work| work.id.as_str())))
+    });
     let has_pages = Signal::derive(move || {
         facts.with(|f| f.works_next.is_some() || f.pages.previous_works().is_some())
     });
@@ -149,17 +153,18 @@ pub fn Dashboard(
                             </Show>
                         </div>
                         <ul class="dashboard-work-list">
-                            {move || facts.with(|f| f.works.clone()).into_iter().map(|work| {
-                                let id = work.id.clone();
-                                let selected_id = work.id.clone();
-                                let current_id = work.id.clone();
+                            <For each=move || work_ids.get() key=|id| id.clone() children=move |id| {
+                                let row = Memo::new({ let id = id.clone(); move |_| facts.with(|f| f.works.iter().find(|work| work.id == id).cloned()) });
+                                let selected_id = id.clone();
+                                let current_id = id.clone();
+                                let pick_id = id.clone();
                                 view! { <li class="dashboard-work-row" aria-current=move || facts.with(|f| f.work.as_ref().is_some_and(|w| w.id == current_id)).then_some("true")>
-                                    <ActionButton id=format!("dashboard-work-{}", work.id) locale=locale variant=ButtonVariant::Text
+                                    <ActionButton id=format!("dashboard-work-{id}") locale=locale variant=ButtonVariant::Text
                                         blocked=Signal::derive(move || session_pending.get() || (blocked.get() && facts.with(|f| f.work.as_ref().is_none_or(|w| w.id != selected_id))))
-                                        on_press=Callback::new(move |_| on_pick.run(id.clone()))><span lang=work.details.language>{work.details.title}</span></ActionButton>
-                                    <p class="dashboard-work-meta">{move || format!("{} · {} · r{}", work_kind(&work.kind, locale.get()), lifecycle(&work.lifecycle, locale.get()), work.revision)}</p>
+                                        on_press=Callback::new(move |_| on_pick.run(pick_id.clone()))><span lang=move || row.get().map(|work| work.details.language)>{move || row.get().map(|work| work.details.title)}</span></ActionButton>
+                                    <p class="dashboard-work-meta">{move || row.get().map(|work| copy::row_status(work_kind(&work.kind, locale.get()), lifecycle(&work.lifecycle, locale.get()), work.revision))}</p>
                                 </li> }
-                            }).collect_view()}
+                            }/>
                         </ul>
                         <Show when=move || has_pages.get()>
                             <div class="toolbar dashboard-pages"><Show when=move || facts.with(|f| f.pages.previous_works().is_some())><ActionButton id="dashboard-previous" locale=locale reason=BlockReason::PageNavigation variant=ButtonVariant::Tonal blocked=Signal::derive(move || blocked.get() || facts.with(|f| f.pages.previous_works().is_none())) on_press=Callback::new(move |_| on_previous.run(()))>{move || text(Key::Previous, locale.get())}</ActionButton></Show>
@@ -367,6 +372,45 @@ mod tests {
             assert!(at("id=\"dashboard-continue\"") < at("id=\"dashboard-audio\""));
             assert!(at("id=\"dashboard-audio\"") < at("id=\"dashboard-editor\""));
             assert_eq!(html.matches("aria-current=\"true\"").count(), 1, "{html}");
+        });
+    }
+
+    #[test]
+    fn rows_are_keyed_by_entity_id_and_read_title_revision_and_lifecycle_per_id() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let first = work("10000000-0000-4000-8000-000000000001", "Lời hẹn");
+            let second = work("10000000-0000-4000-8000-000000000002", "Đêm trắng");
+            let facts = RwSignal::new(Facts {
+                works: vec![first.clone(), second.clone(), first.clone()],
+                ..Facts::default()
+            });
+            let noop = Callback::new(|()| {});
+            let html = |facts: RwSignal<Facts>| {
+                view! { <Dashboard facts=facts query=RwSignal::new(DashboardQuery { context: Some(("alice".into(), 1)), read: CatalogRead::Ready })
+                    locale=Signal::stored(crate::localization::Locale::Vietnamese) blocked=Signal::derive(|| false) session_pending=Signal::derive(|| false)
+                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_previous=noop on_next=noop
+                    on_pick=Callback::new(|_: String| {})/> }.to_html()
+            };
+            // A repeated identity never mounts a second row.
+            let initial = html(facts);
+            assert_eq!(initial.matches("dashboard-work-row").count(), 2, "{initial}");
+            // The same ID with a new title, revision and lifecycle is the same row, updated.
+            facts.update(|f| {
+                let patched = &mut f.works[0];
+                patched.details.title = "Lời hẹn (sửa)".into();
+                patched.revision = 4;
+                patched.lifecycle = "archived".into();
+            });
+            let patched = html(facts);
+            assert_eq!(patched.matches("dashboard-work-row").count(), 2, "{patched}");
+            assert!(patched.contains("Lời hẹn (sửa)") && patched.contains("r4"), "{patched}");
+            assert!(patched.contains(text(Key::Archived, crate::localization::Locale::Vietnamese)), "{patched}");
+            // A row removed between notifications is simply gone; its neighbour is untouched.
+            facts.update(|f| f.works.retain(|work| work.id == second.id));
+            let removed = html(facts);
+            assert_eq!(removed.matches("dashboard-work-row").count(), 1, "{removed}");
+            assert!(!removed.contains("Lời hẹn") && removed.contains("Đêm trắng"), "{removed}");
         });
     }
 

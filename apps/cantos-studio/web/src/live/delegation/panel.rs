@@ -132,6 +132,7 @@ pub fn DelegationPanel(
     let reveal = Memo::new(move |_| grants.with(|g| g.reveal.clone()));
     let unrecoverable = Memo::new(move |_| grants.with(|g| g.unrecoverable.clone()));
     let dispatch = Dispatch {
+        admit: None,
         progress: None,
         state,
         session_pending,

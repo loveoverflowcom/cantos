@@ -10,6 +10,11 @@ pub fn labelled_revision(label: &str, revision: u64) -> String {
     format!("{label} · r{revision}")
 }
 
+/// Locale-neutral kind, lifecycle and revision line for a catalog row.
+pub fn row_status(kind: &str, lifecycle: &str, revision: u64) -> String {
+    format!("{kind} · {lifecycle} · r{revision}")
+}
+
 /// Locale-neutral history identity; never abbreviate the immutable revision ID.
 pub fn revision_identity(revision: u64, id: &str) -> String {
     format!("r{revision} · {id}")
@@ -255,6 +260,16 @@ pub enum Key {
     StatusUnsaved,
     StatusSaved,
     StatusArchived,
+    ReasonWorkArchived,
+    ReasonUnitArchived,
+    DoneCreateWork,
+    DoneSaveWork,
+    DoneArchiveWork,
+    DoneCreateUnit,
+    DoneSaveUnit,
+    DoneArchiveUnit,
+    DoneReorder,
+    DoneSaveContent,
     RevisionViewer,
     RevisionCurrent,
     RevisionHistorical,
@@ -506,6 +521,16 @@ pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
         Key::StatusUnsaved => resources::text(resources::Key::StatusUnsaved, locale),
         Key::StatusSaved => resources::text(resources::Key::StatusSaved, locale),
         Key::StatusArchived => resources::text(resources::Key::StatusArchived, locale),
+        Key::ReasonWorkArchived => resources::text(resources::Key::ReasonWorkArchived, locale),
+        Key::ReasonUnitArchived => resources::text(resources::Key::ReasonUnitArchived, locale),
+        Key::DoneCreateWork => resources::text(resources::Key::DoneCreateWork, locale),
+        Key::DoneSaveWork => resources::text(resources::Key::DoneSaveWork, locale),
+        Key::DoneArchiveWork => resources::text(resources::Key::DoneArchiveWork, locale),
+        Key::DoneCreateUnit => resources::text(resources::Key::DoneCreateUnit, locale),
+        Key::DoneSaveUnit => resources::text(resources::Key::DoneSaveUnit, locale),
+        Key::DoneArchiveUnit => resources::text(resources::Key::DoneArchiveUnit, locale),
+        Key::DoneReorder => resources::text(resources::Key::DoneReorder, locale),
+        Key::DoneSaveContent => resources::text(resources::Key::DoneSaveContent, locale),
         Key::RevisionViewer => resources::text(resources::Key::RevisionViewer, locale),
         Key::RevisionCurrent => resources::text(resources::Key::RevisionCurrent, locale),
         Key::RevisionHistorical => resources::text(resources::Key::RevisionHistorical, locale),
@@ -720,6 +745,16 @@ mod tests {
             Key::StatusUnsaved,
             Key::StatusSaved,
             Key::StatusArchived,
+            Key::ReasonWorkArchived,
+            Key::ReasonUnitArchived,
+            Key::DoneCreateWork,
+            Key::DoneSaveWork,
+            Key::DoneArchiveWork,
+            Key::DoneCreateUnit,
+            Key::DoneSaveUnit,
+            Key::DoneArchiveUnit,
+            Key::DoneReorder,
+            Key::DoneSaveContent,
             Key::RevisionViewer,
             Key::RevisionCurrent,
             Key::RevisionHistorical,
