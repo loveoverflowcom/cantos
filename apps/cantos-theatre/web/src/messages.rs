@@ -118,7 +118,7 @@ pub fn route_key(route: Route) -> Key {
         Route::Settings => Key::Settings,
         Route::Account => Key::Account,
         Route::Auth(_) => Key::SignIn,
-        Route::Membership(_) => Key::MembershipRegister,
+        Route::Membership(_) => Key::MembershipHeading,
         Route::NotFound => Key::NotFound,
     }
 }

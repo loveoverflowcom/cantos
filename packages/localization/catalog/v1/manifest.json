@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "7f520e244de6f64de00ea5efb208a606da5fa149ad3e1693659189ab91917752",
+  "catalogSha256": "a280603ec5225bb7b6a6b8271b08322bea17763bd9d81d9c768aff22b9b49a41",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1776,6 +1776,7 @@
     "theatre.shell.about_work": {},
     "theatre.shell.account": {},
     "theatre.shell.account_checking": {},
+    "theatre.shell.account_library_link": {},
     "theatre.shell.account_logout_pending": {},
     "theatre.shell.account_logout_retry": {},
     "theatre.shell.account_logout_retry_help": {},
@@ -2087,9 +2088,13 @@
     "theatre.shell.logout_unconfirmed": {},
     "theatre.shell.main_navigation": {},
     "theatre.shell.membership_heading": {},
+    "theatre.shell.membership_intro": {},
     "theatre.shell.membership_preview": {},
     "theatre.shell.membership_register": {},
+    "theatre.shell.membership_summary": {},
     "theatre.shell.membership_unavailable": {},
+    "theatre.shell.membership_unavailable_badge": {},
+    "theatre.shell.membership_unavailable_title": {},
     "theatre.shell.memory": {},
     "theatre.shell.mini_player": {},
     "theatre.shell.minute_count": {

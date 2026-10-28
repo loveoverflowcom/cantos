@@ -30,8 +30,8 @@ use crate::{
     platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, LogoVariant, Select,
-    SelectDensity, SelectLabelPlacement, Theme, ThemeCycleButton,
+    AccessibleName, BackButton, Button, ButtonVariant, IconName, Logo, LogoTone, LogoVariant,
+    Select, SelectDensity, SelectLabelPlacement, Theme, ThemeCycleButton,
 };
 use leptos::prelude::*;
 
@@ -1025,12 +1025,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     <LibraryAccountEntry state=state.read_only() locale on_account=Callback::new(move |_|nav.open_account())/>
                                 }.into_any(),
                                 Route::Membership(member) => view! {
-                                    <section class="theatre-membership-information" aria-labelledby="theatre-membership-heading">
-                                        {move || AccessibleName::new(crate::features::auth_copy::text(membership_back_key(member),locale.get())).ok().map(|name| view! { <BackButton id="theatre-membership-back" name on_back=Callback::new(move |_| nav.back())/> })}
-                                        <h1 id="theatre-membership-heading">{move || messages::text(Key::MembershipHeading,locale.get())}</h1>
-                                        <p>{move || messages::text(Key::MembershipUnavailable,locale.get())}</p>
-                                        <Button id="theatre-membership-login" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| nav.open_auth(AuthRoute::login(nav.origin())))>{move || messages::text(Key::SignIn,locale.get())}</Button>
-                                    </section>
+                                    <LiveMembership state=state.read_only() locale member
+                                        on_back=Callback::new(move |_| nav.back())
+                                        on_login on_account=Callback::new(move |_| nav.open_account())/>
                                 }.into_any(),
                                 Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
                                 Route::Player => view! { <LivePlayerScreen live sync_controls=player_sync_controls/> }.into_any(),
@@ -1167,9 +1164,113 @@ fn membership_back_key(member: MembershipReturn) -> crate::features::auth_copy::
         MembershipReturn::Account => CopyKey::ReturnAccount,
     }
 }
+
+/// Informational live destination. Membership intake has no accepted capability: this
+/// composition owns no form, request, private contact state or success transition.
+#[component]
+fn LiveMembership(
+    state: ReadSignal<AccountViewState>,
+    locale: RwSignal<Locale>,
+    member: MembershipReturn,
+    on_back: Callback<()>,
+    on_login: Callback<()>,
+    on_account: Callback<()>,
+) -> impl IntoView {
+    let can_login = Memo::new(move |_| state.with(AccountViewState::can_authenticate));
+    view! {
+        <section class="theatre-membership-information" aria-labelledby="theatre-membership-heading">
+            {move || AccessibleName::new(crate::features::auth_copy::text(membership_back_key(member), locale.get())).ok().map(|name| view! {
+                <BackButton id="theatre-membership-back" name on_back=Callback::new(move |_| on_back.run(()))/>
+            })}
+            <div class="theatre-membership-layout">
+                <header class="theatre-membership-intro">
+                    <div class="theatre-membership-symbol" aria-hidden="true">
+                        <Logo variant=LogoVariant::Symbol tone=LogoTone::Light/>
+                    </div>
+                    <p class="theatre-eyebrow">{move || messages::text(Key::MembershipHeading, locale.get())}</p>
+                    <h1 id="theatre-membership-heading">{move || messages::text(Key::MembershipIntro, locale.get())}</h1>
+                    <p>{move || messages::text(Key::MembershipSummary, locale.get())}</p>
+                </header>
+                <section class="theatre-membership-availability" aria-labelledby="theatre-membership-status-heading">
+                    <p class="theatre-membership-badge">{move || messages::text(Key::MembershipUnavailableBadge, locale.get())}</p>
+                    <h2 id="theatre-membership-status-heading">{move || messages::text(Key::MembershipUnavailableTitle, locale.get())}</h2>
+                    <p>{move || messages::text(Key::MembershipUnavailable, locale.get())}</p>
+                    <div class="theatre-membership-actions">
+                        <Show when=move || can_login.get() fallback=move || view! {
+                            <Button id="theatre-membership-account" variant=ButtonVariant::Tonal icon=IconName::Person focus_on_press=true
+                                on_press=Callback::new(move |_| on_account.run(()))>
+                                {move || messages::text(Key::Account, locale.get())}
+                            </Button>
+                        }>
+                            <Button id="theatre-membership-login" variant=ButtonVariant::Tonal icon=IconName::Login focus_on_press=true
+                                on_press=Callback::new(move |_| {
+                                    // A phase change between render and activation cannot reopen auth.
+                                    if state.with_untracked(AccountViewState::can_authenticate) {
+                                        on_login.run(());
+                                    }
+                                })>
+                                {move || messages::text(Key::SignIn, locale.get())}
+                            </Button>
+                        </Show>
+                        <a class="theatre-membership-explore" href="#discover">{move || messages::text(Key::Discover, locale.get())}</a>
+                    </div>
+                </section>
+            </div>
+        </section>
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn membership_html(
+        state: ReadSignal<AccountViewState>,
+        language: Locale,
+        member: MembershipReturn,
+    ) -> String {
+        view! {
+            <LiveMembership state locale=RwSignal::new(language) member
+                on_back=Callback::new(|_| ()) on_login=Callback::new(|_| ())
+                on_account=Callback::new(|_| ())/>
+        }
+        .to_html()
+    }
+
+    #[test]
+    fn live_membership_only_offers_sign_in_to_an_admitted_guest() {
+        use crate::features::auth_preview::{guest, logout_pending, signed_in, PreviewActor};
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let assert_action = |login: bool| {
+                for language in [Locale::Vietnamese, Locale::English] {
+                    for member in [MembershipReturn::Home, MembershipReturn::Account] {
+                        let html = membership_html(state.read_only(), language, member);
+                        assert_eq!(html.contains("id=\"theatre-membership-login\""), login);
+                        assert_eq!(html.contains("id=\"theatre-membership-account\""), !login);
+                        assert!(html.contains(messages::text(Key::MembershipUnavailable, language)));
+                        assert!(html.contains(crate::features::auth_copy::text(membership_back_key(member), language)));
+                        assert!(html.contains("href=\"#discover\""));
+                        assert!(!html.contains("<form") && !html.contains("<input"));
+                        assert_eq!(messages::route_key(Route::Membership(member)), Key::MembershipHeading);
+                    }
+                }
+            };
+            assert_action(false); // Initial session is unknown.
+            state.update(|s| { s.begin_refresh().unwrap(); });
+            assert_action(false); // Checking is not a guest fact.
+            state.update(|s| {
+                let generation = s.generation();
+                s.finish_session(generation, Err(crate::application::account_view::AccountFailure::Unavailable), || uuid::Uuid::from_u128(1).to_string()).unwrap();
+            });
+            assert_action(false);
+            guest(state).unwrap();
+            assert_action(true);
+            signed_in(state, PreviewActor::A).unwrap();
+            assert_action(false);
+            logout_pending(state).unwrap();
+            assert_action(false); // Unresolved cleanup may never offer auth.
+        });
+    }
 
     #[test]
     fn compact_locale_keeps_every_registry_autonym_and_canonical_value() {

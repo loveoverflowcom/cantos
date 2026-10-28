@@ -67,6 +67,11 @@ Apps call reviewed HTTP contracts and never link service crates into WASM or imp
 Forge is outside Server serving/login. Firebase Hosting, Functions and App Distribution retain
 independent boundaries; removing Firebase Auth does not remove those products.
 
+Explicit [localhost dataset profiles](docs/deployment/localhost-datasets.md) provide real
+Server Turso files, deterministic Catalog request plans, independent SQL/HTTP oracles and
+snapshot/replay checks through `cargo xtask seed dataset`. They are separate from the fixed
+six-Work sample and do not provision Studio login; FTS/vector and browser evidence stay separate.
+
 ## Development and verification
 
 Use Rust 1.98.1 from `rust-toolchain.toml`, Python 3.11+ for repository checks and the explicitly
