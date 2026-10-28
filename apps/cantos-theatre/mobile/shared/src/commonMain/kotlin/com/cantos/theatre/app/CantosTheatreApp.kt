@@ -30,6 +30,7 @@ import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.features.auth.presentation.AccountContent
 import com.cantos.theatre.features.auth.presentation.AuthHeader
 import com.cantos.theatre.features.auth.presentation.AuthIntent
+import com.cantos.theatre.features.auth.presentation.LoginAttempt
 import com.cantos.theatre.features.auth.presentation.LoginScreen
 import com.cantos.theatre.features.auth.presentation.RegisterScreen
 import com.cantos.theatre.features.auth.presentation.RegistrationIntent
@@ -111,12 +112,18 @@ fun CantosTheatreApp(
     // Feedback for an explicit restore that found nothing; it belongs to the Login entry only.
     var nothingSaved by remember(shell) { mutableStateOf(false) }
     LaunchedEffect(navigation.route) { nothingSaved = false }
+    // Which failure answers a credential attempt from Login, so Account does not repeat it after Back.
+    // A restore stays out: its storage or expiry failure is account health the guest card still shows.
+    var loginAttempt by remember(shell) { mutableStateOf<LoginAttempt>(LoginAttempt.None) }
+    LaunchedEffect(accountView) { loginAttempt = loginAttempt.after(accountView) }
 
     val state = projection.state
     val dispatch: (ShellEvent) -> Unit = shell::dispatch
     val onAuth: (AuthIntent) -> Unit = { intent ->
         when (intent) {
-            is AuthIntent.Login -> shell.login(intent.email, intent.password)
+            is AuthIntent.Login -> if (shell.login(intent.email, intent.password)) {
+                loginAttempt = LoginAttempt.Open.after(shell.runtime.account?.state?.value.toAccountView())
+            }
             AuthIntent.CancelLogin -> shell.cancelLogin()
             AuthIntent.RestoreSession -> nothingSaved = shell.restoreSession() == RestoreOutcome.NothingSaved
             AuthIntent.RetryCleanup, AuthIntent.Logout -> shell.logout()
@@ -152,7 +159,9 @@ fun CantosTheatreApp(
                     onToggleTheme = { dispatch(ShellEvent.SetTheme(if (theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark)) })
             },
             membershipScreen = ui.membership.screen,
-            accountContent = { loginFocus, backOverlay -> AccountContent(locale, theme, accountView, onAuth, loginFocus, backOverlay) },
+            accountContent = { loginFocus, backOverlay ->
+                AccountContent(locale, theme, accountView, onAuth, loginFocus, loginAttempt, backOverlay)
+            },
             authContent = {
                 val verifier = shell.verification
                 if (state.route == ShellRoute.VerifyEmail && verifier != null && verification != null) {
