@@ -225,8 +225,7 @@ mod browser {
             }
         });
         view! {
-            <details id="live-work-metadata"><summary>{move || text(Key::EditWork, locale.get())}</summary>
-                <div class="live-grid">
+            <div id="live-work-metadata" class="cw-form-stack">
                     <TextField id="live-edit-work-title" label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned())
                         variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY state=field_state class="live-field"
                         value=Signal::derive(move ||draft.with(|draft|draft.title.clone()))
@@ -234,9 +233,9 @@ mod browser {
                     <TextArea id="live-edit-work-synopsis" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned())
                         state=field_state class="live-field" value=Signal::derive(move ||draft.with(|draft|draft.synopsis.clone()))
                         on_input=Callback::new(move |value|draft.update(|draft|draft.synopsis=value))/>
-
-                </div>
-                <ActionButton id="live-patch-work" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
+            </div>
+            <div class="cw-actions">
+                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() { return; }
                     dispatch.build((|| {
                         let work=facts.with_untracked(|facts|facts.work.clone()).ok_or(ClientError::InvalidInput)?;
@@ -247,8 +246,7 @@ mod browser {
                         Ok(command)
                     })());
                 })>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
-            </details>
-            <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+                <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) { dispatch.send(Command::Work {id:work.id}); }
             })>{move ||text(Key::ReadWork,locale.get())}</ActionButton>
@@ -260,7 +258,11 @@ mod browser {
                     }
                 }
             })>{move ||text(Key::ReloadWorkMetadata,locale.get())}</ActionButton>
-            <ActionButton id="live-archive-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+            </div>
+            <section class="cw-archive" aria-labelledby="live-archive-work-title">
+                <h5 id="live-archive-work-title">{move ||text(Key::ArchiveZone,locale.get())}</h5>
+                <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
+                <ActionButton id="live-archive-work" locale=locale icon=IconName::Archive variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                 if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {
                     if confirm(Key::ArchiveWorkConfirm,&work.details.title,work.revision,locale.get_untracked()) {
@@ -268,7 +270,7 @@ mod browser {
                     }
                 }
             })>{move ||text(Key::ArchiveWork,locale.get())}</ActionButton>
-            <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
+            </section>
         }.into_any()
     }
 
@@ -328,13 +330,18 @@ mod browser {
         });
         view! {
             <div class="toolbar">
-                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Earlier).is_none()
                 }) on_press=Callback::new(move |_|reorder.run(Direction::Earlier))>{move ||text(Key::MoveEarlier,locale.get())}</ActionButton>
-                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Later).is_none()
                 }) on_press=Callback::new(move |_|reorder.run(Direction::Later))>{move ||text(Key::MoveLater,locale.get())}</ActionButton>
-                <ActionButton id="live-archive-unit" icon=IconName::Archive locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+            </div>
+            <p class="help">{move ||text(Key::ReorderHelp,locale.get())}</p>
+            <section class="cw-archive" aria-labelledby="live-archive-unit-title">
+                <h5 id="live-archive-unit-title">{move ||text(Key::ArchiveZone,locale.get())}</h5>
+                <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
+                <ActionButton id="live-archive-unit" icon=IconName::Archive locale=locale variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                     if let Some((work,unit))=facts.with_untracked(|facts|Some((facts.work.clone()?,facts.unit.clone()?))) {
                         if confirm(Key::ArchiveUnitConfirm,&unit.details.title,unit.revision,locale.get_untracked()) {
@@ -342,8 +349,7 @@ mod browser {
                         }
                     }
                 })>{move ||text(Key::ArchiveUnit,locale.get())}</ActionButton>
-            </div>
-            <p class="help">{move ||text(Key::ReorderHelp,locale.get())}</p>
+            </section>
         }
     }
 }

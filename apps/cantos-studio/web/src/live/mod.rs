@@ -19,6 +19,8 @@ pub mod dashboard;
 mod dashboard_copy;
 #[cfg(any(target_arch = "wasm32", test))]
 mod field_issues;
+#[cfg(any(target_arch = "wasm32", test))]
+mod layout;
 
 mod consent;
 pub use consent::ReviewConsent;
