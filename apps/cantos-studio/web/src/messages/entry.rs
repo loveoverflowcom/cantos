@@ -148,4 +148,40 @@ mod tests {
         assert!(!rule.contains("display: none"), "{rule}");
         assert!(!rule.contains("visibility: hidden"), "{rule}");
     }
+
+    #[test]
+    fn studio_topbar_v6_fills_language_and_outlines_theme_in_one_primary_hue() {
+        let css = include_str!("../../studio.css");
+        let theme = css
+            .split(".studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button {")
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .expect("the theme pill rule exists");
+        assert!(theme.contains("background-color: transparent"), "{theme}");
+        assert!(
+            theme.contains("color: var(--cantos-color-theatre-account-control)"),
+            "{theme}"
+        );
+        // The stroke follows the label and icon colour, so all three share one hue.
+        assert!(theme.contains("solid currentColor"), "{theme}");
+        let language = css
+            .lines()
+            .position(|line| {
+                line.starts_with(".studio-shell[data-expression] .studio-language-field")
+            })
+            .map(|at| css.lines().skip(at).take(4).collect::<Vec<_>>().join("\n"))
+            .expect("the language pill fill rule exists");
+        assert!(
+            language.contains("background-color: var(--cantos-color-theatre-account-control)"),
+            "{language}"
+        );
+        assert!(
+            language.contains("color: var(--cantos-color-theatre-on-account-control)"),
+            "{language}"
+        );
+        // A fill-coloured ring would vanish on the filled pill.
+        assert!(css.lines().any(|line| line
+            .contains(".studio-language-field .cui-field-control:is(:focus-visible")
+            && line.contains("outline-color: var(--cantos-color-theatre-on-account-control)")));
+    }
 }
