@@ -71,15 +71,17 @@ object PreviewFixtures {
     fun unit(id: String): Pair<PreviewWork, PublicUnit>? =
         works.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.id.value == id }?.let { entry to it } }
     fun unitByPublication(id: String): Pair<PreviewWork, PublicUnit>? =
-        works.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.publicationId.value == id }?.let { entry to it } }
+        works.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.publicationId?.value == id }?.let { entry to it } }
 
     /** The immutable audio identity the playback manifest returns for [unit]; digest and rendition are synthetic. */
-    fun audio(owner: PreviewWork, unit: PublicUnit): AudioIdentity = requireNotNull(
-        AudioIdentity.of(
-            owner.work.id.value, unit.id.value, unit.publicationId.value,
-            "6" + unit.publicationId.value.drop(1), digest(unit.id.value), unit.durationMs,
-        ),
-    ) { "Preview audio fixture must satisfy the production identity contract" }
+    fun audio(owner: PreviewWork, unit: PublicUnit): AudioIdentity {
+        val publication = requireNotNull(unit.publicationId) { "Preview audio needs a released unit" }
+        val duration = requireNotNull(unit.durationMs) { "Preview audio needs a known duration" }
+        return requireNotNull(AudioIdentity.of(
+            owner.work.id.value, unit.id.value, publication.value,
+            "6" + publication.value.drop(1), digest(unit.id.value), duration,
+        )) { "Preview audio fixture must satisfy the production identity contract" }
+    }
 
     private fun digest(seed: String): String {
         val hex = seed.filter { it != '-' }

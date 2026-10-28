@@ -21156,10 +21156,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tên tác phẩm, tập hoặc thể loại"
+          "text": "Tìm trong danh mục"
         },
         "en": {
-          "text": "Work, episode or genre"
+          "text": "Search the catalog"
         }
       }
     },
@@ -21264,10 +21264,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Danh sách hiện chưa có tác phẩm khả dụng. Bạn có thể tải lại để kiểm tra."
+          "text": "Những câu chuyện mới sẽ xuất hiện tại đây."
         },
         "en": {
-          "text": "There are no available works in this list yet. Reload to check again."
+          "text": "New stories will appear here."
         }
       }
     },
@@ -25074,6 +25074,66 @@
         },
         "en": {
           "text": "New content revision saved."
+        }
+      }
+    },
+    "theatre.shell.search_collapse": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn"
+        },
+        "en": {
+          "text": "Collapse"
+        }
+      }
+    },
+    "theatre.shell.search_clear_input": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa nội dung tìm kiếm"
+        },
+        "en": {
+          "text": "Clear search text"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_collapse": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn"
+        },
+        "en": {
+          "text": "Collapse"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_clear_input": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xóa nội dung tìm kiếm"
+        },
+        "en": {
+          "text": "Clear search text"
+        }
+      }
+    },
+    "theatre.cmp_shell.discovery_welcome": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở một miền tưởng tượng."
+        },
+        "en": {
+          "text": "A world of stories."
         }
       }
     }

@@ -375,6 +375,15 @@ fn retype_preserving_selection(
     });
 }
 
+/// Optional body of the existing floating search shell. The caller owns expansion, content,
+/// requests and dismissal. Closed content remains mounted but is inert and hidden to AT.
+#[derive(Clone)]
+pub struct SearchDock {
+    pub id: String,
+    pub expanded: Signal<bool>,
+    pub content: ViewFn,
+}
+
 #[component]
 fn InputField(
     id: String,
@@ -387,6 +396,7 @@ fn InputField(
     variant: TextFieldVariant,
     density: FieldDensity,
     trailing: Option<ViewFn>,
+    dock: Option<SearchDock>,
     state: Signal<FieldState>,
     help: Signal<Option<String>>,
     error: Signal<Option<String>>,
@@ -401,6 +411,9 @@ fn InputField(
     max: Option<String>,
     step: Option<String>,
 ) -> impl IntoView {
+    let has_dock = dock.is_some();
+    let dock_id = dock.as_ref().map(|d| d.id.clone());
+    let dock_open = dock.as_ref().map(|d| d.expanded);
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
     let error_reference = error_reference(id.clone(), error);
@@ -415,7 +428,7 @@ fn InputField(
     };
     let label_view = view! { <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel> };
     let control = view! {
-        <input id=id.clone() node_ref=input_ref class="cui-field-control" type=input_type.get_untracked() name=name required=required
+        <input id=id.clone() node_ref=input_ref aria-controls=dock_id aria-expanded=move || dock_open.map(|open| open.get().to_string()) class="cui-field-control" type=input_type.get_untracked() name=name required=required
             placeholder=placeholder autocomplete=autocomplete maxlength=maxlength min=min max=max step=step
             value=move || value.get() prop:value=move || value.get()
             readonly=move || state.get().is_read_only()
@@ -443,7 +456,8 @@ fn InputField(
     let anatomy = if floating {
         let has_trailing = trailing.is_some();
         view! {
-            <div class="cui-field-shell" data-invalid=move || has_text(&error.get()).to_string()
+            <div class="cui-field-shell" data-docked=has_dock.then_some("true")
+                data-expanded=move || dock_open.map(|open| open.get().to_string()) data-invalid=move || has_text(&error.get()).to_string()
                 data-trailing=has_trailing.then_some("true")>
                 {control}
                 {label_view}
@@ -452,6 +466,15 @@ fn InputField(
                     // an active IME composition and a touch keyboard stay put. Keyboard focus and
                     // activation of the action itself are unchanged.
                     <div class="cui-field-trailing" on:mousedown=move |event| event.prevent_default()>{slot.run()}</div>
+                })}
+                {dock.map(|dock| {
+                    let open = dock.expanded;
+                    view! {
+                        <div id=dock.id class="cui-search-dock" inert=move || !open.get()
+                            aria-hidden=move || (!open.get()).to_string()>
+                            <div class="cui-search-dock-clip"><div class="cui-search-dock-scroll">{dock.content.run()}</div></div>
+                        </div>
+                    }
                 })}
             </div>
         }
@@ -504,12 +527,16 @@ pub fn TextField(
     /// reserves the action's width, so text never runs under it. Other variants ignore the slot.
     #[prop(optional, into)]
     trailing: Option<ViewFn>,
+    /// Search-only body; never supplies suggestions or changes the caller's query.
+    #[prop(optional)]
+    dock: Option<SearchDock>,
 ) -> impl IntoView {
+    let dock = dock.filter(|_| variant == TextFieldVariant::Floating);
     let trailing = trailing.filter(|_| variant.supports_trailing());
     let input_type = Signal::derive(move || kind.get().as_str());
     view! {
         <InputField id=id label=label value=value on_input=on_input input_type=input_type variant=variant density=density
-            trailing=trailing
+            trailing=trailing dock=dock
             on_composition_start=on_composition_start on_composition_end=on_composition_end
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=autocomplete maxlength=maxlength min=None max=None step=None/>
@@ -537,7 +564,7 @@ pub fn NumberField(
 ) -> impl IntoView {
     view! {
         <InputField id=id label=label value=value on_input=on_input input_type=Signal::derive(|| "number") variant=TextFieldVariant::Regular density=FieldDensity::Comfortable
-            trailing=None
+            trailing=None dock=None
             on_composition_start=None on_composition_end=None
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=None maxlength=None min=min max=max step=step/>

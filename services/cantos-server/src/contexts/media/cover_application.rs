@@ -55,6 +55,42 @@ impl CoverDisclosureService {
         work: &str,
         raw: dto::RecordCoverDisclosureRequest,
     ) -> Result<dto::CoverDisclosureResponse, CoverDisclosureApplicationError> {
+        self.record_scoped(token, work, raw, None).await
+    }
+
+    /// Explicit metadata-image consent, bound to the current Work revision and private evidence.
+    /// The old release-only route cannot create this scope. No production route invokes this
+    /// method until the proposed policy is accepted; expiry/revocation still use the same image
+    /// decision order. A generic later decision without a binding removes this metadata scope.
+    pub async fn record_metadata(
+        &self,
+        token: &str,
+        work: &str,
+        raw: dto::RecordMetadataCoverDisclosureRequest,
+    ) -> Result<dto::CoverDisclosureResponse, CoverDisclosureApplicationError> {
+        if raw.disclosure.decision != dto::CoverDisclosureKind::Cleared
+            || raw.evidence_reference.trim().is_empty()
+            || raw.evidence_reference.len() > 1024
+            || raw.evidence_reference.chars().any(char::is_control)
+        {
+            return Err(StoreError::InvalidRequest.into());
+        }
+        self.record_scoped(
+            token,
+            work,
+            raw.disclosure,
+            Some((raw.expected_work_revision, raw.evidence_reference)),
+        )
+        .await
+    }
+
+    async fn record_scoped(
+        &self,
+        token: &str,
+        work: &str,
+        raw: dto::RecordCoverDisclosureRequest,
+        metadata: Option<(u64, String)>,
+    ) -> Result<dto::CoverDisclosureResponse, CoverDisclosureApplicationError> {
         let work_id = WorkId::parse(work).map_err(|_| StoreError::NotFound)?;
         let request = RecordCoverDisclosure::admit(&raw)?;
         let mut connection = self.store.connection().await?;
@@ -62,6 +98,18 @@ impl CoverDisclosureService {
         let owner = catalog::owner_work(&tx, token, &work_id).await?;
         let prior =
             sql::prior_disclosure(&tx, &owner.actor, request.operation_id().as_str()).await?;
+        // Replay retains its original revision even if the current head has advanced. A changed
+        // scope/evidence with the same operation is rejected, including cross-route reuse.
+        if let Some(ref prior) = prior {
+            let binding = sql::metadata_binding(&tx, prior).await?;
+            if binding != metadata {
+                return Err(StoreError::OperationReused.into());
+            }
+        } else if let Some((revision, _)) = metadata.as_ref() {
+            if *revision != owner.work.revision() {
+                return Err(StoreError::StaleRevision(owner.work.revision()).into());
+            }
+        }
         let image_bound = sql::image_bound(
             &tx,
             &owner.actor,
@@ -84,6 +132,9 @@ impl CoverDisclosureService {
             CoverDisclosureDecision::Replay(record) => record,
             CoverDisclosureDecision::Apply(record) => {
                 sql::insert_disclosure(&tx, &record).await?;
+                if let Some((revision, ref evidence)) = metadata {
+                    sql::insert_metadata_binding(&tx, &record, revision, evidence).await?;
+                }
                 record
             }
         };

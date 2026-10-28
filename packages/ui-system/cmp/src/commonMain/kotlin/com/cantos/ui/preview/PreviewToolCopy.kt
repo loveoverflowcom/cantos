@@ -10,6 +10,7 @@ import com.cantos.ui.preview.workbench.PreviewSnapshotError
  * This is a bounded preview policy, not the pending production i18n architecture decision (#167).
  */
 internal object PreviewToolCopy {
+    const val TheatreCollapse = "Collapse"
     const val TheatreTonalHelp = "48-unit tonal rounded square; the host owns the theme and the localized name."
     const val TheatreDockedHelp = "52-unit visible circle, a 48-unit minimum touch target; one magnifier, no caption."
     const val TheatreFieldHelp = "Tab into the second field for the 2-unit inset focus perimeter; the third shows the 1-unit error stroke."

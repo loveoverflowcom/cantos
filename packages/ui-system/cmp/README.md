@@ -531,3 +531,12 @@ Before application adoption, run the pinned Compose build and desktop tests; ins
 compact/comfortable, wide/narrow, Vietnamese 2× text; drive callbacks, disabled reasons,
 read-only selection, menu close, dialog Escape/return-focus and keyboard order. Mobile callers
 still need Android/iOS-specific evidence and app-owned native adapters.
+
+### Search v4.3 body
+
+The String `TextField` overload accepts `dockExpanded`/`dockContent` for FloatingSearch. One outer
+shell owns fill, inset perimeter, clip, radius and interruptible content-size motion through the
+existing Cantos motion policy. The header stays mounted; closed body content is removed from
+composition/focus immediately. The caller owns focus restoration, body viewport/IME constraints,
+query, requests and dismissal. The `theatre-docked-search` specimen and JVM SearchDockTest exercise
+the extension. This establishes neither a native Material spring nor Android/iOS IME acceptance.

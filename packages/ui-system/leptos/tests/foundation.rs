@@ -111,7 +111,9 @@ fn field_stylesheet_has_no_underline_bar_and_no_outset_focus_ring() {
         {
             assert!(
                 selector.contains("data-invalid=\"true\"")
-                    || selector.contains(":has(> .cui-field-control:focus-visible)"),
+                    || selector.contains(":has(> .cui-field-control:focus-visible)")
+                    || (selector.contains("data-docked=\"true\"")
+                        && selector.contains("data-expanded=\"true\"")),
                 "idle shell stroke: {selector}"
             );
         }

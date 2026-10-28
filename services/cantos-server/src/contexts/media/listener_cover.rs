@@ -27,31 +27,44 @@ use crate::platform::store::Store;
 /// answers `not_found`; no request can select it.
 #[derive(Clone)]
 pub(super) struct CoverDelivery {
-    origin: PublicMediaOrigin,
+    pub(super) origin: PublicMediaOrigin,
     objects: Arc<dyn ImageObjects>,
 }
 
 /// The kernel's projection for one covered row at the read's instant. A row read without cover
 /// facts, or whose stored facts failed admission, is the Corrupt fallback.
 pub(super) fn cover_projection(item: &ReadItem, now: i64) -> CoverProjection {
-    let Some(facts) = item.cover.as_ref().filter(|facts| !facts.corrupt) else {
-        return CoverProjection::Fallback(CoverFallback::Corrupt);
-    };
-    project_public_cover(
-        &item.publication,
-        CoverFacts {
-            changes: facts.change.as_slice(),
-            asset: facts.asset.as_ref().map(|stored| &stored.asset),
-            disclosure: facts
-                .disclosure
-                .as_ref()
-                .map_or(CoverDisclosure::Undecided, |d| d.as_cover_disclosure()),
-            now_ms: now,
-        },
+    facts_projection(
+        item.cover.as_ref(),
+        |facts| project_public_cover(&item.publication, facts),
+        now,
     )
 }
 
-fn cover_image(origin: &PublicMediaOrigin, work_id: &str, cover: &PublicCover) -> dto::CoverImage {
+pub(super) fn facts_projection(
+    stored: Option<&super::turso::cover::PinnedCoverFacts>,
+    project: impl FnOnce(CoverFacts<'_>) -> CoverProjection,
+    now: i64,
+) -> CoverProjection {
+    let Some(facts) = stored.filter(|facts| !facts.corrupt) else {
+        return CoverProjection::Fallback(CoverFallback::Corrupt);
+    };
+    project(CoverFacts {
+        changes: facts.change.as_slice(),
+        asset: facts.asset.as_ref().map(|stored| &stored.asset),
+        disclosure: facts
+            .disclosure
+            .as_ref()
+            .map_or(CoverDisclosure::Undecided, |d| d.as_cover_disclosure()),
+        now_ms: now,
+    })
+}
+
+pub(super) fn cover_image(
+    origin: &PublicMediaOrigin,
+    work_id: &str,
+    cover: &PublicCover,
+) -> dto::CoverImage {
     dto::CoverImage {
         url: origin.cover_url(work_id, cover.sha256()),
         sha256: cover.sha256().into(),
@@ -84,9 +97,9 @@ fn covered(
 
 /// Bytes may be served for exactly this projection. Holds the private location internally only.
 pub struct AdmittedCover {
-    work: String,
-    cover: PublicCover,
-    asset: StoredImageAsset,
+    pub(super) work: String,
+    pub(super) cover: PublicCover,
+    pub(super) asset: StoredImageAsset,
 }
 impl AdmittedCover {
     pub fn sha256(&self) -> &str {
@@ -195,11 +208,9 @@ impl ListenerService {
             .read
             .read(ReadRequest::Cover { work: work.clone() })
             .await?;
-        let row = snapshot
-            .items
-            .into_iter()
-            .next()
-            .ok_or(ListenerError::NotFound)?;
+        let Some(row) = snapshot.items.into_iter().next() else {
+            return self.admit_metadata_cover(&work, sha256).await;
+        };
         if row.publication.work().id().as_str() != work {
             return Err(ListenerError::Corrupt);
         }

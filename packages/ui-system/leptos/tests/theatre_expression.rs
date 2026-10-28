@@ -13,6 +13,30 @@ fn name(text: &str) -> AccessibleName {
     AccessibleName::new(text).unwrap()
 }
 
+#[test]
+fn search_body_shares_the_shell_and_marks_closed_content_inert() {
+    Owner::new().with(|| {
+        let open = RwSignal::new(false);
+        let render = || view! {
+            <TextField id="dock-query" label="Tìm truyện" kind=TextFieldKind::Search
+                variant=TextFieldVariant::Floating value="  Quán Trà  " on_input=Callback::new(|_: String| {})
+                dock=cantos_ui::SearchDock { id: "dock-results".into(), expanded: open.into(),
+                    content: (|| view! { <button>"Kết quả thật do caller cung cấp"</button> }).into() }/>
+        }.to_html();
+        let closed = render();
+        assert!(closed.contains("aria-expanded=\"false\""), "{closed}");
+        assert!(closed.contains("aria-controls=\"dock-results\""), "{closed}");
+        assert!(closed.contains("inert"), "{closed}");
+        assert!(closed.contains("value=\"  Quán Trà  \""), "{closed}");
+        open.set(true);
+        let opened = render();
+        assert!(opened.contains("aria-expanded=\"true\""), "{opened}");
+        assert!(!opened.contains(" inert"), "{opened}");
+        assert_eq!(opened.matches("cui-field-shell").count(), 1);
+        assert_eq!(opened.matches("<input").count(), 1);
+    });
+}
+
 fn eye() -> impl IntoView {
     view! {
         <IconButton id="eye" name=name("Hiện mật khẩu") icon=IconName::Visibility/>
@@ -234,10 +258,17 @@ fn theatre_geometry_matches_the_design_minimums_without_fixing_heights() {
         !css.contains(" height:") && !css.contains("\n  height:"),
         "no fixed height"
     );
-    assert!(
-        !css.contains("max-block-size") && !css.contains("overflow: hidden"),
-        "no clipping"
-    );
+    for rule in css.split('}') {
+        let Some((selector, body)) = rule.rsplit_once('{') else {
+            continue;
+        };
+        if !selector.contains(".cui-search-dock") {
+            assert!(
+                !body.contains("max-block-size") && !body.contains("overflow: hidden"),
+                "only the dock body may clamp/clip, never the input header: {selector}"
+            );
+        }
+    }
 }
 
 #[test]

@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -203,7 +204,13 @@ private fun EyeSpecimen() {
 @Composable
 private fun SearchSpecimen(onEvent: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
-    TextField(PreviewToolCopy.TheatreFixture.Search, query, { query = it }, variant = TextFieldVariant.FloatingSearch,
+    var expanded by remember { mutableStateOf(false) }
+    TextField(PreviewToolCopy.TheatreFixture.Search, query, { query = it; expanded = true }, variant = TextFieldVariant.FloatingSearch,
+        controlModifier = Modifier.onFocusChanged { if (it.isFocused) expanded = true },
+        dockExpanded = expanded, dockContent = {
+            Button(PreviewToolCopy.TheatreCollapse, { expanded = false })
+            Text(PreviewToolCopy.TheatreFixture.Search)
+        },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onEvent(PreviewToolCopy.theatreSearch(query, ime = true)) }),
         trailing = {

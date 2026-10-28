@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "7a71f2e94017329d1c6ef0540287672b206a50010b5bd506fde403c6d768e7a6",
+  "catalogSha256": "53a9d1f2fe3f530d8c647300d0b4fd958fca0d18d4da5d56c0ab27d58cafa776",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1549,6 +1549,7 @@
     },
     "theatre.cmp_shell.discover": {},
     "theatre.cmp_shell.discover_heading": {},
+    "theatre.cmp_shell.discovery_welcome": {},
     "theatre.cmp_shell.done": {},
     "theatre.cmp_shell.empty": {},
     "theatre.cmp_shell.empty_note": {},
@@ -1668,6 +1669,8 @@
     "theatre.cmp_shell.saved_undescribed": {},
     "theatre.cmp_shell.search": {},
     "theatre.cmp_shell.search_clear": {},
+    "theatre.cmp_shell.search_clear_input": {},
+    "theatre.cmp_shell.search_collapse": {},
     "theatre.cmp_shell.search_hint": {},
     "theatre.cmp_shell.search_label": {},
     "theatre.cmp_shell.search_submit": {},
@@ -2243,6 +2246,8 @@
     "theatre.shell.saved": {},
     "theatre.shell.scenario": {},
     "theatre.shell.scrub_preview": {},
+    "theatre.shell.search_clear_input": {},
+    "theatre.shell.search_collapse": {},
     "theatre.shell.search_help": {},
     "theatre.shell.search_label": {},
     "theatre.shell.second_count": {

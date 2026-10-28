@@ -7,9 +7,9 @@ use super::messages::{theatre_fixture as fixture, tool};
 use cantos_ui::{
     AccessibleName, Avatar, AvatarSize, Button, ButtonState, ButtonVariant, Density,
     DisabledReason, Expression, FieldDensity, FieldState, FilterChip, IconButton, IconName, Logo,
-    LogoTone, LogoVariant, Select, SelectDensity, SelectOption, Space, Stack, StackDirection,
-    Surface, SurfaceTone, SurfaceVariant, TextField, TextFieldKind, TextFieldVariant, Theme,
-    ThemeCycleButton, ThemeCycleLabels, UiRoot,
+    LogoTone, LogoVariant, SearchDock, Select, SelectDensity, SelectOption, Space, Stack,
+    StackDirection, Surface, SurfaceTone, SurfaceVariant, TextField, TextFieldKind,
+    TextFieldVariant, Theme, ThemeCycleButton, ThemeCycleLabels, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -156,6 +156,7 @@ pub fn TheatreExpressionSamples(
     let long_value = RwSignal::new(fixture::LONG_VALUE.to_owned());
     let secret = RwSignal::new(fixture::PASSWORD_VALUE.to_owned());
     let confirm = RwSignal::new(fixture::REPEAT_VALUE.to_owned());
+    let dock_open = RwSignal::new(false);
     let query = RwSignal::new(String::new());
     let submissions = RwSignal::new(0u32);
     let selected = RwSignal::new(true);
@@ -256,9 +257,15 @@ pub fn TheatreExpressionSamples(
 
                         // theatre-docked-search: the native form owns Enter, composition and submit.
                         <form class="cui-theatre-search" data-preview-state="theatre-docked-search"
+                            on:focusin=move |_| dock_open.set(true)
+                            on:keydown=move |event| { if event.key() == "Escape" { dock_open.set(false); } }
                             on:submit=move |event| { event.prevent_default(); submissions.update(|count| *count += 1); }>
                             <TextField id="theatre-search" label=fixture::SEARCH kind=TextFieldKind::Search
                                 variant=TextFieldVariant::Floating value=query name=SEARCH_QUERY_NAME
+                                dock=SearchDock { id: "preview-search-dock".into(), expanded: dock_open.into(), content: (move || view! {
+                                    <Button id="preview-search-collapse" variant=ButtonVariant::Text on_press=Callback::new(move |_| dock_open.set(false))>{tool::THEATRE_COLLAPSE}</Button>
+                                    <p>{fixture::SEARCH}</p>
+                                }).into() }
                                 on_input=Callback::new(move |next| query.set(next))
                                 trailing=move || view! {
                                     <IconButton id="theatre-search-submit" name=label(fixture::SEARCH)

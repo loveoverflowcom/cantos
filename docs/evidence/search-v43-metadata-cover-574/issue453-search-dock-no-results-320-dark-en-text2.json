@@ -1,0 +1,9 @@
+{
+                "renderer":"jvm-desktop-compose-test-root", "entrypoint":"PreviewTestRoot → CantosTheatreApp",
+                "fixture":"search-dock-no-results-320-dark-en-text2", "ports":"mock external ports; production shell/controllers; in-memory Library",
+                "source":"6234edd2-dirty-search-v43",
+                "widthDp":320, "heightDp":800, "widthPx":320, "heightPx":800,
+                "theme":"Dark", "locale":"English", "textScale":2.0,
+                "scrollTo":"top",
+                "motion":"Reduced", "pngSha256":"6e813e324c5ce48f1b6df0ce2c6be2590240844e6531e5c0d8d015aebc2b975b", "nativeAcceptance":false
+            }

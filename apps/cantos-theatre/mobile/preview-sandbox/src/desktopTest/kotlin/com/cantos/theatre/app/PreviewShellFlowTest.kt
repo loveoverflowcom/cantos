@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
@@ -124,10 +125,17 @@ class PreviewShellFlowTest {
         input.performTextReplacement("Đèn")
         untilNoTag("work-$sonHa")
         onNodeWithTag("work-$denKhua").assertExists()
+        input.performTextReplacement("  Đèn  ")
+        onNodeWithTag("search-collapse").performClick()
+        input.assertIsFocused().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("  Đèn  ")))
+        onNodeWithTag("search-dock").assertDoesNotExist()
+        input.performClick()
+        onNodeWithTag("search-dock").assertExists()
         input.performTextReplacement("không có trong tủ sách")
         untilNoTag("work-$denKhua")
         onNodeWithTag("search-clear").performClick()
         input.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
+        input.assertIsFocused()
         untilTag("work-$canhBuom")
         onNodeWithTag("work-$sonHa").assertExists()
         assertEquals("", owners.shell.ui.value.query)
@@ -250,9 +258,11 @@ class PreviewShellFlowTest {
     }
 
     @Test
-    fun the_loading_scenario_keeps_the_query_and_an_empty_catalog_offers_a_way_back_to_discover() {
+    fun loading_keeps_query_without_retry_and_complete_empty_keeps_navigation_available() {
         run(PreviewSeed(previewState(stack = listOf(ShellRoute.Search), query = "Sơn Hà", catalogMode = ShellCatalogMode.Loading))) { owners ->
-            untilTag("retry")
+            untilTag("catalog-loading")
+            onNodeWithTag("retry").assertDoesNotExist()
+            onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
             onNodeWithTag("search-input").assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Sơn Hà")),
             )

@@ -1,0 +1,112 @@
+Printing with useUnmergedTree = 'false'
+Node #9236 at (l=0.0, t=0.0, r=390.0, b=844.0)px, Tag: 'issue453-root'
+ |-Node #9237 at (l=0.0, t=0.0, r=390.0, b=844.0)px
+   IsContainer = 'true'
+    |-Node #9294 at (l=8.0, t=4.0, r=56.0, b=52.0)px, Tag: 'back'
+    | ContentDescription = '[Quay lại]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9296 at (l=56.0, t=6.0, r=100.0, b=50.0)px, Tag: 'header-logo'
+    | ClearAndSetSemantics = 'true'
+    |-Node #9297 at (l=112.0, t=15.0, r=270.0, b=42.0)px, Tag: 'header-title'
+    | Text = '[Cantos]'
+    | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |-Node #9299 at (l=278.0, t=4.0, r=326.0, b=52.0)px, Tag: 'theme-toggle'
+    | ContentDescription = '[Chuyển sang giao diện sáng]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9302 at (l=334.0, t=4.0, r=382.0, b=52.0)px, Tag: 'account'
+    | ContentDescription = '[Tài khoản]'
+    | Focused = 'false'
+    | Role = 'Button'
+    | Actions = [OnClick, RequestFocus]
+    | MergeDescendants = 'true'
+    |-Node #9241 at (l=0.0, t=56.0, r=390.0, b=577.0)px, Tag: 'screen'
+    | IsTraversalGroup = 'true'
+    | PaneTitle = 'Tìm kiếm'
+    | VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    | Actions = [ScrollBy, ScrollByOffset]
+    |  |-Node #9243 at (l=16.0, t=72.0, r=374.0, b=561.0)px, Tag: 'search-hero'
+    |    IsContainer = 'true'
+    |     |-Node #9245 at (l=36.0, t=92.0, r=171.0, b=130.0)px
+    |     | Text = '[Tìm kiếm]'
+    |     | [Heading]
+    |     | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |     |-Node #9246 at (l=36.0, t=146.0, r=354.0, b=541.0)px
+    |        |-Node #9247 at (l=36.0, t=146.0, r=354.0, b=218.0)px, Tag: 'search-input'
+    |        | ContentDataType = 'PlatformContentDataType(type=1)'
+    |        | ContentDescription = '[Tên tác phẩm, tập hoặc thể loại]'
+    |        | EditableText = 'Đèn'
+    |        | Focused = 'true'
+    |        | ImeAction = 'Search'
+    |        | InputText = 'Đèn'
+    |        | IsEditable = 'true'
+    |        | TextSelectionRange = 'TextRange(3, 3)'
+    |        | Actions = [GetTextLayoutResult, InsertTextAtCursor, OnAutofillText, OnClick, OnLongClick, PasteText, PerformImeAction, RequestFocus, SetSelection, SetText]
+    |        | MergeDescendants = 'true'
+    |        |  |-Node #9256 at (l=244.0, t=158.0, r=292.0, b=206.0)px, Tag: 'search-clear'
+    |        |  | ContentDescription = '[Xóa nội dung tìm kiếm]'
+    |        |  | Focused = 'false'
+    |        |  | Role = 'Button'
+    |        |  | Actions = [OnClick, RequestFocus]
+    |        |  | MergeDescendants = 'true'
+    |        |  |-Node #9260 at (l=292.0, t=156.0, r=344.0, b=208.0)px
+    |        |    Actions = [OnLongClick]
+    |        |    MergeDescendants = 'true'
+    |        |     |-Node #9262 at (l=292.0, t=156.0, r=344.0, b=208.0)px, Tag: 'search-submit'
+    |        |       ContentDescription = '[Tìm kiếm]'
+    |        |       CustomActions = '[CustomAccessibilityAction(label=Tìm kiếm, action=com.cantos.ui.ActionsKt$$Lambda/0x0000000e013cf558@27a0a5a2)]'
+    |        |       Focused = 'false'
+    |        |       Role = 'Button'
+    |        |       Actions = [OnClick, RequestFocus]
+    |        |       MergeDescendants = 'true'
+    |        |-Node #9361 at (l=36.0, t=218.0, r=354.0, b=541.0)px, Tag: 'search-dock'
+    |          IsTraversalGroup = 'true'
+    |          VerticalScrollAxisRange = 'ScrollAxisRange(value=0.0, maxValue=0.0, reverseScrolling=false)'
+    |          Actions = [ScrollBy, ScrollByOffset]
+    |           |-Node #9362 at (l=52.0, t=238.0, r=133.0, b=278.0)px, Tag: 'search-collapse'
+    |           | Focused = 'false'
+    |           | Role = 'Button'
+    |           | Text = '[Thu gọn]'
+    |           | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |           | MergeDescendants = 'true'
+    |           |-Node #9365 at (l=52.0, t=290.0, r=115.0, b=306.0)px
+    |           | Text = '[1 tác phẩm]'
+    |           | Actions = [ClearTextSubstitution, GetTextLayoutResult, SetTextSubstitution, ShowTextSubstitution]
+    |           |-Node #9370 at (l=52.0, t=314.0, r=338.0, b=525.0)px, Tag: 'work-10000000-0000-4000-8000-000000000002'
+    |             ContentDescription = '[Khám phá tác phẩm Đèn Khuya]'
+    |             Focused = 'false'
+    |             IsContainer = 'true'
+    |             Text = '[Podcast, Đèn Khuya, Một ô cửa còn sáng và những cuộc trò chuyện dịu dàng giữa đêm yên.]'
+    |             Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |             MergeDescendants = 'true'
+    |              |-Node #9383 at (l=68.0, t=465.0, r=237.0, b=505.0)px, Tag: 'save-card-10000000-0000-4000-8000-000000000002'
+    |                ContentDescription = '[Lưu tác phẩm Đèn Khuya]'
+    |                Focused = 'false'
+    |                Role = 'Button'
+    |                StateDescription = 'Lưu tác phẩm'
+    |                Text = '[Lưu tác phẩm]'
+    |                Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+    |                MergeDescendants = 'true'
+    |-Node #9270 at (l=0.0, t=764.0, r=390.0, b=844.0)px
+      IsContainer = 'true'
+       |-Node #9271 at (l=0.0, t=764.0, r=390.0, b=844.0)px
+         [SelectableGroup]
+          |-Node #9272 at (l=0.0, t=764.0, r=191.0, b=844.0)px, Tag: 'nav-discovery'
+          | Focused = 'false'
+          | Role = 'Tab'
+          | Selected = 'true'
+          | Text = '[Khám phá]'
+          | Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+          | MergeDescendants = 'true'
+          |-Node #9281 at (l=199.0, t=764.0, r=390.0, b=844.0)px, Tag: 'nav-library'
+            Focused = 'false'
+            Role = 'Tab'
+            Selected = 'false'
+            Text = '[Của tôi]'
+            Actions = [ClearTextSubstitution, GetTextLayoutResult, OnClick, RequestFocus, SetTextSubstitution, ShowTextSubstitution]
+            MergeDescendants = 'true'

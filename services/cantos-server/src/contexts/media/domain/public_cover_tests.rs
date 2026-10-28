@@ -132,6 +132,72 @@ fn shown(projection: CoverProjection) -> PublicCover {
 }
 
 #[test]
+fn metadata_cover_uses_only_the_disclosed_revision_and_same_image_consent() {
+    let h = history();
+    let project = |revision: usize, asset: Option<&ImageAsset>, disclosure, now| {
+        project_metadata_cover(
+            &h.revisions[revision],
+            Some(h.revisions[revision].revision()),
+            CoverFacts {
+                changes: &h.changes,
+                asset,
+                disclosure,
+                now_ms: now,
+            },
+        )
+    };
+    let consent = cleared(&h.a, 1_000);
+    for wrong in [None, Some(1), Some(3), Some(u64::MAX)] {
+        assert_eq!(
+            project_metadata_cover(
+                &h.revisions[1],
+                wrong,
+                CoverFacts {
+                    changes: &h.changes,
+                    asset: Some(&h.a),
+                    disclosure: consent,
+                    now_ms: 500,
+                }
+            ),
+            CoverProjection::Fallback(CoverFallback::Undisclosed)
+        );
+    }
+
+    assert_eq!(
+        shown(project(1, Some(&h.a), consent, 500)).sha256(),
+        h.a.metadata().sha256()
+    );
+    // A later private replacement is not pulled into the earlier metadata disclosure.
+    assert_eq!(
+        project(1, Some(&h.b), cleared(&h.b, 1_000), 500),
+        CoverProjection::Fallback(CoverFallback::Corrupt)
+    );
+    assert_eq!(
+        project(1, Some(&h.a), CoverDisclosure::Undecided, 500),
+        CoverProjection::Fallback(CoverFallback::Undisclosed)
+    );
+    assert_eq!(
+        project(1, Some(&h.a), consent, 1_000),
+        CoverProjection::Fallback(CoverFallback::Expired)
+    );
+    assert_eq!(
+        project(
+            1,
+            Some(&h.a),
+            CoverDisclosure::Revoked {
+                image_asset_digest: h.a.digest()
+            },
+            500
+        ),
+        CoverProjection::Fallback(CoverFallback::Revoked)
+    );
+    assert_eq!(
+        project(3, None, consent, 500),
+        CoverProjection::Fallback(CoverFallback::NoArtwork)
+    );
+}
+
+#[test]
 fn private_replacement_after_publication_never_changes_the_release_pinned_cover() {
     let h = history();
     let [_, w2, w3, w4] = &h.revisions;

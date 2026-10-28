@@ -193,7 +193,7 @@ private val syntheticQueries = mapOf("empty" to "", "night" to "Đèn", "son-ha"
 private fun validatePosition(id: ShellEpisodeId, positionMs: Long) {
     if (id == PreviewNoSelection) return require(positionMs == 0L)
     val (_, unit) = requireNotNull(PreviewFixtures.unit(id.value))
-    require(positionMs in 0L..unit.durationMs)
+    require(positionMs in 0L..requireNotNull(unit.durationMs))
 }
 
 private fun routeId(route: ShellRoute): String = when (route) {

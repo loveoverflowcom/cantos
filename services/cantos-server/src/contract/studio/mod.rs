@@ -179,3 +179,6 @@ pub use audio_lifecycle::*;
 
 mod publication;
 pub use publication::*;
+
+mod metadata_cover_disclosure;
+pub use metadata_cover_disclosure::RecordMetadataCoverDisclosureRequest;
