@@ -135,6 +135,13 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         works = listed,
         worksPhase = if (worksWalk.items.isEmpty()) ShellListPhase.Complete else worksWalk.phase.toListPhase(),
         searchedBySource = true,
+        request = when {
+            worksWalk.phase != WalkPhase.Loading -> com.cantos.theatre.presentation.model.ShellCatalogRequest.Idle
+            worksWalk.replaceOnFirstPage && worksWalk.items.isNotEmpty() -> com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement
+            worksWalk.requested != null -> com.cantos.theatre.presentation.model.ShellCatalogRequest.Append
+            else -> com.cantos.theatre.presentation.model.ShellCatalogRequest.Initial
+        },
+        appliedSearch = i.catalog.appliedQuery?.text,
         referenced = referenced,
         referencedEpisodes = builder.extraEpisodes(),
         library = i.library.toLibraryView(),

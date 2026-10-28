@@ -150,7 +150,7 @@ fn the_only_endless_animations_are_loading_primitives_and_reduced_motion_removes
             .unwrap_or_else(|| panic!("a reduced-motion block for {mark}"));
         assert!(reduced.contains("animation: none"), "{reduced}");
     }
-    assert!(css.contains("--cantos-web-loading-turn: 1000ms"));
+    assert!(css.contains("cui-loading-turn var(--cantos-motion-loading-arc-cycle) linear infinite"));
 }
 
 #[test]

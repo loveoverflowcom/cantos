@@ -64,6 +64,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         if (!allEmpty) SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
         val phase = catalog.library.continuing
+        LibraryPending(phase, points.isNotEmpty(), "library-continue", copy)
         if (ShellLibrarySection.Continue in empty) LibraryEmpty(
             LibraryEmptyKind.Continue, copy, dispatch, state.theme, Modifier.testTag("library-continue-empty"),
             discover = discoverSection == ShellLibrarySection.Continue, compact = allEmpty,
@@ -76,6 +77,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         // The API's order (newest save first), not the browsing catalog's.
         val works = state.savedWorks.mapNotNull { catalog.work(it) }
         val phase = catalog.library.saved
+        LibraryPending(phase, works.isNotEmpty(), "library-saved", copy)
         if (ShellLibrarySection.Saved in empty) LibraryEmpty(
             LibraryEmptyKind.Saved, copy, dispatch, state.theme, Modifier.testTag("library-saved-empty"),
             discover = discoverSection == ShellLibrarySection.Saved, compact = allEmpty,
@@ -96,6 +98,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
             Text(copy.text(CopyKey.BookmarksUnavailable), Modifier.testTag("library-bookmarks-unavailable"))
         }
         else {
+            LibraryPending(phase, state.bookmarks.isNotEmpty(), "library-bookmarks", copy)
             if (ShellLibrarySection.Bookmarks in empty) LibraryEmpty(LibraryEmptyKind.Bookmarks, copy, dispatch, state.theme,
                 Modifier.testTag("library-bookmarks-empty"), discover = discoverSection == ShellLibrarySection.Bookmarks, compact = allEmpty)
             BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
@@ -105,6 +108,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         if (!allEmpty) SectionHeading(CopyKey.History, copy)
         val phase = catalog.library.history
+        LibraryPending(phase, state.history.isNotEmpty(), "library-history", copy)
         if (ShellLibrarySection.History !in empty) TextButton(shape = MaterialTheme.shapes.small,
             onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
@@ -190,6 +194,7 @@ internal fun HistoryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     SectionHeading(CopyKey.History, copy)
     Text(copy.text(CopyKey.HistoryHelp))
     val phase = catalog.library.history
+    LibraryPending(phase, state.history.isNotEmpty(), "history", copy)
     if (state.history.isEmpty()) {
         if (phase == ShellLibraryPhase.Complete) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, state.theme,
             Modifier.testTag("history-empty"), discover = true, illustrated = true)

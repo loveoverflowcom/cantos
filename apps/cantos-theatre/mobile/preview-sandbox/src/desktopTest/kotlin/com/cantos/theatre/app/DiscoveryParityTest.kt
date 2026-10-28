@@ -141,6 +141,48 @@ class DiscoveryParityTest {
     }
 
     @Test
+    fun replacement_uses_the_request_header_while_append_owns_the_footer_and_rows_remain_interactive() {
+        for (request in listOf(com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement, com.cantos.theatre.presentation.model.ShellCatalogRequest.Append)) {
+            runDesktopComposeUiTest(width = 390, height = 844) {
+                val view = ShellCatalogView(listOf(work), worksPhase = ShellListPhase.Loading, request = request, appliedSearch = "previous")
+                setContent { CantosPresentation(state, view, {}) }
+                onNodeWithTag("work-$workId").assertHasClickAction()
+                onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
+                if (request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement) {
+                    onNodeWithTag("discovery-refresh-edge").assertExists()
+                    onNodeWithTag("list-loading").assertDoesNotExist()
+                } else onNodeWithTag("list-loading").assertExists()
+            }
+        }
+    }
+
+    @Test
+    fun loading_adoption_captures_use_the_real_presentation_over_declared_synthetic_facts() {
+        val destination = System.getenv("CANTOS_LOADING_CAPTURE_DIR")
+        assumeTrue("Opt-in loading capture output directory is required", destination != null)
+        val cases = listOf(
+            Triple("initial", state.copy(catalogMode = ShellCatalogMode.Loading), ShellCatalogView(request = com.cantos.theatre.presentation.model.ShellCatalogRequest.Initial)),
+            Triple("refresh", state, ShellCatalogView(listOf(work), worksPhase = ShellListPhase.Loading, request = com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement)),
+            Triple("append", state, ShellCatalogView(listOf(work), worksPhase = ShellListPhase.Loading, request = com.cantos.theatre.presentation.model.ShellCatalogRequest.Append)),
+            Triple("failed-retained", state, ShellCatalogView(listOf(work), worksPhase = ShellListPhase.Failed)),
+        )
+        for (theme in ShellTheme.entries) for ((name, shown, view) in cases) {
+            runDesktopComposeUiTest(width = 390, height = 844) {
+                setContent { Box(Modifier.requiredSize(390.dp, 844.dp).testTag("loading-root")) {
+                    CantosPresentation(shown.copy(theme = theme), view, {})
+                } }
+                waitForIdle()
+                val root = onNodeWithTag("loading-root")
+                val bytes = requireNotNull(Image.makeFromBitmap(root.captureToImage().asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)).bytes
+                val out = File(requireNotNull(destination)).apply { mkdirs() }
+                File(out, "$name-$theme.png").writeBytes(bytes)
+                File(out, "$name-$theme.semantics.txt").writeText(root.printToString(maxDepth = 100))
+                File(out, "$name-$theme.json").writeText("""{"renderer":"jvm-desktop-compose-test-root","fixture":"synthetic loading588 $name","source":"${System.getenv("CANTOS_SOURCE_REVISION") ?: "unrecorded"}","widthDp":390,"heightDp":844,"theme":"$theme","locale":"vi-VN","motion":"Reduced","nativeAcceptance":false}""")
+            }
+        }
+    }
+
+    @Test
     fun controlled_state_reference_captures() {
         val destination = System.getenv("CANTOS_DISCOVERY_PARITY_CAPTURE_DIR")
         assumeTrue("Opt-in capture output directory is required", destination != null)

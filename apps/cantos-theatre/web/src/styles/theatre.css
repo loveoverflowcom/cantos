@@ -788,3 +788,19 @@ body { margin: 0; }
 .theatre-search-result-list button:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 
 .theatre-search-clear-slot { display: inline-flex; inline-size: var(--cantos-size-search-action); flex: 0 0 var(--cantos-size-search-action); }
+
+/* Request indicators reserve space and never cover retained controls. */
+.theatre-request-edge { min-block-size: var(--cantos-size-loading-edge); }
+.theatre-request-edge .cui-edge-status { display: none; } /* Existing region status owns copy/announcements. */
+.theatre-pending-rows { display: grid; gap: var(--cantos-space-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
+.theatre-pending-row { display: grid; grid-template-columns: clamp(5.5rem, 30%, 8rem) minmax(0, 1fr); gap: var(--cantos-space-md); padding: var(--cantos-space-md); border-radius: var(--cantos-shape-container); }
+.theatre-pending-cover { position: relative; inline-size: 100%; aspect-ratio: 2 / 3; border-radius: var(--cantos-shape-thumbnail); overflow: hidden; }
+.theatre-pending-lines { flex: 1; min-inline-size: 0; display: grid; align-content: start; gap: var(--cantos-space-sm); }
+.theatre-pending-lines > div { position: relative; block-size: 1.5em; border-radius: var(--cantos-shape-pill); }
+.theatre-pending-lines > div:last-child { inline-size: 65%; }
+.theatre-pending-rows[data-compact="true"] { grid-template-columns: 1fr; }
+.theatre-pending-rows[data-compact="true"] .theatre-pending-row { grid-template-columns: 3rem minmax(0, 1fr); }
+.theatre-cover-pending { position: absolute; inset: 0; z-index: 1; }
+.theatre-cover-art { opacity: 0; transition: opacity var(--cantos-motion-loading-reveal-duration); }
+.theatre-cover[data-cover="shown"] > .theatre-cover-art { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .theatre-cover-art { transition: none; } }

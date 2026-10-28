@@ -1,0 +1,31 @@
+{
+  "component_id": "surface-pulse",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28, scoped shared loading variants on Web/JVM",
+  "reference": "Issue #588 text and opened primitives-overview.png at 925b74cd3e9df2182b4c9ad9722d38cb370e3257; anatomy authority is canonical tokens, no pixel-match claim. Shared loading variants only, Leptos macOS in-app Chromium and JVM Desktop Compose test root; no Android/iOS, native lifecycle binding, OS motion, AT, browser zoom or frame-pacing acceptance.",
+  "tokens_sha256": "afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08",
+  "source_sha256": "4d0f831e8f9c81593ee6f0213cf2b7625eda335c6f01c502e5702c12837c4728",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify",
+      "artifact": "docs/evidence/loading-588-admission.json"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "CUA trusted preview controls, read-only DOM observations and opened captures",
+      "artifact": "docs/evidence/loading-588-admission.json"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "CUA trusted preview controls, read-only DOM observations and opened captures",
+      "artifact": "docs/evidence/loading-588-admission.json"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "CUA trusted preview controls, read-only DOM observations and opened captures",
+      "artifact": "docs/evidence/loading-588-admission.json"
+    }
+  }
+}

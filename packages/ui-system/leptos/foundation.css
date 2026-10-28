@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08 template-sha256:7559ba413dae7ff9ec0307dd1cf4222a300de73abc0635c15fadeaa43807cb8f
+/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08 template-sha256:00753aa906d19eebfcc7c8602316c07234641a0decd29ea37e059128468bf339
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -319,15 +319,12 @@
 /* The MicroArc: the shared indeterminate indicator (buttons, chips, selects and LoadingState). One
    fixed 270 degree monochrome arc with round ends, 16 (compact) or 20 (standard) logical units with a
    2-unit stroke from size.loadingArc*. The adjacent localized text or reason announces waiting; the arc
-   never implies disclosure, success or a percentage. One turn is a Web design seed, not a canonical
-   role: no continuous-motion token exists yet and the CMP renderer keeps its own constant. It turns
+   never implies disclosure, success or a percentage. One turn consumes the canonical
+   motion.loadingArc.cycle in both renderers. It turns
    only while mounted (pending) and is a stationary, still visible arc under reduced motion, so no loop
    or timer runs there. A hidden ancestor (display: none) also ends it. Rotation is a compositor
    transform on the frame, so layout never moves. Frame, stroke and caps are rem tokens, so they follow
    the root font size together. */
-:where(.cantos-ui) {
-  --cantos-web-loading-turn: 1000ms;
-}
 :where(.cantos-ui) .cui-loading-indicator {
   --cantos-web-loading-frame: var(--cantos-size-loading-arc-compact);
   --cantos-web-loading-cap: var(--cantos-size-loading-arc-stroke);
@@ -342,7 +339,7 @@
   background: conic-gradient(currentColor 0 270deg, transparent 270deg 360deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--cantos-size-loading-arc-stroke)), #000 calc(100% - var(--cantos-size-loading-arc-stroke)));
   mask: radial-gradient(farthest-side, transparent calc(100% - var(--cantos-size-loading-arc-stroke)), #000 calc(100% - var(--cantos-size-loading-arc-stroke)));
-  animation: cui-loading-turn var(--cantos-web-loading-turn) linear infinite;
+  animation: cui-loading-turn var(--cantos-motion-loading-arc-cycle) linear infinite;
 }
 :where(.cantos-ui) .cui-loading-indicator[data-size="standard"] {
   --cantos-web-loading-frame: var(--cantos-size-loading-arc);

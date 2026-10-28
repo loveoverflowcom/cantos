@@ -530,6 +530,17 @@ restore it; an answered search is kept with its rows and cursor, another search 
 walk and fences the old response. Invalid input (over 512 bytes, control characters) is shown
 inline and sends nothing. Guests get one cluster beside the intro: **Tạo tài khoản** (filled) and
 **Đăng nhập** (tonal).
+
+Loading v1 (#588) separates the requested walk from its applied display snapshot. A replacement
+resets the cursor immediately while retaining still-authorized rows and their explicit query/type
+context; only an accepted page commits new rows and applied chips together. Transient failure
+retains that context; an access/withdrawal refusal clears it. Shared SurfacePulse fills the initial
+card geometry and pending cover slots, shared EdgeProgress indicates a real replacement, a pending
+shared FilterChip uses the compact arc instead of a second edge, and append uses the standard
+20-unit footer arc. Library/History retain rows during refresh with the same request mapping.
+Viewport/document facts stop the edge offscreen or in a hidden document. The
+[bounded evidence](../../../docs/evidence/loading-588.md) separates core, fixture-browser, JVM
+presentation and outstanding native/AT acceptance.
 Clearing the applied query removes its Clear action; if that removal loses focus, the still-mounted
 search input receives it after rendering. A disposed search or focus moved elsewhere is left alone.
 

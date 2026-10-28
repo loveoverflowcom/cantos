@@ -815,8 +815,8 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/ui-requal-20261027-button-leptos.json",
-        "cmp": "docs/evidence/ui-requal-20261027-button-cmp.json"
+        "leptos": "docs/evidence/loading-588-button-leptos.json",
+        "cmp": "docs/evidence/loading-588-button-cmp.json"
       }
     },
     {
@@ -878,8 +878,8 @@
     {
       "component_id": "loading-state",
       "evidence": {
-        "leptos": "docs/evidence/ui-requal-20261027-loading-state-leptos.json",
-        "cmp": "docs/evidence/ui-requal-20261027-loading-state-cmp.json"
+        "leptos": "docs/evidence/loading-588-loading-state-leptos.json",
+        "cmp": "docs/evidence/loading-588-loading-state-cmp.json"
       }
     },
     {
@@ -927,8 +927,22 @@
     {
       "component_id": "edge-progress",
       "evidence": {
-        "leptos": "docs/evidence/edge-progress-587-leptos-qualification.json",
-        "cmp": "docs/evidence/edge-progress-587-cmp-qualification.json"
+        "leptos": "docs/evidence/loading-588-edge-progress-leptos.json",
+        "cmp": "docs/evidence/loading-588-edge-progress-cmp.json"
+      }
+    },
+    {
+      "component_id": "surface-pulse",
+      "evidence": {
+        "leptos": "docs/evidence/loading-588-surface-pulse-leptos.json",
+        "cmp": "docs/evidence/loading-588-surface-pulse-cmp.json"
+      }
+    },
+    {
+      "component_id": "filter-chip",
+      "evidence": {
+        "leptos": "docs/evidence/loading-588-filter-chip-leptos.json",
+        "cmp": "docs/evidence/loading-588-filter-chip-cmp.json"
       }
     }
   ]

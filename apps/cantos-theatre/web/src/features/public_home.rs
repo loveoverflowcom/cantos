@@ -4,6 +4,7 @@
 //! list is only a projection of [`PublicDiscoveryState`]; every search, retry and continuation is
 //! a callback the shell turns into a request, so nothing here parses a cursor or fetches. The
 //! intro's account slot reads the same mounted [`AccountViewState`] as the header avatar.
+use super::loading::{PendingRows, RequestEdge};
 use crate::contract::discovery::{CoverImage, MetadataWorkSummary, WorkKind};
 use crate::{
     app::routes::Route,
@@ -27,7 +28,7 @@ use crate::{
     messages::{self, text, Key, Locale},
 };
 use cantos_ui::{
-    AccessibleName, Announcement, Button, ButtonState, ButtonVariant, DisabledReason, IconButton,
+    AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, FilterChip, IconButton,
     IconName, LoadingState, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
@@ -94,6 +95,35 @@ fn region(phase: PublicDiscoveryPhase) -> Region {
         PublicDiscoveryPhase::Expired => Region::Expired,
         PublicDiscoveryPhase::Failed(failure) => Region::Failed(failure),
     }
+}
+
+fn displayed_context(state: &PublicDiscoveryState, locale: Locale) -> Option<String> {
+    state.applied_query().map(|q| {
+        messages::message(
+            locale,
+            crate::localization::generated::Message::TheatreShellDiscoveryDisplayedContext {
+                arg_query: if q.text().is_empty() {
+                    text(Key::DiscoveryKindAll, locale)
+                } else {
+                    q.text()
+                },
+                arg_kind: text(
+                    q.kind()
+                        .map_or(Key::DiscoveryKindAll, messages::work_kind_key),
+                    locale,
+                ),
+            },
+        )
+    })
+}
+
+fn pending_chip(state: &PublicDiscoveryState, choice: Option<WorkKind>) -> bool {
+    state.replacing()
+        && !state.rows().is_empty()
+        && state.query().kind() == choice
+        && state
+            .applied_query()
+            .is_some_and(|applied| applied.kind() != choice)
 }
 
 const fn query_error_key(error: QueryError) -> Key {
@@ -242,10 +272,11 @@ fn SearchDockResults(
     on_load_more: Callback<()>,
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
+    let current = Memo::new(move |_| state.with(|s| region(s.phase())));
     view! {
         <div class="theatre-search-dock-results" role="region" aria-label=move || text(Key::StoryShelf, locale.get())>
-            {move || match state.with(|s| region(s.phase())) {
-                Region::Loading => view! { <LoadingState announcement=Announcement::Polite>{move || text(Key::PublicHomeLoading, locale.get())}</LoadingState> }.into_any(),
+            {move || match current.get() {
+                Region::Loading => view! { <p>{move || text(Key::PublicHomeLoading, locale.get())}</p> }.into_any(),
                 Region::Failed(failure) => {
                     let message = match failure {
                         PublicDiscoveryFailure::Diagnostic(kind) => crate::messages::error_key(kind),
@@ -263,10 +294,19 @@ fn SearchDockResults(
                 }.into_any(),
                 Region::Empty => view! { <p role="status">{move || text(if applied.with(|q| q.is_unfiltered()) { Key::PublicHomeEmpty } else { Key::DiscoveryNoMatches }, locale.get())}</p> }.into_any(),
                 Region::Incomplete | Region::Ready => view! {
+                    <p>{move || state.with(|s| displayed_context(s, locale.get()))}</p>
+                    <p>{move || state.with(|s| match s.tail() {
+                        Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => Some(text(crate::messages::error_key(kind), locale.get())),
+                        Tail::Failed(PublicDiscoveryFailure::Unavailable) => Some(text(if s.replacement_failed() { Key::PublicHomeUnavailable } else { Key::DiscoveryPageUnavailable }, locale.get())),
+                        Tail::Failed(PublicDiscoveryFailure::Protocol) => Some(text(if s.replacement_failed() { Key::PublicHomeProtocol } else { Key::DiscoveryPageProtocol }, locale.get())),
+                        _ => None,
+                    })}</p>
                     <ul class="theatre-search-result-list">
-                        <For each=move || state.with(|s| s.rows().to_vec()) key=|w| w.work_id.clone() children=move |work| {
-                            let id = PublicWorkId::parse(&work.work_id);
-                            view! { <li><button type="button" on:click=move |_| { if let Some(id) = id { on_open_work.run(id); } }>{work.title}</button></li> }
+                        <For each=move || state.with(|s| s.rows().iter().map(|w| w.work_id.clone()).collect::<Vec<_>>()) key=|id| id.clone() children=move |work_id| {
+                            let id = PublicWorkId::parse(&work_id);
+                            view! { <li><button type="button" on:click=move |_| { if let Some(id) = id { on_open_work.run(id); } }>
+                                {move || state.with(|s| s.rows().iter().find(|w| w.work_id == work_id).map(|w| w.title.clone()).unwrap_or_default())}
+                            </button></li> }
                         }/>
                     </ul>
                     <Show when=move || state.with(|s| region(s.phase())) == Region::Incomplete>
@@ -394,15 +434,20 @@ fn SearchForm(
                         }/>
                 </div>
             </div>
+            <RequestEdge active=Signal::derive(move || state.with(|s| s.replacing() && !s.rows().is_empty()
+                && !KINDS.into_iter().any(|choice| pending_chip(s, choice)))) label=Key::PublicHomeLoading locale/>
             <div class="theatre-public-search-filters">
                 <div class="theatre-filters" role="group" aria-label=move || text(Key::DiscoveryKindLabel, locale.get())>
                     {KINDS.into_iter().map(|choice| view! {
-                        <button type="button" class="theatre-chip" data-kind=choice.map_or("all", kind_name)
-                            aria-pressed=move || (kind.get() == choice).to_string()
-                            on:click=move |_| { kind.set(choice); submit(); }>
-                            <span class="cui-control-label">{move || text(
-                                choice.map_or(Key::DiscoveryKindAll, messages::work_kind_key), locale.get())}</span>
-                        </button>
+                        <FilterChip id=format!("theatre-filter-{}", choice.map_or("all", kind_name))
+                            selected=Signal::derive(move || state.with(|s| s.applied_query().is_some_and(|q| q.kind() == choice)))
+                            state=Signal::derive(move || {
+                                if state.with(|s| pending_chip(s, choice)) {
+                                    DisabledReason::new(text(Key::PublicHomeLoading, locale.get())).ok().map(ButtonState::Loading).unwrap_or_default()
+                                } else { ButtonState::Enabled }
+                            }) on_change=Callback::new(move |_| { kind.set(choice); submit(); })>
+                            {move || text(choice.map_or(Key::DiscoveryKindAll, messages::work_kind_key), locale.get())}
+                        </FilterChip>
                     }).collect_view()}
                 </div>
                 <Show when=filtered>
@@ -422,44 +467,48 @@ fn SearchForm(
 #[component]
 fn WorkCard(
     work: MetadataWorkSummary,
+    state: RwSignal<PublicDiscoveryState>,
     locale: RwSignal<Locale>,
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
-    let kind = work.kind;
-    let count = work.unit_count;
-    let language = discovery_language::display_name(&work.language);
-    let action_id = format!("theatre-public-work-action-{}", work.work_id);
-    let title_id = format!("theatre-public-work-title-{}", work.work_id);
+    let identity = work.work_id.clone();
+    let lookup_id = identity.clone();
+    let data = Memo::new(move |_| {
+        state.with(|s| s.rows().iter().find(|w| w.work_id == lookup_id).cloned())
+    });
+    // Retaining a keyed row retains its link/focus, not a stale cover authorization or metadata.
+    let cover = Memo::new(move |_| {
+        data.with(|w| {
+            w.as_ref()
+                .map(|w| (w.kind, w.cover.clone(), w.language.clone()))
+        })
+    });
+    let action_id = format!("theatre-public-work-action-{identity}");
+    let title_id = format!("theatre-public-work-title-{identity}");
     let labelled_by = format!("{action_id} {title_id}");
     let arrow = icon("arrow_back");
+    let language =
+        move || data.with(|w| w.as_ref().map(|w| w.language.clone()).unwrap_or_default());
+    let title = move || data.with(|w| w.as_ref().map(|w| w.title.clone()).unwrap_or_default());
     view! {
-        <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=work.work_id.clone()>
-            <WorkCover kind cover=work.cover.clone() lang=work.language.clone() locale/>
+        <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=identity.clone()>
+            {move || cover.get().map(|(kind, cover, lang)| view! { <WorkCover kind cover lang locale/> })}
             <div class="theatre-public-work-body">
-                <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
-                <h3>{match PublicWorkId::parse(&work.work_id) {
+                <p class="theatre-eyebrow">{move || data.with(|w| w.as_ref().map(|w| text(messages::work_kind_key(w.kind), locale.get())))}</p>
+                <h3>{match PublicWorkId::parse(&identity) {
                     Some(id) => view! {
                         <a id=work_link_id(id) class="theatre-public-work-link" href=Route::PublicWork(id).hash()
-                            lang=move || locale.get().lang()
-                            aria-labelledby=labelled_by
-                            on:click=move |event| if in_app_activation(&event) {
-                                event.prevent_default();
-                                on_open_work.run(id);
-                            }>
+                            lang=move || locale.get().lang() aria-labelledby=labelled_by
+                            on:click=move |event| if in_app_activation(&event) { event.prevent_default(); on_open_work.run(id); }>
                             <span id=action_id class="cui-sr-only" lang=move || locale.get().lang()>{move || text(Key::PublicHomeOpenWork, locale.get())}</span>
-                            <span id=title_id class="theatre-public-work-title" lang=work.language.clone()>{work.title}</span>
+                            <span id=title_id class="theatre-public-work-title" lang=language>{title}</span>
                             <span class="theatre-public-work-arrow" aria-hidden="true">{arrow}</span>
                         </a>
                     }.into_any(),
-                    // The decoder admits only canonical IDs; never route a guessed one.
-                    None => view! { <span lang=work.language.clone()>{work.title}</span> }.into_any(),
+                    None => view! { <span lang=language>{title}</span> }.into_any(),
                 }}</h3>
-                {(!work.description.trim().is_empty()).then(|| view! {
-                    <p lang=work.language class="theatre-muted theatre-public-work-description">{work.description}</p>
-                })}
-                <p class="theatre-muted theatre-public-work-count">
-                    {move || feature_meta(kind, &language, count, locale.get())}
-                </p>
+                <p lang=language class="theatre-muted theatre-public-work-description">{move || data.with(|w| w.as_ref().map(|w| w.description.clone()).unwrap_or_default())}</p>
+                <p class="theatre-muted theatre-public-work-count">{move || data.with(|w| w.as_ref().map(|w| feature_meta(w.kind, &discovery_language::display_name(&w.language), w.unit_count, locale.get())))}</p>
             </div>
         </article>
     }
@@ -493,37 +542,67 @@ pub(crate) fn PublicHome(
     let rows = move || state.with(|s| s.rows().to_vec());
     let tail = Memo::new(move |_| state.with(|s| s.tail()));
     let count = move || state.with(|s| s.rows().len());
-    let status_line = move || match tail.get() {
-        Tail::End => messages::message(
-            locale.get(),
-            crate::localization::generated::Message::TheatreShellDiscoveryComplete {
-                arg_count: (count()) as u64,
-            },
-        ),
-        Tail::More | Tail::Loading => messages::message(
-            locale.get(),
-            crate::localization::generated::Message::TheatreShellDiscoveryShowing {
-                arg_count: (count()) as u64,
-            },
-        ),
-        Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => {
-            text(crate::messages::error_key(kind), locale.get()).to_owned()
+    let status_line = move || {
+        if state.with(|s| s.appending()) {
+            text(Key::DiscoveryLoadingMore, locale.get()).to_owned()
+        } else if state
+            .with(|s| s.replacing() && !KINDS.into_iter().any(|choice| pending_chip(s, choice)))
+        {
+            text(Key::PublicHomeLoading, locale.get()).to_owned()
+        } else {
+            match tail.get() {
+                Tail::End => messages::message(
+                    locale.get(),
+                    crate::localization::generated::Message::TheatreShellDiscoveryComplete {
+                        arg_count: (count()) as u64,
+                    },
+                ),
+                Tail::More | Tail::Loading => messages::message(
+                    locale.get(),
+                    crate::localization::generated::Message::TheatreShellDiscoveryShowing {
+                        arg_count: (count()) as u64,
+                    },
+                ),
+                Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => {
+                    text(crate::messages::error_key(kind), locale.get()).to_owned()
+                }
+                Tail::Failed(PublicDiscoveryFailure::Unavailable) => text(
+                    if state.with(|s| s.replacement_failed()) {
+                        Key::PublicHomeUnavailable
+                    } else {
+                        Key::DiscoveryPageUnavailable
+                    },
+                    locale.get(),
+                )
+                .to_owned(),
+                Tail::Failed(PublicDiscoveryFailure::Protocol) => text(
+                    if state.with(|s| s.replacement_failed()) {
+                        Key::PublicHomeProtocol
+                    } else {
+                        Key::DiscoveryPageProtocol
+                    },
+                    locale.get(),
+                )
+                .to_owned(),
+                Tail::Expired => text(Key::DiscoveryExpired, locale.get()).to_owned(),
+            }
         }
-        Tail::Failed(PublicDiscoveryFailure::Unavailable) => {
-            text(Key::DiscoveryPageUnavailable, locale.get()).to_owned()
-        }
-        Tail::Failed(PublicDiscoveryFailure::Protocol) => {
-            text(Key::DiscoveryPageProtocol, locale.get()).to_owned()
-        }
-        Tail::Expired => text(Key::DiscoveryExpired, locale.get()).to_owned(),
     };
     let more_state = Signal::derive(move || match tail.get() {
-        Tail::Loading => DisabledReason::new(text(Key::DiscoveryLoadingMore, locale.get()))
-            .map(ButtonState::Loading)
-            .unwrap_or_default(),
+        Tail::Loading => DisabledReason::new(text(
+            if state.with(|s| s.appending()) {
+                Key::DiscoveryLoadingMore
+            } else {
+                Key::PublicHomeLoading
+            },
+            locale.get(),
+        ))
+        .map(ButtonState::Disabled)
+        .unwrap_or_default(),
         _ => ButtonState::Enabled,
     });
     let more_label = move || match tail.get() {
+        Tail::Failed(_) if state.with(|s| s.replacement_failed()) => Key::PublicRetry,
         Tail::Failed(_) => Key::PublicWorkRetryPage,
         Tail::Expired => Key::DiscoveryRestart,
         _ => Key::DiscoveryLoadMore,
@@ -545,24 +624,23 @@ pub(crate) fn PublicHome(
                 <HomeAccount account locale on_login on_register on_refresh on_logout/>
             </header>
             </SearchForm>
-            <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading"
-                aria-busy=move || (current.get() == Region::Loading).then_some("true")>
+            <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading">
                 <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
                 {move || match current.get() {
                     Region::Loading => view! {
-                        <LoadingState class="theatre-public-state" announcement=Announcement::Polite>
-                            {move || text(Key::PublicHomeLoading, locale.get())}
-                        </LoadingState>
-                        <div class="theatre-shelf theatre-public-skeletons" aria-hidden="true">
-                            {(0..3).map(|_| view! { <div class="theatre-public-skeleton"></div> }).collect_view()}
-                        </div>
+                        <p class="theatre-public-state" role="status">{move || text(Key::PublicHomeLoading, locale.get())}</p>
+                        <PendingRows/>
                     }.into_any(),
                     Region::Ready => view! {
-                        <div class="theatre-shelf theatre-public-work-grid">
+                        <div class="theatre-shelf theatre-public-work-grid" aria-busy=move || state.with(|s| s.replacing() || s.appending()).to_string()>
                             <For each=rows key=|work| work.work_id.clone()
-                                children=move |work| view! { <WorkCard work locale on_open_work/> }/>
+                                children=move |work| view! { <WorkCard work state locale on_open_work/> }/>
                         </div>
+                        <p class="theatre-muted theatre-displayed-context">{move || state.with(|s| displayed_context(s, locale.get()))}</p>
                         <p id=STATUS_ID class="theatre-muted theatre-public-status" role="status" tabindex="-1">{status_line}</p>
+                        <Show when=move || state.with(|s| s.appending())>
+                            <LoadingState>{move || text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState>
+                        </Show>
                         <Show when=move || !matches!(tail.get(), Tail::End)>
                             <Button id=MORE_ID variant=ButtonVariant::Tonal state=more_state on_press=more_press>
                                 {move || text(more_label(), locale.get())}
@@ -570,7 +648,7 @@ pub(crate) fn PublicHome(
                         </Show>
                     }.into_any(),
                     Region::Empty => {
-                        let unfiltered = applied.with(|q| q.is_unfiltered());
+                        let unfiltered = state.with(|s| s.applied_query().is_none_or(|q| q.is_unfiltered()));
                         let (heading, help) = if unfiltered {
                             (Key::PublicHomeEmpty, Key::PublicHomeEmptyHelp)
                         } else {
@@ -903,7 +981,11 @@ mod tests {
     #[test]
     fn the_form_mirrors_the_applied_search_and_can_always_clear_it() {
         let applied = DiscoveryQuery::new("lời hẹn", Some(WorkKind::Podcast), "").unwrap();
-        let html = render_with(PublicDiscoveryState::default(), applied, Locale::Vietnamese);
+        let html = render_with(
+            answered(applied.clone(), Ok(page(vec![], None))),
+            applied,
+            Locale::Vietnamese,
+        );
         assert!(html.contains("value=\"lời hẹn\""), "{html}");
         assert!(
             html.contains("theatre-discovery-clear") && html.contains("Xóa tìm kiếm và bộ lọc")
@@ -913,11 +995,11 @@ mod tests {
             .map(|(i, _)| &html[i.saturating_sub(80)..i])
             .collect();
         assert_eq!(pressed.len(), 1);
-        assert!(pressed[0].contains("data-kind=\"podcast\""), "{pressed:?}");
+        assert!(pressed[0].contains("theatre-filter-podcast"), "{pressed:?}");
         let plain = render(PublicDiscoveryState::default(), Locale::Vietnamese);
         assert!(!plain.contains("theatre-discovery-clear"));
         for kind in ["all", "novel", "story", "podcast"] {
-            assert!(plain.contains(&format!("data-kind=\"{kind}\"")), "{kind}");
+            assert!(plain.contains(&format!("theatre-filter-{kind}")), "{kind}");
         }
     }
 

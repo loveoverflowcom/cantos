@@ -194,6 +194,7 @@ fun CantosPresentation(
         uiFontFamily = theatreSans(),
         editorialFontFamily = theatreSerif(),
     ) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalLoadingViewport provides surfaceBounds) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().safeDrawingPadding().imePadding()
@@ -281,6 +282,7 @@ fun CantosPresentation(
                     returnFocus = errorReturnFocus,
                 )
             }
+        }
         }
     }
 }
@@ -388,11 +390,15 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
         }
     }
     if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
-    Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
-        modifier = Modifier.semantics { heading() })
+    Box(Modifier.fillMaxWidth()) {
+        Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+            modifier = Modifier.semantics { heading() })
+        RequestEdge(catalog.request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement,
+            copy.text(CopyKey.Loading), "discovery-refresh-edge", Modifier.align(Alignment.BottomCenter))
+    }
     if (state.catalogMode == ShellCatalogMode.Ready && catalog.works.isNotEmpty()) {
         WorkShelf(catalog.works, state, copy, dispatch)
-        ListFooter(catalog.worksPhase, copy, dispatch)
+        ListFooter(if (catalog.request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement) ShellListPhase.Complete else catalog.worksPhase, copy, dispatch)
     } else {
         if (state.catalogMode == ShellCatalogMode.Ready && catalog.worksPhase != ShellListPhase.Complete) {
             ListFooter(catalog.worksPhase, copy, dispatch, first = true)
@@ -545,6 +551,7 @@ private fun SearchScreen(
             )
         }
     }
+    RequestEdge(catalog.request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement, copy.text(CopyKey.Loading), "search-request-edge")
     // The same real owner result is shown outside the shell only after it closes.
     if (!expanded) SearchResults(state, catalog, copy, dispatch)
     }
@@ -553,6 +560,8 @@ private fun SearchScreen(
 @Composable
 private fun SearchResults(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     val works = filteredWorks(state, catalog)
+    catalog.appliedSearch?.let { applied -> Text(copy.text(com.cantos.theatre.presentation.model.generated.ShellMessage.DisplayedSearch(
+        query = applied.ifBlank { copy.text(CopyKey.Discover) })), Modifier.testTag("displayed-search"), style = MaterialTheme.typography.bodySmall) }
     if ((state.catalogMode == ShellCatalogMode.Ready || state.catalogMode == ShellCatalogMode.Empty) && catalog.worksPhase == ShellListPhase.Complete) {
         Text(copy.text(LegacyCopyKey.Results, "count" to works.size.toString()), style = MaterialTheme.typography.bodySmall)
     }
@@ -560,7 +569,7 @@ private fun SearchResults(state: ShellState, catalog: ShellCatalogView, copy: Sh
         state.catalogMode != ShellCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch, state.theme, state.query)
         works.isEmpty() && catalog.worksPhase != ShellListPhase.Complete -> ListFooter(catalog.worksPhase, copy, dispatch, first = true)
         works.isEmpty() -> CatalogRecovery(ShellCatalogMode.Empty, copy, dispatch, state.theme, state.query)
-        else -> { WorkShelf(works, state, copy, dispatch); ListFooter(catalog.worksPhase, copy, dispatch) }
+        else -> { WorkShelf(works, state, copy, dispatch); ListFooter(if (catalog.request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement) ShellListPhase.Complete else catalog.worksPhase, copy, dispatch) }
     }
 }
 
@@ -596,7 +605,7 @@ private fun CatalogRecovery(mode: ShellCatalogMode, copy: ShellCopy, dispatch: (
         verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         if (mode == ShellCatalogMode.Empty) TheatreEmptyArtwork(TheatreEmptyArtworkKind.Works, theme,
             Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f).align(Alignment.CenterHorizontally).testTag("catalog-empty-artwork"))
-        if (mode == ShellCatalogMode.Loading) LoadingState(copy.text(title), Modifier.testTag("catalog-loading"))
+        if (mode == ShellCatalogMode.Loading) PendingRows(copy.text(title), "catalog-loading")
         else Text(copy.text(title), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleLarge,
             textAlign = if (empty) TextAlign.Center else TextAlign.Start)
         Text(copy.text(message), Modifier.fillMaxWidth(), textAlign = if (empty) TextAlign.Center else TextAlign.Start)

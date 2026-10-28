@@ -19,6 +19,9 @@ enum class ShellUnitKind { Episode, Chapter }
 /** Where a paged list stands. [Complete] is the end of a list and the default for fixed samples. */
 enum class ShellListPhase { Complete, Loading, More, Failed }
 
+/** Actual catalog request ownership, separate from the retained display and terminal failure. */
+enum class ShellCatalogRequest { Idle, Initial, Replacement, Append }
+
 /** The authoritative work read behind a detail screen. [Ready] is the default for fixed samples. */
 enum class ShellDetailPhase { Ready, Loading, Failed, NotFound }
 
@@ -108,6 +111,8 @@ class ShellCatalogView(
     val worksPhase: ShellListPhase = ShellListPhase.Complete,
     /** True when the source already applied the search text, so it is not filtered again locally. */
     val searchedBySource: Boolean = false,
+    val request: ShellCatalogRequest = ShellCatalogRequest.Idle,
+    val appliedSearch: String? = null,
     referenced: List<ShellWork> = emptyList(),
     referencedEpisodes: List<ShellEpisode> = emptyList(),
     /** Per-section Library paging; [ShellLibraryView] defaults to every section complete. */
@@ -130,11 +135,11 @@ class ShellCatalogView(
         ?: referencedEpisodeSnapshot.firstOrNull { it.id == id }
 
     override fun equals(other: Any?): Boolean = other is ShellCatalogView && snapshot == other.snapshot &&
-        worksPhase == other.worksPhase && searchedBySource == other.searchedBySource &&
+        worksPhase == other.worksPhase && searchedBySource == other.searchedBySource && request == other.request && appliedSearch == other.appliedSearch &&
         referencedSnapshot == other.referencedSnapshot && referencedEpisodeSnapshot == other.referencedEpisodeSnapshot &&
         library == other.library
 
-    override fun hashCode(): Int = listOf(snapshot, worksPhase, searchedBySource, referencedSnapshot, referencedEpisodeSnapshot, library).hashCode()
+    override fun hashCode(): Int = listOf(snapshot, worksPhase, searchedBySource, request, appliedSearch, referencedSnapshot, referencedEpisodeSnapshot, library).hashCode()
 
     private fun detached(work: ShellWork): ShellWork = work.copy(episodes = work.episodes.toList())
 }
