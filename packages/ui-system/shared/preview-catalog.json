@@ -815,7 +815,7 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/loading-588-button-leptos.json",
+        "leptos": "docs/evidence/loading-review-button-leptos.json",
         "cmp": "docs/evidence/loading-588-button-cmp.json"
       }
     },
@@ -878,7 +878,7 @@
     {
       "component_id": "loading-state",
       "evidence": {
-        "leptos": "docs/evidence/loading-588-loading-state-leptos.json",
+        "leptos": "docs/evidence/loading-review-loading-state-leptos.json",
         "cmp": "docs/evidence/loading-588-loading-state-cmp.json"
       }
     },
@@ -927,21 +927,21 @@
     {
       "component_id": "edge-progress",
       "evidence": {
-        "leptos": "docs/evidence/loading-588-edge-progress-leptos.json",
+        "leptos": "docs/evidence/loading-review-edge-progress-leptos.json",
         "cmp": "docs/evidence/loading-588-edge-progress-cmp.json"
       }
     },
     {
       "component_id": "surface-pulse",
       "evidence": {
-        "leptos": "docs/evidence/loading-588-surface-pulse-leptos.json",
+        "leptos": "docs/evidence/loading-review-surface-pulse-leptos.json",
         "cmp": "docs/evidence/loading-588-surface-pulse-cmp.json"
       }
     },
     {
       "component_id": "filter-chip",
       "evidence": {
-        "leptos": "docs/evidence/loading-588-filter-chip-leptos.json",
+        "leptos": "docs/evidence/loading-review-filter-chip-leptos.json",
         "cmp": "docs/evidence/loading-588-filter-chip-cmp.json"
       }
     }

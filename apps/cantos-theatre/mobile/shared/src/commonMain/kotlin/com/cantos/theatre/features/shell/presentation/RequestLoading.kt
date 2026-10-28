@@ -17,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -35,6 +37,19 @@ import com.cantos.ui.tokenDp
 
 internal val LocalLoadingViewport = staticCompositionLocalOf { Rect.Zero }
 
+@Composable
+private fun loadingIsPresent(bounds: Rect): Boolean {
+    val viewport = LocalLoadingViewport.current
+    return LocalWindowInfo.current.isWindowFocused && !bounds.isEmpty && !viewport.isEmpty && bounds.overlaps(viewport)
+}
+
+/** Covers and first-load placeholders share the edge's observed viewport/window lifetime. */
+@Composable
+internal fun RequestPulse(modifier: Modifier = Modifier, shape: Shape = RectangleShape) {
+    var bounds by remember { mutableStateOf(Rect.Zero) }
+    SurfacePulse(modifier.onGloballyPositioned { bounds = it.boundsInWindow() }, active = loadingIsPresent(bounds), shape = shape)
+}
+
 /** Actual layout clipping and window focus facts; an unknown/unfocused host paints no travelling edge. */
 @Composable
 internal fun RequestEdge(active: Boolean, label: String, tag: String, modifier: Modifier = Modifier) {
@@ -49,7 +64,7 @@ internal fun RequestEdge(active: Boolean, label: String, tag: String, modifier: 
     }
 }
 
-/** App composition with the existing 72dp artwork slot and typography-owned line boxes. */
+/** App composition with the existing artwork slot and typography-owned line boxes. */
 @Composable
 internal fun PendingRows(label: String, tag: String, count: Int = 3) {
     val line = with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.lineHeight.toDp() }
@@ -58,11 +73,11 @@ internal fun PendingRows(label: String, tag: String, count: Int = 3) {
         Text(label)
         repeat(count) {
             Row(Modifier.fillMaxWidth().clearAndSetSemantics { }, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-                SurfacePulse(Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
+                RequestPulse(Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                    SurfacePulse(Modifier.fillMaxWidth().height(line))
-                    SurfacePulse(Modifier.fillMaxWidth().height(line))
-                    Box(Modifier.fillMaxWidth(0.65f)) { SurfacePulse(Modifier.fillMaxWidth().height(line)) }
+                    RequestPulse(Modifier.fillMaxWidth().height(line))
+                    RequestPulse(Modifier.fillMaxWidth().height(line))
+                    Box(Modifier.fillMaxWidth(0.65f)) { RequestPulse(Modifier.fillMaxWidth().height(line)) }
                 }
             }
         }

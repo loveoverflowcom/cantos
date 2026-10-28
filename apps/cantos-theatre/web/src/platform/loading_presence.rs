@@ -1,6 +1,14 @@
 //! Presentation-only viewport/document facts. Missing browser capability keeps motion off.
 use leptos::prelude::*;
 
+/// Unknown viewport/document facts keep continuous motion off until the host observes them.
+pub(crate) fn loading_presence(node: NodeRef<leptos::html::Div>) -> Signal<bool> {
+    let visible = RwSignal::new(false);
+    let foreground = RwSignal::new(false);
+    bind_loading_presence(node, visible, foreground);
+    Signal::derive(move || visible.get() && foreground.get())
+}
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn bind_loading_presence(
     node: NodeRef<leptos::html::Div>,

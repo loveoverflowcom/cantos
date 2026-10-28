@@ -652,17 +652,17 @@
 :where(.cantos-ui) :where(.cui-filter-chip[aria-pressed="true"], .cui-filter-chip[aria-busy="true"]) .cui-chip-check {
   visibility: visible;
 }
-:where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip):where(:hover, :active):not(:disabled) {
+:where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip):where(:hover, :active):not(:disabled, [aria-disabled="true"]) {
   background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
 }
-:where(.cantos-ui) .cui-filter-chip:active:not(:disabled) {
+:where(.cantos-ui) .cui-filter-chip:active:not(:disabled, [aria-disabled="true"]) {
   background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent));
 }
 :where(.cantos-ui) :where(.cui-link, .cui-nav-item, .cui-filter-chip):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
 }
-:where(.cantos-ui) .cui-filter-chip:disabled {
+:where(.cantos-ui) .cui-filter-chip:is(:disabled, [aria-disabled="true"]) {
   background: var(--cantos-color-surface-container);
   color: var(--cantos-color-on-surface-variant);
   cursor: default;
@@ -675,7 +675,7 @@
     text-decoration-thickness: var(--cantos-size-focus-width);
   }
   :where(.cantos-ui) .cui-filter-chip { border: var(--cantos-size-border) solid ButtonText; }
-  :where(.cantos-ui) .cui-filter-chip:disabled { color: GrayText; }
+  :where(.cantos-ui) .cui-filter-chip:is(:disabled, [aria-disabled="true"]) { color: GrayText; }
   :where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] { border-color: Highlight; }
 }
 

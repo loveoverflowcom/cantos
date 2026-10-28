@@ -823,8 +823,8 @@ body { margin: 0; }
 .theatre-request-edge { min-block-size: var(--cantos-size-loading-edge); }
 .theatre-request-edge .cui-edge-status { display: none; } /* Existing region status owns copy/announcements. */
 .theatre-pending-rows { display: grid; gap: var(--cantos-space-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
-.theatre-pending-row { display: grid; grid-template-columns: clamp(5.5rem, 30%, 8rem) minmax(0, 1fr); gap: var(--cantos-space-md); padding: var(--cantos-space-md); border-radius: var(--cantos-shape-container); }
-.theatre-pending-cover { position: relative; inline-size: 100%; aspect-ratio: 2 / 3; border-radius: var(--cantos-shape-thumbnail); overflow: hidden; }
+.theatre-pending-row { display: grid; grid-template-columns: clamp(5.5rem, 30%, 8rem) minmax(0, 1fr); gap: var(--cantos-space-md); padding: var(--cantos-space-md); border-radius: var(--cantos-web-shape-container); }
+.theatre-pending-cover { position: relative; inline-size: 100%; aspect-ratio: 2 / 3; border-radius: var(--cantos-web-shape-container); overflow: hidden; }
 .theatre-pending-lines { flex: 1; min-inline-size: 0; display: grid; align-content: start; gap: var(--cantos-space-sm); }
 .theatre-pending-lines > div { position: relative; block-size: 1.5em; border-radius: var(--cantos-shape-pill); }
 .theatre-pending-lines > div:last-child { inline-size: 65%; }
