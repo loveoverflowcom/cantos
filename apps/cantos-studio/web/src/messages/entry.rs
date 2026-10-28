@@ -171,38 +171,29 @@ mod tests {
     }
 
     #[test]
-    fn studio_topbar_v6_fills_language_and_outlines_theme_in_one_primary_hue() {
-        let css = include_str!("../../studio.css");
-        let theme = css
-            .split(".studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button {")
+    fn studio_topbar_keeps_registry_selection_and_the_shared_tonal_icon_action() {
+        let view = include_str!("../view.rs");
+        let topbar = view
+            .split("<div class=\"toolbar studio-topbar\">")
             .nth(1)
-            .and_then(|rest| rest.split('}').next())
-            .expect("the theme pill rule exists");
-        assert!(theme.contains("background-color: transparent"), "{theme}");
+            .and_then(|rest| rest.split("<AccountEntry").next())
+            .expect("the topbar language and theme controls exist");
+        assert!(topbar.contains("Locale::supported()"), "{topbar}");
+        assert!(topbar.contains("option.autonym()"), "{topbar}");
         assert!(
-            theme.contains("color: var(--cantos-color-theatre-account-control)"),
-            "{theme}"
+            topbar.contains("save_preference(selected).err()"),
+            "{topbar}"
         );
-        // The stroke follows the label and icon colour, so all three share one hue.
-        assert!(theme.contains("solid currentColor"), "{theme}");
-        let language = css
+        let theme = topbar
             .lines()
-            .position(|line| {
-                line.starts_with(".studio-shell[data-expression] .studio-language-field")
-            })
-            .map(|at| css.lines().skip(at).take(4).collect::<Vec<_>>().join("\n"))
-            .expect("the language pill fill rule exists");
-        assert!(
-            language.contains("background-color: var(--cantos-color-theatre-account-control)"),
-            "{language}"
-        );
-        assert!(
-            language.contains("color: var(--cantos-color-theatre-on-account-control)"),
-            "{language}"
-        );
-        // A fill-coloured ring would vanish on the filled pill.
-        assert!(css.lines().any(|line| line
-            .contains(".studio-language-field .cui-field-control:is(:focus-visible")
-            && line.contains("outline-color: var(--cantos-color-theatre-on-account-control)")));
+            .find(|line| line.contains("<ThemeCycleButton"))
+            .expect("the existing theme action is reused");
+        assert!(theme.contains("variant=ButtonVariant::Tonal"), "{theme}");
+        assert!(!theme.contains("show_label=true"), "{theme}");
+        // Studio inherits the shared tonal states and focus/forced-colour rules. The v6
+        // account-control overrides would bring back the superseded high-emphasis pills.
+        let css = include_str!("../../studio.css");
+        assert!(!css.contains("--cantos-color-theatre-account-control"));
+        assert!(!css.contains("--cantos-color-theatre-on-account-control"));
     }
 }
