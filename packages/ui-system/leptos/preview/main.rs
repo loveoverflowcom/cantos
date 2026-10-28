@@ -378,9 +378,9 @@ pub fn Gallery(
                                                 <LoadingState announcement=Announcement::Polite>"Thông báo đang tải được bật rõ ràng; nội dung vẫn được giữ."</LoadingState>
                                             </div>
                                         }.into_any(),
-                                        "pulse" => view! { <SurfacePulseSamples stage=PulseStage::Running/> }.into_any(),
-                                        "pulse-idle" => view! { <SurfacePulseSamples stage=PulseStage::Idle/> }.into_any(),
-                                        "pulse-ready" => view! { <SurfacePulseSamples stage=PulseStage::Ready/> }.into_any(),
+                                        messages::pulse::MODE_RUNNING => view! { <SurfacePulseSamples stage=PulseStage::Running/> }.into_any(),
+                                        messages::pulse::MODE_IDLE => view! { <SurfacePulseSamples stage=PulseStage::Idle/> }.into_any(),
+                                        messages::pulse::MODE_READY => view! { <SurfacePulseSamples stage=PulseStage::Ready/> }.into_any(),
                                         "error" => view! { <ErrorState title="Không hiển thị được nội dung mẫu">
                                             <p>"Đây là lỗi minh họa. Bạn có thể chọn thử lại và giữ nguyên mọi giá trị đã nhập."</p>
                                             <Button id="gallery-retry" variant=ButtonVariant::Secondary

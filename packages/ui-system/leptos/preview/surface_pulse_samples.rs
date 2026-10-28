@@ -1,5 +1,6 @@
 //! SurfacePulse specimens: a cover with two lines, a title bar and a list row. Each keeps the
 //! geometry of its loaded content through the reveal. No service effect; the stage is host-driven.
+use super::messages::pulse;
 use cantos_ui::{Icon, IconName, SurfacePulse};
 use leptos::prelude::*;
 
@@ -73,24 +74,24 @@ pub fn SurfacePulseSamples(stage: PulseStage) -> impl IntoView {
     let busy = (stage != PulseStage::Ready).then_some("true");
     view! {
         <div class="cui-pulse-specimen" data-preview-scenario="surface-pulse" role="group"
-            aria-label=if stage == PulseStage::Ready { "Danh sách tác phẩm" } else { "Đang tải danh sách tác phẩm" }
+            aria-label=if stage == PulseStage::Ready { pulse::REGION_READY } else { pulse::REGION_LOADING }
             aria-busy=busy>
-            <PulseRow stage=stage title="Ánh đèn cuối sân khấu" meta="Người dẫn chuyện · 12 chương" placeholder_title_lines=1/>
+            <PulseRow stage=stage title=pulse::COVER_TITLE meta=pulse::COVER_META placeholder_title_lines=1/>
             <PulseRow stage=stage compact=true placeholder_title_lines=2
-                title="Những người kể chuyện đêm khuya ở phố cổ Hội An — phần Ỗ, Ữ kéo dài"
-                meta="Nguyễn Thị Minh Phương · Bản nháp"/>
+                title=pulse::ROW_TITLE
+                meta=pulse::ROW_META/>
             <div class="cui-pulse-bar" data-stage=stage.as_str()>
                 <div class="cui-pulse-slot">
                     <div class="cui-pulse-layer cui-pulse-placeholder" aria-hidden="true">
                         <SurfacePulse active=stage == PulseStage::Running/>
                     </div>
                     <div class="cui-pulse-layer cui-pulse-loaded" aria-hidden=(stage != PulseStage::Ready).then_some("true")>
-                        <p class="cui-pulse-title">"Thư viện của bạn"</p>
+                        <p class="cui-pulse-title">{pulse::BAR_TITLE}</p>
                     </div>
                 </div>
             </div>
-            <PulseRow stage=stage lang="en" title="Midnight storytellers of the old quarter, a long unbroken title"
-                meta="Narrator · 8 chapters" placeholder_title_lines=2/>
+            <PulseRow stage=stage lang="en" title=pulse::EN_TITLE
+                meta=pulse::EN_META placeholder_title_lines=2/>
         </div>
     }
 }
