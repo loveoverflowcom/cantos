@@ -6,6 +6,24 @@
 
 use super::recipe::{Fixture, Locale, Recipe};
 
+/// SurfacePulse specimen fixtures: preserved Vietnamese and English typography samples and the
+/// package-local gallery state identifiers. They are fixtures, not application copy.
+pub mod pulse {
+    pub const MODE_RUNNING: &str = "pulse";
+    pub const MODE_IDLE: &str = "pulse-idle";
+    pub const MODE_READY: &str = "pulse-ready";
+    pub const REGION_LOADING: &str = "Đang tải danh sách tác phẩm";
+    pub const REGION_READY: &str = "Danh sách tác phẩm";
+    pub const COVER_TITLE: &str = "Ánh đèn cuối sân khấu";
+    pub const COVER_META: &str = "Người dẫn chuyện · 12 chương";
+    pub const ROW_TITLE: &str =
+        "Những người kể chuyện đêm khuya ở phố cổ Hội An — phần Ỗ, Ữ kéo dài";
+    pub const ROW_META: &str = "Nguyễn Thị Minh Phương · Bản nháp";
+    pub const BAR_TITLE: &str = "Thư viện của bạn";
+    pub const EN_TITLE: &str = "Midnight storytellers of the old quarter, a long unbroken title";
+    pub const EN_META: &str = "Narrator · 8 chapters";
+}
+
 pub mod tool {
     pub const THEATRE_COLLAPSE: &str = "Collapse";
     pub const THEATRE_TITLE: &str = "Theatre expression · v0.8.0";
@@ -66,6 +84,9 @@ pub mod tool {
     pub const EMPTY: &str = "Empty";
     pub const LOADING: &str = "Loading";
     pub const LOADING_ANNOUNCEMENT: &str = "Loading with polite announcement";
+    pub const SURFACE_PULSE: &str = "SurfacePulse placeholders (running)";
+    pub const SURFACE_PULSE_IDLE: &str = "SurfacePulse placeholders (idle)";
+    pub const SURFACE_PULSE_READY: &str = "SurfacePulse revealed content";
     pub const ERROR: &str = "Error";
     pub const SUCCESS: &str = "Success";
     pub const LAYOUT: &str = "Composed layout and reading region";

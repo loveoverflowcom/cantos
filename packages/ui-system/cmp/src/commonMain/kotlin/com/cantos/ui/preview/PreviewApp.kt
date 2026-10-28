@@ -54,6 +54,7 @@ import com.cantos.ui.AvatarSize
 import com.cantos.ui.BackButton
 import com.cantos.ui.CantosExpression
 import com.cantos.ui.Badge
+import com.cantos.ui.CantosShapes
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
@@ -76,6 +77,7 @@ import com.cantos.ui.Icon
 import com.cantos.ui.IconButton
 import com.cantos.ui.Link
 import com.cantos.ui.LoadingState
+import com.cantos.ui.SurfacePulse
 import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.Logo
 import com.cantos.ui.LogoTone
@@ -657,6 +659,19 @@ internal fun ComponentExample(
         PreviewExample.Status -> Status(feedback, modifier, tone, announce = state == "announcement")
         PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier,
             announcement = if (state == "announcement") Announcement.Polite else Announcement.Off)
+        PreviewExample.SurfacePulse -> {
+            val stage = PulseStage.fromState(state)
+            Column(modifier.pulseRegionSemantics(stage), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                PulseRow(stage, "Ánh đèn cuối sân khấu", "Người dẫn chuyện · 12 chương", placeholderTitleLines = 1)
+                PulseRow(stage, "Những người kể chuyện đêm khuya ở phố cổ Hội An — phần Ỗ, Ữ kéo dài",
+                    "Nguyễn Thị Minh Phương · Bản nháp", placeholderTitleLines = 2, compact = true)
+                PulseSlot(stage, Modifier.fillMaxWidth(),
+                    placeholder = { SurfacePulse(Modifier.fillMaxWidth().height(tokenDp("size.control")), stage == PulseStage.Running, CantosShapes.full) },
+                    loaded = { PulseBarLoaded("Thư viện của bạn") })
+                PulseRow(stage, "Midnight storytellers of the old quarter, a long unbroken title", "Narrator · 8 chapters",
+                    placeholderTitleLines = 2, language = "en")
+            }
+        }
         PreviewExample.EmptyState -> {
             val recovery: (@Composable () -> Unit)? = if (state == "recovery") ({ Button("Thêm cảnh", onPress) }) else null
             EmptyState("Chưa có cảnh nào", "Thêm cảnh đầu tiên cho Ánh đèn cuối sân khấu.", modifier, action = recovery)

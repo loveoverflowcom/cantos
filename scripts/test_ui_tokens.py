@@ -598,7 +598,7 @@ class CanonicalRepositoryTokens(unittest.TestCase):
 
     def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
         source = validate(load_source(SOURCE.read_bytes()))
-        self.assertEqual(source["version"], "0.10.0")
+        self.assertEqual(source["version"], "0.11.0")
         self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
         self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
         self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))
@@ -611,6 +611,35 @@ class CanonicalRepositoryTokens(unittest.TestCase):
                       generated[OUTPUTS["kotlin"]])
         self.assertIn('TokenValue("size.control", "dimension", "48", "48", "48", "48", null)',
                       generated[OUTPUTS["kotlin"]])
+
+    def test_loading_cycles_are_continuous_roles_with_no_zero_reduced_mapping(self):
+        source = validate(load_source(SOURCE.read_bytes()))
+        tokens = source["tokens"]
+        for role, value in {"motion.loadingPulse.cycle": 1400, "motion.loadingArc.cycle": 1000,
+                            "motion.loadingEdge.cycle": 1200, "motion.loadingReveal.duration": 150,
+                            "motion.feedback.duration": 140}.items():
+            self.assertEqual(tokens[role], token("duration", value), role)
+        self.assertEqual(tokens["motion.loadingPulse.easing"], token("cubicBezier", [0.42, 0, 0.58, 1]))
+        self.assertEqual([tokens[f"state.loadingPulse{name}Opacity"]["value"] for name in ("Low", "High", "Reduced")],
+                         [0.6, 0.85, 0.7])
+        self.assertEqual([tokens[f"size.{name}"]["value"] for name in ("loadingArcCompact", "loadingArc", "loadingArcStroke", "loadingEdge")],
+                         [16, 20, 2, 2])
+        # Only the finite reveal has a zero reduced mapping; a cycle is stationary, never zero-length.
+        self.assertEqual(source["reduced_motion"]["motion.loadingReveal.duration"], 0)
+        self.assertFalse([role for role in source["reduced_motion"] if role.endswith(".cycle")])
+        css = outputs(SOURCE.read_bytes(), TEMPLATE.read_text(encoding="utf-8"))[OUTPUTS["css"]]
+        self.assertIn("--cantos-motion-loading-pulse-cycle: 1400ms;", css)
+        self.assertEqual(css.count("--cantos-motion-loading-pulse-cycle"), 1, "no reduced override")
+        self.assertIn("--cantos-motion-loading-reveal-duration: 0ms;", css)
+        for mutation, message in (("zero", "must be positive"), ("reduced", "reduced_motion")):
+            with self.subTest(mutation=mutation):
+                changed = load_source(SOURCE.read_bytes())
+                if mutation == "zero":
+                    changed["tokens"]["motion.loadingPulse.cycle"]["value"] = 0
+                else:
+                    changed["reduced_motion"]["motion.loadingPulse.cycle"] = 0
+                with self.assertRaisesRegex(ValueError, message):
+                    outputs(json.dumps(changed), TEMPLATE.read_text(encoding="utf-8"))
 
     def test_reported_wrong_type_mutations_of_actual_source_are_refused(self):
         cases = [("type.body.size", "number", 14, "dimension"),

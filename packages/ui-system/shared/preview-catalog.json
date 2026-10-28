@@ -466,6 +466,24 @@
       }
     },
     {
+      "id": "surface-pulse",
+      "name": "SurfacePulse",
+      "family": "feedback",
+      "states": [
+        "running",
+        "idle",
+        "revealed"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Decorative opacity pulse with caller-owned geometry; source and paired preview specimens exist, while browser, screen-reader and visual qualification remain pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles and JVM clock tests cover the cycle, idle and reduced states; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
       "id": "empty-state",
       "name": "EmptyState",
       "family": "feedback",

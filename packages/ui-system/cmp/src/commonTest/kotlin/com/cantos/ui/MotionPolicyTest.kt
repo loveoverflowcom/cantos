@@ -9,6 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /** The pure core of motion: bounded exhaustive over intent × property × preference. */
@@ -91,8 +92,61 @@ class MotionPolicyTest {
     @Test
     fun no_canonical_motion_duration_role_is_left_unread_by_the_policy() {
         val read = combinations.map { (intent, property) -> motionDurationRole(intent, property) }.toSet()
-        val canonical = CantosTokens.names.filter { it.startsWith("motion.") && it.endsWith(".duration") }.toSet()
+        // The loading reveal is a scoped finite duration read by loadingRevealFor, not by an intent.
+        val canonical = CantosTokens.names
+            .filter { it.startsWith("motion.") && it.endsWith(".duration") && it != "motion.loadingReveal.duration" }.toSet()
         assertEquals(canonical, read, "A new or removed motion duration token needs a policy decision")
+    }
+
+    @Test
+    fun loading_cycles_are_continuous_roles_outside_the_finite_bound_and_stationary_under_reduced_motion() {
+        val expected = mapOf(LoadingCycle.Pulse to 1_400, LoadingCycle.Arc to 1_000, LoadingCycle.Edge to 1_200)
+        assertEquals(LoadingCycle.entries.toSet(), expected.keys)
+        expected.forEach { (cycle, millis) ->
+            assertEquals(millis, loadingCycleMillis(cycle, MotionPreference.Full), "$cycle")
+            assertEquals(null, loadingCycleMillis(cycle, MotionPreference.Reduced), "$cycle is stationary, never zero-length")
+        }
+        assertTrue(1_400 > MaxMotionDurationMillis, "the pulse cycle needs its own contract, not a raised finite bound")
+        assertEquals(1_000, MaxMotionDurationMillis, "the finite bound is unchanged")
+        assertEquals(140, CantosTokens.number("motion.feedback.duration").toInt(), "feedback duration is unchanged")
+        assertEquals(
+            PendingRingTurnMillis, loadingCycleMillis(LoadingCycle.Arc, MotionPreference.Full),
+            "the shipped arc and its canonical cycle must not drift apart",
+        )
+        // Every continuous role is read by exactly one cycle, so a new loop needs a policy decision.
+        val canonical = CantosTokens.names.filter { it.startsWith("motion.") && it.endsWith(".cycle") }.toSet()
+        assertEquals(canonical, LoadingCycle.entries.map { it.role }.toSet())
+        canonical.forEach { assertEquals(CantosTokens.number(it), CantosTokens.number(it, reducedMotion = true), "$it has no zero reduced mapping") }
+    }
+
+    @Test
+    fun the_surface_pulse_beat_is_alpha_060_to_085_over_1400_ms_in_two_equal_halves() {
+        val spec = assertNotNull(surfacePulseFor(MotionPreference.Full))
+        assertEquals(1_400, spec.cycleMillis)
+        assertEquals(700, spec.halfCycleMillis)
+        assertEquals(0.60f, spec.lowAlpha)
+        assertEquals(0.85f, spec.highAlpha)
+        assertEquals(MotionEasing(0.42f, 0f, 0.58f, 1f), spec.easing)
+        assertFalse(spec.easing.mayOvershoot, "an effect never overshoots")
+        assertEquals(null, surfacePulseFor(MotionPreference.Reduced))
+        assertEquals(0.70f, SurfacePulseRestingAlpha)
+        assertTrue(SurfacePulseRestingAlpha in spec.lowAlpha..spec.highAlpha, "the static fill sits between the extremes")
+        assertFailsWith<IllegalArgumentException> { spec.copy(cycleMillis = 1_401) }
+        assertFailsWith<IllegalArgumentException> { spec.copy(cycleMillis = 0) }
+        assertFailsWith<IllegalArgumentException> { spec.copy(lowAlpha = 0.9f) }
+        assertFailsWith<IllegalArgumentException> { spec.copy(highAlpha = 1.1f) }
+    }
+
+    @Test
+    fun the_loading_reveal_is_a_scoped_150_ms_effect_and_instant_under_reduced_motion() {
+        val timed = assertIs<MotionSpec.Timed>(loadingRevealFor(MotionPreference.Full))
+        assertEquals(150, timed.durationMillis)
+        assertEquals(parseEasingToken(CantosTokens.text("motion.effects.easing")), timed.easing)
+        assertEquals(MotionSpec.Instant, loadingRevealFor(MotionPreference.Reduced))
+        assertEquals(
+            140, assertIs<MotionSpec.Timed>(motionFor(MotionIntent.Feedback, MotionProperty.Effects, MotionPreference.Full)).durationMillis,
+            "the global feedback duration is untouched",
+        )
     }
 
     @Test

@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.10.0 sha256:7059f4181127f6573934ab7446c870a37577cb457b75fc46a3ee8b3181441965
+/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -69,6 +69,11 @@
   --cantos-motion-effects-easing: cubic-bezier(0.2, 0, 0, 1);
   --cantos-motion-emphasis-duration: 260ms;
   --cantos-motion-feedback-duration: 140ms;
+  --cantos-motion-loading-arc-cycle: 1000ms;
+  --cantos-motion-loading-edge-cycle: 1200ms;
+  --cantos-motion-loading-pulse-cycle: 1400ms;
+  --cantos-motion-loading-pulse-easing: cubic-bezier(0.42, 0, 0.58, 1);
+  --cantos-motion-loading-reveal-duration: 150ms;
   --cantos-motion-navigation-duration: 260ms;
   --cantos-motion-shape-duration: 220ms;
   --cantos-shape-account-group: 1.75rem;
@@ -108,6 +113,7 @@
   --cantos-size-loading-arc: 1.25rem;
   --cantos-size-loading-arc-compact: 1rem;
   --cantos-size-loading-arc-stroke: 0.125rem;
+  --cantos-size-loading-edge: 0.125rem;
   --cantos-size-search-action: 3.25rem;
   --cantos-size-search-header: 4.5rem;
   --cantos-size-status-symbol: 4.5rem;
@@ -123,6 +129,9 @@
   --cantos-state-disabled-opacity: 0.46;
   --cantos-state-focus-opacity: 0.12;
   --cantos-state-hover-opacity: 0.08;
+  --cantos-state-loading-pulse-high-opacity: 0.85;
+  --cantos-state-loading-pulse-low-opacity: 0.6;
+  --cantos-state-loading-pulse-reduced-opacity: 0.7;
   --cantos-state-pressed-opacity: 0.12;
   --cantos-type-auth-heading-line-height: 1.22;
   --cantos-type-auth-heading-size: 2rem;
@@ -386,6 +395,7 @@
   .cantos-ui:not([data-theme="light"]):not([data-theme="dark"]) {
     --cantos-motion-emphasis-duration: 0ms;
     --cantos-motion-feedback-duration: 0ms;
+    --cantos-motion-loading-reveal-duration: 0ms;
     --cantos-motion-navigation-duration: 0ms;
     --cantos-motion-shape-duration: 0ms;
   }

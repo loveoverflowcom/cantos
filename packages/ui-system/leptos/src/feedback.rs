@@ -113,6 +113,25 @@ pub(crate) fn LoadingIndicator(#[prop(optional)] size: LoadingSize) -> impl Into
     view! { <span class="cui-loading-indicator" data-size=size.as_str() aria-hidden="true"></span> }
 }
 
+/// One reusable placeholder fill for an area whose content is still loading: a cover frame, a title
+/// bar or a list row. It is a single monochrome fill that fades in opacity on the shared pulse beat,
+/// so a group of fills breathes together. The caller owns geometry: size, aspect ratio and corner
+/// radius come from the surrounding box (the fill takes its parent's box and radius), so the
+/// placeholder keeps the loaded content's layout. The fill is decorative and hidden from assistive
+/// technology: the host names the surrounding region and its busy state once, and never exposes
+/// each block as content. `active` ends the animation without unmounting the fill; unmounting or
+/// a hidden ancestor ends it too, and reduced motion holds a static fill.
+#[component]
+pub fn SurfacePulse(
+    #[prop(default = true.into(), into)] active: Signal<bool>,
+    #[prop(optional, into)] class: Signal<String>,
+) -> impl IntoView {
+    view! {
+        <span class=move || format!("cui-surface-pulse {}", class.get())
+            data-pulse=move || if active.get() { "running" } else { "idle" } aria-hidden="true"></span>
+    }
+}
+
 /// Indeterminate loading with visible localized text. The indicator turns under full motion and
 /// stays a stationary arc under reduced motion; the text carries the status either way.
 #[component]

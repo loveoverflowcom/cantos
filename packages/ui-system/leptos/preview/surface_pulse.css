@@ -1,0 +1,64 @@
+/* SurfacePulse specimens. A row stacks each placeholder and its loaded content in one grid cell, so
+   the slot is as large as the taller of the two and the reveal cannot move layout. The reveal reads
+   the loading-reveal role, which resolves to 0 ms under reduced motion. */
+:where(.cantos-ui) .cui-preview .cui-pulse-specimen {
+  display: grid;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-slot { display: grid; min-inline-size: 0; }
+:where(.cantos-ui) .cui-preview .cui-pulse-layer {
+  grid-area: 1 / 1;
+  min-inline-size: 0;
+  transition: opacity var(--cantos-motion-loading-reveal-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-cover {
+  inline-size: 5rem;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--cantos-web-shape-container);
+  overflow: hidden;
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-row[data-compact="true"] .cui-pulse-cover {
+  inline-size: 3rem;
+  aspect-ratio: 1;
+  border-radius: var(--cantos-web-shape-reading);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-loaded {
+  visibility: hidden;
+  opacity: 0;
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-cover .cui-pulse-loaded {
+  display: grid;
+  place-content: center;
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-lines { align-content: start; gap: var(--cantos-space-xs); }
+:where(.cantos-ui) .cui-preview .cui-pulse-title {
+  margin: 0;
+  font-size: var(--cantos-type-title-size);
+  line-height: var(--cantos-type-title-line-height);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-meta {
+  margin: 0;
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-body-line-height);
+}
+:where(.cantos-ui) .cui-preview .cui-pulse-line { display: block; block-size: 1lh; border-radius: var(--cantos-web-shape-reading); }
+:where(.cantos-ui) .cui-preview .cui-pulse-bar { border-radius: var(--cantos-shape-pill); overflow: hidden; }
+:where(.cantos-ui) .cui-preview .cui-pulse-bar .cui-pulse-placeholder { min-block-size: 2.5rem; border-radius: inherit; }
+:where(.cantos-ui) .cui-preview .cui-pulse-bar .cui-pulse-loaded { padding-inline: var(--cantos-space-md); align-content: center; }
+:where(.cantos-ui) .cui-preview [data-stage="ready"] .cui-pulse-loaded { visibility: visible; opacity: 1; }
+:where(.cantos-ui) .cui-preview [data-stage="ready"] .cui-pulse-placeholder {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--cantos-motion-loading-reveal-duration) var(--cantos-motion-effects-easing),
+    visibility 0s linear var(--cantos-motion-loading-reveal-duration);
+}

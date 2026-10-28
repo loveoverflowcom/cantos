@@ -296,7 +296,14 @@ indicator (`LoadingIndicator`, the MicroArc of #586: a 270° arc with round ends
 replaces the check in the same slot, and `LoadingState`, issue #528) turns once
 per `PendingRingTurnMillis` under full motion and holds a visible stationary arc under reduced motion
 (`pendingRingTurnMillis`); only the full-motion branch owns an infinite transition, so reduced motion
-runs no ticker. No canonical continuous-motion token exists yet.
+runs no ticker. Continuous loading cycles are canonical `motion.loading*.cycle` roles read through
+`LoadingCycle` / `loadingCycleMillis` (null under reduced motion), outside the finite
+`MaxMotionDurationMillis`; the shipped arc still uses `PendingRingTurnMillis`, which a test pins to the
+Arc cycle until [#586](https://github.com/loveoverflowcom/cantos/issues/586) adopts the role.
+`SurfacePulse` (#585) is one monochrome fill whose alpha reverses between `state.loadingPulseLowOpacity`
+and `…HighOpacity` over `motion.loadingPulse.cycle` (`surfacePulseFor`); the caller owns size and shape,
+the fill clears its semantics, alpha is read in the layer block, and reduced motion or `active = false`
+holds `SurfacePulseRestingAlpha` with no infinite transition.
 This is not a platform reduced-motion adapter or a claim about
 all Material ripple/native motion. Focus uses real Compose focus nodes with token-driven rings;
 select the focus preset or use Tab/Shift+Tab. Dialog dismissal requests focus restoration to its
@@ -327,6 +334,11 @@ entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM 
 - `LoadingIndicatorTest`: `LoadingState` turns over a manual clock under full motion, is a stationary
   arc under reduced motion, exposes its label as the state description with no glyph semantics of its
   own, and leaves no loop behind once it leaves composition (#528).
+- `SurfacePulseTest` / `SurfacePulseSpecimenTest` (#585): the pulse beats over a manual clock and
+  returns to rest after 1400 ms, holds one frame under reduced motion and while inactive, adds no
+  semantics, and leaves no loop behind; the specimen names its region once, hides placeholders and
+  unrevealed content, keeps its geometry through the reveal at ×2 text scale and reveals at once
+  under reduced motion. JVM Desktop only.
 - `PendingRingAndFieldIndicatorTest`: the pending ring moves over a manual clock under full motion
   and stays stationary but painted under reduced motion; an `AuthTonal` field paints one inset
   perimeter (invalid 1 dp, focus 2 dp, focused-invalid 2 dp in the error colour) instead of

@@ -26,6 +26,7 @@ enum class PreviewExample(val id: String) {
     Badge("badge"),
     Status("status"),
     LoadingState("loading-state"),
+    SurfacePulse("surface-pulse"),
     EmptyState("empty-state"),
     ErrorState("error-state"),
     Surface("surface"),

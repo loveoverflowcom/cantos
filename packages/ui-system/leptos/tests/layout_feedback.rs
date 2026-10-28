@@ -1,6 +1,7 @@
 use cantos_ui::{
     Announcement, Badge, Container, ContainerWidth, EmptyState, ErrorState, Grid, GridColumns,
-    LoadingState, Space, Stack, StackDirection, Status, StatusTone, Surface, SurfaceTone,
+    LoadingState, Space, Stack, StackDirection, Status, StatusTone, Surface, SurfacePulse,
+    SurfaceTone,
 };
 use leptos::prelude::*;
 
@@ -113,26 +114,108 @@ fn loading_state_shows_one_shared_indicator_that_is_decorative_and_never_a_glyph
     );
 }
 
-/// The loop must be tied to the pending mark alone and removed under reduced motion; otherwise a
-/// stationary state would still wake the compositor or an unrelated rule would loop forever.
+/// Every endless loop is a named loading primitive tied to its own mark and removed under reduced
+/// motion; otherwise a stationary state would still wake the compositor or an unrelated rule would
+/// loop forever. A new loop needs its own entry here, with its lifecycle and reduced-motion check.
 #[test]
-fn the_only_endless_animation_is_the_pending_indicator_and_reduced_motion_removes_it() {
+fn the_only_endless_animations_are_loading_primitives_and_reduced_motion_removes_them() {
     let css = include_str!("../foundation.css");
     let endless: Vec<_> = css
         .lines()
         .filter(|line| line.contains("infinite"))
         .collect();
-    assert_eq!(endless.len(), 1, "{endless:?}");
-    assert!(endless[0].contains("cui-loading-turn"), "{}", endless[0]);
-    assert!(css.contains("@keyframes cui-loading-turn"));
-    let reduced = css
-        .match_indices("@media (prefers-reduced-motion: reduce)")
-        .map(|(start, _)| &css[start..])
-        .map(|rest| &rest[..rest.find("\n}").map_or(rest.len(), |end| end + 2)])
-        .find(|block| block.contains(".cui-loading-indicator"))
-        .expect("a reduced-motion block for the indicator");
-    assert!(reduced.contains("animation: none"), "{reduced}");
+    assert_eq!(endless.len(), 2, "{endless:?}");
+    for (animation, mark) in [
+        ("cui-loading-turn", ".cui-loading-indicator"),
+        ("cui-surface-pulse", ".cui-surface-pulse"),
+    ] {
+        assert_eq!(
+            endless
+                .iter()
+                .filter(|line| line.contains(animation))
+                .count(),
+            1,
+            "{animation}: {endless:?}"
+        );
+        assert!(
+            css.contains(&format!("@keyframes {animation}")),
+            "{animation}"
+        );
+        let reduced = css
+            .match_indices("@media (prefers-reduced-motion: reduce)")
+            .map(|(start, _)| &css[start..])
+            .map(|rest| &rest[..rest.find("\n}").map_or(rest.len(), |end| end + 2)])
+            .find(|block| block.contains(mark))
+            .unwrap_or_else(|| panic!("a reduced-motion block for {mark}"));
+        assert!(reduced.contains("animation: none"), "{reduced}");
+    }
     assert!(css.contains("--cantos-web-loading-turn: 1000ms"));
+}
+
+#[test]
+fn surface_pulse_is_one_decorative_fill_whose_geometry_belongs_to_the_caller() {
+    let html = view! { <SurfacePulse class="caller-geometry"/> }.to_html();
+    assert!(html.contains("aria-hidden=\"true\""), "{html}");
+    assert!(html.contains("cui-surface-pulse caller-geometry"), "{html}");
+    assert!(html.contains("data-pulse=\"running\""), "{html}");
+    for forbidden in ["role=", "aria-label", "tabindex", "<svg", "<img", "style="] {
+        assert!(!html.contains(forbidden), "{forbidden}: {html}");
+    }
+}
+
+#[test]
+fn surface_pulse_stops_when_inactive_without_leaving_the_layout() {
+    let html = view! { <SurfacePulse active=false/> }.to_html();
+    assert!(html.contains("data-pulse=\"idle\""), "{html}");
+    assert!(
+        html.contains("cui-surface-pulse"),
+        "the fill keeps its box: {html}"
+    );
+}
+
+#[test]
+fn surface_pulse_css_fades_opacity_over_the_canonical_cycle_with_no_sweep() {
+    let css = include_str!("../foundation.css");
+    let animation = css
+        .lines()
+        .find(|line| line.contains("animation: cui-surface-pulse"))
+        .expect("the SurfacePulse animation");
+    assert!(
+        animation.contains("var(--cantos-motion-loading-pulse-cycle)")
+            && animation.contains("var(--cantos-motion-loading-pulse-easing)"),
+        "{animation}"
+    );
+    let keyframes = &css[css.find("@keyframes cui-surface-pulse").unwrap()..];
+    let keyframes = &keyframes[..keyframes.find("\n}").unwrap()];
+    for stop in [
+        "0%, 100% { opacity: var(--cantos-state-loading-pulse-low-opacity); }",
+        "50% { opacity: var(--cantos-state-loading-pulse-high-opacity); }",
+    ] {
+        assert!(keyframes.contains(stop), "{keyframes}");
+    }
+    assert_eq!(keyframes.matches(" opacity:").count(), 2, "{keyframes}");
+    assert!(!keyframes.contains("transform") && !keyframes.contains("gradient"));
+    let rule = &css[css.find(".cui-surface-pulse {").unwrap()..];
+    let rule = &rule[..rule.find('}').unwrap()];
+    assert!(
+        rule.contains("opacity: var(--cantos-state-loading-pulse-reduced-opacity)"),
+        "the resting and reduced fill is the static middle opacity: {rule}"
+    );
+    assert!(
+        !rule.contains("gradient") && !rule.contains("url("),
+        "one solid fill, no asset: {rule}"
+    );
+    let tokens = include_str!("../tokens.css");
+    assert!(tokens.contains("--cantos-motion-loading-pulse-cycle: 1400ms;"));
+    assert!(tokens.contains("--cantos-state-loading-pulse-reduced-opacity: 0.7;"));
+}
+
+#[test]
+fn the_loading_reveal_is_a_scoped_finite_duration_that_reduced_motion_zeroes() {
+    let tokens = include_str!("../tokens.css");
+    assert!(tokens.contains("--cantos-motion-loading-reveal-duration: 150ms;"));
+    assert!(tokens.contains("--cantos-motion-loading-reveal-duration: 0ms;"));
+    assert!(tokens.contains("--cantos-motion-feedback-duration: 140ms;"));
 }
 
 /// MicroArc: 16 and 20 logical units, a 2-unit stroke, a 270 degree arc and round ends, all from

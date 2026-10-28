@@ -88,6 +88,61 @@ fun pendingRingTurnMillis(preference: MotionPreference): Int? = when (preference
     MotionPreference.Reduced -> null
 }
 
+/**
+ * A continuous loading animation: it repeats for as long as the host keeps it composed, so it is not
+ * a finite [MotionSpec] and is deliberately outside [MaxMotionDurationMillis]. Each cycle reads its
+ * own canonical `motion.loading*.cycle` role, so the 1400 ms pulse never raises the finite bound or
+ * changes the 140 ms feedback duration. Reduced motion has no cycle at all: the primitive holds a
+ * static state and composes no infinite transition.
+ */
+enum class LoadingCycle(internal val role: String) {
+    Pulse("motion.loadingPulse.cycle"),
+    Arc("motion.loadingArc.cycle"),
+    Edge("motion.loadingEdge.cycle"),
+}
+
+/** Pure: whole milliseconds of one full [cycle], or null when reduced motion keeps it stationary. */
+fun loadingCycleMillis(cycle: LoadingCycle, preference: MotionPreference): Int? = when (preference) {
+    MotionPreference.Full -> CantosTokens.number(cycle.role).toInt().also {
+        require(it > 0) { "A loading cycle must be positive: ${cycle.role}" }
+    }
+    MotionPreference.Reduced -> null
+}
+
+/**
+ * One full SurfacePulse cycle: alpha rises [lowAlpha] to [highAlpha] and returns over [cycleMillis],
+ * each half taking [halfCycleMillis] with the same [easing]. Every pulse in a group shares it, so
+ * the group breathes on one beat.
+ */
+data class SurfacePulseSpec(val cycleMillis: Int, val easing: MotionEasing, val lowAlpha: Float, val highAlpha: Float) {
+    init {
+        require(cycleMillis > 0 && cycleMillis % 2 == 0) { "A reversing pulse cycle is a positive even number of ms: $cycleMillis" }
+        require(lowAlpha in 0f..1f && highAlpha in lowAlpha..1f) { "Pulse alpha must satisfy 0 <= low <= high <= 1" }
+    }
+
+    val halfCycleMillis: Int get() = cycleMillis / 2
+}
+
+/** Pure: the pulse under [preference], or null when it is stationary (reduced motion). */
+fun surfacePulseFor(preference: MotionPreference): SurfacePulseSpec? =
+    loadingCycleMillis(LoadingCycle.Pulse, preference)?.let { cycle ->
+        SurfacePulseSpec(
+            cycleMillis = cycle,
+            easing = parseEasingToken(CantosTokens.text("motion.loadingPulse.easing")),
+            lowAlpha = CantosTokens.number("state.loadingPulseLowOpacity").toFloat(),
+            highAlpha = CantosTokens.number("state.loadingPulseHighOpacity").toFloat(),
+        )
+    }
+
+/** The static fill alpha a pulse holds under reduced motion and while it is not running. */
+val SurfacePulseRestingAlpha: Float get() = CantosTokens.number("state.loadingPulseReducedOpacity").toFloat()
+
+/** Pure: the reveal from a placeholder to loaded content; reduced motion is instantaneous. */
+fun loadingRevealFor(preference: MotionPreference): MotionSpec = when (preference) {
+    MotionPreference.Reduced -> MotionSpec.Instant
+    MotionPreference.Full -> MotionSpec.Timed(CantosTokens.number("motion.loadingReveal.duration").toInt(), effectsEasing)
+}
+
 /** The canonical duration role each combination reads; a spatial feedback change is the shape role. */
 internal fun motionDurationRole(intent: MotionIntent, property: MotionProperty): String = when (property) {
     MotionProperty.Effects -> when (intent) {

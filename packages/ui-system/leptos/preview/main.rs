@@ -27,6 +27,7 @@ pub mod platform;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
 pub mod recipe;
+pub mod surface_pulse_samples;
 pub mod theatre_samples;
 pub mod token_sample;
 pub mod workbench;
@@ -38,6 +39,7 @@ use foundation_samples::{
     ComposedButtonSample, FieldFoundationSamples, FontReadinessSample, NestedThemeSample,
 };
 use interaction_samples::{LayoutFeedbackContractSamples, SelectionContractSamples};
+use surface_pulse_samples::{PulseStage, SurfacePulseSamples};
 use theatre_samples::TheatreExpressionSamples;
 
 fn name(text: &str) -> AccessibleName {
@@ -362,6 +364,9 @@ pub fn Gallery(
                                     <option value="empty">{tool::EMPTY}</option>
                                     <option value="loading">{tool::LOADING}</option>
                                     <option value="announcement">{tool::LOADING_ANNOUNCEMENT}</option>
+                                    <option value="pulse">{tool::SURFACE_PULSE}</option>
+                                    <option value="pulse-idle">{tool::SURFACE_PULSE_IDLE}</option>
+                                    <option value="pulse-ready">{tool::SURFACE_PULSE_READY}</option>
                                     <option value="error">{tool::ERROR}</option>
                                     <option value="success">{tool::SUCCESS}</option>
                                 </Select></div>
@@ -373,6 +378,9 @@ pub fn Gallery(
                                                 <LoadingState announcement=Announcement::Polite>"Thông báo đang tải được bật rõ ràng; nội dung vẫn được giữ."</LoadingState>
                                             </div>
                                         }.into_any(),
+                                        messages::pulse::MODE_RUNNING => view! { <SurfacePulseSamples stage=PulseStage::Running/> }.into_any(),
+                                        messages::pulse::MODE_IDLE => view! { <SurfacePulseSamples stage=PulseStage::Idle/> }.into_any(),
+                                        messages::pulse::MODE_READY => view! { <SurfacePulseSamples stage=PulseStage::Ready/> }.into_any(),
                                         "error" => view! { <ErrorState title="Không hiển thị được nội dung mẫu">
                                             <p>"Đây là lỗi minh họa. Bạn có thể chọn thử lại và giữ nguyên mọi giá trị đã nhập."</p>
                                             <Button id="gallery-retry" variant=ButtonVariant::Secondary
