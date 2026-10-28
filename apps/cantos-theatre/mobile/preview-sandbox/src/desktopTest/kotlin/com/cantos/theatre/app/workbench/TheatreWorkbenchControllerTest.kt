@@ -1,6 +1,7 @@
 package com.cantos.theatre.app.workbench
 
 import com.cantos.theatre.adapters.preview.PreviewEpisodeIds
+import com.cantos.theatre.adapters.preview.PreviewFixtures
 import com.cantos.theatre.app.PreviewOwners
 import com.cantos.theatre.app.PreviewSeed
 import com.cantos.theatre.app.PreviewSession
@@ -11,6 +12,7 @@ import com.cantos.theatre.app.seed
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellListeningFailure
+import com.cantos.theatre.presentation.model.ShellProgress
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.ShellWorkId
@@ -242,6 +244,33 @@ class TheatreWorkbenchControllerTest {
             assertSame(before, host.mount.value)
             assertIs<TheatreRecipeResult.UnknownRecipe>(TheatreRecipe.select("missing"))
             assertIs<TheatreRecipeResult.Invalid>(TheatreRecipe.select(TheatreFixture.Fresh.id, writeLatencyMs = -1L))
+        } finally { host.close() }
+    }
+
+    @Test
+    fun snapshots_naming_metadata_only_units_are_refused_and_leave_the_owner_untouched() = runTest {
+        val host = TheatreWorkbenchController(this)
+        try {
+            advanceUntilIdle()
+            val before = host.mount.value
+            val current = host.snapshot()
+            val pending = PreviewFixtures.GioMua.episode(0)
+            listOf(
+                current.state.copy(selectedEpisode = pending),
+                current.state.copy(selectedEpisode = pending, transportRequested = true),
+                current.state.copy(progress = listOf(ShellProgress(pending, 0, 0L))),
+                current.state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Work(ShellWorkId(PreviewFixtures.SongDai.work.id.value)))),
+            ).forEach { state ->
+                val snapshot = TheatreSnapshot(current.recipe, state, current.signedIn)
+                assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(snapshot))
+                host.restore(snapshot)
+                advanceUntilIdle()
+                assertSame(before, host.mount.value)
+                assertTrue(host.eventLog.value.last().startsWith("restore unavailable"))
+            }
+            assertTrue(host.mount.value.owners.engine.commands.isEmpty())
+            assertEquals(0, host.mount.value.owners.access.manifests)
+            // Released selections keep round-tripping: recreate_and_import_preserve_paused_selection_… above.
         } finally { host.close() }
     }
 

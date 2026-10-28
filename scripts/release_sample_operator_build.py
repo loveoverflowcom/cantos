@@ -17,6 +17,16 @@ import release_artifact as contract
 import release_oci_build as build
 
 PHASE = 'PREFLIGHT'
+# The one digest-pinned Rust build stage and the operator binary's size bounds. Qualification
+# reads both from here, so the receipt it checks cannot drift from what the build accepted.
+BUILDER = re.compile(r'^FROM (docker\.io/library/rust:[^\s]+@sha256:[a-f0-9]{64}) AS build$', re.MULTILINE)
+BINARY_BYTES = range(64, 512*1024**2 + 1)
+
+
+def pinned_builder(containerfile):
+    builders = BUILDER.findall(containerfile)
+    contract.require(len(builders) == 1, 'exact pinned Rust builder required')
+    return builders[0]
 
 
 def produce(root, output):
@@ -25,9 +35,7 @@ def produce(root, output):
     sha = build.preflight(root, platform)
     configuration = build.configuration_identity(root, sha, platform)
     containerfile = build.CONTAINERFILE.format('cantos-server')
-    content = build.git_bytes(root, sha, containerfile).decode()
-    builders = re.findall(r'^FROM (docker\.io/library/rust:[^\s]+@sha256:[a-f0-9]{64}) AS build$', content, re.MULTILINE)
-    contract.require(len(builders) == 1, 'exact pinned Rust builder required')
+    builder = pinned_builder(build.git_bytes(root, sha, containerfile).decode())
     contract.require(output.is_absolute() and not output.exists() and not output.is_symlink(), 'fresh output required')
     with tempfile.TemporaryDirectory(prefix='cantos-sample-operator-build-') as temporary:
         PHASE = 'SOURCE_CONTEXT'
@@ -53,7 +61,7 @@ def produce(root, output):
         finally:
             build.sh(root, ['podman', 'rm', created])
         contract.require(binary.is_file() and not binary.is_symlink() and binary.stat().st_nlink == 1 and
-                         64 <= binary.stat().st_size <= 512*1024**2, 'bounded regular operator binary required')
+                         binary.stat().st_size in BINARY_BYTES, 'bounded regular operator binary required')
         data = binary.read_bytes()
         PHASE = 'VERIFY_BINARY'
         contract.require(len(data) >= 64 and data[:6] == b'\x7fELF\x02\x01' and data[18:20] == b'\x3e\x00',
@@ -66,7 +74,7 @@ def produce(root, output):
         os.chmod(output/'cantos-operator', 0o755)
         record = {'schema_version': 1, 'operation': 'BUILD_SAMPLE_OPERATOR', 'status': 'BUILT_NOT_QUALIFIED',
                   'source_sha': sha, 'platform': platform, 'configuration_sha256': configuration,
-                  'builder_base': builders[0], 'builder_image_id': image_id,
+                  'builder_base': builder, 'builder_image_id': image_id,
                   'binary_sha256': hashlib.sha256(data).hexdigest(), 'binary_bytes': len(data),
                   'admission': 'NOT_RUN', 'activation': 'NOT_RUN'}
         contract.write_new(output/'operator-build.json', record)

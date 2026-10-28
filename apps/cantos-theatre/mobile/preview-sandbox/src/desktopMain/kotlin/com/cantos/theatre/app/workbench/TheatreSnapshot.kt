@@ -192,8 +192,10 @@ private val syntheticQueries = mapOf("empty" to "", "night" to "Đèn", "son-ha"
 
 private fun validatePosition(id: ShellEpisodeId, positionMs: Long) {
     if (id == PreviewNoSelection) return require(positionMs == 0L)
-    val (_, unit) = requireNotNull(PreviewFixtures.unit(id.value))
-    require(positionMs in 0L..requireNotNull(unit.durationMs))
+    // A position belongs to released audio; metadata without a release is refused as Invalid, never zero-length.
+    val audio = PreviewFixtures.playable(id.value)?.audio
+        ?: throw IllegalArgumentException("Snapshot position names no released audio")
+    require(positionMs in 0L..audio.durationMs)
 }
 
 private fun routeId(route: ShellRoute): String = when (route) {

@@ -31,9 +31,9 @@ class PreviewPlaybackAccess(
     override suspend fun manifest(publicationId: String): PlaybackAccessResult<AudioIdentity> {
         manifests += 1
         refusal?.let { return PlaybackAccessResult.Refused(it) }
-        val (work, unit) = PreviewFixtures.unitByPublication(publicationId)
+        val audio = PreviewFixtures.unitByPublication(publicationId)?.let { (work, unit) -> PreviewFixtures.audio(work, unit) }
             ?: return PlaybackAccessResult.Refused(PlaybackAccessFailure.NotFound)
-        return PlaybackAccessResult.Accepted(PreviewFixtures.audio(work, unit))
+        return PlaybackAccessResult.Accepted(audio)
     }
 
     override suspend fun authorize(identity: AudioIdentity): PlaybackAccessResult<PlaybackGrant> {

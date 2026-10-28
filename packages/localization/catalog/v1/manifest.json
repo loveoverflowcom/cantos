@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "73bd66cf4a87ad9440429de948c5022585a57e608ede2a835d522ad7868b5430",
+  "catalogSha256": "53a9d1f2fe3f530d8c647300d0b4fd958fca0d18d4da5d56c0ab27d58cafa776",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -836,6 +836,7 @@
     "studio.live.revision_current": {},
     "studio.live.revision_historical": {},
     "studio.live.revision_none": {},
+    "studio.live.revision_unverified": {},
     "studio.live.revision_viewer": {},
     "studio.live.revoke": {},
     "studio.live.rights": {},

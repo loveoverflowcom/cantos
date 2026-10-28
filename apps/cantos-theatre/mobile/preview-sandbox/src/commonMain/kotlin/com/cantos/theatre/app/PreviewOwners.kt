@@ -187,18 +187,16 @@ class PreviewOwners(
                 // Account admission clears the player before binding its Library. A recreated mount
                 // has a fresh local store, so its remote progress cannot restore the selection for us.
                 if (seed.signedIn) shell.library.first { it.account == firstAccount.actor }
-                val (work, unit) = checkNotNull(PreviewFixtures.unit(selected.value))
                 val listening = runtime.listening
-                listening.restore(PreviewFixtures.audio(work, unit), state.positionMs, state.speedPercent * 10,
-                    title = unit.title, workTitle = work.work.title)
+                listening.restore(selected.audio, state.positionMs, state.speedPercent * 10,
+                    title = selected.unit.title, workTitle = selected.work.work.title)
                 if (state.transportRequested) listening.playback.dispatch(PlaybackEvent.PlayRequested)
             }
         }
     }
 
-    private fun selectionSeed() = seed.state.selectedEpisode.takeIf {
-        PreviewFixtures.unit(it.value) != null
-    }
+    /** Only a released unit restores a player; a metadata-only or unknown selection restores none. */
+    private fun selectionSeed() = PreviewFixtures.playable(seed.state.selectedEpisode.value)
 
     private fun uuid(prefix: Int): String = "${prefix}0000000-0000-4000-8000-${(++operations).toString().padStart(12, '0')}"
 

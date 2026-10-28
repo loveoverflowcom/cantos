@@ -232,7 +232,14 @@ fn received(
         }
         other => {
             let result = api.notify_denial(other.map_err(auth_error));
-            if result.is_ok() {
+            // Proof is the API's echo of this request's fence, judged before `check_echo` can
+            // refuse the same answer: an unconfirmed 2xx must not refund the re-read budget.
+            if result.is_ok()
+                && crate::session::proves_admission(
+                    api.fence(),
+                    response.headers().get(SESSION_HEADER).as_deref(),
+                )
+            {
                 api.admitted();
             }
             result

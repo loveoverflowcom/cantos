@@ -118,7 +118,7 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
 
     override suspend fun savedPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedSavedPage> = served {
         PresentedSavedPage(account(auth.account).saved.values.filter { it.saved }.sortedByDescending { it.listener_order }
-            .map { PresentedSavedItem(it, PreviewFixtures.work(it.work_id)?.let(::workPresentation)) }, null)
+            .map { PresentedSavedItem(it, PreviewFixtures.work(it.work_id)?.let(::savedPresentation)) }, null)
     }
 
     override suspend fun historyPage(auth: LibraryAuthorization, cursor: String?): LibraryResult<PresentedHistoryPage> = served {
@@ -261,18 +261,27 @@ class PreviewLibraryApi(private val nowMs: () -> Long, private val latencyMs: Lo
 
     private fun account(actor: String): Account = accounts.getOrPut(actor) { Account() }
 
-    /** The sample release's own metadata; a publication the preview catalog lacks has none, like the API's null. */
+    /**
+     * The sample release's own metadata, for the exact stored publication only; a publication the
+     * preview catalog lacks has none, like the API's null. Another unit never lends its release.
+     */
     private fun presentationOf(audio: WireAudio): AudioPresentation? = PreviewFixtures.unitByPublication(audio.publication_id)?.let { (work, unit) ->
-        AudioPresentation(workPresentation(work), unit.id.value, unit.title)
+        AudioPresentation(workPresentation(work, audio.publication_id), unit.id.value, unit.title)
     }
 
-    private fun workPresentation(work: PreviewWork) = WorkPresentation(
-        work.work.id.value, requireNotNull(work.units.first().publicationId).value, work.work.title, work.work.kind.name.lowercase(), work.work.language,
+    /**
+     * Saved metadata comes from the Work's first released unit in catalog order, which names its
+     * source publication. A Work with no released unit has no eligible representative: null.
+     */
+    private fun savedPresentation(work: PreviewWork): WorkPresentation? =
+        work.units.firstNotNullOfOrNull { it.publicationId }?.let { workPresentation(work, it.value) }
+
+    private fun workPresentation(work: PreviewWork, publication: String) = WorkPresentation(
+        work.work.id.value, publication, work.work.title, work.work.kind.name.lowercase(), work.work.language,
     )
 
-    private fun audioOf(unitId: String): WireAudio? = PreviewFixtures.unit(unitId)?.let { (work, unit) ->
-        PreviewFixtures.audio(work, unit).toWire()
-    }
+    /** Listening records exist only for released audio; a metadata-only or unknown unit seeds nothing. */
+    private fun audioOf(unitId: String): WireAudio? = PreviewFixtures.playable(unitId)?.audio?.toWire()
 
     private companion object {
         const val DeviceId = "70000000-0000-4000-8000-000000000001"
