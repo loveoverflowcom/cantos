@@ -396,6 +396,13 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
 
 ## Screens and behavior
 
+The Work hero uses shared `ListenHero`. Its `WorkListenRelease` projection binds work/unit/publication
+to the actual pending request or playback session. Pause remains available while Play is pending;
+Playing needs an engine observation. Repeated requests for the same pending release are ignored,
+and an older publication cannot clear the request for its replacement. The existing OpenEpisode,
+native transport, progress and Saved owners remain authoritative. See [issue595 evidence and
+device gaps](../../../docs/evidence/listen-hero-595.md).
+
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
   the avatar opens a secondary **Tài khoản** screen: a guest profile with vertical Sign in
   and Create account actions, a Membership card and the listening settings. A signed-in listener sees

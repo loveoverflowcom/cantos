@@ -1,0 +1,31 @@
+{
+  "component_id": "edge-progress",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28, bounded loading regression admission for issue595",
+  "reference": "Preserve the prior bounded scope from docs/evidence/loading-588-edge-progress-cmp.json; compare current shared gallery and JVM captures with unchanged component source and all pre-existing tokens. See loading regression admission in the artifact. No Android/iOS, AT, OS motion, true zoom, real backend or deployed claim.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "401086ab7ca9c5ce6425fa32ee54040fe56d7e83a46d26dfdb3a1a5fb6e658cc",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; 317 JVM Compose tests; opened fresh loading/edge/filter captures; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; 317 JVM Compose tests; opened fresh loading/edge/filter captures; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; 317 JVM Compose tests; opened fresh loading/edge/filter captures; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; 317 JVM Compose tests; opened fresh loading/edge/filter captures; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    }
+  }
+}

@@ -138,6 +138,7 @@ class ShellState(
     progress: List<ShellProgress> = emptyList(),
     history: List<ShellProgress> = emptyList(),
     val listeningFailure: ShellListeningFailure? = null,
+    val workListenRelease: WorkListenRelease? = null,
 ) {
     private val stackSnapshot: List<ShellRoute> = stack.toList()
     private val savedWorksSnapshot: Set<ShellWorkId> = savedWorks.toSet()
@@ -185,6 +186,7 @@ class ShellState(
         progress: List<ShellProgress> = this.progress,
         history: List<ShellProgress> = this.history,
         listeningFailure: ShellListeningFailure? = this.listeningFailure,
+        workListenRelease: WorkListenRelease? = this.workListenRelease,
     ): ShellState = ShellState(
         stack = stack,
         selectedEpisode = selectedEpisode,
@@ -204,6 +206,7 @@ class ShellState(
         progress = progress,
         history = history,
         listeningFailure = listeningFailure,
+        workListenRelease = workListenRelease,
     )
 
     override fun equals(other: Any?): Boolean = other is ShellState &&
@@ -216,6 +219,7 @@ class ShellState(
         progressSnapshot == other.progressSnapshot &&
         historySnapshot == other.historySnapshot &&
         listeningFailure == other.listeningFailure &&
+        workListenRelease == other.workListenRelease &&
         libraryTab == other.libraryTab &&
         query == other.query &&
         catalogMode == other.catalogMode &&
@@ -236,6 +240,7 @@ class ShellState(
         result = 31 * result + progressSnapshot.hashCode()
         result = 31 * result + historySnapshot.hashCode()
         result = 31 * result + (listeningFailure?.hashCode() ?: 0)
+        result = 31 * result + (workListenRelease?.hashCode() ?: 0)
         result = 31 * result + libraryTab.hashCode()
         result = 31 * result + query.hashCode()
         result = 31 * result + catalogMode.hashCode()

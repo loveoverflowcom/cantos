@@ -16,6 +16,8 @@ import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.presentation.model.PlaybackUiStatus
+import com.cantos.theatre.presentation.model.WorkListenPhase
+import com.cantos.theatre.presentation.model.WorkListenRelease
 import com.cantos.ui.Density
 import com.cantos.ui.ThemeMode
 import com.cantos.ui.preview.workbench.ConstraintFrame
@@ -174,7 +176,7 @@ private fun StateWire.toState(): ShellState {
     require(progress.distinctBy { it.episodeId }.size == progress.size)
     require(history.distinctBy { it.episodeId.workId }.size == history.size)
     val selected = episode
-    return previewState(
+    val restored = previewState(
         stack = stack.map(::decodeRoute).also { require(ShellRoute.MembershipPreview !in it) }, selectedEpisode = selected,
         positionMs = positionMs, savedWorks = savedWorks.map { workId(it) }.toSet(),
         progress = progress, history = history, libraryTab = enumValue(libraryTab), query = query,
@@ -186,6 +188,16 @@ private fun StateWire.toState(): ShellState {
             else -> PlaybackUiStatus.Paused
         },
     )
+    // Derived from the same declared synthetic release as the restored player, never serialized
+    // runtime authority or a guessed live publication. Keep the existing snapshot schema stable.
+    val release = PreviewFixtures.playable(selected.value)?.audio?.let { audio ->
+        WorkListenRelease(selected, audio.publicationId, when {
+            transportRequested -> WorkListenPhase.PausePlaying
+            positionMs > 0L -> WorkListenPhase.Resume
+            else -> WorkListenPhase.Ready
+        })
+    }
+    return restored.copy(workListenRelease = release)
 }
 
 private val syntheticQueries = mapOf("empty" to "", "night" to "Đèn", "son-ha" to "Sơn Hà")

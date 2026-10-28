@@ -38,6 +38,12 @@ browser/audio acceptance; no browser latency improvement is claimed.
 
 ## Live guest playback
 
+Work detail uses the shared `ListenHero` variant and the existing root player owner.
+It offers Pause during pending Play/buffering, reports Playing only after engine acknowledgement,
+and offers Resume only for a nonzero position on the exact loaded release. A withdrawn release
+has a disabled reason; retryable resolve and transport failures retain their respective owners.
+[Issue595 evidence and remaining runtime gaps](../../../docs/evidence/listen-hero-595.md).
+
 Live mode lets a guest hear a published unit ([#269](https://github.com/loveoverflowcom/cantos/issues/269);
 [evidence and limits](../../../docs/evidence/theatre-web-guest-playback.md)). Choosing a unit (or
 **Nghe** on a Work, which starts its first listed unit) resolves that exact release's manifest

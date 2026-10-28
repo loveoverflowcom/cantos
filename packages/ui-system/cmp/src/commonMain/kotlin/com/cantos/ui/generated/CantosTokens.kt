@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08
+// Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.11.0"
+    const val version: String = "0.12.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -120,6 +120,9 @@ object CantosTokens {
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
+        TokenValue("size.listenHero", "dimension", "56", "56", null, null, null),
+        TokenValue("size.listenHeroInline", "dimension", "208", "208", null, null, null),
+        TokenValue("size.listenIconWell", "dimension", "36", "36", null, null, null),
         TokenValue("size.loadingArc", "dimension", "20", "20", null, null, null),
         TokenValue("size.loadingArcCompact", "dimension", "16", "16", null, null, null),
         TokenValue("size.loadingArcStroke", "dimension", "2", "2", null, null, null),
@@ -130,6 +133,7 @@ object CantosTokens {
         TokenValue("space.controlInline", "dimension", "12", "12", "12", "16", null),
         TokenValue("space.inset", "dimension", "12", "12", null, null, null),
         TokenValue("space.lg", "dimension", "24", "24", null, null, null),
+        TokenValue("space.listenHeroStart", "dimension", "10", "10", null, null, null),
         TokenValue("space.md", "dimension", "16", "16", null, null, null),
         TokenValue("space.section", "dimension", "20", "20", null, null, null),
         TokenValue("space.sm", "dimension", "8", "8", null, null, null),
@@ -160,6 +164,9 @@ object CantosTokens {
         TokenValue("type.label.lineHeight", "number", "1.5", "1.5", null, null, null),
         TokenValue("type.label.size", "dimension", "14", "14", null, null, null),
         TokenValue("type.label.weight", "fontWeight", "600", "600", null, null, null),
+        TokenValue("type.listenHero.lineHeight", "number", "1.44444444444", "1.44444444444", null, null, null),
+        TokenValue("type.listenHero.size", "dimension", "18", "18", null, null, null),
+        TokenValue("type.listenHero.weight", "fontWeight", "700", "700", null, null, null),
         TokenValue("type.membershipTitle.lineHeight", "number", "1.4", "1.4", null, null, null),
         TokenValue("type.membershipTitle.size", "dimension", "28", "28", null, null, null),
         TokenValue("type.membershipTitle.weight", "fontWeight", "400", "400", null, null, null),

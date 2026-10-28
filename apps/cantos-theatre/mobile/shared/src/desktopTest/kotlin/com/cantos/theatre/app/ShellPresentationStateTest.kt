@@ -212,7 +212,7 @@ class ShellPresentationStateTest {
                     )
                 }
             }
-            onNodeWithText("Mở tập đầu").performScrollTo().assertIsNotEnabled()
+            onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled()
             onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertExists()
             onNodeWithTag("save-work").performScrollTo().performClick()
             assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetSaved(SampleWorkIds.SonHa, saved = true)), events)

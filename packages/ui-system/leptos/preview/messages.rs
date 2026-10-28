@@ -624,3 +624,44 @@ pub mod edge {
         }
     }
 }
+
+/// ListenHero specimen resources, separate from application resources and the English tool shell.
+pub mod listen {
+    use super::Locale;
+    pub const STATES: [&str; 7] = [
+        "ready",
+        "resolving",
+        "buffering",
+        "playing",
+        "paused",
+        "failed",
+        "unavailable",
+    ];
+    pub fn copy(locale: Locale, phase: &str) -> (&'static str, &'static str) {
+        match (locale, phase) {
+            (Locale::Vi, "resolving") => ("Đang tải…", "Đang chuẩn bị bản nghe…"),
+            (Locale::Vi, "buffering") => ("Tạm dừng", "Đang tải âm thanh…"),
+            (Locale::Vi, "playing") => ("Tạm dừng", "Đang phát"),
+            (Locale::Vi, "paused") => ("Nghe tiếp", "Đã tạm dừng"),
+            (Locale::Vi, "failed") => ("Thử lại", "Không thể tải bản nghe. Hãy thử lại."),
+            (Locale::Vi, "unavailable") => ("Nghe", "Chưa có bản nghe được phát hành."),
+            (Locale::Vi, _) => ("Nghe", "Chương 1 · Tiếng chuông trong sương"),
+            (Locale::En, "resolving") => ("Loading…", "Preparing the audio release…"),
+            (Locale::En, "buffering") => ("Pause", "Buffering audio…"),
+            (Locale::En, "playing") => ("Pause", "Playing"),
+            (Locale::En, "paused") => ("Resume", "Paused"),
+            (Locale::En, "failed") => ("Try again", "Audio could not load. Try again."),
+            (Locale::En, "unavailable") => ("Listen", "No published audio is available."),
+            (Locale::En, _) => ("Listen", "Chapter 1 · Bells in the mist"),
+        }
+    }
+    pub fn has_reason(phase: &str) -> bool {
+        matches!(phase, "resolving" | "unavailable")
+    }
+    pub fn after_press(phase: &str) -> &'static str {
+        match phase {
+            "buffering" | "playing" => "paused",
+            _ => "resolving",
+        }
+    }
+}

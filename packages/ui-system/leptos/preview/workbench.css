@@ -22,6 +22,8 @@
   --cui-base-body-size: var(--cantos-type-body-size);
   --cui-base-label-size: var(--cantos-type-label-size);
   --cui-base-title-size: var(--cantos-type-title-size);
+  --cui-base-listen-size: var(--cantos-type-listen-hero-size);
+  --cui-base-metadata-size: var(--cantos-type-metadata-size);
 }
 .cui-specimen-scroll:focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary);
@@ -33,11 +35,18 @@
   border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
   background: var(--cantos-color-surface-container);
 }
-.cui-specimen-frame[data-text-scale="200"] {
+.cui-specimen-frame[data-text-scale="200"],
+.cui-specimen-frame[data-text-scale="200"] .cui-listen-specimen-root {
   --cantos-type-body-size: calc(var(--cui-base-body-size) * 2);
   --cantos-type-label-size: calc(var(--cui-base-label-size) * 2);
   --cantos-type-title-size: calc(var(--cui-base-title-size) * 2);
+  --cantos-type-listen-hero-size: calc(var(--cui-base-listen-size) * 2);
+  --cantos-type-metadata-size: calc(var(--cui-base-metadata-size) * 2);
   font-size: 200%;
+}
+.cui-specimen-frame[data-text-scale="200"] .cui-listen-specimen-root {
+  /* A nested theme replaces the specimen multiplier, never multiplies it twice. */
+  font-size: var(--cantos-type-body-size);
 }
 /* Opt-in diagnostics only. System leaves the real media preference untouched. */
 .cui-specimen-frame[data-motion="force-full"] .cui-button {

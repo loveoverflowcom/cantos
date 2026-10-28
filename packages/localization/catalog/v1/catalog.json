@@ -25264,6 +25264,153 @@
           "text": "Displayed results: {query}"
         }
       }
+    },
+    "theatre.shell.work_listen": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe"
+        },
+        "en": {
+          "text": "Listen"
+        }
+      }
+    },
+    "theatre.shell.work_listen_resume": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe tiếp"
+        },
+        "en": {
+          "text": "Resume"
+        }
+      }
+    },
+    "theatre.shell.work_listen_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải…"
+        },
+        "en": {
+          "text": "Loading…"
+        }
+      }
+    },
+    "theatre.shell.work_listen_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có bản nghe khả dụng."
+        },
+        "en": {
+          "text": "No playable audio is available."
+        }
+      }
+    },
+    "theatre.shell.work_listen_no_target": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phần danh sách đã tải chưa có bản nghe. Tải tiếp hoặc thử lại danh sách."
+        },
+        "en": {
+          "text": "No playable audio is in the loaded list. Load more or retry the list."
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe"
+        },
+        "en": {
+          "text": "Listen"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_resume": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe tiếp"
+        },
+        "en": {
+          "text": "Resume"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải…"
+        },
+        "en": {
+          "text": "Loading…"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có bản nghe khả dụng."
+        },
+        "en": {
+          "text": "No playable audio is available."
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_no_target": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phần danh sách đã tải chưa có bản nghe. Tải tiếp hoặc thử lại danh sách."
+        },
+        "en": {
+          "text": "No playable audio is in the loaded list. Load more or retry the list."
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_name": {
+      "args": {
+        "action": "text",
+        "title": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{action} {title}"
+        },
+        "en": {
+          "text": "{action} {title}"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_list_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa tải được danh sách. Thử lại danh sách để chọn bản nghe."
+        },
+        "en": {
+          "text": "The list could not load. Retry the list to choose audio."
+        }
+      }
     }
   }
 }

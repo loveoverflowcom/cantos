@@ -7,17 +7,21 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip as MaterialFilterChip
@@ -25,6 +29,8 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -34,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
@@ -46,7 +53,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.disabled
 import com.cantos.ui.generated.CantosIcons
+import com.cantos.ui.generated.CantosTokens
 
 @Composable
 fun Button(
@@ -118,12 +127,14 @@ internal fun ButtonControl(
     icon?.let { CantosIcons.paths(it) }
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val auth = variant.isAuth()
-    val resolvedShape = shape ?: if (auth) authActionShape(interactions) else CantosShapes.control
+    val listen = variant == ButtonVariant.ListenHero
+    val resolvedShape = shape ?: if (auth) authActionShape(interactions) else if (listen) CantosShapes.full else CantosShapes.control
     val pair = variant.joinsContainerPair(LocalAuthActionScope.current)
     val minimumHeight = tokenDp(minimumHeightRole ?: when (variant) {
         ButtonVariant.AuthPrimary -> "size.authPrimary"
         ButtonVariant.AuthOutlined -> if (pair) "size.authPrimary" else "size.authSecondary"
         ButtonVariant.AuthSecondary -> "size.authSecondary"
+        ButtonVariant.ListenHero -> "size.listenHero"
         else -> "size.control"
     })
     val background = containerColor ?: buttonContainerColor(variant)
@@ -132,15 +143,17 @@ internal fun ButtonControl(
     val inset = insetPerimeter || variant.focusIsInset(LocalUiPreferences.current.expression)
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },
-        enabled = state.canPress(),
-        modifier = modifier.heightIn(min = minimumHeight)
+        // Pending Listen remains focusable; both native and synthetic activation are guarded.
+        enabled = state.canPress() || (listen && state is ButtonState.Loading),
+        modifier = modifier.then(if (listen) Modifier.widthIn(min = tokenDp("size.listenHeroInline")).width(IntrinsicSize.Max) else Modifier)
+            .heightIn(min = minimumHeight)
             .then(if (tonal) Modifier.cantosFocusFill(resolvedShape, foreground)
                 else if (inset) Modifier.cantosInsetPerimeter(resolvedShape, invalid = invalid, active = active,
                 ring = if (variant.ringReadsFromContent()) foreground else null,
                 inward = if (variant.ringReadsFromContent()) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
-                else Modifier.cantosFocus(if (auth) "shape.pill" else "shape.control"))
+                else Modifier.cantosFocus(if (auth || listen) "shape.pill" else "shape.control"))
             .actionState(state, description)
-            .semantics { name?.let { contentDescription = it.text } },
+            .semantics { name?.let { contentDescription = it.text }; if (!state.canPress()) disabled() },
         shape = resolvedShape,
         interactionSource = interactions,
         border = if (tonal) null else if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
@@ -148,19 +161,32 @@ internal fun ButtonControl(
                 tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
             ) else null,
         colors = ButtonDefaults.buttonColors(
-            containerColor = background,
-            contentColor = foreground,
+            containerColor = if (listen && !state.canPress()) tokenColor("color.surfaceContainer") else background,
+            contentColor = if (listen && !state.canPress()) tokenColor("color.onSurfaceVariant") else foreground,
             disabledContainerColor = tokenColor("color.surfaceContainer"),
             disabledContentColor = tokenColor("color.onSurfaceVariant"),
         ),
-        contentPadding = contentPadding ?: if (auth) PaddingValues(horizontal = tokenDp("space.lg"), vertical = tokenDp("space.inset"))
+        contentPadding = contentPadding ?: if (listen) PaddingValues(start = tokenDp("space.listenHeroStart"), end = tokenDp("space.section"), top = tokenDp("space.sm"), bottom = tokenDp("space.sm"))
+            else if (auth) PaddingValues(horizontal = tokenDp("space.lg"), vertical = tokenDp("space.inset"))
             else PaddingValues(horizontal = tokenDp("space.controlInline")),
     ) {
-        if (icon != null || state is ButtonState.Loading) {
-            ActionIcon(icon, state)
-            Spacer(Modifier.size(tokenDp("space.sm")))
+        if (listen) {
+            val ink = androidx.compose.material3.LocalContentColor.current
+            Box(Modifier.size(tokenDp("size.listenIconWell")).background(
+                ink.copy(alpha = CantosTokens.number("state.focusOpacity").toFloat()), CantosShapes.full), contentAlignment = Alignment.Center) {
+                ActionGlyph(icon, state, ink)
+            }
+            Spacer(Modifier.size(tokenDp("space.inset")))
+            ProvideTextStyle(typeStyle("listenHero", fontFamily = MaterialTheme.typography.labelLarge.fontFamily)) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Row { content() } }
+            }
+        } else {
+            if (icon != null || state is ButtonState.Loading) {
+                ActionIcon(icon, state)
+                Spacer(Modifier.size(tokenDp("space.sm")))
+            }
+            content()
         }
-        content()
     }
 }
 
@@ -170,7 +196,7 @@ internal fun ButtonControl(
  * the outset ring.
  */
 internal fun ButtonVariant.focusIsInset(expression: CantosExpression): Boolean =
-    isAuth() || expression == CantosExpression.Theatre
+    this != ButtonVariant.ListenHero && (isAuth() || expression == CantosExpression.Theatre)
 
 /**
  * A primary fill is the focus hue itself (`color.primary` against `color.focus` is about 1.1:1 in
@@ -193,7 +219,7 @@ private fun theatreTonal(variant: ButtonVariant): Boolean =
 internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant) {
     ButtonVariant.AuthPrimary -> tokenColor(
         if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
-    ButtonVariant.Primary -> tokenColor("color.primary")
+    ButtonVariant.Primary, ButtonVariant.ListenHero -> tokenColor("color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
         tokenColor(if (theatreTonal(variant)) "color.surfaceContainerHigh" else "color.primaryContainer")
     ButtonVariant.Danger -> tokenColor("color.errorContainer")
@@ -207,7 +233,7 @@ internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant
 internal fun buttonContentColor(variant: ButtonVariant): Color = when (variant) {
     ButtonVariant.AuthPrimary -> tokenColor(
         if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.primaryContainer" else "color.onPrimary")
-    ButtonVariant.Primary -> tokenColor("color.onPrimary")
+    ButtonVariant.Primary, ButtonVariant.ListenHero -> tokenColor("color.onPrimary")
     ButtonVariant.AuthOutlined -> tokenColor(
         if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->

@@ -59,6 +59,14 @@ native Link/NavItem own navigation; submit flows remain app-owned. Callers provi
 must keep the generated `<id>-reason` ID available. Focus rings, sufficient hit areas, text
 wrapping, forced-colors and reduced motion are part of the foundation contract.
 
+`ButtonVariant::ListenHero` / `ButtonVariant.ListenHero` is the Work-detail listening CTA:
+minimum 208×56, a 36 well around the registry glyph24, gap12 and scoped 18/26 bold text.
+It reads the host's Theatre expression; it owns no playback state. A Loading ListenHero keeps
+its native focus target while disabled semantics and the callback guard block activation.
+Web `icon_signal` can update the decorative glyph without replacing the button; static `icon`
+remains supported. Compact transport uses the existing IconButton contract. See the
+[issue595 admission and evidence](../../docs/evidence/listen-hero-595.md).
+
 Documented API and compile/string-render checks do not prove keyboard, screen-reader, responsive
 appearance or animation behavior. Use the [evidence record](../../docs/evidence/ui-system-foundation.md)
 for the exact boundary of this delivery.

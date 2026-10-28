@@ -16,7 +16,7 @@ use crate::{
         public_work::{PageStatus, ReadFailure, UnitList, WorkDetailPhase, WorkDetailState},
     },
     core::{
-        playback::{Event, Intent, TrackId},
+        playback::{Event, Failure, Intent, Status, TrackId},
         public_ids::canonical_uuid,
     },
     features::{
@@ -68,6 +68,68 @@ pub(crate) enum RowListen {
     Failed(ListenFailure),
 }
 
+/// The action and the observed engine state stay distinct. A pending Play is cancellable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HeroListen {
+    Ready,
+    Resolving,
+    Pause(Status),
+    Resume,
+    ResolveFailed(ListenFailure),
+    Unavailable(ListenFailure),
+    TransportFailed(Failure),
+}
+
+impl HeroListen {
+    const fn label(self) -> Key {
+        match self {
+            Self::Ready | Self::Unavailable(_) => Key::WorkListen,
+            Self::Resolving => Key::WorkListenLoading,
+            Self::Pause(_) => Key::ListenPause,
+            Self::Resume => Key::WorkListenResume,
+            Self::ResolveFailed(_) | Self::TransportFailed(_) => Key::PublicRetry,
+        }
+    }
+
+    const fn icon(self) -> IconName {
+        match self {
+            Self::Pause(_) => IconName::Pause,
+            Self::ResolveFailed(_) | Self::TransportFailed(_) => IconName::Refresh,
+            Self::Ready | Self::Resolving | Self::Resume | Self::Unavailable(_) => {
+                IconName::PlayArrow
+            }
+        }
+    }
+}
+
+fn hero_listen(
+    listen: &ListenState,
+    publication_id: &str,
+    current: Option<(uuid::Uuid, Intent, Status, u32)>,
+) -> HeroListen {
+    let Some(publication) = canonical_uuid(publication_id) else {
+        return HeroListen::Ready;
+    };
+    if listen.is_resolving(publication) {
+        return HeroListen::Resolving;
+    }
+    if let Some(failure) = listen.failure_of(publication) {
+        return if failure == ListenFailure::NotFound {
+            HeroListen::Unavailable(failure)
+        } else {
+            HeroListen::ResolveFailed(failure)
+        };
+    }
+    match current.filter(|(id, _, _, _)| *id == publication) {
+        Some((_, _, Status::Failed(failure), _)) => HeroListen::TransportFailed(failure),
+        Some((_, Intent::Play, status, _)) => HeroListen::Pause(status),
+        Some((_, Intent::Pause(_), Status::Paused(_), position)) if position > 0 => {
+            HeroListen::Resume
+        }
+        _ => HeroListen::Ready,
+    }
+}
+
 /// `current` is the public release in the player and whether the listener intends to play it.
 pub(crate) fn row_listen(
     listen: &ListenState,
@@ -98,6 +160,49 @@ pub(crate) struct ListenControls {
 }
 
 impl ListenControls {
+    fn hero_of(self, row: &MetadataUnitSummary) -> HeroListen {
+        let Some(playback) = &row.playback else {
+            return HeroListen::Ready;
+        };
+        let current = self.player.state.with(|state| {
+            let session = state.session()?;
+            let TrackId::Public(track) = session.source().track() else {
+                return None;
+            };
+            Some((
+                track.publication(),
+                session.intent(),
+                state.status(),
+                session.position_ms(),
+            ))
+        });
+        self.listen
+            .with(|listen| hero_listen(listen, &playback.publication_id, current))
+    }
+
+    fn press_hero(self, row: &MetadataUnitSummary) {
+        match self.hero_of(row) {
+            HeroListen::Resolving | HeroListen::Unavailable(_) => (),
+            HeroListen::Pause(_) => self.player.dispatch(Event::PauseRequested),
+            HeroListen::Resume | HeroListen::TransportFailed(_) => {
+                self.player.dispatch(Event::PlayRequested)
+            }
+            HeroListen::Ready => {
+                // A loaded, paused source starts in the same root session, even at position zero.
+                if self.current().is_some_and(|(id, _)| {
+                    row.playback
+                        .as_ref()
+                        .is_some_and(|p| canonical_uuid(&p.publication_id) == Some(id))
+                }) {
+                    self.player.dispatch(Event::PlayRequested);
+                } else {
+                    self.press(row);
+                }
+            }
+            HeroListen::ResolveFailed(_) => self.press(row),
+        }
+    }
+
     fn current(self) -> Option<(uuid::Uuid, bool)> {
         let source = self.player.source.get()?;
         let TrackId::Public(track) = source.track() else {
@@ -463,25 +568,61 @@ fn ReadyWork(
     };
     let first_pub =
         Signal::derive(move || first().and_then(|row| row.playback.map(|p| p.publication_id)));
-    let listen_state = Signal::derive(move || match first() {
-        None => DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
-            .map(ButtonState::Disabled)
-            .unwrap_or_default(),
-        Some(row) if listen.state_of(&row) == RowListen::Preparing => {
-            DisabledReason::new(messages::message(
-                locale.get(),
-                crate::localization::generated::Message::TheatreShellListenUnitPreparing {
-                    arg_title: &(row.title.clone()),
-                },
-            ))
-            .map(ButtonState::Loading)
+    let hero = Memo::new(move |_| first().map(|row| listen.hero_of(&row)));
+    let listen_state = Signal::derive(move || {
+        let reason = match hero.get() {
+            Some(HeroListen::Resolving) => Some((true, text(Key::ListenPreparing, locale.get()))),
+            Some(HeroListen::Unavailable(failure)) => {
+                Some((false, text(resolve_failure_key(failure), locale.get())))
+            }
+            None => Some(match status() {
+                Some(PageStatus::Loading) => {
+                    (true, text(Key::PublicWorkUnitsLoading, locale.get()))
+                }
+                Some(PageStatus::Failed(_)) => {
+                    (false, text(Key::PublicWorkUnitsFailed, locale.get()))
+                }
+                _ if state
+                    .with(|s| with_units(s, UnitList::is_complete))
+                    .unwrap_or(false) =>
+                {
+                    (false, text(Key::WorkListenUnavailable, locale.get()))
+                }
+                _ => (false, text(Key::WorkListenNoTarget, locale.get())),
+            }),
+            _ => None,
+        };
+        reason
+            .map(|(busy, reason)| {
+                let reason = DisabledReason::new(reason).expect("localized listen explanation");
+                if busy {
+                    ButtonState::Loading(reason)
+                } else {
+                    ButtonState::Disabled(reason)
+                }
+            })
             .unwrap_or_default()
-        }
-        Some(_) => ButtonState::Enabled,
     });
-    let listen_label = move || match first() {
-        Some(row) if listen.state_of(&row) == RowListen::Playing => Key::ListenPause,
-        _ => Key::PublicWorkListen,
+    let listen_icon = Signal::derive(move || {
+        hero.get()
+            .map(HeroListen::icon)
+            .unwrap_or(IconName::PlayArrow)
+    });
+    let listen_label = move || {
+        hero.get().map(HeroListen::label).unwrap_or_else(|| {
+            if matches!(status(), Some(PageStatus::Loading)) {
+                Key::WorkListenLoading
+            } else {
+                Key::WorkListen
+            }
+        })
+    };
+    let hero_feedback = move || match hero.get() {
+        Some(HeroListen::Pause(status)) => Some(messages::listening_status_key(status)),
+        Some(HeroListen::Resume) => Some(Key::ListenPaused),
+        Some(HeroListen::ResolveFailed(failure)) => Some(resolve_failure_key(failure)),
+        Some(HeroListen::TransportFailed(failure)) => Some(messages::failure_key(failure)),
+        _ => None,
     };
     let description = (!work.description.trim().is_empty()).then(|| work.description.clone());
     // The server's count of currently public units, not the length of the loaded page.
@@ -503,8 +644,9 @@ fn ReadyWork(
                     {move || messages::public_unit_count(kind, locale.get(), unit_count)}
                 </p>
                 <div class="theatre-actions">
-                    <Button id="theatre-public-work-listen" state=listen_state
-                        on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press(&row); } })>
+                    <Button id="theatre-public-work-listen" variant=ButtonVariant::ListenHero icon_signal=listen_icon state=listen_state
+                        described_by="theatre-work-listen-feedback"
+                        on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press_hero(&row); } })>
                         {move || text(listen_label(), locale.get())}
                         {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                     </Button>
@@ -512,6 +654,9 @@ fn ReadyWork(
                         <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
                     })}
                 </div>
+                <p id="theatre-work-listen-feedback" class="theatre-muted" role="status">
+                    {move || hero_feedback().map(|key| text(key, locale.get())).unwrap_or_default()}
+                </p>
             </div>
         </header>
         <section class="theatre-public-units" aria-labelledby="theatre-public-units-heading"
@@ -1176,12 +1321,13 @@ mod tests {
                 .split("id=\"theatre-public-work-listen\"")
                 .nth(1)
                 .unwrap();
-            assert!(cta.contains("disabled"), "{cta}");
+            assert!(cta.contains("aria-disabled=\"true\""), "{cta}");
             assert!(
-                html.contains(text(Key::PublicWorkListenUnavailable, locale)),
+                html.contains(text(Key::PublicWorkUnitsLoading, locale)),
                 "{html}"
             );
-            assert!(html.contains("aria-describedby=\"theatre-public-work-listen-reason\""));
+            assert!(!html.contains(text(Key::WorkListenUnavailable, locale)));
+            assert!(html.contains("aria-describedby=\"theatre-work-listen-feedback theatre-public-work-listen-reason\""));
         }
     }
 
@@ -1295,6 +1441,14 @@ mod tests {
             assert_eq!(controls.state_of(&row), RowListen::Ready);
             controls.player.dispatch(Event::PlayRequested);
             assert_eq!(controls.state_of(&row), RowListen::Playing);
+            assert_eq!(controls.hero_of(&row), HeroListen::Pause(Status::Loading));
+            controls.press_hero(&row);
+            assert!(matches!(
+                controls.player.status.get_untracked(),
+                Status::Paused(_)
+            ));
+            controls.press_hero(&row);
+            assert_eq!(controls.hero_of(&row), HeroListen::Pause(Status::Loading));
             controls.press(&row);
             assert_eq!(controls.state_of(&row), RowListen::Ready);
             assert_eq!(
@@ -1304,6 +1458,70 @@ mod tests {
             );
             let _ = (publication, PinnedRelease::admit);
         });
+    }
+
+    #[test]
+    fn hero_action_vectors_require_engine_ack_for_playing_and_the_same_release_for_resume() {
+        use crate::core::playback::PauseCause;
+        let release = uuid::Uuid::parse_str("00000000-0000-4000-8000-000000000001").unwrap();
+        let other = uuid::Uuid::parse_str("00000000-0000-4000-8000-000000000002").unwrap();
+        let listen = ListenState::default();
+        for (intent, status, position, expected) in [
+            (
+                Intent::Play,
+                Status::Loading,
+                0,
+                HeroListen::Pause(Status::Loading),
+            ),
+            (
+                Intent::Play,
+                Status::Buffering,
+                1000,
+                HeroListen::Pause(Status::Buffering),
+            ),
+            (
+                Intent::Play,
+                Status::Playing,
+                1000,
+                HeroListen::Pause(Status::Playing),
+            ),
+            (
+                Intent::Pause(PauseCause::User),
+                Status::Paused(PauseCause::User),
+                0,
+                HeroListen::Ready,
+            ),
+            (
+                Intent::Pause(PauseCause::User),
+                Status::Paused(PauseCause::User),
+                1,
+                HeroListen::Resume,
+            ),
+            (
+                Intent::Pause(PauseCause::User),
+                Status::Failed(Failure::Network),
+                1000,
+                HeroListen::TransportFailed(Failure::Network),
+            ),
+        ] {
+            let actual = hero_listen(
+                &listen,
+                &release.to_string(),
+                Some((release, intent, status, position)),
+            );
+            assert_eq!(actual, expected);
+            assert_eq!(
+                hero_listen(
+                    &listen,
+                    &other.to_string(),
+                    Some((release, intent, status, position))
+                ),
+                HeroListen::Ready
+            );
+            if status != Status::Playing {
+                assert_ne!(actual, HeroListen::Pause(Status::Playing));
+            }
+        }
     }
 
     #[test]
@@ -1351,6 +1569,11 @@ mod tests {
             RowListen::Preparing
         );
         resolving.finish(&ticket, Err(CatalogReadError::NotFound));
+        assert_eq!(
+            hero_listen(&resolving, &publication.to_string(), None),
+            HeroListen::Unavailable(ListenFailure::NotFound),
+            "a withdrawn release has a visible disabled reason instead of a transport retry"
+        );
         assert_eq!(
             row_listen(
                 &resolving,

@@ -55,7 +55,7 @@ fun FieldState.reason(): String? = when (this) {
     is FieldState.Loading -> reason.text
 }
 
-enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger, AuthPrimary, AuthSecondary, AuthOutlined }
+enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger, ListenHero, AuthPrimary, AuthSecondary, AuthOutlined }
 /**
  * Floating (Fields v3/v4) keeps the label inside one tonal shell with one inset state perimeter and
  * is the only variant whose trailing slot is part of its anatomy. Regular and AuthTonal keep

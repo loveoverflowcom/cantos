@@ -6,6 +6,33 @@ use cantos_ui::{
 use leptos::prelude::*;
 
 #[test]
+fn listen_hero_retains_one_native_action_and_pending_focus_without_claiming_playback() {
+    let owner = Owner::new();
+    owner.with(|| {
+        let icon = RwSignal::new(IconName::PlayArrow);
+        let html = view! {
+            <Button id="listen-hero" variant=ButtonVariant::ListenHero icon_signal=icon
+                state=ButtonState::Loading(DisabledReason::new("Đang chuẩn bị bản nghe…").unwrap())>
+                "Đang tải…"
+            </Button>
+        }.to_html();
+        assert_eq!(html.matches("<button ").count(), 1);
+        let control = html.split("</button>").next().unwrap();
+        assert!(control.contains("data-variant=\"listen-hero\""));
+        assert!(control.contains("aria-disabled=\"true\""));
+        assert!(!control.contains(" disabled"), "pending retains its focus node: {html}");
+        assert!(control.contains("cui-loading-indicator"));
+        assert!(!html.contains("Đang phát"));
+        let html = view! {
+            <Button id="listen-pause" variant=ButtonVariant::ListenHero icon=IconName::Pause>"Tạm dừng"</Button>
+        }.to_html();
+        assert!(html.contains("cui-icon"));
+        assert!(html.contains("aria-hidden=\"true\""));
+        assert!(!html.contains("aria-disabled=\"true\""));
+    });
+}
+
+#[test]
 fn pending_actions_replace_decorative_glyphs_with_progress_and_keep_names_and_reasons() {
     let owner = Owner::new();
     owner.with(|| {

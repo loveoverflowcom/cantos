@@ -39,6 +39,7 @@ macro_rules! recipe_enum {
 
 recipe_enum!(ComponentId {
     Button => "button",
+    ListenHero => "listen-hero",
     AuthPrimary => "auth-primary",
     FilterChip => "filter-chip",
     Switch => "switch",
@@ -50,6 +51,13 @@ recipe_enum!(ComponentId {
 });
 
 recipe_enum!(ScenarioState {
+    Ready => "ready",
+    Resolving => "resolving",
+    Buffering => "buffering",
+    Playing => "playing",
+    Paused => "paused",
+    Failed => "failed",
+    Unavailable => "unavailable",
     Enabled => "enabled",
     Disabled => "disabled",
     Loading => "loading",
@@ -78,6 +86,15 @@ impl ComponentId {
     pub const fn states(self) -> &'static [ScenarioState] {
         use ScenarioState::*;
         match self {
+            Self::ListenHero => &[
+                Ready,
+                Resolving,
+                Buffering,
+                Playing,
+                Paused,
+                Failed,
+                Unavailable,
+            ],
             Self::Button | Self::AuthPrimary | Self::BackButton => &[Enabled, Disabled, Loading],
             Self::FilterChip => &[Unselected, Selected, Disabled, Loading],
             Self::Switch => &[Off, On, Disabled, Loading],
@@ -108,6 +125,7 @@ impl ComponentId {
 
     pub const fn default_state(self) -> ScenarioState {
         match self {
+            Self::ListenHero => ScenarioState::Ready,
             Self::Button | Self::AuthPrimary | Self::BackButton => ScenarioState::Enabled,
             Self::FilterChip => ScenarioState::Unselected,
             Self::Switch => ScenarioState::Off,
@@ -121,7 +139,7 @@ impl ComponentId {
     /// Auth primary is an existing Button variant, not a new public component API.
     pub const fn catalog_id(self) -> &'static str {
         match self {
-            Self::AuthPrimary => "button",
+            Self::AuthPrimary | Self::ListenHero => "button",
             Self::AuthTonal => "text-field",
             _ => self.as_str(),
         }

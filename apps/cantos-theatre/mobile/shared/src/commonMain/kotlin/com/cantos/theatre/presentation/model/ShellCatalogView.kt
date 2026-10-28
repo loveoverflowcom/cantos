@@ -37,6 +37,8 @@ data class ShellEpisode(
     val title: String,
     val durationSeconds: Int,
     val numbered: Boolean = true,
+    /** Immutable public release identity; absent only in diagnostic/legacy fixtures. */
+    val publicationId: String? = null,
 )
 
 /**

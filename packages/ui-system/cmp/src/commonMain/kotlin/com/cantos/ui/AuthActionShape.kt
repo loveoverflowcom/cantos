@@ -42,7 +42,7 @@ internal fun authActionShape(interactions: MutableInteractionSource): Shape {
 
 internal fun ButtonVariant.isAuth(): Boolean = when (this) {
     ButtonVariant.AuthPrimary, ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> true
-    ButtonVariant.Primary, ButtonVariant.Tonal, ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.Danger -> false
+    ButtonVariant.Primary, ButtonVariant.Tonal, ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.Danger, ButtonVariant.ListenHero -> false
 }
 
 /**
