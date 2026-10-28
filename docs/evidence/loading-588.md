@@ -54,7 +54,7 @@ Full local outputs and inspected captures are outside Git at
 | Shared Leptos | PASS: 186 tests, WASM clippy and gallery build; `leptos-admission.log` | Component renderer, not product/backend acceptance |
 | Shared CMP | PASS: 314 executed, zero failures/skips; `cmp-admission-final.log` | JVM Compose, manual-clock and semantics checks |
 | Theatre CMP | PASS: 595 shared tests declared (592 executed, 3 skipped); 176 sandbox declared (173 executed, 3 skipped); `cmp-integrated.log` and copied XML | Production reducers/projection/composition over declared ports; no Android/iOS execution |
-| Theatre Web | PASS: 548 tests and 6 doctests on integrated source; `web-native-integrated-2.log` | Production Rust core and component tests; final account refusal regression included |
+| Theatre Web | PASS: 549 tests and 6 doctests on integrated source; `web-native-integrated-2.log` | Production Rust core and component tests; final account refusal regression included |
 | Web lint/build compatibility | PASS for Studio/Theatre WASM lint, both builds and UI preview; `web-integrated.log` | Integrated final source; Studio has generated localization digest and canonical arc consumption only |
 | Browser | PASS bounded observations in `browser/web-runtime-final.json`, `web-runtime-integrated.json`, `http-fixture.jsonl` | Production Web bundle + synthetic loopback HTTP catalog; **mock-integration-tested**, no real Server/Identity/storage |
 | Repository | FAIL: 42 diagnostics versus 50 on clean integrated base, none new/worsened; `repository-comparison-integrated.json` | No baseline expansion, gate weakening or unrelated qualification repair |
