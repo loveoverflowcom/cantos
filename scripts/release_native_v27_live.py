@@ -197,6 +197,9 @@ def execute(request, request_bytes, approval_bytes, inventory_bytes, old23, curr
         rechecked=current_custody(state,request,old23,current24,allow_marker=True)
         contract.require(rechecked==(current,original,prior,corrected,metadata),'current custody changed after stop')
         ports.recovery_host(layout,current24,target27)
+        # Pulling the target and writes accepted before the fence may have consumed space
+        # since the initial observation. Recheck the actual stopped pair before copying.
+        ports.ensure_capacity(layout)
         copies={}
         for service in oci.SERVICES:
             copies[service]=migration.copy_database(Path(layout['databases'][service]),attempt/(service+'-database'),service)

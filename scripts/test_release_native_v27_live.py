@@ -126,6 +126,8 @@ class LiveEffects(unittest.TestCase):
         self.assertEqual((attempt/'cantos-server-database'/'server.db').read_bytes(),b'accepted before fence')
         self.assertEqual((attempt/'cantos-server-restore-check'/'server.db').read_bytes(),b'synthetic-v27')
         self.assertEqual((Path(self.original['databases']['cantos-server'])/'server.db').read_bytes(),b'synthetic-v27')
+        self.assertLess(host.events.index('stop'),host.events.index('capacity'))
+        self.assertLess(host.events.index('capacity'),host.events.index('migrate-copy'))
         self.assertLess(host.events.index('migrate-copy'),host.events.index('migrate-live'))
         self.assertLess(host.events.index('migrate-live'),host.events.index('start-3'))
         for service in native.SERVICES:
@@ -138,7 +140,7 @@ class LiveEffects(unittest.TestCase):
 
     def test_prestart_and_poststart_failures_never_claim_commit_or_restore_old_data(self):
         # Each failure uses an independent fixture, with no production processes or database.
-        for fail in ('pull-3','stop','verify-current','migrate-copy','migrate-live','start-3'):
+        for fail in ('pull-3','stop','capacity','verify-current','migrate-copy','migrate-live','start-3'):
             with self.subTest(fail=fail):
                 fixture=LiveEffects(methodName='test_backup_and_restore_test_precede_migration_and_both_unit_pins_move')
                 fixture.setUp()
