@@ -1,0 +1,27 @@
+{
+  "source_sha": "588e015282e61e64d142bef0b591bcf5c5f34875",
+  "integration_base_sha": "ebe822972bfa2168b524bf34aeae866c5491b64d",
+  "local_evidence_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588",
+  "scope": "Integrated production app code; Web synthetic loopback HTTP, CMP JVM declared facts. No native/backend acceptance.",
+  "opened_images": [
+    "cmp-app-integrated-corrected/initial-Light.png",
+    "cmp-app-integrated-corrected/refresh-Light.png",
+    "cmp-app-integrated-corrected/append-Dark.png",
+    "cmp-app-integrated-corrected/failed-retained-Dark.png",
+    "browser/web-integrated-refresh.png",
+    "browser/web-integrated-failure.png"
+  ],
+  "artifacts_sha256": {
+    "cmp-app-integrated-corrected/initial-Light.png": "05d47c7e8c1bde8b39733a7e4309fd8c87ece252bce794dc3e15e09008b690c9",
+    "cmp-app-integrated-corrected/refresh-Light.png": "3aabc1b3aac2c2654da6b63b142325a0444406ddec616070be74bdc89a1eab1a",
+    "cmp-app-integrated-corrected/append-Dark.png": "ceba4ed5a150058f9a99ed1bc6d770cf0534bf8b53612975cd910dd577901192",
+    "cmp-app-integrated-corrected/failed-retained-Dark.png": "634db1257349f6a61b34a4dcb8ae21b3c56f5113bdfa426691114c7aa9da18ff",
+    "browser/web-integrated-refresh.png": "2a41a8c8d9d839888297e42c1dbfe21fb588debb130ce225d37242f2239a94ff",
+    "browser/web-integrated-failure.png": "42e2005aaac327ca9f3f3f3a29ad7cc8bf4a5fc691a24f1e97f0c2e435705879",
+    "browser/web-runtime-integrated.json": "9e94e18621d4fd530345620d0746340e74a6b7ee6ce75f199c72fb5eab30fe0d",
+    "cmp-integrated.log": "83fbcece72a8b476122551f1efd140e497faffe2aeb0daa3605fb5635e5dbd99",
+    "web-integrated.log": "a5c77fb569ab407caa65c20a8f9f81f89cd3783152124267f8866bdaa20352ca",
+    "repository-comparison-integrated.json": "145b61293801aa4aeb51340927a6ac6b27f4f64e293954e8a199bbb9863f7802",
+    "preflight-integrated.log": "bc0a8fa16d1a99430cf93f12f8e569c82ff457d1dc7a15178761d0cb1365be32"
+  }
+}
