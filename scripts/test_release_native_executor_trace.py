@@ -28,8 +28,11 @@ class Trace(unittest.TestCase):
         self.module.target(self.marker)
 
     def test_stops_at_pinned_line_and_reaps_its_child(self):
-        result = trace.interrupt_at_line(self.source, self.digest, 'target', 4, self.line, self.invoke, timeout=5)
+        observed = []
+        result = trace.interrupt_at_line(self.source, self.digest, 'target', 4, self.line, self.invoke, timeout=5,
+                                         on_stopped=lambda: observed.append(self.marker.read_text()))
         self.assertEqual(result['status'], 'INTERRUPTED')
+        self.assertEqual(observed, ['before'])
         self.assertEqual(self.marker.read_text(), 'before')
 
     def test_foreign_source_line_or_unreached_target_refused(self):

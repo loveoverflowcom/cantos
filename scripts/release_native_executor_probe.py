@@ -11,6 +11,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import time
 
 
 PROTECTED_PATHS = (
@@ -42,8 +43,18 @@ def preflight():
             raise ValueError('required native runtime missing')
     if any(Path(name).exists() or Path(name).is_symlink() for name in PROTECTED_PATHS):
         raise ValueError('fixture path already exists')
-    if command('systemctl', 'show', '--property=SystemState', '--value').strip() not in (b'running', b'degraded'):
-        raise ValueError('systemd is not operational')
+    state = b''
+    for _ in range(20):
+        state = command('systemctl', 'show', '--property=SystemState', '--value').strip()
+        if state in (b'running', b'degraded'):
+            break
+        if state not in (b'starting', b'initializing'):
+            break
+        time.sleep(3)
+    if state not in (b'running', b'degraded'):
+        allowed = (b'starting', b'initializing', b'maintenance', b'stopping', b'offline', b'')
+        label = state.decode('ascii') if state in allowed and state else ('empty' if not state else 'unknown')
+        raise ValueError('systemd state '+label)
     generators = ('/usr/lib/systemd/system-generators/podman-system-generator',
                   '/lib/systemd/system-generators/podman-system-generator',
                   '/usr/lib/systemd/system-generators/quadlet', '/usr/libexec/podman/quadlet')

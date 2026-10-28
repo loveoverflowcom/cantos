@@ -150,14 +150,14 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
-      - name: Observe disposable systemd fixture without executor transition
+      - name: Rehearse disposable systemd executor transitions
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
-          # This deliberately separate partial fixture cannot satisfy the executor gate.
-          OUTPUT="$RUNNER_TEMP/native-systemd-fixture.json"
+          # Results are separate from image qualification and never grant admission.
+          OUTPUT="$RUNNER_TEMP/native-executor-rehearsal-status.json"
           if ! jq -e '.status == "PREREQUISITES_ONLY"' "$RUNNER_TEMP/native-systemd-prerequisites.json" > /dev/null; then
             printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
           else
@@ -166,10 +166,12 @@ jobs:
             sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/systemd-fixture-auth.json"
             trap 'sudo rm -f "$RUNNER_TEMP/systemd-fixture-auth.json"' EXIT
             if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
-                python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_native_executor_systemd_fixture.py" \
+                python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_native_executor_rehearsal.py" \
                 --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
                 --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
-                --authfile "$RUNNER_TEMP/systemd-fixture-auth.json" > "$OUTPUT"; then
+                --authfile "$RUNNER_TEMP/systemd-fixture-auth.json" \
+                --historical "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27/historical-upgrade.json" \
+                --output "$GITHUB_WORKSPACE/artifacts/release-qualification/executor-rehearsal" > "$OUTPUT"; then
               cat "$OUTPUT"
             else
               printf '%s\n' '{"status":"FAIL","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
@@ -195,6 +197,6 @@ jobs:
             artifacts/native-executor/
             ${{ runner.temp }}/oci-build-result.json
             ${{ runner.temp }}/native-systemd-prerequisites.json
-            ${{ runner.temp }}/native-systemd-fixture.json
+            ${{ runner.temp }}/native-executor-rehearsal-status.json
           if-no-files-found: error
           retention-days: 14

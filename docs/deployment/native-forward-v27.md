@@ -54,8 +54,8 @@ and may complete only removal of the unchanged marker. A failure leaves the mark
 
 Both commands default to an offline/read-only plan and require an exact clean executor source.
 Each requires a separate, source- and image-pair-bound executor rehearsal record with Linux,
-systemd and real Podman/bridge evidence and explicit crash/replay controls. Its producer and
-actual execution are not yet implemented; a model, file or fake-host result cannot satisfy it.
+systemd and real Podman/bridge evidence and explicit crash/replay controls. The candidate producer
+must actually complete and emit reviewed records; a model, file or fake-host result cannot satisfy it.
 They accept private, canonical, owned, hash-pinned JSON files; these are not public PR artifacts.
 The existing historical manifest, admission and four exact-image records remain independent of
 new operator approval. An operator must review the actual host inventory, maintenance/ingress
@@ -102,13 +102,15 @@ Local file/host-double tests exercise refusals and failures; they do not establi
 Linux/Podman/systemd, crash durability, network isolation, production recovery or device behavior.
 The historical workflow rehearses two independently pinned public v24 pairs separately; neither
 is an executor rehearsal. The applicable pair and final source must match exactly. A separate
-real systemd/Podman rehearsal of these transition owners and its evidence producer are still required.
+real systemd/Podman rehearsal of these transition owners and its reviewed evidence are required.
 The workflow also runs a read-only disposable-runner prerequisite probe for systemd, cgroup v2,
 Quadlet and reserved fixture names. Its `PREREQUISITES_ONLY` or `NOT_RUN` result does not run
 the executor and cannot satisfy the executor-rehearsal gate.
-On a runner that passes those prerequisites, a separate synthetic fixture may start and stop
-the exact target pair through real Quadlet units and inspect its private bridge and owner
-processes. This is reported as `PARTIAL_SYSTEMD_FIXTURE_PASS` or `FAIL`; transition execution,
-crash/replay, operator admission and activation remain `NOT_RUN`. It is not the missing
-executor-rehearsal producer. The fixture refuses known existing paths and services and runs
-only on a disposable GitHub-hosted VM, never on the VPS.
+On a runner that passes those prerequisites, a separate synthetic fixture attempts the actual
+executor transition functions with real Quadlet units, Podman, private bridge and stopped-child
+crash injection. It writes source/image-bound records only after its complete controls pass;
+failure or unsupported prerequisites leave them `NOT_RUN`. The provisional input used to
+exercise the closed input gate stays private to the destroyed fixture and is never emitted as
+evidence. The fixture refuses known existing paths and services and runs only on a disposable
+GitHub-hosted VM, never on the VPS. Operator review, admission, activation and live business
+acceptance remain separate regardless of the runner result.

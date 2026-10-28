@@ -16,7 +16,7 @@ import sys
 import time
 
 
-def interrupt_at_line(source, expected_sha256, function, lineno, expected_line, invoke, timeout=30):
+def interrupt_at_line(source, expected_sha256, function, lineno, expected_line, invoke, timeout=30, on_stopped=None):
     path = Path(source)
     if not path.is_absolute() or path != path.resolve() or not path.is_file():
         raise ValueError('canonical source file required')
@@ -47,6 +47,8 @@ def interrupt_at_line(source, expected_sha256, function, lineno, expected_line, 
             pid, status = os.waitpid(child, os.WNOHANG | os.WUNTRACED)
             if pid:
                 if os.WIFSTOPPED(status) and os.WSTOPSIG(status) == signal.SIGSTOP:
+                    if on_stopped is not None:
+                        on_stopped()
                     os.kill(child, signal.SIGKILL)
                     killed, status = os.waitpid(child, 0)
                     reaped = True

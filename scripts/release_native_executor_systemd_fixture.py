@@ -20,6 +20,7 @@ import release_native_executor_fixture as fixture
 import release_native_executor_probe as probe
 import release_native_forward as forward
 import release_native_migration as migration
+import release_artifact as contract
 import release_oci as oci
 import release_oci_build as build
 import release_oci_qualify as qualify
@@ -27,17 +28,26 @@ import release_oci_qualify as qualify
 PHASE = 'PREFLIGHT'
 
 
-def run(root, args):
+def setup(root, args, *, historical=False):
     global PHASE
     probe.preflight()
     manifest, _ = qualify.validate_input(root, args)
     qualify.require(qualify.native_host() == manifest['platform'], 'native fixture platform mismatch')
+    if historical:
+        previous = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v23.json', None))
+        running = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v24-8862.json', None))
+        migration.transition(previous, running)
+        forward.migration_transition(running, manifest)
+    else:
+        previous = running = manifest
     PHASE = 'CREATE_ROOTS'
     # Every root is absent when checked by preflight; O_EXCL/mkdir refuse races. The runner
     # owns this global Podman store and will be destroyed after the job, not cleaned remotely.
     state = native.STATE
     base = Path(migration.ROOT)
     state.mkdir(mode=0o700)
+    fixture_marker = os.urandom(32)
+    forward._write_once(state/'disposable-fixture-marker', fixture_marker)
     base.mkdir(mode=0o700)
     (base/'config').mkdir(mode=0o700)
     socket = base/'run'
@@ -54,14 +64,19 @@ def run(root, args):
     system = forward.ForwardSystem()
     # User-provided registry credentials are never copied into units or output.
     PHASE = 'PULL_EXACT_IMAGES'
-    for service in oci.SERVICES:
-        reference = manifest['images'][service]['ref']
-        system.command(['podman', 'pull', '--authfile', str(args.authfile), reference])
-        inspected = json.loads(system.command(['podman', 'image', 'inspect', reference]))
-        qualify.require(len(inspected) == 1 and reference in inspected[0].get('RepoDigests', []), 'image digest mismatch')
-        digest = build.check_local_image(service, inspected[0], manifest['source_sha'],
-                                         manifest['configuration_sha256'], manifest['platform'])
-        qualify.require(digest == manifest['images'][service]['config_digest'], 'image configuration mismatch')
+    pulled = set()
+    for release in (previous, running, manifest):
+        for service in oci.SERVICES:
+            reference = release['images'][service]['ref']
+            if reference in pulled:
+                continue
+            system.command(['podman', 'pull', '--authfile', str(args.authfile), reference])
+            inspected = json.loads(system.command(['podman', 'image', 'inspect', reference]))
+            qualify.require(len(inspected) == 1 and reference in inspected[0].get('RepoDigests', []), 'image digest mismatch')
+            digest = build.check_local_image(service, inspected[0], release['source_sha'],
+                                             release['configuration_sha256'], release['platform'])
+            qualify.require(digest == release['images'][service]['config_digest'], 'image configuration mismatch')
+            pulled.add(reference)
     PHASE = 'CREATE_PRIVATE_NETWORK'
     system.command(['podman', 'network', 'create', '--internal', '--subnet', '10.231.42.0/24', name])
     network = json.loads(system.command(['podman', 'network', 'inspect', name]))
@@ -69,15 +84,25 @@ def run(root, args):
     configs, units = {}, {}
     PHASE = 'CREATE_UNITS_AND_MIGRATE'
     for service in oci.SERVICES:
-        rendered = fixture.render(service, manifest['images'][service]['ref'], name)
+        rendered = fixture.render(service, running['images'][service]['ref'], name)
         env = Path(rendered['environment_path'])
         forward._write_once(env, rendered['environment'])
         configs[str(env)] = native.digest_file(env)
         unit = native.UNITS/(service+'.container')
         forward._write_once(unit, rendered['unit'])
         units[service] = native.digest_file(unit)
-        system.database_command(manifest, service, Path(migration.DATABASES[service]))
-        system.database_command(manifest, service, Path(migration.DATABASES[service]), check=True)
+        system.database_command(previous, service, Path(migration.DATABASES[service]))
+    v23_roots = {}
+    if historical:
+        baseline_dir = state/'v23-fixture'
+        baseline_dir.mkdir(mode=0o700)
+        for service in oci.SERVICES:
+            v23_roots[service] = baseline_dir/service
+            migration.copy_database(Path(migration.DATABASES[service]), v23_roots[service], service)
+    for service in oci.SERVICES:
+        if historical:
+            system.database_command(running, service, Path(migration.DATABASES[service]))
+        system.database_command(running, service, Path(migration.DATABASES[service]), check=True)
     request = {'host_machine_sha256': hashlib.sha256(Path('/etc/machine-id').read_bytes()).hexdigest(),
                'databases': migration.DATABASES, 'socket_directory': migration.SOCKET,
                'configuration_files': configs, 'peer_policy': 'direct_peer', 'units': units,
@@ -86,6 +111,12 @@ def run(root, args):
                'mounts': {s: [{'source': migration.DATABASES[s], 'destination': '/database', 'read_only': False},
                               {'source': migration.SOCKET, 'destination': '/identity', 'read_only': s == 'cantos-server'}]
                           for s in oci.SERVICES}}
+    return system, request, previous, running, manifest, v23_roots, fixture_marker
+
+
+def run(root, args):
+    global PHASE
+    system, request, _, manifest, _, _, _ = setup(root, args)
     PHASE = 'SYSTEMD_START'
     system.start(request, manifest)
     PHASE = 'OBSERVE_PAIR'
