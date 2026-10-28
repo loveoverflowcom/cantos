@@ -100,14 +100,16 @@ jobs:
             --output artifacts/release-qualification/exact-pair
       - name: Rehearse historical v24 to v27 and cold pair recovery
         env:
-          MANIFEST: ${{ steps.candidate.outputs.manifest }}
-          MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
+          # Bind the rehearsal to the qualified manifest that an operator can admit,
+          # not the pre-qualification candidate with different evidence bytes.
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          MANIFEST_DIGEST=$(sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
@@ -119,14 +121,14 @@ jobs:
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v27"
       - name: Rehearse second pinned v24 pair to v27 and cold pair recovery
         env:
-          MANIFEST: ${{ steps.candidate.outputs.manifest }}
-          MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          MANIFEST_DIGEST=$(sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24-8862.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
