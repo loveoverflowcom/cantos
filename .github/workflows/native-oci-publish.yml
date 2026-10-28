@@ -109,7 +109,7 @@ jobs:
           # Bind the rehearsal to the qualified manifest that an operator can admit,
           # not the pre-qualification candidate with different evidence bytes.
           MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
-          MANIFEST_DIGEST=$(sha256sum "$MANIFEST" | cut -d' ' -f1)
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
@@ -128,7 +128,7 @@ jobs:
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
           MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
-          MANIFEST_DIGEST=$(sha256sum "$MANIFEST" | cut -d' ' -f1)
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24-8862.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
             release native-rehearse \
