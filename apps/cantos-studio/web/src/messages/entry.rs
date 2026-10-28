@@ -16,11 +16,12 @@ pub enum Key {
     SignInUnavailableHelp,
     Retained,
     RetainedHelp,
+    SessionRefused,
+    SessionRefusedHelp,
     Dashboard,
     Import,
     Back,
     Cancel,
-    Retry,
     Session,
     CloseAccount,
     MemoryHelp,
@@ -35,6 +36,7 @@ pub fn title(entry: Entry) -> Key {
         Entry::Unavailable => Key::Unavailable,
         Entry::SignInUnavailable => Key::SignInUnavailable,
         Entry::RetainedOwner => Key::Retained,
+        Entry::SessionRefused => Key::SessionRefused,
         Entry::Login => Key::LoginTitle,
         Entry::Workspace => Key::Dashboard,
     }
@@ -49,6 +51,7 @@ pub fn help(entry: Entry) -> Option<Key> {
         Entry::Unavailable => Some(Key::UnavailableHelp),
         Entry::SignInUnavailable => Some(Key::SignInUnavailableHelp),
         Entry::RetainedOwner => Some(Key::RetainedHelp),
+        Entry::SessionRefused => Some(Key::SessionRefusedHelp),
         Entry::Workspace => Some(Key::WelcomeHelp),
     }
 }
@@ -72,11 +75,12 @@ pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
         Key::UnavailableHelp => resources::text(resources::Key::UnavailableHelp, locale),
         Key::Retained => resources::text(resources::Key::Retained, locale),
         Key::RetainedHelp => resources::text(resources::Key::RetainedHelp, locale),
+        Key::SessionRefused => resources::text(resources::Key::SessionRefused, locale),
+        Key::SessionRefusedHelp => resources::text(resources::Key::SessionRefusedHelp, locale),
         Key::Dashboard => resources::text(resources::Key::Dashboard, locale),
         Key::Import => resources::text(resources::Key::Import, locale),
         Key::Back => resources::text(resources::Key::Back, locale),
         Key::Cancel => resources::text(resources::Key::Cancel, locale),
-        Key::Retry => resources::text(resources::Key::Retry, locale),
         Key::Session => resources::text(resources::Key::Session, locale),
         Key::CloseAccount => resources::text(resources::Key::CloseAccount, locale),
     }
@@ -94,12 +98,29 @@ mod tests {
     }
 
     #[test]
+    fn the_entry_has_no_retry_action_and_keeps_its_other_recovery_paths() {
+        // #565 AC-07: a state-less "Try again" beside the sign-in form is redundant. The form
+        // itself, the guarded observation on page restore and reload stay the recovery; the
+        // editor's own revision retry is a different action and is not touched.
+        let view = include_str!("../view.rs");
+        assert!(!view.contains("session-refresh"));
+        assert!(!view.contains("EntryKey::Retry"));
+        assert!(view.contains("id=\"session-logout\""));
+        assert!(view.contains("SignInPanel"));
+        assert!(
+            !include_str!("../../../../../packages/localization/catalog/v1/catalog.json")
+                .contains("\"studio.entry.retry\"")
+        );
+    }
+
+    #[test]
     fn real_states_keep_their_help_in_both_locales() {
         for entry in [
             Entry::Denied,
             Entry::Unavailable,
             Entry::SignInUnavailable,
             Entry::RetainedOwner,
+            Entry::SessionRefused,
             Entry::Workspace,
         ] {
             let key = help(entry).expect("a real entry state keeps its supporting copy");

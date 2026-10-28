@@ -19,7 +19,7 @@ use crate::{
         Locale,
     },
     production::ProductionInputs,
-    session::{admits, AuthIntent, SessionState, SessionTicket},
+    session::{admits, AuthIntent, Recovery, SessionState, SessionTicket},
     signin::{sign_in_failure, SignInForm},
     signin_form::SignInPanel,
 };
@@ -361,12 +361,31 @@ pub fn Studio() -> impl IntoView {
             .try_with_untracked(SessionState::pending)
             .unwrap_or(true)
         {
-            let _ = session.try_update(|s| *s = s.invalidated());
+            let Some((next, recovery)) = session.try_with_untracked(SessionState::denied) else {
+                return;
+            };
+            let _ = session.try_set(next.clone());
             let _ = state.try_update(|e| *e = e.session_failed(&error));
-            observe_session(state, session, bootstrap_api, unsaved);
+            match recovery {
+                Recovery::Observe => observe_session(state, session, bootstrap_api, unsaved),
+                // The API keeps confirming a session its protected routes deny: no further
+                // request. Disown the fence so late answers of this presentation stay silent.
+                Recovery::Hold => StudioHttp::accept_fence(None, next.epoch()),
+            }
         }
     });
-    let api = bootstrap_api.with_denial(on_denial);
+    // A protected answer proves the confirmed session works and restores its re-read budget.
+    let on_admitted = Callback::new(move |()| {
+        if session
+            .try_with_untracked(SessionState::needs_proof)
+            .unwrap_or(false)
+        {
+            let _ = session.try_update(SessionState::prove);
+        }
+    });
+    let api = bootstrap_api
+        .with_denial(on_denial)
+        .with_admitted(on_admitted);
     let credential_loss = leptos::leptos_dom::helpers::window_event_listener_untyped(
         cantos_web_auth::browser::invalidation_event(cantos_web_auth::Surface::Studio),
         move |_| {
@@ -571,6 +590,7 @@ pub fn Studio() -> impl IntoView {
             || inspector_pending.get()
             || import_activity.get()
     });
+    // The signed-in account menu keeps its explicit session check; the sign-in entry has none.
     let refresh = Callback::new(move |_| {
         if !auth_blocked.get_untracked() {
             observe_session(state, session, api, unsaved);
@@ -803,13 +823,8 @@ pub fn Studio() -> impl IntoView {
                     <SignInPanel id="session" form=entry_form locale=locale blocked=auth_blocked on_submit=submit_entry/>
                 </Show>
                 <p class="help" hidden=move || !unsaved.get()>{move || entry_text(EntryKey::MemoryHelp,locale.get())}</p>
-                <div class="entry-recovery">
-                    <div hidden=move ||entry_state.get()==Entry::Login && !unsaved.get()>
-                    <ActionButton id="session-refresh" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=refresh>{move ||entry_text(EntryKey::Retry,locale.get())}</ActionButton>
-                    </div>
-                    <div hidden=move ||authenticated_actor.get().is_none()>
-                        <ActionButton id="session-logout" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=logout>{move ||text(Key::SessionLogout,locale.get())}</ActionButton>
-                    </div>
+                <div class="entry-recovery" hidden=move ||authenticated_actor.get().is_none()>
+                    <ActionButton id="session-logout" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=logout>{move ||text(Key::SessionLogout,locale.get())}</ActionButton>
                 </div>
                 </div>
                 <p class="help" hidden=move || !unsaved.get()>{move ||text(Key::SessionRetained,locale.get())}</p>

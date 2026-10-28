@@ -93,6 +93,12 @@ that header with another session's id gets `409` (see [Account switch](#account-
   verifier cannot be handed one and the reverse. A value of the wrong surface or kind, a duplicate
   cookie, the other spelling (`Secure`/plain) of the cookie name, or cookie **and** `Authorization`
   together is refused with `401`; the server never falls back from one to the other.
+* A retired Studio development-token cookie (`cantos_session`, `__Secure-cantos_studio`) beside a
+  Studio Identity cookie is such a mixed request. The Studio session read and every Studio
+  resource route refuse it identically (`401`; the session read never confirms what a route will
+  deny), and each refusal, like a successful Studio login, answers with `Set-Cookie` deletions of
+  the development cookie at `/api/v1/studio` and `/api/v1`. A deletion grants no authority; a
+  development cookie alone is never cleared by these routes (#566).
 
 ## CSRF, Origin and route admission
 

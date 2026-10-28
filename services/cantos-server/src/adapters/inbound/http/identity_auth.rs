@@ -437,7 +437,13 @@ async fn login_web(
         authenticated_at,
     ))
     .into_response();
-    stamped(with_cookie(response, &cookie), surface, &session_id)
+    let response = stamped(with_cookie(response, &cookie), surface, &session_id);
+    // The Identity cookie supersedes a retired Studio development cookie: retire it here so the
+    // next request does not carry both and get refused as ambiguous (#566).
+    match surface {
+        Surface::Studio => super::studio::admission::retire_dev_cookies(response, &headers),
+        Surface::Theatre => response,
+    }
 }
 
 async fn session_web(
@@ -458,6 +464,12 @@ async fn session_web(
         Ok(None) => return unauthenticated(),
         Err(e) => return e.into_response(),
     };
+    // Resource admission refuses an Identity cookie beside the retired development cookie, so the
+    // session read must not confirm what every protected route will deny (#566).
+    if surface == Surface::Studio && super::studio::admission::retired_dev_cookie_present(&headers)
+    {
+        return super::studio::admission::retire_dev_cookies(unauthenticated(), &headers);
+    }
     match service.authenticate(&state.store, &token, channel).await {
         Ok(record) => stamped(
             Json(view(

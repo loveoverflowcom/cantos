@@ -10,6 +10,8 @@ pub enum Entry {
     /// 404: Studio sign-in is not configured on the API. There is no fallback sign-in.
     SignInUnavailable,
     RetainedOwner,
+    /// The API confirmed a session but its protected routes keep denying it: sign in again.
+    SessionRefused,
     Workspace,
 }
 
@@ -20,6 +22,8 @@ pub fn presentation(session: &SessionState, owner: &str, status: Status) -> Entr
         Entry::Workspace
     } else if session.actor().is_some() {
         Entry::RetainedOwner
+    } else if session.held() {
+        Entry::SessionRefused
     } else {
         match status {
             Status::Forbidden => Entry::Denied,
@@ -55,6 +59,24 @@ mod tests {
         assert_eq!(
             presentation(&confirmed, "alice", Status::SignedIn),
             Entry::Workspace
+        );
+    }
+
+    #[test]
+    fn a_held_session_shows_its_own_entry_and_never_projects_the_workspace() {
+        let (checking, ticket) = SessionState::default().begin().unwrap();
+        let (hidden, _) = checking.settled(ticket, Some("alice".into())).denied();
+        let (checking, ticket) = hidden.begin().unwrap();
+        let (held, _) = checking.settled(ticket, Some("alice".into())).denied();
+        // Whatever the editor's status, the refusal is explained rather than a silent login.
+        for status in [Status::Unauthenticated, Status::Dirty, Status::Unavailable] {
+            assert_eq!(presentation(&held, "alice", status), Entry::SessionRefused);
+        }
+        // Reading the session again leaves the held entry; the budget is not refunded.
+        let (checking, _) = held.begin().unwrap();
+        assert_eq!(
+            presentation(&checking, "alice", Status::Unauthenticated),
+            Entry::Checking
         );
     }
 

@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "a58607bb80fbb0ed16c901f7b5d3bf91672b23d90b4a8c653e8903df7e9d942d",
+  "catalogSha256": "3923a1ec65ce6f4ed94ff62afc7db6280dd1dd088b956d32c4725288354bd5bf",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -512,8 +512,9 @@
     "studio.entry.reauthenticate": {},
     "studio.entry.retained": {},
     "studio.entry.retained_help": {},
-    "studio.entry.retry": {},
     "studio.entry.session": {},
+    "studio.entry.session_refused": {},
+    "studio.entry.session_refused_help": {},
     "studio.entry.sign_in_unavailable": {},
     "studio.entry.sign_in_unavailable_help": {},
     "studio.entry.unavailable": {},

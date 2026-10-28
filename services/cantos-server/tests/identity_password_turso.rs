@@ -891,6 +891,116 @@ async fn studio_login_needs_the_server_roster_and_a_theatre_session_never_enters
     );
 }
 
+/// #566: a browser still holding the retired development-token cookie beside a valid Studio
+/// Identity cookie is one ambiguous request. The session read and every protected route refuse it
+/// the same way (never "session 200, resource 401"), and each refusal retires the stale cookie so
+/// the next request carries only the Identity credential. Clearing grants no authority.
+#[tokio::test]
+async fn a_retired_development_cookie_beside_the_studio_identity_cookie_is_refused_and_cleared() {
+    let mut w = World::start(STUDIO_ORIGIN).await;
+    w.signup(OWNER, PASSWORD).await;
+    let theatre = w.login_web("theatre", OWNER, PASSWORD).await;
+    let subject = w
+        .subject_of(theatre.json["session_id"].as_str().unwrap())
+        .await;
+    w.restart_server(&[subject]);
+    let head = format!("{STUDIO}/scripts/00000000-0000-4000-8000-000000000001/head");
+    let session = format!("{STUDIO}/identity/session");
+    let is_clearing = |raw: &str, name: &str, path: &str| {
+        raw.starts_with(&format!("{name}=;"))
+            && raw.contains(&format!("Path={path}"))
+            && raw.contains("Max-Age=0")
+    };
+    let retired = |reply: &Reply| {
+        let raw = reply.set_cookies();
+        assert_eq!(raw.len(), 4, "{raw:?}");
+        for (name, path) in [
+            ("cantos_session", "/api/v1/studio"),
+            ("cantos_session", "/api/v1"),
+            ("__Secure-cantos_studio", "/api/v1/studio"),
+            ("__Secure-cantos_studio", "/api/v1"),
+        ] {
+            assert!(
+                raw.iter().any(|value| is_clearing(value, name, path)),
+                "{name} {path}: {raw:?}"
+            );
+        }
+    };
+
+    // Signing in beside a stale development cookie issues the Identity cookie and retires the old.
+    let stale = cookie_header("cantos_session", "ci1_s_stale");
+    let login = w
+        .app
+        .post(
+            &format!("{STUDIO}/identity/login"),
+            &[("origin", STUDIO_ORIGIN), ("cookie", &stale)],
+            json!({"email": OWNER, "password": PASSWORD}),
+        )
+        .await;
+    assert_eq!(login.status, StatusCode::OK, "{:?}", login.json);
+    let cookies = login.set_cookies();
+    assert!(cookies[0].starts_with(&format!("{STUDIO_COOKIE}=ci1_s_")));
+    assert!(cookies
+        .iter()
+        .any(|raw| is_clearing(raw, "cantos_session", "/api/v1/studio")));
+    assert!(cookies
+        .iter()
+        .any(|raw| is_clearing(raw, "cantos_session", "/api/v1")));
+    let secret = cookies[0]
+        .split(';')
+        .next()
+        .and_then(|pair| pair.split_once('='))
+        .unwrap()
+        .1
+        .to_owned();
+    let identity = cookie_header(STUDIO_COOKIE, &secret);
+    let mixed = format!("{identity}; cantos_session=stale-development-token");
+    let mixed_secure = format!("{identity}; __Secure-cantos_studio=stale-development-token");
+
+    // The single valid Identity cookie keeps working and clears nothing.
+    let single = w.app.get(&session, &[("cookie", &identity)]).await;
+    assert_eq!(single.status, StatusCode::OK, "{:?}", single.json);
+    assert!(single.set_cookies().is_empty());
+    let admitted = w.app.get(&head, &[("cookie", &identity)]).await;
+    assert_eq!(
+        admitted.status,
+        StatusCode::NOT_FOUND,
+        "{:?}",
+        admitted.json
+    );
+    assert!(admitted.set_cookies().is_empty());
+
+    // Mixed: the session read and the data plane agree, and both retire the stale cookie.
+    for cookie in [&mixed, &mixed_secure] {
+        let read = w.app.get(&session, &[("cookie", cookie)]).await;
+        assert_eq!(read.status, StatusCode::UNAUTHORIZED, "{:?}", read.json);
+        retired(&read);
+        let resource = w.app.get(&head, &[("cookie", cookie)]).await;
+        assert_eq!(resource.status, StatusCode::UNAUTHORIZED);
+        retired(&resource);
+    }
+
+    // A development cookie alone is not ours to clear, and a foreign-surface cookie never joins in.
+    let alone = w
+        .app
+        .get(
+            &session,
+            &[("cookie", "cantos_session=stale-development-token")],
+        )
+        .await;
+    assert_eq!(alone.status, StatusCode::UNAUTHORIZED);
+    assert!(alone.set_cookies().is_empty());
+    let theatre_cookie = cookie_header(THEATRE_COOKIE, &theatre.cookie().1);
+    let foreign = w
+        .app
+        .get(
+            &session,
+            &[("cookie", &format!("{identity}; {theatre_cookie}"))],
+        )
+        .await;
+    assert_eq!(foreign.status, StatusCode::OK, "{:?}", foreign.json);
+}
+
 // ---- expiry, renewal, outage and security changes --------------------------------------------------
 
 #[tokio::test]
