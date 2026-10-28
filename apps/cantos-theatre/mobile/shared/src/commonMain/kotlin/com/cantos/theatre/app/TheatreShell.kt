@@ -41,6 +41,7 @@ import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -239,6 +240,11 @@ class TheatreShell(
             ShellEvent.LoadMore -> loadMore()
             ShellEvent.Refresh -> refresh()
             is ShellEvent.SetTheme -> preferences.setTheme(if (event.theme == ShellTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light)
+            is ShellEvent.SetThemeMode -> preferences.setTheme(when (event.mode) {
+                ShellThemeMode.Light -> PreferenceTheme.Light
+                ShellThemeMode.Dark -> PreferenceTheme.Dark
+                ShellThemeMode.System -> PreferenceTheme.System
+            })
             is ShellEvent.SetLocale -> preferences.setLocale(event.locale.toPreferenceLocale())
             is ShellEvent.SetSpeed -> runtime.listening.playback.dispatch(PlaybackEvent.SpeedRequested(event.percent * 10))
             is ShellEvent.SetTimer -> setTimer(event.timer)

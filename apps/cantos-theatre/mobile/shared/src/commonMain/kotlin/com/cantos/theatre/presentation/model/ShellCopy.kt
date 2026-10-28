@@ -21,6 +21,21 @@ class ShellCopy(private val locale: ShellLocale, private val live: Boolean = fal
     fun text(key: LegacyCopyKey, vararg parameters: Pair<String, String>): String =
         legacy.text(key, *parameters)
 
+    fun themeName(theme: ShellThemeMode): String = text(when (theme) {
+        ShellThemeMode.Light -> CopyKey.Light
+        ShellThemeMode.Dark -> CopyKey.Dark
+        ShellThemeMode.System -> CopyKey.System
+    })
+
+    fun themeAction(theme: ShellThemeMode): String = text(ShellMessage.ThemeCycle(
+        mode = themeName(theme),
+        next = text(when (theme) {
+            ShellThemeMode.Dark -> CopyKey.SwitchToLight
+            ShellThemeMode.Light -> CopyKey.SwitchToSystem
+            ShellThemeMode.System -> CopyKey.SwitchToDark
+        }),
+    ))
+
     fun speed(percent: Int): String = legacy.speed(percent)
 
     fun spokenTime(seconds: Int): String {

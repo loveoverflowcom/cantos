@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "7bea65282862480eeba1922682fe1551b6008d2ff25285843050b8a9174eedac",
+  "catalogSha256": "7f520e244de6f64de00ea5efb208a606da5fa149ad3e1693659189ab91917752",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1690,10 +1690,16 @@
     "theatre.cmp_shell.start_episode": {},
     "theatre.cmp_shell.switch_to_dark": {},
     "theatre.cmp_shell.switch_to_light": {},
+    "theatre.cmp_shell.switch_to_system": {},
     "theatre.cmp_shell.sync_confirmed": {},
     "theatre.cmp_shell.sync_failed": {},
     "theatre.cmp_shell.sync_pending": {},
+    "theatre.cmp_shell.system": {},
     "theatre.cmp_shell.theme": {},
+    "theatre.cmp_shell.theme_cycle": {
+      "mode": "text",
+      "next": "text"
+    },
     "theatre.cmp_shell.timer": {},
     "theatre.cmp_shell.timer15": {},
     "theatre.cmp_shell.timer30": {},

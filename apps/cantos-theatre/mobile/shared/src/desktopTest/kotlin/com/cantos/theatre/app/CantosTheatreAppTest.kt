@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
@@ -12,6 +15,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -25,6 +29,8 @@ import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.preferences.PreferencesController
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples
@@ -122,6 +128,44 @@ class CantosTheatreAppTest {
         val unit = PublicCatalogSamples.unit(1, title = "Chương 1: Người dẫn chuyện trở về", durationMs = 125_000)
         return listOf(work) to mapOf(work to listOf(unit))
     }
+
+    @Test
+    fun header_and_settings_keep_system_selected_while_the_host_appearance_changes() =
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            lateinit var fixture: Fixture
+            var hostDark by mutableStateOf(false)
+            var renderedDark = false
+            setContent {
+                val scope = rememberCoroutineScope()
+                val owner = remember { val (works, units) = single(); Fixture(scope, works, units).also { fixture = it } }
+                DisposableEffect(owner) { onDispose { owner.close() } }
+                CantosTheatreApp(owner.shell, systemIsDark = hostDark, onThemeChanged = { renderedDark = it })
+            }
+            onNodeWithTag("theme-toggle").performClick() // Light → System
+            waitForIdle()
+            assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
+            assertEquals(false, renderedDark)
+            runOnIdle { hostDark = true }
+            waitForIdle()
+            assertEquals(true, renderedDark)
+            assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
+            onNodeWithText("C", substring = false).assertDoesNotExist()
+
+            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Settings)) }
+            onNodeWithTag("setting-Theme").performClick()
+            onNodeWithTag("theme-System").assertIsSelected()
+            onNodeWithTag("theme-Dark").performClick()
+            waitForIdle()
+            assertEquals(PreferenceTheme.Dark, fixture.preferences.state.value.theme)
+            runOnIdle { hostDark = false }
+            waitForIdle()
+            assertEquals(true, renderedDark, "an explicit choice ignores later host changes")
+            onNodeWithTag("setting-Language").performClick()
+            onNodeWithTag("locale-English").performClick()
+            waitForIdle()
+            assertEquals(PreferenceLocale.English, fixture.preferences.state.value.locale)
+            assertEquals(PreferenceTheme.Dark, fixture.preferences.state.value.theme)
+        }
 
     @Test
     fun the_known_experience_plays_real_catalog_audio_through_one_player_owner_across_navigation() {

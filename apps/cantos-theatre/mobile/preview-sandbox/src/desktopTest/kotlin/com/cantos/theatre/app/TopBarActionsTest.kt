@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
@@ -17,6 +19,7 @@ import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellWorkId
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -55,7 +58,7 @@ class TopBarActionsTest {
             onNodeWithTag("account").assertHasClickAction().assertContentDescriptionEquals("Tài khoản").performClick()
             onNodeWithTag("theme-toggle").assertHasClickAction().performClick()
             assertEquals(
-                listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Account), ShellEvent.SetTheme(ShellTheme.Light)),
+                listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Account), ShellEvent.SetThemeMode(ShellThemeMode.Light)),
                 events.toList(),
             )
         }
@@ -84,5 +87,28 @@ class TopBarActionsTest {
             val themeBox = onNodeWithTag("theme-toggle").fetchSemanticsNode().boundsInRoot
             val account = onNodeWithTag("account").fetchSemanticsNode().boundsInRoot
             assertTrue(themeBox.right <= account.left || themeBox.bottom <= account.top)
+        }
+
+    @Test
+    fun the_header_cycles_the_selected_mode_and_settings_retains_all_registry_locales() =
+        runDesktopComposeUiTest(width = 320, height = 568) {
+            val events = mutableListOf<ShellEvent>()
+            setContent {
+                CantosPresentation(
+                    state(ShellTheme.Dark, ShellRoute.Discovery, ShellRoute.Settings),
+                    ShellCatalogView(),
+                    events::add,
+                    themeMode = ShellThemeMode.System,
+                )
+            }
+            onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Hệ thống · Chuyển sang giao diện tối").performClick()
+            assertEquals(listOf<ShellEvent>(ShellEvent.SetThemeMode(ShellThemeMode.Dark)), events)
+            onNodeWithTag("setting-Theme").performClick()
+            onNodeWithTag("theme-System").assertIsSelected()
+            onNodeWithTag("preference-close").performClick()
+            onNodeWithTag("setting-Language").performClick()
+            onNodeWithTag("locale-Vietnamese").assertIsSelected()
+            onNodeWithTag("locale-English").assertIsDisplayed()
+            onNodeWithText("C", substring = false).assertDoesNotExist()
         }
 }

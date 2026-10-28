@@ -22,11 +22,16 @@ import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellState
-import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun SettingsScreen(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+internal fun SettingsScreen(
+    state: ShellState,
+    copy: ShellCopy,
+    dispatch: (ShellEvent) -> Unit,
+    themeMode: ShellThemeMode = state.theme.mode(),
+) {
     val diagnostics = LocalShellDiagnostics.current
     var panel by remember { mutableStateOf<PreferencePanel?>(null) }
     var restoreFocus by remember { mutableStateOf<PreferencePanel?>(null) }
@@ -43,7 +48,7 @@ internal fun SettingsScreen(state: ShellState, copy: ShellCopy, dispatch: (Shell
     Column {
         PreferencePanel.entries.filter { it != PreferencePanel.Diagnostics || diagnostics != null }.forEach { choice ->
             val value = when (choice) {
-                PreferencePanel.Theme -> copy.text(if (state.theme == ShellTheme.Light) CopyKey.Light else CopyKey.Dark)
+                PreferencePanel.Theme -> copy.themeName(themeMode)
                 PreferencePanel.Language -> state.locale.autonym
                 PreferencePanel.Speed -> copy.speed(state.speedPercent)
                 PreferencePanel.Timer -> copy.text(timerKey(state.timer))
@@ -62,6 +67,6 @@ internal fun SettingsScreen(state: ShellState, copy: ShellCopy, dispatch: (Shell
         }
     }
     panel?.let { current ->
-        PreferenceDialog(current, state, copy, dispatch) { panel = null; restoreFocus = current }
+        PreferenceDialog(current, state, copy, dispatch, themeMode) { panel = null; restoreFocus = current }
     }
 }

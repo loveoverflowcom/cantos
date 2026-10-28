@@ -10,6 +10,14 @@ import kotlin.test.assertEquals
 
 class PreferencesControllerTest {
     @Test
+    fun system_mode_survives_locale_updates_without_becoming_an_explicit_appearance() {
+        val controller = PreferencesController()
+        assertEquals(PreferencesUpdate.Applied, controller.setTheme(PreferenceTheme.System))
+        assertEquals(PreferencesUpdate.Applied, controller.setLocale(PreferenceLocale.English))
+        assertEquals(PreferencesState(PreferenceTheme.System, PreferenceLocale.English), controller.state.value)
+    }
+
+    @Test
     fun preferences_have_a_pure_reducer_and_one_memory_authority() {
         val initial = PreferencesState()
         val dark = initial.copy(theme = PreferenceTheme.Dark)

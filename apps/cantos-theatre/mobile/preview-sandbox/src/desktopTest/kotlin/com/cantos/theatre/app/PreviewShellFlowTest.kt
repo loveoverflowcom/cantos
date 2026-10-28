@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -39,6 +40,7 @@ import com.cantos.theatre.app.PreviewTestRoot
 import com.cantos.theatre.app.previewState
 import com.cantos.theatre.app.seed
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.ports.LocalePreferenceRead
 import com.cantos.theatre.presentation.model.ShellCatalogMode
@@ -167,11 +169,15 @@ class PreviewShellFlowTest {
         onNodeWithTag("search").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         onNodeWithTag("search").performScrollTo().performClick()
         onNodeWithTag("search-input").performTextReplacement("Đèn")
-        onNodeWithContentDescription("Chuyển sang giao diện tối").performClick()
+        onNodeWithTag("theme-toggle").performClick()
+        waitForIdle()
+        assertEquals(PreferenceTheme.System, owners.shell.preferences.state.value.theme)
+        onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Hệ thống · Chuyển sang giao diện tối").performClick()
+        waitForIdle()
         assertEquals(ShellTheme.Dark, owners.projection().theme)
         assertEquals("Đèn", owners.projection().query)
         assertEquals(TheatreRoute.Search, owners.shell.navigation.value.route)
-        onNodeWithContentDescription("Chuyển sang giao diện sáng").assertExists()
+        onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Mực tím · Tối · Chuyển sang giao diện sáng")
     }
 
     @Test

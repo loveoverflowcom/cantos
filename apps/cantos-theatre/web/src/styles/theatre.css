@@ -154,6 +154,7 @@ body { margin: 0; }
   text-decoration: none;
 }
 .theatre-avatar svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
+.theatre-avatar[data-account="signed-in"] { background: var(--cantos-color-theatre-pink); color: var(--cantos-color-theatre-on-pink); }
 .theatre-avatar[data-size="large"] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
 .theatre-avatar[data-size="large"] svg { inline-size: calc(var(--cantos-size-icon) * 1.5); block-size: calc(var(--cantos-size-icon) * 1.5); }
 /* The current-page ring yields to the focus perimeter, so a focused current avatar shows one ring. */
@@ -507,21 +508,49 @@ body { margin: 0; }
 /* Discover (live): topbar, intro, hero and shelf share the container's one inline axis. */
 .theatre-live-app .theatre-main { padding-inline: 0; padding-block-start: 0; }
 .theatre-live-app .theatre-topbar { padding-inline: 0; padding-block: var(--cantos-space-md); }
-/* The locale field keeps a readable width; the context label yields first and the row wraps. */
-.theatre-live-app .theatre-locale-field { min-inline-size: 8rem; }
+.theatre-live-app > .theatre-header { grid-column: 2; grid-row: 1; min-inline-size: 0; }
+.theatre-live-app { grid-template-rows: min-content 1fr; }
+.theatre-live-app > .theatre-rail { grid-column: 1; grid-row: 1 / span 2; }
+.theatre-live-app > .theatre-content { grid-column: 2; grid-row: 2; }
+.theatre-mobile-brand, .theatre-mobile-language { display: none; }
+/* The code is presentation only: the select retains its full localized name and registry options. */
+.theatre-live-app .theatre-locale-field { min-inline-size: var(--cantos-size-control); }
+.theatre-live-app .theatre-locale-field.cui-select-field { grid-template-columns: minmax(0, 1fr); }
+.theatre-live-app .theatre-locale-field > .cui-field-label { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* Topbar utility role (Controls v3): a compact tonal pill with value and chevron centered as one group.
    App-local composition of canonical roles until the shared Theatre expression is admitted; the labelled
    form Select keeps its field radius, and the shared control still owns focus, hit target and popup. */
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-field-control {
   border-radius: var(--cantos-shape-pill);
-  background-color: var(--cantos-color-surface-container);
+  background-color: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
 }
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
-  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
-.theatre-live-app .theatre-locale-field.cui-select-field .cui-select-trigger { justify-content: center; }
+.theatre-live-app .theatre-locale-field.cui-select-field .cui-select-trigger { justify-content: center; padding-inline: var(--cantos-space-sm); }
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-select-value { flex: 0 1 auto; }
+.theatre-live-app .theatre-locale-field .cui-select-short { text-transform: capitalize; font-weight: var(--cantos-type-label-weight); }
 .theatre-topbar-context { flex: 1 1 6rem; margin: 0; font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
+/* Mobile keeps brand, theme and anonymous/real account on one row. Locale stays beside the
+   existing navigation, with the very same preference owner and a unique disclosure id. */
+@media (max-width: 43.75rem) {
+  .theatre-live-app:not([data-auth="true"]) { display: flex; flex-direction: column; padding-inline: var(--cantos-space-md); }
+  .theatre-live-app > .theatre-header { order: 0; }
+  .theatre-live-app > .theatre-content { order: 2; }
+  .theatre-live-app > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
+  .theatre-live-app .theatre-rail { order: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); padding: 0; margin-block-end: var(--cantos-space-md); }
+  .theatre-live-app .theatre-rail > .theatre-live-brand, .theatre-live-app .theatre-topbar-context { display: none; }
+  .theatre-live-app .theatre-nav { flex: 1 1 12rem; margin: 0; }
+  .theatre-live-app .theatre-nav-link { flex-basis: auto; }
+  .theatre-live-app .theatre-topbar { order: 0; gap: var(--cantos-space-sm); }
+  .theatre-live-app .theatre-topbar-actions { gap: var(--cantos-space-sm); }
+  .theatre-live-app .theatre-topbar-actions > .theatre-locale-field { display: none; }
+  .theatre-live-app .theatre-mobile-brand { display: block; flex: 1 1 8rem; min-inline-size: 0; }
+  .theatre-live-app .theatre-mobile-brand .theatre-live-brand { padding: 0; flex-wrap: wrap; }
+  .theatre-live-app .theatre-mobile-language { display: block; margin-inline-start: auto; }
+  .theatre-live-app .theatre-main { order: 2; min-inline-size: 0; }
+}
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
 .theatre-discover-intro-copy { flex: 1 1 24rem; min-inline-size: 0; }
@@ -598,8 +627,9 @@ body { margin: 0; }
   .theatre-locale-field > .cui-field-label { position: absolute; clip-path: inset(50%); inline-size: 1px; block-size: 1px; overflow: hidden; }
 }
 
-.theatre-live-app[data-auth="true"] { grid-template-columns: minmax(0, 1fr); }
-.theatre-live-app[data-auth="true"] :is(.theatre-rail, .theatre-topbar) { display: none; }
+.theatre-live-app[data-auth="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.theatre-live-app[data-auth="true"] :is(.theatre-rail, .theatre-header) { display: none; }
+.theatre-live-app[data-auth="true"] > .theatre-content { grid-column: 1; grid-row: 1; }
 .theatre-live-app[data-auth="true"] .theatre-main { padding-block-start: var(--cantos-space-xl); }
 .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
 .theatre-auth-preview { margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }

@@ -33,6 +33,7 @@ import com.cantos.theatre.presentation.model.ShellProgress
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import kotlin.test.assertEquals
@@ -57,7 +58,7 @@ class ShellLayoutTest {
             onNodeWithTag("preference-dialog").assertIsDisplayed()
             onNodeWithTag("theme-Light").assertIsFocused()
             onNodeWithTag("theme-Dark").performClick()
-            assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetTheme(ShellTheme.Dark)), events)
+            assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetThemeMode(ShellThemeMode.Dark)), events)
             onNodeWithTag("preference-dialog").assertDoesNotExist()
             onNodeWithTag("setting-Theme").assertIsFocused().performClick()
             onNodeWithTag("theme-Light").performKeyInput { pressKey(Key.Escape) }

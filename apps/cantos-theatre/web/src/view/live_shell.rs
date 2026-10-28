@@ -978,20 +978,29 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
             <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
+                <div class="theatre-header">
+                    <super::LiveContainer>
+                    <header class="theatre-topbar">
+                        <div class="theatre-mobile-brand"><LiveBrand/></div>
+                        // On narrow screens the brand shares the header with the two account tools.
+                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
+                        <LiveTopbarActions state=state.read_only() locale theme route=nav.route on_locale on_logout/>
+                    </header>
+                    </super::LiveContainer>
+                </div>
                 <aside class="theatre-rail">
                     <LiveBrand/>
                     <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
                         <a class="theatre-nav-link" href="#discover" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span>{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
                         <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
                     </nav>
+                    <div class="theatre-mobile-language">
+                        <TopbarLocale id="theatre-mobile-locale" locale on_locale/>
+                    </div>
                 </aside>
                 <div class="theatre-content">
                     <super::LiveContainer>
-                    <header class="theatre-topbar">
-                        // The rail owns the wordmark; the topbar says where the listener is.
-                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
-                        <LiveTopbarActions state=state.read_only() locale theme route=nav.route on_locale on_logout/>
-                    </header>
+
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
                             {move || if !configuration_valid {
@@ -1055,6 +1064,23 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     }
 }
 
+#[component]
+fn TopbarLocale(
+    id: &'static str,
+    locale: RwSignal<Locale>,
+    on_locale: Callback<String>,
+) -> impl IntoView {
+    view! {
+        <Select id class="theatre-locale-field"
+            density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+            label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+            value=Signal::derive(move || locale.get().lang().to_owned())
+            short_label=Callback::new(|tag: String| tag.split('-').next().map(str::to_owned))
+            options=crate::localization::locale_options()
+            on_input=on_locale/>
+    }
+}
+
 /// The header's utility row, in one fixed order: Locale, Theme, Avatar. `theme` is the same signal
 /// Account and Settings consume, so the three controls never hold separate mode state.
 #[component]
@@ -1068,15 +1094,11 @@ fn LiveTopbarActions(
 ) -> impl IntoView {
     view! {
         <div class="theatre-topbar-actions">
-            <Select id="theatre-live-locale" class="theatre-locale-field"
-                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-                value=Signal::derive(move || locale.get().lang().to_owned())
-                options=crate::localization::locale_options()
-                on_input=on_locale/>
+            <TopbarLocale id="theatre-live-locale" locale on_locale/>
             <ThemeCycleButton
                 id="theatre-topbar-theme"
                 theme=theme
+                variant=ButtonVariant::Tonal
                 labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))
             />
             <crate::features::account_menu::AccountEntry state locale route on_logout/>
@@ -1150,6 +1172,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn compact_locale_keeps_every_registry_autonym_and_canonical_value() {
+        Owner::new().with(|| {
+            for selected in Locale::supported() {
+                let locale = RwSignal::new(selected);
+                let html = view! {
+                    <TopbarLocale id="locale-probe" locale on_locale=Callback::new(|_: String| ()) />
+                }.to_html();
+                let short = selected.lang().split('-').next().unwrap();
+                assert!(html.contains(&format!(">{short}</span>")), "{html}");
+                assert!(html.contains(selected.autonym()), "{html}");
+                assert!(html.contains(&format!("lang=\"{}\"", selected.lang())), "{html}");
+                assert!(!html.contains("cui-select-leading"), "no invented language icon: {html}");
+            }
+        });
+    }
+
+    #[test]
     fn live_brand_has_one_named_link_with_original_decorative_symbols_and_wordmark() {
         Owner::new().with(|| {
             let html = view! { <LiveBrand/> }.to_html();
@@ -1179,7 +1218,7 @@ mod tests {
         let scope = ".theatre-live-app .theatre-locale-field.cui-select-field";
         let control = rule(&format!("{scope} .cui-field-control"));
         assert!(control.contains("border-radius: var(--cantos-shape-pill)"));
-        assert!(control.contains("background-color: var(--cantos-color-surface-container)"));
+        assert!(control.contains("background-color: var(--cantos-color-surface-container-high)"));
         assert!(!control.contains('#') && !control.contains("rgb"));
         assert!(rule(&format!("{scope} .cui-select-trigger")).contains("justify-content: center"));
         // The pill is scoped to the topbar locale field; no unscoped field or select override exists.
