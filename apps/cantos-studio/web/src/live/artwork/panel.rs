@@ -50,6 +50,7 @@ pub fn ArtworkPanel(
             })
     });
     let dispatch = Dispatch {
+        admit: None,
         state,
         session_pending,
         abort: StoredValue::new_local(None::<AbortController>),

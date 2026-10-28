@@ -24944,6 +24944,126 @@
           "text": "Order"
         }
       }
+    },
+    "studio.live.reason_work_archived": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm đã lưu trữ — không thể thêm chương / tập hay lưu thay đổi mới. Vẫn xem được nội dung và lịch sử."
+        },
+        "en": {
+          "text": "Work is archived — new chapters and changes cannot be saved. Content and history stay readable."
+        }
+      }
+    },
+    "studio.live.reason_unit_archived": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chương / tập đã lưu trữ — không thể lưu bản mới. Vẫn xem được nội dung và lịch sử."
+        },
+        "en": {
+          "text": "Chapter / episode is archived — new revisions cannot be saved. Content and history stay readable."
+        }
+      }
+    },
+    "studio.live.done_create_work": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã tạo tác phẩm."
+        },
+        "en": {
+          "text": "Work created."
+        }
+      }
+    },
+    "studio.live.done_save_work": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu tiêu đề và mô tả tác phẩm."
+        },
+        "en": {
+          "text": "Work title and description saved."
+        }
+      }
+    },
+    "studio.live.done_archive_work": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu trữ tác phẩm."
+        },
+        "en": {
+          "text": "Work archived."
+        }
+      }
+    },
+    "studio.live.done_create_unit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã tạo chương / tập."
+        },
+        "en": {
+          "text": "Chapter / episode created."
+        }
+      }
+    },
+    "studio.live.done_save_unit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu tiêu đề và mô tả chương / tập."
+        },
+        "en": {
+          "text": "Chapter / episode title and description saved."
+        }
+      }
+    },
+    "studio.live.done_archive_unit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu trữ chương / tập."
+        },
+        "en": {
+          "text": "Chapter / episode archived."
+        }
+      }
+    },
+    "studio.live.done_reorder": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã cập nhật thứ tự chương / tập."
+        },
+        "en": {
+          "text": "Chapter / episode order updated."
+        }
+      }
+    },
+    "studio.live.done_save_content": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã lưu bản nội dung mới."
+        },
+        "en": {
+          "text": "New content revision saved."
+        }
+      }
     }
   }
 }

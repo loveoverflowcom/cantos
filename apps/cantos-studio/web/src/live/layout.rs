@@ -2,7 +2,7 @@
 //! the editor status line says. It reads facts the existing owners already hold, keeps no request,
 //! draft or session state and grants no capability; the Server remains the authority.
 use super::{Command, Phase};
-use crate::contract::{CatalogContentUnit, CatalogWork, ContentRevisionResponse};
+use crate::contract::ContentRevisionResponse;
 
 /// One task area of the selected Work or chapter / episode. Every area stays mounted so a hidden
 /// area keeps its drafts, focus targets and private fencing; only visibility changes.
@@ -147,13 +147,6 @@ pub fn saving_selected(pending: Option<&Command>, phase: Phase, unit: &str) -> b
         && matches!(pending, Some(Command::AppendContent { unit: target, .. }) if target == unit)
 }
 
-/// The same lifecycle predicate the Work and chapter controls already apply: any selected parent
-/// that is not a draft makes new mutations unavailable. Reads and history stay available.
-pub fn read_only_lifecycle(work: Option<&CatalogWork>, unit: Option<&CatalogContentUnit>) -> bool {
-    work.is_some_and(|work| work.lifecycle != "draft")
-        || unit.is_some_and(|unit| unit.lifecycle != "draft")
-}
-
 /// What the opened revision is, relative to the current head.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Viewing {
@@ -179,45 +172,8 @@ pub fn viewing(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::{ContentBody, ContentDetails, UnitDetailsDto, WorkDetailsDto};
+    use crate::contract::{ContentBody, ContentDetails};
 
-    fn work(lifecycle: &str) -> CatalogWork {
-        CatalogWork {
-            id: "work".into(),
-            kind: "story".into(),
-            owner_id: "owner".into(),
-            details: WorkDetailsDto {
-                title: "Ánh đèn cuối sân khấu".into(),
-                synopsis: String::new(),
-                language: "vi-VN".into(),
-                visibility: "private".into(),
-                rights_refs: vec![],
-            },
-            lifecycle: lifecycle.into(),
-            revision: 1,
-            created_at: 0,
-            updated_at: 0,
-        }
-    }
-    fn unit(lifecycle: &str) -> CatalogContentUnit {
-        CatalogContentUnit {
-            id: "unit".into(),
-            work_id: "work".into(),
-            kind: "chapter".into(),
-            details: UnitDetailsDto {
-                title: "Chương một".into(),
-                description: String::new(),
-                source: None,
-                script: None,
-                content_digest: None,
-            },
-            position: 0,
-            lifecycle: lifecycle.into(),
-            revision: 1,
-            created_at: 0,
-            updated_at: 0,
-        }
-    }
     fn revision(id: &str, unit_id: &str, revision: u64) -> ContentRevisionResponse {
         ContentRevisionResponse {
             id: id.into(),
@@ -417,27 +373,6 @@ mod tests {
         };
         assert!(!saving_selected(Some(&read), Phase::Pending, "unit"));
         assert!(!saving_selected(None, Phase::Pending, "unit"));
-    }
-
-    #[test]
-    fn any_non_draft_parent_is_read_only_and_nothing_selected_is_not() {
-        assert!(!read_only_lifecycle(None, None));
-        assert!(!read_only_lifecycle(
-            Some(&work("draft")),
-            Some(&unit("draft"))
-        ));
-        assert!(read_only_lifecycle(
-            Some(&work("archived")),
-            Some(&unit("draft"))
-        ));
-        assert!(read_only_lifecycle(
-            Some(&work("draft")),
-            Some(&unit("archived"))
-        ));
-        assert!(read_only_lifecycle(
-            Some(&work("draft")),
-            Some(&unit("unknown"))
-        ));
     }
 
     #[test]

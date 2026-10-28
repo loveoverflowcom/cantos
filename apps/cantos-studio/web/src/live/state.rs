@@ -36,8 +36,15 @@ enum Exchange {
         intent: Intent,
         attempt: Attempt,
     },
-    Ready(Reply),
-    Failed(ClientError),
+    /// A settled exchange keeps the command it answers, so feedback names its operation and target.
+    Ready {
+        command: Box<Command>,
+        reply: Box<Reply>,
+    },
+    Failed {
+        command: Option<Box<Command>>,
+        error: ClientError,
+    },
     Ambiguous {
         intent: Intent,
         error: ClientError,
@@ -63,15 +70,15 @@ impl RequestState {
         match self.exchange {
             Exchange::Idle => Phase::Idle,
             Exchange::Pending { .. } => Phase::Pending,
-            Exchange::Ready(_) => Phase::Ready,
-            Exchange::Failed(_) => Phase::Failed,
+            Exchange::Ready { .. } => Phase::Ready,
+            Exchange::Failed { .. } => Phase::Failed,
             Exchange::Ambiguous { .. } => Phase::Ambiguous,
         }
     }
     fn intent(&self) -> Option<&Intent> {
         match &self.exchange {
             Exchange::Pending { intent, .. } | Exchange::Ambiguous { intent, .. } => Some(intent),
-            Exchange::Idle | Exchange::Ready(_) | Exchange::Failed(_) => None,
+            Exchange::Idle | Exchange::Ready { .. } | Exchange::Failed { .. } => None,
         }
     }
     pub fn pending(&self) -> Option<&Command> {
@@ -79,24 +86,36 @@ impl RequestState {
     }
     pub fn result(&self) -> Option<&Reply> {
         match &self.exchange {
-            Exchange::Ready(reply) => Some(reply),
+            Exchange::Ready { reply, .. } => Some(&**reply),
             Exchange::Idle
             | Exchange::Pending { .. }
-            | Exchange::Failed(_)
+            | Exchange::Failed { .. }
             | Exchange::Ambiguous { .. } => None,
         }
     }
     pub fn error(&self) -> Option<&ClientError> {
         match &self.exchange {
-            Exchange::Failed(error) | Exchange::Ambiguous { error, .. } => Some(error),
-            Exchange::Idle | Exchange::Pending { .. } | Exchange::Ready(_) => None,
+            Exchange::Failed { error, .. } | Exchange::Ambiguous { error, .. } => Some(error),
+            Exchange::Idle | Exchange::Pending { .. } | Exchange::Ready { .. } => None,
         }
     }
     pub fn completion(&self) -> Option<Result<&Reply, &ClientError>> {
         match &self.exchange {
-            Exchange::Ready(reply) => Some(Ok(reply)),
-            Exchange::Failed(error) | Exchange::Ambiguous { error, .. } => Some(Err(error)),
+            Exchange::Ready { reply, .. } => Some(Ok(&**reply)),
+            Exchange::Failed { error, .. } | Exchange::Ambiguous { error, .. } => Some(Err(error)),
             Exchange::Idle | Exchange::Pending { .. } => None,
+        }
+    }
+    /// The original command this exchange is about: in flight, unresolved or settled. A rejected
+    /// local input has none. A receipt read still reports the intent it reconciles.
+    pub fn command(&self) -> Option<&Command> {
+        match &self.exchange {
+            Exchange::Pending { intent, .. } | Exchange::Ambiguous { intent, .. } => {
+                Some(&intent.command)
+            }
+            Exchange::Ready { command, .. } => Some(&**command),
+            Exchange::Failed { command, .. } => command.as_deref(),
+            Exchange::Idle => None,
         }
     }
     pub fn target(&self) -> &str {
@@ -110,7 +129,10 @@ impl RequestState {
             return self.clone();
         }
         Self {
-            exchange: Exchange::Failed(ClientError::InvalidInput),
+            exchange: Exchange::Failed {
+                command: None,
+                error: ClientError::InvalidInput,
+            },
             ..self.clone()
         }
     }
@@ -175,8 +197,8 @@ impl RequestState {
             }
             Exchange::Idle
             | Exchange::Pending { .. }
-            | Exchange::Ready(_)
-            | Exchange::Failed(_) => false,
+            | Exchange::Ready { .. }
+            | Exchange::Failed { .. } => false,
         }
     }
     pub fn retry(&self) -> Option<(Self, Ticket)> {
@@ -214,7 +236,10 @@ impl RequestState {
     /// A deferred UI effect belongs only to this settled request, never a later one.
     pub fn settled(&self, ticket: Ticket) -> bool {
         ticket.0 == self.generation
-            && matches!(self.exchange, Exchange::Ready(_) | Exchange::Failed(_))
+            && matches!(
+                self.exchange,
+                Exchange::Ready { .. } | Exchange::Failed { .. }
+            )
     }
     pub fn finish(&self, ticket: Ticket, result: Result<Reply, ClientError>) -> Self {
         if !self.accepts(ticket) {
@@ -237,7 +262,10 @@ impl RequestState {
             Ok(reply)
         });
         let exchange = match result {
-            Ok(reply) => Exchange::Ready(reply),
+            Ok(reply) => Exchange::Ready {
+                command: Box::new(intent.command.clone()),
+                reply: Box::new(reply),
+            },
             Err(error)
                 if intent.command.is_write()
                     && (*attempt != Attempt::Fresh || error.ambiguous()) =>
@@ -247,7 +275,10 @@ impl RequestState {
                     error,
                 }
             }
-            Err(error) => Exchange::Failed(error),
+            Err(error) => Exchange::Failed {
+                command: Some(Box::new(intent.command.clone())),
+                error,
+            },
         };
         Self {
             exchange,
@@ -258,14 +289,14 @@ impl RequestState {
     /// copy outlives its dismissal. Any other exchange is left unchanged.
     pub fn forget_result(&self) -> Option<Self> {
         match self.exchange {
-            Exchange::Ready(_) => Some(Self {
+            Exchange::Ready { .. } => Some(Self {
                 generation: self.generation.checked_add(1)?,
                 exchange: Exchange::Idle,
                 ..self.clone()
             }),
             Exchange::Idle
             | Exchange::Pending { .. }
-            | Exchange::Failed(_)
+            | Exchange::Failed { .. }
             | Exchange::Ambiguous { .. } => None,
         }
     }
@@ -281,8 +312,8 @@ impl RequestState {
             }),
             Exchange::Idle
             | Exchange::Pending { .. }
-            | Exchange::Ready(_)
-            | Exchange::Failed(_) => None,
+            | Exchange::Ready { .. }
+            | Exchange::Failed { .. } => None,
         }
     }
     pub fn cancel(&self) -> Option<Self> {
