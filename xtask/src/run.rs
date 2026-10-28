@@ -219,17 +219,59 @@ fn native_services(
     Ok(vec![identity, server])
 }
 
-fn trunk_service(workspace: &Workspace, app: App, profile: Profile) -> Service {
+/// The origin and Trunk port of a Web run. Theatre keeps its fixed origin. Studio may move to
+/// `http://127.0.0.1:<port>` when another process (often a system agent that `lsof` does not
+/// list) owns 8081; the Server then trusts that same origin, so the pair cannot disagree.
+fn web_listener(app: App, requested: Option<&str>) -> Result<(String, u16), Refusal> {
+    let default = app.web_origin();
+    let Some(requested) = requested else {
+        return Ok((default, app.web_port()));
+    };
+    if app != App::Studio {
+        return if requested == default {
+            Ok((default, app.web_port()))
+        } else {
+            Err(Refusal::Usage(format!(
+                "run {} --web requires --web-origin {default}, matching its Trunk server; \
+                 omit --web-origin to use the default per-surface origins",
+                app.cli_name()
+            )))
+        };
+    }
+    let owned_elsewhere = [API_PORT, App::Theatre.web_port()];
+    let port = requested
+        .strip_prefix("http://127.0.0.1:")
+        .and_then(|digits| digits.parse::<u16>().ok())
+        .filter(|port| *port != 0 && !owned_elsewhere.contains(port))
+        .filter(|port| requested == format!("http://127.0.0.1:{port}"));
+    port.map(|port| (requested.to_owned(), port))
+        .ok_or_else(|| {
+            Refusal::Usage(format!(
+                "run {} --web accepts --web-origin http://127.0.0.1:<port> (default {default}), \
+             matching its Trunk server; the port must be non-zero, canonical and not the \
+             Server's {API_PORT} or Theatre's {}",
+                app.cli_name(),
+                App::Theatre.web_port()
+            ))
+        })
+}
+
+fn trunk_service(workspace: &Workspace, app: App, profile: Profile, port: u16) -> Service {
+    let mut command = match app {
+        // Local integration must never inherit Theatre's production default.
+        App::Theatre => build::trunk(workspace, app, "serve", profile)
+            .env("CANTOS_API_ORIGIN", "http://127.0.0.1:8080"),
+        App::Studio => build::trunk(workspace, app, "serve", profile),
+    };
+    // The default port comes from the app's `Trunk.toml`; only an override is a flag.
+    if port != app.web_port() {
+        command = command.args(["--port".to_owned(), port.to_string()]);
+    }
     Service {
         name: format!("{} web (trunk serve)", app.cli_name()),
-        command: match app {
-            // Local integration must never inherit Theatre's production default.
-            App::Theatre => build::trunk(workspace, app, "serve", profile)
-                .env("CANTOS_API_ORIGIN", "http://127.0.0.1:8080"),
-            App::Studio => build::trunk(workspace, app, "serve", profile),
-        },
+        command,
         tools: vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk],
-        endpoint: Endpoint::Tcp(loopback(app.web_port())),
+        endpoint: Endpoint::Tcp(loopback(port)),
         readiness: Readiness::Http {
             path: "/",
             marker: app.web_marker(),
@@ -322,21 +364,15 @@ fn run_web(
         ));
     }
     let profile = check_flags(options, true, true)?;
-    let origin = app.web_origin();
-    if options
-        .web_origin
-        .as_ref()
-        .is_some_and(|value| value != &origin)
-    {
-        return Err(Refusal::Usage(format!(
-            "run {} --web requires --web-origin {origin}, matching its Trunk server; \
-             omit --web-origin to use the default per-surface origins",
-            app.cli_name()
-        )));
-    }
+    let (origin, port) = web_listener(app, options.web_origin.as_deref())?;
     let layout = Layout::for_current_user(workspace)?;
-    let mut services = native_services(workspace, &layout, profile, None)?;
-    let mut frontend = trunk_service(workspace, app, profile);
+    let mut services = native_services(
+        workspace,
+        &layout,
+        profile,
+        (app == App::Studio).then_some(origin.as_str()),
+    )?;
+    let mut frontend = trunk_service(workspace, app, profile, port);
     if app == App::Theatre {
         let api = services
             .iter_mut()
@@ -378,7 +414,12 @@ pub fn plan_app(
                 }],
                 composition: None,
                 prepare: Vec::new(),
-                services: vec![trunk_service(workspace, App::Studio, profile)],
+                services: vec![trunk_service(
+                    workspace,
+                    App::Studio,
+                    profile,
+                    App::Studio.web_port(),
+                )],
                 open: options.open.then_some(origin),
             })
         }
@@ -400,9 +441,31 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
         }],
         composition: None,
         prepare: Vec::new(),
-        services: vec![trunk_service(workspace, App::Theatre, profile)],
+        services: vec![trunk_service(
+            workspace,
+            App::Theatre,
+            profile,
+            App::Theatre.web_port(),
+        )],
         open: options.open.then_some(App::Theatre.web_origin()),
     })
+}
+
+/// What to try when `lsof` shows no owner: it lists only the caller's own processes, so a
+/// root-owned system or security agent bound to the wildcard address stays hidden, while the
+/// kernel socket table still shows it.
+fn occupied_port_hint(service_name: &str, addr: SocketAddr) -> String {
+    let mut hint = format!(
+        ". `lsof` omits processes it may not inspect; `netstat -anv -p tcp | grep '\\.{} '` names the owner",
+        addr.port()
+    );
+    if service_name.starts_with(App::Studio.cli_name()) {
+        hint.push_str(
+            ". If the owner is not yours to stop, move Studio with \
+             `cargo xtask run cantos-studio --web --web-origin http://127.0.0.1:<free port>`",
+        );
+    }
+    hint
 }
 
 /// Fails before any build or process start when a precondition is not met.
@@ -456,8 +519,9 @@ fn check_preconditions(plan: &LaunchPlan, tools: &dyn ToolProbe) -> Result<()> {
                     };
                     problems.push(format!(
                         "{addr} ({}) is already in use and xtask does not stop processes it did not start; \
-                         free the port{alternative}",
-                        service.name
+                         free the port{alternative}{}",
+                        service.name,
+                        occupied_port_hint(&service.name, *addr)
                     ));
                 }
             }
@@ -1164,6 +1228,93 @@ mod tests {
                 matches!(plan_run(&workspace(), target, &wrong), Err(Refusal::Usage(message)) if message.contains("matching its Trunk server"))
             );
         }
+    }
+
+    #[test]
+    fn studio_web_origin_moves_trunk_the_server_origin_and_the_opened_page_together() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosStudio,
+            &web(LaunchOptions {
+                open: true,
+                web_origin: Some("http://127.0.0.1:8084".into()),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        let studio = plan.services.last().unwrap();
+        assert_eq!(studio.endpoint, Endpoint::Tcp(loopback(8084)));
+        assert_eq!(
+            studio.command.display(workspace().root()),
+            "(in apps/cantos-studio/web) NO_COLOR=true trunk serve --locked --port 8084"
+        );
+        assert_eq!(
+            env_of(server(&plan), "CANTOS_STUDIO_WEB_ORIGIN").as_deref(),
+            Some("http://127.0.0.1:8084")
+        );
+        assert_eq!(
+            env_of(server(&plan), "CANTOS_THEATRE_WEB_ORIGIN").as_deref(),
+            Some("http://127.0.0.1:8082")
+        );
+        assert_eq!(plan.open.as_deref(), Some("http://127.0.0.1:8084"));
+    }
+
+    #[test]
+    fn studio_web_origin_refuses_an_origin_trunk_cannot_serve_or_another_listener_owns() {
+        for bad in [
+            "http://localhost:8084",
+            "http://127.0.0.1:0",
+            "http://127.0.0.1:08084",
+            "http://127.0.0.1:8080",
+            "http://127.0.0.1:8082",
+        ] {
+            let options = web(LaunchOptions {
+                web_origin: Some(bad.into()),
+                ..Default::default()
+            });
+            assert!(
+                matches!(
+                    plan_run(&workspace(), RunTarget::CantosStudio, &options),
+                    Err(Refusal::Usage(message)) if message.contains("matching its Trunk server")
+                ),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn theatre_keeps_its_fixed_trunk_origin() {
+        let options = web(LaunchOptions {
+            web_origin: Some("http://127.0.0.1:8084".into()),
+            ..Default::default()
+        });
+        assert!(matches!(
+            plan_run(&workspace(), RunTarget::CantosTheatre, &options),
+            Err(Refusal::Usage(message)) if message.contains("requires --web-origin http://127.0.0.1:8082")
+        ));
+    }
+
+    #[test]
+    fn an_occupied_studio_port_names_the_hidden_owner_check_and_the_origin_flag() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut plan = plan_app(
+            &workspace(),
+            AppTarget::CantosStudio,
+            &web(Default::default()),
+        )
+        .unwrap();
+        plan.requirements.clear();
+        plan.services[0].endpoint = Endpoint::Tcp(addr);
+        let message = check_preconditions(&plan, &FakeTools::all())
+            .unwrap_err()
+            .to_string();
+        assert!(message.contains("netstat -anv -p tcp"), "{message}");
+        assert!(message.contains(&format!(".{} ", addr.port())), "{message}");
+        assert!(
+            message.contains("--web-origin http://127.0.0.1:<free port>"),
+            "{message}"
+        );
     }
 
     #[test]

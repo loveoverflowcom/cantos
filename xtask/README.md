@@ -441,7 +441,13 @@ cargo test --locked -p xtask auth_emulator::tests::installed_emulator -- --ignor
 
 The runner owns only the foreground groups/directories it creates, refuses occupied ports and
 never takes over another process. Studio/Theatre have distinct loopback origins; `--web-origin`
-for a Web profile must match its Trunk origin. Server uses `CANTOS_SERVER_DATABASE`, never
+for Theatre must match its Trunk origin. Studio may move with
+`run cantos-studio --web --web-origin http://127.0.0.1:<port>`: that one value sets Trunk's
+`--port`, the Server's `CANTOS_STUDIO_WEB_ORIGIN` and `--open`, and a non-canonical port or one
+owned by the Server (8080) or Theatre (8082) is refused. Use it when 8081 belongs to a process
+you cannot stop: `lsof` lists only inspectable processes, so a root-owned system agent bound to
+`*:8081` is visible only via `netstat -anv -p tcp | grep '\.8081 '` (the occupied-port error
+says so). `app cantos-studio --web` keeps 8081. Server uses `CANTOS_SERVER_DATABASE`, never
 `DATABASE_URL`. Identity owns its own file and socket. Socket/TCP readiness is not authentication,
 business HTTP parity, publication, browser/device or deployed acceptance.
 
