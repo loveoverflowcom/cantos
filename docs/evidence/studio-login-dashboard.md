@@ -142,3 +142,31 @@ screen-reader/complete Tab walkthrough, English runtime layouts, actual browser 
 fidelity require separate acceptance. Backend/persistence behavior, API contracts, audio bytes,
 rights, review/publication rules and native clients are unchanged and receive no new acceptance
 claim. Production gate owners remain authoritative; this PR is part of #131.
+
+## Compact writing desk — 28 October redesign delta (#131)
+
+Source: `develop@7b132b49` after the 28 October owner review (screenshot
+`12-recovery-sign-in-again-reaches-workspace.png`: oversized resume card, one-row list inside a
+large card, long audio explanation with no chapter selected). The delta is presentation only:
+`live/dashboard.rs`, `studio.css`, four dashboard copy entries in the localization catalog (and the
+digest headers every generated consumer carries). No API, session, draft, permission or selector
+change; the existing callbacks, ids and blocked/pending projections are unchanged.
+
+| Claim / failure mode | Oracle | Evidence held |
+| --- | --- | --- |
+| The Work list follows the heading and actions and precedes resume, audio and tools | `work_list_follows_the_heading_and_precedes_resume_and_tools` (SSR order) | native SSR |
+| No resume card without a selection; a short hint appears instead; every entrypoint stays rendered | `without_a_selection_there_is_a_short_hint_and_no_resume_block` | native SSR |
+| Audio lines, explanation and "not read" line follow facts actually read | `audio_notes` table test (pure core) | native unit |
+| Pagination shows only existing directions; none on a single page | `pagination_offers_only_the_directions_that_exist` | native SSR |
+| Failed/unread/loading never render a successful empty page; blocked recovery stays reachable | existing dashboard tests, updated | native SSR |
+
+**Layout observation (harness, not the app).** The real `Dashboard` and `WorkspaceNavigation`
+markup (native SSR) was loaded in Chromium with the real `tokens.css`, `foundation.css` and
+`studio.css`, before (`develop@89c5964c`) and after, one selected Work with a long Vietnamese title,
+CSS px, DPR 1, light theme. The harness has no topbar, session, cookies, network or WASM, and is
+not Studio runtime acceptance. Top of the Work list: 1280 400 → 160, 768 562 → 302, 390 745 → 299,
+320 745 → 329; no horizontal page overflow at 1280/1024/768/390/320 in either state. Dark theme
+was opened at 1024 (list, selected marker, resume and tools legible). Not observed here: the real
+app at these viewports, 200% zoom/text scaling, a keyboard walkthrough, English runtime layout, and
+a screen reader — the remaining AC-05/AC-06 acceptance stays with a browser run against an
+authorized Studio session.

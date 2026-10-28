@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "3923a1ec65ce6f4ed94ff62afc7db6280dd1dd088b956d32c4725288354bd5bf",
+  "catalogSha256": "1455a563887bffa27a2e32df91269f9245a9879495f85bbf9c04293889cbfba9",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -383,13 +383,10 @@
     "studio.dashboard.continue": {},
     "studio.dashboard.draft": {},
     "studio.dashboard.editor": {},
-    "studio.dashboard.editor_help": {},
     "studio.dashboard.empty_help": {},
     "studio.dashboard.empty_title": {},
-    "studio.dashboard.end": {},
     "studio.dashboard.import": {},
     "studio.dashboard.loading": {},
-    "studio.dashboard.more": {},
     "studio.dashboard.new_work": {},
     "studio.dashboard.next": {},
     "studio.dashboard.no_selection": {},

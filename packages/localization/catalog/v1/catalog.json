@@ -12543,10 +12543,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn tác phẩm bên dưới để mở các chương hoặc tập."
+          "text": "Chọn một tác phẩm để mở chương hoặc tập."
         },
         "en": {
-          "text": "Choose a work below to open its chapters or episodes."
+          "text": "Choose a work to open its chapters or episodes."
         }
       }
     },
@@ -12682,30 +12682,6 @@
         }
       }
     },
-    "studio.dashboard.more": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Còn tác phẩm ở trang tiếp theo."
-        },
-        "en": {
-          "text": "More works are available on the next page."
-        }
-      }
-    },
-    "studio.dashboard.end": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Bạn đã đến cuối danh sách này."
-        },
-        "en": {
-          "text": "You have reached the end of this list."
-        }
-      }
-    },
     "studio.dashboard.audio": {
       "args": {},
       "exposure": "production",
@@ -12835,18 +12811,6 @@
         },
         "en": {
           "text": "Script tools"
-        }
-      }
-    },
-    "studio.dashboard.editor_help": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Mở trình biên tập, kiểm tra và lịch sử phiên bản; giữ nguyên bản nháp hiện tại."
-        },
-        "en": {
-          "text": "Open the existing script editor, validation and revision history with your current draft intact."
         }
       }
     },

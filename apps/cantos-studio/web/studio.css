@@ -209,7 +209,7 @@ body { margin: 0; }
 
 /* Studio-owned entry and writing-desk composition; shared controls retain their anatomy.
    Column widths and breakpoints are local reading geometry, not shared token overrides. */
-.studio-shell .studio-header { margin-block-end: var(--cantos-space-xl); }
+.studio-shell .studio-header { margin-block-end: var(--cantos-space-lg); }
 .studio-shell .studio-brand { inline-size: 10rem; max-inline-size: 100%; }
 .studio-shell .studio-brand .cui-logo { inline-size: 100%; block-size: auto; }
 .studio-shell .studio-logo-dark { display: none; }
@@ -346,35 +346,46 @@ body { margin: 0; }
 /* Email/password sign-in: a native form, one column, full-width submit; also used inside the account menu. */
 .studio-shell .signin-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); margin-block: var(--cantos-space-md); min-inline-size: 0; }
 .studio-shell .signin-form > .cui-button-field, .studio-shell .signin-form > .cui-button-field > .cui-button { inline-size: 100%; }
-.studio-shell .studio-workbench { display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: start; }
-.studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); margin: 0; }
+.studio-shell .studio-workbench { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: var(--cantos-space-lg); align-items: start; }
+.studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-sm); margin: 0; position: sticky; inset-block-start: var(--cantos-space-md); }
 .studio-shell .workspace-nav .cui-nav-item { inline-size: 100%; box-sizing: border-box; justify-content: start; text-align: start; }
 .studio-shell .workspace-nav .cui-nav-item[aria-current="page"] { text-decoration: none; }
 .studio-shell .studio-workbench-content { min-inline-size: 0; }
 .studio-shell .studio-pane-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); }
 .studio-shell .studio-pane-heading h2 { margin-block: 0; }
-.studio-shell .dashboard-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
-.studio-shell .dashboard-heading h2 { font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); margin-block: 0 var(--cantos-space-sm); }
-.studio-shell .dashboard-actions, .studio-shell .dashboard-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
-.studio-shell .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--cantos-space-lg); }
-.studio-shell .dashboard-resume { grid-column: 1 / -1; }
-.studio-shell .dashboard-resume h3 { font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-title-weight); margin-block: var(--cantos-space-md); }
-.studio-shell .dashboard-work-list { list-style: none; margin: 0; padding: 0; }
-.studio-shell .dashboard-work-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-md); padding-block: var(--cantos-space-md); }
-.studio-shell .dashboard-work-meta { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+/* Writing desk (#131): the work list leads, resume and tools are a quiet secondary column. */
+.studio-shell .dashboard-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-md); }
+.studio-shell .dashboard-heading h2 { font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); margin-block: 0; }
+.studio-shell .dashboard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+.studio-shell .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem); gap: var(--cantos-space-md); align-items: start; }
+.studio-shell .dashboard-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-sm); }
+.studio-shell .dashboard-section-heading h3, .studio-shell .dashboard-secondary h3 { margin-block: 0; font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
+.studio-shell .dashboard-hint { margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .dashboard-secondary { display: grid; gap: var(--cantos-space-md); min-inline-size: 0; }
+.studio-shell .dashboard-secondary :where(section) > :where(p, h3, .cui-button-field) { margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .dashboard-tools > section + section { margin-block-start: var(--cantos-space-md); }
+.studio-shell .dashboard-resume h3 { font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-title-weight); margin-block: var(--cantos-space-xs) var(--cantos-space-sm); }
+.studio-shell .dashboard-eyebrow { margin-block: 0; }
+/* A row is one full-width title target with its metadata beneath; the selected work keeps a start marker. */
+.studio-shell .dashboard-work-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
+.studio-shell .dashboard-work-row { display: grid; justify-items: stretch; min-inline-size: 0; padding-block: var(--cantos-space-xs); border-inline-start: var(--cantos-space-xs) solid transparent; border-radius: var(--cantos-web-shape-reading); }
+.studio-shell .dashboard-work-row[aria-current="true"] { background: var(--cantos-color-surface-container-high); border-inline-start-color: var(--cantos-color-primary); }
+.studio-shell .dashboard-work-row .cui-button { inline-size: 100%; justify-content: start; }
+.studio-shell .dashboard-work-row .cui-control-label { text-align: start; }
+.studio-shell .dashboard-work-meta { margin: 0; padding-inline: var(--cantos-space-control-inline); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .dashboard-pages { margin-block-end: 0; }
 .studio-shell .studio-dashboard :where(h2, h3, p, code, button) { overflow-wrap: anywhere; }
 .studio-shell .studio-dashboard .cui-button { max-inline-size: 100%; white-space: normal; }
 @container studio (max-width: 64rem) {
   .studio-shell .studio-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
-  .studio-shell .studio-workbench > .workspace-nav { flex-direction: row; flex-wrap: wrap; }
-  .studio-shell .studio-workbench > .workspace-nav > * { flex: 1 1 11rem; }
+  .studio-shell .studio-workbench > .workspace-nav { flex-direction: row; flex-wrap: wrap; position: static; }
+  .studio-shell .studio-workbench > .workspace-nav > * { flex: 1 1 9rem; }
 }
 @container studio (max-width: 45rem) {
   .studio-shell .studio-entry { grid-template-columns: minmax(0, 1fr); min-block-size: auto; padding-block: var(--cantos-space-md); }
   .studio-shell .entry-story { display: none; }
   .studio-shell .entry-form { padding: var(--cantos-space-sm); }
   .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .studio-shell .dashboard-resume { grid-column: auto; }
   .studio-shell .studio-header { align-items: center; margin-block-end: var(--cantos-space-lg); gap: var(--cantos-space-sm); }
   .studio-shell .studio-header > .toolbar { flex: 0 0 auto; gap: var(--cantos-space-xs); }
   .studio-shell .studio-account { position: static; }
@@ -396,23 +407,20 @@ body { margin: 0; }
     border-radius: var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0 0;
     box-shadow: var(--cantos-elevation-overlay);
   }
-  .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
+  .studio-shell .dashboard-actions > * { flex: 1 1 auto; }
 }
 
 /* One set of links serves every width; narrow containers turn the rail into a scrollable tab strip. */
-.studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-xs); min-inline-size: 0; }
 .studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
 /* Programmatic focus targets keep their ring, except headings: they are not operable, so the route
    announcement (focus_heading) must not paint a frame around the title. Operable controls keep theirs. */
 .studio-shell [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible { outline: none; }
-.studio-shell .dashboard-grid { align-items: start; }
-.studio-shell .dashboard-works .dashboard-heading { margin-block-end: var(--cantos-space-md); align-items: center; }
-.studio-shell .dashboard-tools { grid-column: 1 / -1; }
 @container studio (max-width: 64rem) {
   .studio-shell .workspace-nav-list { flex-direction: row; flex-wrap: wrap; }
-  .studio-shell .workspace-nav-list > * { flex: 1 1 11rem; }
+  .studio-shell .workspace-nav-list > * { flex: 1 1 9rem; }
 }
 @container studio (max-width: 45rem) {
   .studio-shell .studio-workbench > .workspace-nav { padding: var(--cantos-space-sm); }
