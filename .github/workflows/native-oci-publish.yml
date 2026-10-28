@@ -150,6 +150,31 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
+      - name: Observe disposable systemd fixture without executor transition
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          # This deliberately separate partial fixture cannot satisfy the executor gate.
+          OUTPUT="$RUNNER_TEMP/native-systemd-fixture.json"
+          if ! jq -e '.status == "PREREQUISITES_ONLY"' "$RUNNER_TEMP/native-systemd-prerequisites.json" > /dev/null; then
+            printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+          else
+            MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+            MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+            sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/systemd-fixture-auth.json"
+            trap 'sudo rm -f "$RUNNER_TEMP/systemd-fixture-auth.json"' EXIT
+            if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
+                python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_native_executor_systemd_fixture.py" \
+                --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+                --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+                --authfile "$RUNNER_TEMP/systemd-fixture-auth.json" > "$OUTPUT"; then
+              cat "$OUTPUT"
+            else
+              printf '%s\n' '{"status":"FAIL","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
+            fi
+          fi
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |
@@ -170,5 +195,6 @@ jobs:
             artifacts/native-executor/
             ${{ runner.temp }}/oci-build-result.json
             ${{ runner.temp }}/native-systemd-prerequisites.json
+            ${{ runner.temp }}/native-systemd-fixture.json
           if-no-files-found: error
           retention-days: 14

@@ -106,3 +106,9 @@ real systemd/Podman rehearsal of these transition owners and its evidence produc
 The workflow also runs a read-only disposable-runner prerequisite probe for systemd, cgroup v2,
 Quadlet and reserved fixture names. Its `PREREQUISITES_ONLY` or `NOT_RUN` result does not run
 the executor and cannot satisfy the executor-rehearsal gate.
+On a runner that passes those prerequisites, a separate synthetic fixture may start and stop
+the exact target pair through real Quadlet units and inspect its private bridge and owner
+processes. This is reported as `PARTIAL_SYSTEMD_FIXTURE_PASS` or `FAIL`; transition execution,
+crash/replay, operator admission and activation remain `NOT_RUN`. It is not the missing
+executor-rehearsal producer. The fixture refuses known existing paths and services and runs
+only on a disposable GitHub-hosted VM, never on the VPS.
