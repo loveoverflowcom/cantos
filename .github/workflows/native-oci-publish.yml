@@ -46,18 +46,6 @@ jobs:
           cargo xtask release native-executor-build --output artifacts/native-executor
           # Root's historical rehearsal uses this exact immutable checkout, not the builder's cwd.
           sudo chown -R root:root "/opt/cantos-native-executor/$GITHUB_SHA"
-      - name: Probe disposable systemd and Quadlet prerequisites
-        run: |
-          set -Eeuo pipefail
-          # A prerequisite probe only: no unit, database, container, network, host or
-          # executor transition is created. Qualification and this result stay separate.
-          if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
-              python3 scripts/release_native_executor_probe.py > "$RUNNER_TEMP/native-systemd-prerequisites.json"; then
-            cat "$RUNNER_TEMP/native-systemd-prerequisites.json"
-          else
-            printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' \
-              > "$RUNNER_TEMP/native-systemd-prerequisites.json"
-          fi
       - name: Log in to GHCR with a job-scoped authfile
         env:
           GITHUB_TOKEN_VALUE: ${{ secrets.GITHUB_TOKEN }}
@@ -73,6 +61,18 @@ jobs:
           set -Eeuo pipefail
           cargo xtask release oci-build --platform linux/amd64 --producer github-actions \
             --publish --authfile "$RUNNER_TEMP/ghcr-auth.json" | tee "$RUNNER_TEMP/oci-build-result.json"
+      - name: Probe disposable systemd and Quadlet prerequisites
+        run: |
+          set -Eeuo pipefail
+          # Rootful Podman info can initialize runner storage. Probe after the rootless
+          # build, and never treat prerequisites as executor or activation evidence.
+          if sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
+              python3 scripts/release_native_executor_probe.py > "$RUNNER_TEMP/native-systemd-prerequisites.json"; then
+            cat "$RUNNER_TEMP/native-systemd-prerequisites.json"
+          else
+            printf '%s\n' '{"status":"NOT_RUN","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' \
+              > "$RUNNER_TEMP/native-systemd-prerequisites.json"
+          fi
       - name: Pin the one published candidate from this run
         id: candidate
         env:

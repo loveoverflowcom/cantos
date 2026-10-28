@@ -66,7 +66,12 @@ def record(operation, previous, target_release, source_sha, manifest_digest, pro
             'evidence_level': 'integration-tested', 'execution_environment': 'linux-native-systemd-podman-exact-images',
             'activation': 'NOT_RUN', 'live_business_acceptance': 'NOT_RUN',
             'fixture_scope': 'synthetic-runner-real-systemd-podman-executor-functions',
-            'synthetic_receipt_sha256': provenance}
+            'synthetic_receipt_sha256': provenance,
+            'tested_crash_boundaries': ['forward-generation-before-marker-removal',
+                                        'migration-after-live-migrate-before-start',
+                                        'rollback-after-first-rename-before-install',
+                                        'migration-after-target-observation-and-accepted-session'],
+            'not_covered': ['power-loss', 'every-durable-boundary', 'rollback-start-intent-reconciliation']}
     if manifest_digest is not None:
         result['target_manifest_sha256'] = manifest_digest
     return result

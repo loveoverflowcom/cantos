@@ -39,6 +39,16 @@ class Probe(unittest.TestCase):
             self.assertEqual(probe.preflight(), {'status': 'PREREQUISITES_ONLY',
                 'executor_transition': 'NOT_RUN', 'activation': 'NOT_RUN'})
 
+    def test_transient_starting_state_waits_without_accepting_it_as_ready(self):
+        states = iter((b'starting\n', b'running\n'))
+        def booting(*args):
+            if args[:2] == ('systemctl', 'show') and '--property=SystemState' in args:
+                return next(states)
+            return self.response(*args)
+        with patch.object(probe, 'command', side_effect=booting), patch.object(probe.time, 'sleep') as wait:
+            self.assertEqual(probe.preflight()['status'], 'PREREQUISITES_ONLY')
+            wait.assert_called_once_with(3)
+
     def test_existing_reserved_path_refuses_before_any_command(self):
         with patch.object(probe.Path, 'exists', return_value=True), patch.object(probe, 'command') as command:
             with self.assertRaisesRegex(ValueError, 'path already exists'):
