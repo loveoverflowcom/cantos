@@ -117,6 +117,25 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v27"
+      - name: Rehearse second pinned v24 pair to v27 and cold pair recovery
+        env:
+          MANIFEST: ${{ steps.candidate.outputs.manifest }}
+          MANIFEST_DIGEST: ${{ steps.candidate.outputs.digest }}
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/historical-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/historical-auth.json"' EXIT
+          BASELINE_DIGEST=$(sha256sum infra/oci/historical-v24-8862.json | cut -d' ' -f1)
+          sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
+            release native-rehearse \
+            --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+            --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+            --baseline infra/oci/historical-v24-8862.json --baseline-digest "$BASELINE_DIGEST" \
+            --transition v24-v27 \
+            --authfile "$RUNNER_TEMP/historical-auth.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |

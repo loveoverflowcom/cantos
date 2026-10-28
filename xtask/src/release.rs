@@ -89,6 +89,27 @@ impl ReleaseArgs {
     }
 }
 
+/// Private host-local inputs shared by the two candidate recovery owners.
+#[derive(Debug, Args)]
+pub struct NativeOperatorArgs {
+    #[arg(long)]
+    request: PathBuf,
+    #[arg(long)]
+    request_digest: String,
+    #[arg(long)]
+    inventory: PathBuf,
+    #[arg(long)]
+    inventory_digest: String,
+    #[arg(long)]
+    executor_source: String,
+    #[arg(long, requires_all = ["approval", "approval_digest"])]
+    execute: bool,
+    #[arg(long)]
+    approval: Option<PathBuf>,
+    #[arg(long)]
+    approval_digest: Option<String>,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Action {
     /// Resolve once, verify and build selected components without production credentials.
@@ -210,6 +231,30 @@ pub enum Action {
         approval_digest: Option<String>,
         #[arg(long)]
         recover_attempt: Option<String>,
+    },
+    /// Reconcile an existing adoption START_INTENT without restoring historical data.
+    NativeForward {
+        #[command(flatten)]
+        input: NativeOperatorArgs,
+        #[arg(long, requires_all = ["execute", "resume_approval", "resume_approval_digest", "resume_inventory", "resume_inventory_digest"])]
+        resume_attempt: Option<String>,
+        #[arg(long, requires = "resume_attempt")]
+        resume_approval: Option<PathBuf>,
+        #[arg(long, requires = "resume_attempt")]
+        resume_approval_digest: Option<String>,
+        #[arg(long, requires = "resume_attempt")]
+        resume_inventory: Option<PathBuf>,
+        #[arg(long, requires = "resume_attempt")]
+        resume_inventory_digest: Option<String>,
+    },
+    /// Existing adopted layout only; v24 to v27 with separately approved recovery.
+    NativeMigrateV27 {
+        #[command(flatten)]
+        input: NativeOperatorArgs,
+        #[arg(long, requires = "execute", conflicts_with = "reconcile_after_start")]
+        recover_before_start: bool,
+        #[arg(long, requires = "execute", conflicts_with = "recover_before_start")]
+        reconcile_after_start: bool,
     },
     /// Historical upgrade and pair restore on disposable Linux using synthetic data and exact
     /// old/new images. Separate from the four current-schema OCI qualification records.
@@ -341,6 +386,73 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         }
         if let Some(attempt) = recover_attempt {
             command = command.args(["--recover-attempt", attempt]);
+        }
+        return command;
+    }
+    if let Action::NativeForward { input, .. } | Action::NativeMigrateV27 { input, .. } = action {
+        let script = if matches!(action, Action::NativeForward { .. }) {
+            "scripts/release_native_forward.py"
+        } else {
+            "scripts/release_native_v27_live.py"
+        };
+        let mut command = command
+            .args([
+                script.into(),
+                "--request".into(),
+                input.request.display().to_string(),
+                "--request-digest".into(),
+                input.request_digest.clone(),
+                "--inventory".into(),
+                input.inventory.display().to_string(),
+                "--inventory-digest".into(),
+                input.inventory_digest.clone(),
+                "--executor-source".into(),
+                input.executor_source.clone(),
+            ])
+            .arg_if(input.execute, "--execute");
+        if let Some(path) = &input.approval {
+            command = command.args(["--approval".into(), path.display().to_string()]);
+        }
+        if let Some(digest) = &input.approval_digest {
+            command = command.args(["--approval-digest", digest]);
+        }
+        match action {
+            Action::NativeForward {
+                resume_attempt,
+                resume_approval,
+                resume_approval_digest,
+                resume_inventory,
+                resume_inventory_digest,
+                ..
+            } => {
+                if let Some(value) = resume_attempt {
+                    command = command.args(["--resume-attempt", value]);
+                }
+                if let Some(path) = resume_approval {
+                    command =
+                        command.args(["--resume-approval".into(), path.display().to_string()]);
+                }
+                if let Some(value) = resume_approval_digest {
+                    command = command.args(["--resume-approval-digest", value]);
+                }
+                if let Some(path) = resume_inventory {
+                    command =
+                        command.args(["--resume-inventory".into(), path.display().to_string()]);
+                }
+                if let Some(value) = resume_inventory_digest {
+                    command = command.args(["--resume-inventory-digest", value]);
+                }
+            }
+            Action::NativeMigrateV27 {
+                recover_before_start,
+                reconcile_after_start,
+                ..
+            } => {
+                command = command
+                    .arg_if(*recover_before_start, "--recover-before-start")
+                    .arg_if(*reconcile_after_start, "--reconcile-after-start");
+            }
+            _ => unreachable!(),
         }
         return command;
     }
@@ -560,6 +672,8 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         | Action::OciBuild { .. }
         | Action::OciQualify { .. }
         | Action::NativeAdopt { .. }
+        | Action::NativeForward { .. }
+        | Action::NativeMigrateV27 { .. }
         | Action::NativeRehearse { .. }
         | Action::NativeUpgrade { .. } => {
             unreachable!("handled above")
@@ -655,7 +769,7 @@ mod tests {
         );
     }
 
-    use super::{command, Action};
+    use super::{command, Action, NativeOperatorArgs};
     use crate::cli::Cli;
     use crate::workspace::Workspace;
     use clap::Parser;
@@ -1050,6 +1164,96 @@ mod tests {
             ]
         );
         assert!(!cmd.args.iter().any(|argument| argument == "--execute"));
+    }
+
+    #[test]
+    fn forward_and_v27_are_plan_only_without_both_pinned_approval_fields() {
+        for lane in ["native-forward", "native-migrate-v27"] {
+            let base = [
+                "xtask",
+                "release",
+                lane,
+                "--request",
+                "request.json",
+                "--request-digest",
+                "digest",
+                "--inventory",
+                "inventory.json",
+                "--inventory-digest",
+                "inventory-digest",
+                "--executor-source",
+                "source",
+            ];
+            assert!(Cli::try_parse_from(base).is_ok());
+            assert!(Cli::try_parse_from(base.into_iter().chain(["--execute"])).is_err());
+            assert!(Cli::try_parse_from(base.into_iter().chain([
+                "--execute",
+                "--approval",
+                "approval.json",
+                "--approval-digest",
+                "digest"
+            ]))
+            .is_ok());
+            if lane == "native-forward" {
+                assert!(Cli::try_parse_from(
+                    base.into_iter().chain(["--resume-attempt", "forward-id"])
+                )
+                .is_err());
+                assert!(Cli::try_parse_from(base.into_iter().chain([
+                    "--execute",
+                    "--approval",
+                    "approval.json",
+                    "--approval-digest",
+                    "digest",
+                    "--resume-attempt",
+                    "forward-id",
+                    "--resume-approval",
+                    "resume.json",
+                    "--resume-approval-digest",
+                    "digest",
+                    "--resume-inventory",
+                    "fresh.json",
+                    "--resume-inventory-digest",
+                    "digest",
+                ]))
+                .is_ok());
+            } else {
+                assert!(
+                    Cli::try_parse_from(base.into_iter().chain(["--recover-before-start"]))
+                        .is_err()
+                );
+                assert!(Cli::try_parse_from(base.into_iter().chain([
+                    "--execute",
+                    "--approval",
+                    "approval.json",
+                    "--approval-digest",
+                    "digest",
+                    "--recover-before-start",
+                    "--reconcile-after-start",
+                ]))
+                .is_err());
+            }
+        }
+        let input = NativeOperatorArgs {
+            request: "request.json".into(),
+            request_digest: "digest".into(),
+            inventory: "inventory.json".into(),
+            inventory_digest: "inventory-digest".into(),
+            executor_source: "source".into(),
+            execute: false,
+            approval: None,
+            approval_digest: None,
+        };
+        let plan = command(
+            &Workspace::discover().unwrap(),
+            &Action::NativeMigrateV27 {
+                input,
+                recover_before_start: false,
+                reconcile_after_start: false,
+            },
+        );
+        assert_eq!(plan.args[0], "scripts/release_native_v27_live.py");
+        assert!(!plan.args.iter().any(|value| value == "--execute"));
     }
 
     #[test]
