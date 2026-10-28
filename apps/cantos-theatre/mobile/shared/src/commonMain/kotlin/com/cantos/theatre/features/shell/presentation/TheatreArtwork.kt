@@ -1,5 +1,10 @@
 package com.cantos.theatre.features.shell.presentation
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import com.cantos.ui.LocalUiPreferences
+import com.cantos.ui.loadingRevealFor
+import com.cantos.ui.toAnimationSpec
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -116,15 +121,18 @@ private fun CoverArtwork(
             }
         }
     }
+    val revealed by animateFloatAsState(if (loaded is CoverLoad.Ready) 1f else 0f,
+        loadingRevealFor(LocalUiPreferences.current.motion).toAnimationSpec(), label = "cover-reveal")
     when (val result = loaded) {
         is CoverLoad.Ready -> Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
             Image(
                 bitmap = result.bitmap,
                 contentDescription = cover.altText,
-                modifier = Modifier.fillMaxSize().testTag("cover-image"),
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = revealed }.testTag("cover-image"),
                 contentScale = contentScale,
             )
         }
-        else -> ArtworkFallback(modifier, shape)
+        null -> com.cantos.ui.SurfacePulse(modifier, shape = shape)
+        CoverLoad.Unavailable -> ArtworkFallback(modifier, shape)
     }
 }

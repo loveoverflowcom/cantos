@@ -223,6 +223,8 @@ enum Status {
 pub struct PublicDiscoveryState {
     generation: u64,
     query: DiscoveryQuery,
+    /// Query of the displayed snapshot; pending requests never relabel retained rows.
+    applied_query: Option<DiscoveryQuery>,
     rows: Vec<MetadataWorkSummary>,
     seen: BTreeSet<String>,
     cursor: Option<String>,
@@ -247,6 +249,22 @@ impl PublicDiscoveryState {
 
     pub fn query(&self) -> &DiscoveryQuery {
         &self.query
+    }
+
+    pub fn applied_query(&self) -> Option<&DiscoveryQuery> {
+        self.applied_query.as_ref()
+    }
+
+    pub fn replacing(&self) -> bool {
+        !self.walk_started && self.status == Status::Loading
+    }
+
+    pub fn appending(&self) -> bool {
+        self.walk_started && self.status == Status::Loading
+    }
+
+    pub fn replacement_failed(&self) -> bool {
+        !self.walk_started && matches!(self.status, Status::Failed(_))
     }
 
     pub fn rows(&self) -> &[MetadataWorkSummary] {
@@ -295,8 +313,8 @@ impl PublicDiscoveryState {
         self.begin(query)
     }
 
-    /// A listener intent: a fresh walk of `query`. Rows, cursor and every outstanding ticket of
-    /// the previous walk are dropped, so snapshots are never mixed. Repeating the search that is
+    /// A listener intent: a fresh walk of `query`. Cursor and outstanding tickets are reset;
+    /// the applied snapshot remains readable until a valid replacement page arrives. Repeating the search that is
     /// still answering its first page is inert.
     pub fn begin(&mut self, query: DiscoveryQuery) -> Option<DiscoveryTicket> {
         if self.status == Status::Loading && !self.walk_started && self.query == query {
@@ -305,8 +323,6 @@ impl PublicDiscoveryState {
         let generation = self.generation.checked_add(1)?;
         self.generation = generation;
         self.query = query.clone();
-        self.rows.clear();
-        self.seen.clear();
         self.cursor = None;
         self.walk_started = false;
         self.follow_ups = AUTOMATIC_FOLLOW_UPS;
@@ -372,6 +388,19 @@ impl PublicDiscoveryState {
                 return Step::Settled;
             }
             Err(DiscoveryReadError::Diagnostic(kind)) => {
+                if matches!(
+                    kind,
+                    crate::application::errors::ErrorKind::Unauthenticated
+                        | crate::application::errors::ErrorKind::Forbidden
+                        | crate::application::errors::ErrorKind::ContentUnavailable
+                ) {
+                    self.rows.clear();
+                    self.seen.clear();
+                    self.applied_query = None;
+                    self.cursor = None;
+                    self.walk_started = false;
+                    self.first_new = None;
+                }
                 self.status = Status::Failed(PublicDiscoveryFailure::Diagnostic(kind));
                 return Step::Settled;
             }
@@ -388,6 +417,11 @@ impl PublicDiscoveryState {
         {
             self.status = Status::Failed(PublicDiscoveryFailure::Protocol);
             return Step::Settled;
+        }
+        if !self.walk_started {
+            self.rows.clear();
+            self.seen.clear();
+            self.applied_query = Some(ticket.query.clone());
         }
         let before = self.rows.len();
         for work in page.items {
@@ -690,7 +724,11 @@ mod tests {
         assert_eq!(state.retry(), None);
         let fresh = state.begin(state.query().clone()).unwrap();
         assert_eq!(fresh.cursor(), None);
-        assert!(state.rows().is_empty(), "the old snapshot is not mixed in");
+        assert_eq!(
+            titles(&state),
+            ["A"],
+            "the old snapshot stays until success"
+        );
         state.finish(&fresh, Ok(page(vec![work(2, "B")], None)));
         assert_eq!(titles(&state), ["B"]);
     }
@@ -755,7 +793,7 @@ mod tests {
         assert_eq!(titles(&state), ["A"]);
         assert_eq!(state.load_more().unwrap().cursor(), Some("c1"));
         let other = state.open(DiscoveryQuery::default()).unwrap();
-        assert!(state.rows().is_empty());
+        assert_eq!(titles(&state), ["A"]);
         state.finish(&other, Ok(page(vec![], None)));
         assert_eq!(state.open(DiscoveryQuery::default()), None);
         assert_eq!(state.phase(), PublicDiscoveryPhase::Empty);
@@ -802,6 +840,58 @@ mod tests {
         let more = state.load_more().unwrap();
         state.finish(&more, Ok(page(vec![], Some(&long))));
         assert_eq!(state.tail(), Tail::Failed(PublicDiscoveryFailure::Protocol));
+    }
+
+    #[test]
+    fn replacement_keeps_the_applied_snapshot_on_failure_and_commits_rows_with_query() {
+        let (mut state, first) = started("a");
+        state.finish(&first, Ok(page(vec![work(1, "A")], Some("cursor-a"))));
+        let replacement = state.begin(query("b")).unwrap();
+        assert_eq!(titles(&state), ["A"]);
+        assert_eq!(state.applied_query(), Some(&query("a")));
+        assert!(state.replacing());
+        assert_eq!(replacement.cursor(), None);
+        assert_eq!(state.load_more(), None);
+        state.finish(&replacement, Err(DiscoveryReadError::Unavailable));
+        assert_eq!(titles(&state), ["A"]);
+        assert_eq!(state.applied_query(), Some(&query("a")));
+        assert!(!state.replacing());
+        assert!(state.replacement_failed());
+        let retry = state.retry().unwrap();
+        assert_eq!(retry.query().text(), "b");
+        assert_eq!(retry.cursor(), None);
+        state.finish(&retry, Ok(page(vec![work(2, "B")], Some("cursor-b"))));
+        assert_eq!(titles(&state), ["B"]);
+        assert_eq!(state.applied_query(), Some(&query("b")));
+        assert_eq!(state.load_more().unwrap().cursor(), Some("cursor-b"));
+        assert!(state.appending());
+        assert!(!state.replacement_failed());
+    }
+
+    #[test]
+    fn a_permission_or_withdrawal_refusal_clears_the_retained_snapshot_and_its_context() {
+        use crate::application::errors::ErrorKind;
+        for kind in [
+            ErrorKind::Unauthenticated,
+            ErrorKind::Forbidden,
+            ErrorKind::ContentUnavailable,
+        ] {
+            let (mut state, first) = started("a");
+            state.finish(&first, Ok(page(vec![work(1, "A")], Some("cursor-a"))));
+            let refresh = state.begin(query("b")).unwrap();
+            state.finish(&refresh, Err(DiscoveryReadError::Diagnostic(kind)));
+            assert!(state.rows().is_empty());
+            assert_eq!(state.applied_query(), None);
+            assert_eq!(
+                state.phase(),
+                PublicDiscoveryPhase::Failed(PublicDiscoveryFailure::Diagnostic(kind))
+            );
+            assert_eq!(state.load_more(), None);
+            assert_eq!(
+                state.finish(&first, Ok(page(vec![work(1, "late")], None))),
+                Step::Ignored
+            );
+        }
     }
 
     #[test]

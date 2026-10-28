@@ -3,6 +3,7 @@ use super::super::common::{icon, EmptyArtwork, EmptyArtworkKind};
 use crate::contract::library::{
     AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
 };
+use crate::features::loading::{PendingRows, RequestEdge};
 use crate::{
     app::routes::Route,
     application::{
@@ -16,7 +17,7 @@ use crate::{
     core::public_ids::PublicWorkId,
     messages::{self, Key, Locale},
 };
-use cantos_ui::{Button, ButtonState, ButtonVariant, DisabledReason};
+use cantos_ui::{Button, ButtonState, ButtonVariant, DisabledReason, LoadingState};
 use leptos::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -84,6 +85,7 @@ struct SectionUi {
     phase: PagePhase,
     count: usize,
     has_more: bool,
+    appending: bool,
 }
 
 impl SectionUi {
@@ -119,6 +121,7 @@ fn section_ui(state: &AccountViewState, section: Section) -> Option<SectionUi> {
         phase: projection.phase(section),
         count: row_count(projection, section),
         has_more: projection.has_more(section),
+        appending: projection.appending(section),
     })
 }
 
@@ -275,6 +278,9 @@ fn LiveSection(
     view! {
         <section class="theatre-library-section" aria-labelledby=heading_id.clone()>
             <h2 id=heading_id.clone() class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
+            <RequestEdge active=Signal::derive(move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.phase == PagePhase::Loading && ui.count > 0 && !ui.appending))) label=Key::LiveLibraryLoading locale/>
+            <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| matches!(ui.phase, PagePhase::Idle | PagePhase::Loading) && ui.count == 0))><PendingRows compact=true/></Show>
+            <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.appending))><LoadingState>{move || messages::text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState></Show>
             <ul node_ref=list class="theatre-rows" aria-busy=move || (phase() == Some(PagePhase::Loading)).to_string()>
                 <For each=move || {
                     let ids = membership.get();

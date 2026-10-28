@@ -385,3 +385,6 @@ pub(crate) use search_dock::{
     bind_search_dock, click_is_search_input, focus_is_search_input, focus_search_input,
     focus_search_result,
 };
+
+mod loading_presence;
+pub(crate) use loading_presence::bind_loading_presence;

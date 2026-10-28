@@ -25235,6 +25235,35 @@
           "text": "{mode} · {next}"
         }
       }
+    },
+    "theatre.shell.discovery_displayed_context": {
+      "args": {
+        "query": "text",
+        "kind": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kết quả đang hiển thị: {query} · {kind}"
+        },
+        "en": {
+          "text": "Displayed results: {query} · {kind}"
+        }
+      }
+    },
+    "theatre.cmp_shell.displayed_search": {
+      "args": {
+        "query": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kết quả đang hiển thị: {query}"
+        },
+        "en": {
+          "text": "Displayed results: {query}"
+        }
+      }
     }
   }
 }

@@ -403,9 +403,14 @@ impl AccountViewState {
             Some(AccountFailure::SignedOut) => {
                 Ok(LibraryCompletion::Cleanup(self.begin_expiry_cleanup()?))
             }
-            Some(AccountFailure::SessionChanged) => {
+            Some(
+                failure @ (AccountFailure::SessionChanged
+                | AccountFailure::Diagnostic(super::errors::ErrorKind::Forbidden)),
+            ) => {
+                // A refused private read ends display retention without asserting logout.
+                // Reuse the existing account recheck recovery; do not keep sync-owned pixels.
                 self.clear_private();
-                self.phase = SessionPhase::Failed(AccountFailure::SessionChanged);
+                self.phase = SessionPhase::Failed(failure);
                 Ok(LibraryCompletion::Applied)
             }
             _ => Ok(LibraryCompletion::Applied),
@@ -902,6 +907,28 @@ mod tests {
     }
     fn page() -> LibraryPage {
         crate::live::library::decode_page(Section::Saved, include_bytes!("../../../../../services/cantos-server/contracts/theatre/library/v1/fixtures/presentation/presented_saved.json")).unwrap()
+    }
+    #[test]
+    fn a_refused_refresh_removes_private_rows_and_late_pages_until_account_recheck() {
+        let mut state = AccountViewState::default();
+        authenticate(&mut state, "a", 1);
+        let first = state.begin_library(Section::Saved, false).unwrap();
+        state.finish_page(&first, Ok(page())).unwrap();
+        assert!(!state.library().unwrap().saved.is_empty());
+        let late = state.begin_library(Section::History, false).unwrap();
+        let refresh = state.begin_library(Section::Saved, true).unwrap();
+        let refused = AccountFailure::Diagnostic(super::super::errors::ErrorKind::Forbidden);
+        state.finish_page(&refresh, Err(refused)).unwrap();
+        assert_eq!(state.phase(), SessionPhase::Failed(refused));
+        assert!(state.library().is_none());
+        assert!(state.sync().is_none());
+        assert_eq!(
+            state.finish_page(&late, Ok(page())),
+            Ok(LibraryCompletion::Ignored)
+        );
+        assert!(state.begin_library(Section::Saved, true).is_none());
+        authenticate(&mut state, "a", 1);
+        assert!(state.library().unwrap().saved.is_empty());
     }
     #[test]
     fn old_account_storage_failures_cannot_block_a_new_account_or_overwrite_its_journal() {

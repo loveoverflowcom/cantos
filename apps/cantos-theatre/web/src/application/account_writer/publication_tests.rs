@@ -842,7 +842,7 @@ fn read_error_retry_and_duplicate_begin_do_not_refetch_from_account_notification
 }
 
 #[test]
-fn playback_reconciles_confirmed_rows_after_a_paging_restart_or_failure() {
+fn retained_confirmed_rows_do_not_republish_after_a_paging_restart_or_failure() {
     for seed in 22..=24 {
         Owner::new().with(|| {
             let initial = fixture(seed);
@@ -850,7 +850,11 @@ fn playback_reconciles_confirmed_rows_after_a_paging_restart_or_failure() {
             expected.seed_sync(|sync, library| {
                 sync.sync_projection(library.unwrap());
             });
-            assert_ne!(initial.library(), expected.library());
+            assert_eq!(
+                initial.library(),
+                expected.library(),
+                "refresh keeps confirmed rows; reconciliation is inert"
+            );
             let state = RwSignal::new(initial);
             checked(state, || {
                 AccountWriter::new(state).observe_playback(

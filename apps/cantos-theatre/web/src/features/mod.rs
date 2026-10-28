@@ -27,3 +27,5 @@ pub(crate) mod work_detail;
 
 pub(crate) mod error_dialog;
 mod guest_identity;
+
+pub(crate) mod loading;

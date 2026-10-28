@@ -33,6 +33,15 @@ Collapse retains the raw query and restores input focus; clear keeps focus. The 
 within the measured viewport after safe/IME insets. JVM desktop tests exercise the production
 composition over declared preview ports; they do not establish Android/iOS keyboard acceptance.
 
+Loading v1 (#588) retains a catalog snapshot separately from the pending query/walk. Accepted
+responses commit its applied search with the rows; new queries reset pagination and preserve token
+fences. Access refusal/account change clears the snapshot. Initial catalog and Library/History
+regions use shared SurfacePulse; replacement uses shared EdgeProgress over retained interactive
+rows, append uses the 20-unit footer arc, and Stale has no running indicator. Search retains the
+350 ms debounce and explicit-submit bypass. Edge presence comes from measured root/region bounds
+and window focus. [Bounded evidence](../../../docs/evidence/loading-588.md) records JVM results
+separately from Android/iOS lifecycle, OS motion and AT acceptance still outstanding.
+
 **Public cover ([#159](https://github.com/loveoverflowcom/cantos/issues/159), ADR 0033).** Work
 list, search and detail reads send `presentation=3` and strictly decode the metadata-capable DTOs
 (unit reads stay on default v1). `PublicCover` admits only the exact
@@ -40,7 +49,7 @@ list, search and detail reads send `presentation=3` and strictly decode the meta
 refuses the page. `PublicCoverHttp` reads the image anonymously, bounded by `byte_length`, and
 verifies status, content type, length and SHA-256 before decoding; `CoverImages` (3 concurrent,
 32 MiB in-memory LRU, nothing on disk) feeds the `WorkArtwork` seam on Discovery cards and the Work
-detail. `null`, loading, 404/503/mismatch/decode failure all keep the decorative tonal fallback
+detail. Loading pulses only its cover slot; `null`, 404/503/mismatch/decode failure keep the decorative tonal fallback
 and never block the title, navigation or playback; preview mock artwork is never a production
 fallback. Android decodes with `BitmapFactory`; **iOS has no cover boundary yet** (its URLSession
 bridge carries `String` bodies), so iOS shows the fallback. Player, mini-player and Library artwork

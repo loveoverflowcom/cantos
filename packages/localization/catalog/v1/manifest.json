@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "a280603ec5225bb7b6a6b8271b08322bea17763bd9d81d9c768aff22b9b49a41",
+  "catalogSha256": "eb27856be9528e5caa24f6a00ce17b2068961394862899e34bb37d70154eeb64",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1550,6 +1550,9 @@
     "theatre.cmp_shell.discover": {},
     "theatre.cmp_shell.discover_heading": {},
     "theatre.cmp_shell.discovery_welcome": {},
+    "theatre.cmp_shell.displayed_search": {
+      "query": "text"
+    },
     "theatre.cmp_shell.done": {},
     "theatre.cmp_shell.empty": {},
     "theatre.cmp_shell.empty_note": {},
@@ -1862,6 +1865,10 @@
     "theatre.shell.discovery_clear": {},
     "theatre.shell.discovery_complete": {
       "count": "count"
+    },
+    "theatre.shell.discovery_displayed_context": {
+      "kind": "text",
+      "query": "text"
     },
     "theatre.shell.discovery_expired": {},
     "theatre.shell.discovery_incomplete": {},

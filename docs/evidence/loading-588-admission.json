@@ -1,0 +1,703 @@
+{
+  "scope": "Shared loading variants only, Leptos macOS in-app Chromium and JVM Desktop Compose test root; no Android/iOS, native lifecycle binding, OS motion, AT, browser zoom or frame-pacing acceptance.",
+  "base_sha": "706c76fd6c438a50884d3ed6ea7a8ca853fef0ac",
+  "inputs": {
+    "tokens_sha256": "afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08",
+    "source_sha256": {
+      "cmp": "1e97cdfaa764a4dd26dd30258b66b847550f7e61687e53a1d9d57d03c6007343",
+      "leptos": "4d0f831e8f9c81593ee6f0213cf2b7625eda335c6f01c502e5702c12837c4728"
+    }
+  },
+  "reviewer": "Codex, 2026-10-28",
+  "reference": "Issue #588 text and opened primitives-overview.png at 925b74cd3e9df2182b4c9ad9722d38cb370e3257; anatomy authority is canonical tokens, no pixel-match claim.",
+  "structural": {
+    "leptos": "PASS: 186 tests, WASM clippy and gallery build (leptos-admission.log)",
+    "cmp": "PASS: 314 executed, 0 failures/skips (cmp-admission-final.log)"
+  },
+  "runtime": {
+    "leptos": "Trusted controls: loading chip/action, enabled Enter immediate intent, real SurfacePulse running/revealed, Light/Dark, root Reduced, narrow viewport 390, VI/EN action recipes and frame320/text200. Edge request terminal/hidden/background states and actual offscreen stopping; 2px slot retained.",
+    "cmp": "Production components exercised by LoadingIndicatorTest, SurfacePulseTest, SurfacePulseSpecimenTest, EdgeProgressTest; manual clock Full/Reduced, cancellation/disposal, semantic decoration and bounds. LoadingAdmissionCaptureTest exercises loading variants with real fonts, themes320/840/text1/2."
+  },
+  "accessibility": "PASS bounded DOM/Compose semantics and real keyboard action; one caller-owned status, decorative glyph/fill hidden. Native screen reader NOT_RUN.",
+  "visual": "Opened design and attributed actual captures: clean monochrome cover/text fills; fixed open arc/caps; straight 2px edge; labels wrap. Narrow first capture clipped => replaced with 4000dp root and opened same scenario. No source/design pixel-match or all-state UX acceptance.",
+  "web_observations": [
+    {
+      "arcs": [
+        {
+          "animation": "none",
+          "hidden": "true",
+          "rect": {
+            "bottom": 542.46875,
+            "height": 16,
+            "left": 57,
+            "right": 73,
+            "top": 526.46875,
+            "width": 16,
+            "x": 57,
+            "y": 526.46875
+          },
+          "transform": "none"
+        }
+      ],
+      "focus": "",
+      "url": "http://127.0.0.1:8083/?v=1&component=filter-chip&state=loading&fixture=standard&theme=light&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "none",
+          "hidden": "true",
+          "rect": {
+            "bottom": 542.46875,
+            "height": 16,
+            "left": 57,
+            "right": 73,
+            "top": 526.46875,
+            "width": 16,
+            "x": 57,
+            "y": 526.46875
+          },
+          "transform": "none"
+        }
+      ],
+      "focus": "",
+      "url": "http://127.0.0.1:8083/?v=1&component=filter-chip&state=loading&fixture=standard&theme=dark&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "none",
+          "hidden": "true",
+          "rect": {
+            "bottom": 641.859375,
+            "height": 16,
+            "left": 57,
+            "right": 73,
+            "top": 625.859375,
+            "width": 16,
+            "x": 57,
+            "y": 625.859375
+          },
+          "transform": "none"
+        }
+      ],
+      "focus": "",
+      "url": "http://127.0.0.1:8083/?v=1&component=auth-primary&state=loading&fixture=standard&theme=light&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "none",
+          "hidden": "true",
+          "rect": {
+            "bottom": 641.859375,
+            "height": 16,
+            "left": 57,
+            "right": 73,
+            "top": 625.859375,
+            "width": 16,
+            "x": 57,
+            "y": 625.859375
+          },
+          "transform": "none"
+        }
+      ],
+      "focus": "",
+      "url": "http://127.0.0.1:8083/?v=1&component=auth-primary&state=loading&fixture=standard&theme=dark&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "cui-loading-turn",
+          "duration": "1s",
+          "hidden": "true",
+          "rect": {
+            "bottom": 319.0205993652344,
+            "height": 17.94744873046875,
+            "left": 56.02627944946289,
+            "right": 73.97372436523438,
+            "top": 301.0731506347656,
+            "width": 17.947444915771484,
+            "x": 56.02627944946289,
+            "y": 301.0731506347656
+          },
+          "transform": "matrix(0.991484, 0.130231, -0.130231, 0.991484, 0, 0)"
+        }
+      ],
+      "url": "http://127.0.0.1:8083/?v=1&component=filter-chip&state=loading&fixture=standard&theme=light&density=compact&locale=en&text=100&frame=840&motion=force-full&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "cui-loading-turn",
+          "duration": "1s",
+          "hidden": "true",
+          "rect": {
+            "bottom": 993.7891845703124,
+            "height": 19.484619140625,
+            "left": 55.257694244384766,
+            "right": 74.7423095703125,
+            "top": 974.3045654296876,
+            "width": 19.484615325927734,
+            "x": 55.257694244384766,
+            "y": 974.3045654296876
+          },
+          "transform": "matrix(0.249384, 0.968405, -0.968405, 0.249384, 0, 0)"
+        }
+      ],
+      "url": "http://127.0.0.1:8083/?v=1&component=filter-chip&state=loading&fixture=standard&theme=dark&density=compact&locale=en&text=100&frame=840&motion=force-full&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "cui-loading-turn",
+          "duration": "1s",
+          "hidden": "true",
+          "rect": {
+            "bottom": 999.0309448242188,
+            "height": 17.9681396484375,
+            "left": 56.01594543457031,
+            "right": 73.98405456542969,
+            "top": 981.0628051757812,
+            "width": 17.968109130859375,
+            "x": 56.01594543457031,
+            "y": 981.0628051757812
+          },
+          "transform": "matrix(0.991287, 0.13172, -0.13172, 0.991287, 0, 0)"
+        }
+      ],
+      "url": "http://127.0.0.1:8083/?v=1&component=auth-primary&state=loading&fixture=standard&theme=light&density=compact&locale=en&text=100&frame=840&motion=force-full&mode=isolated&playback=live"
+    },
+    {
+      "arcs": [
+        {
+          "animation": "cui-loading-turn",
+          "duration": "1s",
+          "hidden": "true",
+          "rect": {
+            "bottom": 1000.6349487304688,
+            "height": 21.1761474609375,
+            "left": 54.41191864013672,
+            "right": 75.58808135986328,
+            "top": 979.4588012695312,
+            "width": 21.17616271972656,
+            "x": 54.41191864013672,
+            "y": 979.4588012695312
+          },
+          "transform": "matrix(-0.412596, 0.910914, -0.910914, -0.412596, 0, 0)"
+        }
+      ],
+      "url": "http://127.0.0.1:8083/?v=1&component=auth-primary&state=loading&fixture=standard&theme=dark&density=compact&locale=en&text=100&frame=840&motion=force-full&mode=isolated&playback=live"
+    },
+    {
+      "theme": "light",
+      "reduced": false,
+      "pulse": [
+        {
+          "duration": "1.4s",
+          "height": "106.656px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.712713",
+          "width": "80px"
+        },
+        {
+          "duration": "1.4s",
+          "height": "28px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.712713",
+          "width": "870.391px"
+        }
+      ],
+      "region": {
+        "bottom": 549.84375,
+        "height": 379,
+        "left": 40.5,
+        "right": 1224.5,
+        "top": 170.84375,
+        "width": 1184,
+        "x": 40.5,
+        "y": 170.84375
+      }
+    },
+    {
+      "theme": "light",
+      "reduced": true,
+      "pulse": [
+        {
+          "duration": "0s",
+          "height": "106.656px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.7",
+          "width": "80px"
+        },
+        {
+          "duration": "0s",
+          "height": "28px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.7",
+          "width": "870.391px"
+        }
+      ],
+      "region": {
+        "bottom": 549.84375,
+        "height": 379,
+        "left": 40.5,
+        "right": 1224.5,
+        "top": 170.84375,
+        "width": 1184,
+        "x": 40.5,
+        "y": 170.84375
+      }
+    },
+    {
+      "theme": "dark",
+      "reduced": false,
+      "pulse": [
+        {
+          "duration": "1.4s",
+          "height": "106.656px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.741547",
+          "width": "80px"
+        },
+        {
+          "duration": "1.4s",
+          "height": "28px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.741547",
+          "width": "870.391px"
+        }
+      ],
+      "region": {
+        "bottom": 549.84375,
+        "height": 379,
+        "left": 40.5,
+        "right": 1224.5,
+        "top": 170.84375,
+        "width": 1184,
+        "x": 40.5,
+        "y": 170.84375
+      }
+    },
+    {
+      "theme": "dark",
+      "reduced": true,
+      "pulse": [
+        {
+          "duration": "0s",
+          "height": "106.656px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.7",
+          "width": "80px"
+        },
+        {
+          "duration": "0s",
+          "height": "28px",
+          "hidden": "true",
+          "name": "cui-surface-pulse",
+          "opacity": "0.7",
+          "width": "870.391px"
+        }
+      ],
+      "region": {
+        "bottom": 549.84375,
+        "height": 379,
+        "left": 40.5,
+        "right": 1224.5,
+        "top": 170.84375,
+        "width": 1184,
+        "x": 40.5,
+        "y": 170.84375
+      }
+    },
+    {
+      "outcome": "pending",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "success",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "pending",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "error",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "pending",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "cancel",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "hidden",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "background",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "outcome": "disposed",
+      "edges": []
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "pending",
+      "edges": [
+        {
+          "active": "true",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "success",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "error",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "cancel",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "hidden",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    },
+    {
+      "phase": "viewport-visible",
+      "outcome": "background",
+      "edges": [
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        },
+        {
+          "active": "false",
+          "animation": [
+            "none"
+          ],
+          "height": 2
+        }
+      ]
+    }
+  ],
+  "artifacts": {
+    "cmp/loading-admission-light-320-reduced.png": {
+      "sha256": "7acd1a2ac19e7722850e2cf9f81fc5109d4259ff9e7c6c15bb2d42f066133b9d",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "cmp/loading-admission-dark-320-reduced.png": {
+      "sha256": "e1205f5221e9a2fa98b21acb50479f018f8d841b212a87cac31912819a91b2c6",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "cmp/loading-admission-light-840-full.png": {
+      "sha256": "c57c2af04b5665876432f68a1d3a86a1d0d3179a0471fd8bf4a6a47423695c0f",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "cmp/loading-admission-dark-840-full.png": {
+      "sha256": "bfdafc4a345a5c68748309c278a01155d0cbadaabaeee3b6c22bc31b32e5f8b7",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "cmp/edge-progress-light-320.png": {
+      "sha256": "db1ba40d04bda11bb42b274c43df3705032edd3ca866a633c9a9009a449adc73",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "cmp/edge-progress-dark-840.png": {
+      "sha256": "62f93a91b28b65e0be8aebe856d3a74cbbcf8f41e442961ff7dd4c664e6b46c0",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/filter-chip-light-840-full.png": {
+      "sha256": "ca115ee1a27e5fbfd6c4642df7269e4abf5cd8bb06d65961b25a518b25ac5d53",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/pulse-light-true.png": {
+      "sha256": "e312d158a4bf732251e64ed7d4841186dd970b8dc3a3084b95dc3c1f5a5e8f25",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/pulse-dark-true.png": {
+      "sha256": "43992c5f97bc18f94c0b4d817d8221f3a820d2e48693cf95c083a70a67450057",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/auth-primary-light-320-reduced.png": {
+      "sha256": "9b5d1fe012a0350ba7e98a6eefc0f8e52eb21cdb598d8183aa8c1eaa6796dabd",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/filter-chip-light-320-reduced.png": {
+      "sha256": "42596bce51b8e6cd8776d8fed6d9d0f0f446f0a7ef5a375705648e8b9a0e0b21",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/pulse-dark-false.png": {
+      "sha256": "f33c56f51f0e251bf3593955877ed5e6e02e6d0d4a4cdf8ab362048b6ce72f1a",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/auth-primary-dark-840-full.png": {
+      "sha256": "ffaba036e3160351ddbdf31dc456b0af27ce5a428001d05bf18675c69af03264",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/pulse-light-false.png": {
+      "sha256": "0abcabf73aba55829280699303b325de079adc6fda7a7ae35ad2f190f6d4e96b",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/chip-light-320-reduced.png": {
+      "sha256": "ac563be4e6bd03b453afc41adff418880ff1cb35a3237500e899aa4c31990336",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/filter-chip-dark-320-reduced.png": {
+      "sha256": "34b99e8c670682741c2ebd4b285866c65200d8de1d4f23fafe48261100e20a26",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/filter-chip-dark-840-full.png": {
+      "sha256": "8de315500b4a9422e2fa2bf1bd4d641329b3dc5027c77529be2ca6c46e65b5ba",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/auth-primary-dark-320-reduced.png": {
+      "sha256": "06c78890bf50e7af80c112e9ab5949c29b979b78a25fc586c4d235e5ca2c858c",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/edge-current.png": {
+      "sha256": "8f1f66fbaf4286848df8e71c57a18c43e27f9d91de9b9f07dcaf9d802ada3c0f",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/pulse-narrow.png": {
+      "sha256": "52d51c5a84179aa7bd6210f998e97885b3a3448989fa1089cb1b133bd71a3a5c",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "browser/auth-primary-light-840-full.png": {
+      "sha256": "72a9ad588ea7d285aff28ad5784278424039e5d5469645570a48f431be6717aa",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    },
+    "reference/primitives-overview.png": {
+      "sha256": "c6b7ba4a9f235bf4f20f0b61db22365482b421fe96671050fcabc026584d2b1a",
+      "local_root": "/Users/manhblue/Documents/Codex/2026-10-28/task-10/evidence/588"
+    }
+  }
+}

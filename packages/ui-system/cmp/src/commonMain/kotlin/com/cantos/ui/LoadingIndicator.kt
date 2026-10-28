@@ -50,7 +50,7 @@ internal fun LoadingIndicator(
     size: LoadingSize = LoadingSize.Compact,
     slot: Dp? = null,
 ) {
-    val turnMillis = pendingRingTurnMillis(LocalUiPreferences.current.motion)
+    val turnMillis = loadingCycleMillis(LoadingCycle.Arc, LocalUiPreferences.current.motion)
     val frame = tokenDp(size.role)
     Box(modifier.size(slot ?: frame).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
         if (turnMillis == null) LoadingArc(frame, tint, angle = { 0f }) else TurningLoadingArc(frame, tint, turnMillis)

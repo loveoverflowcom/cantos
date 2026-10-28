@@ -42,6 +42,7 @@ struct PageState {
     cursor: Option<String>,
     generation: u64,
     consumed: Vec<String>,
+    appending: bool,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PageRequest {
@@ -77,6 +78,10 @@ impl LibraryProjection {
     pub fn phase(&self, section: Section) -> PagePhase {
         self.pages[section.index()].phase
     }
+    pub fn appending(&self, section: Section) -> bool {
+        let page = &self.pages[section.index()];
+        page.phase == PagePhase::Loading && page.appending
+    }
     pub fn has_more(&self, section: Section) -> bool {
         self.pages[section.index()].cursor.is_some()
     }
@@ -101,17 +106,10 @@ impl LibraryProjection {
         }
         let generation = page.generation.checked_add(1)?;
         if restart {
-            match section {
-                Section::Continue => self.continuing.clear(),
-                Section::Saved => self.saved.clear(),
-                Section::History => {
-                    self.history.clear();
-                    self.history_state = None;
-                }
-            }
             page.cursor = None;
             page.consumed.clear();
         }
+        page.appending = page.cursor.is_some();
         page.generation = generation;
         page.phase = PagePhase::Loading;
         Some(PageRequest {
@@ -328,8 +326,33 @@ mod tests {
         }
         let restart = s.begin_library(Section::Saved, true).unwrap();
         assert_eq!(restart.page.cursor(), None);
-        assert!(s.library().unwrap().saved.is_empty());
+        assert_eq!(s.library().unwrap().saved.len(), 1);
     }
+    #[test]
+    fn refresh_retains_rows_until_a_valid_page_and_a_failure_never_becomes_empty() {
+        let mut projection = LibraryProjection::default();
+        let first = projection.begin(Section::Saved, false).unwrap();
+        assert!(projection.finish(&first, Ok(saved(1, Some("ab".repeat(32))))));
+        let refresh = projection.begin(Section::Saved, true).unwrap();
+        assert_eq!(projection.saved.len(), 1);
+        assert!(!projection.appending(Section::Saved));
+        assert_eq!(refresh.cursor(), None);
+        assert!(projection.finish(&refresh, Err(AccountFailure::Unavailable)));
+        assert_eq!(projection.saved.len(), 1);
+        assert_eq!(
+            projection.phase(Section::Saved),
+            PagePhase::Failed(AccountFailure::Unavailable)
+        );
+        let retry = projection.begin(Section::Saved, false).unwrap();
+        assert_eq!(retry.cursor(), None);
+        assert!(projection.finish(&retry, Ok(saved(2, None))));
+        assert_eq!(projection.saved.len(), 1);
+        assert_eq!(
+            projection.saved[0].saved.work_id,
+            uuid::Uuid::from_u128(2).to_string()
+        );
+    }
+
     #[test]
     fn history_epoch_changes_require_explicit_restart_without_losing_other_lists() {
         let mut s = account("a", 1);

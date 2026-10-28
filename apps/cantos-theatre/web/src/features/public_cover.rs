@@ -7,6 +7,7 @@
 //! playback never depend on it. The cover is a cross-origin `<img>`: it needs no CORS because the
 //! page never reads its pixels, sends no credentials or referrer and runs no script from it.
 use crate::contract::discovery::CoverImage;
+use cantos_ui::SurfacePulse;
 use leptos::prelude::*;
 
 /// What the listener currently sees; the markup mirrors it in `data-cover` for styling and tests.
@@ -72,6 +73,7 @@ pub(crate) fn PublicCover(
         <div class=format!("theatre-cover {class}") data-kind=kind
             data-cover=move || phase.get().name() style=ratio>
             <div class="theatre-cover-fallback" aria-hidden="true">{children()}</div>
+            <Show when=move || phase.get() == CoverPhase::Loading><div class="theatre-cover-pending"><SurfacePulse/></div></Show>
             {image}
         </div>
     }

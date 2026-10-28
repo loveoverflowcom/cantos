@@ -31,8 +31,8 @@ import com.cantos.ui.tokenDp
 internal fun ListFooter(phase: ShellListPhase, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, first: Boolean = false) {
     when (phase) {
         ShellListPhase.Complete -> Unit
-        ShellListPhase.Loading -> LoadingState(copy.text(if (first) CopyKey.Loading else CopyKey.LoadingMore),
-            Modifier.testTag("list-loading"), announcement = Announcement.Polite)
+        ShellListPhase.Loading -> if (first) PendingRows(copy.text(CopyKey.Loading), "list-loading")
+            else LoadingState(copy.text(CopyKey.LoadingMore), Modifier.testTag("list-loading"), announcement = Announcement.Polite)
         ShellListPhase.More -> FilledTonalButton(shape = MaterialTheme.shapes.medium,
             onClick = { dispatch(ShellEvent.LoadMore) }, modifier = Modifier.testTag("list-load-more")) {
             Text(copy.text(CopyKey.LoadMore))
@@ -54,7 +54,8 @@ internal fun ListFooter(phase: ShellListPhase, copy: ShellCopy, dispatch: (Shell
 internal fun LibraryFooter(phase: ShellLibraryPhase, section: ShellLibrarySection, tag: String, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     when (phase) {
         ShellLibraryPhase.Complete -> Unit
-        ShellLibraryPhase.Loading, ShellLibraryPhase.LoadingMore -> LoadingState(
+        ShellLibraryPhase.Loading -> Unit // The section header owns refresh/first-load presentation.
+        ShellLibraryPhase.LoadingMore -> LoadingState(
             copy.text(if (phase == ShellLibraryPhase.Loading) CopyKey.Loading else CopyKey.LoadingMore),
             Modifier.testTag("$tag-loading"), announcement = Announcement.Polite)
         ShellLibraryPhase.More -> FilledTonalButton(shape = MaterialTheme.shapes.medium,
@@ -73,6 +74,13 @@ internal fun LibraryFooter(phase: ShellLibraryPhase, section: ShellLibrarySectio
                 modifier = Modifier.testTag("$tag-retry")) { Text(copy.text(CopyKey.Retry)) }
         }
     }
+}
+
+
+@Composable
+internal fun LibraryPending(phase: ShellLibraryPhase, hasRows: Boolean, tag: String, copy: ShellCopy) {
+    if (hasRows) RequestEdge(phase == ShellLibraryPhase.Loading, copy.text(CopyKey.Loading), "$tag-loading")
+    else if (phase == ShellLibraryPhase.Loading) PendingRows(copy.text(CopyKey.Loading), "$tag-loading")
 }
 
 /** Under a minute the old whole-minute caption would read "0 minutes", so it names seconds. */

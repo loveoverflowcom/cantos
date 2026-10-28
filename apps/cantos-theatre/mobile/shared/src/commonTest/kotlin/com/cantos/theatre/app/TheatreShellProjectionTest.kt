@@ -133,11 +133,16 @@ class TheatreShellProjectionTest {
         assertEquals(listOf(work(1).id.value, work(2).id.value), ready.catalog.works.map { it.id.value })
         assertEquals(ShellListPhase.More, ready.catalog.worksPhase)
         send(PublicCatalogIntent.LoadMoreWorks)
+        assertEquals(com.cantos.theatre.presentation.model.ShellCatalogRequest.Append, projectTheatreShell(inputs()).catalog.request)
         assertEquals(ShellListPhase.Loading, projectTheatreShell(inputs()).catalog.worksPhase)
         send(WorksResolved(token(), PublicCatalogRead.Transport))
         val failed = projectTheatreShell(inputs())
         assertEquals(ShellListPhase.Failed, failed.catalog.worksPhase)
         assertEquals(2, failed.catalog.works.size, "a failed page keeps the rows already shown")
+        assertEquals(com.cantos.theatre.presentation.model.ShellCatalogRequest.Idle, failed.catalog.request)
+        send(PublicCatalogIntent.RefreshWorks)
+        assertEquals(com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement, projectTheatreShell(inputs()).catalog.request)
+        assertEquals(2, projectTheatreShell(inputs()).catalog.works.size)
     }
 
     @Test

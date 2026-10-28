@@ -79,12 +79,12 @@ fun motionFor(intent: MotionIntent, property: MotionProperty, preference: Motion
         )
     }
 
-/** One full turn of the pending ring. No canonical continuous-motion token exists yet; a reviewed token replaces this constant. */
+/** Compatibility seed retained for existing callers/tests; the primitive reads LoadingCycle.Arc. */
 const val PendingRingTurnMillis: Int = 1_000
 
 /** Pure: milliseconds per turn of the pending ring, or null when reduced motion keeps it stationary. */
 fun pendingRingTurnMillis(preference: MotionPreference): Int? = when (preference) {
-    MotionPreference.Full -> PendingRingTurnMillis
+    MotionPreference.Full -> loadingCycleMillis(LoadingCycle.Arc, preference)
     MotionPreference.Reduced -> null
 }
 

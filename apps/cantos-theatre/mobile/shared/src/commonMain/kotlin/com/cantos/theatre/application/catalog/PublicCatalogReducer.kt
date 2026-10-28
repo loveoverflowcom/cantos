@@ -90,6 +90,8 @@ data class WorkDetailState internal constructor(
 data class PublicCatalogState internal constructor(
     val works: PageWalk<PublicWork> = PageWalk(),
     val query: PublicCatalogQuery = PublicCatalogQuery.All,
+    /** Query of the displayed snapshot, committed only with an accepted page. */
+    val appliedQuery: PublicCatalogQuery? = null,
     /** `null` is the work list route; otherwise the open work. */
     val detail: WorkDetailState? = null,
     internal val issued: Long = 0,
@@ -137,12 +139,12 @@ fun reducePublicCatalog(state: PublicCatalogState, event: PublicCatalogEvent): P
     PublicCatalogIntent.Start ->
         if (state.works.phase == WalkPhase.NotStarted) state.requestWorks(null, replace = false) else PublicCatalogTransition(state)
     PublicCatalogIntent.AccountChanged -> {
-        val requested = state.copy(works = PageWalk(), detail = null).requestWorks(null, replace = true)
+        val requested = state.copy(works = PageWalk(), appliedQuery = null, detail = null).requestWorks(null, replace = true)
         requested.copy(effects = listOf(PublicCatalogEffect.CancelDetail) + requested.effects)
     }
     is PublicCatalogIntent.Query ->
-        if (event.query == state.query) state.requestWorks(null, replace = true)
-        else state.copy(query = event.query, works = PageWalk()).requestWorks(null, replace = true)
+        if (event.query == state.query && state.works.phase == WalkPhase.Loading) PublicCatalogTransition(state)
+        else state.copy(query = event.query, works = PageWalk(items = state.works.items)).requestWorks(null, replace = true)
     PublicCatalogIntent.RefreshWorks -> state.requestWorks(null, replace = true)
     PublicCatalogIntent.LoadMoreWorks ->
         if (state.works.canLoadMore) state.requestWorks(state.works.next, replace = false)
@@ -207,13 +209,19 @@ private fun PublicCatalogState.requestWorks(cursor: CatalogCursor?, replace: Boo
 
 private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): PublicCatalogTransition {
     if (state.works.awaiting != event.token) return PublicCatalogTransition(state)
+    // A refusal ends permission to retain this snapshot, including any cover it disclosed.
+    if (event.outcome is PublicCatalogRead.AccessFailure) {
+        val failure = CatalogFailure.Access(event.outcome.fault)
+        return PublicCatalogTransition(state.copy(works = PageWalk(phase = WalkPhase.Failed(failure)), appliedQuery = null))
+    }
     val step = state.works.resolve(event.outcome.toWalkOutcome { it.items to it.next }) { it.id }
+    val applied = if (event.outcome is PublicCatalogRead.Ready) state.query else state.appliedQuery
     return when (val follow = step.follow) {
-        Follow.None -> PublicCatalogTransition(state.copy(works = step.walk))
+        Follow.None -> PublicCatalogTransition(state.copy(works = step.walk, appliedQuery = applied))
         is Follow.Request -> {
             val (token, issued) = state.issue()
             PublicCatalogTransition(
-                issued.copy(works = step.walk.request(token, follow.cursor, follow.replace, resetCounters = false)),
+                issued.copy(works = step.walk.request(token, follow.cursor, follow.replace, resetCounters = false), appliedQuery = applied),
                 listOf(PublicCatalogEffect.FetchWorks(token, follow.cursor, state.query)),
             )
         }
