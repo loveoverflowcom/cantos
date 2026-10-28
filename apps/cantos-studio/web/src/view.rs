@@ -749,6 +749,7 @@ pub fn Studio() -> impl IntoView {
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
                 <div class="toolbar studio-topbar">
+                    <span class="studio-language-tip" title=move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get())>
                     <cantos_ui::Select id="studio-language" class="studio-language-field"
                         density=cantos_ui::SelectDensity::Compact label_placement=cantos_ui::SelectLabelPlacement::Inline
                         label=Signal::derive(move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get()).to_owned())
@@ -760,6 +761,7 @@ pub fn Studio() -> impl IntoView {
                                 locale_warning.set(crate::localization::save_preference(selected).err());
                             } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
                         })/>
+                    </span>
                     <ThemeCycleButton id="theme-select" theme=theme labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
                     <AccountEntry actor=authenticated_actor
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
@@ -789,7 +791,7 @@ pub fn Studio() -> impl IntoView {
                 </aside>
                 <div class="entry-form">
                 <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),locale.get())}</h1>
-                <p class="help">{move ||entry_text(crate::messages::entry::help(entry_state.get()),locale.get())}</p>
+                {move ||crate::messages::entry::help(entry_state.get()).map(|key|view!{<p class="help">{entry_text(key,locale.get())}</p>})}
                 <div hidden=move ||!session.with(SessionState::pending) inert=move ||!session.with(SessionState::pending)>
                     <LoadingState announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,locale.get())}else{text(Key::SessionChecking,locale.get())}}</LoadingState>
                     <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,locale.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,locale.get())}</Button>

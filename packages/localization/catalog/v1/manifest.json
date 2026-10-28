@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "24132e8a637de0160cd57aed2165de9a5753083c3d65ca81e4642c4019b7c44a",
+  "catalogSha256": "a58607bb80fbb0ed16c901f7b5d3bf91672b23d90b4a8c653e8903df7e9d942d",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -507,7 +507,6 @@
     "studio.entry.denied": {},
     "studio.entry.denied_help": {},
     "studio.entry.import": {},
-    "studio.entry.login_help": {},
     "studio.entry.login_title": {},
     "studio.entry.memory_help": {},
     "studio.entry.reauthenticate": {},
