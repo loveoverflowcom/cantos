@@ -1,126 +1,104 @@
-# Studio topbar v7/v8 — bounded browser evidence
+# Studio topbar #582 — keyboard layout follow-up
 
-Status: implemented presentation with local browser observations for [#582](https://github.com/loveoverflowcom/cantos/issues/582).
-The remaining acceptance below is separate from these results. The issue's v7/v8 direction
-supersedes #490/#558's earlier topbar styling; their other work is outside this record.
+Status: bounded implementation/browser evidence for [PR #591](https://github.com/loveoverflowcom/cantos/pull/591).
+[PR #590](https://github.com/loveoverflowcom/cantos/pull/590) landed the main v7/v8 styling while
+this work was underway. The final diff preserves that implementation, including its semantic
+container colors, 8px language padding, icon-only theme action and existing regression tests.
 
-## Scope, invariant and ownership
+## Invariant, cause and boundary
 
-The compact topbar must preserve canonical locale selection/storage, the three-state theme
-action, accessible names/focus and actual-account-only visibility. Its previous v6 composition
-selected a labelled theme pill and overrode shared tonal controls with account-action colors.
-Studio now selects the existing tonal, icon-only `ThemeCycleButton`, inherits the shared tonal
-Select states, and paints the short locale code with initial capitalization and 12px side padding.
-The registry tags and full menu autonyms are unchanged. The existing actor badge/disclosure and
-all account/session intents are unchanged; no identity is invented for the login screen.
+Keyboard focus and the complete theme tooltip must remain visible without horizontal page
+scrolling at narrow and desktop widths. Locale capitalization is presentation only: canonical
+tags, registry choices, full menu names, saved preference and actual account/session authority
+remain unchanged.
 
-The browser also reproduced a centered theme tooltip overflowing the right viewport edge
-(page width 1302 at a 1265px client width). Studio now anchors that tooltip to the control's right
-edge, bounds/wraps its text, and right-aligns a wrapped toolbar. The same keyboard scenario then
-stayed within the 320px viewport, including the full Vietnamese tooltip.
+The landed baseline's centered tooltip extended to x=1302.29 at a 1265px client width under a
+requested 1280px viewport. This follow-up right-aligns and bounds/wraps that tooltip, keeps a
+wrapped toolbar at the header's right edge, and displays short codes as `Vi`/`En`.
+Only Studio CSS, its README and this report differ from the integration base.
 
-| Report field | Scope / result |
+| Completion field | Scope / evidence |
 | --- | --- |
-| Work item / review boundary | #582; one Studio Web presentation change, with remaining acceptance explicitly deferred |
-| Prerequisites / decisions | Existing Select short-label callback, tonal theme variant and account disclosure reused; no new shared API, token, dependency or ADR |
-| Owner / boundary | `apps/cantos-studio/web/src/view.rs`, `studio.css`, existing `messages/entry.rs` regression; shared renderers and backend unchanged |
-| Branch / base | `codex/studio-topbar-582`; fetched/pulled `origin/develop` at `afed522366b1a498432686ba156978e7e46a17f9` before edits; isolated worktree |
-| Docs / queue | Studio README updated; queue unchanged because dependency/order/rationale is unchanged |
-| Prompt / outward actions | Plain user request to implement/open a PR and remove the worktree; no merge, deployment, issue edit or account provisioning |
-| Performance | Not affected; no query, cache, startup or runtime-performance claim |
-| Layer L1 | Owner/dependency review: consumer-only composition and geometry; no new dependency edges or shared adoption |
-| Layer L2 | Inapplicable: no domain value, durable decision, type, error or settled record changed |
-| Layer L3 | `example-tested`: replacement of the superseded v6 regression failed on the original labelled action and passed after the presentation change; final package/format/lint results belong to the PR's preflight summary |
-| Layer L4 | `DOM-tested`, `interaction-tested`, `accessibility-checked`: real Studio language/theme flow, keyboard traversal, menu dismissal and names/state; no HTTP doubles |
-| Layer L5 | `screenshot-inspected`, `cross-viewport-inspected`, `cross-theme-inspected`: real local anonymous browser; no authenticated-account, deployed or production acceptance |
+| Work item / acceptance | Part of #582; v7/v8 core belongs to #590, remaining acceptance is below |
+| Review boundary / owner | Studio Web topbar presentation in `studio.css`; existing Select, ThemeCycleButton and AccountEntry reused |
+| Prerequisites / decisions | Landed #590 retained; no new shared API, token, dependency, ADR or domain decision |
+| Branch / base | `codex/studio-topbar-582`; started from fetched/pulled develop `afed522366b1a498432686ba156978e7e46a17f9`, then merged develop `2a605959f3e7164b7c67759fc52ef92519f9a0b9` at `182137d9` to resolve the overlap |
+| Docs / queue | Studio README updated; queue unchanged because order/dependencies/rationale did not change |
+| Prompt / outward actions | Plain user request for implementation, PR and worktree removal; no issue edit, close, merge or deploy |
+| Performance | Not affected; no query/cache/startup measurement or performance claim |
+| L1 Architecture | Owner/dependency audit; consumer-only CSS, no new dependency edge or shared adoption |
+| L2 Domain/types/errors | Inapplicable: no durable fact, domain rule, refined type, session policy or error behavior changed |
+| L3 Static/unit | Existing landed v7 language/theme regressions retained; final format/native lint/unit/WASM lint/build results are recorded in the PR |
+| L4 Application/UI | `DOM-tested`, `interaction-tested`, `accessibility-checked` for anonymous language/theme controls; real native local composition, no HTTP doubles |
+| L5 Runtime | `screenshot-inspected`, `cross-viewport-inspected`, `cross-theme-inspected`; real anonymous CSR/WASM browser only |
 
 ## Commands and provenance
 
-Run from the repository root with Rust 1.98.1. Builds used
-`CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0` to limit local disk use.
+Run from the repository root with Rust 1.98.1 and Trunk 0.21.14. Build settings were
+`CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0`;
+verification used `TMPDIR=/private/tmp`.
 
 ```sh
 cargo xtask run cantos-studio --web --web-origin http://127.0.0.1:8084
-cargo test --locked -p cantos-studio --lib studio_topbar_keeps_registry_selection_and_the_shared_tonal_icon_action
-cargo xtask preflight --changed-only --base afed522366b1a498432686ba156978e7e46a17f9
+cargo xtask preflight --changed-only --base 2a605959f3e7164b7c67759fc52ef92519f9a0b9
 ```
 
-The focused test was run red before the production patch and green afterward. Both the baseline
-and changed CSR/WASM builds were served through the actual xtask-owned native Server/Identity
-composition with mail disabled and no Studio account. Browser work used the Codex in-app browser
-on macOS through CUA; the backend did not expose its engine version. Pointer and keyboard were
-driven; no touch emulation, OS IME, assistive technology, paid service or private media was used.
-Final preflight commands/results are recorded in the PR rather than implied by a build.
+The local xtask runner owned Server/Identity with private Turso files and mail disabled. No
+Studio account, provider, cloud storage, private manuscript or media was used. Browser evidence
+used CUA's Codex in-app browser on macOS; its backend did not expose an engine version. Pointer
+and keyboard were driven, at 100% text. No touch emulation, OS IME or assistive technology ran.
 
-The initial `preflight --changed-only --base origin/develop` returned `FAIL` in `repository`: 16 stale Leptos qualifications
-and 34 consumer-adoption diagnostics. The exact failing primitive,
-`python3 scripts/check_repository.py --base origin/develop`, also failed in a clean detached
-worktree at the pinned base with the identical 50 diagnostics. Classification: **pre-existing**,
-not an environment gap or a passing gate. No qualification records, hashes or adoption baselines
-were changed. `origin/develop` advanced during verification, so subsequent checks
-use the immutable fetched base SHA shown above. A subsequent preflight with `--skip repository`
-runs the independent format/lint/test/Web gates while explicitly keeping repository `NOT_RUN`;
-it does not replace the original `FAIL`. The PR records both summaries and remaining repository
-substep results.
+Final screenshots/measurements are in the ignored `artifacts/agent-runs/studio-topbar-582/`:
+`integrated-before-{1280,320}-system-en-tooltip.jpg`,
+`integrated-after-{1280,320}-system-en-tooltip.jpg`,
+`integrated-after-{320,390,1280}-{light,dark}-{vi,en}.jpg`,
+`integrated-browser-observations.json` and `integrated-tooltip.json`.
+Exact captured JPEG bytes were opened by the implementation agent. Source/capture digests
+and full logs remain there; they are preserved locally when the worktree is removed.
+Earlier unprefixed images and logs describe the original afed5223/6459d079 attempt and are
+historical evidence, not the final integrated source.
 
-The independent repository Python substep ran 1,318 tests: 1,298 passed, 18 skipped, and two
-failed on this macOS environment. The unchanged legacy tests
-`test_vps_epoch2_cutover.Epoch2CutoverTests.test_journal_metadata_must_also_bind_the_exact_attempt`
-and `test_vps_oidc_reconcile.VpsOidcReconcileTests.test_nested_operations_reuse_the_same_lock_descriptor`
-encountered BSD `sed` syntax and missing `flock`, respectively. These are actual failures with
-environment causes; no tool installation, legacy runtime activation or test repair was attempted.
+## Final browser observations
 
-Production-source SHA-256 at browser observation:
-
-| Path below `apps/cantos-studio/web/` | SHA-256 |
+| Claim / edge class | Observed result |
 | --- | --- |
-| `src/view.rs` | `02e845656d422cea0e49f132c007303a4b59514d2dd930a2aafd939126eba50d` |
-| `studio.css` | `f1e96ad1efa7a4b0c6f3cf986d5bf9b9ce125edd1b3ba26186af42679c13a751` |
+| Same-scenario tooltip recheck | Requested 1280×800, System, en, anonymous, empty inputs, focused theme: before page width 1302/client 1265; after both 1280, tooltip x=1113.42–1264 |
+| Narrow tooltip | Requested 320×720, System, en: after page/client width 320 and tooltip x=153.42–304; no clipping or horizontal scroll |
+| Responsive matrix | Light/Dark × vi/en at 320×720, 390×844 and 1280×800 (12 cases); all final page widths match client widths |
+| Targets / geometry | Language 59.52×48px (`Vi`) / 63.38×48px (`En`), inherited 8px padding; theme 44×44px with 12px radius |
+| Contrast | Both language and theme text/icon pairs 11.11:1 Light / 10.04:1 Dark; computed opaque foreground/background pairs |
+| Keyboard focus | Theme 3px solid indicator, 5.55:1 Light / 6.26:1 Dark against its fill; visibly retained in captures |
+| Locale menu / persistence | Full `Tiếng Việt`/`English` autonyms and selected/expanded state; Arrow+Enter changed locale, `<html lang>` matched, Vietnamese survived reload; Escape kept focus on the collapsed trigger |
+| Theme interaction | Enter then Space advanced Dark → Light → System once per activation; localized current/next names and System icon retained; System used current host Light appearance |
+| Account / async | Anonymous account entry remained hidden; existing actor/session owners and intents unchanged; no request lifetime or async decision changed |
+| UI intent / tokens / copy | Low-intensity Studio chrome; semantic source and both renderer mappings unchanged; no new localization key/literal; case changes only visual short-code presentation |
+| Motion | No animation added; timing, smoothness and reduced-motion runtime not observed |
 
-Evidence files remain outside Git in `artifacts/agent-runs/studio-topbar-582/`:
-`browser-observations.json`, `keyboard-observations.json`, source/capture digests and logs.
-The four same-scenario before/after pairs are named
-`{before,after}-{1280-dark,1280-light,320-light,390-dark}-vi.jpg`.
-Viewport heights are respectively 800, 800, 720 and 844 CSS px. Captures use empty login inputs,
-100% text, an anonymous session and the same focused theme control with its tooltip dismissed.
-The actual saved pixels were opened by the implementation agent; the smaller controls remain
-legible, and the final 320px header fits on one row where the baseline had wrapped.
+This is a CSS-only repair with reproduced and inspected before/after evidence; the retained
+landed regressions cover existing language/theme composition. No new implementation-mirroring
+test was added. The earlier input-value preservation probe was inconclusive and is not a pass.
 
-## Browser observations
+## Gate diagnosis and deferred acceptance
 
-The changed page was inspected in Light and Dark at 320×720, 390×844 and 1280×800, in both
-vi-VN and en (12 combinations). No horizontal overflow was measured in those final states.
-The exact same shared components receive semantic roles from the existing Theatre expression;
-no canonical token or generated file changed. This is quiet Studio chrome at Low intensity.
+The initial unskipped preflight failed on 16 stale Leptos qualifications plus 34 adoption
+diagnostics. Its failing repository primitive also failed on a clean detached afed5223 base
+with the exact same ordered 50 diagnostics. Those records/baselines were not modified.
+The final integration preflight and any independent `--skip repository` summary belong to
+the PR; an explicit repository `NOT_RUN` never replaces its original `FAIL`.
 
-| Observation | Actual result |
-| --- | --- |
-| Targets / geometry | Language 67.52×48px (`Vi`) or 71.38×48px (`En`), 12px side padding; theme 44×44px, 12px radius, no decorative border or visible mode label |
-| Text/icon contrast | Language 13.12:1 Light / 12.64:1 Dark; theme icon 11.11:1 Light / 10.04:1 Dark; computed opaque foreground/background pairs |
-| Theme keyboard focus | 3px solid indicator, 5.55:1 Light / 6.26:1 Dark against the button fill; visible in the opened captures |
-| Locale menu | Full `Tiếng Việt` / `English` names, selected option, expanded state, no leading language icon; short code does not replace the accessible full name |
-| Locale interaction | Arrow keys + Enter changed locale and `<html lang>` to `en`/`vi-VN`; English survived reload; canonical preference owner/callback and warning handling retained |
-| Dismissal / focus | Escape collapsed the language menu and kept focus on its trigger; opening then Tab without navigation retained English and moved focus to theme; pointer outside dismissed |
-| Theme interaction | Enter/Space each advanced one mode, System → Dark → Light → System, with localized current/next tooltip/name; System used the host's current Light appearance |
-| Tooltip recheck | At 320px, Vietnamese tooltip bounds 120.38–304px and page width 320px; full label visible, keyboard focus retained |
-| Account / async | Anonymous account entry hidden; actor mapping and availability tests retained. No account, session authority, request lifetime or async race changed |
-| Localization / motion | No new key or literal label; existing resources in both locales. No animation changed; timing, reduced-motion runtime and smoothness were not observed |
+The earlier Python repository substep on the original base ran 1,318 tests: 1,298 passed,
+18 skipped, two unchanged legacy VPS tests failed because BSD `sed` syntax differs and
+`flock` is absent. This is source-bound historical evidence, not a rerun of the merged tree.
 
-The input-value preservation probe was inconclusive; it is not counted as an interaction pass.
-
-## Deferred acceptance and residual risk
-
-| Check / status | Reason and next acceptance step | Next owner / risk |
+| Deferred check / status | Reason / exact next step | Next owner / residual risk |
 | --- | --- | --- |
-| Repository qualification: FAIL | Identical 50 diagnostics on clean `develop`; complete actual shared-renderer qualification/adoption through its owners, then rerun the unskipped preflight command above. Do not refresh digests without the required observations | Shared UI qualification owner unassigned; aggregate handoff remains red |
-| Repository Python substep: FAIL | Run the unchanged legacy tests on their supported GNU/Linux tool environment; the local run exposes BSD `sed` and absent `flock`. Eighteen optional tests also skipped and are not counted as passes | Repository tooling owner unassigned; full repository acceptance remains pending |
-| 200% text, forced colors, touch, reduced motion: NOT_RUN | Browser automation exposes viewport sizing but no corresponding emulation controls. Run the same xtask command above in a browser with those settings; inspect controls, menus and tooltip without clipping or lost focus | Unassigned — assignment required before full AC-03 acceptance |
-| Dynamic System/OS changes and refused preference storage: NOT_RUN | Observe live OS Light/Dark changes and blocked storage in that browser; preserve one cycle action and the localized storage warning. Only current-host System and successful saved locale were exercised | Unassigned; runtime failure branches remain unqualified |
-| Authenticated avatar/account: NOT_RUN in browser | Use an approved nonproduction Studio account/roster, then repeat avatar, account actions and narrow popover/sheet focus checks; existing native account regressions establish only their tested scope | Unassigned; authenticated header and actual-session interactions remain acceptance gaps |
-| Screen reader / production: NOT_RUN | Named reader/browser walkthrough and separately authorized deployed observation are required for those claims | Unassigned; DOM/keyboard evidence does not establish either |
+| Repository qualification: FAIL | Complete actual shared-renderer qualification/adoption, then rerun the unskipped preflight above; never refresh digests without observations | Unassigned; aggregate repository acceptance stays red |
+| Legacy Python environment / optional skips | Run `python3 -m unittest discover -s scripts -p 'test_*.py'` in its supported GNU/Linux tool environment; no tool installation or legacy-runtime activation occurred here | Tooling owner unassigned; earlier 2 failures/18 skips remain disclosed |
+| 200% text, forced colors, touch, reduced motion: NOT_RUN | Run the same Studio command in a browser supporting those settings; inspect controls, menu and tooltip without clipping/lost focus | Unassigned; full AC-03 remains partial |
+| Dynamic System OS changes / refused storage: NOT_RUN | Change live OS appearance and refuse storage in that browser; verify one cycle action and localized storage warning | Unassigned; only current-host System and successful preference persistence observed |
+| Authenticated account / screen reader / deployed: NOT_RUN | Use approved nonproduction Studio credentials/roster and a named reader/environment; repeat avatar, menu and focus scenarios | Unassigned; anonymous DOM/browser checks accept none of these |
 
-AC-01/02 have implemented source and bounded evidence; authenticated and refusal paths remain
-separate. AC-03 remains partial. AC-04 has actual before/after browser evidence and final checks
-reported in the PR. The issue is not automatically closed. Complete the deferred matrix before
-claiming the full issue or production acceptance; no backend, migration, audio, rights or publication
-behavior changed.
+AC-01/02 retain #590's implemented behavior with this bounded recheck; account/refusal paths remain
+separate. AC-03 is partial. AC-04 has final-source browser captures and explicit check results in
+the PR. No migration, Script IR/API, cache/audio revision, provider cost, rights/QC/approval or
+publication behavior changed. Finish the deferred matrix before full issue/production acceptance.
