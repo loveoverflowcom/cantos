@@ -1,0 +1,31 @@
+{
+  "component_id": "filter-chip",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28, bounded loading regression admission for issue595",
+  "reference": "Preserve the prior bounded scope from docs/evidence/loading-review-filter-chip-leptos.json; compare current shared gallery and JVM captures with unchanged component source and all pre-existing tokens. See loading regression admission in the artifact. No Android/iOS, AT, OS motion, true zoom, real backend or deployed claim.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "4ce3b10848a30a88ee29963950540b498cf0dd56279346c1f970b9de3369a255",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; fresh gallery build/reload, trusted CUA controls, read-only styles and opened images; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; fresh gallery build/reload, trusted CUA controls, read-only styles and opened images; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; fresh gallery build/reload, trusted CUA controls, read-only styles and opened images; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; fresh gallery build/reload, trusted CUA controls, read-only styles and opened images; unchanged component/token delta review",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    }
+  }
+}

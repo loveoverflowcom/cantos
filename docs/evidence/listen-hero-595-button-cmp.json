@@ -1,0 +1,31 @@
+{
+  "component_id": "button",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28, bounded ListenHero and existing shared action checks",
+  "reference": "Actual Drive board/HTML/ZIP from issue595 opened; shared native Button specimens compared. Leptos in-app Chromium and JVM Desktop Compose test root only. No Android/iOS, AT, true zoom, OS motion, real backend or production acceptance. See artifact for source-bound scope.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "401086ab7ca9c5ce6425fa32ee54040fe56d7e83a46d26dfdb3a1a5fb6e658cc",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; ListenHeroTest, JVM Compose focus/semantics/capture",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; ListenHeroTest, JVM Compose focus/semantics/capture",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; ListenHeroTest, JVM Compose focus/semantics/capture",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; ListenHeroTest, JVM Compose focus/semantics/capture",
+      "artifact": "docs/evidence/listen-hero-595.md"
+    }
+  }
+}

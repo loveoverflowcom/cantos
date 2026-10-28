@@ -10,6 +10,27 @@ import com.cantos.ui.preview.workbench.PreviewSnapshotError
  * This is a bounded preview policy, not the pending production i18n architecture decision (#167).
  */
 internal object PreviewToolCopy {
+    /** Fixed Vietnamese typography specimen, independent of the English developer controls. */
+    object ListenFixture {
+        fun label(phase: String): String = when (phase) {
+        "resolving" -> "Đang tải…"
+        "buffering", "playing" -> "Tạm dừng"
+        "paused" -> "Nghe tiếp"
+        "failed" -> "Thử lại"
+        else -> "Nghe"
+    }
+        fun status(phase: String): String = when (phase) {
+        "resolving" -> "Đang chuẩn bị bản nghe…"
+        "buffering" -> "Đang tải âm thanh…"
+        "playing" -> "Đang phát"
+        "paused" -> "Đã tạm dừng"
+        "failed" -> "Không thể tải bản nghe. Hãy thử lại."
+        "unavailable" -> "Chưa có bản nghe được phát hành."
+        else -> "Chương 1 · Tiếng chuông trong sương"
+    }
+        fun name(label: String) = "$label · Chương 1 · Tiếng chuông trong sương"
+    }
+
     const val EdgeState = "Request outcome"
     const val EdgePlacement = "Indicator placement"
     const val EdgeSearchPlacement = "Below search"

@@ -38,7 +38,14 @@
         "pressed",
         "long-vietnamese",
         "large-text",
-        "theatre-group"
+        "theatre-group",
+        "listen-ready",
+        "listen-resolving",
+        "listen-buffering",
+        "listen-playing",
+        "listen-paused",
+        "listen-failed",
+        "listen-unavailable"
       ],
       "leptos": {
         "status": "registered",
@@ -815,8 +822,8 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/loading-review-button-leptos.json",
-        "cmp": "docs/evidence/loading-588-button-cmp.json"
+        "leptos": "docs/evidence/listen-hero-595-button-leptos.json",
+        "cmp": "docs/evidence/listen-hero-595-button-cmp.json"
       }
     },
     {
@@ -878,8 +885,8 @@
     {
       "component_id": "loading-state",
       "evidence": {
-        "leptos": "docs/evidence/loading-review-loading-state-leptos.json",
-        "cmp": "docs/evidence/loading-588-loading-state-cmp.json"
+        "leptos": "docs/evidence/listen-hero-595-regression-loading-state-leptos.json",
+        "cmp": "docs/evidence/listen-hero-595-regression-loading-state-cmp.json"
       }
     },
     {
@@ -927,22 +934,22 @@
     {
       "component_id": "edge-progress",
       "evidence": {
-        "leptos": "docs/evidence/loading-review-edge-progress-leptos.json",
-        "cmp": "docs/evidence/loading-588-edge-progress-cmp.json"
+        "leptos": "docs/evidence/listen-hero-595-regression-edge-progress-leptos.json",
+        "cmp": "docs/evidence/listen-hero-595-regression-edge-progress-cmp.json"
       }
     },
     {
       "component_id": "surface-pulse",
       "evidence": {
-        "leptos": "docs/evidence/loading-review-surface-pulse-leptos.json",
-        "cmp": "docs/evidence/loading-588-surface-pulse-cmp.json"
+        "leptos": "docs/evidence/listen-hero-595-regression-surface-pulse-leptos.json",
+        "cmp": "docs/evidence/listen-hero-595-regression-surface-pulse-cmp.json"
       }
     },
     {
       "component_id": "filter-chip",
       "evidence": {
-        "leptos": "docs/evidence/loading-review-filter-chip-leptos.json",
-        "cmp": "docs/evidence/loading-588-filter-chip-cmp.json"
+        "leptos": "docs/evidence/listen-hero-595-regression-filter-chip-leptos.json",
+        "cmp": "docs/evidence/listen-hero-595-regression-filter-chip-cmp.json"
       }
     }
   ]

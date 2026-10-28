@@ -284,6 +284,11 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let press = Callback::new(move |_| host.log(format!("{} press", log_id.get_value())));
     let label = Signal::derive(move || fixture_label(host.recipe.get()).to_owned());
     let content = match component {
+        ComponentId::ListenHero => view! {
+            <cantos_ui::UiRoot expression=cantos_ui::Expression::Theatre theme=Signal::derive(move || host.recipe.get().theme) class="cui-listen-specimen-root">
+                <super::listen_samples::ListenHeroSample id=control_id initial=state.as_str() locale=Signal::derive(move || host.recipe.get().locale)/>
+            </cantos_ui::UiRoot>
+        }.into_any(),
         ComponentId::EdgeProgress => view! {
             <super::edge_progress_samples::EdgeProgressSamples id=control_id initial_state=state.as_str() visible=Signal::derive(move || active.get()) locale=Signal::derive(move || host.recipe.get().locale)/>
         }.into_any(),

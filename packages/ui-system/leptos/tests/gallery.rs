@@ -674,6 +674,8 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     assert_eq!(
         components.iter().map(|api| api.states.len()).sum::<usize>()
             - surface_pulse.states.len()
+            // Issue 595 adds seven ListenHero states; the archived v3 baseline stays 198.
+            - components.iter().find(|api| api.id == "button").unwrap().states.iter().filter(|state| state.starts_with("listen-")).count()
             - components
                 .iter()
                 .find(|api| api.id == "edge-progress")
@@ -736,6 +738,51 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
         "platform-specific",
         "mini-player"
     ));
+}
+
+#[test]
+fn listen_specimen_resource_owner_preserves_both_locales_and_each_native_action_state() {
+    use preview::{listen_samples::ListenHeroSample, recipe::Locale};
+    for (locale, expected) in [
+        (
+            Locale::Vi,
+            [
+                "Nghe",
+                "Đang tải…",
+                "Tạm dừng",
+                "Tạm dừng",
+                "Nghe tiếp",
+                "Thử lại",
+                "Nghe",
+            ],
+        ),
+        (
+            Locale::En,
+            [
+                "Listen",
+                "Loading…",
+                "Pause",
+                "Pause",
+                "Resume",
+                "Try again",
+                "Listen",
+            ],
+        ),
+    ] {
+        for (phase, label) in preview::messages::listen::STATES.into_iter().zip(expected) {
+            let html = Owner::new().with(|| {
+                view! { <ListenHeroSample id="hero" initial=phase locale=locale/> }.to_html()
+            });
+            let control = html.split("</button>").next().unwrap();
+            assert!(control.contains(label), "{locale:?}/{phase}: {control}");
+            assert!(control.contains("data-variant=\"listen-hero\""));
+            assert_eq!(
+                control.contains("aria-disabled=\"true\""),
+                matches!(phase, "resolving" | "unavailable")
+            );
+            assert_eq!(control.contains("aria-busy=\"true\""), phase == "resolving");
+        }
+    }
 }
 
 #[test]

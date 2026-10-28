@@ -103,6 +103,15 @@ import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.theatre.presentation.model.filteredWorks
 import com.cantos.theatre.presentation.model.generated.ShellMessage
 import com.cantos.theatre.presentation.model.isAccountTask
+import com.cantos.ui.Button as SharedButton
+import com.cantos.ui.ButtonState
+import com.cantos.ui.ButtonVariant
+import com.cantos.ui.DisabledReason
+import com.cantos.ui.AccessibleName
+import com.cantos.ui.LocalUiPreferences
+import com.cantos.ui.CantosExpression
+import com.cantos.theatre.presentation.model.WorkListenPhase
+import com.cantos.theatre.presentation.model.workListenProjection
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
@@ -676,11 +685,26 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     }
     if (work.detailPhase != ShellDetailPhase.Ready) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        val firstEpisode = work.episodes.firstOrNull { it.durationSeconds > 0 }
-        Button(shape = MaterialTheme.shapes.medium, enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
-            onClick = { firstEpisode?.let { dispatch(ShellEvent.OpenEpisode(it.id)) } }) {
-            Icon(rememberCantosIconVector("play_arrow"), null)
-            Text(copy.text(CopyKey.StartEpisode))
+        val listen = workListenProjection(work, state.workListenRelease)
+        val reason = listen.status?.let(copy::text)
+        val availability = when (listen.phase) {
+            WorkListenPhase.Resolving, WorkListenPhase.ListLoading -> ButtonState.Loading(DisabledReason.of(requireNotNull(reason)))
+            WorkListenPhase.ListFailed, WorkListenPhase.NoTarget, WorkListenPhase.Unavailable -> ButtonState.Disabled(DisabledReason.of(requireNotNull(reason)))
+            else -> ButtonState.Enabled
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+            CantosTheme(LocalUiPreferences.current.copy(expression = CantosExpression.Theatre)) {
+                SharedButton(
+                    name = AccessibleName.of(copy.text(ShellMessage.WorkListenName(action = copy.text(listen.label), title = listen.target?.title ?: work.title))),
+                    onPress = { listen.event()?.let(dispatch) }, state = availability,
+                    variant = ButtonVariant.ListenHero, icon = listen.icon,
+                    controlModifier = Modifier.testTag("work-listen"),
+                ) { Text(copy.text(listen.label)) }
+            }
+            if (availability == ButtonState.Enabled && reason != null) {
+                Text(reason, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("work-listen-status").semantics { liveRegion = LiveRegionMode.Polite })
+            }
         }
         SaveWorkButton(work, state, copy, dispatch, "save-work")
     }

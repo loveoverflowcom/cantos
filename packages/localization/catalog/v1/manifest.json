@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "eb27856be9528e5caa24f6a00ce17b2068961394862899e34bb37d70154eeb64",
+  "catalogSha256": "198dc429478ff9ce2d35b19a37afe4c96f133a519c5337fb9858b65a28e188e3",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1716,6 +1716,16 @@
     "theatre.cmp_shell.view_all_history": {},
     "theatre.cmp_shell.welcome": {},
     "theatre.cmp_shell.work": {},
+    "theatre.cmp_shell.work_listen": {},
+    "theatre.cmp_shell.work_listen_list_failed": {},
+    "theatre.cmp_shell.work_listen_loading": {},
+    "theatre.cmp_shell.work_listen_name": {
+      "action": "text",
+      "title": "text"
+    },
+    "theatre.cmp_shell.work_listen_no_target": {},
+    "theatre.cmp_shell.work_listen_resume": {},
+    "theatre.cmp_shell.work_listen_unavailable": {},
     "theatre.cmp_shell.work_not_found": {},
     "theatre.cmp_shell.work_not_found_note": {},
     "theatre.membership.about": {},
@@ -2323,7 +2333,12 @@
     "theatre.shell.unavailable_help": {},
     "theatre.shell.unsupported": {},
     "theatre.shell.view_all": {},
-    "theatre.shell.view_all_history": {}
+    "theatre.shell.view_all_history": {},
+    "theatre.shell.work_listen": {},
+    "theatre.shell.work_listen_loading": {},
+    "theatre.shell.work_listen_no_target": {},
+    "theatre.shell.work_listen_resume": {},
+    "theatre.shell.work_listen_unavailable": {}
   },
   "schemaVersion": 1
 }

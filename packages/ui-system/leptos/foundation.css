@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08 template-sha256:f0207080a6f2856969109d080a63a46ee4fa2fcbeea30b6edba341f91f116b0b
+/* Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7 template-sha256:a37f6be6225dca493516fb9793d0d41ac43726420ea0e8f6273e8e75964abc92
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -1378,6 +1378,41 @@
   --cantos-web-field-label-top: 0.5rem;
   --cantos-web-field-value-bottom: 0.375rem;
 }
+/* Issue 595: a scoped Work hero. Same Button/state/intent; regular, auth and compact controls
+   keep their existing anatomy. The stable well also hosts the shared MicroArc while resolving. */
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"] {
+  display: inline-grid;
+  grid-template-columns: var(--cantos-size-listen-icon-well) minmax(0, 1fr);
+  gap: var(--cantos-space-inset);
+  min-block-size: var(--cantos-size-listen-hero);
+  min-inline-size: min(100%, var(--cantos-size-listen-hero-inline));
+  border-radius: var(--cantos-shape-pill);
+  padding-inline: var(--cantos-space-listen-hero-start) var(--cantos-space-section);
+  font-size: var(--cantos-type-listen-hero-size);
+  line-height: var(--cantos-type-listen-hero-line-height);
+  font-weight: var(--cantos-type-listen-hero-weight);
+}
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"] .cui-button-icon {
+  inline-size: var(--cantos-size-listen-icon-well);
+  block-size: var(--cantos-size-listen-icon-well);
+  border-radius: var(--cantos-shape-pill);
+  background: color-mix(in srgb, currentColor calc(var(--cantos-state-focus-opacity) * 100%), transparent);
+}
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"] .cui-control-label {
+  text-align: center;
+}
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"][aria-disabled="true"] {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  background-image: none;
+  cursor: default;
+  transition: none;
+}
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"]:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+
 /* Theatre expression. Palette and weights arrive from the canonical expression remap in
    tokens.css; only renderer-local geometry lives here, scoped to data-expression="theatre" so a
    consumer that names no expression keeps every value above. Heights are minimums: text,

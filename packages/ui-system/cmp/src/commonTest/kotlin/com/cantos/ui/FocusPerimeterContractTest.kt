@@ -64,7 +64,7 @@ class FocusPerimeterContractTest {
     fun painted_theatre_actions_are_inset_and_the_standard_expression_keeps_the_outset_ring() {
         ButtonVariant.entries.forEach { variant ->
             assertEquals(variant.isAuth(), variant.focusIsInset(CantosExpression.Standard), "$variant standard")
-            assertTrue(variant.focusIsInset(CantosExpression.Theatre), "$variant theatre")
+            assertEquals(variant != ButtonVariant.ListenHero, variant.focusIsInset(CantosExpression.Theatre), "$variant theatre")
         }
         assertFalse(ButtonVariant.Primary.focusIsInset(CantosExpression.Standard))
         assertTrue(ButtonVariant.AuthPrimary.focusIsInset(CantosExpression.Standard))
@@ -77,7 +77,7 @@ class FocusPerimeterContractTest {
             CantosExpression.entries.filter { variant.focusIsInset(it) }.forEach { expression ->
                 listOf("light", "dark").forEach { theme ->
                     val fill = when (variant) {
-                        ButtonVariant.Primary, ButtonVariant.AuthPrimary -> "color.primary"
+                        ButtonVariant.Primary, ButtonVariant.AuthPrimary, ButtonVariant.ListenHero -> "color.primary"
                         ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
                             if (expression == CantosExpression.Theatre) "color.surfaceContainerHigh" else "color.primaryContainer"
                         ButtonVariant.Danger -> "color.errorContainer"

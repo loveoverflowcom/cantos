@@ -10,6 +10,8 @@ pub enum ButtonVariant {
     Secondary,
     Text,
     Danger,
+    /// Work-detail listening CTA only. Compact transport and auth retain their geometry.
+    ListenHero,
     /// Capsule CTA for auth/account only; ordinary actions keep their existing geometry.
     AuthPrimary,
     AuthSecondary,
@@ -24,6 +26,7 @@ impl ButtonVariant {
             Self::Secondary => "secondary",
             Self::Text => "text",
             Self::Danger => "danger",
+            Self::ListenHero => "listen-hero",
             Self::AuthPrimary => "auth-primary",
             Self::AuthSecondary => "auth-secondary",
             Self::AuthOutlined => "auth-outlined",
@@ -152,6 +155,10 @@ pub fn Button(
     children: Children,
     #[prop(optional)] variant: ButtonVariant,
     #[prop(optional)] icon: Option<IconName>,
+    /// A stateful decorative glyph; the native button, focus and callback stay mounted.
+    /// Takes precedence over the compatible static `icon` input when supplied.
+    #[prop(optional, into)]
+    icon_signal: Option<Signal<IconName>>,
     #[prop(into, default = ButtonState::Enabled.into())] state: Signal<ButtonState>,
     #[prop(optional)] on_press: Option<Callback<MouseEvent>>,
     #[prop(into, default = String::new().into())] class: Signal<String>,
@@ -165,6 +172,7 @@ pub fn Button(
     #[prop(optional)]
     focus_on_press: bool,
 ) -> impl IntoView {
+    let icon = icon_signal.or_else(|| icon.map(Signal::stored));
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
     let button_ref = NodeRef::<leptos::html::Button>::new();
@@ -179,7 +187,8 @@ pub fn Button(
         <div class="cui-button-field">
             <button id=id node_ref=button_ref type="button" class=move || component_class("cui-button", &class.get())
                 data-variant=variant.as_str() data-state=move || state.get().as_str()
-                disabled=move || !state.get().can_press()
+                disabled=move || matches!(state.get(), ButtonState::Disabled(_)) || (variant != ButtonVariant::ListenHero && state.get().is_busy())
+                aria-disabled=move || (!state.get().can_press()).then_some("true")
                 aria-busy=move || state.get().is_busy().then_some("true")
                 aria-controls=aria_controls
                 aria-expanded=move || aria_expanded.map(|expanded| expanded.get().to_string())
@@ -204,7 +213,7 @@ pub fn Button(
                 {move || if state.get().is_busy() {
                     Some(view! { <span class="cui-button-icon" aria-hidden="true"><LoadingIndicator/></span> }.into_any())
                 } else {
-                    icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true"><Icon name=name/></span> }.into_any())
+                    icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true">{move || view! { <Icon name=name.get()/> }}</span> }.into_any())
                 }}
                 <span class="cui-control-label">{children()}</span>
             </button>

@@ -149,8 +149,10 @@ class TheatreShell(
         }
         scope.launch {
             runtime.listening.playback.state.collect { state ->
-                val unit = state.session?.source?.audio?.unitId
-                if (unit != null && unit == mutableRequested.value?.unitId) {
+                val audio = state.session?.source?.audio
+                val pending = mutableRequested.value
+                if (audio != null && pending != null && audio.workId == pending.workId &&
+                    audio.unitId == pending.unitId && audio.publicationId == pending.publicationId) {
                     mutableRequested.value = null
                     ErrorKind.entries.forEach { kind ->
                         onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, ErrorOperation.StartPlayback)))
@@ -489,6 +491,11 @@ class TheatreShell(
     }
 
     private fun start(request: UnitRequest) {
+        // UI recomposition can lag rapid input. A pending resolve of this exact release is one
+        // operation; a failed resolve may still retry through the same owner.
+        val pending = mutableRequested.value
+        if (pending?.workId == request.workId && pending.unitId == request.unitId &&
+            pending.publicationId == request.publicationId && runtime.listening.failure.value == null) return
         mutableRequested.value = request
         runtime.listening.open(request.workId, request.unitId, request.publicationId, request.title, request.workTitle)
     }

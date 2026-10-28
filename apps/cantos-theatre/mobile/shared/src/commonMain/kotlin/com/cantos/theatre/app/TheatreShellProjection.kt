@@ -47,6 +47,8 @@ import com.cantos.theatre.presentation.model.ShellProgress
 import com.cantos.theatre.presentation.model.ShellResume
 import com.cantos.theatre.presentation.model.ShellRowTitles
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.WorkListenRelease
+import com.cantos.theatre.presentation.model.WorkListenPhase
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
@@ -83,6 +85,7 @@ class TheatreShellInputs(
     val query: String,
     val libraryTab: ShellLibraryTab,
     val timer: ShellTimer,
+    val accessFailure: com.cantos.theatre.ports.PlaybackAccessFailure? = null,
 )
 
 class ShellProjection(val state: ShellState, val catalog: ShellCatalogView)
@@ -176,6 +179,7 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         },
         bookmarks = i.library.bookmarks.map { it.toShell(builder.rowTitles(it.audio, it.presentation)) },
         listeningFailure = if (i.accessFailed && pending != null) ShellListeningFailure.ReleaseUnavailable else null,
+        workListenRelease = workListenRelease(i),
     )
     return ShellProjection(state, view)
 }
@@ -257,6 +261,30 @@ private fun PageWalk<PublicWork>.catalogMode(): ShellCatalogMode = when {
     phase is WalkPhase.Failed -> ShellCatalogMode.Error
     isEmptyResult -> ShellCatalogMode.Empty
     else -> ShellCatalogMode.Loading
+}
+
+private fun workListenRelease(i: TheatreShellInputs): WorkListenRelease? {
+    val session = i.playback.session
+    val audio = session?.source?.audio
+    val pending = i.requested?.takeIf { audio == null || it.workId != audio.workId || it.unitId != audio.unitId || it.publicationId != audio.publicationId }
+    if (pending != null) return WorkListenRelease(ShellEpisodeId(pending.unitId, ShellWorkId(pending.workId)), pending.publicationId,
+        when (i.accessFailure) {
+            com.cantos.theatre.ports.PlaybackAccessFailure.NotFound,
+            com.cantos.theatre.ports.PlaybackAccessFailure.IdentityChanged -> WorkListenPhase.Unavailable
+            else -> if (i.accessFailed) WorkListenPhase.ResolveFailed else WorkListenPhase.Resolving
+        })
+    if (session == null || audio == null) return null
+    val phase = when {
+        session.failure != null -> WorkListenPhase.TransportFailed
+        session.intent == PlaybackIntent.Play -> when (i.playback.status) {
+            PlaybackStatus.Playing -> WorkListenPhase.PausePlaying
+            PlaybackStatus.Buffering -> WorkListenPhase.PauseBuffering
+            else -> WorkListenPhase.PauseLoading
+        }
+        i.playback.status == PlaybackStatus.Paused && session.positionMs > 0L -> WorkListenPhase.Resume
+        else -> WorkListenPhase.Ready
+    }
+    return WorkListenRelease(ShellEpisodeId(audio.unitId, ShellWorkId(audio.workId)), audio.publicationId, phase)
 }
 
 private fun playbackStatus(playback: PlaybackState, pending: Boolean, accessFailed: Boolean, matches: Boolean): PlaybackUiStatus = when {
@@ -405,7 +433,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 
     private fun episode(workId: String, unit: PublicUnit, index: Int): ShellEpisode {
         val id = ShellWorkId(workId)
-        return ShellEpisode(ShellEpisodeId(unit.id.value, id), id, index, unit.title, unit.durationMs?.let(::seconds) ?: 0, numbered = false)
+        return ShellEpisode(ShellEpisodeId(unit.id.value, id), id, index, unit.title, unit.durationMs?.let(::seconds) ?: 0, numbered = false, publicationId = unit.publicationId?.value)
     }
 
     private fun seconds(durationMs: Long): Int = ((durationMs + 999L) / 1000L).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()

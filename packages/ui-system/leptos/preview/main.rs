@@ -21,6 +21,7 @@ mod discovery;
 pub mod edge_progress_samples;
 pub mod foundation_samples;
 pub mod interaction_samples;
+pub mod listen_samples;
 mod logo_samples;
 pub mod messages;
 pub mod motion_probe;

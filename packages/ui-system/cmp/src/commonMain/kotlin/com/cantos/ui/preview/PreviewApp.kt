@@ -512,7 +512,11 @@ internal fun ComponentExample(
                 tone = if (LocalUiPreferences.current.theme == Theme.Dark) LogoTone.Dark else LogoTone.Light)
             LogoSamples(state)
         }
-        PreviewExample.Button -> if (state in listOf("auth-primary", "auth-secondary", "auth-outlined", "pressed", "long-vietnamese", "large-text")) {
+        PreviewExample.Button -> if (state.startsWith("listen-")) {
+            CantosTheme(LocalUiPreferences.current.copy(expression = CantosExpression.Theatre)) {
+                ListenHeroSample(state, onPress, modifier)
+            }
+        } else if (state in listOf("auth-primary", "auth-secondary", "auth-outlined", "pressed", "long-vietnamese", "large-text")) {
             val preferences = LocalUiPreferences.current
             CantosTheme(preferences.copy(textScale = if (state == "large-text") 2f else preferences.textScale)) {
                 AuthActionSample(when (state) {

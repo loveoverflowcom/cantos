@@ -42,6 +42,7 @@ import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.ports.CatalogProtocolFault
 import com.cantos.theatre.ports.PublicCatalogRead
 import com.cantos.theatre.presentation.model.PlaybackUiStatus
+import com.cantos.theatre.presentation.model.WorkListenPhase
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellDetailPhase
 import com.cantos.theatre.presentation.model.ShellEpisodeId
@@ -103,10 +104,11 @@ class TheatreShellProjectionTest {
         selection: NativeSelection? = null,
         requested: UnitRequest? = null,
         accessFailed: Boolean = false,
+        accessFailure: com.cantos.theatre.ports.PlaybackAccessFailure? = null,
         library: LibraryState = LibraryState(),
         locale: ShellLocale = ShellLocale.Vietnamese,
     ) = TheatreShellInputs(navigation, catalog, known, playback, selection, requested, accessFailed, library,
-        ShellTheme.Light, locale, "", ShellLibraryTab.Continuing, ShellTimer.Off)
+        ShellTheme.Light, locale, "", ShellLibraryTab.Continuing, ShellTimer.Off, accessFailure)
 
     private fun audio(workNumber: Int, unitNumber: Int, durationMs: Long = 61_000) = requireNotNull(AudioIdentity.of(
         work(workNumber).id.value, unit(unitNumber).id.value, unit(unitNumber).publicationId!!.value,
@@ -115,6 +117,21 @@ class TheatreShellProjectionTest {
     private fun session(audio: AudioIdentity, positionMs: Long = 5_000, intent: PlaybackIntent = PlaybackIntent.Play) = PlaybackState(
         generation = 1, session = PlaybackSession(PlaybackSource.streaming(audio), positionMs, 1000, intent,
             PlaybackEngine.Running, PlaybackInterruption.None))
+
+    @Test
+    fun work_hero_keeps_pending_play_cancellable_and_never_claims_engine_ack_from_intent() {
+        val audio = audio(1, 1)
+        val selected = session(audio)
+        for ((engine, expected) in listOf(PlaybackEngine.Preparing to WorkListenPhase.PauseLoading,
+            PlaybackEngine.Buffering to WorkListenPhase.PauseBuffering, PlaybackEngine.Running to WorkListenPhase.PausePlaying)) {
+            val playback = selected.copy(session = selected.session!!.copy(engine = engine))
+            assertEquals(expected, projectTheatreShell(inputs(playback = playback)).state.workListenRelease?.phase)
+        }
+        val newRelease = UnitRequest(audio.workId, audio.unitId, "30000000-0000-4000-8000-000000000099", "New release", "Work")
+        val pending = projectTheatreShell(inputs(playback = selected, requested = newRelease)).state.workListenRelease
+        assertEquals(newRelease.publicationId, pending?.publicationId)
+        assertEquals(WorkListenPhase.Resolving, pending?.phase, "the same unit's old running release is not the newly requested release")
+    }
 
     @Test
     fun an_empty_list_is_loading_then_error_then_empty_and_a_non_empty_list_is_ready_with_its_footer() {
@@ -248,9 +265,11 @@ class TheatreShellProjectionTest {
         assertEquals(7, playing.state.positionSeconds)
         assertEquals(7_900L, playing.state.positionMs)
         assertEquals(100, playing.state.speedPercent)
+        assertEquals(WorkListenPhase.PausePlaying, playing.state.workListenRelease?.phase)
         val paused = projectTheatreShell(inputs(playback = session(first, intent = PlaybackIntent.Pause(com.cantos.theatre.domain.playback.PlaybackPauseCause.User))))
         assertEquals(PlaybackUiStatus.Paused, paused.state.playbackStatus)
         assertEquals(false, paused.state.transportRequested)
+        assertEquals(WorkListenPhase.Resume, paused.state.workListenRelease?.phase)
 
         val request = UnitRequest(work(1).id.value, unit(2).id.value, unit(2).publicationId!!.value, "Chương hai", "Tên truyện")
         val pending = projectTheatreShell(inputs(playback = session(first), requested = request))
@@ -258,10 +277,17 @@ class TheatreShellProjectionTest {
         assertEquals(PlaybackUiStatus.Loading, pending.state.playbackStatus)
         assertEquals(0, pending.state.positionSeconds, "the old unit's position is not the requested one's")
         assertNull(pending.state.listeningFailure)
+        assertEquals(WorkListenPhase.Resolving, pending.state.workListenRelease?.phase)
         val refused = projectTheatreShell(inputs(requested = request, accessFailed = true))
         assertEquals(PlaybackUiStatus.Failed, refused.state.playbackStatus)
         assertEquals(ShellListeningFailure.ReleaseUnavailable, refused.state.listeningFailure)
+        assertEquals(WorkListenPhase.ResolveFailed, refused.state.workListenRelease?.phase)
         assertEquals("Chương hai", refused.catalog.episode(refused.state.selectedEpisode)?.title)
+        for (failure in listOf(com.cantos.theatre.ports.PlaybackAccessFailure.NotFound,
+            com.cantos.theatre.ports.PlaybackAccessFailure.IdentityChanged)) {
+            val unavailable = projectTheatreShell(inputs(requested = request, accessFailed = true, accessFailure = failure))
+            assertEquals(WorkListenPhase.Unavailable, unavailable.state.workListenRelease?.phase)
+        }
     }
 
     @Test

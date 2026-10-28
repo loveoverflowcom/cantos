@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08
+/* Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -110,6 +110,9 @@
   --cantos-size-focus-width: 0.1875rem;
   --cantos-size-icon: 1.5rem;
   --cantos-size-icon-compact: 1.25rem;
+  --cantos-size-listen-hero: 3.5rem;
+  --cantos-size-listen-hero-inline: 13rem;
+  --cantos-size-listen-icon-well: 2.25rem;
   --cantos-size-loading-arc: 1.25rem;
   --cantos-size-loading-arc-compact: 1rem;
   --cantos-size-loading-arc-stroke: 0.125rem;
@@ -120,6 +123,7 @@
   --cantos-space-control-inline: 0.75rem;
   --cantos-space-inset: 0.75rem;
   --cantos-space-lg: 1.5rem;
+  --cantos-space-listen-hero-start: 0.625rem;
   --cantos-space-md: 1rem;
   --cantos-space-section: 1.25rem;
   --cantos-space-sm: 0.5rem;
@@ -150,6 +154,9 @@
   --cantos-type-label-line-height: 1.5;
   --cantos-type-label-size: 0.875rem;
   --cantos-type-label-weight: 600;
+  --cantos-type-listen-hero-line-height: 1.44444444444;
+  --cantos-type-listen-hero-size: 1.125rem;
+  --cantos-type-listen-hero-weight: 700;
   --cantos-type-membership-title-line-height: 1.4;
   --cantos-type-membership-title-size: 1.75rem;
   --cantos-type-membership-title-weight: 400;

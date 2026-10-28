@@ -32,6 +32,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -58,6 +59,8 @@ class TheatreShellTest {
     }
 
     private class Fixture(scope: CoroutineScope) {
+        var manifestGate: CompletableDeferred<Unit>? = null
+        var manifestCalls = 0
         val work: PublicWork = PublicCatalogSamples.work(1, title = "Ánh đèn cuối sân khấu")
         val unit: PublicUnit = PublicCatalogSamples.unit(1, durationMs = 125_000)
         val audio = requireNotNull(AudioIdentity.of(work.id.value, unit.id.value, unit.publicationId!!.value,
@@ -75,7 +78,11 @@ class TheatreShellTest {
         }).also { it.dispatch(PublicCatalogIntent.Start) }
         val runtime = NativeSessionRuntime(scope, nativeFactory = { decoder },
             access = object : PlaybackAccessPort {
-                override suspend fun manifest(publicationId: String) = PlaybackAccessResult.Accepted(audio)
+                override suspend fun manifest(publicationId: String): PlaybackAccessResult<AudioIdentity> {
+                    manifestCalls++
+                    manifestGate?.await()
+                    return PlaybackAccessResult.Accepted(audio)
+                }
                 override suspend fun authorize(identity: AudioIdentity): PlaybackAccessResult<PlaybackGrant> =
                     PlaybackAccessResult.Accepted(PlaybackGrant(PlaybackLocation("https://media.invalid/test-only"), 1_000_000))
             }, account = null, library = null,
@@ -86,6 +93,33 @@ class TheatreShellTest {
 
     private fun TestScope.fixture() = Fixture(backgroundScope).also { runCurrent() }
     private val workRoute = { f: Fixture -> ShellRoute.Work(ShellWorkId(f.work.id.value)) }
+
+    @Test
+    fun repeat_open_during_resolve_keeps_one_exact_release_request() = runTest {
+        val f = fixture()
+        f.shell.dispatch(ShellEvent.Navigate(workRoute(f)))
+        runCurrent()
+        val olderRelease = requireNotNull(AudioIdentity.of(f.audio.workId, f.audio.unitId,
+            "80000000-0000-4000-8000-000000000099", f.audio.renditionId, f.audio.sha256, f.audio.durationMs))
+        f.runtime.listening.restore(olderRelease, 500)
+        runCurrent()
+        f.runtime.listening.playback.dispatch(PlaybackEvent.PlayRequested)
+        runCurrent()
+        f.manifestGate = CompletableDeferred()
+        val intent = ShellEvent.OpenEpisode(ShellEpisodeId(f.unit.id.value, ShellWorkId(f.work.id.value)))
+        f.shell.dispatch(intent)
+        runCurrent()
+        assertEquals(1, f.manifestCalls)
+        assertEquals(f.audio.publicationId, f.shell.requested.value?.publicationId,
+            "pausing an older publication of the same unit cannot clear the pending release")
+        f.shell.dispatch(intent)
+        runCurrent()
+        assertEquals(1, f.manifestCalls, "a pending exact-release resolve is not canceled and restarted by repeated input")
+        f.manifestGate!!.complete(Unit)
+        runCurrent()
+        assertEquals(f.audio, f.runtime.listening.playback.state.value.session?.source?.audio)
+        assertEquals(PlaybackStatus.Buffering, f.runtime.listening.playback.state.value.status)
+    }
 
     @Test
     fun the_open_work_follows_the_navigation_stack_and_the_catalog_never_outlives_it() = runTest {
