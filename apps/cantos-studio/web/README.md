@@ -116,6 +116,8 @@ operation. This is not an aria-modal dialog and does not establish background in
 screen-reader acceptance. See the [six-issue review evidence](../../../docs/evidence/studio-six-issue-review-20261026.md).
 The [topbar v7/v8 observations](../../../docs/evidence/studio-topbar-582.md) record the compact
 presentation, keyboard/contrast checks and remaining browser acceptance.
+The [joint v8 continuation](../../../docs/evidence/topbar-582-583.md) rechecks the retained Studio
+controls in both locales and all three modes at 320/390/1280px, with remaining acceptance explicit.
 
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and

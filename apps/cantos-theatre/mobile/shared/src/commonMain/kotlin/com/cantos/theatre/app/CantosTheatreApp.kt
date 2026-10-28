@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +55,7 @@ import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.ui.Density
 import com.cantos.ui.MotionPreference
 import com.cantos.ui.tokenDp
@@ -78,6 +80,7 @@ fun CantosTheatreApp(
     motionPreference: MotionPreference = MotionPreference.Reduced,
     /** The host's verified cover pipeline; none means every cover keeps its accessible fallback. */
     coverImages: CoverImageSource? = null,
+    systemIsDark: Boolean = isSystemInDarkTheme(),
 ) {
     val navigation by shell.navigation.collectAsState()
     val catalog by shell.catalog.state.collectAsState()
@@ -96,7 +99,12 @@ fun CantosTheatreApp(
     val verification = shell.verification?.state?.collectAsState()?.value
     val cacheStatus = cache?.status?.collectAsState()?.value
     val locale = prefs.locale.toShellLocale()
-    val theme = if (prefs.theme == PreferenceTheme.Dark) ShellTheme.Dark else ShellTheme.Light
+    val themeMode = when (prefs.theme) {
+        PreferenceTheme.Light -> ShellThemeMode.Light
+        PreferenceTheme.Dark -> ShellThemeMode.Dark
+        PreferenceTheme.System -> ShellThemeMode.System
+    }
+    val theme = themeMode.resolve(systemIsDark)
     val projection = remember(navigation, catalog, known, playback, selection, failure, requested, library, ui, theme, locale) {
         projectTheatreShell(TheatreShellInputs(navigation, catalog, known, playback, selection, requested,
             failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer))
@@ -149,6 +157,8 @@ fun CantosTheatreApp(
     ) {
         CantosPresentation(
             state, projection.catalog, dispatch, modifier, textScale, onThemeChanged, backHandler,
+            themeMode = themeMode,
+            accountSignedIn = signedIn,
             membershipContent = {
                 MembershipPreview(ui.membership, locale, shell::membership,
                     onExplore = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) })

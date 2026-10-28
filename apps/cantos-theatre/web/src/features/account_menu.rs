@@ -348,7 +348,7 @@ pub(crate) fn AccountEntry(
             }>
             {move || if signed_in.get() {
                 view! {
-                    <button id=ENTRY_ID node_ref=avatar type="button" class="theatre-avatar"
+                    <button id=ENTRY_ID node_ref=avatar type="button" class="theatre-avatar" data-account="signed-in"
                         aria-label=label aria-controls=MENU_ID
                         aria-expanded=move || menu_open.get().to_string()
                         aria-current=move || (route.get() == Route::Account).then_some("page")
@@ -452,6 +452,7 @@ mod tests {
             let html = render_entry(false, Locale::Vietnamese);
             assert!(html.contains("<a") && html.contains("href=\"#account\""));
             assert!(html.contains("aria-label=\"Tài khoản\""));
+            assert!(!html.contains("data-account=\"signed-in\""));
             assert_eq!(html.matches("<dialog").count(), 1);
             assert!(!html.contains("<dialog open"));
             for absent in ["aria-expanded", "theatre-account-menu"] {
@@ -483,6 +484,7 @@ mod tests {
             ] {
                 let html = render_entry(true, language);
                 assert!(html.contains("id=\"theatre-account-entry\""));
+                assert!(html.contains("data-account=\"signed-in\""));
                 assert!(html.contains(&format!("aria-label=\"{name}\"")));
                 assert!(
                     html.contains("aria-expanded=\"false\"")
