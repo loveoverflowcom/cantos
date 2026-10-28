@@ -50,3 +50,14 @@ The action and per-subject decisions are append-only. This first bounded impleme
 not support a new publication after withdrawal; replaying the original publication cannot
 undo a later withdrawal. Both commands require `CANTOS_SERVER_DATABASE` to name the stopped
 Server's database. Never put secrets or a proposed password in either request.
+
+The API runtime image deliberately does not contain `cantos-operator`. The OCI workflow can
+build a separate Linux operator artifact from the same pinned Server build stage and qualify
+that exact binary against the exact image pair using disposable synthetic data. Review the
+artifact's source, build-record, binary hash, qualified-image manifest and the separate sample
+qualification report before any use. A build alone does not establish qualification, rights,
+admission or authority to operate on the production database. The binary retains other operator
+commands and must be kept in an operator-controlled private location; do not mount it into the
+long-running Server service or make it available through HTTP. Run the reviewed sample command
+with a stopped database and explicit least-privilege, network-disabled execution, then retain its
+receipt and re-check the API. A separate operator execution decision remains required.
