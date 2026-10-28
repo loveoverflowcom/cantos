@@ -17,6 +17,7 @@ import release_artifact as contract
 import release_oci as oci
 import release_oci_build as image_build
 import release_oci_qualify as qualify
+import release_sample_operator_build as operator_build
 
 SOURCE = 'services/cantos-server/tests/fixtures/fictional-sample-metadata.json'
 SOURCE_SHA = '0ad007cb18d46b58df25dbc2e8ea98bf58bce752c9e6d640fc4a78a90ef779d6'
@@ -82,12 +83,11 @@ def qualify_operator(root, args):
     oci.fields(build, 'schema_version operation status source_sha platform configuration_sha256 builder_base builder_image_id binary_sha256 binary_bytes '
                'admission activation', 'exact operator build receipt required')
     containerfile = image_build.git_bytes(root, manifest['source_sha'], image_build.CONTAINERFILE.format('cantos-server')).decode()
-    builders = re.findall(r'^FROM (docker\.io/library/rust:[^\s]+@sha256:[a-f0-9]{64}) AS build$', containerfile, re.MULTILINE)
-    contract.require(len(builders) == 1 and build['builder_base'] == builders[0] and
+    contract.require(build['builder_base'] == operator_build.pinned_builder(containerfile) and
                      re.fullmatch(r'sha256:[a-f0-9]{64}', build['builder_image_id']) is not None,
                      'operator builder identity mismatch')
     contract.require(type(build['schema_version']) is int and build['schema_version'] == 1 and
-                     type(build['binary_bytes']) is int and 64 <= build['binary_bytes'] <= 512*1024**2 and
+                     type(build['binary_bytes']) is int and build['binary_bytes'] in operator_build.BINARY_BYTES and
                      build['operation'] == 'BUILD_SAMPLE_OPERATOR' and
                      build['status'] == 'BUILT_NOT_QUALIFIED' and build['source_sha'] == manifest['source_sha'] and
                      build['platform'] == manifest['platform'] and build['configuration_sha256'] == manifest['configuration_sha256'] and

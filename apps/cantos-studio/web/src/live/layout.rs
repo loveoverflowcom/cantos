@@ -153,6 +153,20 @@ pub enum Viewing {
     Nothing,
     Current,
     Historical,
+    /// A revision is open but this chapter / episode's head is not known (not read, failed or
+    /// missing), so whether it is the current one cannot be said.
+    Unverified,
+}
+
+impl Viewing {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Viewing::Nothing => "nothing",
+            Viewing::Current => "current",
+            Viewing::Historical => "historical",
+            Viewing::Unverified => "unverified",
+        }
+    }
 }
 
 pub fn viewing(
@@ -163,9 +177,10 @@ pub fn viewing(
     let Some(opened) = opened.filter(|opened| opened.unit_id == unit) else {
         return Viewing::Nothing;
     };
-    match head {
-        Some(head) if head.unit_id == unit && head.id == opened.id => Viewing::Current,
-        _ => Viewing::Historical,
+    match head.filter(|head| head.unit_id == unit) {
+        Some(head) if head.id == opened.id => Viewing::Current,
+        Some(_) => Viewing::Historical,
+        None => Viewing::Unverified,
     }
 }
 
@@ -385,16 +400,33 @@ mod tests {
             viewing(Some(&older), Some(&head), "unit"),
             Viewing::Historical
         );
-        assert_eq!(viewing(Some(&older), None, "unit"), Viewing::Historical);
         // A reply that belongs to another chapter / episode is never shown as this one's.
         let foreign = revision("r1", "other", 1);
         assert_eq!(
             viewing(Some(&foreign), Some(&head), "unit"),
             Viewing::Nothing
         );
+    }
+
+    #[test]
+    fn without_this_units_head_an_opened_revision_is_neither_current_nor_historical() {
+        // The head read has not answered, failed or found nothing: the opened revision may well
+        // be the current one, so it is not labelled historical (#571 AC-03).
+        let opened = revision("r3", "unit", 3);
+        assert_eq!(viewing(Some(&opened), None, "unit"), Viewing::Unverified);
         assert_eq!(
-            viewing(Some(&head), Some(&revision("r3", "other", 3)), "unit"),
-            Viewing::Historical
+            viewing(Some(&opened), Some(&revision("r3", "other", 3)), "unit"),
+            Viewing::Unverified
         );
+        assert_eq!(viewing(None, None, "unit"), Viewing::Nothing);
+        let values = [
+            Viewing::Nothing,
+            Viewing::Current,
+            Viewing::Historical,
+            Viewing::Unverified,
+        ]
+        .map(Viewing::as_str);
+        // studio.css colours `historical`; the attribute values stay distinct.
+        assert_eq!(values, ["nothing", "current", "historical", "unverified"]);
     }
 }

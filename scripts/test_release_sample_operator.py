@@ -71,6 +71,17 @@ class OperatorBoundary(unittest.TestCase):
                 command.assert_not_called()
                 self.assertFalse(output.exists())
 
+    def test_build_and_qualification_share_one_builder_and_size_rule(self):
+        base = 'docker.io/library/rust:fixture@sha256:'+'e'*64
+        self.assertIs(qualify.operator_build, build)
+        self.assertEqual(build.pinned_builder('FROM '+base+' AS build\nFROM runtime AS final\n'), base)
+        for containerfile in ('FROM docker.io/library/rust:latest AS build\n',
+                              'FROM '+base+' AS build\nFROM '+base+' AS build\n', ''):
+            with self.assertRaisesRegex(ValueError, 'exact pinned Rust builder required'):
+                build.pinned_builder(containerfile)
+        for size, admitted in ((63, False), (64, True), (512*1024**2, True), (512*1024**2+1, False)):
+            self.assertEqual(size in build.BINARY_BYTES, admitted, size)
+
     def test_synthetic_fixture_never_accepts_expanded_owner_selection(self):
         request = qualify.request('publish', '00000000-0000-4000-8000-000000000001')
         self.assertNotIn('owner_id', request)
