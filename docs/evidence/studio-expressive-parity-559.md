@@ -54,3 +54,47 @@ to `primaryContainer`; it is an emulation of Standard, not a build of the base c
   of Studio-specific compositions beyond the generator's pair floors.
 - Hover/pressed/disabled/loading states in the browser; the Light/Dark theme-cycle button path.
 - Deployed or production browser acceptance; the owner screenshot's build and computed CSS remain unknown.
+
+## Compact Floating field density (AC-07 slice)
+
+Source-bound observation, 28 October 2026, base `develop@89c5964c` plus this change (uncommitted at
+record time). Part of [#559](https://github.com/loveoverflowcom/cantos/issues/559).
+
+Finding: under the `theatre` expression every Floating field has a 68-unit minimum, and the authenticated
+work, unit, rights, publication and import forms use ~20 of them. The existing Select density is
+select-only and the expression remap is root-scoped, so no shared way to ask for the denser, still
+accessible field existed.
+
+Decision: a shared `FieldDensity` on `TextField` (`Compact` renders `data-field-density="compact"`; the
+default adds no attribute, so every existing consumer's markup is byte-identical). One foundation rule
+restores the standard Floating geometry already declared at the top of `foundation.css.in` (58 minimum,
+above the 48-unit target) and leaves palette, weights, radius and state strokes to the expression. The docked
+search is excluded. Studio selects it once (`EDITOR_FIELD_DENSITY`) for its authenticated Floating fields;
+sign-in and the account menu stay comfortable. No hex, token or profile was added and `studio.css` gained
+no field override. Catalog state `web-compact-fields` (Web-only, like Select's `web-*` states) registers the
+specimen.
+
+| Layer | Command (cwd) | Result |
+| --- | --- | --- |
+| Shared renderer tests | `cargo test --locked -p cantos-ui` (root) | PASS (new: markup identity, one scoped rule) |
+| Studio tests | `cargo test --locked -p cantos-studio` (root) | PASS, 405 + 5 (new: every authenticated Floating field names the constant; sign-in has none; no local override) |
+| Format / lint | `cargo fmt --all -- --check`; `cargo clippy --locked -p cantos-ui -p cantos-studio --all-targets -D warnings`, native and `wasm32-unknown-unknown` | PASS |
+| Generators | `python3.14 scripts/ui_tokens.py --check`; `ui_preview_catalog.py` (generate) | PASS |
+| Python UI suites | `python3.14 -m unittest test_ui_tokens test_ui_preview_catalog test_ui_component_states test_ui_design_inventory` (`scripts`) | PASS, 92 |
+
+Observation (actual `ui-preview leptos` gallery via `trunk serve`, built-in browser, light, 1280 wide,
+Vietnamese fixtures): with a short label the Theatre Floating field computes `min-block-size` 68 px and the
+compact one 58 px; radius 16 px and fill `rgb(234,221,247)` are identical, the error stroke, floated label and
+read-only/disabled fills were visible. With the long Vietnamese fixture label both grow with their content
+(144 vs 136 px at the narrow matrix column), nothing clips. The label text was shortened in the page DOM for
+the minimum measurement only.
+
+Pre-existing red, not introduced here: `ui_preview_catalog.py --check` already reports every Leptos
+qualification stale and the dependent Studio/Theatre admission errors on clean `develop@89c5964c`. Editing
+renderer sources keeps it red; renewing it needs the full gallery runtime inspection
+([procedure](pr304-leptos-requalification.md)) and is not claimed here.
+
+Not covered: authenticated Studio runtime (the work form was not rendered in the Studio build), dark mode,
+320 px, 200 % text, forced colors, keyboard walk, measured contrast of the compact specimen, the other AC-07
+recipe items (Select/action density in the editor, hierarchy of surfaces), peer composition from #131/#571/#570,
+and deployed acceptance.

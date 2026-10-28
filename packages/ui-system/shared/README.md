@@ -99,7 +99,11 @@ root select the expression (`STUDIO_EXPRESSION` in `apps/cantos-studio/web/src/u
 weight remap, no second named profile and no forked hex. Studio keeps its own density, layout and reading
 intensity. The expression's contextual selectors (docked search, filter chips, the guest profile card and
 account tile) have no Studio consumer and match nothing there; the floating field, compact select and
-tonal action rules apply to both. A consumer that names no expression (the component preview default, any
+tonal action rules apply to both. The expression's 68-unit Floating minimum suits the auth surfaces; a dense
+authenticated form requests `FieldDensity::Compact` (`data-field-density="compact"`), which restores the standard
+Floating geometry (58-unit minimum, above the 48-unit target) through the shared foundation rule while keeping the
+expression's palette, weights, radius and state strokes ([#559](https://github.com/loveoverflowcom/cantos/issues/559)).
+Studio selects it once (`EDITOR_FIELD_DENSITY`); sign-in and the account menu stay comfortable. A consumer that names no expression (the component preview default, any
 future app) still resolves exactly the standard roles. The superseded Studio Quiet Surfaces v1 choice of
 Standard is replaced for the Web renderer only; CMP has no Studio consumer. The generator refuses
 an expression that changes a role's type or theme scope, chains remaps, names a non-canonical role

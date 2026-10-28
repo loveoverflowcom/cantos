@@ -1,7 +1,8 @@
 use cantos_ui::{
-    Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState, IconName,
-    NumberField, Radio, RangeField, Select, SelectDensity, SelectLabelPlacement, SelectOption,
-    Switch, TextArea, TextField, TextFieldKind, TextFieldVariant,
+    Checkbox, ChoiceState, DisabledReason, FieldDensity, FieldError, FieldHelp, FieldLabel,
+    FieldState, IconName, NumberField, Radio, RangeField, Select, SelectDensity,
+    SelectLabelPlacement, SelectOption, Switch, TextArea, TextField, TextFieldKind,
+    TextFieldVariant,
 };
 use leptos::prelude::*;
 use std::sync::{
@@ -215,6 +216,77 @@ fn floating_field_has_one_shell_around_control_and_label_with_messages_below() {
         assert!(html[label_end..help_at].contains("</div>"), "{html}");
         assert!(help_at < error_at, "{html}");
     }
+}
+
+#[test]
+fn compact_density_is_an_explicit_shell_request_that_changes_no_anatomy_or_semantics() {
+    let render = |density: Option<FieldDensity>| {
+        let on_input = Callback::new(|_: String| {});
+        match density {
+            Some(density) => view! {
+                <TextField id="dense" variant=TextFieldVariant::Floating density=density
+                    label="Tiêu đề" value="Lời hẹn" error="Bắt buộc" on_input=on_input/>
+            }
+            .to_html(),
+            None => view! {
+                <TextField id="dense" variant=TextFieldVariant::Floating
+                    label="Tiêu đề" value="Lời hẹn" error="Bắt buộc" on_input=on_input/>
+            }
+            .to_html(),
+        }
+    };
+    let default = render(None);
+    // Comfortable is the default and adds no attribute, so every existing consumer is unchanged.
+    assert_eq!(default, render(Some(FieldDensity::Comfortable)));
+    assert!(!default.contains("data-field-density"), "{default}");
+    let compact = render(Some(FieldDensity::Compact));
+    assert_eq!(
+        compact.matches("data-field-density=\"compact\"").count(),
+        1,
+        "{compact}"
+    );
+    // Density is geometry only: the same markup with the attribute removed is the default markup.
+    assert_eq!(
+        compact.replace(" data-field-density=\"compact\"", ""),
+        default
+    );
+}
+
+#[test]
+fn compact_density_has_one_floating_rule_that_leaves_search_and_the_expression_remap_alone() {
+    let css = include_str!("../foundation.css");
+    let rule = css
+        .split("}\n")
+        .find(|block| block.contains("[data-field-density=\"compact\"]"))
+        .expect("compact density rule");
+    // Judge the declarations, not the comment that explains them.
+    let rule = &rule[rule.find(":where(").expect("selector")..];
+    assert_eq!(css.matches("data-field-density=\"compact\"").count(), 1);
+    assert!(
+        rule.contains("[data-variant=\"floating\"]")
+            && rule.contains(":not([data-kind=\"search\"])"),
+        "{rule}"
+    );
+    // It restores the standard Floating geometry (the minimum clears the 48-unit target) ...
+    assert!(
+        rule.contains("--cantos-web-field-block-size: 3.625rem"),
+        "{rule}"
+    );
+    // ... and never repaints a role, the radius or the state strokes.
+    for forbidden in ["color", "background", "radius", "outline", "font"] {
+        assert!(
+            !rule.replace("--cantos-web-field-", "").contains(forbidden),
+            "{forbidden}: {rule}"
+        );
+    }
+    let standard = css
+        .find("--cantos-web-field-block-size: 3.625rem;")
+        .unwrap();
+    let expression = css.find("--cantos-web-field-block-size: 4.25rem;").unwrap();
+    assert!(
+        standard < expression,
+        "compact restores the declared standard value"
+    );
 }
 
 #[test]

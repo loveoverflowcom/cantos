@@ -1,6 +1,6 @@
 //! Import metadata presentation; the editor remains the sole value and request owner.
 use super::{optional_metadata, ImportEditor};
-use crate::{contract::ImportFormat, messages};
+use crate::{contract::ImportFormat, messages, ui::EDITOR_FIELD_DENSITY};
 use cantos_ui::{Select, SelectOption, TextField, TextFieldVariant};
 use leptos::prelude::*;
 
@@ -80,20 +80,20 @@ pub(super) fn MetadataFields(
             state=choice_state described_by=Some("import-field-findings".to_owned())
             options=Signal::derive(move ||vec![SelectOption::new("txt",copy().txt),SelectOption::new("markdown",copy().markdown),SelectOption::new("docx",copy().docx),SelectOption::new("script_ir",copy().script_ir)])
             on_input=Callback::new(move |value:String|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.format=selected_format(&value))))/>
-        <TextField id="import-reference" error=field_error(state,REFERENCE_PATH,locale) label=Signal::derive(move ||copy().reference.to_owned()) variant=TextFieldVariant::Floating
+        <TextField id="import-reference" error=field_error(state,REFERENCE_PATH,locale) label=Signal::derive(move ||copy().reference.to_owned()) variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY
             state=field_state required=true maxlength=2048 autocomplete="off" described_by=Some("import-field-findings".to_owned())
             value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().map(|metadata|metadata.reference.clone()).unwrap_or_default()))
             on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.reference=value)))/>
         <div class="import-metadata">
-            <TextField id="import-rights-holder" error=field_error(state,RIGHTS_HOLDER_PATH,locale) label=Signal::derive(move ||copy().rights_holder.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-rights-holder" error=field_error(state,RIGHTS_HOLDER_PATH,locale) label=Signal::derive(move ||copy().rights_holder.to_owned()) variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.rights_holder.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.rights_holder=optional_metadata(value))))/>
-            <TextField id="import-permission" error=field_error(state,PERMISSION_EVIDENCE_PATH,locale) label=Signal::derive(move ||copy().permission_evidence.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-permission" error=field_error(state,PERMISSION_EVIDENCE_PATH,locale) label=Signal::derive(move ||copy().permission_evidence.to_owned()) variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.permission_evidence.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.permission_evidence=optional_metadata(value))))/>
-            <TextField id="import-usage" error=field_error(state,USAGE_SCOPE_PATH,locale) label=Signal::derive(move ||copy().usage_scope.to_owned()) variant=TextFieldVariant::Floating
+            <TextField id="import-usage" error=field_error(state,USAGE_SCOPE_PATH,locale) label=Signal::derive(move ||copy().usage_scope.to_owned()) variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY
                 state=field_state maxlength=2048 autocomplete="off" described_by=Some("import-rights-help import-field-findings".to_owned())
                 value=Signal::derive(move ||state.with(|editor|editor.visible_metadata().and_then(|metadata|metadata.usage_scope.clone()).unwrap_or_default()))
                 on_input=Callback::new(move |value|state.update(|editor|*editor=editor.edit_metadata(|metadata|metadata.usage_scope=optional_metadata(value))))/>

@@ -251,7 +251,7 @@ mod panel {
         workspace::{uuid, Dispatch},
         ClientError, Command, Facts,
     };
-    use crate::ui::{ActionButton, BlockReason};
+    use crate::ui::{ActionButton, BlockReason, EDITOR_FIELD_DENSITY};
     use cantos_ui::{Select, SelectOption, TextArea, TextField, TextFieldVariant};
     use leptos::prelude::*;
 
@@ -644,9 +644,9 @@ mod panel {
             <h4>{move ||text(Key::DistributionRights,locale.get())}</h4>
             <div class="live-grid">
                 <Select id="live-publication-distribution-decision" label=Signal::derive(move ||text(Key::DistributionDecision,locale.get()).to_owned()) value=fields.rights_decision on_input=Callback::new(move |value|fields.rights_decision.set(value)) options=Signal::derive(move ||vec![SelectOption::new("",text(Key::Decision,locale.get())),SelectOption::new("cleared",text(Key::Cleared,locale.get())),SelectOption::new("revoked",text(Key::DistributionRevoked,locale.get()))]) class="live-field"/>
-                <TextField id="live-publication-distribution-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=fields.rights on_input=Callback::new(move |value|fields.rights.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
-                <TextField id="live-publication-distribution-evidence" label=Signal::derive(move ||text(Key::Evidence,locale.get()).to_owned()) value=fields.evidence on_input=Callback::new(move |value|fields.evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
-                <TextField id="live-publication-distribution-until" label=Signal::derive(move ||text(Key::ValidUntil,locale.get()).to_owned()) value=fields.until on_input=Callback::new(move |value|fields.until.set(value)) class="live-field" variant=TextFieldVariant::Floating autocomplete="off"/>
+                <TextField id="live-publication-distribution-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=fields.rights on_input=Callback::new(move |value|fields.rights.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                <TextField id="live-publication-distribution-evidence" label=Signal::derive(move ||text(Key::Evidence,locale.get()).to_owned()) value=fields.evidence on_input=Callback::new(move |value|fields.evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                <TextField id="live-publication-distribution-until" label=Signal::derive(move ||text(Key::ValidUntil,locale.get()).to_owned()) value=fields.until on_input=Callback::new(move |value|fields.until.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
                 <TextArea id="live-publication-distribution-notes" label=Signal::derive(move ||text(Key::DistributionNotes,locale.get()).to_owned()) value=fields.rights_notes on_input=Callback::new(move |value|fields.rights_notes.set(value)) class="live-field"/>
             </div><p>{move ||text(Key::ValidUntilHelp,locale.get())}</p>
             <ActionButton id="live-publication-record-distribution" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||subject.with(Option::is_none)) on_press=Callback::new(move |_|record_rights.run(()))>{move ||text(Key::RecordRights,locale.get())}</ActionButton>

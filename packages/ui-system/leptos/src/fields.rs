@@ -164,6 +164,27 @@ impl TextFieldVariant {
     }
 }
 
+/// Floating-field geometry for the task, independent of `UiRoot` density and expression.
+/// Compact restores the standard Floating minimum (58 high, still above the 48-unit target) for a
+/// dense authenticated form; the auth and sign-in surfaces keep Comfortable, which follows the
+/// root's expression. It changes size only: roles, state strokes and anatomy are untouched.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FieldDensity {
+    #[default]
+    Comfortable,
+    Compact,
+}
+
+impl FieldDensity {
+    /// The shell attribute; Comfortable renders none, so existing markup is unchanged.
+    pub const fn attribute(self) -> Option<&'static str> {
+        match self {
+            Self::Comfortable => None,
+            Self::Compact => Some("compact"),
+        }
+    }
+}
+
 /// Floating labels follow the browser's real value, not the Rust signal: composition text,
 /// autofill and restored values all clear `:placeholder-shown`. A one-space placeholder keeps
 /// that pseudo-class meaningful when the caller supplies none; an empty string would not.
@@ -364,6 +385,7 @@ fn InputField(
     on_composition_end: Option<Callback<CompositionEvent>>,
     input_type: Signal<&'static str>,
     variant: TextFieldVariant,
+    density: FieldDensity,
     trailing: Option<ViewFn>,
     state: Signal<FieldState>,
     help: Signal<Option<String>>,
@@ -438,7 +460,7 @@ fn InputField(
         view! { <>{label_view}{control}</> }.into_any()
     };
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-recipe=(variant == TextFieldVariant::FloatingTonal).then_some("auth-tonal") data-kind=move || input_type.get() data-state=move || state.get().as_str()>
+        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-field-density=density.attribute() data-recipe=(variant == TextFieldVariant::FloatingTonal).then_some("auth-tonal") data-kind=move || input_type.get() data-state=move || state.get().as_str()>
             {anatomy}
             <FieldMessages id=id help=help error=error reason=reason error_icon=variant == TextFieldVariant::FloatingTonal/>
         </div>
@@ -461,6 +483,9 @@ pub fn TextField(
     #[prop(optional, into)]
     kind: Signal<TextFieldKind>,
     #[prop(optional)] variant: TextFieldVariant,
+    /// Applies to the Floating variants only; other variants have no shell geometry to size.
+    #[prop(optional)]
+    density: FieldDensity,
     #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
     #[prop(into, default = None.into())] help: Signal<Option<String>>,
     #[prop(into, default = None.into())] error: Signal<Option<String>>,
@@ -483,7 +508,7 @@ pub fn TextField(
     let trailing = trailing.filter(|_| variant.supports_trailing());
     let input_type = Signal::derive(move || kind.get().as_str());
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type=input_type variant=variant
+        <InputField id=id label=label value=value on_input=on_input input_type=input_type variant=variant density=density
             trailing=trailing
             on_composition_start=on_composition_start on_composition_end=on_composition_end
             state=state help=help error=error described_by=described_by class=class name=name
@@ -511,7 +536,7 @@ pub fn NumberField(
     #[prop(into, optional)] step: Option<String>,
 ) -> impl IntoView {
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type=Signal::derive(|| "number") variant=TextFieldVariant::Regular
+        <InputField id=id label=label value=value on_input=on_input input_type=Signal::derive(|| "number") variant=TextFieldVariant::Regular density=FieldDensity::Comfortable
             trailing=None
             on_composition_start=None on_composition_end=None
             state=state help=help error=error described_by=described_by class=class name=name
