@@ -1,0 +1,529 @@
+[
+  {
+    "mark": "final-light-vi-320-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Đang cập nhật danh sách",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=light&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      181.65625,
+      286,
+      946.71875
+    ],
+    "state": "pending",
+    "viewport": [
+      375,
+      1000
+    ]
+  },
+  {
+    "mark": "final-light-en-320-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Updating the list",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=light&density=compact&locale=en&text=200&frame=320&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      181.65625,
+      286,
+      946.71875
+    ],
+    "state": "pending",
+    "viewport": [
+      375,
+      1000
+    ]
+  },
+  {
+    "mark": "final-dark-vi-320-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Đang cập nhật danh sách",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=dark&density=compact&locale=vi&text=200&frame=320&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      181.65625,
+      286,
+      946.71875
+    ],
+    "state": "pending",
+    "viewport": [
+      375,
+      1000
+    ]
+  },
+  {
+    "mark": "final-dark-en-320-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Updating the list",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 107.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=dark&density=compact&locale=en&text=200&frame=320&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      181.65625,
+      286,
+      946.71875
+    ],
+    "state": "pending",
+    "viewport": [
+      375,
+      1000
+    ]
+  },
+  {
+    "mark": "final-light-vi-840-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Đang cập nhật danh sách",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=light&density=compact&locale=vi&text=100&frame=840&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      370.046875,
+      806,
+      361.984375
+    ],
+    "state": "pending",
+    "viewport": [
+      985,
+      1000
+    ]
+  },
+  {
+    "mark": "final-light-en-840-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Updating the list",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=light&density=compact&locale=en&text=100&frame=840&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      370.046875,
+      806,
+      361.984375
+    ],
+    "state": "pending",
+    "viewport": [
+      985,
+      1000
+    ]
+  },
+  {
+    "mark": "final-dark-vi-840-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Đang cập nhật danh sách",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=dark&density=compact&locale=vi&text=100&frame=840&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      370.046875,
+      806,
+      361.984375
+    ],
+    "state": "pending",
+    "viewport": [
+      985,
+      1000
+    ]
+  },
+  {
+    "mark": "final-dark-en-840-reduced",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Updating the list",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 302.25, 0)"
+      }
+    ],
+    "field": "Ánh đèn cuối sân khấu",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=dark&density=compact&locale=en&text=100&frame=840&motion=reduced&mode=isolated&playback=live",
+    "root": [
+      41,
+      370.046875,
+      806,
+      361.984375
+    ],
+    "state": "pending",
+    "viewport": [
+      985,
+      1000
+    ]
+  },
+  {
+    "mark": "final-lifecycle-idle",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "idle",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-success",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "success",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-error",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "error",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-cancel",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "cancel",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-hidden",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "hidden",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-background",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "background",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-disposed",
+    "edges": [],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "disposed",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-lifecycle-pending",
+    "edges": [
+      {
+        "active": "true",
+        "animation": "cui-edge-travel",
+        "status": "Đang cập nhật danh sách"
+      },
+      {
+        "active": "false",
+        "animation": "none",
+        "status": ""
+      }
+    ],
+    "fieldHeight": 48,
+    "focused": true,
+    "retained": [
+      41,
+      634.4375,
+      356,
+      122.390625
+    ],
+    "selection": [
+      0,
+      0
+    ],
+    "state": "pending",
+    "value": "Giữ Ỗ, Ữ qua trạng thái"
+  },
+  {
+    "mark": "final-dark-list-full",
+    "edges": [
+      {
+        "active": "false",
+        "animation": "none",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "",
+        "transform": "matrix(1, 0, 0, 1, 133.5, 0)"
+      },
+      {
+        "active": "true",
+        "animation": "cui-edge-travel",
+        "fraction": 0.25,
+        "height": 2,
+        "status": "Đang cập nhật danh sách",
+        "transform": "matrix(1, 0, 0, 1, -38.3442, 0)"
+      }
+    ],
+    "field": "Giữ Ỗ, Ữ qua trạng thái",
+    "recipe": "?v=1&component=edge-progress&state=pending&fixture=standard&theme=dark&density=compact&locale=vi&text=100&frame=390&motion=system&mode=isolated&playback=live",
+    "root": [
+      41,
+      370.046875,
+      356,
+      386.78125
+    ],
+    "state": "pending",
+    "viewport": [
+      985,
+      1000
+    ]
+  }
+]

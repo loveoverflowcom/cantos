@@ -27,6 +27,7 @@ enum class PreviewExample(val id: String) {
     Status("status"),
     LoadingState("loading-state"),
     SurfacePulse("surface-pulse"),
+    EdgeProgress("edge-progress"),
     EmptyState("empty-state"),
     ErrorState("error-state"),
     Surface("surface"),

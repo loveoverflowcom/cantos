@@ -567,3 +567,60 @@ mod tests {
         assert_eq!(tool::LANGUAGE_TAG, "en");
     }
 }
+
+/// Edge specimens: tool controls are English; status/content follows the injected fixture locale.
+pub mod edge {
+    use super::Locale;
+    pub const TITLE: &str = "Ánh đèn cuối sân khấu";
+    pub const STATE: &str = "Request outcome";
+    pub const PLACEMENT: &str = "Indicator placement";
+    pub const SEARCH_PLACEMENT: &str = "Below search";
+    pub const LIST_PLACEMENT: &str = "Above retained list";
+    pub const STATES: &[&str] = &[
+        "idle",
+        "pending",
+        "success",
+        "error",
+        "cancel",
+        "hidden",
+        "background",
+        "disposed",
+        "list-pending",
+    ];
+    pub const fn search(locale: Locale) -> &'static str {
+        match locale {
+            Locale::Vi => "Tìm trong danh mục",
+            Locale::En => "Search the catalog",
+        }
+    }
+    pub const fn pending(locale: Locale) -> &'static str {
+        match locale {
+            Locale::Vi => "Đang cập nhật danh sách",
+            Locale::En => "Updating the list",
+        }
+    }
+    pub const fn retained(locale: Locale) -> &'static str {
+        match locale {
+            Locale::Vi => "Người dẫn chuyện · 12 chương · Nội dung cũ vẫn đọc được.",
+            Locale::En => "Narrator · 12 chapters · Previous content remains available.",
+        }
+    }
+    pub fn outcome(locale: Locale, state: &str) -> &'static str {
+        match (locale, state) {
+            (Locale::Vi, "pending" | "list-pending" | "hidden" | "background") => {
+                "Đang cập nhật danh sách"
+            }
+            (Locale::En, "pending" | "list-pending" | "hidden" | "background") => {
+                "Updating the list"
+            }
+            (Locale::Vi, "success") => "Đã cập nhật danh sách",
+            (Locale::En, "success") => "List updated",
+            (Locale::Vi, "error") => "Không cập nhật được. Nội dung cũ vẫn còn.",
+            (Locale::En, "error") => "Update failed. Previous content is retained.",
+            (Locale::Vi, "cancel" | "disposed") => "Đã dừng cập nhật",
+            (Locale::En, "cancel" | "disposed") => "Update stopped",
+            (Locale::Vi, _) => "Danh sách đang có sẵn",
+            (Locale::En, _) => "List available",
+        }
+    }
+}

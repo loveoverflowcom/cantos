@@ -1,0 +1,31 @@
+{
+  "component_id": "edge-progress",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-28; scoped desktop review; JVM Desktop Compose test root, manual clock; not Android/iOS",
+  "reference": "Issue #587 text authority and two opened PNGs pinned at 925b74cd3e9df2182b4c9ad9722d38cb370e3257; hashes in edge-progress-587-artifacts.json. Admission scope is Web/JVM; no native OS/device/AT acceptance.",
+  "tokens_sha256": "afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08",
+  "source_sha256": "60719f3076ab5d87085c07c07b24b65e1e77bda423125a7f25cb0fc3c5bae546",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "PATH=<installed Gradle 8.14.3 and JDK 23> JAVA_HOME=<installed JDK23> RUSTUP_TOOLCHAIN=1.98.1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/edge-progress-587-observations.json"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "EdgeProgressTest: production composable, manual Desktop Compose clock, semantics, focus/bounds and opened captures",
+      "artifact": "docs/evidence/edge-progress-587-observations.json"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "EdgeProgressTest: production composable, manual Desktop Compose clock, semantics, focus/bounds and opened captures",
+      "artifact": "docs/evidence/edge-progress-587-observations.json"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "EdgeProgressTest: production composable, manual Desktop Compose clock, semantics, focus/bounds and opened captures",
+      "artifact": "docs/evidence/edge-progress-587-observations.json"
+    }
+  }
+}

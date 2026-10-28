@@ -27,7 +27,8 @@ pub use button::{
 };
 pub use dialog::{Dialog, DialogCloseReason, DialogError};
 pub use feedback::{
-    Announcement, Badge, EmptyState, ErrorState, LoadingState, Status, StatusTone, SurfacePulse,
+    Announcement, Badge, EdgeProgress, EmptyState, ErrorState, LoadingState, Status, StatusTone,
+    SurfacePulse,
 };
 pub use fields::{
     Checkbox, ChoiceState, FieldDensity, FieldError, FieldHelp, FieldLabel, FieldState,

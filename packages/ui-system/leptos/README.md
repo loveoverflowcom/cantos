@@ -51,6 +51,19 @@ resting fill is the static `--cantos-state-loading-pulse-reduced-opacity` (0.70)
 `--cantos-web-surface-pulse-fill` over `color.outlineVariant`. Specimens live in the existing gallery's feedback
 section (`surface_pulse_samples.rs`); no application imports it yet.
 
+`EdgeProgress` (#587) receives required reactive `active`, `visible`, `foreground` and nonblank
+`label` facts; optional `announcement` defaults to Off. The host sets `active` only for an in-flight
+request, ends it on success/error/cancel, resolves actual viewport/lifecycle facts and keeps the
+status outside any busy content region. It performs no fetching, debounce or state inference.
+The stable slot is `size.loadingEdge` (2 units), with a straight clipped 25% segment translated
+linearly over `motion.loadingEdge.cycle` (1200 ms). Inactive, invisible and background paint nothing
+and run no animation; Reduced keeps the centered segment static. A reserved slot or host overlay
+keeps search/list layout and focus independent. It never renders determinate percentages.
+The `edge-progress` workbench recipe covers search/list placement, idle/pending/success/error/cancel,
+hidden/background/disposed, Light/Dark and reduced motion; the preview root resolves document
+visibility. Hosts must clear `visible` before hiding retained subtrees. No app imports it in #587;
+paired admission and production adoption remain separate.
+
 Button and IconButton replace a decorative action glyph with the shared `LoadingIndicator`
 (issue #528) while loading, including a Button without an icon. The indicator is one decorative
 arc (the MicroArc: 270°, round ends, 16 or 20 units with a 2-unit stroke from `size.loadingArc*`, drawn by the

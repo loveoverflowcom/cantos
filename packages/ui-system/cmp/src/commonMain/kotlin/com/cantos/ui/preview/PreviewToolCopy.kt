@@ -10,6 +10,24 @@ import com.cantos.ui.preview.workbench.PreviewSnapshotError
  * This is a bounded preview policy, not the pending production i18n architecture decision (#167).
  */
 internal object PreviewToolCopy {
+    const val EdgeState = "Request outcome"
+    const val EdgePlacement = "Indicator placement"
+    const val EdgeSearchPlacement = "Below search"
+    const val EdgeListPlacement = "Above retained list"
+    object EdgeFixture {
+        const val Title = "Ánh đèn cuối sân khấu"
+        const val Search = "Tìm trong danh mục"
+        const val Pending = "Đang cập nhật danh sách"
+        const val Retained = "Người dẫn chuyện · 12 chương · Nội dung cũ vẫn đọc được."
+        fun outcome(state: String): String = when (state) {
+            "pending", "list-pending", "hidden", "background" -> Pending
+            "success" -> "Đã cập nhật danh sách"
+            "error" -> "Không cập nhật được. Nội dung cũ vẫn còn."
+            "cancel", "disposed" -> "Đã dừng cập nhật"
+            else -> "Danh sách đang có sẵn"
+        }
+    }
+
     const val TheatreCollapse = "Collapse"
     const val TheatreTonalHelp = "48-unit tonal rounded square; the host owns the theme and the localized name."
     const val TheatreDockedHelp = "52-unit visible circle, a 48-unit minimum touch target; one magnifier, no caption."

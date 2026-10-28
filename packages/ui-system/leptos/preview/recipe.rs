@@ -46,6 +46,7 @@ recipe_enum!(ComponentId {
     Select => "select",
     BackButton => "back-button",
     AuthTonal => "auth-tonal",
+    EdgeProgress => "edge-progress",
 });
 
 recipe_enum!(ScenarioState {
@@ -63,6 +64,14 @@ recipe_enum!(ScenarioState {
     UnsupportedOption => "unsupported-option",
     EmptyOptions => "empty-options",
     ReadOnly => "readonly",
+    Idle => "idle",
+    Pending => "pending",
+    Success => "success",
+    Cancel => "cancel",
+    Hidden => "hidden",
+    Background => "background",
+    Disposed => "disposed",
+    ListPending => "list-pending",
 });
 
 impl ComponentId {
@@ -74,6 +83,17 @@ impl ComponentId {
             Self::Switch => &[Off, On, Disabled, Loading],
             Self::Dialog => &[Closed, Open],
             Self::AuthTonal => &[Enabled, Error, Disabled, Loading, ReadOnly],
+            Self::EdgeProgress => &[
+                Idle,
+                Pending,
+                Success,
+                Error,
+                Cancel,
+                Hidden,
+                Background,
+                Disposed,
+                ListPending,
+            ],
             Self::Select => &[
                 Enabled,
                 Disabled,
@@ -94,6 +114,7 @@ impl ComponentId {
             Self::Dialog => ScenarioState::Closed,
             Self::Select => ScenarioState::Enabled,
             Self::AuthTonal => ScenarioState::Enabled,
+            Self::EdgeProgress => ScenarioState::Idle,
         }
     }
 

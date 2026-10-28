@@ -1,0 +1,55 @@
+{
+  "source_base": "568eefdc7af8102b54e019182aef54c681f44a85",
+  "reviewer": "Codex, 2026-10-28; scoped desktop review",
+  "renderer_scope": {
+    "leptos": "Chrome 156 on macOS, CUA browser; loopback Trunk gallery",
+    "cmp": "JVM Desktop Compose test root, manual clock; not Android/iOS"
+  },
+  "artifact_sha256": {
+    "artifacts/agent-runs/587/browser/final-dark-en-320-reduced.png": "7a14c9f74f52315351b25fdd1ad96997d9a833891784f1092edbd160d9d2f35f",
+    "artifacts/agent-runs/587/browser/final-dark-en-840-reduced.png": "a7d6fe54169d8e4560cedd166454132f7588a5f7b7bbaa444364e28742bd5267",
+    "artifacts/agent-runs/587/browser/final-dark-list-full.png": "f16f59b0313da198d8210bd9713da51b5d5bb960a2444d568202d1c0f58652b0",
+    "artifacts/agent-runs/587/browser/final-dark-narrow-context.png": "77ed2110f7cae0ac2006822b5bf481d3d9ffad08b05fdd0a1fc841e75291823e",
+    "artifacts/agent-runs/587/browser/final-dark-vi-320-reduced.png": "8e378062d4496bc7f363ff4fd212ceec2908a78fd85e99456b96977adf62e75c",
+    "artifacts/agent-runs/587/browser/final-dark-vi-840-reduced.png": "34fae41fdce6b39c8bca307cb3403c103824f158774550ba9f4f17171d1413ca",
+    "artifacts/agent-runs/587/browser/final-light-en-320-reduced.png": "93d23101fb1fad41ee4786e0cbaeb83a50e0906c91ef1e3afac4781966b4add4",
+    "artifacts/agent-runs/587/browser/final-light-en-840-reduced.png": "2175af37052161d2482a0ab73ceae46fa5f5f9a5ab611b7a8f6b55b1a7cdca32",
+    "artifacts/agent-runs/587/browser/final-light-narrow-context.png": "a5437a43a43ad3dd817132eee54c5c8e1bac2c1195314b7a6d2ff217412cee7c",
+    "artifacts/agent-runs/587/browser/final-light-vi-320-reduced.png": "9150590c2171f7c5f67b928488ee46220ac2b954551d861f81d1d780337c0334",
+    "artifacts/agent-runs/587/browser/final-light-vi-840-reduced.png": "595f3691e1deac303310155235f55ac9ce7c55a4d377b305bde20ef3d3123a73",
+    "artifacts/agent-runs/587/browser/final-runtime.json": "1b1c06336dae6827cf62ec67fe5d0b3f826cb76edc8f9fa9f1d63caff5fa3382",
+    "artifacts/agent-runs/587/reference/discovery-refresh-dark.png": "421a09ab4da6be6b5bfb9b812e4c4e9ece23ebcc2cb263a6e51ea4aca833f0b5",
+    "artifacts/agent-runs/587/reference/edge-progress.png": "0c34571798629a48c282634d94f8af9c51903cdc3de6d196bd80420b69a7ec1f",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-dark-320.json": "1c8542609a0b4c82fae849e35e4e035eb24682d2a64975ce9ac0e7e6892ea82d",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-dark-320.png": "bf653d6bc7d67fbc7a2668246011168e45df83561f9da8870d503210476c153d",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-dark-840.json": "8353ddc478f8685ca1465a8ced05e1278be29eaa4973885b5eefe7b33206984f",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-dark-840.png": "62f93a91b28b65e0be8aebe856d3a74cbbcf8f41e442961ff7dd4c664e6b46c0",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-light-320.json": "02f6c38325898512424ff3ec82c89cbbf6c7403c24f8b16b3a78003c957c1356",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-light-320.png": "db1ba40d04bda11bb42b274c43df3705032edd3ca866a633c9a9009a449adc73",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-light-840.json": "1e25f2967ec0c9eebbb0f11c84724e9bcac5c00b4fbb3d0c27c72b526ccb4033",
+    "packages/ui-system/cmp/build/reports/cantos-preview/edge-progress-light-840.png": "7d8e8be55d06883baf819d89d1f45ccbe243a2dc3e7ffdf0dec4986617f0fb6b"
+  },
+  "observations": {
+    "geometry": "Both renderers: 2 logical units; 25% segment; canonical 1200ms linear translation; stable slot.",
+    "lifecycle": "Injected success/error/cancel/inactive/hidden/background remove animation. Disposal removes indicator. Web preview additionally observes scroll/resize/reflow and document visibility. Real native OS lifecycle adapters are outside primitive scope.",
+    "focus_layout": "Final browser lifecycle: field 48px; retained bounds [41,634.4375,356,122.390625] unchanged; focus true; caret [0,0]; value Giữ Ỗ, Ữ qua trạng thái unchanged. JVM production composable test independently asserts field and retained bounds/focus.",
+    "reduced": "JVM manual clock static over 2400ms; browser injected Reduced animation-name none and same centered transform across observations. OS media preference reported false; actual OS Reduced and native accessibility preference adapter NOT_RUN.",
+    "visual": "Codex opened every cited final browser PNG and four CMP PNGs. Light/Dark, Web VI/EN, frame320 text200/frame840 text100. Native test root width320 text2 / width840 text1. Straight segment separate from focus perimeter, retained content readable; narrow Web viewport scroll is intentional diagnostic framing. Single-line input scrolls horizontally; multiline retained content wraps without clipping. Full-page context captures can show an offscreen-stopped line; viewport detail captures establish visible Reduced frame.",
+    "accessibility": "One nonempty status, decorative track, no percentage or own aria-busy; browser native Tab reaches retained link without indicator focus. JVM semantics and preserved pointer-focus checks. Screen readers NOT_RUN."
+  },
+  "commands": {
+    "leptos": "RUSTUP_TOOLCHAIN=1.98.1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 cargo xtask ui-preview leptos verify",
+    "cmp": "PATH=<installed Gradle 8.14.3 and JDK 23> JAVA_HOME=<installed JDK23> RUSTUP_TOOLCHAIN=1.98.1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo xtask ui-preview cmp verify"
+  },
+  "checks": {
+    "leptos": "PASS: 186 SSR/recipe tests, WASM clippy with warnings denied, Trunk build. Final source path confirmed task-9/cantos.",
+    "cmp": "PASS: 313 tests, including 4 EdgeProgress tests; final input tests and production source retained."
+  },
+  "limitations": [
+    "No app imports/fetch/debounce changes; request-state adoption belongs to #588.",
+    "No Android/iOS device, actual OS background/reduced binding, screen-reader or frame-pacing acceptance.",
+    "SurfacePulse and MicroArc admission gaps remain independent; MicroArc still uses the recorded 1000ms renderer seed.",
+    "A preview run accidentally used the temporary baseline xtask binary, was stopped and discarded. xtask was cleaned/rebuilt for the correct worktree and all final browser evidence uses that source.",
+    "Cargo clean refused the temporary baseline Trunk target (missing CACHEDIR.TAG); after exact inventory, only its generated output directories were removed. All evidence remains outside target."
+  ]
+}
