@@ -383,6 +383,7 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
                     value=language_value state=choice_state
                     options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", VIETNAMESE_AUTONYM) },
                         SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", ENGLISH_AUTONYM) }]
+                    short_label=Callback::new(|tag: String| tag.split('-').next().map(str::to_owned))
                     on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} locale={value}", log_id.get_value())); })/>
                 <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::SELECT_DENSITIES}</p>
                 <Select id=native_id density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline

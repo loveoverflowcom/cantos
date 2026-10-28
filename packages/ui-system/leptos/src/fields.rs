@@ -623,11 +623,15 @@ pub fn Select(
     #[prop(optional)] required: bool,
     #[prop(optional)] density: SelectDensity,
     #[prop(optional)] label_placement: SelectLabelPlacement,
+    /// Menu only: compact visible trigger text for a value (for example a locale code). The full
+    /// option label stays the accessible name and the menu rows; `None` shows the label.
+    #[prop(optional)]
+    short_label: Option<Callback<String, Option<String>>>,
 ) -> impl IntoView {
     if let Some(options) = options {
         return view! {
             <crate::select_menu::MenuSelect id label value on_input options placeholder
-                state help error described_by class name required density label_placement/>
+                state help error described_by class name required density label_placement short_label/>
         }
         .into_any();
     }

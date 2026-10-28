@@ -754,6 +754,7 @@ pub fn Studio() -> impl IntoView {
                         density=cantos_ui::SelectDensity::Compact label_placement=cantos_ui::SelectLabelPlacement::Inline
                         label=Signal::derive(move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get()).to_owned())
                         value=Signal::derive(move ||locale.get().lang().to_owned())
+                        short_label=Callback::new(|tag:String| tag.split('-').next().map(str::to_owned))
                         options={Locale::supported().map(|option|cantos_ui::SelectOption { lang: Some(option.lang().to_owned()), ..cantos_ui::SelectOption::new(option.lang(),option.autonym()) }).collect::<Vec<_>>()}
                         on_input=Callback::new(move |tag:String| {
                             if let Some(selected)=Locale::from_lang(&tag) {
@@ -762,7 +763,7 @@ pub fn Studio() -> impl IntoView {
                             } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
                         })/>
                     </span>
-                    <ThemeCycleButton id="theme-select" theme=theme labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
+                    <ThemeCycleButton id="theme-select" theme=theme show_label=true labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
                     <AccountEntry actor=authenticated_actor
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace)
                         open=account_menu_open
