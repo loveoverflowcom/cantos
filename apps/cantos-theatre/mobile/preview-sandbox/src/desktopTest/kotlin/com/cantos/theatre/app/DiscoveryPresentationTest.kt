@@ -113,14 +113,15 @@ class DiscoveryPresentationTest {
     }
 
     @Test
-    fun completed_catalog_empty_offers_retry_and_filtered_no_results_clears_without_navigation() {
+    fun completed_catalog_empty_has_no_recovery_and_filtered_no_results_clears_without_navigation() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             val events = mutableListOf<ShellEvent>()
             setContent { CantosPresentation(ShellState(selectedEpisode = noSelection, catalogMode = ShellCatalogMode.Empty), ShellCatalogView(), events::add) }
             onNodeWithText("Chưa có câu chuyện khả dụng").assertExists()
             onNodeWithText("Chưa tìm thấy câu chuyện").assertDoesNotExist()
-            onNodeWithTag("catalog-empty-retry").performScrollTo().performClick()
-            assertEquals(listOf<ShellEvent>(ShellEvent.Retry), events.toList())
+            onNodeWithTag("catalog-empty-retry").assertDoesNotExist()
+            onNodeWithTag("retry").assertDoesNotExist()
+            assertEquals(emptyList<ShellEvent>(), events.toList())
         }
         runDesktopComposeUiTest(width = 390, height = 844) {
             val events = mutableListOf<ShellEvent>()

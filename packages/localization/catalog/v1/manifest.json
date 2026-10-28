@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "078caf05edf7f961e57e78e2596cf2aeab363a83472782440205a12d215a99fd",
+  "catalogSha256": "73bd66cf4a87ad9440429de948c5022585a57e608ede2a835d522ad7868b5430",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1548,6 +1548,7 @@
     },
     "theatre.cmp_shell.discover": {},
     "theatre.cmp_shell.discover_heading": {},
+    "theatre.cmp_shell.discovery_welcome": {},
     "theatre.cmp_shell.done": {},
     "theatre.cmp_shell.empty": {},
     "theatre.cmp_shell.empty_note": {},
