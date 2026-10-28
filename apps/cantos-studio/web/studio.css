@@ -182,7 +182,7 @@ body { margin: 0; }
 .studio-shell .delegation-panel .live-status, .studio-shell .delegation-grant { background: var(--cantos-color-surface); }
 .studio-shell .delegation-panel .live-status { margin-block: var(--cantos-space-md); }
 .studio-shell .delegation-panel h4 { margin-block: var(--cantos-space-lg) var(--cantos-space-sm); }
-.studio-shell .delegation-panel [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+.studio-shell .delegation-panel [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell .delegation-problems { margin: 0; padding-inline-start: var(--cantos-space-lg); }
 .studio-shell .delegation-problems:empty { display: none; }
 .studio-shell :is(.delegation-reveal, .delegation-unrecoverable) { margin-block: var(--cantos-space-md); }
@@ -244,6 +244,15 @@ body { margin: 0; }
   text-align: center;
   line-height: 1;
 }
+/* The topbar language selector is named by its tooltip and accessible name, not a visible label.
+   The label stays in the DOM (the combobox is labelled by it), clipped like .cui-sr-only. */
+/* The topbar's icon-only theme cycle keeps its shared 44x44 target in narrow containers, where
+   generic toolbar buttons go full width (it would wrap under the language selector at 320px). */
+.studio-shell .studio-topbar > .cui-button-field { inline-size: auto; }
+.studio-shell .studio-topbar > .cui-button-field > .cui-theme-cycle-button { inline-size: 2.75rem; }
+.studio-shell .studio-language-tip { display: contents; }
+.studio-shell .studio-language-field.cui-select-field { grid-template-columns: minmax(0, 1fr); }
+.studio-shell .studio-language-field > .cui-field-label { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .studio-shell .studio-account { position: relative; }
 .studio-shell .studio-account[hidden] { display: none; }
 .studio-shell .studio-account-scrim { display: none; }
@@ -357,7 +366,10 @@ body { margin: 0; }
 .studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
-.studio-shell [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+/* Programmatic focus targets keep their ring, except headings: they are not operable, so the route
+   announcement (focus_heading) must not paint a frame around the title. Operable controls keep theirs. */
+.studio-shell [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+.studio-shell :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible { outline: none; }
 .studio-shell .dashboard-grid { align-items: start; }
 .studio-shell .dashboard-works .dashboard-heading { margin-block-end: var(--cantos-space-md); align-items: center; }
 .studio-shell .dashboard-tools { grid-column: 1 / -1; }

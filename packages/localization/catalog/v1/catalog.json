@@ -6800,18 +6800,6 @@
         }
       }
     },
-    "studio.entry.login_help": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Chỉ tài khoản được cấp quyền."
-        },
-        "en": {
-          "text": "Only accounts with granted access."
-        }
-      }
-    },
     "studio.entry.welcome": {
       "args": {},
       "exposure": "production",
