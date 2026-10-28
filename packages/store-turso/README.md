@@ -136,3 +136,11 @@ negative controls in `tests/integrity.rs` detect a dangling row and a mismatched
 accept partial-NULL keys, and refuse unsupported implicit keys. Do not infer this acceptance
 from SQLite or from an empty pragma result. Host migration/admission and security restore
 rotation remain separate [operator boundaries](../../docs/deployment/native-existing-host-migration.md).
+
+## Explicit search capability corpus
+
+The `testing`-only `search_probe` module is consumed by the Server's explicit
+[localhost dataset lane](../../docs/deployment/localhost-datasets.md). It probes native FTS
+module availability and fixed vector32/L2 SQL against disposable real engine files. It adds no
+business tables, dependency features or ordinary gate campaign. Full-scan vector evidence is
+separate from ANN/index and product integration; disabled FTS remains UNSUPPORTED.

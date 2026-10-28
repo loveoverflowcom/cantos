@@ -244,6 +244,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or HTTP | Scoped real-file/context/HTTP checks through native Rust/Turso owners; preserve archived PG oracles as porting inputs and report unported coverage |
 | Prepared sample catalog | Command/parser regressions stay in the existing Rust gate; explicit `cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR` exercises actual provided PNGs, file-backed Turso and private Studio HTTP. It is never selected by build/preflight/CI and does not establish public catalog, browser/device or audio acceptance. |
+| Localhost dataset profiles | `cargo xtask seed dataset` has explicit list/plan/create/verify/serve/archive actions ([runbook](docs/deployment/localhost-datasets.md)); bounded regressions stay in existing Rust gates. Heavy sizes and engine probes never run at startup/preflight/CI. Test callers do not establish Studio login. |
 | Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
 Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). Native checks require no PostgreSQL,

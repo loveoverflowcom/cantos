@@ -39,7 +39,7 @@ fn outside_git(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn destination(path: &Path) -> Result<PathBuf> {
+pub(super) fn destination(path: &Path) -> Result<PathBuf> {
     ensure!(path.is_absolute(), "--sample-root must be absolute");
     ensure!(
         path.components()
@@ -79,7 +79,7 @@ fn destination(path: &Path) -> Result<PathBuf> {
 
 /// Serialize supported imports/serve/reset even before the Server takes its database lock.
 /// A sibling sidecar survives reset's directory rename and never contains dataset contents.
-fn operation_lock(root: &Path) -> Result<File> {
+pub(super) fn operation_lock(root: &Path) -> Result<File> {
     let name = root
         .file_name()
         .ok_or_else(|| anyhow!("sample name missing"))?
@@ -186,6 +186,10 @@ fn command(workspace: &Workspace, plan: &Plan) -> CommandSpec {
 }
 
 fn archive(root: &Path) -> Result<PathBuf> {
+    archive_owned(root, DATASET)
+}
+
+pub(super) fn archive_owned(root: &Path, dataset: &str) -> Result<PathBuf> {
     let marker_path = root.join(MARKER);
     ensure!(
         !fs::symlink_metadata(&marker_path)?.file_type().is_symlink(),
@@ -193,7 +197,7 @@ fn archive(root: &Path) -> Result<PathBuf> {
     );
     let marker: Value = serde_json::from_slice(&fs::read(&marker_path)?)?;
     ensure!(
-        marker["dataset_id"] == DATASET,
+        marker["dataset_id"] == dataset,
         "not an owned sample dataset"
     );
     ensure!(

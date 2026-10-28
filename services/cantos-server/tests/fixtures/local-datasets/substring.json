@@ -1,0 +1,25 @@
+{
+  "version":1,
+  "documents":[
+    {"title":"Ánh đèn bên sông","description":"Một người giữ bến.","kind":"story","language":"vi-VN"},
+    {"title":"ÁNH ĐÈN bên sông","description":"Dòng thứ nhất\nDòng thứ hai","kind":"novel","language":"vi-VN"},
+    {"title":"Anh den ben song","description":"Unaccented original text","kind":"story","language":"en"},
+    {"title":"Giá 100%_thật 😀","description":"Ký hiệu % và _ là ký tự thường.","kind":"podcast","language":"vi-VN"},
+    {"title":"Quiet harbour","description":"Một ánh đèn trong phần mô tả.","kind":"story","language":"en"},
+    {"title":"Quiet harbour","description":"No matching lamp here.","kind":"novel","language":"en"},
+    {"title":"Mưa đầu mùa","description":"","kind":"podcast","language":"vi-VN"}
+  ],
+  "queries":[
+    {"id":"nfc-case","q":"  ÁNH ĐÈN  ","expected":[0,1,4]},
+    {"id":"nfd","q":"ánh đèn","expected":[0,1,4]},
+    {"id":"no-folding","q":"anh den","expected":[2]},
+    {"id":"percent","q":"%","expected":[3]},
+    {"id":"underscore","q":"_","expected":[3]},
+    {"id":"emoji","q":"😀","expected":[3]},
+    {"id":"duplicates","q":"harbour","expected":[4,5]},
+    {"id":"no-match","q":"không tồn tại","expected":[]},
+    {"id":"kind-filter","q":"ánh đèn","kind":"story","expected":[0,4]},
+    {"id":"language-filter","q":"ánh đèn","language":"en","expected":[4]},
+    {"id":"all","q":"","expected":[0,1,2,3,4,5,6]}
+  ]
+}

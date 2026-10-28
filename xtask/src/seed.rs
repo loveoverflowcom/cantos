@@ -33,12 +33,15 @@ use crate::{
     workspace::Workspace,
 };
 
+mod dataset;
 mod sample;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum SeedTarget {
     /// Public Theatre catalog: novel, story and podcast Works published through Studio flows.
     Theatre,
+    /// Explicit private localhost data profiles; separate from the fixed Theatre sample.
+    Dataset,
 }
 
 /// The agreed interface to the HTTP seeder: an ordinary Cargo integration target of the
@@ -61,6 +64,8 @@ const SERVER_READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// environment lane parses and can refuse with its reason instead of a generic usage error.
 #[derive(Args, Debug, Default, Clone, PartialEq, Eq)]
 pub struct SeedOptions {
+    #[command(flatten)]
+    pub dataset: dataset::Options,
     /// Remove this composition's server.db, seed media, receipt and creator record.
     #[arg(long)]
     pub reset: bool,
@@ -131,7 +136,11 @@ pub fn plan(
     target: SeedTarget,
     options: &SeedOptions,
 ) -> Result<SeedPlan, Refusal> {
-    let SeedTarget::Theatre = target;
+    if target != SeedTarget::Theatre {
+        return Err(Refusal::Usage(
+            "dataset profiles require the dataset planner".into(),
+        ));
+    }
     if options.is_retired() {
         return Err(crate::retired::Retirement::SeedEnvironment.refusal());
     }
@@ -591,6 +600,14 @@ pub fn execute(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<std::result::Result<ExitCode, Refusal>> {
+    if target == SeedTarget::Dataset {
+        return dataset::execute(workspace, options, tools, runner);
+    }
+    if options.dataset != dataset::Options::default() {
+        return Ok(Err(Refusal::Usage(
+            "dataset flags require `seed dataset`".into(),
+        )));
+    }
     if options.sample_root.is_some()
         || options.sample_input.is_some()
         || options.sample_media_source.is_some()

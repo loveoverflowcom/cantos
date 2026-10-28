@@ -245,3 +245,12 @@ Preflight does not authenticate. Native Bearer requests follow their cookie-free
 The [composition contract](../../docs/architecture/server-http-composition.md) and
 [Identity auth v1](contracts/auth/identity-auth/v1/README.md) own behavior. Static delivery,
 browser acceptance and deployed-state observation require separate evidence.
+
+## Localhost dataset fixtures
+
+The explicit [dataset lane](../../docs/deployment/localhost-datasets.md) uses the current Server
+registry and Catalog handlers with controlled time, random test credentials, stable operation
+identities, independent oracles and real owner snapshots. `test_support::open_dataset_store`
+only exposes the existing clock seam to these fixtures; runtime builds do not enable it.
+The fixed six-Work sample and non-login principals remain separate. `cargo xtask seed dataset`
+never provisions an Identity/Studio account or changes production schemas/search.
