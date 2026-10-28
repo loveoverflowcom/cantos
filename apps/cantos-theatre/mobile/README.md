@@ -60,6 +60,12 @@ second reducer, domain model, navigation or auth handler. See
 [the Desktop Preview](#desktop-preview) for its limits; it plays no audio, makes no network call
 and establishes no native, device or persistence behavior. The Android and iOS runtimes contain no
 preview or mock code, and neither resolves nor packages `:preview-sandbox`.
+The default sample catalog lists released units only. Two fictional metadata Works (one mixed, one
+with no released unit) are listed only when a test sets `PreviewCatalogPort.disclosesMetadata`, the
+preview counterpart of the API's explicit metadata opt-in. A unit without a release has no audio
+identity in the sandbox: no manifest, grant, player restore, progress, history, bookmark or Saved
+presentation is derived from it, and a workbench snapshot that names one is refused as `Invalid`
+([#580](https://github.com/loveoverflowcom/cantos/issues/580); JVM sandbox evidence only).
 
 `cargo xtask theatre-host android-release` builds an isolated unsigned unshrunk release audit followed by optimized release APK/AAB and
 inspects the release classpaths, DEX classes, resources and manifest, using the sandbox's compiled

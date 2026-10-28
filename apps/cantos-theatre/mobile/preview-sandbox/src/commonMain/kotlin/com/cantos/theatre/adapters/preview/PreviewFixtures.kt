@@ -37,10 +37,13 @@ object PreviewEpisodeIds {
     val entries: List<ShellEpisodeId> = listOf(SonHa01, SonHa02, SonHa03, DenKhua01, DenKhua02, CanhBuom01)
 }
 
-/** One sample work with the released units the preview catalog lists for it. */
+/** One sample work with the units the preview catalog lists for it, in catalog order. */
 class PreviewWork internal constructor(val work: PublicWork, val units: List<PublicUnit>) {
     fun episode(index: Int): ShellEpisodeId = ShellEpisodeId(units[index].id.value, ShellWorkId(work.id.value))
 }
+
+/** A released sample unit together with the only audio identity it can be played as. */
+class PreviewPlayable internal constructor(val work: PreviewWork, val unit: PublicUnit, val audio: AudioIdentity)
 
 object PreviewFixtures {
     /** Fixed publication instant for every sample value (2026-10-01T00:00:00Z). */
@@ -64,19 +67,50 @@ object PreviewFixtures {
         units = listOf("Một mùa gió mới" to 1_140),
     )
 
-    /** Display order of the catalog walk. */
+    /**
+     * Disclosed metadata (#574): a Work whose first unit has no eligible release yet, followed by a
+     * released one, and a Work with no released unit at all. Only an explicit metadata opt-in of the
+     * catalog lists them ([PreviewCatalogPort.disclosesMetadata]); the default walk stays released-only.
+     */
+    val GioMua: PreviewWork = work(
+        number = 4, kind = PublicWorkKind.Story, title = "Gió Mùa",
+        description = "Những lá thư gửi theo gió mùa, có lá đã đến và có lá còn đang trên đường.",
+        units = listOf("Lá thư chưa mở" to null, "Cơn gió đầu mùa" to 1_320, "Bến đợi cuối năm" to null),
+    )
+    val SongDai: PreviewWork = work(
+        number = 5, kind = PublicWorkKind.Podcast, title = "Sông Dài",
+        description = "Một chương trình về những dòng sông, đang được chuẩn bị cho mùa phát sóng đầu tiên.",
+        units = listOf("Thượng nguồn" to null),
+    )
+
+    /** Display order of the default catalog walk: released units only. */
     val works: List<PreviewWork> = listOf(SonHa, DenKhua, CanhBuom)
 
-    fun work(id: String): PreviewWork? = works.firstOrNull { it.work.id.value == id }
-    fun unit(id: String): Pair<PreviewWork, PublicUnit>? =
-        works.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.id.value == id }?.let { entry to it } }
-    fun unitByPublication(id: String): Pair<PreviewWork, PublicUnit>? =
-        works.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.publicationId?.value == id }?.let { entry to it } }
+    /** Works the catalog lists only under an explicit metadata opt-in. */
+    val metadataWorks: List<PreviewWork> = listOf(GioMua, SongDai)
 
-    /** The immutable audio identity the playback manifest returns for [unit]; digest and rendition are synthetic. */
-    fun audio(owner: PreviewWork, unit: PublicUnit): AudioIdentity {
-        val publication = requireNotNull(unit.publicationId) { "Preview audio needs a released unit" }
-        val duration = requireNotNull(unit.durationMs) { "Preview audio needs a known duration" }
+    /** Every sample Work an owner may name, whichever catalog walk listed it. */
+    private val known: List<PreviewWork> = works + metadataWorks
+
+    fun work(id: String): PreviewWork? = known.firstOrNull { it.work.id.value == id }
+    fun unit(id: String): Pair<PreviewWork, PublicUnit>? =
+        known.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.id.value == id }?.let { entry to it } }
+    fun unitByPublication(id: String): Pair<PreviewWork, PublicUnit>? =
+        known.firstNotNullOfOrNull { entry -> entry.units.firstOrNull { it.publicationId?.value == id }?.let { entry to it } }
+
+    /** The released unit named [unitId] with its audio; a metadata-only or unknown unit has none. */
+    fun playable(unitId: String): PreviewPlayable? =
+        unit(unitId)?.let { (work, unit) -> audio(work, unit)?.let { PreviewPlayable(work, unit, it) } }
+
+    /**
+     * The immutable audio identity the playback manifest returns for [unit]; digest and rendition are
+     * synthetic. A unit without an eligible release has no playback identity, so this is absent, never
+     * a placeholder publication or duration.
+     */
+    fun audio(owner: PreviewWork, unit: PublicUnit): AudioIdentity? {
+        val publication = unit.publicationId ?: return null
+        val duration = unit.durationMs ?: return null
+        // Only the released sample values above reach this point; they are built to satisfy the contract.
         return requireNotNull(AudioIdentity.of(
             owner.work.id.value, unit.id.value, publication.value,
             "6" + publication.value.drop(1), digest(unit.id.value), duration,
@@ -88,7 +122,8 @@ object PreviewFixtures {
         return (hex + hex).take(64)
     }
 
-    private fun work(number: Int, kind: PublicWorkKind, title: String, description: String, units: List<Pair<String, Int>>): PreviewWork {
+    /** [units] pairs each title with its released duration in seconds, or null for metadata without a release. */
+    private fun work(number: Int, kind: PublicWorkKind, title: String, description: String, units: List<Pair<String, Int?>>): PreviewWork {
         val workId = valid(PublicWorkId.parse(uuid(1, number)))
         val published = valid(
             PublicWork.of(workId, kind, title, description, "vi", PublishedAtMs + number),
@@ -96,13 +131,18 @@ object PreviewFixtures {
         val unitKind = if (kind == PublicWorkKind.Podcast) PublicUnitKind.Episode else PublicUnitKind.Chapter
         val listed = units.mapIndexed { index, (unitTitle, seconds) ->
             val key = number * 10 + index
+            val id = valid(PublicUnitId.parse(uuid(2, key)))
             valid(
-                PublicUnit.of(
-                    id = valid(PublicUnitId.parse(uuid(2, key))), kind = unitKind, position = index.toLong(),
-                    title = unitTitle, description = "$title · $unitTitle",
-                    publicationId = valid(PublicationId.parse(uuid(3, key))),
-                    publishedAtMs = PublishedAtMs + key, durationMs = seconds * 1_000L,
-                ),
+                if (seconds == null) {
+                    PublicUnit.withoutAudio(id, unitKind, index.toLong(), unitTitle, "$title · $unitTitle")
+                } else {
+                    PublicUnit.of(
+                        id = id, kind = unitKind, position = index.toLong(),
+                        title = unitTitle, description = "$title · $unitTitle",
+                        publicationId = valid(PublicationId.parse(uuid(3, key))),
+                        publishedAtMs = PublishedAtMs + key, durationMs = seconds * 1_000L,
+                    )
+                },
             )
         }
         return PreviewWork(published, listed)
