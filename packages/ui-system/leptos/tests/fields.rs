@@ -114,6 +114,29 @@ fn menu_select_projects_disabled_loading_and_language_without_selecting_a_defaul
 }
 
 #[test]
+fn menu_select_trigger_shows_a_short_label_while_the_full_label_stays_its_name() {
+    let html = view! {
+        <Select id="locale" label="Ngôn ngữ giao diện" value="vi-VN"
+            options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
+                SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", "English") }]
+            short_label=Callback::new(|tag: String| tag.split('-').next().map(str::to_owned))
+            on_input=Callback::new(|_: String| {})/>
+    }.to_html();
+    let trigger = control(&html, "button", "locale-trigger");
+    assert!(
+        trigger.contains("aria-labelledby=\"locale-label locale-value\""),
+        "{trigger}"
+    );
+
+    // Menu rows and the native fallback keep the full autonym; only the trigger is abbreviated.
+    assert!(
+        html.contains("<span class=\"cui-select-option-label\">English</span>"),
+        "{html}"
+    );
+    assert!(html.contains(">English</option>"), "{html}");
+}
+
+#[test]
 fn labeled_input_preserves_raw_text_and_associates_all_visible_descriptions() {
     let html = view! {
         <TextField id="episode-title" label="Tên tập Sơn Hà Ký — Ngày mai, mình có diễn tiếp không?"

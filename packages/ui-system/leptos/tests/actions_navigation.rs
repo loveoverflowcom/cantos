@@ -293,6 +293,36 @@ fn chip_selection_is_controlled_and_blocking_does_not_erase_selection() {
 }
 
 #[test]
+fn theme_cycle_shows_the_short_mode_name_only_when_asked_and_keeps_the_full_accessible_name() {
+    let owner = Owner::new();
+    owner.with(|| {
+        let theme = RwSignal::new(Theme::Light);
+        let labels = RwSignal::new(cantos_ui::ThemeCycleLabels {
+            dark_mode: "Tối",
+            dark_next: "Chuyển sang Sáng",
+            light_mode: "Sáng",
+            light_next: "Chuyển sang Hệ thống",
+            system_mode: "Hệ thống",
+            system_next: "Chuyển sang Tối",
+        });
+        assert_eq!(labels.get().mode(Theme::System), "Hệ thống");
+
+        let icon_only = view! { <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/> }.to_html();
+        assert!(!icon_only.contains("cui-theme-cycle-label"), "{icon_only}");
+        assert!(!icon_only.contains("data-label"), "{icon_only}");
+
+        let labelled = view! { <ThemeCycleButton id="theme-btn" theme=theme show_label=true labels=labels.into()/> }.to_html();
+        assert!(labelled.contains("data-label=\"visible\""), "{labelled}");
+        assert!(
+            labelled.contains("<span aria-hidden=\"true\" class=\"cui-theme-cycle-label\">Sáng</span>"),
+            "{labelled}"
+        );
+        // The accessible name still starts with the visible text (WCAG label in name).
+        assert!(labelled.contains("aria-label=\"Sáng · Chuyển sang Hệ thống\""), "{labelled}");
+    });
+}
+
+#[test]
 fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
     assert_eq!(Theme::Dark.cycle(), Theme::Light);
     assert_eq!(Theme::Light.cycle(), Theme::System);

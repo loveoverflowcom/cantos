@@ -58,6 +58,7 @@ pub(super) fn MenuSelect(
     required: bool,
     density: SelectDensity,
     label_placement: SelectLabelPlacement,
+    short_label: Option<Callback<String, Option<String>>>,
 ) -> impl IntoView {
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
@@ -89,6 +90,15 @@ pub(super) fn MenuSelect(
             .find(|option| option.value == value.get())
             .map(|option| option.label)
             .unwrap_or_else(|| placeholder.get())
+    });
+    let current_short = Signal::derive(move || {
+        let current = value.get();
+        options
+            .get()
+            .iter()
+            .any(|option| option.value == current)
+            .then(|| short_label.and_then(|short| short.run(current)))
+            .flatten()
     });
     let current_lang = Signal::derive(move || {
         options
@@ -248,7 +258,15 @@ pub(super) fn MenuSelect(
                     <Show when=move || has_icons.get()>
                         <span class="cui-select-leading" aria-hidden="true">{move || current_icon.get().map(|name| view! { <Icon name/> })}</span>
                     </Show>
-                    <span id=value_id class="cui-select-value" lang=move || current_lang.get()>{move || current_label.get()}</span>
+                    <span id=value_id class="cui-select-value" lang=move || current_lang.get()>
+                        {move || match current_short.get() {
+                            Some(short) => view! {
+                                <span class="cui-select-short" aria-hidden="true">{short}</span>
+                                <span class="cui-sr-only">{current_label.get()}</span>
+                            }.into_any(),
+                            None => current_label.get().into_any(),
+                        }}
+                    </span>
                     {move || if state.get().is_loading() {
                         view! { <LoadingIndicator/> }.into_any()
                     } else { view! { <Icon name=IconName::ExpandMore/> }.into_any() }}

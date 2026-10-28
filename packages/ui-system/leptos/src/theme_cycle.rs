@@ -1,6 +1,7 @@
 //! Contextual theme cycle action: Dark → Light → System → Dark.
 //!
-//! A single icon button with a constant 44×44 CSS px footprint. Renders moon for Dark,
+//! A single icon button with a constant 44×44 CSS px footprint by default; the opt-in
+//! `show_label` pill adds the short mode name and grows in width only. Renders moon for Dark,
 //! sun for Light, and moon+sun for System. The accessible name and tooltip state the current
 //! mode and next action without pretending to be a boolean switch.
 use leptos::{ev, prelude::*};
@@ -19,6 +20,15 @@ pub struct ThemeCycleLabels {
 }
 
 impl ThemeCycleLabels {
+    /// The short localized name of the current mode (for example "Tối"), without the next action.
+    pub fn mode(&self, theme: Theme) -> &'static str {
+        match theme {
+            Theme::Dark => self.dark_mode,
+            Theme::Light => self.light_mode,
+            Theme::System => self.system_mode,
+        }
+    }
+
     pub fn text(&self, theme: Theme) -> String {
         match theme {
             Theme::Dark => format!("{} · {}", self.dark_mode, self.dark_next),
@@ -45,6 +55,9 @@ ui_primitive! {
         labels: Signal<ThemeCycleLabels>,
         #[prop(optional)] on_cycle: Option<Callback<Theme>>,
         #[prop(default = ButtonVariant::Text)] variant: ButtonVariant,
+        /// Show the short localized mode name beside the icon. The accessible name and tooltip
+        /// are unchanged and still begin with the visible text.
+        #[prop(optional)] show_label: bool,
     ) -> impl IntoView {
         let button_id = id.unwrap_or_else(|| "theme-cycle-button".to_string());
         let tooltip_id = format!("{button_id}-tooltip");
@@ -53,6 +66,7 @@ ui_primitive! {
         let tooltip_open = RwSignal::new(false);
 
         let current_text = Memo::new(move |_| labels.get().text(theme.get()));
+        let mode_text = Memo::new(move |_| labels.get().mode(theme.get()));
 
         let button_class = Signal::derive(move || {
             let extra = class.get();
@@ -68,6 +82,7 @@ ui_primitive! {
                     title=move || current_text.get()
                     data-variant=variant.as_str()
                     data-theme=move || theme.get().as_str()
+                    data-label=show_label.then_some("visible")
                     aria-label=move || current_text.get()
                     aria-describedby=move || {
                         if tooltip_open.get() {
@@ -103,6 +118,9 @@ ui_primitive! {
                             </svg>
                         }.into_any(),
                     }}
+                    {show_label.then(|| view! {
+                        <span class="cui-theme-cycle-label" aria-hidden="true">{move || mode_text.get()}</span>
+                    })}
                     <span class="cui-sr-only">{move || current_text.get()}</span>
                 </button>
                 <span id=tooltip_id_for_span
