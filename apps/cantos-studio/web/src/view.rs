@@ -2,6 +2,7 @@ use crate::account_menu::AccountEntry;
 use crate::contract::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use crate::ui::{
     ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigation, WorkspacePane,
+    STUDIO_EXPRESSION,
 };
 use crate::{
     adaptation::ScriptAdaptation,
@@ -246,18 +247,18 @@ pub fn Studio() -> impl IntoView {
     #[cfg(debug_assertions)]
     if crate::forge::view::requested() {
         let theme = RwSignal::new(Theme::Light);
-        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::forge::view::Preview theme=theme/></UiRoot>}.into_any();
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable expression=STUDIO_EXPRESSION><crate::forge::view::Preview theme=theme/></UiRoot>}.into_any();
     }
     // The existing Studio composition root also hosts its offline debug form preview.
     #[cfg(debug_assertions)]
     if crate::live::artwork::preview::requested() {
         let theme = RwSignal::new(Theme::Light);
-        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::live::artwork::preview::Preview theme=theme/></UiRoot>}.into_any();
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable expression=STUDIO_EXPRESSION><crate::live::artwork::preview::Preview theme=theme/></UiRoot>}.into_any();
     }
     #[cfg(debug_assertions)]
     if crate::authoring_preview::requested() {
         let theme = RwSignal::new(Theme::Light);
-        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::authoring_preview::Preview theme=theme/></UiRoot>}.into_any();
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable expression=STUDIO_EXPRESSION><crate::authoring_preview::Preview theme=theme/></UiRoot>}.into_any();
     }
 
     let bootstrap_api = StudioHttp::new();
@@ -739,7 +740,7 @@ pub fn Studio() -> impl IntoView {
     let open_content = Callback::new(move |()| panel.set(WorkspacePane::Content));
 
     view! {
-        <UiRoot class="studio-shell" theme=theme density=Density::Comfortable>
+        <UiRoot class="studio-shell" theme=theme density=Density::Comfortable expression=STUDIO_EXPRESSION>
         <Container width=ContainerWidth::Fluid>
         <main class="studio-main" lang=move || locale.get().lang() dir=move ||locale.get().dir()>
             <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
