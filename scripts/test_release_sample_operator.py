@@ -1,4 +1,5 @@
 """Pure boundary tests; actual binary/image/sample qualification is separate."""
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -18,12 +19,47 @@ class OperatorBoundary(unittest.TestCase):
                                   image=lambda _: 'example/image@sha256:'+'a'*64)
         for error, category in ((b'no space left on device private-token', 'STORAGE_EXHAUSTED'),
                                 (b'unauthorized private-token', 'REGISTRY_AUTH'),
+                                (b'Error: the specified runroot is longer than 50 characters private-token', 'RUNROOT_TOO_LONG'),
                                 (b'unknown private-token', 'UNCLASSIFIED')):
             with patch.object(qualify.subprocess, 'run', return_value=SimpleNamespace(returncode=125, stderr=error)):
                 with self.assertRaises(ValueError) as caught:
                     qualify.pull_exact(fixture, 'server')
                 self.assertEqual(str(caught.exception), 'PODMAN_PULL_'+category)
                 self.assertNotIn('private-token', str(caught.exception))
+
+    def test_fixture_runroot_fits_podman_4_9_limit(self):
+        # The supported runner uses Podman 4.9, which rejects runroot above 50 bytes.
+        # Reach the real qualifier's workspace allocation; no Podman or DB is started.
+        class ReachedFixture(Exception):
+            pass
+
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp)/'operator'
+            binary.write_bytes(b'x'*64)
+            base = 'docker.io/library/rust:fixture@sha256:'+'e'*64
+            record = {'schema_version': 1, 'operation': 'BUILD_SAMPLE_OPERATOR', 'status': 'BUILT_NOT_QUALIFIED',
+                      'source_sha': 'a'*40, 'platform': 'linux/amd64', 'configuration_sha256': 'c'*64,
+                      'builder_base': base, 'builder_image_id': 'sha256:'+'d'*64,
+                      'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'binary_bytes': 64,
+                      'admission': 'NOT_RUN', 'activation': 'NOT_RUN'}
+            manifest = {'source_sha': 'a'*40, 'platform': 'linux/amd64', 'configuration_sha256': 'c'*64}
+            args = SimpleNamespace(binary=binary, build_record=Path(tmp)/'build.json', build_record_digest=None,
+                                   output=Path(tmp)/'out', authfile=Path(tmp)/'auth')
+
+            def observe_fixture(source_root, work, candidate, authfile):
+                self.assertEqual(source_root, root)
+                self.assertLessEqual(len(str(work/'run').encode()), 50)
+                raise ReachedFixture()
+
+            with patch.object(qualify.qualify, 'validate_input', return_value=(manifest, {})), \
+                    patch.object(qualify.qualify, 'native_host', return_value='linux/amd64'), \
+                    patch.object(qualify.contract, 'read_json', return_value=record), \
+                    patch.object(qualify.image_build, 'git_bytes', return_value=('FROM '+base+' AS build\n').encode()), \
+                    patch.object(qualify.tempfile, 'tempdir', '/tmp'), \
+                    patch.object(qualify.qualify, 'Fixture', side_effect=observe_fixture):
+                with self.assertRaises(ReachedFixture):
+                    qualify.qualify_operator(root, args)
 
     def test_wrong_platform_refuses_before_compiler_or_output(self):
         with tempfile.TemporaryDirectory() as tmp:

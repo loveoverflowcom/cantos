@@ -46,6 +46,8 @@ def request(action, operation_id, confirmed=True):
 def pull_failure_class(stderr):
     # Podman errors can contain registry credentials or URLs. Report only a fixed class.
     message = stderr.lower()
+    if b'the specified runroot is longer than 50 characters' in message:
+        return 'RUNROOT_TOO_LONG'
     if b'no space left on device' in message or b'disk quota exceeded' in message:
         return 'STORAGE_EXHAUSTED'
     if b'too many requests' in message or b'toomanyrequests' in message:
@@ -97,8 +99,10 @@ def qualify_operator(root, args):
     source = (root/SOURCE).read_bytes()
     contract.require(hashlib.sha256(source).hexdigest() == SOURCE_SHA, 'fictional source bytes changed')
     contract.require(not args.output.exists() and not args.output.is_symlink(), 'fresh operator report required')
-    with tempfile.TemporaryDirectory(prefix='cantos-sample-operator-qualification-') as temporary:
+    # Podman 4.9 on the supported runner rejects runroot paths above 50 bytes.
+    with tempfile.TemporaryDirectory(prefix='cantos-op-qual-', dir='/tmp') as temporary:
         work = Path(temporary).resolve()
+        contract.require(len(os.fsencode(work/'run')) <= 50, 'PODMAN_RUNROOT_TOO_LONG')
         f = qualify.Fixture(root, work, manifest, args.authfile)
         try:
             for service in oci.SERVICES:
