@@ -166,7 +166,29 @@ markup (native SSR) was loaded in Chromium with the real `tokens.css`, `foundati
 CSS px, DPR 1, light theme. The harness has no topbar, session, cookies, network or WASM, and is
 not Studio runtime acceptance. Top of the Work list: 1280 400 → 160, 768 562 → 302, 390 745 → 299,
 320 745 → 329; no horizontal page overflow at 1280/1024/768/390/320 in either state. Dark theme
-was opened at 1024 (list, selected marker, resume and tools legible). Not observed here: the real
-app at these viewports, 200% zoom/text scaling, a keyboard walkthrough, English runtime layout, and
-a screen reader — the remaining AC-05/AC-06 acceptance stays with a browser run against an
-authorized Studio session.
+was opened at 1024 (list, selected marker, resume and tools legible).
+
+**Real app (WASM) on an authorized local session.** A temporary, uncommitted test fixture started
+the real `cantos-identity` executable (real Argon2id, run-owned loopback SMTP sink, file-backed
+Turso), signed one synthetic account up through the mailed link, and hosted the production Studio
+API router on `127.0.0.1:18080` with that account's subject as the Studio roster; `trunk serve`
+on `localhost:8083` served the debug CSR Studio and proxied `/api/`. This is the #565 fixture
+pattern, not production provisioning, HTTPS, a deployed origin or a real mailbox. Chromium in the
+app browser pane (version not exposed), vi-VN, DPR 1. Real form login reached the writing desk;
+the Work was created through the real create form (one Work, long Vietnamese title).
+
+| Observation (this branch unless stated) | Result |
+| --- | --- |
+| Empty list, login → desk | List card with the existing empty copy; Import primary, New work secondary; audio and tools as a compact secondary column |
+| Top of Work list, one Work, none selected, 1280 | `develop@7b132b49`: 438; this branch: 271 (CSS px) |
+| Top of Work list, Work selected, 1280 / 768 / 390 / 320 | 238 / 380 / 433 / 463; no horizontal page overflow at any width (topbar included) |
+| 320 CSS px with root text 200% (not browser page zoom), dark | no horizontal overflow; list starts at 1300 because the stacked topbar (#558) and nav strip precede it |
+| Dark theme at 1280 | list, selected marker, resume and tools legible |
+| Keyboard: focus on the Work row | 3 px solid focus ring visible on the row |
+| Resume → Content → Back (Enter) → Resume | selection stayed marked (`aria-current`); an unsaved title edit and its selection range (4–9) survived the round trip; focus moved to the desk heading on Back and back into the edited field on return; the unsaved-changes notice stayed |
+
+An earlier Back attempt on this branch left focus on `<body>`; it was a keypress delivered while
+the Content pane was still settling, and the identical steps repeated cleanly (clean `develop`
+behaves the same in the stable case). Not observed: English layout, screen reader, Firefox/WebKit,
+real page zoom, session expiry/account-switch during a fetch on the new layout, and a populated
+multi-page list (one Work only), so the pagination controls were exercised by SSR tests only.
