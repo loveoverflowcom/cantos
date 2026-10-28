@@ -598,7 +598,7 @@ class CanonicalRepositoryTokens(unittest.TestCase):
 
     def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
         source = validate(load_source(SOURCE.read_bytes()))
-        self.assertEqual(source["version"], "0.10.0")
+        self.assertEqual(source["version"], "0.11.0")
         self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
         self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
         self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))
@@ -622,8 +622,8 @@ class CanonicalRepositoryTokens(unittest.TestCase):
         self.assertEqual(tokens["motion.loadingPulse.easing"], token("cubicBezier", [0.42, 0, 0.58, 1]))
         self.assertEqual([tokens[f"state.loadingPulse{name}Opacity"]["value"] for name in ("Low", "High", "Reduced")],
                          [0.6, 0.85, 0.7])
-        self.assertEqual([tokens[f"size.{name}"]["value"] for name in ("loadingArcSmall", "loadingArcRegular", "loadingEdge")],
-                         [16, 20, 2])
+        self.assertEqual([tokens[f"size.{name}"]["value"] for name in ("loadingArcCompact", "loadingArc", "loadingArcStroke", "loadingEdge")],
+                         [16, 20, 2, 2])
         # Only the finite reveal has a zero reduced mapping; a cycle is stationary, never zero-length.
         self.assertEqual(source["reduced_motion"]["motion.loadingReveal.duration"], 0)
         self.assertFalse([role for role in source["reduced_motion"] if role.endswith(".cycle")])

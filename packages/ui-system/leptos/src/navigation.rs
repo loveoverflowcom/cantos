@@ -2,6 +2,7 @@ use leptos::{ev::MouseEvent, prelude::*};
 
 use crate::{
     button::{component_class, description_ids},
+    feedback::LoadingIndicator,
     AccessibleName, ButtonState, Icon, IconName,
 };
 
@@ -146,7 +147,13 @@ pub fn FilterChip(
                         on_change.run(next);
                     }
                 }>
-                <span class="cui-chip-check" aria-hidden="true"><Icon name=IconName::Check/></span>
+                <span class="cui-chip-check" aria-hidden="true">
+                    {move || if state.get().is_busy() {
+                        view! { <LoadingIndicator/> }.into_any()
+                    } else {
+                        view! { <Icon name=IconName::Check/> }.into_any()
+                    }}
+                </span>
                 <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()

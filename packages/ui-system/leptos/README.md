@@ -53,8 +53,10 @@ section (`surface_pulse_samples.rs`); no application imports it yet.
 
 Button and IconButton replace a decorative action glyph with the shared `LoadingIndicator`
 (issue #528) while loading, including a Button without an icon. The indicator is one decorative
-arc used by buttons, selects and `LoadingState`: it turns once per `--cantos-web-loading-turn`
-(1000 ms, a Web design seed; the canonical `motion.loadingArc.cycle` exists but this arc adopts it later, #586) only while it is mounted and is a stationary
+arc (the MicroArc: 270°, round ends, 16 or 20 units with a 2-unit stroke from `size.loadingArc*`, drawn by the
+stylesheet alone so a bare `cui-loading-indicator` span works too) used by buttons, a pending FilterChip (it
+replaces the check in the same slot, `aria-pressed` unchanged), selects and `LoadingState`: it turns once per `--cantos-web-loading-turn`
+(1000 ms, a Web design seed; the canonical `motion.loadingArc.cycle` exists and this arc adopts it later) only while it is mounted and is a stationary
 visible arc under `prefers-reduced-motion`, so the label or reason is always the status. The original label and localized reason stay
 visible; progress is neither a disclosure chevron nor a success marker. IconButton also exposes
 its reactive accessible name as a native title tooltip. Glyphs remain 24 logical units with an

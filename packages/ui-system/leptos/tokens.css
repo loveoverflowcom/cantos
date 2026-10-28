@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.10.0 sha256:57e985566d8b335fdd565b9dc5fd0bfd974723aee0335f9e395fa5c848db8e2f
+/* Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -110,8 +110,9 @@
   --cantos-size-focus-width: 0.1875rem;
   --cantos-size-icon: 1.5rem;
   --cantos-size-icon-compact: 1.25rem;
-  --cantos-size-loading-arc-regular: 1.25rem;
-  --cantos-size-loading-arc-small: 1rem;
+  --cantos-size-loading-arc: 1.25rem;
+  --cantos-size-loading-arc-compact: 1rem;
+  --cantos-size-loading-arc-stroke: 0.125rem;
   --cantos-size-loading-edge: 0.125rem;
   --cantos-size-search-action: 3.25rem;
   --cantos-size-search-header: 4.5rem;

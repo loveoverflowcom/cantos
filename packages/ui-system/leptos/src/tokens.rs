@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.10.0 sha256:57e985566d8b335fdd565b9dc5fd0bfd974723aee0335f9e395fa5c848db8e2f
+// Generated from Cantos UI tokens v0.11.0 sha256:afd666ab3f8d1d3fcff2147c2e7b82ea35f544acd147aedbaf3694048273ae08
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.10.0";
+pub const VERSION: &str = "0.11.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -115,8 +115,9 @@ pub enum Token {
     SizeFocusWidth,
     SizeIcon,
     SizeIconCompact,
-    SizeLoadingArcRegular,
-    SizeLoadingArcSmall,
+    SizeLoadingArc,
+    SizeLoadingArcCompact,
+    SizeLoadingArcStroke,
     SizeLoadingEdge,
     SizeSearchAction,
     SizeSearchHeader,
@@ -280,8 +281,9 @@ pub const ALL: &[Token] = &[
     Token::SizeFocusWidth,
     Token::SizeIcon,
     Token::SizeIconCompact,
-    Token::SizeLoadingArcRegular,
-    Token::SizeLoadingArcSmall,
+    Token::SizeLoadingArc,
+    Token::SizeLoadingArcCompact,
+    Token::SizeLoadingArcStroke,
     Token::SizeLoadingEdge,
     Token::SizeSearchAction,
     Token::SizeSearchHeader,
@@ -450,8 +452,9 @@ impl Token {
             Self::SizeFocusWidth => "--cantos-size-focus-width",
             Self::SizeIcon => "--cantos-size-icon",
             Self::SizeIconCompact => "--cantos-size-icon-compact",
-            Self::SizeLoadingArcRegular => "--cantos-size-loading-arc-regular",
-            Self::SizeLoadingArcSmall => "--cantos-size-loading-arc-small",
+            Self::SizeLoadingArc => "--cantos-size-loading-arc",
+            Self::SizeLoadingArcCompact => "--cantos-size-loading-arc-compact",
+            Self::SizeLoadingArcStroke => "--cantos-size-loading-arc-stroke",
             Self::SizeLoadingEdge => "--cantos-size-loading-edge",
             Self::SizeSearchAction => "--cantos-size-search-action",
             Self::SizeSearchHeader => "--cantos-size-search-header",
@@ -796,8 +799,9 @@ impl Token {
             Self::SizeFocusWidth => "0.1875rem",
             Self::SizeIcon => "1.5rem",
             Self::SizeIconCompact => "1.25rem",
-            Self::SizeLoadingArcRegular => "1.25rem",
-            Self::SizeLoadingArcSmall => "1rem",
+            Self::SizeLoadingArc => "1.25rem",
+            Self::SizeLoadingArcCompact => "1rem",
+            Self::SizeLoadingArcStroke => "0.125rem",
             Self::SizeLoadingEdge => "0.125rem",
             Self::SizeSearchAction => "3.25rem",
             Self::SizeSearchHeader => "4.5rem",

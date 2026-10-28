@@ -19,7 +19,9 @@ acceptance: see [Evidence](#evidence-and-not-run).
 | Lifecycle | loop exists only while the node is mounted; a hidden ancestor ends it | loop exists only while composed; leaving composition cancels it |
 | Semantics | `aria-hidden` arc; adjacent text/reason is the status | arc has cleared semantics; label/reason is the status |
 
-The two renderers share intent, size (`size.icon`), stroke (`size.focusWidth`), the 270° arc and the
+The two renderers share intent, the MicroArc geometry (Loading v1 2/4, #586: `size.loadingArcCompact` 16 in a
+button, chip or select slot, `size.loadingArc` 20 for `LoadingState`, `size.loadingArcStroke` 2, a 270° arc with round
+ends; a glyph slot keeps the 24-unit `size.icon` footprint) and the
 1000 ms turn; they share no runtime. Not a canonical token: no continuous-motion role exists yet, so
 each renderer keeps one named constant (see [motion](../../.agents/skills/cantos-ui-design/references/motion.md)). *Superseded in part by [#585](surface-pulse-585.md): the canonical `motion.loadingArc.cycle` role now exists; the shipped arcs adopt it in #586.*
 

@@ -18,9 +18,9 @@ the edge line ([#587](https://github.com/loveoverflowcom/cantos/issues/587)) and
 | Semantics | `aria-hidden`; the host names the region (`role="group"`, `aria-busy`) | cleared semantics; the host names the region once |
 | Reveal | `--cantos-motion-loading-reveal-duration` 150 ms (0 under reduced) | `loadingRevealFor` (`Instant` under reduced) |
 
-New canonical roles (tokens v0.10.0): `motion.loadingPulse|Arc|Edge.cycle` (1400/1000/1200),
+New canonical roles (tokens v0.11.0; the MicroArc sizes `size.loadingArcCompact`/`loadingArc`/`loadingArcStroke` are #586's v0.10.0): `motion.loadingPulse|Arc|Edge.cycle` (1400/1000/1200),
 `motion.loadingPulse.easing`, `motion.loadingReveal.duration` (150), `state.loadingPulse{Low,High,Reduced}Opacity`
-(0.60/0.85/0.70), `size.loadingArc{Small,Regular}` (16/20) and `size.loadingEdge` (2). A `.cycle` is a duration with no
+(0.60/0.85/0.70) and `size.loadingEdge` (2). A `.cycle` is a duration with no
 reduced-motion mapping (the generator refuses a zero cycle and a reduced entry for one); `motion.feedback.duration`
 (140 ms) and CMP's finite `MaxMotionDurationMillis` (1000 ms) are unchanged. The shipped arcs still use
 `--cantos-web-loading-turn` / `PendingRingTurnMillis`; a CMP test pins the latter to the Arc cycle.
