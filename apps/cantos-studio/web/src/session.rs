@@ -32,6 +32,15 @@ pub fn current_attempt(
     expected.is_some() && expected == current && expected_epoch == current_epoch
 }
 
+/// Whether an owner answer proves that this request's session was admitted. Studio admission
+/// echoes the admitted session on every response after it; nothing before admission does (a 401,
+/// a proxy error, a stripped or unexposed header, another session's echo). Only that echo may
+/// refund the denial re-read budget: an answer the shell then refuses as unconfirmed never does,
+/// or each refusal would reset the budget and restart the #566 loop.
+pub fn proves_admission(fence: Option<SessionFence>, echo: Option<&str>) -> bool {
+    fence.is_some_and(|fence| fence.accepts(echo))
+}
+
 pub fn unauthenticated() -> ApiError {
     ApiError {
         code: ErrorCode::Unauthenticated,
@@ -331,6 +340,61 @@ mod tests {
         let (checking, ticket) = held.begin().unwrap();
         let confirmed_again = checking.settled(ticket, Some("a".into()));
         assert_eq!(confirmed_again.denied().1, Recovery::Hold);
+    }
+
+    #[test]
+    fn only_the_apis_echo_of_this_fence_proves_the_session() {
+        let a = SessionFence::new("00000000-0000-4000-8000-000000000001").unwrap();
+        // Every response after Studio admission echoes the admitted session.
+        assert!(proves_admission(
+            Some(a),
+            Some("00000000-0000-4000-8000-000000000001")
+        ));
+        // A 2xx without the echo (stripped by a proxy, not exposed by CORS) is refused right after
+        // as unconfirmed; another session's echo or a malformed one proves nothing either.
+        for echo in [
+            None,
+            Some("00000000-0000-4000-8000-000000000002"),
+            Some("not-a-session"),
+        ] {
+            assert!(!proves_admission(Some(a), echo), "{echo:?}");
+        }
+        assert!(!proves_admission(
+            None,
+            Some("00000000-0000-4000-8000-000000000001")
+        ));
+    }
+
+    #[test]
+    fn an_unconfirmed_answer_between_denials_never_refunds_the_reread_budget() {
+        let a = SessionFence::new("00000000-0000-4000-8000-000000000001").unwrap();
+        // The shell's order for one owner answer: proof (only if proven), then the echo check,
+        // whose refusal is a denial. An answer without the echo must leave the budget spent.
+        let answer = |state: &SessionState, echo: Option<&str>| {
+            let mut state = state.clone();
+            if proves_admission(Some(a), echo) && state.needs_proof() {
+                state.prove();
+            }
+            if a.accepts(echo) {
+                (state, None)
+            } else {
+                let (state, recovery) = state.denied();
+                (state, Some(recovery))
+            }
+        };
+        let (hidden, recovery) = confirmed(&SessionState::default(), "alice").denied();
+        assert_eq!(recovery, Recovery::Observe);
+        let (held, recovery) = answer(&confirmed(&hidden, "alice"), None);
+        assert_eq!(recovery, Some(Recovery::Hold));
+        assert!(held.held());
+        // The echoed answer still proves the session and restores the budget.
+        let (proven, recovery) = answer(
+            &confirmed(&hidden, "alice"),
+            Some("00000000-0000-4000-8000-000000000001"),
+        );
+        assert_eq!(recovery, None);
+        assert!(!proven.needs_proof());
+        assert_eq!(proven.denied().1, Recovery::Observe);
     }
 
     #[test]

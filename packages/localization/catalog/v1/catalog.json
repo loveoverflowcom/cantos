@@ -24861,6 +24861,18 @@
         }
       }
     },
+    "studio.live.revision_unverified": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đã mở — chưa đối chiếu được với bản hiện tại vì bản hiện tại chưa đọc được."
+        },
+        "en": {
+          "text": "Opened revision — not compared with the current revision, which has not been read."
+        }
+      }
+    },
     "studio.live.revision_none": {
       "args": {},
       "exposure": "production",

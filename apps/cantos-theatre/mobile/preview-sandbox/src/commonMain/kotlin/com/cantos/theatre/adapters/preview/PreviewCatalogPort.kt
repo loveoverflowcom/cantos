@@ -33,22 +33,33 @@ class PreviewCatalogPort(
 
     fun setScenario(scenario: PreviewCatalogScenario) { selected = scenario }
 
+    /**
+     * The API's explicit metadata opt-in: when set, the walk also lists [PreviewFixtures.metadataWorks],
+     * whose units may have no release. Off by default, so the default sample stays released-only.
+     */
+    var disclosesMetadata: Boolean = false
+
+    private fun listed(): List<PreviewWork> =
+        if (disclosesMetadata) PreviewFixtures.works + PreviewFixtures.metadataWorks else PreviewFixtures.works
+
+    private fun listed(id: PublicWorkId): PreviewWork? = listed().firstOrNull { it.work.id == id }
+
     override suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery): PublicCatalogRead<PublicWorkPage> {
         worksReads += 1
         pause()?.let { return it }
-        val matching = PreviewFixtures.works.map { it.work }.filter { it.matches(query) }
+        val matching = listed().map { it.work }.filter { it.matches(query) }
         val offset = if (cursor == null) 0 else offsetOf(cursor) ?: return PublicCatalogRead.InvalidCursor
         return page(matching, offset)
     }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> {
         pause()?.let { return it }
-        return PreviewFixtures.work(id.value)?.let { PublicCatalogRead.Ready(it.work) } ?: PublicCatalogRead.NotFound
+        return listed(id)?.let { PublicCatalogRead.Ready(it.work) } ?: PublicCatalogRead.NotFound
     }
 
     override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> {
         pause()?.let { return it }
-        val entry = PreviewFixtures.work(work.id.value) ?: return PublicCatalogRead.NotFound
+        val entry = listed(work.id) ?: return PublicCatalogRead.NotFound
         val offset = if (cursor == null) 0 else offsetOf(cursor) ?: return PublicCatalogRead.InvalidCursor
         val slice = entry.units.drop(offset).take(pageSize)
         val next = if (offset + slice.size < entry.units.size) cursorAt(offset + slice.size) else null
