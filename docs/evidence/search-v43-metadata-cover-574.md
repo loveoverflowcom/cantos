@@ -4,6 +4,16 @@ Source checkpoint: 2026-10-28; base `6234edd27db1421161053540a860bc5b610bb292`,
 branch `feat/search-v43-metadata-covers`. This is source-bound development evidence, not
 production acceptance or an accepted amendment to ADR 0033.
 
+Integration update: while verification ran, develop merged #576. The branch was rebased onto
+`231b559ca9b39eefd41a6acff2976bcb2ecbeb8d` to resolve localization output conflicts. All ten
+upstream Studio keys and all four Search keys were retained with identical values, then the
+canonical generator was rerun. Hash comparison of every previously changed file found only
+the catalog and its seven generated projections/manifest changed; the Search/cover production
+and test inputs stayed identical. Passed component/cover evidence is reused for those unchanged
+inputs. Generator/format checks were rerun; post-rebase full preflight remains UNSUPPORTED
+at the missing locked Quint prerequisite. Upstream Studio implementation changes are not
+claimed locally requalified by the earlier Studio/workspace checks; final-head CI is separate.
+
 ## Scope and invariants
 
 The shared FloatingSearch shell owns the stable header, fill, perimeter and expandable body
