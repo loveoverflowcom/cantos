@@ -50,7 +50,7 @@ Studio and Theatre vary density/layout, not palettes. Both Web apps select the o
 [Theatre expression](../../packages/ui-system/shared/README.md#theatre-expression-v070), which remaps
 standard roles for that subtree from the same source ([#559](https://github.com/loveoverflowcom/cantos/issues/559)
 supersedes Studio Quiet Surfaces v1's Standard choice); Studio keeps a creator-tool reading intensity
-through its own layout and density, and a consumer that names no expression keeps the standard roles. The
+through its own layout and density (authenticated forms use the shared compact Floating field density, not a local override), and a consumer that names no expression keeps the standard roles. The
 [foundation evidence](../evidence/ui-system-foundation.md)
 separates source/compile checks from pending runtime appearance, motion and interaction review.
 

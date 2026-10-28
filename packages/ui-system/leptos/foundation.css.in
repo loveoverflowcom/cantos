@@ -1248,6 +1248,16 @@
   vertical-align: -0.15em;
   margin-inline-end: var(--cantos-space-xs);
 }
+/* Compact Floating field (#559). A dense authenticated form cannot afford the 68-unit expression
+   minimum on every row, so a field may ask for the standard Floating geometry (the values declared
+   at the top of this file) while the expression keeps its palette, weights and corner radius. It
+   still clears the 48-unit target; text, labels and zoom grow it, and nothing clips. The docked
+   search keeps its own header geometry. */
+:where(.cantos-ui) .cui-field[data-variant="floating"][data-field-density="compact"]:not([data-kind="search"]) {
+  --cantos-web-field-block-size: 3.625rem;
+  --cantos-web-field-label-top: 0.5rem;
+  --cantos-web-field-value-bottom: 0.375rem;
+}
 /* Theatre expression. Palette and weights arrive from the canonical expression remap in
    tokens.css; only renderer-local geometry lives here, scoped to data-expression="theatre" so a
    consumer that names no expression keeps every value above. Heights are minimums: text,

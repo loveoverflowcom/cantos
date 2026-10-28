@@ -156,7 +156,7 @@ mod browser {
             workspace::{uuid, Dispatch},
             ClientError, Command, Facts, Reply,
         },
-        ui::{ActionButton, BlockReason},
+        ui::{ActionButton, BlockReason, EDITOR_FIELD_DENSITY},
     };
     use cantos_ui::{ButtonVariant, FieldState, IconName, TextArea, TextField, TextFieldVariant};
     use leptos::prelude::*;
@@ -228,7 +228,7 @@ mod browser {
             <details id="live-work-metadata"><summary>{move || text(Key::EditWork, locale.get())}</summary>
                 <div class="live-grid">
                     <TextField id="live-edit-work-title" label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned())
-                        variant=TextFieldVariant::Floating state=field_state class="live-field"
+                        variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY state=field_state class="live-field"
                         value=Signal::derive(move ||draft.with(|draft|draft.title.clone()))
                         on_input=Callback::new(move |value|draft.update(|draft|draft.title=value))/>
                     <TextArea id="live-edit-work-synopsis" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned())

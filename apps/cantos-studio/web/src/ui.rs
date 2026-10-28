@@ -1,7 +1,7 @@
 //! Studio presentation adapters. Values, permissions and effects remain app-owned.
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Checkbox, ChoiceState, Dialog, DialogError, DisabledReason,
-    ErrorState, Expression, IconName, LinkHref, NavItem, Select,
+    ErrorState, Expression, FieldDensity, IconName, LinkHref, NavItem, Select,
 };
 use leptos::{ev::MouseEvent, prelude::*};
 
@@ -13,6 +13,11 @@ use crate::messages::{
 /// Studio shares Theatre's Expressive palette, weights and control geometry (#559); density,
 /// layout and reading intensity stay Studio's own. One constant so every Studio root agrees.
 pub const STUDIO_EXPRESSION: Expression = Expression::Theatre;
+
+/// Authenticated forms (works, units, rights, import) sit in a dense writing desk, so their
+/// Floating fields take the compact shared density; sign-in and the account menu keep the
+/// expression's comfortable auth geometry. One constant, never a per-field override (#559).
+pub const EDITOR_FIELD_DENSITY: FieldDensity = FieldDensity::Compact;
 
 /// Authored content keeps its declared language; this adapter has no interface-locale input.
 #[component]
@@ -870,6 +875,43 @@ mod expression_tests {
             (roots, expressive),
             (4, 4),
             "a Studio root fell back to Standard"
+        );
+    }
+
+    #[test]
+    fn authenticated_floating_fields_are_compact_and_sign_in_keeps_the_expression_geometry() {
+        use super::{FieldDensity, EDITOR_FIELD_DENSITY};
+        assert_eq!(EDITOR_FIELD_DENSITY, FieldDensity::Compact);
+        // Every authenticated Floating field names the one constant; no per-field size override.
+        for (name, source) in [
+            ("live/workspace.rs", include_str!("live/workspace.rs")),
+            (
+                "live/catalog_controls.rs",
+                include_str!("live/catalog_controls.rs"),
+            ),
+            ("live/publication.rs", include_str!("live/publication.rs")),
+            ("import/fields.rs", include_str!("import/fields.rs")),
+        ] {
+            let floating = source.matches("TextFieldVariant::Floating").count();
+            let compact = source
+                .matches("TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY")
+                .count();
+            assert!(
+                floating > 0 && floating == compact,
+                "{name}: {floating} floating, {compact} compact"
+            );
+        }
+        // Sign-in is the auth surface: comfortable, i.e. no density request at all.
+        assert!(!include_str!("signin_form.rs").contains("density"));
+        // Studio CSS must not shrink a shared field locally.
+        let css = include_str!("../studio.css");
+        assert!(
+            !css.contains("--cantos-web-field-"),
+            "local field geometry override"
+        );
+        assert!(
+            !css.contains(".cui-field-shell {") && !css.contains("cui-field-shell, "),
+            "local field shell override"
         );
     }
 

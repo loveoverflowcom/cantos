@@ -583,6 +583,11 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in field_extension {
         assert!(field.states.contains(&state));
     }
+    // The compact Floating density is a Web-only registration (#559): CMP has no equivalent.
+    let web_field_extension = ["web-compact-fields"];
+    for state in web_field_extension {
+        assert!(field.states.contains(&state), "text-field omits {state}");
+    }
     // Token v0.7.0 adds Theatre-expression diagnostics to existing registrations only.
     let theatre_extension = [
         ("ui-root", "theatre-expression"),
@@ -606,7 +611,8 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
             - select_extension.len()
             - back_extension.len()
             - field_extension.len()
-            - theatre_extension.len(),
+            - theatre_extension.len()
+            - web_field_extension.len(),
         198
     );
     assert_eq!(

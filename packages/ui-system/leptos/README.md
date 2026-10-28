@@ -130,6 +130,11 @@ in every enabled/disabled/loading/error/missing/empty scenario. Expanded/focus/h
 input-driven. Catalog states `web-regular`, `web-compact-inline`, `web-native-compact` describe
 these Web specimens; generated CMP metadata is inventory, not a native density implementation.
 
+`TextField` takes a `FieldDensity` (default Comfortable, no attribute). `Compact` sets `data-field-density="compact"`
+on a Floating field and restores the standard Floating geometry (58-unit minimum) under any expression; the catalog
+state `web-compact-fields` shows idle, filled, error, read-only, disabled and long-label specimens. It changes size
+only; the docked search keeps its own header geometry.
+
 The original 19 October checkpoint was an unqualified presentation with an explicitly reviewed
 locale-topbar exception; retain the [original #221 record](../../../docs/evidence/web-select-221.md)
 and [density continuation](../../../docs/evidence/web-select-density-221.md) as historical evidence.

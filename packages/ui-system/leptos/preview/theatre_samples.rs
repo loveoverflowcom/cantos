@@ -6,9 +6,9 @@ use super::messages::{theatre_fixture as fixture, tool};
 
 use cantos_ui::{
     AccessibleName, Avatar, AvatarSize, Button, ButtonState, ButtonVariant, Density,
-    DisabledReason, Expression, FieldState, FilterChip, IconButton, IconName, Logo, LogoTone,
-    LogoVariant, Select, SelectDensity, SelectOption, Space, Stack, StackDirection, Surface,
-    SurfaceTone, SurfaceVariant, TextField, TextFieldKind, TextFieldVariant, Theme,
+    DisabledReason, Expression, FieldDensity, FieldState, FilterChip, IconButton, IconName, Logo,
+    LogoTone, LogoVariant, Select, SelectDensity, SelectOption, Space, Stack, StackDirection,
+    Surface, SurfaceTone, SurfaceVariant, TextField, TextFieldKind, TextFieldVariant, Theme,
     ThemeCycleButton, ThemeCycleLabels, UiRoot,
 };
 use leptos::prelude::*;
@@ -171,7 +171,7 @@ pub fn TheatreExpressionSamples(
     view! {
         <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-theatre"
             data-preview-component="theatre-expression"
-            data-preview-scenario="theatre-expression theatre-fields theatre-trailing-eye theatre-docked-search theatre-tonal theatre-docked theatre-selection theatre-utility theatre-group theatre-control theatre-header theatre-guest-pair theatre-account-control"
+            data-preview-scenario="theatre-expression theatre-fields web-compact-fields theatre-trailing-eye theatre-docked-search theatre-tonal theatre-docked theatre-selection theatre-utility theatre-group theatre-control theatre-header theatre-guest-pair theatre-account-control"
             aria-labelledby="gallery-theatre-heading">
             <UiRoot theme=theme density=density expression=Expression::Theatre>
                 <div class="cui-theatre-sample">
@@ -220,6 +220,23 @@ pub fn TheatreExpressionSamples(
                             <TextField id="theatre-long" label=fixture::LONG_LABEL
                                 variant=TextFieldVariant::Floating value=long_value
                                 on_input=Callback::new(move |next| long_value.set(next))/>
+                        </div>
+
+                        // web-compact-fields: the dense-form density of the same Floating anatomy (#559).
+                        <div class="cui-theatre-matrix" data-preview-state="web-compact-fields">
+                            <TextField id="theatre-compact-idle" label=fixture::EMAIL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                kind=TextFieldKind::Email value=empty on_input=Callback::new(move |next| empty.set(next))/>
+                            <TextField id="theatre-compact-filled" label=fixture::EMAIL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                kind=TextFieldKind::Email value=filled on_input=Callback::new(move |next| filled.set(next))/>
+                            <TextField id="theatre-compact-error" label=fixture::EMAIL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                kind=TextFieldKind::Email value=invalid error=fixture::EMAIL_ERROR on_input=Callback::new(move |next| invalid.set(next))/>
+                            <TextField id="theatre-compact-readonly" label=fixture::EMAIL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                kind=TextFieldKind::Email value=filled state=FieldState::ReadOnly on_input=Callback::new(|_: String| {})/>
+                            <TextField id="theatre-compact-disabled" label=fixture::EMAIL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                kind=TextFieldKind::Email value=filled state=FieldState::Disabled(reason(fixture::UNAVAILABLE))
+                                on_input=Callback::new(|_: String| {})/>
+                            <TextField id="theatre-compact-long" label=fixture::LONG_LABEL variant=TextFieldVariant::Floating density=FieldDensity::Compact
+                                value=long_value on_input=Callback::new(move |next| long_value.set(next))/>
                         </div>
 
                         // Unqualified auth recipe candidate in the real Theatre token expression.

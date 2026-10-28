@@ -173,11 +173,12 @@
         "large-text",
         "theatre-fields",
         "theatre-trailing-eye",
-        "theatre-docked-search"
+        "theatre-docked-search",
+        "web-compact-fields"
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Regular/AuthTonal, Floating and Theatre trailing-action specimens are implemented; auth-floating-tonal is a preview candidate. Qualification and consumer acceptance are recorded separately."
+        "reason": "Regular/AuthTonal, Floating, the Compact Floating density and Theatre trailing-action specimens are implemented; auth-floating-tonal is a preview candidate. Qualification and consumer acceptance are recorded separately."
       },
       "cmp": {
         "status": "implemented-unverified",
