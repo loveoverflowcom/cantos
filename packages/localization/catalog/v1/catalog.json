@@ -2041,10 +2041,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đăng ký Membership chưa khả dụng. Chưa có dịch vụ tiếp nhận được chấp nhận; thông tin không được gửi."
+          "text": "Membership chưa mở đăng ký. Bạn vẫn có thể khám phá và nghe nội dung công khai. Trang này không thu thập hay gửi thông tin đăng ký Membership."
         },
         "en": {
-          "text": "Membership registration is unavailable. No accepted intake service exists; information is not sent."
+          "text": "Membership registration is not open yet. You can still explore and listen to public content. This page does not collect or send Membership registration details."
         }
       }
     },
@@ -25134,6 +25134,66 @@
         },
         "en": {
           "text": "A world of stories."
+        }
+      }
+    },
+    "theatre.shell.membership_intro": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lắng nghe. Và đồng hành."
+        },
+        "en": {
+          "text": "Listen. And belong."
+        }
+      }
+    },
+    "theatre.shell.membership_summary": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Một góc dành cho những người muốn đi xa hơn cùng câu chuyện."
+        },
+        "en": {
+          "text": "A place for those who want to go further with the story."
+        }
+      }
+    },
+    "theatre.shell.membership_unavailable_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hẹn bạn ở một chương mới."
+        },
+        "en": {
+          "text": "See you in a new chapter."
+        }
+      }
+    },
+    "theatre.shell.membership_unavailable_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa mở đăng ký"
+        },
+        "en": {
+          "text": "Registration not open"
+        }
+      }
+    },
+    "theatre.shell.account_library_link": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thư viện của bạn"
+        },
+        "en": {
+          "text": "Your library"
         }
       }
     }

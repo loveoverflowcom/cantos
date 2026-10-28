@@ -582,7 +582,32 @@ body { margin: 0; }
 .theatre-public-unit-list { margin: 0; }
 .theatre-public-unit[data-unavailable="true"] { color: var(--cantos-color-on-surface-variant); }
 .theatre-public-units { display: grid; gap: var(--cantos-space-sm); }
-.theatre-membership-information { max-inline-size: 40rem; margin-inline: auto; }
+/* Web-owned unavailable composition, reusing the live shell's existing controls. The
+   two-column reading measure adapts the v2 intro/card hierarchy without its mock form. */
+.theatre-membership-information { container: theatre-membership / inline-size; max-inline-size: 68rem; margin-inline: auto; display: grid; gap: var(--cantos-space-xl); min-inline-size: 0; }
+.theatre-membership-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: center; }
+.theatre-membership-intro, .theatre-membership-availability { min-inline-size: 0; padding: var(--cantos-space-xl); overflow-wrap: anywhere; }
+.theatre-membership-intro { background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); border-radius: var(--cantos-web-shape-panel); }
+.theatre-membership-intro .theatre-eyebrow { color: var(--cantos-color-theatre-hero-accent); }
+.theatre-membership-intro h1 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
+.theatre-membership-symbol { margin-block-end: var(--cantos-space-xl); }
+.theatre-membership-symbol .cui-logo { inline-size: 5rem; block-size: auto; }
+.theatre-membership-availability { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-panel); }
+.theatre-membership-availability h2 { font: var(--cantos-type-headline-weight) var(--cantos-type-headline-size)/var(--cantos-type-headline-line-height) var(--cantos-type-family-editorial); }
+.theatre-membership-badge { display: inline-block; padding: var(--cantos-space-xs) var(--cantos-space-md); background: var(--cantos-color-surface-container-high); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-pill); font-size: var(--cantos-type-label-size); }
+.theatre-membership-actions { display: grid; gap: var(--cantos-space-lg); margin-block-start: var(--cantos-space-xl); }
+.theatre-membership-actions .cui-button { inline-size: 100%; }
+.theatre-membership-explore { justify-self: center; display: inline-flex; align-items: center; min-block-size: var(--cantos-size-control); padding-inline: var(--cantos-space-md); color: var(--cantos-color-primary); text-align: center; }
+@media (max-width: 55rem) {
+  .theatre-membership-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 34rem) {
+  .theatre-membership-intro, .theatre-membership-availability { padding: var(--cantos-space-lg); }
+}
+/* Match Account's #523 large-text policy: trim chrome when rem insets crowd the copy. */
+@container theatre-membership (max-width: 12rem) {
+  .theatre-membership-intro, .theatre-membership-availability { padding-inline: var(--cantos-space-sm); }
+}
 @media (prefers-color-scheme: dark) {
   :where(.cantos-ui[data-theme="system"]) .theatre-logo-light { display: none; }
   :where(.cantos-ui[data-theme="system"]) .theatre-logo-dark { display: block; }

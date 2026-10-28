@@ -6,6 +6,15 @@ requirements and the explicitly permitted pure-state/preview slice. It does **no
 production HTTP, persistence, pricing or entitlement contract. Those boundaries remain
 `needs-decision` below. Users see **Cantos**; Studio Work/script membership is unrelated.
 
+The live Theatre Web Membership destination is an informational page, separate from the
+opt-in preview below. It presents an introduction and an unavailable-registration card;
+only an admitted guest receives the sign-in action. Other session phases can return to
+Account for their existing session/recovery controls, and everyone can return to public
+discovery. Back and authentication return retain the internal opening destination. This page
+has no contact form, submission effect, receipt, plan data or entitlement transition. Its
+VI/EN copy comes from the semantic localization catalog; theme and layout use the existing
+Web semantic roles. Source implementation does not establish deployed/browser acceptance.
+
 ## Four separate facts
 
 | Fact | Meaning and owner |

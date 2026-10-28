@@ -267,7 +267,7 @@ pub(crate) fn LiveAccount(
                                 </div>
                             </div>
                             <ul class="theatre-action-rows">
-                                <ActionRow id="theatre-account-open-library" route=Route::Library asset="library_books" locale label=Key::Library/>
+                                <ActionRow id="theatre-account-open-library" route=Route::Library asset="library_books" locale label=Key::AccountLibraryLink/>
                                 <ActionRow id="theatre-account-open-settings" route=Route::Settings asset="settings" locale label=Key::Settings/>
                             </ul>
                             <Show when=move || ui.get().phase == SessionPhase::SignedIn>
