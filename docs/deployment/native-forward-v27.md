@@ -103,3 +103,6 @@ Linux/Podman/systemd, crash durability, network isolation, production recovery o
 The historical workflow rehearses two independently pinned public v24 pairs separately; neither
 is an executor rehearsal. The applicable pair and final source must match exactly. A separate
 real systemd/Podman rehearsal of these transition owners and its evidence producer are still required.
+The workflow also runs a read-only disposable-runner prerequisite probe for systemd, cgroup v2,
+Quadlet and reserved fixture names. Its `PREREQUISITES_ONLY` or `NOT_RUN` result does not run
+the executor and cannot satisfy the executor-rehearsal gate.
