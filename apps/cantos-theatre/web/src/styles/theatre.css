@@ -567,6 +567,12 @@ body { margin: 0; }
    load failure removes the image and the frame keeps the fallback. */
 .theatre-cover[data-cover] { padding: 0; }
 .theatre-cover:is([data-cover="loading"], [data-cover="shown"]) > .theatre-cover-fallback { visibility: hidden; }
+/* The frame's rounded edge is antialiased once for its own fill and again for the opaque image over
+   it, so the fill bleeds into the edge pixels as a lighter fringe on a dark image. Once an image
+   covers the frame the frame paints no fill and the overflow clip is the only mask; `shown` drops
+   its fill only after the fade-in, so the reveal never flashes the card surface. */
+.theatre-cover:is([data-cover="none"], [data-cover="failed"]) { background: transparent; }
+.theatre-cover[data-cover="shown"] { background-color: transparent; transition: background-color 0s linear var(--cantos-motion-loading-reveal-duration); }
 .theatre-public-work-cover { aspect-ratio: var(--theatre-cover-ratio, 2 / 3); max-block-size: 32rem; }
 .theatre-public-skeleton { min-block-size: 11rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
 /* The title link is the card's one named target; its hit area covers the card. */
