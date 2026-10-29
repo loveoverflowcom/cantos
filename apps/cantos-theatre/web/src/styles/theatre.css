@@ -249,7 +249,7 @@ body { margin: 0; }
 .theatre-episode-copy h3 { margin-block-end: var(--cantos-space-xs); }
 .theatre-episode-copy p { margin-block-end: 0; }
 .theatre-episode-copy p span { display: inline-block; margin-inline-start: var(--cantos-space-sm); }
-.theatre-episode-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.theatre-episode-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--cantos-space-sm); }
 .theatre-queue-action { display: grid; gap: var(--cantos-space-xs); }
 .theatre-queue-action p { margin: 0; }
 .theatre-bookmark-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-md); padding-block: var(--cantos-space-lg); }
@@ -608,6 +608,24 @@ body { margin: 0; }
 .theatre-live-recovery { max-inline-size: 40rem; margin-inline: auto; display: grid; gap: var(--cantos-space-md); justify-items: start; }
 .theatre-public-work-detail { display: grid; gap: var(--cantos-space-md); }
 .theatre-public-work-intro { align-items: start; }
+/* Work detail actions share one face band, the hero's height. A button's visible reason or a
+   sibling's status line sits below its band, so it never moves another action's face; each face
+   is centered in the band and keeps its own density. A bare field has no definite track width,
+   so the hero's percentage minimum is resolved here rather than collapsing to the label. */
+.theatre-public-work-intro .theatre-actions { align-items: flex-start; }
+.theatre-public-work-intro .theatre-actions > .cui-button-field:has(> .cui-button[data-variant="listen-hero"]) {
+  min-inline-size: min(100%, var(--cantos-size-listen-hero-inline));
+}
+.theatre-public-work-intro .theatre-actions > .cui-button-field,
+.theatre-public-work-intro .theatre-work-save-controls > .cui-button-field:first-child {
+  grid-template-rows: minmax(var(--cantos-size-listen-hero), auto);
+  align-content: start;
+}
+.theatre-public-work-intro .theatre-actions > .cui-button-field > .cui-button,
+.theatre-public-work-intro .theatre-work-save-controls > .cui-button-field:first-child > .cui-button {
+  align-self: center;
+}
+.theatre-work-save-controls { display: grid; justify-items: start; gap: var(--cantos-space-xs); }
 .theatre-public-unit-list { margin: 0; }
 .theatre-public-unit[data-unavailable="true"] { color: var(--cantos-color-on-surface-variant); }
 .theatre-public-units { display: grid; gap: var(--cantos-space-sm); }
