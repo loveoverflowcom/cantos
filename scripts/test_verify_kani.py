@@ -1431,6 +1431,116 @@ class VerifyAdapterTest(unittest.TestCase):
         self.assertEqual(self.lock.read_bytes(), self.original_lock)
 
 
+@unittest.skipUnless(PROCESS_BOUNDARY_SUPPORTED, "receipts come from the POSIX adapter boundary")
+class ReceiptCheckTest(unittest.TestCase):
+    """Receipt mode against receipts the real adapter retained from a SYNTHETIC fake bundle.
+
+    A CURRENT verdict here establishes only that the checker accepts a consistent receipt in
+    the runner's format; a synthetic PASS is never Kani evidence.
+    """
+
+    setUp = VerifyAdapterTest.setUp
+    tearDown = VerifyAdapterTest.tearDown
+    verify = VerifyAdapterTest.verify
+
+    def receipt(self):
+        self.verify()
+        (artifact,) = (self.checkout / "artifacts/agent-runs").glob("kani-*")
+        return artifact / "metadata.json"
+
+    def check(self, receipt, **overrides):
+        args = argparse.Namespace(**{**vars(self.args), "approved_config": None,
+                                     "check_receipt": str(receipt.relative_to(self.checkout)), **overrides})
+        with patch.dict(os.environ, self.environment, clear=True):
+            return verifier.check_receipt(args, root=self.checkout)
+
+    def assert_not_current(self, receipt, message, **overrides):
+        with self.assertRaisesRegex(verifier.KaniError, message):
+            self.check(receipt, **overrides)
+
+    def rewrite(self, receipt, change):
+        metadata = json.loads(receipt.read_text(encoding="utf-8"))
+        change(metadata)
+        receipt.write_text(json.dumps(metadata), encoding="utf-8")
+
+    def test_a_consistent_retained_run_is_current_and_nothing_executes(self):
+        receipt = self.receipt()
+        calls = len(self.fake.read_calls())
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(self.check(receipt)["covers"], 2)
+        self.assertIn("CURRENT", output.getvalue())
+        self.assertIn("not tamper evidence", output.getvalue())
+        self.assertEqual(len(self.fake.read_calls()), calls, "receipt mode must never execute a tool")
+
+    def test_an_unrelated_change_keeps_the_receipt_current(self):
+        receipt = self.receipt()
+        for relative in ("apps/cantos-theatre/web/src/lib.rs", "services/cantos-identity/src/lib.rs", "docs/notes.md"):
+            path = self.checkout / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("unrelated\n", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.check(receipt)
+
+    def test_changed_dependencies_harness_inputs_lock_or_configuration_make_it_stale(self):
+        receipt = self.receipt()
+        for relative, text in ((self.transitive_source, "// changed dependency\n"),
+                               (self.source, "// changed harness source\n"),
+                               (self.contract_source, "changed fixture\n"),
+                               (Path("services/cantos-server/src/new_module.rs"), "// added input\n"),
+                               (Path("Cargo.lock"), "# changed lock\n"),
+                               (Path(".cargo/config.toml"), "[build]\njobs = 3\n")):
+            with self.subTest(relative=str(relative)):
+                path = self.checkout / relative
+                original = path.read_bytes() if path.exists() else None
+                path.write_text(text, encoding="utf-8")
+                self.assert_not_current(receipt, "not CURRENT")
+                path.write_bytes(original) if original is not None else path.unlink()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.check(receipt)
+
+    def test_changed_registration_bounds_or_tools_make_it_stale(self):
+        receipt = self.receipt()
+        self.assert_not_current(receipt, "raw log is not complete runner evidence", cover_count=3)
+        self.assert_not_current(receipt, "raw log is not complete", allow_unreachable=[])
+        self.assert_not_current(receipt, "pinned model", kani_version="0.69.0")
+        self.assert_not_current(receipt, "package", package="cantos-identity")
+        self.rewrite(receipt, lambda m: m["command"].__setitem__(m["command"].index("cadical"), "minisat"))
+        self.assert_not_current(receipt, "solver/bound/feature model")
+
+    def test_forged_failed_or_incomplete_receipts_are_not_acceptance(self):
+        receipt = self.receipt()
+        original = receipt.read_text(encoding="utf-8")
+        log = receipt.parent / "raw.log"
+        for label, change, message in (
+            ("failed run", lambda m: m.update(status="FAIL", error="exit 1"), "not PASS"),
+            ("inflated counts", lambda m: m.update(checks=99), "differ from the raw log"),
+            ("hand-edited inputs", lambda m: m["model_inputs"].update({"services/cantos-server/x.rs": "0" * 64}), "inconsistent"),
+            ("unwind", lambda m: m.update(unwind=3), "unwind differs"),
+        ):
+            with self.subTest(label):
+                receipt.write_text(original, encoding="utf-8")
+                self.rewrite(receipt, change)
+                self.assert_not_current(receipt, message)
+        receipt.write_text(original, encoding="utf-8")
+        # A hand-written PASS without the runner's complete output is refused.
+        log.write_text("VERIFICATION:- SUCCESSFUL\n", encoding="utf-8")
+        self.assert_not_current(receipt, "raw log is not complete runner evidence")
+        log.unlink()
+        self.assert_not_current(receipt, "missing")
+        receipt.write_text("PASS", encoding="utf-8")
+        log.write_text(VALID_OUTPUT, encoding="utf-8")
+        self.assert_not_current(receipt, "readable JSON")
+
+    def test_receipt_paths_are_repository_relative_metadata_files(self):
+        receipt = self.receipt()
+        for path in ("/etc/metadata.json", "../metadata.json", "artifacts/agent-runs/raw.log"):
+            with self.subTest(path), self.assertRaisesRegex(verifier.KaniError, "repository-relative"):
+                args = argparse.Namespace(**{**vars(self.args), "check_receipt": path})
+                verifier.check_receipt(args, root=self.checkout)
+        self.assertTrue(receipt.is_file())
+
+
 class PackageAllowlistTest(unittest.TestCase):
     """Only the registered packages may reach a driver command line or identity."""
 

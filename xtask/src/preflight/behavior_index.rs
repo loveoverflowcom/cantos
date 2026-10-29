@@ -4,6 +4,9 @@
 //! manifest and each Quint import closure, then prints this index. Selection only reads it: the
 //! registry is the one authority, with no second capability map here. An unavailable or invalid
 //! index is `None`, which keeps the conservative, index-free selection.
+//!
+//! Schema 2 adds `unmodeled`: live capabilities without a runnable model. Their production paths
+//! select no gate; they derive an assurance obligation that needs a recorded decision.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -24,14 +27,26 @@ pub struct BehaviorIndex {
     schema_version: u32,
     capabilities: BTreeSet<String>,
     observed: BTreeSet<String>,
+    /// Live capabilities without a runnable model: lifecycle and registry reason.
+    unmodeled: BTreeMap<String, Unmodeled>,
     /// Executable behavior files: Quint closure, shared helpers and manifests.
     inputs: BTreeMap<String, BTreeSet<String>>,
     /// Non-document production references that select the model run.
     sources: BTreeMap<String, BTreeSet<String>>,
     /// Production cores and observer tests that select the registered observer.
     conformance: BTreeMap<String, BTreeSet<String>>,
+    /// Production paths of unmodeled capabilities: an obligation, never a gate.
+    obligations: BTreeMap<String, BTreeSet<String>>,
     source_prefixes: BTreeMap<String, BTreeSet<String>>,
     conformance_prefixes: BTreeMap<String, BTreeSet<String>>,
+    obligation_prefixes: BTreeMap<String, BTreeSet<String>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Unmodeled {
+    pub lifecycle: String,
+    pub reason: String,
 }
 
 /// What one changed path means for registered behavior.
@@ -43,6 +58,8 @@ pub struct PathEffect {
     pub every_model: bool,
     pub models: BTreeSet<String>,
     pub conformance: BTreeSet<String>,
+    /// Unmodeled capabilities whose registered production path this is.
+    pub unmodeled: BTreeSet<String>,
 }
 
 /// Behavior gates accumulated over a change set.
@@ -57,7 +74,7 @@ pub struct BehaviorPlan {
 impl BehaviorIndex {
     pub fn parse(json: &str) -> Result<Self, String> {
         let index: Self = serde_json::from_str(json).map_err(|error| error.to_string())?;
-        if index.schema_version != 1 {
+        if index.schema_version != 2 {
             return Err("unsupported behavior index schema".into());
         }
         let known = |ids: &BTreeMap<String, BTreeSet<String>>| {
@@ -72,6 +89,20 @@ impl BehaviorIndex {
             || !index.observed.is_subset(&index.capabilities)
         {
             return Err("behavior index names an unregistered capability".into());
+        }
+        let unmodeled = |ids: &BTreeMap<String, BTreeSet<String>>| {
+            ids.values()
+                .flatten()
+                .all(|id| index.unmodeled.contains_key(id))
+        };
+        if !unmodeled(&index.obligations)
+            || !unmodeled(&index.obligation_prefixes)
+            || index
+                .unmodeled
+                .keys()
+                .any(|id| index.capabilities.contains(id))
+        {
+            return Err("behavior index obligation names a runnable or unknown capability".into());
         }
         Ok(index)
     }
@@ -116,7 +147,19 @@ impl BehaviorIndex {
                 effect.add_conformance(ids);
             }
         }
+        if let Some(ids) = self.obligations.get(path) {
+            effect.unmodeled.extend(ids.iter().cloned());
+        }
+        for (prefix, ids) in &self.obligation_prefixes {
+            if path.starts_with(prefix.as_str()) {
+                effect.unmodeled.extend(ids.iter().cloned());
+            }
+        }
         effect
+    }
+
+    pub fn unmodeled(&self, id: &str) -> Option<&Unmodeled> {
+        self.unmodeled.get(id)
     }
 }
 
@@ -181,14 +224,17 @@ pub mod testing {
     use super::BehaviorIndex;
 
     /// A synthetic federated registry whose manifests and models live in module-owned trees:
-    /// two plain capabilities, one observed capability, one shared helper and one legacy inline
-    /// historical scenario ("*" = no single runnable capability).
+    /// two plain capabilities, one observed capability, one shared helper, one legacy inline
+    /// historical scenario ("*" = no single runnable capability) and one unmodeled capability.
     pub fn federated() -> BehaviorIndex {
         BehaviorIndex::parse(
             r#"{
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "capabilities": ["cantos.a.one", "cantos.b.two", "cantos.c.observed"],
               "observed": ["cantos.c.observed"],
+              "unmodeled": {
+                "cantos.d.unmodeled": {"lifecycle": "draft", "reason": "core exists; model deferred"}
+              },
               "inputs": {
                 "services/cantos-forge-functions/behavior/one.qnt": ["cantos.a.one"],
                 "services/cantos-forge-functions/behavior/one_tests.qnt": ["cantos.a.one"],
@@ -207,10 +253,68 @@ pub mod testing {
                 "services/cantos-identity/src/domain/ids.rs": ["cantos.c.observed"],
                 "services/cantos-identity/src/observer_tests.rs": ["cantos.c.observed"]
               },
+              "obligations": {
+                "services/cantos-server/src/contexts/media/domain/publication.rs": ["cantos.d.unmodeled"]
+              },
               "sourcePrefixes": {"services/cantos-forge-functions/src/owned/": ["cantos.a.one"]},
-              "conformancePrefixes": {"services/cantos-identity/src/kernel/": ["cantos.c.observed"]}
+              "conformancePrefixes": {"services/cantos-identity/src/kernel/": ["cantos.c.observed"]},
+              "obligationPrefixes": {"services/cantos-server/src/contexts/listening/": ["cantos.d.unmodeled"]}
             }"#,
         )
         .unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{testing::federated, BehaviorIndex};
+
+    #[test]
+    fn schema_two_obligations_name_only_unmodeled_capabilities() {
+        let index = federated();
+        let effect =
+            index.effect("services/cantos-server/src/contexts/media/domain/publication.rs");
+        assert_eq!(effect.unmodeled, ["cantos.d.unmodeled".to_owned()].into());
+        assert!(
+            effect.models.is_empty() && !effect.every_model,
+            "an obligation is never a gate"
+        );
+        assert_eq!(
+            index
+                .effect("services/cantos-server/src/contexts/listening/domain/x.rs")
+                .unmodeled,
+            ["cantos.d.unmodeled".to_owned()].into()
+        );
+        assert_eq!(
+            index.unmodeled("cantos.d.unmodeled").unwrap().lifecycle,
+            "draft"
+        );
+        let minimal = |schema: u32, unmodeled: &str, obligations: &str| {
+            format!(
+                r#"{{"schemaVersion": {schema}, "capabilities": ["cantos.a.one"], "observed": [],
+                    "unmodeled": {unmodeled}, "inputs": {{}}, "sources": {{}}, "conformance": {{}},
+                    "obligations": {obligations}, "sourcePrefixes": {{}}, "conformancePrefixes": {{}},
+                    "obligationPrefixes": {{}}}}"#
+            )
+        };
+        let unmodeled = r#"{"cantos.d.x": {"lifecycle": "draft", "reason": "r"}}"#;
+        assert!(
+            BehaviorIndex::parse(&minimal(2, unmodeled, r#"{"a.rs": ["cantos.d.x"]}"#)).is_ok()
+        );
+        for (schema, unmodeled, obligations) in [
+            (1, unmodeled, "{}"),
+            (2, unmodeled, r#"{"a.rs": ["cantos.a.one"]}"#),
+            (2, unmodeled, r#"{"a.rs": ["cantos.unknown"]}"#),
+            (
+                2,
+                r#"{"cantos.a.one": {"lifecycle": "draft", "reason": "r"}}"#,
+                "{}",
+            ),
+        ] {
+            assert!(
+                BehaviorIndex::parse(&minimal(schema, unmodeled, obligations)).is_err(),
+                "{schema} {unmodeled} {obligations}"
+            );
+        }
     }
 }

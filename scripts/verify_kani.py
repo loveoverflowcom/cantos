@@ -3,6 +3,8 @@
 
 Rust supplies the fixed scope/model. Probe mode is read-only and never calls the
 installer proxy. No arbitrary verifier options or model-changing environment is accepted.
+Receipt mode (`--check-receipt`) is read-only too: it re-validates one retained run against the
+current registration and inputs and never executes a verifier.
 """
 
 import argparse
@@ -453,6 +455,123 @@ def verify(args, root=ROOT):
     return metadata
 
 
+MAX_RECEIPT_DIFFERENCES = 8
+
+
+def receipt_command(root, package, harness, unwind):
+    """The exact verifier argv after the bundle executable, for a checkout at `root`."""
+    return ["kani", "--manifest-path", str(root / "Cargo.toml"), "-p", package, "--lib",
+            "--no-default-features", "--exact", "--harness", harness, "--unwind", str(unwind),
+            "--solver", "cadical", "--output-format", "regular",
+            "--target-dir", str(root / "target/assurance-kani")]
+
+
+def portable_configuration(identity, root):
+    """Workspace candidates by relative path. Outside the checkout only present files count: an
+    absent ancestor/CARGO_HOME config is the same on every machine, a present one stays absolute
+    and is therefore comparable only on the machine (and path) that recorded it."""
+    result = {}
+    for path, digest in identity.items():
+        candidate = Path(path)
+        if candidate.is_relative_to(root):
+            result[str(candidate.relative_to(root))] = digest
+        elif digest is not None:
+            result[path] = digest
+    return result
+
+
+def differences(before, after):
+    changed = sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
+    shown = ", ".join(changed[:MAX_RECEIPT_DIFFERENCES])
+    return shown + (f" and {len(changed) - MAX_RECEIPT_DIFFERENCES} more" if len(changed) > MAX_RECEIPT_DIFFERENCES else "")
+
+
+def check_receipt(args, root=ROOT):
+    """Classify one retained `metadata.json` as CURRENT, or raise with every stale/invalid reason.
+
+    Checks the actual runner output shape (raw log re-parsed with the current registration), the
+    recorded outcome, tool/solver/bound/feature model, Cargo.lock, configuration and the whole
+    per-package input tree the run hashed. Consistency is not authenticity: a checksum is no
+    tamper evidence, and a CURRENT receipt is reused evidence of one past run, not a new proof.
+    """
+    root = root.resolve()
+    package = package_of(args)
+    relative = Path(args.check_receipt)
+    if relative.is_absolute() or ".." in relative.parts or relative.name != "metadata.json":
+        raise KaniError("receipt must be a repository-relative metadata.json")
+    receipt = root / relative
+    log = receipt.parent / "raw.log"
+    for path in (receipt, log):
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root):
+            raise KaniError("receipt or its raw log is missing, linked or outside the checkout")
+        if path.stat().st_size > MAX_LOG_BYTES:
+            raise KaniError("receipt or its raw log is oversized")
+    try:
+        metadata = json.loads(receipt.read_text(encoding="utf-8"))
+        text = log.read_text(encoding="utf-8")
+    except (OSError, UnicodeError, ValueError):
+        raise KaniError("receipt is not readable JSON with a UTF-8 raw log") from None
+    if not isinstance(metadata, dict):
+        raise KaniError("receipt is not an object")
+    problems = []
+    if metadata.get("status") != "PASS" or "error" in metadata:
+        problems.append("recorded outcome is " + str(metadata.get("status")) + ", not PASS")
+    try:
+        parsed = validate_output(text, args.harness, args.cover_count, args.allow_unreachable)
+    except KaniError as error:
+        raise KaniError("raw log is not complete runner evidence for the registration: " + str(error)) from None
+    if any(metadata.get(key) != value for key, value in parsed.items()):
+        problems.append("recorded check/cover/unreachable counts differ from the raw log")
+    expected = {"package": package, "harness": args.harness, "unwind": args.unwind,
+                "expected_covers": args.cover_count, "raw_log": "raw.log"}
+    problems += [f"{key} differs from the current registration" for key, value in expected.items()
+                 if metadata.get(key) != value]
+    tools = metadata.get("tools") if isinstance(metadata.get("tools"), dict) else {}
+    pinned = {"version": "Kani Rust Verifier " + args.kani_version + " (cargo plugin)\nCBMC " + args.cbmc_version,
+              "compiler": args.rustc_version, "host": args.target}
+    if any(tools.get(key) != value for key, value in pinned.items()):
+        problems.append("recorded Kani/CBMC/compiler/host differ from the pinned model")
+    command = metadata.get("command")
+    manifest = command[3] if isinstance(command, list) and len(command) > 3 and isinstance(command[3], str) else ""
+    origin = Path(manifest).parent if manifest.endswith("/Cargo.toml") else None
+    if origin is None or command[1:] != receipt_command(origin, package, args.harness, args.unwind):
+        problems.append("recorded verifier argv is not the registered solver/bound/feature model")
+    registered = str((root / args.source).resolve())
+    inputs = metadata.get("source_inputs")
+    if not isinstance(inputs, dict) or len(inputs) != 1 or origin is None \
+            or Path(next(iter(inputs))) != origin / args.source:
+        problems.append("recorded source is not the registered harness source")
+    elif not Path(registered).is_file() or sha256(Path(registered)) != next(iter(inputs.values())):
+        problems.append("registered source changed since the run")
+    lock = sha256(root / "Cargo.lock")
+    if not (metadata.get("lock_before") == metadata.get("lock_after") == lock):
+        problems.append("Cargo.lock differs from the run, or changed during it")
+    recorded = metadata.get("model_inputs")
+    if not isinstance(recorded, dict) or identity_digest(recorded) != metadata.get("model_inputs_sha256") \
+            or metadata.get("model_inputs_after_sha256") != metadata.get("model_inputs_sha256"):
+        problems.append("recorded package inputs are inconsistent or changed during the run")
+    else:
+        current = source_tree_identity(root, package)
+        if current != recorded:
+            problems.append("package inputs changed since the run: " + differences(recorded, current))
+    approved = metadata.get("approved_configuration")
+    if not isinstance(approved, dict) or origin is None \
+            or identity_digest(approved) != metadata.get("approved_configuration_sha256") \
+            or metadata.get("configuration_after_sha256") != metadata.get("approved_configuration_sha256"):
+        problems.append("recorded configuration is inconsistent or changed during the run")
+    else:
+        current = portable_configuration(configuration_identity(root, os.environ, package), root)
+        before = portable_configuration(approved, origin)
+        if current != before:
+            problems.append("proof configuration differs from the run: " + differences(before, current))
+    if problems:
+        raise KaniError("receipt is not CURRENT: " + "; ".join(problems))
+    revision = metadata.get("git", {}).get("revision", "unknown") if isinstance(metadata.get("git"), dict) else "unknown"
+    print(f"Kani receipt CURRENT: {args.harness}; {parsed['checks']} checks, {parsed['covers']} covers; "
+          f"run at revision {revision}. Consistency of one retained run only: not re-executed, not tamper evidence.")
+    return parsed
+
+
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     for name in ("kani-version", "cbmc-version", "rustc-version", "toolchain", "target"):
@@ -465,6 +584,7 @@ def parser():
     result.add_argument("--cover-count", type=int)
     result.add_argument("--allow-unreachable", action="append", default=[])
     result.add_argument("--approved-config")
+    result.add_argument("--check-receipt", metavar="METADATA")
     return result
 
 
@@ -472,7 +592,12 @@ def main():
     args = parser().parse_args()
     try:
         package_of(args)
-        if args.probe:
+        if args.check_receipt:
+            if args.probe or args.approved_config or not args.harness or not args.source \
+                    or args.unwind != 2 or not args.cover_count or args.cover_count < 1:
+                raise KaniError("receipt mode needs the exact registered harness/source/unwind/cover model only")
+            check_receipt(args)
+        elif args.probe:
             bundle = Path(os.environ.get("KANI_HOME", str(Path.home() / ".kani"))) / ("kani-" + args.kani_version)
             print(probe(bundle, args)["version"])
         else:

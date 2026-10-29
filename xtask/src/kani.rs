@@ -256,6 +256,32 @@ impl Kernel {
         }
         command
     }
+
+    /// Re-validate one retained run of this exact registration; never executes a verifier.
+    pub fn receipt_command(self, workspace: &Workspace, receipt: &str) -> CommandSpec {
+        let mut command = primitive(workspace).args([
+            "--check-receipt",
+            receipt,
+            "--harness",
+            self.harness(),
+            "--source",
+            self.source(),
+            "--package",
+            self.package().name(),
+            "--unwind",
+            "2",
+            "--cover-count",
+            &self.covers().to_string(),
+        ]);
+        for id in self.unreachable() {
+            command = command.args(["--allow-unreachable".into(), id]);
+        }
+        command
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kernel| kernel.name() == name)
+    }
 }
 
 fn compatibility() -> [&'static str; 10] {
@@ -861,6 +887,48 @@ mod tests {
         assert_eq!(pick(&["Cargo.lock"], true), Kernel::ALL);
         assert_eq!(pick(&[], false), Kernel::ALL);
         assert_eq!(affected(None, false), Kernel::ALL);
+    }
+
+    #[test]
+    fn a_receipt_check_is_read_only_and_bound_to_the_exact_registration() {
+        let workspace = Workspace::discover().unwrap();
+        let gate = crate::gate::Gate::KaniReceipt {
+            kernel: Kernel::PublicationCommit,
+            receipt: "artifacts/agent-runs/kani-x/metadata.json".into(),
+        };
+        assert_eq!(gate.name(), "kani-receipt (publication-commit)");
+        assert_eq!(gate.tools(), [crate::tools::Tool::Python3]);
+        let [command] = &gate.commands(&workspace)[..] else {
+            panic!("one command")
+        };
+        let proof = Kernel::PublicationCommit.command(&workspace).args;
+        let index = command
+            .args
+            .iter()
+            .position(|arg| arg == "--check-receipt")
+            .unwrap();
+        assert_eq!(
+            command.args[index + 1],
+            "artifacts/agent-runs/kani-x/metadata.json"
+        );
+        let mut rest = command.args.clone();
+        rest.drain(index..index + 2);
+        assert_eq!(
+            rest, proof,
+            "same pins, harness, source, package, bound and covers"
+        );
+        assert!(!command.args.iter().any(|arg| arg == "--approved-config"));
+        // A receipt step is never mistaken for a proof that needs configuration approval.
+        let mut steps = [gate.step(&workspace)];
+        prepare_configuration(&workspace, &mut steps).unwrap();
+        assert!(!steps[0].commands[0]
+            .args
+            .iter()
+            .any(|arg| arg == "--approved-config"));
+        for kernel in Kernel::ALL {
+            assert_eq!(Kernel::from_name(kernel.name()), Some(kernel));
+        }
+        assert_eq!(Kernel::from_name("unregistered"), None);
     }
 
     #[test]

@@ -40,6 +40,13 @@ to settle their claims; do not build an application just to obtain a baseline.
    Missing tools and partial delivery use [local handoff](local-execution.md#progressive-commit-push-and-pr);
    documents/skills alone may use its narrow [Cargo-unavailable fallback](local-execution.md#docs-only-fallback-when-xtask-cannot-start).
    Never hide a failure, call a skipped gate passed or change CI/required checks for a green exit.
+4. Answer the plan's [assurance obligations](../../../../xtask/README.md#assurance-decisions) with an
+   `--assurance-decisions` record in ignored `artifacts/`, classified by the
+   [impact procedure](../../cantos-behavior/SKILL.md#ssot-impact-procedure). Cite only planned
+   gates or `kani-receipt` checks as evidence; a status you write is not evidence. A `DEFERRED`
+   decision keeps the obligation owed (owner, resume condition) and goes into the report's
+   deferred acceptance; `NOT_APPLICABLE` needs a reviewable reason and authority. Re-check the
+   record when the diff grows: a stale scope fails.
 
 The [local profile](../../../../xtask/README.md#local-profile) plans static repository checks,
 format, affected Rust lint/tests and WASM lint only. Its `local checkpoint` PASS is CHECKPOINT

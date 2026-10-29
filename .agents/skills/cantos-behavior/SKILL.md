@@ -32,8 +32,11 @@ and a classification: it never mandates a model edit and grants no write the tas
    requirement → `.qnt` model and named runs → actual code and callers. Search by the touched
    paths and domain, not only for a capability you already know. As an optional aid,
    `cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run` lists the
-   `behavior (CAPABILITY)` gates the registry's reverse index selects. Unmodeled entries
-   (`model: null`) and paths no record names select nothing: an empty selection is not "no impact".
+   `behavior (CAPABILITY)` gates the registry's reverse index selects and the
+   [assurance obligations](../../../xtask/README.md#assurance-decisions) it derives: an owner of a
+   live `model: null` entry appears as `unmodeled:ID` and needs a recorded decision, never a gate.
+   Paths no record names derive nothing, and neither an empty selection nor an empty obligation
+   list is "no impact".
 2. **Classify before writing.** Check the capability's `lifecycle` and the ADR status: a `draft`
    or `needs-decision` model is a proposed expectation, so compare it and the code with the
    inventory's approved-requirement rows. Only an `accepted` model is itself the oracle.

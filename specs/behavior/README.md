@@ -163,6 +163,12 @@ observer tests a capability depends on. Together with `owner` and exact non-docu
 they feed the preflight reverse index. They never change model evidence; the three observed
 capabilities declare the production cores and observers that select their conformance run.
 
+Index schema 2 also lists live (non-deprecated) `model: null` capabilities under `unmodeled`
+and maps their non-document `owner`/`sourceRefs`/owned paths in `obligations` and
+`obligationPrefixes`. Those paths select no gate; changed-only handoff preflight turns them into
+`unmodeled:<id>` [assurance obligations](../../xtask/README.md#assurance-decisions) that need a
+recorded decision. An empty model selection therefore never reads as "no semantic impact".
+
 ## IDs and authoring
 
 Catalog property/run/witness/control rows inherit the capability's owner, lifecycle and

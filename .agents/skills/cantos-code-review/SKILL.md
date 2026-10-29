@@ -130,6 +130,7 @@ Skipping a pass is a decision to state, not silence.
 | catalog, Quint state/action/property/run, witness/control or model/conformance claim | § 1, § 9 and § 11 | [behavior method](../cantos-behavior/SKILL.md): requirement acceptance, stable IDs, reachability, sensitive controls, independent observations and freshness |
 | tests, fixtures, golden files, generators, mutation config, CI workflows | § 9 tests and evidence | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
 | Kani harness, assumption, bound, cover, stub or formal-verification claim | § 9 and § 11 freshness | [Kani obligations and actual execution](../cantos-engineering/references/mutation-and-formal.md#bounded-model-checking) |
+| a cited assurance decision record, `kani-receipt` or claimed obligation answer | § 9 and § 11 freshness | [assurance decisions](../../../xtask/README.md#assurance-decisions): recompute obligations with `preflight --changed-only --dry-run` on the pinned scope; a missing, stale or self-reported answer is a finding, and DEFERRED is owed acceptance |
 | database-backed GET/read/fetch, query/index changes, selective cache or writes feeding read models | § 9 tests and evidence, plus the applicable domain pass | [read-performance acceptance](../cantos-engineering/references/turso-read-performance.md#review-and-acceptance) |
 | `AGENTS.md`, skills, docs that own rules, templates, check scripts | lens A policy under review, then § 9 | [diff-review § 3](../cantos-engineering/references/diff-review.md#3-the-five-lenses) |
 

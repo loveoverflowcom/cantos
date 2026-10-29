@@ -610,3 +610,19 @@ scratch host crate and the absence of the registered primitive's source/configur
 make this **not** evidence for the registered model. Record the registered result here only after
 `cargo xtask verify kani --harness forge-attempt-ledger` runs on the pinned bundle and its
 retained output is inspected. See the [verification record](../evidence/forge-attempt-verification.md).
+
+## Receipt reuse for assurance decisions
+
+`scripts/verify_kani.py --check-receipt` re-validates one retained
+`artifacts/agent-runs/kani-*/metadata.json` against the current registration and inputs without
+executing a verifier: complete raw runner output re-parsed for the registered harness and covers,
+the recorded `PASS`, pinned tools, solver, bound and feature argv, the lock, the harness source,
+the run's whole per-package input tree and the workspace Cargo configuration
+([contract](../../xtask/README.md#optional-targeted-kani-proofs)). An
+[assurance decision](../../xtask/README.md#assurance-decisions) cites it as
+`kani-receipt (KERNEL)` evidence. The check reuses one past run inside its package boundary; it is
+not a cross-PR proof cache, not tamper evidence and not a new `bounded-model-checked` result. Its
+regressions use receipts written by the real adapter around a synthetic fake bundle, which are
+never Kani evidence. No receipt from an actual D1 run was checked when this mode was added: that
+remains `NOT_RUN` until a real receipt exists on a checkout that matches it.
+

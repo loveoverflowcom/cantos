@@ -269,34 +269,47 @@ def check_sources(root, capabilities, helpers):
 # --- reverse dependency index -----------------------------------------------------------------
 
 def impact_index(capabilities, helpers):
-    """changed path -> affected runnable capability IDs ('*' means every model).
+    """changed path -> affected capability IDs ('*' means every model).
 
     `inputs` are executable behavior files (Quint closure, helpers, manifests). `sources` are
     non-document production references that select the model run. `conformance` paths select the
     registered observer. Documents never select a run; the repository gate owns them.
+
+    A live capability without a runnable model (`model: null`, not deprecated) selects no gate,
+    but its non-document owner/source/owned paths still map to it in `obligations`: a change
+    there needs a recorded assurance decision, never an implicit "no semantic impact".
     """
     runnable = sorted(c["id"] for c in capabilities if c.get("model") is not None)
     observed = sorted(c["id"] for c in capabilities
                       if c.get("model") is not None and c.get("implementationConformance") is not None)
-    index = {"schemaVersion": 1, "capabilities": runnable, "observed": observed,
-             "inputs": {}, "sources": {}, "conformance": {},
-             "sourcePrefixes": {}, "conformancePrefixes": {}}
+    unmodeled = {c["id"]: {"lifecycle": c["lifecycle"], "reason": c["reason"]} for c in capabilities
+                 if c.get("model") is None and c["lifecycle"] != "deprecated"}
+    index = {"schemaVersion": 2, "capabilities": runnable, "observed": observed,
+             "unmodeled": dict(sorted(unmodeled.items())),
+             "inputs": {}, "sources": {}, "conformance": {}, "obligations": {},
+             "sourcePrefixes": {}, "conformancePrefixes": {}, "obligationPrefixes": {}}
 
     def add(table, path, identity):
         table.setdefault(path, set()).add(identity)
+
+    def production(cap):
+        refs = [cap["owner"], *(r.split("#", 1)[0] for r in cap["sourceRefs"])]
+        owned = [*cap.get("ownedSources", []), *cap.get("implementationTests", [])]
+        return [p for p in [*refs, *owned] if not p.endswith(".md")], owned
 
     for cap in capabilities:
         identity = cap["id"] if cap["id"] in runnable else "*"
         files = [p for p in (cap.get("model"), cap.get("scenarios"), cap.get("manifestPath")) if p]
         for path in [*files, *cap.get("importClosure", [])]:
             add(index["inputs"], path, identity)
+        paths, owned = production(cap)
+        if cap["id"] in unmodeled:
+            for path in paths:
+                table = index["obligationPrefixes"] if path.endswith("/") else index["obligations"]
+                add(table, path, cap["id"])
         if identity == "*":
             continue
-        refs = [cap["owner"], *(r.split("#", 1)[0] for r in cap["sourceRefs"])]
-        owned = [*cap.get("ownedSources", []), *cap.get("implementationTests", [])]
-        for path in [*refs, *owned]:
-            if path.endswith(".md"):
-                continue
+        for path in paths:
             table = index["sourcePrefixes"] if path.endswith("/") else index["sources"]
             add(table, path, identity)
         if cap["id"] in observed:
@@ -306,6 +319,7 @@ def impact_index(capabilities, helpers):
                     add(table, path, identity)
     for path in helpers:
         index["inputs"].setdefault(path, {"*"})
-    for key in ("inputs", "sources", "conformance", "sourcePrefixes", "conformancePrefixes"):
+    for key in ("inputs", "sources", "conformance", "obligations",
+                "sourcePrefixes", "conformancePrefixes", "obligationPrefixes"):
         index[key] = {path: sorted(ids) for path, ids in sorted(index[key].items())}
     return index
