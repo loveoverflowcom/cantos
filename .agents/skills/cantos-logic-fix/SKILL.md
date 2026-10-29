@@ -23,6 +23,7 @@ rules. Read [input-contract.md](references/input-contract.md) to normalize diagn
 |---|---|
 | invariant, ownership, functional core, types, immutability, tests and evidence | [`cantos-engineering`](../cantos-engineering/SKILL.md) |
 | domain meaning and current product contract | the owner from [the skill index](../README.md#which-skill-to-load) and its owning document |
+| expected states, guards, outcomes, permissions, lifecycle or retry; a catalog capability or Quint run | [behavior impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure) |
 | HTTP, validation, authorization or DTO/error mapping | [HTTP boundary](../cantos-engineering/references/http-api-boundary.md), plus the domain owner |
 | persistence, transactions, constraints or concurrent writes | [persistence](../cantos-engineering/references/persistence.md); [read performance](../cantos-engineering/references/turso-read-performance.md) for queries/writes feeding read models |
 | Leptos state, async decisions or browser shell | [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) |
@@ -45,6 +46,8 @@ commands; distinguish proposed, implemented and verified behavior. Follow the
 2. Name the violated invariant and failure mode. Trace input → validation/construction →
    decision/transition → effects/commit → returned state/error through the real callers.
    Classify the defect as domain, type, state, error handling, application or I/O; choose one owner.
+   For a stateful invariant, run the behavior impact procedure first: an approved requirement,
+   not current code, a UI or a draft model alone, supplies the expected side.
 3. Bound the patch and affected consumers. Write the **smallest failing regression before the
    fix**, preferably a plain pure-core test asserting the exact state/error and unchanged state
    on rejection. Cite an existing failing regression or a foundation exemption when applicable;
@@ -70,6 +73,10 @@ commands; distinguish proposed, implemented and verified behavior. Follow the
 - **Review only:** use [`cantos-code-review`](../cantos-code-review/SKILL.md) for a diff or
   [`cantos-ui-inspector`](../cantos-ui-inspector/SKILL.md) for supplied UI evidence. Both stay
   read-only/report-only; a finding does not authorize repair.
+- **Behavior SSOT:** a code defect keeps the model, run IDs, witnesses and controls unchanged. A
+  model defect that causes the reported failure is fixed minimally with its requirement source and
+  counterexample. An approved requirement change or a needs-decision escalates; the micro-fix
+  never decides semantics.
 - **Symptom suppression:** no silent fallback, catch-all/default success, production input
   `unwrap`/`expect`/panic or arbitrary sleep/retry. Follow the existing typed error/retry owner.
 - **Scope escalation:** large architecture changes, migrations/breaking API, authorization or

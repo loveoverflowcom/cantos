@@ -3,6 +3,41 @@
 Read [the skill](../SKILL.md) and [catalog](../../../../specs/behavior/catalog.json) first.
 This is a method, not product truth or a new DSL.
 
+## Impact write bundle
+
+Write only what the [classified delta](../SKILL.md#ssot-impact-procedure) touches, together and in
+the boundary that owns the behavior ([layout](../../../../specs/behavior/README.md#federated-registry-and-module-owned-manifests)):
+
+| Artifact | Changes when | Keep |
+|---|---|---|
+| `<name>.qnt` and `<name>_tests.qnt` | a guard, transition, outcome or invariant changes | closed variants; companion runs of the same model, never a second reducer |
+| module `<name>.manifest.json` | properties, runs, witnesses, controls, `sourceRefs`, `ownedSources` or `implementationTests` change | no root-owned `id`/`owner`/`lifecycle`; at most 64 owned paths each |
+| root [catalog](../../../../specs/behavior/catalog.json) pointer | a capability is added, moved or retired | only `id`, `owner`, `lifecycle` and `manifestPath`; a lifecycle change needs acceptance evidence |
+| module inventory `<name>.md` and the shared [inventory](../../../../specs/behavior/inventory.md) row | an approved requirement, implementation fact, assumption or needs-decision changes | the four authority columns apart |
+| native bindings | a named run's meaning changes where native tests carry its ID (Forge `tests/behavior_binding.rs`, the cover's `run.fetch-*`) | native transport, constructor and platform oracles |
+| registered observer | only for a capability the dispatcher's `adapters()` already lists | the [observation protocol](../../../../specs/behavior/observation-protocol.md); a new observer is a reviewed protocol change |
+
+- A new property ships with an exact named run, a reachable witness and a typechecking negative
+  control that violates it. A weakened property keeps a sensitive control; never delete one to pass.
+- IDs survive renames; a semantic split records the old-to-new mapping; retire IDs rather than
+  reuse them, and keep retired files' provenance.
+- When a capability gains, moves or loses a production seam, reconcile `ownedSources` and
+  `implementationTests` so changed-only preflight keeps selecting it.
+- Never copy a model per renderer or add a handwritten reference reducer beside it.
+
+## Impact lookup examples
+
+Registry facts at the time of writing; re-read the catalog and manifests before relying on them.
+
+- A guard edit in `services/cantos-server/src/contexts/media/domain/lifecycle.rs` maps through
+  `ownedSources` to `cantos.media.private-audio-admission`; changed-only preflight selects its
+  model and conformance gates. Classify against its inventory before touching the model.
+- `PreferencesController.kt` is the `owner` of `cantos.presentation.locale-preference`: changing
+  the fallback rule is stateful UI, while relabeling or restyling the picker is presentation-only.
+- `publication.rs` (`cantos.publishing.lifecycle`, draft, no model) and `reconcile.rs`
+  (`cantos.listening.progress`, needs-decision) select no behavior gate. A change there still
+  records its class; authoring those models needs reviewed scope and an approved requirement.
+
 ## One bounded migration
 
 - Select a small reviewed stateful slice with a real production seam. Inventory approved

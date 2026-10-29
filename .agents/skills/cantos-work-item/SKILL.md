@@ -81,6 +81,7 @@ never silence.
 | item spec (`docs/work-plan/0N0-*.md`) | scope, non-goals, acceptance criteria, review boundary, risks | copy it into the issue or PR as a second spec |
 | GitHub issue | assignment, current status, acceptance checklist, evidence, blockers | infer its status from Markdown |
 | owning docs | product rules | restate them in code comments or skills |
+| [behavior catalog](../../../specs/behavior/catalog.json) via the [impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure) | capability IDs, lifecycle, executable expectations | treat a draft model or its PASS as an accepted requirement |
 | the code from earlier items | what actually exists | assume a proposed module, table or route exists |
 
 Read the issue read-only (`gh issue view <n>`; check `--help` for the JSON fields your `gh`
@@ -195,6 +196,7 @@ each owner's rules. Before handing off, answer each line for the slice (a senten
 | types as proofs | which invalid states did it make unrepresentable, and which paths bypass them? | [types-as-proofs](../cantos-engineering/references/types-as-proofs.md) |
 | clean syntax | formatter-clean, exhaustive matches, exact errors, no production `unwrap`? | [clean-code](../cantos-engineering/references/clean-code.md) |
 | verification | does every behavior change have its cheapest deterministic regression? | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
+| behavior SSOT | which capability and class did the impact procedure record, and does the diff carry exactly that delta (or a no-model-change reason)? | [`cantos-behavior`](../cantos-behavior/SKILL.md#ssot-impact-procedure) |
 | Material 3 Expressive (UI slices) | did the renderer loop inspect real output at the required matrix? | [`cantos-ui-design`](../cantos-ui-design/SKILL.md#shared-ui-loop) |
 
 ## 9. Verify by tier

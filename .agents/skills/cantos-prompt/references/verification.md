@@ -23,7 +23,7 @@
 | wording, docs or skills | link, structure and repository hygiene; no Kani or application build |
 | pure Rust domain | meaningful unit, boundary, error or property tests; validated constructors for important rules |
 | high-risk pure Rust transition | Kani when repository policy selects it: property, assumptions, bounds and the production symbol bound |
-| stateful lifecycle, retry, revocation, publication | a scoped Quint model; conformance separately when a registered behavior is touched |
+| state, guard, permission, lifecycle, retry/recovery or their oracle | the behavior [impact procedure](../../cantos-behavior/SKILL.md#ssot-impact-procedure): lookup and class before any model delta, which the prompt grants explicitly; the selected model gate, and conformance only for a registered observer |
 | Kotlin/CMP logic | deterministic Kotlin tests per module; never Kani on Kotlin |
 | Web/UI wiring | state, error and session tests and the build needed; browser and accessibility at the right scope |
 | database, adapter, migration, locking | tests on a real disposable instance of the target engine to accept those semantics |

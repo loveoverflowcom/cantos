@@ -25,9 +25,9 @@ Theatre Web. It composes two owners and redefines neither:
   [UI completion report](../cantos-ui-design/SKILL.md#completion-report).
 
 Load this file, then only the references the change touches, one at a time.
-For registered stateful scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md):
-reuse catalog IDs and accepted `.qnt` expectations, keep platform-native tests and observations,
-and never infer client/device acceptance from model simulation.
+Stateful decisions run the foundation's [behavior impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure)
+(presentation-only work records no impact); registered scenarios reuse catalog IDs and accepted
+`.qnt` expectations, keep platform-native tests and never infer client acceptance from a model.
 
 ## When to use
 
