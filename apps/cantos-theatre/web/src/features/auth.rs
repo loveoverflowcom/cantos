@@ -101,6 +101,20 @@ fn auth_action_state(
     })
 }
 
+/// Busy marks the one action in flight. A secondary action (account creation) never starts the
+/// pending session lookup, so it stays blocked by the same admission without a spinner.
+fn secondary_state(state: ButtonState) -> ButtonState {
+    match state {
+        ButtonState::Loading(reason) => ButtonState::Disabled(reason),
+        other => other,
+    }
+}
+
+// Memoized so a Loading -> Disabled change of the primary does not rebuild an unchanged secondary.
+fn secondary_action_state(availability: Memo<Option<ButtonState>>) -> Memo<Option<ButtonState>> {
+    Memo::new(move |_| availability.get().map(secondary_state))
+}
+
 pub(crate) fn login_key_submits(key: &str, is_composing: bool, input_target: bool) -> bool {
     input_target && key == "Enter" && !is_composing
 }
@@ -139,6 +153,7 @@ pub(crate) fn AuthActions(
     on_register: Callback<()>,
 ) -> impl IntoView {
     let availability = auth_action_state(state, locale);
+    let register_availability = secondary_action_state(availability);
     view! {
         <div class="theatre-auth-actions">
             {move || availability.get().map(|availability| view! {
@@ -149,7 +164,7 @@ pub(crate) fn AuthActions(
                     {label(locale, CopyKey::LoginSubmit)}
                 </Button>
             })}
-            {move || availability.get().map(|availability| view! {
+            {move || register_availability.get().map(|availability| view! {
                 <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
                     icon=IconName::PersonAdd
                     state=availability focus_on_press=true
@@ -291,6 +306,7 @@ pub(crate) fn AuthPage(
 ) -> impl IntoView {
     let ui = account_ui(state);
     let availability = auth_action_state(state, locale);
+    let register_availability = secondary_action_state(availability);
     let is_login = route.step == AuthStep::Login;
     view! {
         <section class="theatre-auth" aria-labelledby="theatre-auth-heading">
@@ -345,7 +361,7 @@ pub(crate) fn AuthPage(
                             </Show>
                             <Show when=move || ui.get().phase != SessionPhase::SignedIn>
                                 <LoginForm state locale availability on_submit=on_login/>
-                                {move || availability.get().map(|availability| view! {
+                                {move || register_availability.get().map(|availability| view! {
                                     <Button id="theatre-auth-register" variant=ButtonVariant::AuthSecondary
                                         icon=IconName::PersonAdd
                                         state=availability focus_on_press=true
@@ -725,6 +741,142 @@ mod tests {
             assert!(control(&html, id).contains("disabled"), "{id}");
         }
         assert!(html.contains("Hoàn tất đăng xuất"));
+    }
+
+    /// Opening tag and body of one native button, so busy semantics and its spinner are both visible.
+    fn button_markup(html: &str, id: &str) -> (String, String) {
+        let identity = format!("id=\"{id}\"");
+        let markup = html
+            .split("<button")
+            .skip(1)
+            .find(|markup| {
+                markup
+                    .split_once('>')
+                    .is_some_and(|(open, _)| open.contains(&identity))
+            })
+            .unwrap_or_else(|| panic!("native button {id}"));
+        let (opening, rest) = markup.split_once('>').unwrap();
+        (
+            opening.to_owned(),
+            rest.split_once("</button>").unwrap().0.to_owned(),
+        )
+    }
+
+    fn assert_busy(html: &str, id: &str, busy: bool) {
+        let (opening, body) = button_markup(html, id);
+        assert_eq!(
+            opening.contains("aria-busy=\"true\""),
+            busy,
+            "{id} aria-busy"
+        );
+        assert_eq!(
+            opening.contains("data-state=\"loading\""),
+            busy,
+            "{id} state"
+        );
+        assert_eq!(body.contains("cui-loading-indicator"), busy, "{id} spinner");
+    }
+
+    #[test]
+    fn only_the_sign_in_action_is_busy_while_the_session_is_checking() {
+        let mut checking = guest();
+        checking.begin_refresh().unwrap();
+        for (state, name) in [
+            (checking, "checking"),
+            (AccountViewState::default(), "idle"),
+        ] {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let html = render(
+                    AuthRoute::login(ReturnDestination::Home),
+                    state.clone(),
+                    language,
+                );
+                assert_busy(&html, "theatre-auth-login", true);
+                assert_busy(&html, "theatre-auth-register", false);
+                let (opening, _) = button_markup(&html, "theatre-auth-register");
+                assert!(
+                    opening.contains("disabled"),
+                    "{name}: registration is blocked"
+                );
+                assert_eq!(
+                    native_button_name(&html, "theatre-auth-register"),
+                    auth_copy::text(CopyKey::CreateAccount, language),
+                    "{name}: the label stays readable"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn account_entry_actions_keep_registration_free_of_a_spinner_while_checking() {
+        Owner::new().with(|| {
+            let mut checking = guest();
+            checking.begin_refresh().unwrap();
+            let state = RwSignal::new(checking);
+            let locale = RwSignal::new(Locale::English);
+            let noop = Callback::new(|()| {});
+            let html = view! { <AuthActions state=state.read_only() locale scope="theatre-account" on_login=noop on_register=noop/> }.to_html();
+            assert_busy(&html, "theatre-account-register", false);
+            assert!(button_markup(&html, "theatre-account-register").0.contains("disabled"));
+        });
+    }
+
+    #[test]
+    fn controls_recover_after_every_login_outcome_and_neither_button_fakes_the_other() {
+        let language = Locale::English;
+        let route = AuthRoute::login(ReturnDestination::Home);
+        let mut state = guest();
+        state.begin_refresh().unwrap();
+        let issued = state.generation();
+        state
+            .finish_session(
+                issued,
+                Err(AccountFailure::LoginRefused(LoginRefusal::Credentials)),
+                || uuid::Uuid::from_u128(100).to_string(),
+            )
+            .unwrap();
+        // Refusal: both actions are admitted again and nothing is busy.
+        let html = render(route, state, language);
+        for id in ["theatre-auth-login", "theatre-auth-register"] {
+            assert_busy(&html, id, false);
+            assert!(!button_markup(&html, id).0.contains("disabled"), "{id}");
+        }
+        // Network failure keeps both controls idle: recovery is the refresh action.
+        let mut failed = guest();
+        failed.begin_refresh().unwrap();
+        let issued = failed.generation();
+        failed
+            .finish_session(issued, Err(AccountFailure::Unavailable), || {
+                uuid::Uuid::from_u128(100).to_string()
+            })
+            .unwrap();
+        let html = render(route, failed, language);
+        for id in ["theatre-auth-login", "theatre-auth-register"] {
+            assert_busy(&html, id, false);
+        }
+        // Unresolved cleanup blocks both without any spinner.
+        let mut pending = guest();
+        let cleanup = pending.begin_logout().unwrap();
+        pending.finish_logout(cleanup, Err(AccountFailure::Unavailable));
+        let html = render(route, pending, language);
+        for id in ["theatre-auth-login", "theatre-auth-register"] {
+            assert_busy(&html, id, false);
+            assert!(button_markup(&html, id).0.contains("disabled"), "{id}");
+        }
+    }
+
+    #[test]
+    fn secondary_action_never_borrows_the_busy_state_of_a_primary_one() {
+        let reason = DisabledReason::new("Checking").unwrap();
+        assert_eq!(
+            secondary_state(ButtonState::Loading(reason.clone())),
+            ButtonState::Disabled(reason.clone())
+        );
+        assert_eq!(
+            secondary_state(ButtonState::Disabled(reason.clone())),
+            ButtonState::Disabled(reason)
+        );
+        assert_eq!(secondary_state(ButtonState::Enabled), ButtonState::Enabled);
     }
 
     #[test]
