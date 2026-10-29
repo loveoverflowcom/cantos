@@ -58,9 +58,15 @@ explain execution; ordinary CI does not automatically run CUA.
 the empty draft and restored input focus, then submits and waits for an excluded work to
 return. Five direct-result cycles and five keyboard-clear cycles pass on the final local
 candidate with zero console errors. Native Theatre library tests pass 558/558 and shared UI
-tests pass 186/186 with package-qualified features; those SSR checks are separate from CSR
+tests pass 166/166 with package-qualified features; those SSR checks are separate from CSR
 evidence. Initial native attempts ran out of disk before execution; an incorrectly unqualified
 preview feature enabled CSR in SSR tests and was excluded, then rerun with the correct scope.
+
+After integrating develop `0dd0f63e`, the clean candidate `c3bee765` passes five cycles of each
+tracked browser regression, the fresh Web build and strict WASM lint. Correct-feature native
+tests in an opt-level1/debug0 test profile with assertions retained pass Theatre565/565 and
+shared UI168/168. Its default-profile link ran out of disk before execution; that failed attempt
+is retained separately. These counts do not imply live deployment or device acceptance.
 
 The bounded campaign additionally checks repeated direct-result navigation, Enter submission,
 draft clear/apply, chip focus, focus/blur and dock dismissal/reopen, Work→Home→new search,
