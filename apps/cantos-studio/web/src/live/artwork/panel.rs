@@ -119,6 +119,7 @@ pub fn ArtworkPanel(
                         let unknown = state.with_untracked(|s| s.phase() == Phase::Ambiguous);
                         let _ = model.try_update(|m| {
                             m.transferred = None;
+                            m.read_failed |= matches!(command, Command::Artwork { .. });
                             m.stage = if unknown {
                                 Stage::Unknown
                             } else {
@@ -289,7 +290,9 @@ pub fn ArtworkPanel(
                 Err(ClientError::Http { status: 401, error }) => {
                     let _ = snapshot.notify_denial(Err::<(), _>(error));
                 }
-                Err(_) => {}
+                Err(_) => {
+                    let _ = model.try_update(|m| m.preview_failed = true);
+                }
             }
         });
     });

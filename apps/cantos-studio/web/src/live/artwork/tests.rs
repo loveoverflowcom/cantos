@@ -899,3 +899,100 @@ fn browser_preview_refuses_legacy_bytes_even_when_the_file_claims_avif() {
     }
     assert_eq!(avif_bytes(include_bytes!("../../../../../../services/cantos-server/src/contexts/media/image_intake/fixtures/ffmpeg-yuv420p-2x3.avif")), Ok(()));
 }
+
+fn selected_artwork() -> WorkArtworkSelection {
+    WorkArtworkSelection {
+        image_asset_id: asset().id,
+        image_asset_digest: asset().digest,
+        alt_text: "Ảnh bìa hiện tại".into(),
+    }
+}
+
+fn with_selection(selection: Option<WorkArtworkSelection>) -> Projection {
+    let Reply::Artwork(mut current) = artwork_reply(1) else {
+        unreachable!()
+    };
+    current.artwork = selection;
+    Projection {
+        current: Some(current),
+        stage: Stage::Current,
+        ..Projection::default()
+    }
+}
+
+#[test]
+fn cover_view_claims_empty_only_after_a_confirmed_read() {
+    // Nothing read yet, a refused read and a non-owner are never "no cover selected".
+    assert_eq!(Projection::default().cover_view(true), CoverView::Loading);
+    let refused = Projection {
+        read_failed: true,
+        stage: Stage::Forbidden,
+        ..Projection::default()
+    };
+    assert_eq!(refused.cover_view(true), CoverView::Unavailable);
+    assert_eq!(
+        Projection::default().cover_view(false),
+        CoverView::Unavailable
+    );
+    // A later successful read clears the failure and may then say empty.
+    let confirmed = refused.apply(&artwork_reply(2));
+    assert!(!confirmed.read_failed);
+    assert_eq!(confirmed.cover_view(true), CoverView::Empty);
+    assert_eq!(with_selection(None).cover_view(true), CoverView::Empty);
+}
+
+#[test]
+fn cover_view_separates_selected_cover_preview_states() {
+    let mut model = with_selection(Some(selected_artwork()));
+    assert_eq!(model.cover_view(true), CoverView::PreviewLoading);
+    model.preview_failed = true;
+    assert_eq!(model.cover_view(true), CoverView::PreviewUnavailable);
+    model.preview_failed = false;
+    assert_eq!(model.cover_view(false), CoverView::PreviewUnavailable);
+    model.current_url = Some("blob:private".into());
+    assert_eq!(model.cover_view(true), CoverView::Shown);
+    // Retiring the preview handle also retires a stale failure so the next fetch starts clean.
+    model.preview_failed = true;
+    assert_eq!(
+        model.take_current_preview().as_deref(),
+        Some("blob:private")
+    );
+    assert!(!model.preview_failed);
+}
+
+#[test]
+fn current_cover_figure_renders_one_distinct_state_per_view() {
+    use leptos::prelude::*;
+    let owner = Owner::new();
+    owner.with(|| {
+        let render = |model: Projection, is_owner: bool, locale| {
+            view! { <form::ArtworkForm model=Signal::derive(move ||model.clone()) draft=RwSignal::new(Draft::default())
+                locale=Signal::derive(move ||locale) owner=Signal::derive(move ||is_owner) blocked=Signal::derive(||false)
+                on_intent=Callback::new(|_|{}) on_file=Callback::new(|_|{}) clear_open=RwSignal::new(false)/>
+            }.to_html()
+        };
+        let vi = crate::localization::Locale::Vietnamese;
+        let en = crate::localization::Locale::English;
+        let refused = Projection { read_failed: true, stage: Stage::Forbidden, ..Projection::default() };
+        let mut shown = with_selection(Some(selected_artwork()));
+        shown.current_url = Some("blob:private".into());
+        let mut failed = with_selection(Some(selected_artwork()));
+        failed.preview_failed = true;
+        for (model, is_owner, locale, state, text) in [
+            (Projection::default(), true, vi, "loading", "Đang tải ảnh bìa hiện tại"),
+            (refused.clone(), true, vi, "unavailable", "nên chưa thể coi là trống"),
+            (refused, false, en, "unavailable", "owner access required"),
+            (with_selection(None), true, en, "empty", "No cover selected"),
+            (with_selection(Some(selected_artwork())), true, vi, "preview-loading", "Đang tải ảnh riêng tư"),
+            (failed, true, en, "preview-unavailable", "Private preview unavailable"),
+            (shown, true, en, "shown", "Ảnh bìa hiện tại"),
+        ] {
+            let html = render(model, is_owner, locale);
+            assert!(html.contains(&format!("data-state=\"{state}\"")), "{state}: {html}");
+            assert!(html.contains(text), "{state} missing {text}: {html}");
+            // Neither the figure nor the status badge may claim an empty cover before a confirmed read.
+            let claims_empty = html.contains("No cover selected") || html.contains("Chưa có ảnh bìa");
+            assert_eq!(claims_empty, state == "empty", "{state}: {html}");
+        }
+    });
+}

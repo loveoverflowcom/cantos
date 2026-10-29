@@ -13342,6 +13342,30 @@
         }
       }
     },
+    "studio.artwork.unverified": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xác nhận được ảnh bìa hiện tại, nên chưa thể coi là trống. Tải lại để đọc lại."
+        },
+        "en": {
+          "text": "The current cover could not be confirmed, so it is not treated as empty. Reload to read it again."
+        }
+      }
+    },
+    "studio.artwork.preview_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải ảnh riêng tư của bìa hiện tại"
+        },
+        "en": {
+          "text": "Loading the private preview of the current cover"
+        }
+      }
+    },
     "studio.artwork.operation": {
       "args": {},
       "exposure": "production",

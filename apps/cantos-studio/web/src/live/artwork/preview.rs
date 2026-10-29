@@ -18,11 +18,15 @@ pub const SCENARIOS: &[(Stage, &str)] = &[
     (Stage::Expired, "expired"),
     (Stage::Unknown, "unknown"),
     (Stage::Conflict, "conflict"),
+    (Stage::Loading, "loading"),
+    (Stage::Forbidden, "unreadable"),
 ];
 const IMAGE: &str="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%238472a0'/%3E%3Ctext x='25' y='130' fill='white' font-size='24'%3ECantos fixture%3C/text%3E%3C/svg%3E";
 fn fixture(stage: Stage) -> Projection {
-    let has_current = !matches!(stage, Stage::Empty);
-    let local = !matches!(stage, Stage::Empty | Stage::Current);
+    // A cover that has not been read (or could not be) is not a confirmed empty cover.
+    let unread = matches!(stage, Stage::Loading | Stage::Forbidden);
+    let has_current = !matches!(stage, Stage::Empty) && !unread;
+    let local = !matches!(stage, Stage::Empty | Stage::Current) && !unread;
     let declarations = ImageDeclarations {
         provenance: "Synthetic fixture".into(),
         rights_refs: vec!["rights_fixture".into()],
@@ -90,7 +94,8 @@ fn fixture(stage: Stage) -> Projection {
         operation: (stage == Stage::Unknown).then(|| "00000000-0000-4000-8000-000000000003".into()),
         reported_revision: (stage == Stage::Conflict).then_some(7),
         stage,
-        current: Some(WorkArtworkResponse {
+        read_failed: stage == Stage::Forbidden,
+        current: (!unread).then(|| WorkArtworkResponse {
             work_id: "00000000-0000-4000-8000-000000000001".into(),
             work_revision: 7,
             artwork: has_current.then(|| WorkArtworkSelection {
