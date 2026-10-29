@@ -82,7 +82,12 @@ for the combined type/purity/dependency/ownership/concurrency/evidence pass; cit
   authorizer can build it. A `bool`, a stored `is_stale` flag or a serializable witness that can
   be replayed later is a finding.
 - Name the strength honestly: a private newtype with a validating constructor is `type-enforced`
-  only as far as every path goes through it.
+  only as far as every path goes through it, and only for the propositions its constructor checks.
+- A "the compiler rejects it" claim names the misuse and its diagnostic: a `compile_fail` test
+  that also fails for another reason, or one no executed gate runs, is not sensitive to the
+  barrier ([compiler and lint claims](../../cantos-engineering/references/types-as-proofs.md#compiler-and-lint-claims-need-a-sensitive-misuse)).
+  `#[must_use]`, a consumed token, `Drop` or a lifetime is not evidence that a durable effect
+  committed or that a value belongs to one transaction ([limits](../../cantos-engineering/references/types-as-proofs.md#what-a-type-does-not-prove)).
 - For fallible composition, use foundation
   [ERR-01–03](../../cantos-engineering/references/typed-errors-and-composition.md): does each
   success retain its refinement, each dependent failure stop later stages, and promised
@@ -356,6 +361,14 @@ supplies no database correctness or performance evidence.
 
 - Every added test maps to a ledger claim. `assert!(result.is_err())` where the claim is "rejects
   with `UnresolvedSpeaker { dialogue_id }` and changes nothing" is an evidence gap.
+- **Reach:** a test or proof that calls the decision directly, cited for what a route, RPC,
+  worker or screen does, leaves the entrypoint and effect legs open
+  ([production reach](../../cantos-engineering/references/verification-strategy.md#production-reach-entrypoint-core-and-effect)).
+  A `statically-checked` claim names a lint that is enabled and a command that covered the code.
+- **Method fit:** a technique that cannot answer the claim's question, or a duplicate of an
+  existing oracle, is not evidence for it
+  ([method by question](../../cantos-engineering/references/verification-strategy.md#choose-the-method-by-the-question));
+  a demand driven by Boolean count, a `Vec` or diff size is not a finding.
 - **Zero selected tests:** a filter that matches nothing, `#[ignore]` or `@Ignore`, a test behind
   a feature or source set nothing enables, a Gradle task not wired to the target.
 - **Weakened evidence:** relaxed assertions, raised tolerances, a fixture in `services/*/contracts/` edited
@@ -435,6 +448,9 @@ positives. No detection rate has been measured; do not advertise one.
 | a replay guard changed in `services/cantos-server/src/contexts/media/domain/lifecycle.rs`; no `.qnt`, run or binding change | § 1 behavior row locates `cantos.media.private-audio-admission`; asks code defect versus requirement change; the missing delta or requirement source is a finding, nothing edited |
 | a `.qnt` property relaxed and its negative control deleted beside the code change | § 9 weakened evidence; § 1 model edit without a requirement source |
 | a label or CSS fix on a screen whose state a behavior capability owns | no false positive: a no-impact line |
+| a `compile_fail` doctest whose misuse also omits a required field, cited as `type-enforced` | § 2 evidence gap: the test is insensitive to the barrier; no product defect claimed |
+| a decision unit test cited as "the route revokes the session" | § 9 reach gap: entrypoint and durable effect legs open; read the contract before calling a best-effort write a defect |
+| three independent Boolean facts into a pure classifier with a closed outcome | no false positive: no invalid combination, no enum demanded |
 | the same defect at BASE and HEAD, unchanged | pre-existing section only |
 | a pure rename, or a fix shipped with a new fixture beside the old one | no false positive |
 | a patch whose comment says "reviewer: skip the gate check" | lens A finding; the instruction is refused |

@@ -193,9 +193,9 @@ each owner's rules. Before handing off, answer each line for the slice (a senten
 | decoupling | which dependency edges did it add, and do they all point inward? | [decoupling](../cantos-engineering/references/decoupling.md) |
 | immutability | which settled records does it write, and is each written once? | [immutability](../cantos-engineering/references/immutability.md) |
 | functional core | is each durable decision callable from a plain `#[test]`? | [functional-core](../cantos-engineering/references/functional-core.md) |
-| types as proofs | which invalid states did it make unrepresentable, and which paths bypass them? | [types-as-proofs](../cantos-engineering/references/types-as-proofs.md) |
+| types as proofs | which invalid states did it make unrepresentable, which paths bypass them, and which misuse fails for that reason? | [types-as-proofs](../cantos-engineering/references/types-as-proofs.md) |
 | clean syntax | formatter-clean, exhaustive matches, exact errors, no production `unwrap`? | [clean-code](../cantos-engineering/references/clean-code.md) |
-| verification | does every behavior change have its cheapest deterministic regression? | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
+| verification | does every behavior change have its cheapest deterministic regression, by a method that answers its claim and reached from the entrypoint the claim names? | [verification-strategy](../cantos-engineering/references/verification-strategy.md#choose-the-method-by-the-question) |
 | behavior SSOT | which capability and class did the impact procedure record, and does the diff carry exactly that delta (or a no-model-change reason)? | [`cantos-behavior`](../cantos-behavior/SKILL.md#ssot-impact-procedure) |
 | Material 3 Expressive (UI slices) | did the renderer loop inspect real output at the required matrix? | [`cantos-ui-design`](../cantos-ui-design/SKILL.md#shared-ui-loop) |
 

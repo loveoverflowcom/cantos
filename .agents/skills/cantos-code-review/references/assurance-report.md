@@ -61,8 +61,9 @@ finding depends on a type barrier:
 Claim + authoritative source (and its status: doc rule, accepted ADR, issue criterion)
 Owner + module/symbols + targets
 Required by
-Type barrier and bypass audit: paths checked, paths still open
-Techniques considered + why each applies or not
+Type barrier and bypass audit: paths checked, paths still open; misuse and diagnostic for a compiler claim
+Production reach: entrypoint → decision → effect, and the leg each piece of evidence exercised
+Techniques considered + the question each answers, and why it applies or not
 Evidence level and result + exact command + output location (or "not rerun", with provenance)
 Input fingerprint, only where it differs from the review scope's
 Assumptions, bounds, fakes in the loop; behavior not covered

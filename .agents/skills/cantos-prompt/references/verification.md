@@ -10,6 +10,7 @@
 | Need | Owner |
 |---|---|
 | L1–L5 obligations and the independent gate ledger | [verification strategy](../../cantos-engineering/references/verification-strategy.md#layered-verification) |
+| which method answers a claim, production reach and rows for risky claims | [method by question](../../cantos-engineering/references/verification-strategy.md#choose-the-method-by-the-question), [reach](../../cantos-engineering/references/verification-strategy.md#production-reach-entrypoint-core-and-effect), [risky rows](../../cantos-engineering/references/verification-strategy.md#rows-for-risky-claims) |
 | DEV, CHECKPOINT and HANDOFF timing, reuse and invalidation | [verification cadence](../../cantos-engineering/references/verification-cadence.md) |
 | what may run, resources, docs-only fallback, reporting | [local execution](../../cantos-engineering/references/local-execution.md) |
 | Kani selection, harness obligations and actual execution | [bounded model checking](../../cantos-engineering/references/mutation-and-formal.md#bounded-model-checking) |
@@ -37,7 +38,8 @@ not touch them.
 
 Ask for a newtype or typestate only where it protects a concrete invariant (a deadline, a
 security version, a positive quantity, a state transition, identity versus authority). Runtime
-validation is not compile-time proof; raw primitives are not banned everywhere.
+validation is not compile-time proof; raw primitives are not banned everywhere. A compiler
+claim names its misuse ([sensitive misuse](../../cantos-engineering/references/types-as-proofs.md#compiler-and-lint-claims-need-a-sensitive-misuse)).
 
 A written `#[kani::proof]` is not a run; a model-check `PASS` speaks only for the model, its
 assumptions and scope. Model-only, pure-core conformance and real integration are separate rows.

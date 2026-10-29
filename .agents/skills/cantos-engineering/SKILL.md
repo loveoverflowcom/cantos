@@ -126,7 +126,8 @@ real boundary with a real second implementation (production adapter plus test fa
 Before testing that a state cannot happen, ask whether a type can refuse to represent it: private
 newtypes with fallible constructors, enums instead of flag/`Option` combinations, evidence values
 instead of booleans (`FrozenProductionInputs`, `ApprovedRelease`), `#[serde(try_from = …)]` so the
-wire path cannot forge what the constructor rejects.
+wire path cannot forge what the constructor rejects. A compiler claim names a misuse that fails
+for that reason; `must_use`, tokens, `Drop` and lifetimes prove no durable effect ([limits](references/types-as-proofs.md#what-a-type-does-not-prove)).
 
 Settled facts are immutable. An accepted script revision, frozen production inputs, a provider
 attempt, an accepted artifact, a QC result, an approval and a release manifest are written once;
@@ -170,7 +171,8 @@ Purity follows responsibility, not folders; local `mut` is not impurity; transit
 1. Identify the observable behavior or invariant.
 2. Add or update the cheapest deterministic test that would fail if it regressed.
 3. Assert the exact error variant or the exact resulting state — never only `is_err()`.
-4. Prefer ordinary deterministic tests; escalate only when the claim justifies it.
+4. Pick the smallest method that answers the claim's question ([by question](references/verification-strategy.md#choose-the-method-by-the-question));
+   a test of the decision alone does not show the entrypoint reaches it ([reach](references/verification-strategy.md#production-reach-entrypoint-core-and-effect)).
 
 ```text
 types / exhaustive match
