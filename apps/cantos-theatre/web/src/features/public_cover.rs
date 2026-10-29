@@ -47,6 +47,8 @@ pub(crate) fn PublicCover(
     /// Extra frame class beyond `theatre-cover`.
     class: &'static str,
 ) -> impl IntoView {
+    let cover =
+        cover.filter(|cover| cover.content_type == crate::contract::discovery::CoverMime::Avif);
     let node = NodeRef::<leptos::html::Div>::new();
     let active = crate::platform::loading_presence(node);
     let phase = RwSignal::new(if cover.is_some() {
@@ -188,5 +190,20 @@ mod tests {
         assert!(frame.contains("overflow: hidden"));
         assert!(!rule(".theatre-cover-fallback-art").contains("border-radius"));
         assert!(!rule(".theatre-cover-art").contains("border-radius"));
+    }
+
+    #[test]
+    fn legacy_cover_metadata_never_emits_its_network_image_url() {
+        for mime in [
+            crate::contract::discovery::CoverMime::Png,
+            crate::contract::discovery::CoverMime::Jpeg,
+        ] {
+            let mut cover = covered();
+            cover.content_type = mime;
+            let url = cover.url.clone();
+            let html = render(Some(cover));
+            assert!(!html.contains(&url));
+            assert!(html.contains(COVER_FALLBACK_SRC));
+        }
     }
 }

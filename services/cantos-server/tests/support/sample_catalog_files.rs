@@ -190,8 +190,8 @@ mod tests {
     #[test]
     fn partial_cover_write_never_publishes_a_truncated_final_or_adopts_foreign_staging() {
         let run = TestRun::new("sample-atomic-cover");
-        let final_path = run.path("cover.png");
-        let foreign = run.path(".cover.png.sample-stage-foreign");
+        let final_path = run.path("cover.avif");
+        let foreign = run.path(".cover.avif.sample-stage-foreign");
         fs::write(&foreign, b"foreign evidence").unwrap();
         assert_eq!(
             write_once_with(&final_path, b"complete image bytes", partial)

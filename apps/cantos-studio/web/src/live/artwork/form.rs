@@ -68,7 +68,7 @@ pub fn ArtworkForm(
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>
                 <label class="cui-field-label" for="artwork-file">{move ||label(Key::File)}</label>
-                <input id="artwork-file" type="file" accept="image/png,image/jpeg,image/avif" disabled=move ||locked.get()
+                <input id="artwork-file" type="file" accept="image/avif" disabled=move ||locked.get()
                     aria-describedby="artwork-bounds artwork-file-error" aria-invalid=move ||model.with(|m|matches!(m.problem,Some(super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)))
                     on:change=move |e|on_file.run(e)/>
                 <p id="artwork-bounds" class="cui-field-help">{move ||label(Key::Bounds)}</p>

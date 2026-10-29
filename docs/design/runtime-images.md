@@ -54,33 +54,42 @@ record device appearance acceptance separately.
 
 ## Media, contracts and existing data
 
-The current Studio uploader, Server Media intake, persisted image receipts and public-cover
-contracts remain a **migration gap**, not a format exception. Their PNG/JPEG positive tests
-must not be relabelled or presented as AVIF acceptance. Do not advertise AVIF upload before
-the Server actually admits and decodes it. The transition must be implemented together with
-its providing contracts, every consumer and actual-byte failure checks:
+The #607 follow-up supersedes #608's additive acceptance: new image intents, uploads,
+selection, private byte previews and public delivery are **AVIF-only**. Studio file selection
+and vi/en validation agree. Historical JSON/Protobuf enum values 1/2 are retained, and only
+AVIF uses value3; historical receipts can still restore with their original digest.
+The public projection returns fallback for legacy assets, and Web/CMP do not fetch/render
+legacy covers from an older response. No existing receipt, image object or clearance is rewritten.
 
-| Boundary / owner | Required transition and acceptance |
-| --- | --- |
-| Server Media inspector | Select/review the pinned AVIF decoder and production packaging; enforce encoded/decoded allocation, dimensions, still-image, alpha/layout and orientation limits before expensive work; decode real bytes; reject corrupt, legacy, animated, truncated, oversized and spoofed payloads with exact errors. Preserve bounded admission and cancellation. |
-| Studio artwork + Theatre discovery contracts | Add the AVIF representation with new enum numbers; **never reuse Protobuf numbers 1/2**. Keep historical fixtures attributable, add independent AVIF JSON/Protobuf/schema vectors, regenerate all consumer bindings through the existing codegen owner and define mixed-version rejection. |
-| Turso Media persistence | Append a migration with constraint and historical-row coverage. Never edit registered `private_media.sql`, an applied migration, or the archived PostgreSQL checksum history. Startup success is not conversion acceptance. |
-| Existing private/public assets | Inventory actual authorized storage first. Conversion creates a **new asset, digest and receipt**, then an explicit owner rebind and rights/disclosure/re-clearance. Never overwrite immutable bytes, retain a digest for changed bytes, widen private access or infer a licence. Preserve old records/releases for declared recovery. |
-| Studio upload/preview | Align accept, paired vi/en validation, local decoding/errors and rights flow only with the implemented Server contract. Directly test legacy/spoofed/corrupt input and permission denial; failed replacement retains current artwork. |
-| Theatre Web/CMP public covers | Update typed DTOs and verified-byte fetch/decode together; retain length/hash/MIME binding, cancellation/stale-response protection, release pinning and vector recovery. Native support needs named OS/device evidence. |
-| Seeds / #427 sources | Convert authorized source covers outside Git, with new hashes/source records, and change sample parsing/tests with Media admission. Preserve originals, private fixture scope and rights; do not operate on production storage as part of a source PR. |
-| Delivery / rollout / rollback | Qualify exact built source and API MIME/cache behavior, retained releases and mixed clients before activation. Recover with declared prior software/release pointers and retained bytes; no in-place reverse conversion. Deployment/storage writes require their own authorization. |
+The inspector first bounds encoded bytes (8MiB), dimensions (4096 per edge), pixel product
+(16,777,216) and decoded layout (64MiB), rejects sequences/transforms and validates contiguous
+item extents. Then pinned `dav1d=0.11.1` decodes actual AV1 pixels with one thread, one frame
+of delay, strict standard compliance and a native frame-size limit set **before input**.
+A parsed tile/header is not a decode witness. Two admission lanes survive cancellation until
+the blocking work and original bytes exit. These limits are not a total native RSS guarantee.
+The current profile supports single primary `av01` still images (8/10/12-bit subject to the
+output bound) and identity EXIF. Auxiliary alpha, grids and other derived/extra image items
+are explicitly unsupported until every plane has bounded full decoding; no alpha is silently
+ignored. Unsupported input retains current artwork and returns a typed refusal.
 
-The related [#608](https://github.com/loveoverflowcom/cantos/issues/608) also requests additive
-AVIF support while retaining PNG/JPEG. Before that Media work, the owner must reconcile the
-legacy acceptance/transition scope with #607’s AVIF-only runtime policy; existing receipts
-and registered migrations are preserved meanwhile. This static migration does not choose
-new Media admission rules from either issue.
+The decoder requires libdav1d>=1.3 via pkg-config on build hosts and its shared library at
+runtime. The Server OCI build/runtime and Rust CI install the corresponding Debian packages;
+macOS can use an already installed Homebrew dav1d. Real OCI qualification remains separate.
+See [dav1d settings](https://docs.rs/dav1d/0.11.1/dav1d/struct.Settings.html) and the
+[pinned wrapper](https://github.com/rust-av/dav1d-rs).
 
-Dependency order: contracts/decoder/persistence decision and fixtures → Studio + Server +
-consumer implementation → authorized data conversion/rebind → browser/device and delivery
-qualification → separately authorized rollout. Static UI packaging is independently reviewable;
-it does not accept any of these Media gates or close #607.
+Append-only migration30 adds AVIF-only INSERT guards for intents/assets/new selections.
+It leaves v1–29 SQL, old rows, immutable triggers, receipts and historical references intact.
+New AVIF objects require a new digest/receipt and explicit owner selection/disclosure. Old
+releases remain readable as metadata, with cover fallback; no public authority is expanded.
+
+Outstanding data/rollout boundary: inventory actual authorized storage before conversion;
+retain originals and old receipts; create a new asset and explicit rebind/re-clearance; qualify
+mixed clients, API MIME/cache, rights and named devices before separately authorized rollout.
+This source change performs no production conversion or deployment. The prepared six-cover
+sample's pinned PNG source identity needs a separately supplied, converted and repinned AVIF
+manifest; the old source package now fails closed instead of being relabelled or auto-converted.
+No supplied private cover corpus is available in this checkout.
 
 ## Guard boundary
 
@@ -91,9 +100,7 @@ untracked source; ignored build outputs need their own artifact inspection. PNG/
 are allowed only in the explicit documentation roots above. A lexical/signature guard cannot
 prove that a build script never copies documentation, full decoding, rights or production state.
 
-Exactly three existing Media decoder fixtures are checksum-frozen **unresolved migration debt**
-and are printed as such. Adding a path or changing their bytes fails. This preserves current
-security/decoder regression oracles until the coupled Media transition; it grants no ongoing
-right to add or ship legacy images. A repository PASS means no new source debt within this
-guard, never complete runtime-image compliance. Remove the debt entries with that transition,
-retaining any required old bytes solely as rejection tests or historical documentation.
+All three former positive PNG/JPEG fixtures are now AVIF, with conversion records and
+actual native-decoder/HTTP tests. Their original bytes remain only as named negative vectors.
+There is no frozen fixture permission; restoring a legacy image at those paths fails the guard.
+A source guard PASS is still not full device, delivery, rights or production acceptance.

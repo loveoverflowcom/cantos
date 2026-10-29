@@ -39,7 +39,7 @@ fn asset(work: &Work, intent: &str, fill: char, at: i64) -> ImageAsset {
             id: intent.into(),
             expected_sha256: sha256.clone(),
             expected_byte_length: 67,
-            content_type: dto::ImageMime::Png,
+            content_type: dto::ImageMime::Avif,
             declarations: dto::ImageDeclarations {
                 provenance: "private-provenance-sentinel".into(),
                 rights_refs: vec!["private-rights-sentinel".into()],
@@ -53,7 +53,7 @@ fn asset(work: &Work, intent: &str, fill: char, at: i64) -> ImageAsset {
     .unwrap();
     ImageAsset::create(
         &intent,
-        ImageMetadata::new(sha256, 67, ImageMime::Png, 2, 3).unwrap(),
+        ImageMetadata::new(sha256, 67, ImageMime::Avif, 2, 3).unwrap(),
         at + 1,
     )
     .unwrap()
@@ -209,7 +209,7 @@ fn private_replacement_after_publication_never_changes_the_release_pinned_cover(
     assert_eq!(cover.alt_text(), "Bìa tập truyện");
     assert_eq!(
         (cover.content_type(), cover.width_px(), cover.height_px()),
-        (ImageMime::Png, 2, 3)
+        (ImageMime::Avif, 2, 3)
     );
     assert_eq!(cover.byte_length(), 67);
     // A later release pinned at w3 publishes B only with B's own clearance.

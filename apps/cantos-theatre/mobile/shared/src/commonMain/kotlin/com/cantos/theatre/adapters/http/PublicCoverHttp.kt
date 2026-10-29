@@ -33,6 +33,7 @@ fun interface CoverBytesSource {
  */
 class PublicCoverHttp(private val transport: CatalogHttpTransport) : CoverBytesSource {
     override suspend fun fetch(request: CoverRequest): CoverBytes {
+        if (request.contentType != "image/avif") return CoverBytes.Refused
         val response = try {
             transport.get(CatalogHttpRequest(request.url, request.byteLength, accept = request.contentType))
         } catch (cancelled: CancellationException) {

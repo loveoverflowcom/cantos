@@ -1,7 +1,6 @@
 package com.cantos.theatre.adapters.image
 
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import java.nio.ByteBuffer
@@ -15,8 +14,12 @@ private var bundledAvifInput: ByteBuffer? = null
 
 /** Native baseline AVIF on API31+, with a bounded software path covering the API23 floor. */
 internal actual fun decodeBundledAvifPixels(bytes: ByteArray): ImageBitmap? = try {
-    val platform = if (Build.VERSION.SDK_INT >= 31) AndroidCoverDecoder.decode(bytes, CoverDecodeMaxEdgePx) else null
-    platform ?: synchronized(bundledAvifLock) {
+    decodeAvifSoftware(bytes, CoverDecodeMaxEdgePx)
+} catch (_: Exception) { null }
+
+/** Bundled bytes or Server-verified public AVIF bytes; bounds precede native pixel decoding. */
+internal fun decodeAvifSoftware(bytes: ByteArray, maxEdgePx: Int): ImageBitmap? = try {
+    if (!hasStillAvifSignature(bytes)) null else synchronized(bundledAvifLock) {
         if (bytes.isEmpty() || bytes.size > MaxBundledAvifBytes) return@synchronized null
         val input = bundledAvifInput ?: ByteBuffer.allocateDirect(MaxBundledAvifBytes).also { bundledAvifInput = it }
         input.clear()
@@ -26,7 +29,7 @@ internal actual fun decodeBundledAvifPixels(bytes: ByteArray): ImageBitmap? = tr
         val decoder = AvifDecoder.create(input, 1) ?: return@synchronized null
         try {
             if (decoder.frameCount != 1) return@synchronized null
-            val dimensions = bundledDecodeDimensions(decoder.width, decoder.height, CoverDecodeMaxEdgePx)
+            val dimensions = bundledDecodeDimensions(decoder.width, decoder.height, maxEdgePx)
                 ?: return@synchronized null
             val bitmap = Bitmap.createBitmap(dimensions.first, dimensions.second, Bitmap.Config.ARGB_8888)
             if (decoder.nextFrame(bitmap) == 0) bitmap.asImageBitmap()

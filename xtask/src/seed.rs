@@ -72,7 +72,7 @@ pub struct SeedOptions {
     /// Prepared sample-catalog.json from issue #427; never a live database input.
     #[arg(long, value_name = "PATH", requires_all = ["sample_root", "sample_media_source"])]
     pub sample_input: Option<std::path::PathBuf>,
-    /// Directory containing the six original covers/<sample-key>.png files.
+    /// Directory containing the six original covers/<sample-key>.avif files.
     #[arg(long, value_name = "DIR", requires = "sample_input")]
     pub sample_media_source: Option<std::path::PathBuf>,
     /// Isolated output directory outside Git; --reset archives only this owned dataset.

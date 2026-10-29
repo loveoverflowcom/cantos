@@ -1,4 +1,4 @@
-//! L4 mock integration: the production ArtworkService and sealed PNG/JPEG inspector are
+//! L4 mock integration: the production ArtworkService and sealed AVIF_RGB/AVIF_FROM_JPEG inspector are
 //! exercised with FakeMetadataRepository, a fixed clock and FakePrivateStorage. These
 //! tests do not establish SQL locking/constraints, real session auth or S3 behavior.
 use std::{
@@ -26,10 +26,10 @@ use crate::contexts::{
 };
 
 // Independently produced fixtures and hashes are shared with the actual decoder tests.
-const PNG: &[u8] = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png");
-const JPEG: &[u8] = include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.jpg");
-const PNG_HASH: &str = "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276";
-const JPEG_HASH: &str = "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46";
+const AVIF_RGB: &[u8] = include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif");
+const AVIF_FROM_JPEG: &[u8] = include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.avif");
+const AVIF_RGB_HASH: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
+const AVIF_JPEG_HASH: &str = "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3";
 const WORK: &str = "00000000-0000-0000-0000-000000000001";
 const OTHER_WORK: &str = "00000000-0000-0000-0000-000000000002";
 const OWNER: &str = "00000000-0000-0000-0000-000000000010";
@@ -44,13 +44,13 @@ fn request(number: u32, jpeg: bool) -> dto::CreateImageIntentRequest {
     dto::CreateImageIntentRequest {
         id: id(number),
         operation_id: id(number + 1000),
-        expected_sha256: if jpeg { JPEG_HASH } else { PNG_HASH }.into(),
-        expected_byte_length: if jpeg { JPEG.len() } else { PNG.len() } as u64,
-        content_type: if jpeg {
-            dto::ImageMime::Jpeg
+        expected_sha256: if jpeg { AVIF_JPEG_HASH } else { AVIF_RGB_HASH }.into(),
+        expected_byte_length: if jpeg {
+            AVIF_FROM_JPEG.len()
         } else {
-            dto::ImageMime::Png
-        },
+            AVIF_RGB.len()
+        } as u64,
+        content_type: dto::ImageMime::Avif,
         declarations: dto::ImageDeclarations {
             provenance: "Externally prepared synthetic cover".into(),
             rights_refs: vec!["rights-a".into()],
@@ -791,7 +791,7 @@ impl Harness {
             .begin_upload("owner", WORK, &raw.id, raw.content_type)
             .await
             .unwrap()
-            .admit(if jpeg { JPEG } else { PNG }.to_vec())
+            .admit(if jpeg { AVIF_FROM_JPEG } else { AVIF_RGB }.to_vec())
             .await
             .unwrap()
     }
@@ -849,14 +849,14 @@ async fn complete_private_prepare_admit_select_replace_clear_and_history_keep_ex
     );
     let png = harness
         .service
-        .begin_upload("owner", WORK, &prepare.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &prepare.id, dto::ImageMime::Avif)
         .await
         .unwrap()
-        .admit(PNG.to_vec())
+        .admit(AVIF_RGB.to_vec())
         .await
         .unwrap();
     let original_asset = png.json_bytes().to_vec();
-    assert_eq!(png.value().verified_media.sha256, PNG_HASH);
+    assert_eq!(png.value().verified_media.sha256, AVIF_RGB_HASH);
     assert_eq!(
         (
             png.value().verified_media.width_px,
@@ -877,10 +877,10 @@ async fn complete_private_prepare_admit_select_replace_clear_and_history_keep_ex
         .preview("owner", WORK, &prepare.id)
         .await
         .unwrap();
-    assert_eq!(preview.metadata.byte_length(), PNG.len() as u64);
+    assert_eq!(preview.metadata.byte_length(), AVIF_RGB.len() as u64);
     assert_eq!(
         preview.stream.next().await.unwrap().unwrap(),
-        Bytes::from_static(PNG)
+        Bytes::from_static(AVIF_RGB)
     );
     assert!(preview.stream.next().await.is_none());
     let selected_raw = set(2100, 1, png.value(), "Bìa mùa thu");
@@ -993,10 +993,10 @@ async fn upload_effect_trace_ends_transactions_before_sealed_storage_then_reauth
     harness.update(|state| state.events.clear());
     harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap()
-        .admit(PNG.to_vec())
+        .admit(AVIF_RGB.to_vec())
         .await
         .unwrap();
     assert_eq!(
@@ -1069,7 +1069,7 @@ async fn owner_only_paths_fail_closed_for_foreign_owner_members_wrong_work_and_m
         assert_storage_error(
             harness
                 .service
-                .begin_upload(token, work, &asset.value().id, dto::ImageMime::Png)
+                .begin_upload(token, work, &asset.value().id, dto::ImageMime::Avif)
                 .await,
             check,
         );
@@ -1131,7 +1131,7 @@ async fn missing_or_foreign_rights_reject_prepare_and_pending_upload_without_obj
         assert_storage_error(
             harness
                 .service
-                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
                 .await,
             |error| matches!(error, StoreError::EvidenceUnavailable),
         );
@@ -1149,14 +1149,13 @@ async fn declared_hash_length_mime_and_actual_format_mismatch_never_persist() {
     for mismatch in [
         ImageError::ExpectedHashMismatch,
         ImageError::ExpectedLengthMismatch,
-        ImageError::ExpectedMimeMismatch,
     ] {
         let harness = Harness::new();
         let mut raw = request(100, false);
         match mismatch {
             ImageError::ExpectedHashMismatch => raw.expected_sha256 = "0".repeat(64),
             ImageError::ExpectedLengthMismatch => raw.expected_byte_length += 1,
-            ImageError::ExpectedMimeMismatch => raw.content_type = dto::ImageMime::Jpeg,
+            ImageError::ExpectedMimeMismatch => raw.content_type = dto::ImageMime::Avif,
             _ => unreachable!(),
         }
         harness
@@ -1168,29 +1167,26 @@ async fn declared_hash_length_mime_and_actual_format_mismatch_never_persist() {
             assert_image_error(
                 harness
                     .service
-                    .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+                    .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
                     .await,
                 mismatch,
             );
         } else {
             let ticket = harness
                 .service
-                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
                 .await
                 .unwrap();
-            assert_image_error(ticket.admit(PNG.to_vec()).await, mismatch);
+            assert_image_error(ticket.admit(AVIF_RGB.to_vec()).await, mismatch);
         }
         assert_eq!(harness.counts(), (1, 0, 0, 1, 1));
         assert!(harness.state.lock().unwrap().object_bytes.is_empty());
     }
-    for (bytes, hash, error) in [
-        (JPEG, JPEG_HASH, ImageIntakeError::FormatMismatch),
-        (
-            &PNG[..33],
-            "b63d79a8d91b094bc10d48eecbdc4cfc29898570a3736da320f4a92c437330ca",
-            ImageIntakeError::MalformedImage,
-        ),
-    ] {
+    for (bytes, hash, error) in [(
+        &AVIF_RGB[..33],
+        "aa99e07f36a89689939d2eabaef34db63a70a0fb5333051e19992254e60f5631",
+        ImageIntakeError::MalformedImage,
+    )] {
         let harness = Harness::new();
         let mut raw = request(100, false);
         // These encoded facts match exactly, so this reaches the actual decoder. The prefix
@@ -1204,7 +1200,7 @@ async fn declared_hash_length_mime_and_actual_format_mismatch_never_persist() {
             .unwrap();
         let ticket = harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await
             .unwrap();
         assert!(
@@ -1228,7 +1224,7 @@ async fn archive_expiry_and_revocation_after_lane_acquisition_are_checked_before
         harness.update(|state| state.context_change = Some((2, change)));
         let result = harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await;
         match change {
             Change::Archive => assert!(matches!(
@@ -1266,11 +1262,11 @@ async fn changes_after_private_persist_leave_only_an_orphan_and_no_asset_receipt
         let raw = harness.prepared(100, false).await;
         let ticket = harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await
             .unwrap();
         harness.update(|state| state.persist_change = Some(change));
-        let result = ticket.admit(PNG.to_vec()).await;
+        let result = ticket.admit(AVIF_RGB.to_vec()).await;
         match change {
             Change::Revoke | Change::ExpireSession => {
                 assert_storage_error(result, |error| matches!(error, StoreError::Unauthenticated))
@@ -1292,7 +1288,7 @@ async fn changes_after_private_persist_leave_only_an_orphan_and_no_asset_receipt
         assert_eq!(state.changes.len(), 0);
         assert_eq!(state.operations.len(), 1);
         assert_eq!(state.object_bytes.len(), 1);
-        assert_eq!(state.object_bytes.values().next().unwrap(), PNG);
+        assert_eq!(state.object_bytes.values().next().unwrap(), AVIF_RGB);
         assert!(state.events.contains(&"finalize:rollback".into()));
     }
 }
@@ -1312,10 +1308,10 @@ async fn admitted_retries_preserve_bytes_and_original_time_after_expiry_archive_
     });
     let replay = harness
         .service
-        .begin_upload("owner", WORK, &accepted.value().id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &accepted.value().id, dto::ImageMime::Avif)
         .await
         .unwrap()
-        .admit(PNG.to_vec())
+        .admit(AVIF_RGB.to_vec())
         .await
         .unwrap();
     assert_eq!(replay.json_bytes(), original);
@@ -1336,7 +1332,7 @@ async fn admitted_retries_preserve_bytes_and_original_time_after_expiry_archive_
         .unwrap();
     assert_eq!(
         preview.stream.next().await.unwrap().unwrap(),
-        Bytes::from_static(PNG)
+        Bytes::from_static(AVIF_RGB)
     );
     assert!(!harness.events().contains(&"objects:persist".into()));
     assert!(harness
@@ -1456,10 +1452,10 @@ async fn verification_corruption_missing_or_unavailable_never_selects_and_replay
         assert_object_error(
             harness
                 .service
-                .begin_upload("owner", WORK, &asset.value().id, dto::ImageMime::Png)
+                .begin_upload("owner", WORK, &asset.value().id, dto::ImageMime::Avif)
                 .await
                 .unwrap()
-                .admit(PNG.to_vec())
+                .admit(AVIF_RGB.to_vec())
                 .await,
             failure,
         );
@@ -1497,10 +1493,10 @@ async fn accepted_equal_concurrent_admission_verifies_authoritative_original_tar
     });
     let accepted = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap()
-        .admit(PNG.to_vec())
+        .admit(AVIF_RGB.to_vec())
         .await
         .unwrap();
     assert_eq!(accepted.value().id, raw.id);
@@ -1601,7 +1597,7 @@ async fn preview_reauthenticates_after_open_and_drops_stream_on_error_or_caller_
     }
     let harness = Harness::new();
     let asset = harness.admitted(100, false).await;
-    harness.update(|state| state.open_length = Some(PNG.len() as u64 + 1));
+    harness.update(|state| state.open_length = Some(AVIF_RGB.len() as u64 + 1));
     assert_object_error(
         harness
             .service
@@ -1628,18 +1624,18 @@ async fn busy_upload_drop_rejected_body_and_cancelled_storage_release_owned_body
     let raw = harness.prepared(100, false).await;
     let one = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap();
     let two = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap();
     assert!(matches!(
         harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await,
         Err(ArtworkApplicationError::Intake(
             ImageIntakeError::AdmissionBusy
@@ -1649,7 +1645,7 @@ async fn busy_upload_drop_rejected_body_and_cancelled_storage_release_owned_body
     drop(two);
     let ticket = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap();
     assert!(matches!(
@@ -1660,10 +1656,10 @@ async fn busy_upload_drop_rejected_body_and_cancelled_storage_release_owned_body
     harness.update(|state| state.persist_pause = Some(pause.clone()));
     let ticket = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap();
-    let running = tokio::spawn(ticket.admit(PNG.to_vec()));
+    let running = tokio::spawn(ticket.admit(AVIF_RGB.to_vec()));
     pause.entered.notified().await;
     let second = ImageAdmission::try_acquire().unwrap();
     assert!(matches!(
@@ -1689,10 +1685,10 @@ async fn persist_failure_is_typed_and_does_not_fabricate_an_admitted_asset() {
     assert_object_error(
         harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await
             .unwrap()
-            .admit(PNG.to_vec())
+            .admit(AVIF_RGB.to_vec())
             .await,
         ImageObjectError::Unavailable,
     );
@@ -1720,10 +1716,10 @@ async fn lost_admission_response_reconciles_committed_receipt_and_retry_without_
     assert_object_error(
         harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await
             .unwrap()
-            .admit(PNG.to_vec())
+            .admit(AVIF_RGB.to_vec())
             .await,
         ImageObjectError::Unavailable,
     );
@@ -1743,10 +1739,10 @@ async fn lost_admission_response_reconciles_committed_receipt_and_retry_without_
     });
     let retried = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap()
-        .admit(PNG.to_vec())
+        .admit(AVIF_RGB.to_vec())
         .await
         .unwrap();
     assert_eq!(retried.json_bytes(), original.json_bytes());
@@ -1805,7 +1801,7 @@ async fn absent_cross_work_cross_owner_or_wrong_digest_asset_is_not_a_selection_
                     document_bytes: serde_json::to_vec(foreign.document()).unwrap(),
                     asset: foreign,
                     storage_target: "first-private".into(),
-                    object_key: PNG_HASH.into(),
+                    object_key: AVIF_RGB_HASH.into(),
                 },
             );
         });
@@ -1904,10 +1900,10 @@ async fn ambiguous_write_or_failed_readback_leaves_private_bytes_but_no_asset_an
         assert_object_error(
             harness
                 .service
-                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+                .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
                 .await
                 .unwrap()
-                .admit(PNG.to_vec())
+                .admit(AVIF_RGB.to_vec())
                 .await,
             failure,
         );
@@ -1925,13 +1921,13 @@ async fn ambiguous_write_or_failed_readback_leaves_private_bytes_but_no_asset_an
         harness.update(|state| state.readback_error = None);
         let accepted = harness
             .service
-            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+            .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
             .await
             .unwrap()
-            .admit(PNG.to_vec())
+            .admit(AVIF_RGB.to_vec())
             .await
             .unwrap();
-        assert_eq!(accepted.value().verified_media.sha256, PNG_HASH);
+        assert_eq!(accepted.value().verified_media.sha256, AVIF_RGB_HASH);
         assert_eq!(harness.counts(), (1, 1, 0, 1, 1));
         assert_eq!(harness.state.lock().unwrap().object_bytes.len(), 1);
     }
@@ -1942,7 +1938,7 @@ async fn declared_encoded_hash_is_checked_before_expensive_decoder_on_malformed_
     let _lanes = TEST_LANES.lock().await;
     let harness = Harness::new();
     let mut raw = request(100, false);
-    // Valid declared PNG type/length, wrong expected hash and an undecodable PNG prefix.
+    // Valid declared AVIF_RGB type/length, wrong expected hash and an undecodable AVIF_RGB prefix.
     // ExpectedHashMismatch independently proves cheap encoded integrity preceded decoding.
     raw.expected_byte_length = 33;
     raw.expected_sha256 = "0".repeat(64);
@@ -1953,13 +1949,41 @@ async fn declared_encoded_hash_is_checked_before_expensive_decoder_on_malformed_
         .unwrap();
     let ticket = harness
         .service
-        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Png)
+        .begin_upload("owner", WORK, &raw.id, dto::ImageMime::Avif)
         .await
         .unwrap();
     assert_image_error(
-        ticket.admit(PNG[..33].to_vec()).await,
+        ticket.admit(AVIF_RGB[..33].to_vec()).await,
         ImageError::ExpectedHashMismatch,
     );
     assert_eq!(harness.counts(), (1, 0, 0, 1, 1));
     assert!(harness.state.lock().unwrap().object_bytes.is_empty());
+}
+
+#[tokio::test]
+async fn legacy_prepare_and_upload_are_refused_before_effects() {
+    for mime in [dto::ImageMime::Png, dto::ImageMime::Jpeg] {
+        let harness = Harness::new();
+        let mut raw = request(100, false);
+        raw.content_type = mime;
+        assert_image_error(
+            harness.service.prepare("owner", WORK, raw.clone()).await,
+            ImageError::UnsupportedMime,
+        );
+        assert!(harness.state.lock().unwrap().object_bytes.is_empty());
+        raw.content_type = dto::ImageMime::Avif;
+        harness
+            .service
+            .prepare("owner", WORK, raw.clone())
+            .await
+            .unwrap();
+        assert_image_error(
+            harness
+                .service
+                .begin_upload("owner", WORK, &raw.id, mime)
+                .await,
+            ImageError::UnsupportedMime,
+        );
+        assert!(harness.state.lock().unwrap().object_bytes.is_empty());
+    }
 }

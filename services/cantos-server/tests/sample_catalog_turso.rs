@@ -272,7 +272,7 @@ async fn seed(
         )
         .await;
         assert_eq!(served.status, StatusCode::OK);
-        assert_eq!(served.headers["content-type"], "image/png");
+        assert_eq!(served.headers["content-type"], "image/avif");
         assert_eq!(served.bytes, cover.bytes);
         let head = http::request(
             &host.client,
@@ -422,7 +422,7 @@ async fn verify_failure_boundary(
                 .headers()
                 .get("content-type")
                 .and_then(|value| value.to_str().ok()),
-            Some("image/png")
+            Some("image/avif")
         );
         let body: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
         assert_eq!(body["code"], "not_found");
@@ -658,7 +658,7 @@ fn sources_if_new(bytes: &[u8]) -> Vec<String> {
 
 #[tokio::test]
 async fn independent_png_decoder_rejects_corruption_and_decodes_actual_pixels() {
-    let png = include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png");
+    let png = include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif");
     assert_eq!(input::decode(png.to_vec()).await, Ok((2, 3)));
     assert_eq!(
         input::decode(vec![1, 2, 3]).await,
@@ -689,7 +689,7 @@ fn declared_input() -> Value {
     let works:Vec<_>=input::COVERS.iter().map(|(key,title,_,_)|json!({
         "sample_key":key,"title":title,"kind":"story","description":"Synthetic parser test","language":"vi-VN",
         "author":"Fictional Author","narrator":"Not recorded","genre":"Synthetic","tags":["sample"],
-        "cover":{"relative_path":format!("covers/{key}.png"),"source_drive_file_id":"synthetic-parser-only","alt":title},
+        "cover":{"relative_path":format!("covers/{key}.avif"),"source_drive_file_id":"synthetic-parser-only","alt":title},
         "chapters":(0..2).map(|position|json!({"sample_key":format!("{key}/chapter-{:02}",position+1),"position":position,"title":"Synthetic chapter","description":"Parser test only",
             "audio":{"mock_url":format!("https://media.example.invalid/cantos-samples/{key}/chapter-{:02}.mp3",position+1),"is_mock":true,"file_exists":false,"mime_type":"audio/mpeg","duration_ms":null,"sha256":null,"byte_length":null,"playback_verified":false}})).collect::<Vec<_>>()
     })).collect();
@@ -712,7 +712,7 @@ fn input_preserves_six_twelve_mapping_and_refuses_fabricated_audio_claims() {
     for (path, value, expected) in [
         (
             "/works/0/cover/relative_path",
-            json!("../private.png"),
+            json!("../private.avif"),
             input::InputError::Mapping,
         ),
         (
@@ -758,30 +758,30 @@ async fn missing_or_replaced_source_is_refused_without_creating_a_database() {
     assert_eq!(
         absent,
         Some(input::InputError::SourceMissing(
-            "covers/ben-suong.png".into()
+            "covers/ben-suong.avif".into()
         ))
     );
     fs::create_dir(run.path("covers")).unwrap();
     fs::write(
-        run.path("covers/ben-suong.png"),
-        include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"),
+        run.path("covers/ben-suong.avif"),
+        include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif"),
     )
     .unwrap();
     assert_eq!(
         input::load_covers(&parsed, run.dir()).await.err(),
         Some(input::InputError::SourceIdentity(
-            "covers/ben-suong.png".into()
+            "covers/ben-suong.avif".into()
         ))
     );
     fs::write(
-        run.path("covers/ben-suong.png"),
+        run.path("covers/ben-suong.avif"),
         vec![0u8; input::COVERS[0].3],
     )
     .unwrap();
     assert_eq!(
         input::load_covers(&parsed, run.dir()).await.err(),
         Some(input::InputError::SourceIdentity(
-            "covers/ben-suong.png".into()
+            "covers/ben-suong.avif".into()
         ))
     );
     assert!(!run.path("server.db").exists());
@@ -814,7 +814,7 @@ async fn recovery_fixture() -> (
     private_dir(&root.join("media"));
     write_topology(&root);
     let bytes =
-        include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png").to_vec();
+        include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif").to_vec();
     let cover = input::CoverBytes {
         sha256: input::hash(&bytes),
         bytes,
@@ -891,7 +891,7 @@ async fn expired_unadmitted_image_attempt_recovers_after_owner_restart_without_d
         &expired_path,
         Some(RECOVERY_TOKEN),
         None,
-        Some("image/png"),
+        Some("image/avif"),
         cover.bytes.clone(),
         &[],
     )
@@ -988,7 +988,7 @@ async fn admitted_image_with_unrecorded_response_is_reconciled_after_expiry_with
         ),
         Some(RECOVERY_TOKEN),
         None,
-        Some("image/png"),
+        Some("image/avif"),
         cover.bytes.clone(),
         &[],
     )
@@ -1229,7 +1229,7 @@ async fn sample_preview_reads_current_turso_revisions_enforces_dataset_membershi
     // Cover GET and HEAD serve verified bytes and reject foreign digests.
     let cover_reply = preview_get(&serving, &cover_path, &[]).await;
     assert_eq!(cover_reply.status, StatusCode::OK);
-    assert_eq!(cover_reply.headers["content-type"], "image/png");
+    assert_eq!(cover_reply.headers["content-type"], "image/avif");
     assert_eq!(cover_reply.bytes, cover.bytes);
     let head_reply = http::request(
         &serving.client,

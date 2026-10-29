@@ -12,7 +12,7 @@ fn request() -> dto::CreateImageIntentRequest {
         id: INTENT.into(),
         expected_sha256: "a".repeat(64),
         expected_byte_length: 67,
-        content_type: dto::ImageMime::Png,
+        content_type: dto::ImageMime::Avif,
         declarations: dto::ImageDeclarations {
             provenance: "Prepared cover".into(),
             rights_refs: vec!["rights-z".into(), "rights-a".into()],
@@ -29,7 +29,7 @@ fn intent() -> ImageIntent {
     .unwrap()
 }
 fn metadata() -> ImageMetadata {
-    ImageMetadata::new("a".repeat(64), 67, ImageMime::Png, 2, 3).unwrap()
+    ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap()
 }
 
 #[test]
@@ -135,30 +135,30 @@ fn closed_profiles_and_canonical_ids_reject_alias_spellings() {
 fn expected_metadata_accepts_only_canonical_hash_and_bounded_encoded_size() {
     for hash in ["".into(), "A".repeat(64), "a".repeat(63), "g".repeat(64)] {
         assert_eq!(
-            ExpectedImage::new(hash, 1, ImageMime::Png),
+            ExpectedImage::new(hash, 1, ImageMime::Avif),
             Err(ImageError::InvalidHash)
         );
     }
     assert_eq!(
-        ExpectedImage::new("a".repeat(64), 0, ImageMime::Png),
+        ExpectedImage::new("a".repeat(64), 0, ImageMime::Avif),
         Err(ImageError::EmptyImage)
     );
     assert_eq!(
-        ImageMetadata::new("a".repeat(64), 1, ImageMime::Png, 0, 1),
+        ImageMetadata::new("a".repeat(64), 1, ImageMime::Avif, 0, 1),
         Err(ImageError::InvalidDimensions)
     );
-    let expected = ExpectedImage::new("a".repeat(64), 67, ImageMime::Png).unwrap();
+    let expected = ExpectedImage::new("a".repeat(64), 67, ImageMime::Avif).unwrap();
     assert_eq!(ImageMime::parse("image/avif"), Ok(ImageMime::Avif));
     assert_eq!(ImageMime::Avif.as_str(), "image/avif");
     assert_eq!(ImageMime::Avif.document(), dto::ImageMime::Avif);
     assert_eq!(ImageMime::from(dto::ImageMime::Avif), ImageMime::Avif);
     assert_eq!(expected.matches(&metadata()), Ok(()));
     assert_eq!(
-        expected.matches(&ImageMetadata::new("b".repeat(64), 67, ImageMime::Png, 2, 3).unwrap()),
+        expected.matches(&ImageMetadata::new("b".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap()),
         Err(ImageError::ExpectedHashMismatch)
     );
     assert_eq!(
-        expected.matches(&ImageMetadata::new("a".repeat(64), 68, ImageMime::Png, 2, 3).unwrap()),
+        expected.matches(&ImageMetadata::new("a".repeat(64), 68, ImageMime::Avif, 2, 3).unwrap()),
         Err(ImageError::ExpectedLengthMismatch)
     );
     assert_eq!(
@@ -255,16 +255,16 @@ fn intent_and_asset_digests_match_independent_ordered_python_literals() {
     let intent = intent();
     assert_eq!(
         intent.document().digest,
-        "ii-r1:sha256:c978993c7c06e67a8f1a818c80c2d22c2b9b6fb2f058eaa9879773b05b87a59a"
+        "ii-r1:sha256:28299cfb55060c24ca1beb129fbcc83a9e049608d85781820faa44d033f94c87"
     );
     assert_eq!(
         intent.request().fingerprint(intent.work_id()).unwrap(),
-        "image-operation1:sha256:a89ca0283d4c21f633a1f55b283a36158f94e36d87510f70bfda781b02ad1de9"
+        "image-operation1:sha256:986d6ad04f10fe2cd35fa43b38ad4c28b18025adc883f4b03eb34e7d7e9726c3"
     );
     let asset = ImageAsset::create(&intent, metadata(), 101).unwrap();
     assert_eq!(
         asset.digest(),
-        "ia-r1:sha256:4200f444b5e0006f4d0a04b7388d5b1e91b9ae03b2f38256130f5e8b2dad7f63"
+        "ia-r1:sha256:55fd5d3a78884838a0e874d2caebb4e51b9e9bf72a0b6a07c0982919aa840587"
     );
     assert_eq!(
         ImageIntent::restore(intent.document().clone()).unwrap(),
@@ -430,7 +430,7 @@ fn admission_replays_exact_receipt_after_expiry_and_refuses_metadata_changes() {
     assert_eq!(
         decide_image_admission(
             &intent,
-            &ImageMetadata::new("a".repeat(64), 67, ImageMime::Png, 3, 2).unwrap(),
+            &ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 3, 2).unwrap(),
             Some(&original),
             102,
         ),
@@ -645,5 +645,35 @@ proptest! {
             } else { Ok(()) };
             prop_assert_eq!(intent.require_pending(now),expected);
         }
+    }
+}
+
+#[test]
+fn legacy_receipts_restore_without_granting_new_admission() {
+    for mime in [dto::ImageMime::Png, dto::ImageMime::Jpeg] {
+        let mut raw = intent().document().clone();
+        raw.request.content_type = mime;
+        raw.digest = intent_digest(&raw).unwrap();
+        let restored = ImageIntent::restore(raw.clone()).unwrap();
+        assert_eq!(restored.document(), &raw);
+        assert_eq!(
+            ImageIntent::create(
+                PrepareImage::admit(&raw.request).unwrap(),
+                restored.work_id(),
+                restored.owner_id(),
+                100
+            ),
+            Err(ImageError::UnsupportedMime)
+        );
+        let mut receipt = ImageAsset::create(&intent(), metadata(), 101)
+            .unwrap()
+            .document()
+            .clone();
+        receipt.verified_media.content_type = mime;
+        receipt.digest = asset_digest(&receipt).unwrap();
+        assert_eq!(
+            ImageAsset::restore(receipt.clone()).unwrap().document(),
+            &receipt
+        );
     }
 }

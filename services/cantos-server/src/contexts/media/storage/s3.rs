@@ -993,12 +993,12 @@ mod tests {
 
         for (bytes, mime) in [
             (
-                include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice(),
-                ImageMime::Png,
+                include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice(),
+                ImageMime::Avif,
             ),
             (
-                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
-                ImageMime::Jpeg,
+                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.avif").as_slice(),
+                ImageMime::Avif,
             ),
         ] {
             let peer = Peer::new(vec![
@@ -1058,14 +1058,14 @@ mod tests {
     async fn inspected_image_put_rejects_wrong_readback_without_retry_or_success() {
         use crate::contexts::media::{domain::image::ImageMime, image_intake::ImageAdmission};
 
-        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice();
         let mut corrupt = bytes.to_vec();
         corrupt[bytes.len() - 1] ^= 1;
         let peer = Peer::new(vec![Reply::status(StatusCode::OK), Reply::object(&corrupt)]).await;
         let image =
             ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
                 .unwrap()
-                .inspect(bytes.to_vec(), ImageMime::Png)
+                .inspect(bytes.to_vec(), ImageMime::Avif)
                 .await
                 .unwrap();
         assert_eq!(
@@ -1077,7 +1077,7 @@ mod tests {
         let requests = peer.state.requests.lock().unwrap();
         assert_eq!(requests.len(), 2);
         assert_eq!(requests[0].method, Method::PUT);
-        assert_eq!(requests[0].headers["content-type"], "image/png");
+        assert_eq!(requests[0].headers["content-type"], "image/avif");
         assert_eq!(requests[1].method, Method::GET);
     }
 
@@ -1089,11 +1089,11 @@ mod tests {
         };
         use tokio::sync::{Notify, Semaphore};
 
-        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice();
         let lanes = Arc::new(Semaphore::new(1));
         let image = ImageAdmission::from_test_lanes(lanes.clone())
             .unwrap()
-            .inspect(bytes.to_vec(), ImageMime::Png)
+            .inspect(bytes.to_vec(), ImageMime::Avif)
             .await
             .unwrap();
         let readback_started = Arc::new(Notify::new());
@@ -1109,7 +1109,7 @@ mod tests {
                     async move {
                         if request.method() == Method::PUT {
                             let (parts, body) = request.into_parts();
-                            assert_eq!(parts.headers["content-type"], "image/png");
+                            assert_eq!(parts.headers["content-type"], "image/avif");
                             assert_eq!(
                                 to_bytes(body, MAX_OBJECT_BYTES as usize).await.unwrap(),
                                 bytes
@@ -1160,12 +1160,12 @@ mod tests {
         };
         use tokio::sync::Semaphore;
 
-        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice();
         let lanes = Arc::new(Semaphore::new(1));
         let image = Arc::new(
             ImageAdmission::from_test_lanes(lanes.clone())
                 .unwrap()
-                .inspect(bytes.to_vec(), ImageMime::Png)
+                .inspect(bytes.to_vec(), ImageMime::Avif)
                 .await
                 .unwrap(),
         );

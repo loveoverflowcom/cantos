@@ -12,7 +12,7 @@ fn intent() -> ImageIntentDocument {
             id: "00000000-0000-4000-8000-000000000002".into(),
             expected_sha256: "ab".repeat(32),
             expected_byte_length: 1,
-            content_type: ImageMime::Png,
+            content_type: ImageMime::Avif,
             declarations: ImageDeclarations {
                 provenance: "Original fixture".into(),
                 rights_refs: vec!["rights_1".into()],
@@ -35,7 +35,7 @@ fn asset() -> ImageAssetDocument {
         verified_media: ImageVariantMetadata {
             sha256: i.request.expected_sha256,
             byte_length: 1,
-            content_type: ImageMime::Png,
+            content_type: ImageMime::Avif,
             width_px: 1,
             height_px: 1,
             profile_id: "cover-image-v1".into(),
@@ -96,8 +96,8 @@ fn declarations_reject_duplicates_and_canonicalize_without_erasing_source() {
 #[test]
 fn file_bounds_include_exact_limits_and_reject_overflow_dimensions() {
     for size in [1, MAX_BYTES] {
-        assert_eq!(file_bounds("image/png", size), Ok(ImageMime::Png));
-        assert_eq!(file_bounds("image/jpeg", size), Ok(ImageMime::Jpeg));
+        assert_eq!(file_bounds("image/png", size), Err(Problem::File));
+        assert_eq!(file_bounds("image/jpeg", size), Err(Problem::File));
         assert_eq!(file_bounds("image/avif", size), Ok(ImageMime::Avif));
     }
     for size in [0, MAX_BYTES + 1, u64::MAX] {
@@ -356,7 +356,7 @@ fn invalid_replacement_retains_prior_bytes_but_cannot_upload_them_as_the_new_pic
         name: "prior.png".into(),
         bytes: Arc::new(vec![0]),
         sha256: "ab".repeat(32),
-        mime: ImageMime::Png,
+        mime: ImageMime::Avif,
         width: 1,
         height: 1,
         url: "blob:fixture".into(),
@@ -380,7 +380,7 @@ fn local_image() -> LocalImage {
         name: "prior.png".into(),
         bytes: Arc::new(vec![0]),
         sha256: intent().request.expected_sha256,
-        mime: ImageMime::Png,
+        mime: ImageMime::Avif,
         width: 1,
         height: 1,
         url: "blob:local-fixture".into(),
@@ -884,4 +884,18 @@ fn ancillary_artwork_edits_revert_and_exact_selection_acknowledgement_preserves_
     assert!(current.acknowledge_selection(&submitted, true));
     assert_eq!(current, Draft::default());
     assert!(!current.is_dirty(false));
+}
+
+#[test]
+fn browser_preview_refuses_legacy_bytes_even_when_the_file_claims_avif() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!("../../../../../../services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json")).unwrap();
+    for value in vectors.as_object().unwrap().values() {
+        let hex = value.as_str().unwrap();
+        let bytes: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect();
+        assert_eq!(avif_bytes(&bytes), Err(Problem::File));
+    }
+    assert_eq!(avif_bytes(include_bytes!("../../../../../../services/cantos-server/src/contexts/media/image_intake/fixtures/ffmpeg-yuv420p-2x3.avif")), Ok(()));
 }

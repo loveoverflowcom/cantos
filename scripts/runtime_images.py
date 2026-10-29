@@ -1,26 +1,17 @@
 """Source image policy primitive for the existing repository gate (no decoder/CLI).
 
 Checks suffixes AND signatures, plus SVG image references. A matching signature is
-not full decoding, rights, bundle inspection or deployed acceptance. The three
-checksum-frozen Media fixtures are visible migration debt, never a format waiver.
+not full decoding, rights, bundle inspection or deployed acceptance. Legacy bytes may
+appear only as explicitly named rejection vectors, never positive fixtures.
 The canonical policy and transition boundary live in docs/design/runtime-images.md.
 """
 
-import hashlib
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
 
 LEGACY_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".ico", ".tif", ".tiff", ".heic", ".heif", ".jxl", ".icns", ".avifs"}
-FIXTURES = "services/cantos-server/src/contexts/media/image_intake/fixtures/"
-# Existing actual decoder oracles cannot be relabelled as AVIF. Remove each entry
-# with the Media/contract/seed transition; changing bytes or adding a path fails.
-MIGRATION_DEBT = {
-    FIXTURES + "python-rgb-2x3.png": "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
-    FIXTURES + "python-rgba16-2x3.png": "1e2725064b73e8bdc0c7056ae8bf2d7f17dbcae5a7dac2d5f13fc398076c357d",
-    FIXTURES + "pillow-rgb-2x3.jpg": "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
-}
 DOC_ROOTS = ("docs/evidence/", "docs/design/", "docs/archive/")
 LEGACY_REFERENCE = re.compile(r"(?:data:image/(?:png|jpe?g|webp|gif|bmp)|\.(?:png|jpe?g|webp|gif|bmp)(?:$|[?#]))", re.I)
 
@@ -94,12 +85,6 @@ def repository_failures(root, names):
         if name.startswith(DOC_ROOTS) and path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
             continue
         data = path.read_bytes()
-        if name in MIGRATION_DEBT:
-            if hashlib.sha256(data).hexdigest() == MIGRATION_DEBT[name]:
-                debt.append(name)
-                continue
-            errors.append(f"{name}: frozen Media migration input changed; migrate its boundary, never relabel it")
-            continue
         failure = image_failure(name, data)
         if failure:
             errors.append(f"{name}: {failure}")

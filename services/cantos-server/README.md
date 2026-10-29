@@ -254,3 +254,11 @@ identities, independent oracles and real owner snapshots. `test_support::open_da
 only exposes the existing clock seam to these fixtures; runtime builds do not enable it.
 The fixed six-Work sample and non-login principals remain separate. `cargo xtask seed dataset`
 never provisions an Identity/Studio account or changes production schemas/search.
+
+### AVIF-only image admission (#607)
+
+New artwork and public-cover delivery follow [runtime image policy](../../docs/design/runtime-images.md).
+The inspector links pinned dav1d Rust bindings to libdav1d>=1.3: build hosts need pkg-config
+and development headers, deployed Server needs the shared library. OCI source packages and
+Rust CI include them. Header parsing precedes real AV1 pixel decoding. Historical receipts
+and registered migrations are preserved; migration30 only guards future admission/selection.

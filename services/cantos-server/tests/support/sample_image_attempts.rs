@@ -101,7 +101,7 @@ fn request(binding: &Value, index: usize) -> Value {
             input::identity(key, &format!("prepare-image-attempt-{index}")),
         )
     };
-    json!({"id":id,"operation_id":operation,"expected_sha256":binding["cover_sha256"],"expected_byte_length":binding["cover_byte_length"],"content_type":"image/png",
+    json!({"id":id,"operation_id":operation,"expected_sha256":binding["cover_sha256"],"expected_byte_length":binding["cover_byte_length"],"content_type":"image/avif",
         "declarations":{"provenance":binding["provenance"],"rights_refs":[RIGHTS]}})
 }
 
@@ -352,7 +352,7 @@ impl Journal {
                 &format!("{path}/bytes"),
                 Some(token),
                 None,
-                Some("image/png"),
+                Some("image/avif"),
                 cover.bytes.clone(),
                 &[],
             )
@@ -383,7 +383,7 @@ mod tests {
 
     fn try_open(root: &Path) -> Result<Journal, RecoveryError> {
         let bytes =
-            include_bytes!("../../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png")
+            include_bytes!("../../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif")
                 .to_vec();
         let cover = input::CoverBytes {
             sha256: input::hash(&bytes),
@@ -507,7 +507,7 @@ mod tests {
         )
         .unwrap();
         let bytes =
-            include_bytes!("../../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png")
+            include_bytes!("../../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif")
                 .to_vec();
         let cover = input::CoverBytes {
             sha256: input::hash(&bytes),

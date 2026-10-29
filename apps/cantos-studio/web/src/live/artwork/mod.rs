@@ -97,8 +97,6 @@ pub fn file_bounds(mime: &str, size: u64) -> Result<ImageMime, Problem> {
         return Err(Problem::File);
     }
     match mime {
-        "image/png" => Ok(ImageMime::Png),
-        "image/jpeg" => Ok(ImageMime::Jpeg),
         "image/avif" => Ok(ImageMime::Avif),
         _ => Err(Problem::File),
     }
@@ -111,6 +109,31 @@ pub fn dimensions(width: u32, height: u32) -> Result<(), Problem> {
         Err(Problem::Dimensions)
     } else {
         Ok(())
+    }
+}
+/// Identify still-AVIF before browser preview; full decode/admission remains with the Server.
+pub fn avif_bytes(bytes: &[u8]) -> Result<(), Problem> {
+    if bytes.len() < 16 || bytes.len() as u64 > MAX_BYTES || &bytes[4..8] != b"ftyp" {
+        return Err(Problem::File);
+    }
+    let length = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
+    if length < 16 || length > bytes.len() || !length.is_multiple_of(4) {
+        return Err(Problem::File);
+    }
+    let compatible = bytes[16..length].as_chunks::<4>().0;
+    let brands =
+        std::iter::once(&bytes[8..12]).chain(compatible.iter().map(|brand| brand.as_slice()));
+    let mut still = false;
+    for brand in brands {
+        if brand == b"avis" {
+            return Err(Problem::File);
+        }
+        still |= brand == b"avif";
+    }
+    if still {
+        Ok(())
+    } else {
+        Err(Problem::File)
     }
 }
 pub fn mime_name(mime: ImageMime) -> &'static str {

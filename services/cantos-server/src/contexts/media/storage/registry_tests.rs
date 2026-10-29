@@ -133,17 +133,17 @@ async fn inspected_image_writes_and_historical_reads_share_the_existing_target_r
             ),
         ]),
     };
-    let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+    let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice();
     let image =
         ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
             .unwrap()
-            .inspect(bytes.to_vec(), ImageMime::Png)
+            .inspect(bytes.to_vec(), ImageMime::Avif)
             .await
             .unwrap();
     let stored = registry.persist_image(image).await.unwrap();
     assert_eq!(
         stored.object_key,
-        "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276"
+        "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f"
     );
     assert_eq!(stored.storage_target, target("origin-private"));
     let historical = PrivateObjectRef::new(
@@ -168,7 +168,7 @@ async fn inspected_image_writes_and_historical_reads_share_the_existing_target_r
     let image =
         ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
             .unwrap()
-            .inspect(bytes.to_vec(), ImageMime::Png)
+            .inspect(bytes.to_vec(), ImageMime::Avif)
             .await
             .unwrap();
     let replacement_stored = registry.persist_image(image).await.unwrap();
