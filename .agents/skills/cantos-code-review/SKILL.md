@@ -17,7 +17,8 @@ high-impact claim it answers:
 
 1. Which invariant changed, where is it stated, and who owns it?
 2. Which type or boundary prevents the invalid state — and which path bypasses it?
-3. Which evidence actually executes against the production code, not a copy, fake or fixture?
+3. Which evidence actually executes against the production code, from the entrypoint the claim
+   names, not a copy, fake or fixture?
 4. Is that evidence fresh for exactly these inputs?
 5. Where is assurance insufficient, and what is the next proportional action and its owner?
 

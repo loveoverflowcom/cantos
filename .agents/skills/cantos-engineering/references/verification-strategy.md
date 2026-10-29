@@ -21,6 +21,57 @@
 | moving a decision out of a handler, loop or component so it can be tested | [`extraction-recipes.md`](extraction-recipes.md) |
 | rendered appearance or interaction | the renderer skill's testing reference |
 
+## Choose the method by the question
+
+Each technique answers one question about one scope. Pick the smallest technique whose answer
+covers the claim; add a second only when it answers a question the first leaves open.
+
+| Technique | Answers | Leaves open | Applies when |
+|---|---|---|---|
+| type, private constructor, exhaustive `match` | can the value or state exist outside its barrier? | whether the runtime check is right; whether every path goes through it | an invalid combination exists and a type can exclude it ([types](types-as-proofs.md)) |
+| static lint or architecture check | is the pattern absent from the code this command linted? | other targets, features and `cfg`; lints not enabled | the lint is enabled at deny level in a gate that covers the code ([lint claims](types-as-proofs.md#compiler-and-lint-claims-need-a-sensitive-misuse)) |
+| exact regression (example or table) | does this input give this exact outcome? | inputs not listed | the default for a behavior change or a bug |
+| bounded exhaustive loop, property, state machine | does a law hold over a finite domain, generated inputs or event sequences? | inputs the generator cannot reach | the partition is too large to list, or order matters ([properties](property-and-differential-testing.md)) |
+| Kani | does this production symbol satisfy the proposition for every input within the bounds and assumptions? | I/O, the shell, inputs the assumptions exclude | a small pure critical kernel ([selection](mutation-and-formal.md#bounded-model-checking)) |
+| Quint model and conformance | does the model hold on its runs; does the pure core reproduce the checkpoints of the traces actually replayed? | traces not replayed, the shell, storage; a draft model's authority | a catalog capability ([`cantos-behavior`](../../cantos-behavior/SKILL.md)) |
+| real adapter (Turso file, HTTP, browser, device) | does the real boundary keep the semantics? | boundaries it did not cross | transactions, durability, auth contracts, rendering, platform |
+
+- **No duplicate evidence.** A second test with the same oracle at the same layer adds nothing.
+  Do not test at runtime that a type-excluded state cannot occur; test the constructor and the
+  bypass paths instead. A native test shares a model run's ID only when it answers a different
+  question (transport or constructor versus model semantics).
+- **Decide by the claim, not the shape.** The number of Booleans, the presence of a `Vec`, a
+  diff's length or a file's size select nothing. Ask which state is invalid, who can produce
+  it, which input reaches it and what a failure costs ([flags](types-as-proofs.md#model-states-not-flag-combinations),
+  [critical scope](verification-cadence.md#critical-and-platform-obligations)).
+- There is no quota for fewer tests or more formal coverage; a removed test is a changed claim
+  that cites the evidence now answering its question.
+
+## Production reach: entrypoint, core and effect
+
+A claim about what a route, RPC, worker or screen does has three legs: the entrypoint reaches
+the decision with real facts, the decision returns the outcome, and the shell executes the
+effect. Evidence for one leg says nothing about the others:
+
+| Evidence | Establishes | Leaves open |
+|---|---|---|
+| plain test or Kani proof calling the decision | the decision leg | whether the entrypoint calls it, with which facts, and whether the effect happens |
+| entrypoint test with named deterministic fakes | the branch is reached and its outcome mapped (`mock-integration-tested`) | the real store's write, transaction and durability |
+| real adapter test | the effect against the real boundary | entrypoints that test did not drive |
+
+Example at `cf3ab8ed`: a unit test shows `identity_auth::decision::decide_admission` returns
+`Admission::Revoke(VersionRegressed)` for a lower security version. The Server's `confirm`
+reaches it only after a fresh security-state read and calls `store.revoke` best effort.
+[Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
+denies the request either way, makes revocation permanent only once the write commits and redoes
+a failed write at the next admission. "This request is denied" needs an entrypoint test;
+"the family stays revoked" needs a real Turso store test; the decision test supplies neither,
+and the best-effort write is the contract, not a defect. Likewise the `image-bounds` proof covers
+`check_image_bounds`; that the AVIF parser calls it for every color, alpha and tile plane is a
+separate claim for the `image_intake` tests, outside the proof.
+
+Record which entrypoint each piece of evidence drove, or "decision only".
+
 ## Layered verification
 
 Use [verification cadence](verification-cadence.md) for DEV/CHECKPOINT/HANDOFF timing, risk and
@@ -90,6 +141,26 @@ An infrastructure gap does not invalidate passed core evidence or waive required
 | repeated play creates no jobs | listener actions incur cost | job table row count unchanged | integration |
 
 Every test maps to a row; every high-impact row has evidence or a stated gap.
+
+### Rows for risky claims
+
+Expand a row only for a high-impact claim: P0/P1 failure, a [critical scope](verification-cadence.md#critical-and-platform-obligations),
+or a type, lint or formal claim. Ordinary rows keep the four columns above.
+
+```text
+Invariant:           <one sentence> — <requirement source and status>
+Entrypoint:          <route, RPC, worker or screen relying on it> | decision only
+Invalid-state paths: <constructors, serde, rows, Default, mutable methods, fixtures> — closed by … | open
+Technique:           <row of the method table> — the question it answers here
+Applicability:       REQUIRED | NOT_APPLICABLE: <reason>
+Oracle:              <independent expectation: literal, law, model run, real boundary>
+Execution:           PASS | FAIL | NOT_RUN | UNSUPPORTED — <command, source identity, output>
+Deferred:            <reason, owner, prerequisite, next step> | none
+Residual risk:       <what can still fail>
+```
+
+Applicability, execution and deferral are separate axes. `NOT_APPLICABLE` never stands in for
+`NOT_RUN`; a `REQUIRED` row that did not run keeps its actual status and its deferral.
 
 ## Keep the oracle independent
 

@@ -75,6 +75,13 @@ enum StepState {
 Exhaustive `match` then forces every consumer to handle a new state. Keep execution status,
 editorial status and publication status in separate types; one enum for all three is a defect.
 
+The defect is an *invalid combination*, not the number of flags. Independent input facts whose
+every combination is meaningful stay Booleans: `listening::domain::reconcile::classify` takes
+`same`, `protected` and `checkpoint` as such facts and already returns the closed `Admission`;
+an enum there would exclude nothing. A `Vec` of independent findings (`publication::evaluate`'s
+blockers) is a collection, not a state. Name the invalid combination and who can produce it;
+when there is none, there is nothing to prevent.
+
 ## Produce evidence instead of booleans
 
 ```rust
@@ -125,6 +132,54 @@ Audit every method on a refined type: `DerefMut`, `AsMut`, `pub` fields, mutable
 unchecked setters and derived `Default` can break the guarantee. Expose semantic operations that
 return a refined value or a `Result`.
 
+## Name the proposition each barrier holds
+
+A runtime-validated type is a barrier for the propositions its constructors check, and only for
+values built through them. Write those propositions down and audit the paths per proposition.
+At `cf3ab8ed`, `identity_auth::decision::SecurityState` documents a decoded response "whose
+shape was checked", but its fields are `pub`: `from_response` refuses version `0` and an
+unspecified account state, while any crate code or test can write the struct literal. A
+consumer relying on `version != 0` relies on convention, not the type; closing it is the
+owner's call, and a review records a hardening opportunity, not a verified defect. By
+contrast `identity_auth::turso::record` re-admits each `ObservedSecurity` column through
+`Subject::from_hex`, `Epoch::from_slice` and `positive`, so the row path keeps their propositions.
+
+## Compiler and lint claims need a sensitive misuse
+
+"The compiler rejects X" is `type-enforced` only with a named misuse that fails for that reason:
+
+1. Write the smallest misuse that would compile if the barrier were removed: supply every other
+   field and argument so the barrier is the only error.
+2. Check the cause, not just the failure. Stable rustdoc does not compare the code in
+   `compile_fail,E0451`: any compile error passes (checked with the pinned 1.98.1, where an
+   `E0308` misuse labeled `E0451` passed). Read the diagnostic once and record it.
+3. Confirm a gate runs it. Doctests run under `cargo test` without `--lib`, `--tests`, `--test`
+   or `--all-targets`; `cfg(kani)` code compiles only in Kani runs.
+
+At `cf3ab8ed` the `publication::PublishableRelease` doctest `PublishableRelease { manifest: todo!() }`
+omits `evaluated_at`, so it would still fail, with `E0063`, if the fields became public. The
+privacy barrier holds by source inspection; that doctest is not sensitive to its removal.
+
+A lint claim is `statically-checked` only when the lint is enabled at deny level and the command
+that ran covers the code's target, features and `cfg`. `clippy -D warnings` denies only enabled
+lints. At `cf3ab8ed` no `[lints]` table or `deny(clippy::…)` attribute exists, so restriction
+lints such as `clippy::unwrap_used` are not enforced; Wasm-only code needs the Wasm lint run and
+`cfg(kani)` code is never linted.
+
+## What a type does not prove
+
+- `#[must_use]` warns, where the lint runs, that a value was ignored; it does not make the caller
+  act on it.
+- A witness or token consumed by value proves the callee received a decision, not that the
+  durable effect it authorizes committed. Durability needs the real store
+  ([production reach](verification-strategy.md#production-reach-entrypoint-core-and-effect)).
+- `Drop` does not run on abort, `mem::forget`, a reference cycle or a killed process
+  ([crash, not error](../../cantos-production-pipeline/references/fault-injection-testing.md#4-simulate-a-crash-not-an-error)).
+- A lifetime bounds how long a borrow lives; it does not say which transaction, session or
+  request a value belongs to. Two values of one type and lifetime from different transactions
+  are interchangeable to the compiler. Bind an instance with a value (ID, generation, fence)
+  checked where it is used.
+
 ## Escape hatches
 
 When trusted recovery or a hot path must skip validation, keep it narrow and loud:
@@ -150,5 +205,6 @@ Proposition:        <what is now impossible to represent>
 Evidence level:     type-enforced (+ example-tested | property-tested …)
 Barrier:            private field / validated TryFrom / serde try_from / evidence value
 Entry paths closed: new · parse · TryFrom · Deserialize · row decode · Default · fixtures
+Misuse checked:     <the misuse, its diagnostic and the command that ran it> | none claimed
 Still runtime-only: <what remains checked at runtime, and where>
 ```

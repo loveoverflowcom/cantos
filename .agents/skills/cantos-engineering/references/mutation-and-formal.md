@@ -131,7 +131,18 @@ Every selected harness must record:
 Generate raw invalid values when proving factory rejection. Restrict inputs to a refined
 predicate only when proving an operation whose caller must already supply that type, and cite
 the construction barrier separately. Never assume the result, skip exhaustion/conflict cases,
-or use `assume(false)` to obtain a successful run. Unexpected `UNREACHABLE` assertions or
+or use `assume(false)` to obtain a successful run.
+
+**Constructor-coupled harnesses.** A harness that builds its input through a production
+constructor (illustrative: `let Ok(id) = ReleaseId::parse(raw) else { return };`, or the
+equivalent `kani::assume`) proves its assertions only for accepted values. Keep three
+obligations apart: a `kani::cover!` that an accepted value is built, since a constructor that
+rejects everything passes every assertion vacuously; a rejection oracle, independent of the
+constructor, for the raw inputs it must refuse; and the postcondition oracle for accepted values.
+The coupling is legitimate when production callers can only hold the refined type; cite that
+barrier rather than banning the assumption.
+
+Unexpected `UNREACHABLE` assertions or
 unsatisfied cover goals require investigation: they may reveal an overconstrained model.
 An intentionally impossible branch needs an explanation; coverage alone proves no correctness.
 
