@@ -412,8 +412,10 @@ fn SearchForm(
                                 {move || AccessibleName::new(text(Key::SearchClearInput, locale.get())).ok().map(|name| view! {
                                     <IconButton id="theatre-search-clear-input" variant=ButtonVariant::Text icon=IconName::Close name
                                         on_press=Callback::new(move |_| {
-                                            search.set(String::new()); error.set(None); expanded.set(true);
+                                            // Keyboard activation focuses this conditional action. Move focus
+                                            // while its tooltip/listeners are alive, before clearing removes it.
                                             crate::platform::focus_search_input(panel);
+                                            search.set(String::new()); error.set(None); expanded.set(true);
                                         })/>
                                 })}
                             </Show>

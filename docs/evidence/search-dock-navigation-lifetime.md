@@ -1,4 +1,4 @@
-# Search-dock navigation callback lifetime
+# Search-field callback lifetimes
 
 Source-bound repair of the Theatre Web failure found after the AVIF release. Base:
 `develop@18197b991088d9fea0d2894e898aa027801bdddc`. The final PR owns the source SHA and
@@ -25,6 +25,14 @@ moving only the parent input-click observer to capture produced this order: pare
 begins/ends → result activation/return → cleanup, with no error. All diagnostic edits were
 removed before the final repair and the same browser regression was rerun.
 
+The extended keyboard campaign also found a distinct failure: activate the conditional clear
+button with Enter, then submit another search. Clearing removed the focused `IconButton`
+before focus returned to the input. A temporary panic hook located the disposed reads at
+`button.rs:322` (description) and `button.rs:360` (tooltip visibility). Moving focus before
+the signal write lets blur close the tooltip while its owner is alive. The same tracked CUA
+regression fails before that ordering change and passes five times afterward, with the
+diagnostic hook removed. Pointer clear retains its existing behavior.
+
 ## Repair boundary
 
 The input-click presentation observer uses `on:click:capture`, so it completes while its panel
@@ -32,8 +40,9 @@ is still alive, before a descendant can navigate. It still opens the dock only w
 is the search input, including a click on an already-focused input after collapse. It does not
 stop propagation, defer navigation, swallow exceptions, leak callbacks or add a timer.
 
-Query timing, request generation/access fences, route/history ownership, focusout dismissal,
-keyboard/IME handling and shared components/styles are unchanged. There is no dependency,
+The conditional clear action returns focus before clearing its draft. Query timing, request
+generation/access fences, route/history ownership, focusout dismissal, composition handling
+and shared components/styles are unchanged. There is no dependency,
 API, auth, storage, migration or mobile source change.
 
 ## Regression and verification scopes
@@ -44,6 +53,14 @@ requires no new browser errors. It failed on the unmodified base and passed with
 observer. This executes the browser dispatch/disposal path; a native SSR flag assertion or a
 fake event router would not establish it. The [runner notes](../../apps/cantos-theatre/web/tests/README.md)
 explain execution; ordinary CI does not automatically run CUA.
+
+`searchClearKeyboardLifetime` additionally drives the actual clear button with Enter, checks
+the empty draft and restored input focus, then submits and waits for an excluded work to
+return. Five direct-result cycles and five keyboard-clear cycles pass on the final local
+candidate with zero console errors. Native Theatre library tests pass 558/558 and shared UI
+tests pass 186/186 with package-qualified features; those SSR checks are separate from CSR
+evidence. Initial native attempts ran out of disk before execution; an incorrectly unqualified
+preview feature enabled CSR in SSR tests and was excluded, then rerun with the correct scope.
 
 The bounded campaign additionally checks repeated direct-result navigation, Enter submission,
 draft clear/apply, chip focus, focus/blur and dock dismissal/reopen, Work→Home→new search,
