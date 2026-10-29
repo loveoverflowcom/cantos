@@ -19,10 +19,13 @@
     },
     {
       "path": "source/assets/library-expressive.png",
-      "bytes": 897322,
-      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "bytes": 464587,
+      "sha256": "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
       "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector",
-      "packaged_path": "library-expressive.png"
+      "packaged_path": "library-expressive.avif",
+      "source_sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "source_bytes": 897322,
+      "conversion": "Pillow 12.3.0 / libavif 1.4.2; quality=100, 4:4:4, speed=4; dimensions preserved"
     },
     {
       "path": "source/assets/light/cantos-empty-history.svg",

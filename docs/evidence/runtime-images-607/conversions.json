@@ -1,0 +1,80 @@
+[
+  {
+    "source": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/drawable/den_khuya.webp",
+    "source_sha256": "27494fc203754fc927406377cd1bb510f082a472ecb4c6f0efeb039c1a077124",
+    "source_bytes": 302600,
+    "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/artwork/den_khuya.avif",
+    "sha256": "d053df56699afb2c1ff6031d3a34d636a86c802473b69f2e383bf2e3c76e392f",
+    "bytes": 260672,
+    "width": 1024,
+    "height": 1024,
+    "alpha": false,
+    "alpha_max_delta": null,
+    "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved"
+  },
+  {
+    "source": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/drawable/son_ha_moon.webp",
+    "source_sha256": "d3eb82560c7a5523290338397aa83ec234afedb49f1f44c4dbcdd8db4bd2d8d2",
+    "source_bytes": 127780,
+    "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/artwork/son_ha_moon.avif",
+    "sha256": "2abd065841decb84fbe8741f725ed553534f60b50e907ff34d0524dc5a95c171",
+    "bytes": 102524,
+    "width": 1024,
+    "height": 683,
+    "alpha": false,
+    "alpha_max_delta": null,
+    "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved"
+  },
+  {
+    "source": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/drawable/library_expressive.png",
+    "source_sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+    "source_bytes": 897322,
+    "path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/artwork/library_expressive.avif",
+    "sha256": "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
+    "bytes": 464587,
+    "width": 1374,
+    "height": 1145,
+    "alpha": true,
+    "alpha_max_delta": 0,
+    "derivation": "Pillow 12.3.0 / libavif 1.4.2; quality=100, 4:4:4, speed=4; dimensions preserved"
+  },
+  {
+    "source": "apps/cantos-theatre/web/assets/artwork/den-khuya.webp",
+    "source_sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
+    "source_bytes": 120320,
+    "path": "apps/cantos-theatre/web/assets/artwork/den-khuya.avif",
+    "sha256": "700f357eecb63fb0f9d6c157a69f681dbc694a496de7f028fd722bb6d31e27bf",
+    "bytes": 149469,
+    "width": 800,
+    "height": 800,
+    "alpha": false,
+    "alpha_max_delta": null,
+    "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved"
+  },
+  {
+    "source": "apps/cantos-theatre/web/assets/artwork/son-ha-ky.webp",
+    "source_sha256": "5d1d679925accfaecc632463c00434e4159fc3413a15cc2d60a93cffb90e6b18",
+    "source_bytes": 46284,
+    "path": "apps/cantos-theatre/web/assets/artwork/son-ha-ky.avif",
+    "sha256": "c4efbe47b73842aa86448594c1f9fe8237c2723fb847d3cb6e243aa99e84b81c",
+    "bytes": 53990,
+    "width": 800,
+    "height": 533,
+    "alpha": false,
+    "alpha_max_delta": null,
+    "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved"
+  },
+  {
+    "source": "apps/cantos-theatre/web/assets/empty/library-expressive.png",
+    "source_sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+    "source_bytes": 897322,
+    "path": "apps/cantos-theatre/web/assets/empty/library-expressive.avif",
+    "sha256": "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
+    "bytes": 464587,
+    "width": 1374,
+    "height": 1145,
+    "alpha": true,
+    "alpha_max_delta": 0,
+    "derivation": "Pillow 12.3.0 / libavif 1.4.2; quality=100, 4:4:4, speed=4; dimensions preserved"
+  }
+]

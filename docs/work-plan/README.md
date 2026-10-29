@@ -26,6 +26,7 @@ restore, Kani, footprint or deployed behavior.
 | Review/publication | [030](030-mix-review-and-publish.md) |
 | Theatre Web/CMP listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library handoff](listener-library-progress-handoff.md) |
 | Catalog/cover/metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover](public-cover-implementation-handoff.md), [metadata](public-metadata-decision-handoff.md) |
+| Runtime image transition | [#607](https://github.com/loveoverflowcom/cantos/issues/607), [image policy and dependency order](../design/runtime-images.md); static artwork is independent of the coupled Media/contract/seed transition |
 | Shared UI | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
 | Forge | [Worker boundary](../deployment/forge-worker.md), [attempt evidence](../evidence/forge-attempt-reconciliation.md); #203 |
 | Delivery | [Firebase Hosting](../deployment/firebase-hosting.md), [Pages](../deployment/cloudflare-pages.md), [rollout](../deployment/cloudflare-rollout.md) |

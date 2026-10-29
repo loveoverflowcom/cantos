@@ -98,6 +98,7 @@ Passing it proves skill hygiene only.
 
 | The task is about… | Load |
 |---|---|
+| runtime image formats, AVIF conversion, SVG/native XML, launcher or legacy-image audit | [image policy](../../docs/design/runtime-images.md), then `cantos-ui-design`, renderer and Media owners |
 | registered stateful behavior, Quint models, shared API/Leptos/CMP scenarios, witnesses and counterexamples | [`cantos-behavior`](cantos-behavior/SKILL.md), composing the foundation |
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
 | layered verification, independently verified core delivery, unavailable infrastructure or deferred acceptance | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification strategy](cantos-engineering/references/verification-strategy.md#layered-verification) and [local handoff](cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion) |

@@ -57,6 +57,10 @@ Selected high-risk pure authentication/persistence kernels require targeted Kani
 That does not make crypto, database I/O, RPC or concurrency formally verified; their actual
 integration/fault evidence remains separate. Do not add a parallel skill, verifier or session engine.
 
+Image boundary work follows the [runtime image policy](../../../docs/design/runtime-images.md) and its Media transition map.
+Inventory bytes/consumers first; preserve immutable receipts and use new assets for conversion.
+A legacy positive fixture is migration debt, never evidence that the new format is admitted.
+
 ## The required order
 
 Follow **Layered Verification + Progressive Delivery**: verify the pure core before the I/O shell.

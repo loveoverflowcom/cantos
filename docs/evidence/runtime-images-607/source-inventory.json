@@ -1,0 +1,1158 @@
+{
+  "base": "78557c9d6abbf2737991fb5cbd60b577acb80083",
+  "kind": "tracked-source inventory; not built artifacts or remote storage",
+  "images": [
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 1924,
+      "sha256": "6d04641565c2877f80d54c00471a6ef5ef354c10c030e1ba8da793d22fa6d4ec",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 1311,
+      "sha256": "d7d54e5c6cf4389175915443bcb13df8ca6c9a56b1cb6182ae017cc16fc0bc8b",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-hdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 1845,
+      "sha256": "8d37fb48eed72bbaba690e6d656b238e119d62686cd27c09b4543e6b1f982a35",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-mdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 1239,
+      "sha256": "30e825c192c9d93aed28578fc82528f4936a482c32519599268fba42d06d031e",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 2382,
+      "sha256": "71ff512a73c562ed5ab73061e3cf23952bdd6e1bcb8caf95c76a127bdfe891fa",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xxhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 3552,
+      "sha256": "d08f32c0a27ee932adf4eb5682c92384e2e5535a5017898b3780628804e40388",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xxxhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 4489,
+      "sha256": "724df7a491b93dc5caec886dcd5983102076229348a5d6f09f8a2fbd24485155",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 2518,
+      "sha256": "7d0d4cceb2271112158e72f75e0fd11a98656f86a9cefa0a0d0185d769f7e794",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 3715,
+      "sha256": "ff3467523b120f188ee4d93b35729a92c7941a5fac213c5fb5c321bc322fbf9d",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "classification": "platform-launcher",
+      "bytes": 4784,
+      "sha256": "33842eae001cbee327f98bc38a7adfa6233023c34a945a13c061f58f0ec2a0d7",
+      "owner": "Theatre Android",
+      "consumer": "AndroidManifest.xml @mipmap/ic_launcher; density/night resource resolution"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/iosApp/Cantos/Assets.xcassets/AppIcon.appiconset/cantos-dark-1024.png",
+      "classification": "platform-launcher",
+      "bytes": 30024,
+      "sha256": "9c2671de3dd470661d78b7fbdf716e5b76bdafa54a40189af87807404c8f4e4f",
+      "owner": "Theatre iOS",
+      "consumer": "Xcode AppIcon asset catalog selected by both target configurations"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/iosApp/Cantos/Assets.xcassets/AppIcon.appiconset/cantos-light-1024.png",
+      "classification": "platform-launcher",
+      "bytes": 30645,
+      "sha256": "d5c09b81c62609e6d89131a1c6691a68670f07f3b1d90dcd7dfdf2f06e9320e1",
+      "owner": "Theatre iOS",
+      "consumer": "Xcode AppIcon asset catalog selected by both target configurations"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/drawable/den_khuya.webp",
+      "classification": "preview",
+      "bytes": 302600,
+      "sha256": "27494fc203754fc927406377cd1bb510f082a472ecb4c6f0efeb039c1a077124",
+      "owner": "Theatre CMP",
+      "consumer": "Res.readBytes PreviewArtwork or painterResource TheatreEmptyArtwork; source sets and previews are separate"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/drawable/son_ha_moon.webp",
+      "classification": "preview",
+      "bytes": 127780,
+      "sha256": "d3eb82560c7a5523290338397aa83ec234afedb49f1f44c4dbcdd8db4bd2d8d2",
+      "owner": "Theatre CMP",
+      "consumer": "Res.readBytes PreviewArtwork or painterResource TheatreEmptyArtwork; source sets and previews are separate"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/drawable/library_expressive.png",
+      "classification": "shipped-source",
+      "bytes": 897322,
+      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "owner": "Theatre CMP",
+      "consumer": "Res.readBytes PreviewArtwork or painterResource TheatreEmptyArtwork; source sets and previews are separate"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/artwork/den-khuya.webp",
+      "classification": "shipped-source",
+      "bytes": 120320,
+      "sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/artwork/son-ha-ky.webp",
+      "classification": "shipped-source",
+      "bytes": 46284,
+      "sha256": "5d1d679925accfaecc632463c00434e4159fc3413a15cc2d60a93cffb90e6b18",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/empty/dark/cantos-empty-history.svg",
+      "classification": "shipped-source",
+      "bytes": 4717,
+      "sha256": "d968ba6d942ac25ae10c16070a0f22ee425d1eac7982568a34c5567038259ed5",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/empty/dark/cantos-empty-works.svg",
+      "classification": "shipped-source",
+      "bytes": 2897,
+      "sha256": "8d239077d729f6916fa4188c767632b59f212cb37b82e269253e957f13e7e485",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/empty/library-expressive.png",
+      "classification": "shipped-source",
+      "bytes": 897322,
+      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/empty/light/cantos-empty-history.svg",
+      "classification": "shipped-source",
+      "bytes": 4719,
+      "sha256": "b95aeb92c33e6eee439dab2127440712a61ad08efa9c0480016d43a48d09bf84",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/empty/light/cantos-empty-works.svg",
+      "classification": "shipped-source",
+      "bytes": 2899,
+      "sha256": "1c13660f0c791e8ae52da9ac6dfe837500c0d18cdcf60f5fa5fbdfe42606ad55",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/add.svg",
+      "classification": "shipped-source",
+      "bytes": 233,
+      "sha256": "382a85a582909eb2c0f44f22a72e22131f08920653e6bbde3bc5d79203d56136",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/arrow_back.svg",
+      "classification": "shipped-source",
+      "bytes": 258,
+      "sha256": "277b20506863941393c9c3c724d1275d56777a1db8eb61cf95b5552ea3b65771",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/bookmark_border.svg",
+      "classification": "shipped-source",
+      "bytes": 277,
+      "sha256": "73d965a17db1c4cc6e61ee5bcbf96fccc0a4e4a80cbf0351d9d334cf63e621b3",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/check.svg",
+      "classification": "shipped-source",
+      "bytes": 255,
+      "sha256": "aadc0a189bbe3c6f86b94e04755de153b23fb45eedfaff1149f2ecbccf9291b8",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/delete_outline.svg",
+      "classification": "shipped-source",
+      "bytes": 290,
+      "sha256": "3f6c59e34886953e7a4143c1668fde8efe1e2dcd878585c96fbfad4740fa9f02",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/headphones.svg",
+      "classification": "shipped-source",
+      "bytes": 416,
+      "sha256": "7259cb8810f96ad59daf71051a1d162a026f14bc30eee03149e26a99a3d1fb72",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/home.svg",
+      "classification": "shipped-source",
+      "bytes": 275,
+      "sha256": "72eaca5313ed30a9284cf7504bf6375f7822e1ba6357b74f384c129ffdd6cd90",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/library_books.svg",
+      "classification": "shipped-source",
+      "bytes": 361,
+      "sha256": "ffc386c400712e660be9b5dbbfde1c9e7100dcd5ccffc8a7c66765e6ac6f9b4c",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/pause.svg",
+      "classification": "shipped-source",
+      "bytes": 229,
+      "sha256": "749c3fa4472b037bcc33e2bfe73ac81a4a0a62626a3fc52f41bf2535113148d5",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/play_arrow.svg",
+      "classification": "shipped-source",
+      "bytes": 246,
+      "sha256": "38c15a320df84be25aa10592ed0520ec4ccba3c50b1bd044813b24a4e886a326",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/queue_music.svg",
+      "classification": "shipped-source",
+      "bytes": 389,
+      "sha256": "2174eaea7c119ba1f649a967af37da2147de576949b5053f0d3f75b1f064d94b",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/replay.svg",
+      "classification": "shipped-source",
+      "bytes": 441,
+      "sha256": "bd008236843cf6a803b0e9df1efcb51aec27e33f24cc106bde83e5473a4e8d22",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/rotate_right.svg",
+      "classification": "shipped-source",
+      "bytes": 557,
+      "sha256": "bd3216e5bb835088bb377bd3776e992f55b367f48d53c679d10d6430e1ca58ac",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/search.svg",
+      "classification": "shipped-source",
+      "bytes": 432,
+      "sha256": "8d919c8fa4fc353e93612b855a50cd43a7c6a70f156ce291686a116b9319696f",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/settings.svg",
+      "classification": "shipped-source",
+      "bytes": 1501,
+      "sha256": "f5d116cb0bf1db3a0276b67125d6ba6342d5e3fa07746474bbc064edc651ad64",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "apps/cantos-theatre/web/assets/icons/smartphone.svg",
+      "classification": "shipped-source",
+      "bytes": 302,
+      "sha256": "094c4adc2d69adccef57415af3e4a7361ca17e6e626e0a5cacd8a76eef5d6b74",
+      "owner": "Theatre Web",
+      "consumer": "Trunk copy-dir assets; features/common.rs, library and membership preview"
+    },
+    {
+      "path": "docs/evidence/images/manuscript-import/desktop-dark-script-ir.png",
+      "classification": "documentation",
+      "bytes": 241457,
+      "sha256": "9b2bcaabacb60ec64988bcaac731997c8c0f6849e585969f4e90a16e6020f0e9",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/manuscript-import/desktop-field-errors.png",
+      "classification": "documentation",
+      "bytes": 263741,
+      "sha256": "9f07483b4207ce3e038573d47e99b4f3af76e1faf1c86afdbf8c4ddda5214d6e",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/manuscript-import/desktop-light-comparison.png",
+      "classification": "documentation",
+      "bytes": 363033,
+      "sha256": "d22b6b71e05f1fd9c697e399d05ed65e19439188e5ac9caaccdc741ee0f9e98a",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/manuscript-import/narrow-200-focus.png",
+      "classification": "documentation",
+      "bytes": 242263,
+      "sha256": "ab2f5fc1463e316f4bd7c7f82624cf8d01718e3020995604f8536a8e8362271f",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/manuscript-import/narrow-250-warnings.png",
+      "classification": "documentation",
+      "bytes": 203278,
+      "sha256": "686c67f42c17447683d2f083062ec36509f2b363bbb392edfb29dc7cc22c02b6",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/studio-private-artwork/conflict-1280-light.png",
+      "classification": "documentation",
+      "bytes": 143958,
+      "sha256": "b0e8312a94d3c14e9df5482856184302bd26fdc4005d04b4c20a2e42d9deee31",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/studio-private-artwork/current-1280-light.png",
+      "classification": "documentation",
+      "bytes": 122538,
+      "sha256": "55329d0c23ff1a8bc1b681500770bc91479ae134098a342a75bbd6b2d767f80d",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/studio-private-artwork/current-320-dark-text200.png",
+      "classification": "documentation",
+      "bytes": 328455,
+      "sha256": "322c98554b85b57e0c1f49ad12ec37e32eaf5a12761142820d6584f92481c82d",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/studio-private-artwork/current-320-dark.png",
+      "classification": "documentation",
+      "bytes": 127466,
+      "sha256": "7d0d832d1e7aa3ac44586e66d6f320279e0c6e657da4bfe291d68b468f9e5cbb",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/studio-private-artwork/replacement-1280-light.png",
+      "classification": "documentation",
+      "bytes": 128676,
+      "sha256": "6ee7f4dc240d4256a61f3987ffdab86e49783864c5797181d600725eb39b0e10",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/app-dark-player-320x568-text2.png",
+      "classification": "documentation",
+      "bytes": 37264,
+      "sha256": "aaadbca98a3878d1b3cdf4bfb0412662032e96bfad0a31d7f88a0a365a6245ff",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/app-light-discover-390x844.png",
+      "classification": "documentation",
+      "bytes": 44730,
+      "sha256": "d6720d873fb93c05bc5e0d4522f7d80a331f9844ffbf83867df1720d18621831",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/app-light-mini-390x844.png",
+      "classification": "documentation",
+      "bytes": 50568,
+      "sha256": "41eb588c811d7c6e3a6b02a8fd601a32cf72163f45ba4fc5faf22d685894a250",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/app-light-player-390x844.png",
+      "classification": "documentation",
+      "bytes": 38456,
+      "sha256": "040729138991adb5e6d90d0c8e24912ab86819782cd9a930548a2068e2121711",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/app-light-work-390x844.png",
+      "classification": "documentation",
+      "bytes": 44924,
+      "sha256": "08741d45cb017cb098a17b5c436637dd2634c61c78537d81d3a900b69871674a",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/demo-dark-player-390x844.png",
+      "classification": "documentation",
+      "bytes": 232960,
+      "sha256": "94f89f82d2c37348342ec1eb15afe93848a8da5e72be31d9e3aff8c89475b31c",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/images/theatre-unified-app/demo-light-discover-390x844.png",
+      "classification": "documentation",
+      "bytes": 177651,
+      "sha256": "8117a696fd9a64fcf48f0e946723ecb3366a2a2ee77f6b1cd5e784048f731abe",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/issue296-cmp-enrollment/api-down-light-en-390x844.png",
+      "classification": "documentation",
+      "bytes": 54030,
+      "sha256": "41cda84c43b3ce40d6548ba6151eb86bfc9e0b9dd1d0e745266b253f0c23a980",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/issue296-cmp-enrollment/register-Dark-English-390-text1.0.png",
+      "classification": "documentation",
+      "bytes": 53345,
+      "sha256": "7881b9d1788e334f94b206b6d643cb5dca8ef8def571dd5e214ce28d86315b28",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/issue296-cmp-enrollment/register-Light-Vietnamese-390-text1.0.png",
+      "classification": "documentation",
+      "bytes": 53034,
+      "sha256": "927df90daf3d9fa60536fc8de6843133ea6cc75ffd1bf11d5ecad4bc287792aa",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/issue296-cmp-enrollment/register-actions-Dark-English-320-text2.0.png",
+      "classification": "documentation",
+      "bytes": 60573,
+      "sha256": "22f79d9000d572d734f7a59d503cd7b11317db6f4923b00954bb413f72c5b424",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/issue296-cmp-enrollment/register-actions-Light-Vietnamese-320-text2.0.png",
+      "classification": "documentation",
+      "bytes": 59746,
+      "sha256": "19122e1c3e3adfc482091873c5a250af127c5777cd8de9db234e70d94b56dd80",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-dock-overlay-604/after-1280-dark-vi-open.jpg",
+      "classification": "documentation",
+      "bytes": 31494,
+      "sha256": "cd570ec7df6c952931cffe37d4e73d97132833169131f03eaa3b9f1041c01b87",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-dock-overlay-604/after-1280-dark-vi-typed-den.jpg",
+      "classification": "documentation",
+      "bytes": 30808,
+      "sha256": "c02f49104f42da81996e50b19e4005e9b3d66252edcf525adec1b27245a60100",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-dock-overlay-604/after-320-light-vi-open.jpg",
+      "classification": "documentation",
+      "bytes": 20555,
+      "sha256": "e5c2c4652650294e53c020c369f2d48d96d3b65326cb0cf31d1431294b244d84",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-dock-overlay-604/after-390-dark-vi-open.jpg",
+      "classification": "documentation",
+      "bytes": 38824,
+      "sha256": "2f4614a97250befdfa352438d2eebbbdd4b8d277ef85a39c95e1876b4de5eb3e",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-dock-overlay-604/before-1280-dark-vi-open.jpg",
+      "classification": "documentation",
+      "bytes": 30101,
+      "sha256": "1d18d231be02539e2cce8332bdae7aaff66e59b7a6d7bb2420ff409a7b5372be",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-v43-metadata-cover-574/issue453-search-dock-1100-light-en.png",
+      "classification": "documentation",
+      "bytes": 63335,
+      "sha256": "c535a8661e385d687565091dbcd20babb79efc02d69ffe5d1d65e965883f8c53",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-v43-metadata-cover-574/issue453-search-dock-390-dark-vi.png",
+      "classification": "documentation",
+      "bytes": 57024,
+      "sha256": "53c77aa343fb3851866c49fdde8fa6870bd49cc491fa76dc221059f63fda857c",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/search-v43-metadata-cover-574/issue453-search-dock-no-results-320-dark-en-text2.png",
+      "classification": "documentation",
+      "bytes": 54482,
+      "sha256": "6e813e324c5ce48f1b6df0ce2c6be2590240844e6531e5c0d8d015aebc2b975b",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/studio-six-issue-review/account.jpg",
+      "classification": "documentation",
+      "bytes": 25536,
+      "sha256": "327a235cc39d7618b26034c2be83eefe1d6dab2df26dc391e7769d31f932dff3",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/studio-six-issue-review/entry.jpg",
+      "classification": "documentation",
+      "bytes": 19511,
+      "sha256": "c34385e4032f41443a8589359d2a6ad7aff58d2d64b93e961e1983b98073d396",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/studio-six-issue-review/unavailable.jpg",
+      "classification": "documentation",
+      "bytes": 26259,
+      "sha256": "a796fb17f73543627b037adb0f8211591731eb7a3653def18eea2ac45f45f83b",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-live-catalog-step1/catalog-list-light-320x568-text2.0.png",
+      "classification": "documentation",
+      "bytes": 34397,
+      "sha256": "604e15c72f4e6f74b0c0e0eec9b5d6d5aa70add821244e65c312d235ea3b7dbc",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-live-catalog-step1/catalog-live-detail-vi-390x844.png",
+      "classification": "documentation",
+      "bytes": 59280,
+      "sha256": "4a09aab975afff3690fadccf7be5c50fb548bdab2eec7e2ff386c11a8a52a613",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-live-catalog-step1/catalog-live-empty-vi-390x844.png",
+      "classification": "documentation",
+      "bytes": 48432,
+      "sha256": "41e84df175d7b84747eb5d0b3e7e5f98d16340cf10cacdfdba9d99422d488422",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-live-catalog-step1/catalog-live-list-vi-390x844.png",
+      "classification": "documentation",
+      "bytes": 73235,
+      "sha256": "2907f5ae38174cd8cb4a61f3f9dd39e32c0eecbf46243e61a0070d37947e0f40",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-live-catalog-step1/catalog-live-refreshed-vi-390x844.png",
+      "classification": "documentation",
+      "bytes": 70704,
+      "sha256": "956aa81e3f68819e4f2da2b065d2c2ddb08634eb4d16d032475a44989a27ff40",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/before/native-dark-320x568-text2.0-full.png",
+      "classification": "documentation",
+      "bytes": 31223,
+      "sha256": "b85a7fab688bcc72e16faf2aed8c927ad22480630dcc3f987100d52a99f4adce",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/before/native-light-390x844-text1.0-full.png",
+      "classification": "documentation",
+      "bytes": 26487,
+      "sha256": "7aa1679f54113b5f00404a1d603ba5130c9a061edadb742beb3f093fb75b6ef8",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-dark-320x568-text2.0-full.png",
+      "classification": "documentation",
+      "bytes": 30178,
+      "sha256": "a7f22dd0f38ec9f412d39ebe093c62a99add756e98edec749761ee658e8f6dff",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-dark-320x568-text2.0-mini.png",
+      "classification": "documentation",
+      "bytes": 45916,
+      "sha256": "b867b1a209ace388292eb3ab0c76ca3fd752366ceebc9cfdf60f4135dbc26cf6",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-dark-390x844-text1.0-full.png",
+      "classification": "documentation",
+      "bytes": 27387,
+      "sha256": "ee044b5a21f528880bb0b83f98ba0c6243de9b9a747b66e515bc25659d534fea",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-dark-390x844-text1.0-mini.png",
+      "classification": "documentation",
+      "bytes": 55191,
+      "sha256": "b9bbc7426ea175bc178574c0ac8388c7fac40255ec159a1267fd5cbaceb06367",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-light-320x568-text2.0-full.png",
+      "classification": "documentation",
+      "bytes": 29919,
+      "sha256": "57aa2d694873a5c6782f7c734d294f7b28b2faf597184703f2c285f3f8a239c2",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-light-320x568-text2.0-mini.png",
+      "classification": "documentation",
+      "bytes": 45520,
+      "sha256": "b179287a64c5d5bb99fe6f9b7747ea1308135703e70ae0bbe7e47631613236b2",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-light-390x844-text1.0-full.png",
+      "classification": "documentation",
+      "bytes": 26856,
+      "sha256": "a0032deb338417274019ddaa9ade9aeb4a4a963402856f1d898ff09b19046eaa",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/theatre-native-step2/native-light-390x844-text1.0-mini.png",
+      "classification": "documentation",
+      "bytes": 55196,
+      "sha256": "0a1681b84e260c775435067da0576296e952504306024a7a8c875387252b7dbf",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/ui-review-select/after/cmp-theatre-select-invalid-focused-light.png",
+      "classification": "documentation",
+      "bytes": 8000,
+      "sha256": "616b2e04e1c31c6662f586b35593293237a475dcaf0a1b8c65f084e871242341",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/ui-review-select/after/cmp-theatre-select-invalid-idle-dark.png",
+      "classification": "documentation",
+      "bytes": 7639,
+      "sha256": "4ab5aadc88a1fc6ecfb3b632a157427694b61b7a2a79e33ea241abcefb396c5f",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/ui-review-select/after/cmp-theatre-select-invalid-idle-light.png",
+      "classification": "documentation",
+      "bytes": 7650,
+      "sha256": "28a7f42b954b3c5a571be4c1f756e9df39beb9904643fc32190d4808dc75e1b4",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "docs/evidence/ui-review-select/before/cmp-theatre-select-invalid-idle-light.png",
+      "classification": "documentation",
+      "bytes": 7138,
+      "sha256": "784a180ad882aa2c13167e8811e902841b38f04c97b1533fc7d7399f6f01cc26",
+      "owner": "documentation",
+      "consumer": "Referenced evidence/design; no application packaging observed in this source audit"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-logo-dark.svg",
+      "classification": "shipped-source",
+      "bytes": 6343,
+      "sha256": "6e10809563d4b65ed48c78aed3ea7b35aebc35ce915c6161cdd1c8a7d47a85a6",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-logo-mono.svg",
+      "classification": "shipped-source",
+      "bytes": 6452,
+      "sha256": "51726f8de2423be36574923562b654db50a7f5607e4e706f6bc3eb41707d495a",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-logo.svg",
+      "classification": "shipped-source",
+      "bytes": 6343,
+      "sha256": "c08edaad1e3571f67bccac4367301baae248b9c0168aecdfa6afad674c56de05",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-studio-logo-dark.svg",
+      "classification": "shipped-source",
+      "bytes": 9417,
+      "sha256": "92948478bf072bccecb32590cc13556b2c110dc7440c78b64d957925923ad00e",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-studio-logo-mono.svg",
+      "classification": "shipped-source",
+      "bytes": 9526,
+      "sha256": "ad996cf8deb3983dfbb1f9247c797f3157edd4b351e508cd0e35b7e20516e8a5",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-studio-logo.svg",
+      "classification": "shipped-source",
+      "bytes": 9417,
+      "sha256": "0442fcc0cfda72a1bdf5946133166507d13fac36fa454b61256ab18469c70284",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-symbol-dark.svg",
+      "classification": "shipped-source",
+      "bytes": 427,
+      "sha256": "2a8e60f2bfda6b26ff0b409ee149e14e7bb1acb29ef23c3ed3b22bfdb351ce53",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-symbol-mono.svg",
+      "classification": "shipped-source",
+      "bytes": 536,
+      "sha256": "e85ce3316e6b2ebee9a9025cea8429e2296cabb8bf8be9884b384cf9e166ace0",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/assets/cantos-logo-kit-v2/svg/cantos-symbol.svg",
+      "classification": "shipped-source",
+      "bytes": 427,
+      "sha256": "5845decd2d648d92be5a8d11dde69525c31e58058e0d8f5819804fb827941cbd",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/account_circle.svg",
+      "classification": "shipped-source",
+      "bytes": 656,
+      "sha256": "49f9a2176b3ff2687d84be379ae56ef7e866f1fcb1357bc7941f127072bdec65",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/add.svg",
+      "classification": "shipped-source",
+      "bytes": 175,
+      "sha256": "670df546c8e7b8f19fb262ec89156108f87fcbcb57b19a40f37244b980cb7b53",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/archive.svg",
+      "classification": "shipped-source",
+      "bytes": 386,
+      "sha256": "5c7ab9c878a2a1145b3e34aa4b6b83091a2072073c93b168cebe561dc7676ab0",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/arrow_back.svg",
+      "classification": "shipped-source",
+      "bytes": 200,
+      "sha256": "5eab5a4557e97143f2166479366672a76bbc31d805be62efa75c7d1a10e13cf2",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/arrow_downward.svg",
+      "classification": "shipped-source",
+      "bytes": 202,
+      "sha256": "61643262c55c5fe4022407585d2609a7e3e73420ff93267931148a5eb9782790",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/arrow_forward.svg",
+      "classification": "shipped-source",
+      "bytes": 201,
+      "sha256": "c29eb7e21c41d67577daf325415ddbe8c00efb08523ea307b0e4eb1ecd51f938",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/arrow_upward.svg",
+      "classification": "shipped-source",
+      "bytes": 199,
+      "sha256": "473799e3e3c53c8f7417f80fe797cf6c2a55886cc415f8a7972b8e55abd82ec1",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/check.svg",
+      "classification": "shipped-source",
+      "bytes": 197,
+      "sha256": "e7bd57a6f37125b7363cfc9fb11f8c1dc9aec12003c94e96329d1cca5c11d8f8",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/close.svg",
+      "classification": "shipped-source",
+      "bytes": 249,
+      "sha256": "817eeece6e725ef03c5be0b0ade63c53506d6f8678684dd41eb0c0deaae3ac7b",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/cloud_sync.svg",
+      "classification": "shipped-source",
+      "bytes": 792,
+      "sha256": "f62436b872deb9a2fd5f9c3de7a393b4be7844ab08c33a8af455c051701029c8",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/content_copy.svg",
+      "classification": "shipped-source",
+      "bytes": 267,
+      "sha256": "a978f7983cb6c8abffb09a1c71081ef2a038003114bccc7a06c1026198b17888",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/dark_mode.svg",
+      "classification": "shipped-source",
+      "bytes": 525,
+      "sha256": "39467d90533e60eedb473848dda3a25b5f17341d0cae19463d09cef9b4f4cd8e",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/delete_outline.svg",
+      "classification": "shipped-source",
+      "bytes": 232,
+      "sha256": "7b5a961d9057b001389f9e27d8c61f6d30e6b01606e0cffd8f20e3831d5e845b",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/edit.svg",
+      "classification": "shipped-source",
+      "bytes": 348,
+      "sha256": "df1143921a7b3e43027aaa3d3e6b027e2ca853e4d140ba73c943faaad7fb5ebe",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/expand_more.svg",
+      "classification": "shipped-source",
+      "bytes": 210,
+      "sha256": "5295578525e1a0b07f046e994fe32f108913debeac3053ed37124200bb44924f",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/fast_forward.svg",
+      "classification": "shipped-source",
+      "bytes": 388,
+      "sha256": "ac6e343e7b27ddcfb50c3124dd8e598bd9bb26c6efc3eb347e90baa87ef467dc",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/fast_rewind.svg",
+      "classification": "shipped-source",
+      "bytes": 237,
+      "sha256": "4e427410fdd034ff16c5673fcc41bd015629c234fd475385c428db6b53613457",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/home.svg",
+      "classification": "shipped-source",
+      "bytes": 217,
+      "sha256": "6f5d2c85c8d60a818c3d6011e7cf1b981bc7c7ba5a7ced3664c6c0b6d42c9d69",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/keyboard_arrow_right.svg",
+      "classification": "shipped-source",
+      "bytes": 194,
+      "sha256": "71c66829a0072e89b93e0e387f3cc0a5d17e622dc0265515000751c97bbb097b",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/light_mode.svg",
+      "classification": "shipped-source",
+      "bytes": 1172,
+      "sha256": "14663a04fa08793052c5a43cbf5ed0d0f9ca5ca54a780327337aa400d444fea8",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/login.svg",
+      "classification": "shipped-source",
+      "bytes": 305,
+      "sha256": "90d76e08dabf131d2f9a961625c4b21c8385182e8f9400165ee4fbc6471a751b",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/logout.svg",
+      "classification": "shipped-source",
+      "bytes": 305,
+      "sha256": "dead2fc0cc1a17e01d784e2527d14bad5fa2972dd1d1a3ef62650db975bc53a0",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/mail.svg",
+      "classification": "shipped-source",
+      "bytes": 258,
+      "sha256": "ceac2d253c42740aab4197fd8214cf770b91c25009ca0d43ee1649bc49a4b822",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/menu_book.svg",
+      "classification": "shipped-source",
+      "bytes": 1110,
+      "sha256": "05b74ea83dccc734c8c1e4c37b3f49e263766ccb1eef9c8609db3410d1587268",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/mic.svg",
+      "classification": "shipped-source",
+      "bytes": 480,
+      "sha256": "4dcc2cc04ae82250b4fc6a9d2c2a7a9d3164753b68467f8cc7e2baaacbdf0c7d",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/pause.svg",
+      "classification": "shipped-source",
+      "bytes": 171,
+      "sha256": "777f7140fb9403ece787bdbf37e1ef5d91908bb5c9ed5428949d607e51aec3ae",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/person.svg",
+      "classification": "shipped-source",
+      "bytes": 341,
+      "sha256": "505afee5ac41b4d8ce4d032645ec56fa0ee64c57781ad33e67a74a21cbdf5e15",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/person_add.svg",
+      "classification": "shipped-source",
+      "bytes": 373,
+      "sha256": "378b7e04a1027496a830db8bf2b7517b4e848b5c52247e98a012ba269b7161ad",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/play_arrow.svg",
+      "classification": "shipped-source",
+      "bytes": 188,
+      "sha256": "d9a74a4c94f74d39adb1b519afe7e3569c59c72eacd56817644f691a9c68449a",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/queue_music.svg",
+      "classification": "shipped-source",
+      "bytes": 331,
+      "sha256": "79710f5ada5639c0ca0be7db7bc77f60047fffed26e7b9567a3de44d9fc630ef",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/refresh.svg",
+      "classification": "shipped-source",
+      "bytes": 342,
+      "sha256": "b9b1959396d3635730ce003f1f24bcc8f6d3f64a01b28ac7c156a05460503b52",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/save.svg",
+      "classification": "shipped-source",
+      "bytes": 304,
+      "sha256": "437ddda2fac357ff81c8afe691d5417e072de27a21ff32ed9b749dfe285ab2cd",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/search.svg",
+      "classification": "shipped-source",
+      "bytes": 374,
+      "sha256": "4679a3ccd253f707eeacf7edbb2fb3e395174b690a9ca55ab5fe8a3826002625",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/settings.svg",
+      "classification": "shipped-source",
+      "bytes": 1443,
+      "sha256": "814b7a6eea050c073d4a8d7b1f72512b0bd4f71b33beb584c8063fb0bfa78d41",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/speed.svg",
+      "classification": "shipped-source",
+      "bytes": 377,
+      "sha256": "1343be5880e19f7a37e780f22d3f141783ef05c868c3f6066180455895d8d8a7",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/star.svg",
+      "classification": "shipped-source",
+      "bytes": 324,
+      "sha256": "c1f02dd5206431eca9ada706f7e857f7d10b0d20f90abf84bb3ad6dc2da1e91d",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/timer.svg",
+      "classification": "shipped-source",
+      "bytes": 463,
+      "sha256": "c6d72ae007dcf1b7bf061f3b18d08273cad881e5113d073297a0c034df475338",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/transform.svg",
+      "classification": "shipped-source",
+      "bytes": 247,
+      "sha256": "27bffd2ab8e88b23d1ae04c0a12a24181fbfa963b70d60390e5f8eb68920738e",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/upload.svg",
+      "classification": "shipped-source",
+      "bytes": 219,
+      "sha256": "b532d523c00d1ce32c83da03360660cdec541eb315f0fdd402d03409d238fbe6",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/visibility.svg",
+      "classification": "shipped-source",
+      "bytes": 347,
+      "sha256": "c95003a018f3776b3107d3a70057e18e7e1f1810bbcbadd32eebb04238c75bbf",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/visibility_off.svg",
+      "classification": "shipped-source",
+      "bytes": 682,
+      "sha256": "e28996cb2ef8ad3377e4500d4714bb99462593d611a6f7b0c43d662dda9863b6",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "packages/ui-system/shared/icons/material-outlined/warning_amber.svg",
+      "classification": "shipped-source",
+      "bytes": 181,
+      "sha256": "fc42aa44a2a9ec7fb65ab036b511ce9c9fa1a048f29c0af81a56e65433f5e1a6",
+      "owner": "Shared UI assets",
+      "consumer": "Official logo/icon registries, ui_logos/ui_icons generators and renderer-owned resources"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/media/image_intake/fixtures/pillow-rgb-2x3.jpg",
+      "classification": "positive-test-fixture",
+      "bytes": 667,
+      "sha256": "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
+      "owner": "Server Media",
+      "consumer": "image_intake/tests.rs, storage and native HTTP/seed tests; current positive decoder oracle, migration debt"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png",
+      "classification": "positive-test-fixture",
+      "bytes": 74,
+      "sha256": "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
+      "owner": "Server Media",
+      "consumer": "image_intake/tests.rs, storage and native HTTP/seed tests; current positive decoder oracle, migration debt"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgba16-2x3.png",
+      "classification": "positive-test-fixture",
+      "bytes": 77,
+      "sha256": "1e2725064b73e8bdc0c7056ae8bf2d7f17dbcae5a7dac2d5f13fc398076c357d",
+      "owner": "Server Media",
+      "consumer": "image_intake/tests.rs, storage and native HTTP/seed tests; current positive decoder oracle, migration debt"
+    }
+  ]
+}

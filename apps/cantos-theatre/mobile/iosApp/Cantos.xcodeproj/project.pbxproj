@@ -6,6 +6,10 @@
     objects = {
 
 /* Begin PBXBuildFile section */
+        A10000000000000000000026 /* AppIcon.icon in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000027 /* AppIcon.icon */;
+        };
         A10000000000000000000023 /* VerificationActivity.swift in Sources */ = {
             isa = PBXBuildFile;
             fileRef = A10000000000000000000024 /* VerificationActivity.swift */;
@@ -41,6 +45,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        A10000000000000000000027 /* AppIcon.icon */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = folder.icon;
+            path = AppIcon.icon;
+            sourceTree = "<group>";
+        };
         A10000000000000000000024 /* VerificationActivity.swift */ = {
             isa = PBXFileReference;
             lastKnownFileType = sourcecode.swift;
@@ -124,7 +134,7 @@
         };
         A10000000000000000000006 /* Cantos */ = {
             isa = PBXGroup;
-            children = (A10000000000000000000022 /* TheatreIdentity.swift */, A10000000000000000000002 /* CantosApp.swift */, A10000000000000000000024 /* VerificationActivity.swift */, A10000000000000000000025 /* Release.entitlements */, A10000000000000000000014 /* CatalogTransport.swift */, A1000000000000000000001C /* AvPlayerDriver.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
+            children = (A10000000000000000000022 /* TheatreIdentity.swift */, A10000000000000000000002 /* CantosApp.swift */, A10000000000000000000024 /* VerificationActivity.swift */, A10000000000000000000025 /* Release.entitlements */, A10000000000000000000014 /* CatalogTransport.swift */, A1000000000000000000001C /* AvPlayerDriver.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A10000000000000000000027 /* AppIcon.icon */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
             path = Cantos;
             sourceTree = "<group>";
         };
@@ -180,7 +190,7 @@
         A1000000000000000000000B /* Resources */ = {
             isa = PBXResourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */, A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */);
+            files = (A10000000000000000000026 /* AppIcon.icon in Resources */, A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */, A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */);
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXResourcesBuildPhase section */

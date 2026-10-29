@@ -177,3 +177,8 @@ The `.yml` file uses the JSON subset of YAML so deterministic DAG tests need onl
 Official references: [configuration](https://circleci.com/docs/reference/configuration-reference/),
 [workspaces](https://circleci.com/docs/guides/orchestrate/workspaces/),
 [contexts](https://circleci.com/docs/guides/security/contexts/).
+
+New Web archive production follows the [runtime image policy](../design/runtime-images.md):
+AVIF/SVG assets, with actual signature checks before packaging. The version-2 archive reader
+accepts AVIF additively and retains historical legacy suffix compatibility for retained records;
+that does not permit producing a new bundle with legacy raster. No publish/deploy is implied.

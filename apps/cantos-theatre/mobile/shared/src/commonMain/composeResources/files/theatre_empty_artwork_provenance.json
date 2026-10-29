@@ -3,11 +3,14 @@
   "drive_source": "https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view",
   "assets": [
     {
-      "resource": "drawable/library_expressive.png",
+      "resource": "files/artwork/library_expressive.avif",
       "source": "source/assets/library-expressive.png",
-      "sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
-      "bytes": 897322,
-      "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector"
+      "sha256": "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
+      "bytes": 464587,
+      "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector",
+      "source_sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
+      "source_bytes": 897322,
+      "conversion": "Pillow 12.3.0 / libavif 1.4.2; quality=100, 4:4:4, speed=4; dimensions preserved"
     },
     {
       "resource": "drawable/cantos_empty_works_light.xml",
@@ -38,5 +41,5 @@
       "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
     }
   ],
-  "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. PNG is transparent raster; XML native rendering must be observed separately."
+  "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. AVIF raster + native XML; decoding and rendering require platform evidence."
 }

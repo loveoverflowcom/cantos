@@ -566,7 +566,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 
 | Gate | Commands | Needs |
 | --- | --- | --- |
-| `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
+| `repository` | typed `services validate`; `scripts/check_repository.py` (including [runtime image source guard](../docs/design/runtime-images.md#guard-boundary)); `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
 | `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle (both Studio pilot bindings) + its clippy + `tools/proto-codegen --check` over every consumer-owned Protobuf binding (Studio pilot/artwork, Identity RPC server/client and test peers) | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |

@@ -274,7 +274,7 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
     hash, so hashing the whole catalogue would make qualification recursively impossible.
     """
     directory = Path(root) / "packages/ui-system" / renderer
-    suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".toml", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
+    suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".avif", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".toml", ".lockfile", ".json", ".xml", ".svg", ".avif", ".png", ".ttf", ".otf"}
     excluded = {RUST_OUTPUT.relative_to(ROOT), KOTLIN_OUTPUT.relative_to(ROOT)}
     if renderer == "cmp":
         # The SDK location is machine-local configuration, not a rendering input.

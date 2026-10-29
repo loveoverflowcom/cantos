@@ -28,6 +28,7 @@ This skill adds the publication-specific method and never redefines them.
 | Storage separation, asset readiness, pointer atomicity, cache purge status | [architecture § Data and delivery](../../../docs/architecture/overview.md#data-and-delivery) |
 | Phase scope, acceptance and review boundary | [work plan 030](../../../docs/work-plan/030-mix-review-and-publish.md) |
 | Human release records | [publication checklist](../../../templates/publication-checklist.md), [production run](../../../templates/production-run.md) |
+| Image admission, format transition, immutable rebind and launcher boundary | [runtime image policy](../../../docs/design/runtime-images.md) |
 | **How** to model, decide, commit, deliver and verify those rules | this skill |
 | Artifacts, fingerprints, QC records, durable jobs, leases, outbox mechanics | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
 | Script revisions and canonical digests | [`cantos-script-ir`](../cantos-script-ir/SKILL.md) |
