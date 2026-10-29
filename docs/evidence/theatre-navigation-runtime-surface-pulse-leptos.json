@@ -1,0 +1,31 @@
+{
+  "component_id": "surface-pulse",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-29; bounded navigation-lifetime regression recheck",
+  "reference": "Preserve the prior bounded scope in docs/evidence/listen-hero-595-regression-surface-pulse-leptos.json. Current actual Leptos gallery and product fixture captures were opened; only EdgeProgress ownership changes, with all styles/tokens and other component implementations unchanged. See the linked report for exact scope and exclusions.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "03d1673bdb2917d0af23be0cb5e35719f3d186b39d303fcc38cf52e2640a32f4",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask preflight --changed-only --base 59cbea353b02b00034374a785492f6db3ca50b9e; independent native and WASM stages documented in artifact",
+      "artifact": "docs/evidence/theatre-navigation-runtime.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; recipe reload, CUA input and read-only DOM observations described in artifact",
+      "artifact": "docs/evidence/theatre-navigation-runtime.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "CUA native Enter/Space, focus/label/status and decorative semantics recheck; no screen-reader claim",
+      "artifact": "docs/evidence/theatre-navigation-runtime.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened actual Light/Dark gallery captures; unchanged styles/tokens and bounded specimen review described in artifact",
+      "artifact": "docs/evidence/theatre-navigation-runtime.md"
+    }
+  }
+}

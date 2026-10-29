@@ -193,6 +193,48 @@ fn edge_progress_needs_all_three_host_facts_and_never_suppresses_its_own_status(
 }
 
 #[test]
+fn edge_progress_retains_its_projection_until_the_view_is_dropped() {
+    Owner::new().with(|| {
+        let active: Signal<bool> = true.into();
+        let visible: Signal<bool> = true.into();
+        let foreground: Signal<bool> = true.into();
+        let label: Signal<AccessibleName> = AccessibleName::new("Updating stories").unwrap().into();
+        let class: Signal<String> = "retained-edge".to_owned().into();
+        let page = Owner::new();
+        let view = page.with(|| view! {
+            <EdgeProgress active visible foreground label class announcement=Announcement::Polite/>
+        });
+        // A route can clean its owner while a queued render still holds the old view.
+        page.cleanup();
+        let html = view.to_html();
+        assert!(html.contains("data-active=\"true\""), "{html}");
+        assert!(html.contains("Updating stories"), "{html}");
+        assert!(html.contains("retained-edge"), "{html}");
+    });
+}
+
+#[test]
+fn edge_progress_retains_host_facts_and_observes_completion_during_teardown() {
+    Owner::new().with(|| {
+        let active = ArcRwSignal::new(true);
+        let page = Owner::new();
+        let view = page.with(|| {
+            view! {
+                <EdgeProgress active=active.clone() visible=true foreground=true
+                    label=AccessibleName::new("Updating stories").unwrap()
+                    class="retained-edge" announcement=Announcement::Polite/>
+            }
+        });
+        page.cleanup();
+        active.set(false);
+        let html = view.to_html();
+        assert!(html.contains("data-active=\"false\""), "{html}");
+        assert!(!html.contains("Updating stories"), "{html}");
+        assert!(html.contains("retained-edge"), "{html}");
+    });
+}
+
+#[test]
 fn edge_progress_is_a_reserved_straight_token_height_with_a_clipped_quarter_segment() {
     let css = include_str!("../foundation.css");
     let start = css.find(".cui-edge-progress {").unwrap();

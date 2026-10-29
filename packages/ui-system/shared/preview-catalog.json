@@ -822,7 +822,7 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/listen-hero-595-button-leptos.json",
+        "leptos": "docs/evidence/theatre-navigation-runtime-button-leptos.json",
         "cmp": "docs/evidence/listen-hero-595-button-cmp.json"
       }
     },
@@ -885,7 +885,7 @@
     {
       "component_id": "loading-state",
       "evidence": {
-        "leptos": "docs/evidence/listen-hero-595-regression-loading-state-leptos.json",
+        "leptos": "docs/evidence/theatre-navigation-runtime-loading-state-leptos.json",
         "cmp": "docs/evidence/listen-hero-595-regression-loading-state-cmp.json"
       }
     },
@@ -934,21 +934,21 @@
     {
       "component_id": "edge-progress",
       "evidence": {
-        "leptos": "docs/evidence/listen-hero-595-regression-edge-progress-leptos.json",
+        "leptos": "docs/evidence/theatre-navigation-runtime-edge-progress-leptos.json",
         "cmp": "docs/evidence/listen-hero-595-regression-edge-progress-cmp.json"
       }
     },
     {
       "component_id": "surface-pulse",
       "evidence": {
-        "leptos": "docs/evidence/listen-hero-595-regression-surface-pulse-leptos.json",
+        "leptos": "docs/evidence/theatre-navigation-runtime-surface-pulse-leptos.json",
         "cmp": "docs/evidence/listen-hero-595-regression-surface-pulse-cmp.json"
       }
     },
     {
       "component_id": "filter-chip",
       "evidence": {
-        "leptos": "docs/evidence/listen-hero-595-regression-filter-chip-leptos.json",
+        "leptos": "docs/evidence/theatre-navigation-runtime-filter-chip-leptos.json",
         "cmp": "docs/evidence/listen-hero-595-regression-filter-chip-cmp.json"
       }
     }
