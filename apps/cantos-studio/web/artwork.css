@@ -5,7 +5,11 @@
 .artwork-current, .artwork-replacement { margin: 0; min-inline-size: 0; padding: var(--cantos-space-md); border: 1px solid var(--cantos-color-outline-variant); border-radius: var(--cantos-web-shape-reading); }
 .artwork-current figcaption, .artwork-replacement h4 { margin-block: 0 var(--cantos-space-md); font-weight: var(--cantos-type-label-weight); }
 .artwork-image { display: block; max-inline-size: 100%; inline-size: 100%; block-size: 15rem; object-fit: contain; background: var(--cantos-color-surface-container); margin-block: var(--cantos-space-md); }
-.artwork-placeholder { min-block-size: 10rem; display: grid; place-items: center; background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); }
+.artwork-placeholder { min-block-size: 10rem; display: grid; place-items: center; background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); position: relative; margin: 0; padding: var(--cantos-space-md); text-align: center; }
+/* Unreadable states stay visually distinct from a confirmed empty cover. */
+.artwork-placeholder:is([data-state="unavailable"], [data-state="preview-unavailable"]) { border: 1px dashed var(--cantos-color-outline); }
+.artwork-placeholder .cui-surface-pulse { position: absolute; inset: 0; }
+.artwork-placeholder > p { position: relative; margin: 0; }
 .artwork-fields { display: grid; gap: var(--cantos-space-md); }
 .studio-artwork p, .studio-artwork small { overflow-wrap: anywhere; }
 .studio-artwork input[type=file] { max-inline-size: 100%; min-block-size: var(--cantos-size-control); font: inherit; }

@@ -1,10 +1,10 @@
 //! Side-effect-free, controlled Studio composition; primitives come from the admitted UI system.
 use super::{
     copy::{self, Key},
-    Draft, Intent, Projection, Stage,
+    CoverView, Draft, Intent, Projection, Stage,
 };
 use crate::ui::{ActionButton, BlockReason, DiscardDraftDialog, DiscardTarget};
-use cantos_ui::{Badge, ButtonVariant, FieldState, TextField};
+use cantos_ui::{Badge, ButtonVariant, FieldState, SurfacePulse, TextField};
 use leptos::{ev::Event, prelude::*};
 
 #[component]
@@ -51,19 +51,27 @@ pub fn ArtworkForm(
     });
     view! { <section id="studio-artwork" class="live-section studio-artwork" aria-labelledby="artwork-title">
         <header class="artwork-heading"><div><h3 id="artwork-title">{move ||label(Key::Title)}</h3><p>{move ||label(Key::Private)}</p></div></header>
-        <div id="artwork-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true"><Badge>{move ||copy::stage(model.with(|m|m.stage),locale.get())}</Badge></div>
+        <div id="artwork-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true"><Badge>{move ||copy::stage(model.with(|m|m.status_stage(owner.get())),locale.get())}</Badge></div>
         <Show when=move ||!owner.get()><p>{move ||label(Key::Owner)}</p></Show>
         <div class="artwork-columns">
             <figure class="artwork-current"><figcaption>{move ||label(Key::Current)}</figcaption>
-                {move ||model.with(|m| match &m.current {
-                    Some(current) => match &current.artwork {
-                        Some(art) => view! { <div>{match &m.current_url {
-                            Some(url) => view!{<img class="artwork-image" src=url.clone() alt=art.alt_text.clone()/>}.into_any(),
-                            None => view!{<p>{label(Key::UnavailablePreview)}</p>}.into_any(),
-                        }}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}<small>{format!("r{} · {}",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),
-                        None => view!{<p class="artwork-placeholder">{label(Key::Empty)}</p><small>{format!("r{}",current.work_revision)}</small>}.into_any(),
-                    },
-                    None => view!{<p class="artwork-placeholder">{copy::stage(m.stage,locale.get())}</p>}.into_any(),
+                {move ||model.with(|m| {
+                    let view = m.cover_view(owner.get());
+                    let revision = m.current.as_ref().map(|r| format!("r{}", r.work_revision));
+                    match view {
+                        CoverView::Shown => {
+                            let (art, url) = (m.current.as_ref().and_then(|r| r.artwork.as_ref()), m.current_url.clone());
+                            art.zip(url).map(|(art, url)| view! { <div data-state=view.name()>
+                                <img class="artwork-image" src=url alt=art.alt_text.clone()/><p>{art.alt_text.clone()}</p>
+                                {m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}
+                                <small>{format!("{} · {}",revision.clone().unwrap_or_default(),art.image_asset_id)}</small></div> }.into_any())
+                        }
+                        CoverView::PreviewLoading => Some(view!{<div class="artwork-placeholder" data-state=view.name()><SurfacePulse/><p>{label(Key::PreviewLoading)}</p></div><small>{revision}</small>}.into_any()),
+                        CoverView::PreviewUnavailable => Some(view!{<p class="artwork-placeholder" data-state=view.name()>{label(Key::UnavailablePreview)}</p><small>{revision}</small>}.into_any()),
+                        CoverView::Empty => Some(view!{<p class="artwork-placeholder" data-state=view.name()>{label(Key::Empty)}</p><small>{revision}</small>}.into_any()),
+                        CoverView::Loading => Some(view!{<div class="artwork-placeholder" data-state=view.name()><SurfacePulse/><p>{copy::stage(Stage::Loading,locale.get())}</p></div>}.into_any()),
+                        CoverView::Unavailable => Some(view!{<p class="artwork-placeholder" data-state=view.name()>{if owner.get() {label(Key::Unverified)} else {copy::stage(Stage::Forbidden,locale.get()).to_owned()}}</p>}.into_any()),
+                    }
                 })}
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>

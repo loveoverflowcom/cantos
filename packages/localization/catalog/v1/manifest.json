@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "a482bb8a2b99c12647434a581c21f6de2e14bedae5aa98f8c19d7bcfa1a2d565",
+  "catalogSha256": "cb04352fa3e953709987272137ee95246532431bd6f4e1018b1e63c268c6ac9e",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -183,6 +183,7 @@
     "studio.artwork.preview_dark": {},
     "studio.artwork.preview_help": {},
     "studio.artwork.preview_light": {},
+    "studio.artwork.preview_loading": {},
     "studio.artwork.preview_locale": {},
     "studio.artwork.preview_scenario": {},
     "studio.artwork.preview_theme": {},
@@ -225,6 +226,7 @@
       "transferred": "count"
     },
     "studio.artwork.unavailable_preview": {},
+    "studio.artwork.unverified": {},
     "studio.artwork.upload": {},
     "studio.authoring.authoring_copy_act": {},
     "studio.authoring.authoring_copy_act_title": {},

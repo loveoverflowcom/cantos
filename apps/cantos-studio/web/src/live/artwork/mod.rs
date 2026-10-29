@@ -216,11 +216,45 @@ pub enum Stage {
     Loading,
     Forbidden,
 }
+/// What the "current cover" figure may claim. Only a confirmed read can say `Empty`;
+/// a read that is pending, refused or failed never reads as "no cover".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverView {
+    /// The private preview bytes are displayed.
+    Shown,
+    /// A cover is selected and its private preview is still being fetched.
+    PreviewLoading,
+    /// A cover is selected but its preview could not be shown (failed fetch or no owner).
+    PreviewUnavailable,
+    /// The Server confirmed that the Work has no cover selected.
+    Empty,
+    /// The current selection has not been read yet.
+    Loading,
+    /// The current selection could not be read (denied, hidden, failed or not owner).
+    Unavailable,
+}
+impl CoverView {
+    /// Stable `data-state` hook for styling and browser tests.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Shown => "shown",
+            Self::PreviewLoading => "preview-loading",
+            Self::PreviewUnavailable => "preview-unavailable",
+            Self::Empty => "empty",
+            Self::Loading => "loading",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Projection {
     pub stage: Stage,
     pub current: Option<WorkArtworkResponse>,
     pub current_url: Option<String>,
+    /// The private preview fetch for the current selection ended without bytes.
+    pub preview_failed: bool,
+    /// The last read of the current selection was refused or failed; it stays set until a read succeeds.
+    pub read_failed: bool,
     pub current_media: Option<ImageVariantMetadata>,
     pub local: Option<LocalImage>,
     pub intent: Option<ImageIntentDocument>,
@@ -291,8 +325,38 @@ impl Projection {
         previous
     }
 
+    /// Classify the current-cover figure from confirmed facts only.
+    pub fn cover_view(&self, owner: bool) -> CoverView {
+        match &self.current {
+            Some(current) if current.artwork.is_some() => {
+                if self.current_url.is_some() {
+                    CoverView::Shown
+                } else if self.preview_failed || !owner {
+                    CoverView::PreviewUnavailable
+                } else {
+                    CoverView::PreviewLoading
+                }
+            }
+            Some(_) => CoverView::Empty,
+            None if !owner || self.read_failed => CoverView::Unavailable,
+            // Before the first read the default stage is not a confirmed empty cover.
+            None => CoverView::Loading,
+        }
+    }
+
+    /// The status badge never repeats the default `Empty` stage as a fact before the cover is read.
+    pub fn status_stage(&self, owner: bool) -> Stage {
+        match (self.stage, self.cover_view(owner)) {
+            (Stage::Empty, CoverView::Loading) => Stage::Loading,
+            (Stage::Empty, CoverView::Unavailable) if !owner => Stage::Forbidden,
+            (Stage::Empty, CoverView::Unavailable) => Stage::Failed,
+            (stage, _) => stage,
+        }
+    }
+
     /// Transfer retirement to the preview shell before forgetting its private Blob handle.
     pub fn take_current_preview(&mut self) -> Option<String> {
+        self.preview_failed = false;
         self.current_media = None;
         self.current_url.take()
     }
@@ -306,6 +370,7 @@ impl Projection {
         match reply {
             Reply::Artwork(r) => {
                 next.current = Some(r.clone());
+                next.read_failed = false;
                 if next.compared_revision.is_some() {
                     next.reported_revision = Some(r.work_revision);
                 }
