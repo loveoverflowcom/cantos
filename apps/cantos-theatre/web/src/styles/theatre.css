@@ -809,15 +809,33 @@ body { margin: 0; }
   .theatre-action-row { gap: var(--cantos-space-sm); padding-inline: var(--cantos-space-sm); }
 }
 
-/* Search results are actual current Discovery rows; their list remains separate from form state. */
-.theatre-search-dock-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-sm); }
-.theatre-search-dock-heading > .cui-button-field { flex: none; }
+/* Search results are actual current Discovery rows, shown in the shared floating layer below the
+   field; their list remains separate from form state. Every row is one wide target with the title
+   first and its real kind beneath; nothing here reserves empty space for a missing line. */
+.theatre-search-dock-results { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.theatre-search-dock-results > p { margin: 0; overflow-wrap: anywhere; }
+.theatre-search-dock-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+.theatre-search-dock-context { flex: 1 1 0; min-inline-size: 0; overflow-wrap: anywhere; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.theatre-search-dock-context:empty { display: none; }
+.theatre-search-dock-heading > .cui-button-field { flex: none; margin-inline-start: auto; }
 .theatre-search-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
-.theatre-search-result-list button { width: 100%; text-align: start; overflow-wrap: anywhere; border: 0; border-radius: var(--cantos-web-shape-reading); padding: var(--cantos-space-md); color: inherit; background: transparent; cursor: pointer; font: inherit; }
-.theatre-search-result-list button:hover { background: var(--cantos-color-surface-container-high); }
+.theatre-search-result-list button { box-sizing: border-box; display: grid; gap: 0; justify-items: start; inline-size: 100%; min-block-size: var(--cantos-size-control); text-align: start; overflow-wrap: anywhere; border: 0; border-radius: var(--cantos-web-shape-reading); padding: var(--cantos-space-sm) var(--cantos-space-md); color: inherit; background: transparent; cursor: pointer; font: inherit; }
+.theatre-search-result-kind { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.theatre-search-result-list button:hover { background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), transparent); }
 .theatre-search-result-list button:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 
 .theatre-search-clear-slot { display: inline-flex; inline-size: var(--cantos-size-search-action); flex: 0 0 var(--cantos-size-search-action); }
+/* Large text on a narrow screen: the header's chrome is in rem, so it grows with the text and
+   leaves the prompt one letter wide. Below 16rem of viewport (a phone at about 150% text or more;
+   never at the default size, where the narrowest phone is 20rem) trim the insets and let the clear
+   slot yield until it holds the action. */
+@media (max-width: 16rem) {
+  .theatre-public-search-main .cui-field[data-kind="search"] {
+    --cantos-web-field-inset: 0.75rem;
+    --cantos-web-field-trailing-inset: 0.25rem;
+  }
+  .theatre-search-clear-slot:not(:has(*)) { display: none; }
+}
 
 /* Request indicators reserve space and never cover retained controls. */
 .theatre-request-edge { min-block-size: var(--cantos-size-loading-edge); }

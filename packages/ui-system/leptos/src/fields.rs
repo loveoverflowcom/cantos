@@ -375,8 +375,10 @@ fn retype_preserving_selection(
     });
 }
 
-/// Optional body of the existing floating search shell. The caller owns expansion, content,
-/// requests and dismissal. Closed content remains mounted but is inert and hidden to AT.
+/// Optional results layer of the floating search field: a popover anchored below the field,
+/// outside the document flow, so opening it never moves the content around the field. The caller
+/// owns expansion, content, requests and dismissal. Closed content remains mounted but is inert
+/// and hidden to AT.
 #[derive(Clone)]
 pub struct SearchDock {
     pub id: String,
@@ -450,9 +452,9 @@ fn InputField(
             }
         />
     };
-    // The shell is the only painted surface. The label follows the control in the DOM so CSS can
-    // read the browser's own value/focus state with sibling selectors; grid placement keeps the
-    // label visually first. Messages stay outside it, below the control.
+    // The shell is the only painted field surface. The label follows the control in the DOM so CSS
+    // can read the browser's own value/focus state with sibling selectors; grid placement keeps
+    // the label visually first. Messages stay outside it, below the control.
     let anatomy = if floating {
         let has_trailing = trailing.is_some();
         view! {
@@ -467,25 +469,28 @@ fn InputField(
                     // activation of the action itself are unchanged.
                     <div class="cui-field-trailing" on:mousedown=move |event| event.prevent_default()>{slot.run()}</div>
                 })}
-                {dock.map(|dock| {
-                    let open = dock.expanded;
-                    view! {
-                        <div id=dock.id class="cui-search-dock" inert=move || !open.get()
-                            aria-hidden=move || (!open.get()).to_string()>
-                            <div class="cui-search-dock-clip"><div class="cui-search-dock-scroll">{dock.content.run()}</div></div>
-                        </div>
-                    }
-                })}
             </div>
         }
         .into_any()
     } else {
         view! { <>{label_view}{control}</> }.into_any()
     };
+    // The dock is a sibling of the shell, after the messages: a floating layer anchored to the
+    // field's own bottom edge. It never takes part in the header's grid or the page's flow.
+    let dock = dock.filter(|_| floating).map(|dock| {
+        let open = dock.expanded;
+        view! {
+            <div id=dock.id class="cui-search-dock" data-expanded=move || open.get().to_string()
+                inert=move || !open.get() aria-hidden=move || (!open.get()).to_string()>
+                <div class="cui-search-dock-scroll">{dock.content.run()}</div>
+            </div>
+        }
+    });
     view! {
         <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-field-density=density.attribute() data-recipe=(variant == TextFieldVariant::FloatingTonal).then_some("auth-tonal") data-kind=move || input_type.get() data-state=move || state.get().as_str()>
             {anatomy}
             <FieldMessages id=id help=help error=error reason=reason error_icon=variant == TextFieldVariant::FloatingTonal/>
+            {dock}
         </div>
     }
 }

@@ -14,7 +14,7 @@ fn name(text: &str) -> AccessibleName {
 }
 
 #[test]
-fn search_body_shares_the_shell_and_marks_closed_content_inert() {
+fn the_search_layer_follows_the_field_outside_its_shell_and_marks_closed_content_inert() {
     Owner::new().with(|| {
         let open = RwSignal::new(false);
         let render = || view! {
@@ -34,6 +34,41 @@ fn search_body_shares_the_shell_and_marks_closed_content_inert() {
         assert!(!opened.contains(" inert"), "{opened}");
         assert_eq!(opened.matches("cui-field-shell").count(), 1);
         assert_eq!(opened.matches("<input").count(), 1);
+        // The layer is a floating sibling of the header shell, never a row inside it: the shell's
+        // own markup ends before the layer begins, and the layer carries its own open state.
+        let shell_start = opened.find("class=\"cui-field-shell\"").unwrap();
+        let shell_start = opened[..shell_start].rfind("<div").unwrap();
+        let (mut depth, mut shell_end) = (0_i32, None);
+        let mut at = shell_start;
+        while at < opened.len() {
+            let open_at = opened[at..].find("<div").map(|i| at + i);
+            let close_at = opened[at..].find("</div>").map(|i| at + i);
+            match (open_at, close_at) {
+                (Some(o), Some(c)) if o < c => {
+                    depth += 1;
+                    at = o + 4;
+                }
+                (_, Some(c)) => {
+                    depth -= 1;
+                    at = c + 6;
+                    if depth == 0 {
+                        shell_end = Some(at);
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        }
+        let shell_end = shell_end.expect("balanced shell");
+        let tag = |html: &str| {
+            let at = html.find("id=\"dock-results\"").expect("dock");
+            let start = html[..at].rfind('<').unwrap();
+            (start, html[start..html[start..].find('>').unwrap() + start].to_owned())
+        };
+        let (dock, opened_tag) = tag(&opened);
+        assert!(dock >= shell_end, "the layer is outside the header shell: {opened}");
+        assert!(opened_tag.contains("data-expanded=\"true\""), "{opened_tag}");
+        assert!(tag(&closed).1.contains("data-expanded=\"false\""), "{closed}");
     });
 }
 
@@ -363,7 +398,11 @@ fn the_docked_search_has_no_floating_label_and_strokes_stay_inside_its_own_bound
         hover_rule.contains("outline-offset: calc(-1 * var(--cantos-web-stroke-rest));"),
         "{hover_rule}"
     );
-    assert!(!css.contains("box-shadow"), "no halo");
+    // No halo on a field or action: the only shadow in the expression is the results layer's
+    // overlay elevation, which is a separate surface rather than a field state.
+    assert_eq!(css.matches("box-shadow").count(), 1, "no halo");
+    assert!(rule_for(css, ".cui-field > .cui-search-dock {")
+        .contains("box-shadow: var(--cantos-elevation-overlay);"));
 }
 
 #[test]
@@ -465,4 +504,49 @@ fn the_guest_card_pair_and_account_control_read_scoped_contextual_roles_only() {
     assert!(focus.contains("outline-offset: calc(var(--cantos-size-focus-width) * -1);"));
     // Palette literals never enter the renderer template; both themes come from tokens.css.
     assert!(!guest.contains('#'));
+}
+
+#[test]
+fn the_empty_search_prompt_stays_in_the_header_row_and_the_results_layer_floats_below_the_field() {
+    let css = theatre_section();
+    // The prompt rule is the most specific rule that places the label, so it names the one header
+    // row itself. A span to the last line (`1 / -1`) would centre it across whatever rows exist.
+    let prompt = css
+        .find(".cui-field-control:placeholder-shown ~ .cui-field-label {")
+        .expect("empty prompt rule");
+    let prompt_rule = rule_for(
+        &css[prompt..],
+        ".cui-field-control:placeholder-shown ~ .cui-field-label {",
+    );
+    assert!(prompt_rule.contains("grid-row: 1;"), "{prompt_rule}");
+    assert!(
+        !css.contains("grid-row: 1 / -1"),
+        "no Theatre rule may span past the header row"
+    );
+    // The layer is out of flow, anchored under the field, above its neighbours and under the
+    // fixed header and menus; closed it cannot be hit or seen.
+    let layer = rule_for(css, ".cui-field > .cui-search-dock {");
+    for declaration in [
+        "position: absolute;",
+        "inset-inline: 0;",
+        "inset-block-start: calc(100% + var(--cantos-space-xs));",
+        "z-index: var(--cantos-web-search-layer);",
+        "box-shadow: var(--cantos-elevation-overlay);",
+        "visibility: hidden;",
+        "pointer-events: none;",
+    ] {
+        assert!(
+            layer.contains(declaration),
+            "missing {declaration}: {layer}"
+        );
+    }
+    assert!(
+        css.contains(".cui-field[data-kind=\"search\"] { position: relative; }"),
+        "the field is the containing block"
+    );
+    assert!(
+        !css.contains("grid-template-rows: 0fr") && !css.contains("grid-template-rows: 1fr"),
+        "opening must not resize a track of the header"
+    );
+    assert!(FOUNDATION_CSS.contains("--cantos-web-search-layer: 30;"));
 }
