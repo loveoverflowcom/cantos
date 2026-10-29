@@ -150,7 +150,7 @@ pub(crate) fn AuthActions(
                 </Button>
             })}
             {move || availability.get().map(|availability| view! {
-                <Button id=format!("{scope}-register") variant=ButtonVariant::AuthOutlined
+                <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
                     icon=IconName::PersonAdd
                     state=availability focus_on_press=true
                     on_press=Callback::new(move |_| on_register.run(()))>

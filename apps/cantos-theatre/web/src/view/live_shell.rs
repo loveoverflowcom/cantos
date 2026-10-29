@@ -1307,7 +1307,7 @@ mod tests {
     }
 
     #[test]
-    fn topbar_locale_select_is_a_tonal_pill_from_canonical_roles_and_form_selects_keep_their_radius(
+    fn topbar_locale_select_is_a_compact_tonal_control_from_canonical_roles_with_the_reading_radius(
     ) {
         let css = include_str!("../styles/theatre.css");
         let rule = |selector: &str| {
@@ -1318,11 +1318,12 @@ mod tests {
         };
         let scope = ".theatre-live-app .theatre-locale-field.cui-select-field";
         let control = rule(&format!("{scope} .cui-field-control"));
-        assert!(control.contains("border-radius: var(--cantos-shape-pill)"));
+        assert!(control.contains("border-radius: var(--cantos-web-shape-reading)"));
+        assert!(!control.contains("pill"));
         assert!(control.contains("background-color: var(--cantos-color-surface-container-high)"));
         assert!(!control.contains('#') && !control.contains("rgb"));
         assert!(rule(&format!("{scope} .cui-select-trigger")).contains("justify-content: center"));
-        // The pill is scoped to the topbar locale field; no unscoped field or select override exists.
+        // The control override is scoped to the topbar locale field; no unscoped field or select override exists.
         assert_eq!(
             css.matches(".cui-select-field .cui-field-control {")
                 .count(),

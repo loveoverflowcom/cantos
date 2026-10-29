@@ -419,35 +419,22 @@ mod tests {
     }
 
     #[test]
-    fn guest_cta_pair_is_deep_filled_and_transparent_outlined_of_one_size_from_tokens() {
+    fn guest_cta_pair_has_no_app_local_border_or_color_override() {
         let css = include_str!("../styles/theatre.css");
-        let rule = |selector: &str| {
-            css.split(&format!("{selector} {{"))
-                .nth(1)
-                .and_then(|rest| rest.split('}').next())
-                .unwrap_or_else(|| panic!("missing rule {selector}"))
-        };
-        let scope = ".theatre-account-profile";
-        let filled = rule(&format!(
-            "{scope} .cui-button[data-variant=\"auth-primary\"]:not(:disabled)"
+        // Colors, anatomy and the borderless fill belong to the shared profile-card recipe, so the
+        // app stylesheet must not redefine either button's fill, ink or border.
+        assert!(!css.contains("data-variant=\"auth-outlined\""));
+        assert!(!css.contains("data-variant=\"auth-primary\""));
+        assert!(!css.contains(
+            "--cantos-size-auth-outline) solid var(--cantos-color-on-primary-container)"
         ));
-        assert!(filled.contains("background: var(--cantos-color-on-primary-container)"));
-        assert!(filled.contains("color: var(--cantos-color-primary-container)"));
-        let outlined = rule(&format!(
-            "{scope} .cui-button[data-variant=\"auth-outlined\"]:not(:disabled)"
-        ));
-        assert!(outlined.contains("background: transparent"));
-        assert!(outlined.contains("color: var(--cantos-color-on-primary-container)"));
-        let both = rule(&format!(
-            "{scope} .theatre-auth-actions .cui-button:is([data-variant=\"auth-primary\"], [data-variant=\"auth-outlined\"])"
-        ));
-        assert!(both.contains("min-block-size: var(--cantos-size-auth-primary)"));
-        assert!(both.contains("border: var(--cantos-size-auth-outline) solid"));
-        for block in [filled, outlined, both] {
-            assert!(!block.contains('#') && !block.contains("rgb") && !block.contains("accent"));
-        }
-        // The pair is scoped to the guest card: the shared auth roles are not redefined globally.
-        assert!(!css.contains("\n.cui-button[data-variant=\"auth-primary\"]"));
+        let rule = css
+            .split(".theatre-account-profile .theatre-auth-actions {")
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .expect("equal-height guest actions rule");
+        assert!(rule.contains("grid-auto-rows: 1fr"));
+        assert!(!rule.contains("border") && !rule.contains("background"));
     }
 
     #[test]
