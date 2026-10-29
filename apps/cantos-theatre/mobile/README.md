@@ -382,7 +382,7 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   cleanup keeps Login disabled with a retry. A Membership draft is cleared only when a signed-in
   account ends, so Membership → Login → success resumes the guest's draft.
 - **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập** primary and
-  **Tạo tài khoản Cantos** tonal actions from the #127 auth variants, with no tabs, legal links or
+  **Đăng ký** tonal actions from the #127 auth variants, with no tabs, legal links or
   consent. Email/password fields dispatch through the account owner. When its
   signup owner is configured, Register collects only email and gives Web completion guidance; otherwise
   it explains the missing capability. Enrollment never authenticates the account. Guest and signed-in Account use the Profile,
@@ -406,7 +406,7 @@ device gaps](../../../docs/evidence/listen-hero-595.md).
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
   the avatar opens a secondary **Tài khoản** screen: a guest profile with vertical Sign in
-  and Create account actions, a Membership card and the listening settings. A signed-in listener sees
+  and Register actions, a Membership card and the listening settings. A signed-in listener sees
   a compact profile, one grouped list (membership, library and history, appearance, listening
   settings, support information) and a separate Sign out entry that opens a modal bottom sheet:
   only its confirm action asks the account owner to sign out, and Back closes the sheet before the

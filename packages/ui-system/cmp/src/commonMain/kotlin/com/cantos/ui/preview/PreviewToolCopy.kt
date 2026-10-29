@@ -83,7 +83,7 @@ internal object PreviewToolCopy {
         const val Loading = "Đang nạp thông tin."
         const val Sending = "Đang gửi, vui lòng chờ."
         const val SignIn = "Đăng nhập"
-        const val SignUp = "Tạo tài khoản"
+        const val SignUp = "Đăng ký"
         const val Confirm = "Xác nhận"
         const val LongAction = "Gửi liên kết xác minh cho Nguyễn Thị Ánh Nguyệt"
         const val SwitchLight = "Chuyển sang giao diện sáng"
@@ -277,7 +277,7 @@ internal object PreviewToolCopy {
         const val SignIn = "Đăng nhập"
         const val Pending = "Đang đăng nhập. Không gửi yêu cầu lần hai."
         const val Unavailable = "Đăng nhập chưa khả dụng trên bản này."
-        const val Route = "Tạo tài khoản Cantos"
+        const val Route = "Đăng ký"
         const val ShowPassword = "Hiện mật khẩu"
         const val HidePassword = "Ẩn mật khẩu"
     }

@@ -235,7 +235,7 @@ fun LoginScreen(
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                 LoginForm(account, copy, onIntent)
                 if (account.offersRegistration()) Button(
-                    copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
+                    copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
                     variant = ButtonVariant.Text,
                     icon = authActionIcon(AuthIntent.OpenRegister),
                     controlModifier = Modifier.fillMaxWidth().testTag("login-create"),

@@ -390,7 +390,7 @@ pub(crate) fn SignupPanel(
                     {move || confirm_state().map(|availability| view! {
                         <Button id="theatre-signup-confirm" variant=ButtonVariant::AuthPrimary state=availability
                             icon=IconName::PersonAdd
-                            on_press=confirm_press>{label(locale, CopyKey::SignupCreate)}</Button>
+                            on_press=confirm_press>{label(locale, CopyKey::RegisterAction)}</Button>
                     })}
                 </form>
             </Show>

@@ -722,7 +722,7 @@ mod tests {
                     "Đăng nhập để mở thư viện của bạn.",
                     "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập.",
                     "Về chế độ nghe không đăng nhập",
-                    "Tạo tài khoản",
+                    "Đăng ký",
                 ),
                 (
                     Locale::English,
@@ -732,7 +732,7 @@ mod tests {
                     "Sign in to open your library.",
                     "You can still explore and listen to public content without signing in.",
                     "About listening without signing in",
-                    "Create account",
+                    "Register",
                 ),
             ] {
                 let state = RwSignal::new(AccountViewState::default());

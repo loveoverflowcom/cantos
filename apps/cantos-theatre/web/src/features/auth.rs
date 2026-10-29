@@ -169,7 +169,7 @@ pub(crate) fn AuthActions(
                     icon=IconName::PersonAdd
                     state=availability focus_on_press=true
                     on_press=Callback::new(move |_| on_register.run(()))>
-                    {label(locale, CopyKey::GuestRegister)}
+                    {label(locale, CopyKey::RegisterAction)}
                 </Button>
             })}
         </div>
@@ -366,7 +366,7 @@ pub(crate) fn AuthPage(
                                         icon=IconName::PersonAdd
                                         state=availability focus_on_press=true
                                         on_press=Callback::new(move |_| on_register.run(()))>
-                                        {label(locale, CopyKey::CreateAccount)}
+                                        {label(locale, CopyKey::RegisterAction)}
                                     </Button>
                                 })}
                             </Show>
@@ -583,7 +583,7 @@ mod tests {
             assert!(password.contains("autocomplete=\"current-password\""));
             assert!(password.contains("value=\"\""), "no prefilled secret");
             // Sign-in comes before account creation, in the capsule actions.
-            assert!(html.find("Đăng nhập</").unwrap() < html.find("Tạo tài khoản Cantos").unwrap());
+            assert!(html.find("Đăng nhập</").unwrap() < html.find("Đăng ký").unwrap());
             assert!(html.contains("data-variant=\"auth-primary\""));
             assert!(html.contains("data-variant=\"auth-secondary\""));
             for forbidden in [
@@ -800,7 +800,7 @@ mod tests {
                 );
                 assert_eq!(
                     native_button_name(&html, "theatre-auth-register"),
-                    auth_copy::text(CopyKey::CreateAccount, language),
+                    auth_copy::text(CopyKey::RegisterAction, language),
                     "{name}: the label stays readable"
                 );
             }
@@ -1020,7 +1020,7 @@ mod tests {
                     );
                     assert_eq!(
                         native_button_name(&html, &format!("{scope}-register")),
-                        auth_copy::text(CopyKey::GuestRegister, language)
+                        auth_copy::text(CopyKey::RegisterAction, language)
                     );
                 }
             }
@@ -1071,8 +1071,8 @@ mod tests {
                 "enabled ButtonState is equal across locales"
             );
             assert_eq!(
-                label(locale, CopyKey::CreateAccount)(),
-                auth_copy::text(CopyKey::CreateAccount, Locale::Vietnamese)
+                label(locale, CopyKey::RegisterAction)(),
+                auth_copy::text(CopyKey::RegisterAction, Locale::Vietnamese)
             );
             let issued = state.write().begin_refresh().unwrap();
             state

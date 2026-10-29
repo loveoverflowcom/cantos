@@ -140,7 +140,7 @@ const fn query_error_key(error: QueryError) -> Key {
 /// What the intro's account slot shows. It is derived from the mounted account, never stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum HomeSession {
-    /// A healthy guest: the one Sign in / Create account cluster.
+    /// A healthy guest: the one Sign in / Register cluster.
     GuestActions,
     /// API-confirmed: no guest intents and no extra text; the header avatar carries the account.
     SignedIn,
@@ -178,7 +178,7 @@ fn HomeAccount(
     view! {
         {move || match slot.get() {
             // The one guest cluster: it sits beside the intro and wraps below it when narrow.
-            // Create account leads as the filled action; Sign in is the tonal alternative.
+            // Register leads as the filled action; Sign in is the tonal alternative.
             HomeSession::GuestActions => view! {
                 <div class="theatre-home-auth-actions">
                     <Button id="theatre-home-login" icon=IconName::Login variant=ButtonVariant::AuthSecondary
@@ -187,7 +187,7 @@ fn HomeAccount(
                     </Button>
                     <Button id="theatre-home-register" icon=IconName::PersonAdd variant=ButtonVariant::AuthPrimary
                         focus_on_press=true on_press=Callback::new(move |_| on_register.run(()))>
-                        {move || auth_copy::text(CopyKey::CreateAccount, locale.get())}
+                        {move || auth_copy::text(CopyKey::RegisterAction, locale.get())}
                     </Button>
                 </div>
             }.into_any(),
@@ -1438,13 +1438,13 @@ mod tests {
             "{register}"
         );
         assert!(login.contains("data-variant=\"auth-secondary\""), "{login}");
-        // One cluster, in the unchanged DOM (and tab) order: Sign in, then Create account.
+        // One cluster, in the unchanged DOM (and tab) order: Sign in, then Register.
         assert_eq!(html.matches("theatre-home-auth-actions").count(), 1);
         let cluster = html.find("theatre-home-auth-actions").unwrap();
         let login_at = html.find("id=\"theatre-home-login\"").unwrap();
         let register_at = html.find("id=\"theatre-home-register\"").unwrap();
         assert!(cluster < login_at && login_at < register_at);
-        assert!(html.contains("Đăng nhập") && html.contains("Tạo tài khoản"));
+        assert!(html.contains("Đăng nhập") && html.contains("Đăng ký"));
     }
 
     #[test]
@@ -1556,7 +1556,7 @@ mod tests {
         }
     }
 
-    /// The regression in #538: a signed-in listener still saw Sign in / Create account on Discovery.
+    /// The regression in #538: a signed-in listener still saw Sign in / Register on Discovery.
     #[test]
     fn signed_in_discovery_renders_no_guest_intents_and_no_session_status() {
         Owner::new().with(|| {

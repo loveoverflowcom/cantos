@@ -5180,15 +5180,15 @@
         }
       }
     },
-    "theatre.auth.create_account": {
+    "theatre.auth.register_action": {
       "args": {},
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tạo tài khoản Cantos"
+          "text": "Đăng ký"
         },
         "en": {
-          "text": "Create a Cantos account"
+          "text": "Register"
         }
       }
     },
@@ -5489,18 +5489,6 @@
         },
         "en": {
           "text": "I confirm account creation"
-        }
-      }
-    },
-    "theatre.auth.signup_create": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Tạo tài khoản"
-        },
-        "en": {
-          "text": "Create account"
         }
       }
     },
@@ -5861,18 +5849,6 @@
         },
         "en": {
           "text": "You can still explore and listen to public content without signing in."
-        }
-      }
-    },
-    "theatre.auth.guest_register": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Tạo tài khoản"
-        },
-        "en": {
-          "text": "Create account"
         }
       }
     },
@@ -21139,15 +21115,15 @@
         }
       }
     },
-    "theatre.cmp_shell.create_account": {
+    "theatre.cmp_shell.register": {
       "args": {},
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tạo tài khoản"
+          "text": "Đăng ký"
         },
         "en": {
-          "text": "Create an account"
+          "text": "Register"
         }
       }
     },
@@ -22701,15 +22677,15 @@
         }
       }
     },
-    "theatre.cmp_auth.create_account": {
+    "theatre.cmp_auth.register_action": {
       "args": {},
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tạo tài khoản Cantos"
+          "text": "Đăng ký"
         },
         "en": {
-          "text": "Create a Cantos account"
+          "text": "Register"
         }
       }
     },
@@ -22886,10 +22862,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tạo tài khoản"
+          "text": "Đăng ký"
         },
         "en": {
-          "text": "Create an account"
+          "text": "Register"
         }
       }
     },
@@ -23430,18 +23406,6 @@
         },
         "en": {
           "text": "Sign in"
-        }
-      }
-    },
-    "theatre.cmp_auth.create_account_short": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Tạo tài khoản"
-        },
-        "en": {
-          "text": "Create an account"
         }
       }
     },

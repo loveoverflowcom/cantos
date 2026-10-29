@@ -35,7 +35,8 @@ class ShellCopyLabelsTest {
         assertEquals("Tài khoản", vietnamese.text(CopyKey.Account))
         assertEquals("Account", english.text(CopyKey.Account))
         assertEquals("Đăng nhập", vietnamese.text(CopyKey.SignIn))
-        assertEquals("Tạo tài khoản", vietnamese.text(CopyKey.CreateAccount))
+        assertEquals("Đăng ký", vietnamese.text(CopyKey.Register))
+        assertEquals("Register", english.text(CopyKey.Register))
         assertEquals(
             "Tập 3 · Người giữ tiếng chuông",
             vietnamese.text(LegacyCopyKey.EpisodeLabel, "index" to "3", "title" to title),

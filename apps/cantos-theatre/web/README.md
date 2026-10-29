@@ -137,7 +137,7 @@ selection colors; hover preserves that pair and reduced motion removes the trans
 
 Discover's intro reads the same mounted `AccountViewState` as the header
 ([#538](https://github.com/loveoverflowcom/cantos/issues/538)). Only a guest the owner admits for
-sign-in sees **Đăng nhập / Tạo tài khoản**; a confirmed session shows neither and no extra text.
+sign-in sees **Đăng nhập / Đăng ký**; a confirmed session shows neither and no extra text.
 Idle/Checking, a failed lookup and an unresolved sign-out show the owner's own status line and
 recovery (`theatre-home-session-*`), so none of them is presented as a guest or as signed in.
 
@@ -154,7 +154,7 @@ waits for #452/#467 admission. Choosing logout closes the menu and opens one sha
 confirmation: Back (leading `arrow_back`)/Escape/backdrop dismiss before any intent, focus starts
 on Back and returns to the avatar, and confirm calls the existing logout owner once; the
 dialog then shows the owner's pending or unconfirmed step and closes on the guest transition.
-Browser, screen-reader and real-logout acceptance remain separate. Login and Create account are
+Browser, screen-reader and real-logout acceptance remain separate. Login and Register are
 explicit secondary routes. The two primary destinations remain
 **Khám phá** and **Của tôi**, following [#35](https://github.com/loveoverflowcom/cantos/issues/35).
 The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
@@ -541,7 +541,7 @@ timer; Enter during IME composition is ignored); the type chips apply at once. T
 lives in the link, one history entry per distinct search, so Back/Forward and returning from a Work
 restore it; an answered search is kept with its rows and cursor, another search starts a fresh
 walk and fences the old response. Invalid input (over 512 bytes, control characters) is shown
-inline and sends nothing. Guests get one cluster beside the intro: **Tạo tài khoản** (filled) and
+inline and sends nothing. Guests get one cluster beside the intro: **Đăng ký** (filled) and
 **Đăng nhập** (tonal).
 
 Loading v1 (#588) separates the requested walk from its applied display snapshot. A replacement
@@ -654,7 +654,7 @@ reopening the page cannot bypass it, and a late `429` still arms it). `POST iden
 other effect, scrubs it from the address bar and history (an unreadable link is scrubbed too) and
 holds it only in RAM. Opening, prefetching or reloading the link sends nothing. The owner chooses a
 password (8–128 characters, hint only; the server decides), repeats it, ticks the explicit
-confirmation and presses **Tạo tài khoản**: only then `POST identity/signup/complete` with
+confirmation and presses **Đăng ký**: only then `POST identity/signup/complete` with
 `explicit_confirmation: true`. `200` (`completed` or `replayed`) moves to Login with a RAM-only
 notice and **no session**. A `503`, `429` or lost response keeps the exact request snapshot and
 offers only "send the same request again" (no new operation, password locked, Retry-After
