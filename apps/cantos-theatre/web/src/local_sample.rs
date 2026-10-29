@@ -1094,7 +1094,7 @@ pub fn LocalSampleApp() -> impl IntoView {
                     <LiveContainer>
                         <header class="theatre-topbar">
                             <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
-                            <div class="theatre-topbar-actions">
+                            <div class="theatre-topbar-actions cui-topbar-actions">
                                 <LiveLocaleSelect locale on_locale/>
                                 <ThemeCycleButton
                                     id="theatre-topbar-theme"

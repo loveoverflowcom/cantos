@@ -1,8 +1,10 @@
 //! Contextual theme cycle action: Dark → Light → System → Dark.
 //!
-//! A single icon button with a constant 44×44 CSS px footprint by default; the opt-in
+//! A single icon button with a constant 44×44 CSS px footprint by default (48×48 inside a
+//! `cui-topbar-actions` row, the shared topbar recipe); the opt-in
 //! `show_label` pill adds the short mode name and grows in width only. Renders moon for Dark,
-//! sun for Light, and moon+sun for System. The accessible name and tooltip state the current
+//! sun for Light and one split-disc sun glyph for System; all three come from the shared
+//! icon registry, never a composition of smaller icons. The accessible name and tooltip state the current
 //! mode and next action without pretending to be a boolean switch.
 use leptos::{ev, prelude::*};
 
@@ -111,12 +113,7 @@ ui_primitive! {
                     {move || match theme.get() {
                         Theme::Dark => view! { <Icon name=IconName::DarkMode/> }.into_any(),
                         Theme::Light => view! { <Icon name=IconName::LightMode/> }.into_any(),
-                        Theme::System => view! {
-                            <svg class="cui-icon cui-theme-icon-system" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                                fill="currentColor" aria-hidden="true" focusable="false">
-                                <path d="M12 4a8 8 0 0 1 0 16 6 6 0 0 0 0-16zm-1-2h1v3h-1zm0 17h1v3h-1zM2 11.5h3v1H2zm4.34-6.57 1.41 1.41-1.41 1.41-1.41-1.41zm0 14.14 1.41-1.41-1.41-1.41-1.41 1.41zM12 8a4 4 0 0 0 0 8z"/>
-                            </svg>
-                        }.into_any(),
+                        Theme::System => view! { <Icon name=IconName::ThemeSystem/> }.into_any(),
                     }}
                     {show_label.then(|| view! {
                         <span class="cui-theme-cycle-label" aria-hidden="true">{move || mode_text.get()}</span>

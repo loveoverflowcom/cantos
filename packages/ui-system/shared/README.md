@@ -163,6 +163,14 @@ ones both renderers and every consumer must agree on: a 48-unit header control (
 also the minimum hit area), a 44-unit official mark 12 units before the wordmark (`size.brandMark`,
 `space.inset`) and a 52-unit docked search action (`size.searchAction`).
 
+**Topbar utility row (#613).** Locale, Theme and Account share one painted **48-unit** height
+(`size.control`/`size.avatarControl`) and centerline: the locale is a full pill (`shape.pill`) whose
+width follows `Vi/En` plus chevron, the theme action is a tonal `shape.reading` control and the
+avatar is a circle. Web owns this as the opt-in `cui-topbar-actions` row recipe in
+`foundation.css.in` (a compact Select or theme action elsewhere keeps its own density); CMP
+composes the same tokens and shapes in Theatre's top bar. Dark, Light and System are one glyph
+family (`dark_mode`, `light_mode`, `theme_system`) on both renderers.
+
 Noto Serif Bold 700 and Noto Sans Bold 700 are the committed static faces of the
 [font bundle](assets/noto-fonts/README.md); no font asset is added. The two eye glyphs
 (`visibility`, `visibility_off`) are the filled Material Icons originals the design selected, at the

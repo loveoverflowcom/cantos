@@ -299,13 +299,39 @@
   border: 0;
   border-radius: var(--cantos-shape-pill);
 }
-:where(.cantos-ui) .cui-theme-icon-system {
-  display: inline-block;
-  inline-size: var(--cantos-size-icon);
-  block-size: var(--cantos-size-icon);
-  flex-shrink: 0;
-  fill: currentColor;
-  vertical-align: middle;
+/* Topbar utility row (issue 613): Locale, Theme and Account share one painted 48-unit height and
+   centerline from size.control; only the locale pill grows in width. Opt in with the row class, so a
+   compact Select or a theme action elsewhere keeps its own density. */
+:where(.cantos-ui) .cui-topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-topbar-actions .cui-theme-cycle-button {
+  inline-size: var(--cantos-size-control);
+  block-size: var(--cantos-size-control);
+  min-inline-size: var(--cantos-size-control);
+  min-block-size: var(--cantos-size-control);
+  border-radius: var(--cantos-web-shape-reading);
+}
+:where(.cantos-ui) .cui-topbar-actions .cui-select-field[data-select-density="compact"] .cui-field-control {
+  min-block-size: var(--cantos-size-control);
+  border-block-width: 0;
+  padding-block: 0;
+  padding-inline: var(--cantos-space-lg);
+  border-radius: var(--cantos-shape-pill);
+  background-color: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  --cantos-web-stroke-inset: 0px;
+}
+:where(.cantos-ui) .cui-topbar-actions .cui-select-field[data-select-density="compact"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
+}
+:where(.cantos-ui) .cui-topbar-actions .cui-select-field[data-select-density="compact"] .cui-select-trigger {
+  justify-content: center;
+  gap: var(--cantos-space-sm);
 }
 /* Issue 127: opt-in auth/account roles. Ordinary controls retain the Web mapping above.
    Native :active and focus interrupt without a timer; this is a CSS transition, not a spring. */
