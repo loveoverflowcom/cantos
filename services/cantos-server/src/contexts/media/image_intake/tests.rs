@@ -296,3 +296,249 @@ fn deterministic_mutations_reach_real_decoders_without_panicking() {
         }
     }
 }
+
+const ALPHA: &[u8] = include_bytes!("fixtures/pillow-alpha-64x48.avif");
+const GRID: &[u8] = include_bytes!("fixtures/grid-2x2-120x100.avif");
+const GRID_ALPHA: &[u8] = include_bytes!("fixtures/grid-alpha-2x2-120x100.avif");
+const ALPHA_GRID_FIXTURES: [(&[u8], (u32, u32)); 3] = [
+    (ALPHA, (64, 48)),
+    (GRID, (120, 100)),
+    (GRID_ALPHA, (120, 100)),
+];
+
+/// Replaces the `occurrence`th (0-based) match of `needle` with the same-length `with`,
+/// so every box size and `iloc` offset of the fixture stays valid.
+fn patched(fixture: &[u8], needle: &[u8], occurrence: usize, with: &[u8]) -> Vec<u8> {
+    assert_eq!(needle.len(), with.len());
+    let at = fixture
+        .windows(needle.len())
+        .enumerate()
+        .filter(|(_, window)| *window == needle)
+        .nth(occurrence)
+        .map(|(index, _)| index)
+        .expect("fixture contains the patched bytes");
+    let mut bytes = fixture.to_vec();
+    bytes[at..at + needle.len()].copy_from_slice(with);
+    bytes
+}
+
+fn rejection(bytes: &[u8]) -> ImageIntakeError {
+    inspect(bytes, ImageMime::Avif).expect_err("profile violation must be refused")
+}
+
+#[test]
+fn alpha_and_grid_fixtures_are_admitted_after_every_plane_decodes() {
+    for (bytes, (width, height)) in ALPHA_GRID_FIXTURES {
+        let verified = inspect(bytes, ImageMime::Avif).unwrap();
+        assert_eq!(verified.bytes(), bytes);
+        assert_eq!(
+            (
+                verified.metadata().width_px(),
+                verified.metadata().height_px()
+            ),
+            (width, height)
+        );
+        assert_eq!(
+            verified.metadata().sha256(),
+            format!("{:x}", Sha256::digest(bytes))
+        );
+    }
+}
+
+#[test]
+fn truncated_appended_and_metadata_mutated_alpha_grid_inputs_fail_closed() {
+    for (fixture, _) in ALPHA_GRID_FIXTURES {
+        for length in 1..fixture.len() {
+            assert!(
+                inspect(&fixture[..length], ImageMime::Avif).is_err(),
+                "accepted truncated {length}"
+            );
+        }
+        assert_eq!(
+            rejection(&[fixture, b"untrusted"].concat()),
+            ImageIntakeError::MalformedImage
+        );
+        // Flip each container byte: a mutation either stays a still image or is refused;
+        // none panics, and an admitted body is still the exact input.
+        let mdat = fixture
+            .windows(4)
+            .position(|window| window == b"mdat")
+            .unwrap();
+        for index in 0..mdat {
+            let mut bytes = fixture.to_vec();
+            bytes[index] ^= 0xff;
+            if let Ok(verified) = inspect(&bytes, ImageMime::Avif) {
+                assert_eq!(verified.bytes(), bytes);
+            }
+        }
+    }
+}
+
+#[test]
+fn corrupt_alpha_or_tile_entropy_is_rejected_even_when_the_container_is_valid() {
+    for (fixture, _) in [(ALPHA, ()), (GRID, ()), (GRID_ALPHA, ())] {
+        // The final extent of every fixture is a grid descriptor or the alpha tile payload.
+        let mut bytes = fixture.to_vec();
+        let end = bytes.len();
+        bytes[end - 8..].fill(0xff);
+        assert!(inspect(&bytes, ImageMime::Avif).is_err());
+    }
+    // Corrupt only the alpha payload of the single-item file: 12 bytes before the file end.
+    let mut single = ALPHA.to_vec();
+    let end = single.len();
+    single[end - 12..].fill(0xff);
+    assert_eq!(rejection(&single), ImageIntakeError::MalformedImage);
+}
+
+#[test]
+fn only_the_mpeg_alpha_auxiliary_link_is_admitted() {
+    for (fixture, _) in [(ALPHA, ()), (GRID_ALPHA, ())] {
+        // Premultiplied, thumbnail and any other reference type needs its own profile.
+        for other in [b"prem", b"thmb", b"cdsc", b"base"] {
+            assert_eq!(
+                rejection(&patched(fixture, b"auxl", 0, other)),
+                ImageIntakeError::UnsupportedFormat
+            );
+        }
+        // A different auxiliary type (depth, HEVC alpha URN) is not the alpha profile.
+        let not_alpha = patched(fixture, b"auxiliary:alpha", 0, b"auxiliary:alphb");
+        assert_eq!(rejection(&not_alpha), ImageIntakeError::UnsupportedFormat);
+    }
+    // An alpha-typed item with no `auxl` link is an unaccounted extra picture.
+    let unlinked = patched(ALPHA, b"auxl", 0, b"dimg");
+    assert!(matches!(
+        rejection(&unlinked),
+        ImageIntakeError::MalformedImage | ImageIntakeError::UnsupportedFormat
+    ));
+}
+
+#[test]
+fn alpha_plane_must_be_a_monochrome_image_of_the_same_size() {
+    // Alpha tile 5 reuses the color `av1C` (not monochrome) while still holding a 1-channel picture.
+    let color_config = patched(GRID_ALPHA, &[0, 5, 3, 1, 6, 7], 0, &[0, 5, 3, 1, 6, 3]);
+    assert_eq!(rejection(&color_config), ImageIntakeError::MalformedImage);
+    // The alpha grid claims the 64x64 tile `ispe` instead of the color output size.
+    let size = patched(GRID_ALPHA, &[0, 10, 2, 5, 8], 0, &[0, 10, 2, 1, 8]);
+    assert_eq!(rejection(&size), ImageIntakeError::MalformedImage);
+}
+
+#[test]
+fn grid_layout_violations_fail_closed() {
+    // The final descriptor of GRID is `version flags rows-1 columns-1 width height`.
+    let descriptor = |rows: u8, columns: u8, flags: u8, width: u16| {
+        let mut bytes = vec![0, flags, rows, columns];
+        bytes.extend_from_slice(&width.to_be_bytes());
+        bytes.extend_from_slice(&100_u16.to_be_bytes());
+        bytes
+    };
+    let with_descriptor = |bytes: Vec<u8>| {
+        let mut file = GRID.to_vec();
+        let end = file.len();
+        file[end - 8..].copy_from_slice(&bytes);
+        file
+    };
+    // 3 x 2 grid but 4 referenced tiles; unknown version/flags; zero and oversized output.
+    assert_eq!(
+        rejection(&with_descriptor(descriptor(2, 1, 0, 120))),
+        ImageIntakeError::MalformedImage
+    );
+    assert_eq!(
+        rejection(&with_descriptor(descriptor(1, 1, 2, 120))),
+        ImageIntakeError::MalformedImage
+    );
+    assert_eq!(
+        rejection(&with_descriptor(descriptor(1, 1, 0, 0))),
+        ImageIntakeError::MalformedImage
+    );
+    assert_eq!(
+        rejection(&with_descriptor(descriptor(1, 1, 0, 4097))),
+        ImageIntakeError::ImageLimit
+    );
+    // More tiles than the profile bound (9 x 8 = 72 > 64) before any tile is decoded.
+    assert_eq!(
+        rejection(&with_descriptor(descriptor(8, 7, 0, 120))),
+        ImageIntakeError::ImageLimit
+    );
+    let mut version = descriptor(1, 1, 0, 120);
+    version[0] = 1;
+    assert_eq!(
+        rejection(&with_descriptor(version)),
+        ImageIntakeError::MalformedImage
+    );
+    // Output wider than the tiles cover (2 x 64 = 128 < 200).
+    let wider = patched(
+        &with_descriptor(descriptor(1, 1, 0, 200)),
+        &[0, 0, 0, 120, 0, 0, 0, 100],
+        0,
+        &[0, 0, 0, 200, 0, 0, 0, 100],
+    );
+    assert_eq!(rejection(&wider), ImageIntakeError::MalformedImage);
+    // A whole surplus tile column: output 60 wide needs one column of 64, not two.
+    let narrower = patched(
+        &with_descriptor(descriptor(1, 1, 0, 60)),
+        &[0, 0, 0, 120, 0, 0, 0, 100],
+        0,
+        &[0, 0, 0, 60, 0, 0, 0, 100],
+    );
+    assert_eq!(rejection(&narrower), ImageIntakeError::MalformedImage);
+    // The grid item's `ispe` must equal the descriptor output.
+    let ispe = patched(
+        GRID,
+        &[0, 0, 0, 120, 0, 0, 0, 100],
+        0,
+        &[0, 0, 0, 120, 0, 0, 0, 99],
+    );
+    assert_eq!(rejection(&ispe), ImageIntakeError::MalformedImage);
+}
+
+#[test]
+fn grid_tile_graph_violations_fail_closed() {
+    // dimg 5 -> (1, 2, 3, 3): a repeated tile (and an unreferenced one).
+    let repeated = patched(
+        GRID,
+        &[0, 1, 0, 2, 0, 3, 0, 4],
+        0,
+        &[0, 1, 0, 2, 0, 3, 0, 3],
+    );
+    assert_eq!(rejection(&repeated), ImageIntakeError::UnsupportedFormat);
+    // A tile referencing the grid itself (nested grid) is not decodable here.
+    let nested = patched(
+        GRID,
+        &[0, 1, 0, 2, 0, 3, 0, 4],
+        0,
+        &[0, 1, 0, 2, 0, 3, 0, 5],
+    );
+    assert_eq!(rejection(&nested), ImageIntakeError::UnsupportedFormat);
+    // A tile with different dimensions than its siblings.
+    let sized = patched(GRID, &[0, 4, 3, 1, 2, 3], 0, &[0, 4, 3, 5, 2, 3]);
+    assert_eq!(rejection(&sized), ImageIntakeError::MalformedImage);
+    // An unsupported extra picture kind among the items (here a tile item turned into a tone map).
+    let extra = patched(
+        GRID,
+        &[0, 4, 0, 0, b'a', b'v', b'0', b'1'],
+        0,
+        &[0, 4, 0, 0, b't', b'm', b'a', b'p'],
+    );
+    assert_eq!(rejection(&extra), ImageIntakeError::UnsupportedFormat);
+    // The grid item typed as a plain `av01` while still owning `dimg` tiles.
+    let typed = patched(
+        GRID,
+        &[0, 5, 0, 0, b'g', b'r', b'i', b'd'],
+        0,
+        &[0, 5, 0, 0, b'a', b'v', b'0', b'1'],
+    );
+    assert_eq!(rejection(&typed), ImageIntakeError::MalformedImage);
+}
+
+#[tokio::test]
+async fn grid_admission_keeps_its_lane_until_the_verified_body_drops() {
+    let lanes = lanes();
+    let admission = ImageAdmission::from_lanes(lanes.clone()).unwrap();
+    let verified = admission
+        .inspect(GRID_ALPHA.to_vec(), ImageMime::Avif)
+        .await
+        .unwrap();
+    assert_eq!(lanes.available_permits(), 1);
+    drop(verified);
+    assert_eq!(lanes.available_permits(), 2);
+}

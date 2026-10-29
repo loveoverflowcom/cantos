@@ -67,10 +67,17 @@ item extents. Then pinned `dav1d=0.11.1` decodes actual AV1 pixels with one thre
 of delay, strict standard compliance and a native frame-size limit set **before input**.
 A parsed tile/header is not a decode witness. Two admission lanes survive cancellation until
 the blocking work and original bytes exit. These limits are not a total native RSS guarantee.
-The current profile supports single primary `av01` still images (8/10/12-bit subject to the
-output bound) and identity EXIF. Auxiliary alpha, grids and other derived/extra image items
-are explicitly unsupported until every plane has bounded full decoding; no alpha is silently
-ignored. Unsupported input retains current artwork and returns a typed refusal.
+The current profile supports one primary image (8/10/12-bit subject to the output
+bound) and identity EXIF. The primary is a single `av01` item or an ImageGrid of up to 64 `av01`
+tiles of identical size and codec configuration, covering the declared output with no surplus
+tile row or column (overhang is cropped). It may carry one alpha image, itself a single item
+or a grid, linked by `auxl` with the MPEG alpha `auxC` URN and matching the color output size.
+Every AV1 item of the profile is fully decoded, one picture at a time, so tiles and planes never
+coexist in memory; the 64MiB decoded-layout bound uses the larger of the color and alpha depth.
+Overlays, thumbnails, depth, nested or shared tiles, premultiplied links, other auxiliary types
+and any extra image item stay unsupported; no plane is silently ignored. Unsupported input
+retains current artwork and returns a typed refusal. Admission proves decodability only; how a
+translucent cover is presented is not reviewed here.
 
 The decoder requires libdav1d>=1.3 via pkg-config on build hosts and its shared library at
 runtime. The Server OCI build/runtime and Rust CI install the corresponding Debian packages;

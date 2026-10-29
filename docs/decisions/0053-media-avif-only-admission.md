@@ -17,8 +17,9 @@ The existing ISOBMFF/AV1 framing parser cannot prove pixel decoding. Keep its ea
 orientation and single-image checks, then use pinned `dav1d=0.11.1` to decode the primary frame
 with native limits set before input: one thread, one-frame delay, strict compliance and
 16,777,216 pixels. Verify output dimensions/bit depth and no second picture. The existing
-blocking admission lane retains bytes and native work across cancellation. Reject auxiliary
-alpha/grid/extra image items until every plane can be bounded and decoded. Preserve the
+blocking admission lane retains bytes and native work across cancellation. Admit one
+bounded alpha/ImageGrid profile, decoding every AV1 item the same way and one picture
+at a time, and reject every other auxiliary, derived or extra image item. Preserve the
 8MiB encoded and 64MiB decoded-layout caps; neither cap claims total native RSS or timeout.
 
 The [wrapper settings](https://docs.rs/dav1d/0.11.1/dav1d/struct.Settings.html) expose the
@@ -35,7 +36,11 @@ library; exact OCI/package qualification and security patch policy remain operat
 
 Structural parsing alone was rejected because corrupt entropy tiles could receive a witness.
 An external decoder command was rejected because it adds a subprocess/runtime boundary.
-Broader alpha/derived-image support and production storage conversion are separate work.
+Overlays, other auxiliary planes, nested grids and production storage conversion are separate
+work. The alpha/grid profile needs no new codec: dav1d already decodes each AV1 item, and
+alpha/grid are ISOBMFF structure. libavif (Pillow), macOS ImageIO, Chromium and the pinned
+desktop libavif adapter independently decode the same fixtures; Android and iOS devices are not
+qualified.
 
 ## Validation and recovery
 
