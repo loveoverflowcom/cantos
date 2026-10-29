@@ -6,6 +6,9 @@ Turning a native Identity `AuthenticationFact` into one Server session and re-ad
 session against a fresh `GetSecurityState`. Archived `identity_password*_postgres`
 names below identify historical HTTP/fact oracles, never native acceptance. Current pure decisions
 and the Turso adapter retain their separate named evidence. Model: [native_session_admission.qnt](native_session_admission.qnt).
+The [bounded production-flow pilot](../../../../docs/evidence/identity-session-admission-pilot.md)
+adds native RPC/shell/effect reproduction, including real Turso abort/rollback. It does not
+extend the registered observer's scope or resolve the decisions below.
 
 | Classification | Authority / fact | Model consequence |
 | --- | --- | --- |
@@ -23,5 +26,14 @@ Independent native oracles, under the same caveat: they do not consume model tra
 | `run.issue`, `run.fact-binding` | `issue-needs-fresh-bound-fact`, `admit-only-exact-active` / `issued`, `admitted`, `stale-fact-refused` | `decision::tests::a_fact_becomes_observed_security_only_inside_the_exact_age_window`; `issue_refusals_have_a_stable_precedence_and_exact_variants`; `identity_password_facts_turso::a_stale_future_or_misbound_fact_never_becomes_a_session`; `a_security_change_between_the_fact_and_the_issue_is_refused_and_cuts_no_session` |
 | `run.version-advanced`, `run.version-regressed`, `run.security-changes` | `mismatch-requests-revoke`, `request-is-not-commit`, `revocation-sticky` / `epoch-change-requested`, `regression-requested`, `sticky-after-restore` | `admission_over_the_whole_finite_grid_matches_an_independent_oracle`; `every_security_change_revokes_durably_and_a_matching_snapshot_never_resurrects`; `an_unknown_subject_at_admission_is_a_durable_security_fact_not_an_outage`; `identity_password_turso::a_subject_disabled_in_identity_loses_every_session_and_is_never_resurrected` |
 | `run.outage` | `outage-never-revokes` / `outage-denied` | `a_slow_or_confused_identity_fails_closed_without_revoking_anything`; `identity_password_turso::identity_outage_fails_protected_requests_closed_but_logout_stays_local_and_recovery_resumes` |
-| `run.failed-revoke-write` | `request-is-not-commit`, `session-changes-only-by-transition` / `request-without-commit` | Storage half only: the Turso candidate's `identity_auth::turso::tests::binding_and_issue_are_one_unit_and_any_failed_write_rolls_both_back` injects a failed revoke write through the real engine and shows it reported `Unavailable` with the session left unrevoked. No test drives the shell's best-effort `confirm` through that failure or its redo; that half remains a coverage gap, not evidence. |
+| `run.failed-revoke-write` | `request-is-not-commit`, `session-changes-only-by-transition` / `request-without-commit` | Storage: `identity_auth::turso::tests::binding_and_issue_are_one_unit_and_any_failed_write_rolls_both_back`. Production shell plus real file: [`admission_pilot::failed_revoke_is_redone_when_the_next_identity_read_still_differs`](../../src/platform/identity_auth/turso/tests/admission_pilot.rs) forwards the actual `SessionStore` revoke, records `Unavailable` after a named SQL abort, compares every stored column, then observes the next admission commit the retry. The RPC peer is scripted; no new crash/concurrency guarantee follows. |
 | `run.studio-roster` | `admit-only-exact-active` | Roster half only of `identity_password_turso::studio_login_needs_the_server_roster_and_a_theatre_session_never_enters_studio` and of the Turso candidate journey `identity_auth_candidate::real_identity_actor_session_journey` (a roster-less Server refuses login with `Forbidden` and does not admit the rostered Studio session); cross-surface admission is not modeled |
+
+Native-only decision reproductions, not new model expectations:
+`admission_pilot::matching_identity_after_failed_revoke_reproduces_the_pending_contract_gap`
+observes re-admission without a retry for all five revoking fact classes; and
+`malformed_state_and_outage_never_reach_the_revoke_effect` observes other-subject parser rejection
+with no effect. The HTTP test
+`identity_password_facts_turso::another_subject_at_admission_currently_returns_503_without_revoking`
+adds `200 → 503 → 200` through the real router. These characterization outcomes preserve the
+two pending owner questions above; the model/runs/witnesses/controls and lifecycle are unchanged.

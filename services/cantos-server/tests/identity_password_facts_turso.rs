@@ -251,6 +251,23 @@ async fn every_security_change_revokes_durably_and_a_matching_snapshot_never_res
 }
 
 #[tokio::test]
+async fn another_subject_at_admission_currently_returns_503_without_revoking() {
+    let h = Harness::start().await;
+    let cookie = cookie_of(&h.login().await);
+    assert_eq!(h.protected(&cookie).await, StatusCode::OK);
+    let calls = h.fake.state_calls();
+    h.fake.set(|s| s.state_subject = Some(vec![0x44; 16]));
+    // Reproduces the inventory's pending contract mismatch; not approval of this semantics.
+    assert_eq!(h.protected(&cookie).await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(h.revoked_reason().await, [None]);
+    h.fake.set(|s| s.state_subject = None);
+    assert_eq!(h.protected(&cookie).await, StatusCode::OK);
+    assert_eq!(h.revoked_reason().await, [None]);
+    assert_eq!(h.session_count().await, 1);
+    assert_eq!(h.fake.state_calls(), calls + 2);
+}
+
+#[tokio::test]
 async fn a_slow_or_confused_identity_fails_closed_without_revoking_anything() {
     let h = Harness::start().await;
     let cookie = cookie_of(&h.login().await);

@@ -523,7 +523,7 @@ async fn binding_and_issue_are_one_unit_and_any_failed_write_rolls_both_back() {
         .is_ok());
 
     // A failed revocation write is reported and leaves the session exactly as it was; the shell
-    // treats it as best effort and redoes it only while Identity still differs (inventory gap).
+    // treats it as best effort; `admission_pilot` characterizes the next admission separately.
     let web = secrets(THEATRE);
     let live = sessions
         .issue(THEATRE, &observed(3, 1), S0, &web)
@@ -1132,6 +1132,10 @@ struct Scripted {
 
 impl Scripted {
     async fn start() -> Self {
+        Self::with_clock(Arc::new(SystemClock)).await
+    }
+
+    async fn with_clock(clock: Arc<dyn cantos_store_turso::clock::Clock>) -> Self {
         use std::os::unix::fs::{DirBuilderExt, MetadataExt};
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let root = std::env::var_os("CANTOS_NATIVE_TEST_DIRECTORY")
@@ -1156,13 +1160,9 @@ impl Scripted {
             true,
         );
         let run = TestRun::new("sessions-scripted");
-        let database = ServerDatabase::open(
-            run.path("server.db"),
-            Intent::Migrate,
-            Arc::new(SystemClock),
-        )
-        .await
-        .unwrap();
+        let database = ServerDatabase::open(run.path("server.db"), Intent::Migrate, clock)
+            .await
+            .unwrap();
         let sessions = TursoSessions::new(database.clone());
         Self {
             dir,
@@ -1202,6 +1202,8 @@ impl Scripted {
         .collect()
     }
 }
+
+mod admission_pilot;
 
 impl Drop for Scripted {
     fn drop(&mut self) {

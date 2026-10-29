@@ -59,14 +59,22 @@ effect. Evidence for one leg says nothing about the others:
 | entrypoint test with named deterministic fakes | the branch is reached and its outcome mapped (`mock-integration-tested`) | the real store's write, transaction and durability |
 | real adapter test | the effect against the real boundary | entrypoints that test did not drive |
 
-Example at `cf3ab8ed`: a unit test shows `identity_auth::decision::decide_admission` returns
-`Admission::Revoke(VersionRegressed)` for a lower security version. The Server's `confirm`
-reaches it only after a fresh security-state read and calls `store.revoke` best effort.
-[Identity auth v1](../../../../services/cantos-server/contracts/auth/identity-auth/v1/README.md)
-denies the request either way, makes revocation permanent only once the write commits and redoes
-a failed write at the next admission. "This request is denied" needs an entrypoint test;
-"the family stays revoked" needs a real Turso store test; the decision test supplies neither,
-and the best-effort write is the contract, not a defect. Likewise the `image-bounds` proof covers
+The [Identity admission pilot](../../../../docs/evidence/identity-session-admission-pilot.md)
+connects those three legs on base `3e01a96e`: fixed facts, the real RPC decoder and
+`IdentityAuth::authenticate`/`confirm`, a forwarding `SessionStore` effect probe, and a real
+run-owned Turso file. The named SQL abort records `RevokeReason` plus the actual storage error;
+row snapshots distinguish a request refusal, a requested revoke and a committed revoke.
+The next admission is part of the oracle: a still-different Identity read retries the write;
+a matching read after a failed write currently admits without retry. That is reproduction of
+the inventory's pending contract gap, not an accepted requirement. An other-subject reply is
+refused by `SecurityState::from_response` before `decide_admission`'s subject-mismatch branch.
+Its direct core witness does not demonstrate RPC reachability. Zero hits in a run alone would
+not establish that exclusion; trace the actual construction and entrypoint.
+
+The pilot's [native tests](../../../../services/cantos-server/src/platform/identity_auth/turso/tests/admission_pilot.rs)
+exercise the production shell with a scripted external RPC peer and real storage. They do not
+upgrade the existing Quint observer's disclosed synthetic shell into production conformance,
+or settle either owner decision. Likewise the `image-bounds` proof covers
 `check_image_bounds`; that the AVIF parser calls it for every color, alpha and tile plane is a
 separate claim for the `image_intake` tests, outside the proof.
 
