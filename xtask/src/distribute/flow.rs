@@ -17,6 +17,7 @@ use super::{
         MINIMUM_VERSION, SUPPORTED_MAJOR, TESTED_VERSION,
     },
     host::{sha256_hex, Host, RunDir, Staged},
+    identity::BuildIdentity,
     receipt::{NotesRecord, Receipt},
     request::{generated_notes, generated_release_notes, LiveRequest, NotesChoice, Stage},
 };
@@ -56,6 +57,7 @@ pub fn run<'a>(workspace: &'a Workspace, request: &'a LiveRequest, ports: Ports<
         remote: None,
         testers_file: None,
         mapping: None,
+        identity: None,
     };
     let _halted = flow.go();
     flow.finish()
@@ -78,6 +80,8 @@ struct Flow<'a> {
     remote: Option<RemoteOutcome>,
     testers_file: Option<PathBuf>,
     mapping: Option<Staged>,
+    /// Version/source identity the development build must carry; none for production.
+    identity: Option<BuildIdentity>,
 }
 
 impl Flow<'_> {
@@ -231,6 +235,20 @@ impl Flow<'_> {
         self.run = Some(run.clone());
         match identity {
             Ok(identity) => {
+                if self.request.policy == super::request::Policy::DevelopmentApk {
+                    let seconds = self.ports.host.unix_seconds();
+                    match BuildIdentity::new(seconds, &identity.commit, identity.dirty) {
+                        Ok(build) => self.identity = Some(build),
+                        Err(why) => {
+                            self.receipt = Some(receipt);
+                            return Err(self.halt(
+                                Stage::RunRecord,
+                                Status::Fail,
+                                format!("build identity unavailable: {why}"),
+                            ));
+                        }
+                    }
+                }
                 receipt.source = Some(super::receipt::SourceRecord {
                     commit: identity.commit,
                     dirty: identity.dirty,
@@ -312,10 +330,20 @@ impl Flow<'_> {
             self.workspace,
             self.request.policy,
             self.request.api_origin.as_deref(),
+            self.identity.as_ref(),
         );
         match self.ports.runner.run(&command) {
             Ok(()) => {
-                self.pass(Stage::Build, self.request.policy.gradle_task());
+                let detail = match &self.identity {
+                    Some(identity) => format!(
+                        "{} (versionCode {}, source {})",
+                        self.request.policy.gradle_task(),
+                        identity.version_code(),
+                        identity.revision()
+                    ),
+                    None => self.request.policy.gradle_task().to_owned(),
+                };
+                self.pass(Stage::Build, detail);
                 Ok(())
             }
             Err(error) => Err(self.halt(Stage::Build, Status::Fail, format!("{error:#}"))),
@@ -414,6 +442,13 @@ impl Flow<'_> {
         if !findings.is_empty() {
             let reasons: Vec<String> = findings.iter().map(ToString::to_string).collect();
             return Err(fail(self, reasons.join("; ")));
+        }
+        if let Some(Err(why)) = self
+            .identity
+            .as_ref()
+            .map(|id| id.verify(&facts.badging.version_code, &facts.badging.version_name))
+        {
+            return Err(fail(self, why));
         }
         let relative = self.workspace.relative(&staged.path);
         let expected = self
@@ -821,12 +856,23 @@ mod tests {
     const CREATED: &str = include_str!(
         "../../fixtures/firebase-tools-15.34.0/distribute-created-development-policy.txt"
     );
-    const BADGING: &str = include_str!("../../fixtures/android/badging-development-policy.txt");
+    const FIXTURE_BADGING: &str =
+        include_str!("../../fixtures/android/badging-development-policy.txt");
+    /// The development identity of `FakeHost`: its clock and commit (see `identity.rs`).
+    const DEV_CODE: &str = "1793000000";
+    const DEV_NAME: &str = "0.1.0+0123456789ab-dev";
+
+    fn badging() -> String {
+        FIXTURE_BADGING.replace(
+            "versionCode='1' versionName='0.1.0-dev'",
+            &format!("versionCode='{DEV_CODE}' versionName='{DEV_NAME}'"),
+        )
+    }
     const SIGNER: &str = include_str!("../../fixtures/android/apksigner-demo.txt");
     const METADATA: &str = r#"{"version":3,"artifactType":{"type":"APK","kind":"Directory"},
       "applicationId":"com.cantos.theatre.dev","variantName":"debug",
-      "elements":[{"type":"SINGLE","filters":[],"attributes":[],"versionCode":1,
-      "versionName":"0.1.0-dev","outputFile":"androidApp-debug.apk"}]}"#;
+      "elements":[{"type":"SINGLE","filters":[],"attributes":[],"versionCode":1793000000,
+      "versionName":"0.1.0+0123456789ab-dev","outputFile":"androidApp-debug.apk"}]}"#;
     const TESTER: &str = "tester.one@example.com";
 
     struct FakeHost {
@@ -889,6 +935,9 @@ mod tests {
         }
         fn now(&mut self) -> String {
             "2026-10-15T00:00:00Z".into()
+        }
+        fn unix_seconds(&mut self) -> u64 {
+            1_793_000_000
         }
         fn source_identity(&mut self) -> Result<SourceIdentity, String> {
             self.identity.clone()
@@ -1015,7 +1064,7 @@ mod tests {
             capture
                 .push_ok(0, "15.34.0\n", "")
                 .push_ok(0, SDK_REGISTERED, "- Downloading")
-                .push_ok(0, BADGING, "")
+                .push_ok(0, &badging(), "")
                 .push_ok(0, SIGNER, "WARNING: x")
                 .push_ok(0, CREATED, "");
             Self {
@@ -1298,6 +1347,36 @@ mod tests {
     }
 
     #[test]
+    fn the_development_build_receives_the_clock_and_source_identity_and_records_it() {
+        let mut rig = Rig::new("dev-identity");
+        let report = rig.run(&live(&[TESTER]));
+        assert!(report.succeeded(), "{}", report.render());
+        let build = rig.runner.commands[0].display(Workspace::discover().unwrap().root());
+        assert!(
+            build.contains("-Pcantos.versionCode=1793000000")
+                && build.contains("-Pcantos.sourceRevision=0123456789ab"),
+            "{build}"
+        );
+        assert!(report.render().contains("source 0123456789ab"));
+        let receipt = rig.host.persisted.last().unwrap();
+        assert!(receipt.contains(DEV_NAME) && receipt.contains(DEV_CODE));
+    }
+
+    #[test]
+    fn a_reused_output_with_the_old_constant_version_is_never_distributed() {
+        let mut rig = Rig::new("dev-stale-output");
+        let stale = |text: &str| text.replace(DEV_CODE, "1").replace(DEV_NAME, "0.1.0-dev");
+        rig.host.metadata = Ok(stale(METADATA).into_bytes());
+        rig.capture.results.truncate(2);
+        rig.capture.push_ok(0, &stale(&badging()), "");
+        rig.capture.push_ok(0, SIGNER, "WARNING: x");
+        let report = rig.run(&live(&[TESTER]));
+        assert_eq!(status_of(&report, Stage::Inspect), Status::Fail);
+        assert!(report.render().contains("stale"), "{}", report.render());
+        assert_eq!(rig.distribute_calls(), 0);
+    }
+
+    #[test]
     fn production_missing_python_stops_before_destination_build_or_upload() {
         let mut rig = Rig::new("production-python");
         let mut request = live(&[]);
@@ -1413,7 +1492,7 @@ mod tests {
         let text = String::from_utf8_lossy(notes);
         assert!(
             text.contains("real-only")
-                && text.contains("0.1.0-dev (1)")
+                && text.contains("0.1.0+0123456789ab-dev (1793000000)")
                 && text.contains("0123456789ab")
         );
         assert!(rig
@@ -1684,7 +1763,7 @@ mod tests {
             reason: &'static str,
         }
         let wrong_package =
-            BADGING.replace("name='com.cantos.theatre.dev'", "name='com.cantos.theatre'");
+            badging().replace("name='com.cantos.theatre.dev'", "name='com.cantos.theatre'");
         let unsigned = "DOES NOT VERIFY\nERROR: Missing META-INF/MANIFEST.MF\n";
         let case = |name, badging: (i32, &str), signer: (i32, &str), certificate, reason| Case {
             name,
@@ -1703,7 +1782,7 @@ mod tests {
             ),
             case(
                 "unsigned",
-                (0, BADGING),
+                (0, badging().as_str()),
                 (1, unsigned),
                 None,
                 "signature does not verify",
@@ -1717,7 +1796,7 @@ mod tests {
             ),
             case(
                 "certificate mismatch",
-                (0, BADGING),
+                (0, badging().as_str()),
                 (0, SIGNER),
                 Some(CertFingerprint::parse(&"ee".repeat(32)).unwrap()),
                 "configured expectation",

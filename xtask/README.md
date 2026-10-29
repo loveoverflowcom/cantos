@@ -1113,7 +1113,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
-| `distribute/` | explicit real-only development/release APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
+| `distribute/` | explicit real-only development/release APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `identity` (pure development versionCode/source-revision the APK must carry), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
 | `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
 | `secrets/` | explicit operator-only Secret Manager commands: `inventory` (tracked mapping, pure), `request` (flags, payload metadata/shape, pure), `gcloud` (argv, failure classification, output parsing, pure), `host` (one approved input, the gcloud child, the ignored ledger) and `flow` (account → secret → version fence → add, short-circuiting) |
@@ -1155,7 +1155,9 @@ Dry-run is pure planning: no subprocess/network/write. Real execution needs an e
 recipients and pinned certificate. Production uses only operator-supplied `CANTOS_RELEASE_*`
 signing inputs and the same release/audit primitives as `theatre-host`; debug cannot substitute
 for release. Exact AGP output metadata, staged manifest/version/config/signature (no browser callback or URL scheme),
-audit-marker refusal and APK/mapping binding precede the one remote write. Intent receipts
+audit-marker refusal and APK/mapping binding precede the one remote write. A development run builds
+with `-Pcantos.versionCode` (Unix seconds) and `-Pcantos.sourceRevision` (`HEAD` short SHA, `-dirty` when
+uncommitted) and refuses to upload an APK whose badging differs (#644). Intent receipts
 record staged hashes; unknown remote outcomes require console reconciliation before replay.
 
 The [release/distribution runbook](../apps/cantos-theatre/mobile/docs/firebase-distribution.md)

@@ -118,8 +118,27 @@ original topology in Git history. Synthetic policy fixtures are labeled as such.
 
 `.dev` owns a new app-data sandbox; do not copy DB/tokens from `.demo` or production. A previous
 `com.cantos.theatre` APK signed with another certificate cannot be upgraded in place. Preserve the
-intended signing key and increase versionCode for updates; current versionCode remains 1 and is
-not proof of upgrade eligibility. No tool uninstalls an old app or deletes user data.
+intended signing key and increase versionCode for updates. No tool uninstalls an old app or
+deletes user data.
+
+### Development build identity (#644)
+
+Local, CI and audit builds keep the committed `versionCode 1` / `0.1.0`, which cannot say which
+source an installed APK contains and is never evidence of "latest". A real **development**
+distribution instead passes two explicit Gradle inputs, derived in `xtask/src/distribute/identity.rs`:
+
+| Input | Value | Result in the APK |
+| --- | --- | --- |
+| `-Pcantos.versionCode` | Unix seconds at the run (strictly newer on every distribution) | `versionCode` |
+| `-Pcantos.sourceRevision` | first 12 hex digits of `HEAD`, plus `-dirty` when the tree has uncommitted changes | `versionName` `0.1.0+<revision>-dev` |
+
+After inspection, and before any upload, the staged APK's `aapt2` badging must equal both values.
+A reused or stale output (for example the old `0.1.0-dev (1)`) fails the Inspect stage and nothing
+is distributed. The receipt records the same versionCode/versionName and `source.commit`/`dirty`,
+so on a device compare `adb shell dumpsys package com.cantos.theatre.dev | grep version` with the
+receipt's `artifact` fields. Production keeps its existing policy; this lineage adds no
+installed-device, Firebase console or tester acceptance, and a clock change must not move
+backwards past a previously distributed versionCode.
 
 Before release acceptance, record a named optimized-release device smoke: launch, VI/EN,
 light/dark, icons/fonts, real catalog, Identity v1 email/password login/logout, Library/SQLite
