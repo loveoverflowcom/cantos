@@ -26,7 +26,7 @@ cantos-ui-design                   ← shared UI policy: Material 3 Expressive, 
 task entrypoints (own a workflow and a report, never a rule):
 cantos-work-item                   ← deliver one work-plan item or issue end to end
 cantos-code-review                 ← read-only, assurance-first review of an existing change
-cantos-ui-inspector                ← report-only UI/UX inspection with reusable scenarios
+cantos-ui-inspector                ← report-only, component-first UI/UX inspection with reusable scenarios
 cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
 cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
 cantos-diagnostics                 ← progressive log reading, failure triage and a diagnosis report
@@ -125,7 +125,7 @@ Passing it proves skill hygiene only.
 | light source/score/audio artifact audit and handoff integrity | [`cantos-story-audit`](cantos-story-audit/SKILL.md) |
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
-| auditing UI/UX and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
+| auditing UI/UX, inspecting components or comparing them with a requested design, and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
 | repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
 | finding why a gate, test, build, runner, server, browser or service fails; triaging a red or flaky check; reading or summarizing long logs | [`cantos-diagnostics`](cantos-diagnostics/SKILL.md); a requested fix then continues through the repair entrypoint |
@@ -199,9 +199,10 @@ skills still route correctly after an edit. It is an evaluation input, not an au
 |---|---|
 | Codex | discovers `.agents/skills/`; invoke `$cantos-engineering` or another exact skill name; `agents/openai.yaml` supplies Codex display metadata |
 | Claude Code | discovers `.claude/skills/<name>/SKILL.md` through the per-skill symlinks; invoke `/cantos-engineering` or another exact skill name; root [`CLAUDE.md`](../../CLAUDE.md) imports `AGENTS.md` |
+| Antigravity | discovers workspace skills in `.agents/skills/<name>/SKILL.md` from `name` and `description` frontmatter; ask for the exact skill name; needs no extra metadata file |
 | Any other agent (ChatGPT with repository access, Gemini CLI, Cursor, Copilot, …) | read [`AGENTS.md`](../../AGENTS.md), then the canonical `SKILL.md` named for the task; resolve its links from that file |
 
-Both runtimes use the same frontmatter, body and references. `agents/openai.yaml` is required by
+Every runtime uses the same frontmatter, body and references. `agents/openai.yaml` is required by
 this repository's hygiene check, but is not Claude configuration. Keep Claude-only frontmatter,
 Codex tool names and runtime macros out of the shared contract. Available shell, file, browser,
 image and connected-service tools differ by session: follow the foundation's

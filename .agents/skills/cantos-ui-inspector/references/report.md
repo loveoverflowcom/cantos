@@ -2,9 +2,9 @@
 
 > **Scope.** The shape of an inspection report: status, the scope block, checks, image records,
 > finding fields, kinds, severity, confidence, handling of blocked and partial runs, redaction
-> and sharing, and a skeleton to copy. **No inspection report assembler is implemented**: the agent writes
+> and sharing, the component sections and a skeleton to copy. **No inspection report assembler is implemented**: the agent writes
 > the Markdown itself, so every rule here is a discipline for the writer and a checklist for the
-> reviewer, not something a tool enforces. Use at step 8 of the
+> reviewer, not something a tool enforces. Use at step 11 of the
 > [inspection order](../SKILL.md#the-inspection-order) and whenever you read someone else's report.
 
 A report is evidence about one run of one scenario against one build. It never contains a fix,
@@ -29,12 +29,13 @@ labels every claim.
 
 | Status | Meaning |
 |---|---|
-| `complete` | every required check ran to a `passed` or `failed` result. **It does not mean "no defects".** |
+| `complete` | every required check ran to a `passed` or `failed` result and every in-scope component is `inspected`. **It does not mean "no defects".** |
 | `partial` | the run stopped (budget, cancellation, tool or auth failure) after some checks; findings already observed are kept |
 | `blocked` | the run could not start or reach the surface (no app, no environment, no account); nothing is claimed about the UI |
 | `inconclusive` | evidence exists but cannot support a claim (source-only review, unknown build, unopened images) |
 
-Zero checks, no opened image or any `blocked` required check can never be `complete`. A report on
+Zero checks, no opened image, no component inventory, any `blocked` required check or any
+in-scope component left `partial`, `blocked` or `not-run` can never be `complete`. A report on
 a mockup or supplied screenshots (`existing` mode) states that it describes that artifact, not a
 running product.
 
@@ -52,6 +53,8 @@ Scenario:              <id> (<status>) · matrix executed <m> of <n>
 Account / role:        <alias> · <role>            (never a credential)
 Fixture:               <fixture ID> · created/changed/retained
 Viewport · theme · locale · scale · input:   one line per executed matrix entry
+Component targets:     whole screen | <component IDs> + affected neighbors; everything else excluded
+Design comparison:     not requested | requested: <reference ID · revision · approval> per source
 Reviewer:              <agent identity or human> · started · finished
 Usage:                 <minutes> · <ui actions> · <images>   or unknown
 Retention:             <where the raw captures live and until when>
@@ -96,9 +99,11 @@ Each finding carries every field below. Missing information is written `unknown`
 
 | Field | Contract |
 |---|---|
-| id | `<surface>/<component>/<symptom-key>`; the symptom key is a stable, specific phrase, not the run |
+| id | `<surface>/<component>/<symptom-key>`; the component is the inventory ID; the symptom key is a stable, specific phrase, not the run |
 | title | the observed problem in one line |
-| component | the component or screen region |
+| component | the inventory ID ([components](components.md#inventory-fields)), a relationship `rel:<id-a>~<id-b>`, or `screen` with the reason it cannot be localized |
+| cell | scenario, state, viewport, theme, locale and scale where it was observed; one finding may list several cells |
+| basis | `observed`, `inferred`, `source hypothesis` or `design preference` ([components § 3](components.md#3-inspect-each-component-independently)) |
 | rule | the owner and heading or ID: `UI-STATE`, [`accessibility.md`](../../cantos-ui-design/references/accessibility.md#4-focus), a [`tokens.md`](../../cantos-ui-design/references/tokens.md) section — never a paraphrase |
 | authority | `product contract` (doc and anchor), `internal guideline` (skill reference), `external clause` (name, version, clause) or `heuristic`; only the first two justify severity above P2 |
 | kind | see § 7 |
@@ -109,7 +114,7 @@ Each finding carries every field below. Missing information is written `unknown`
 | impact | who is affected and how |
 | repro | preconditions, steps and frequency (always, intermittent, once) |
 | region | element and approximate coordinates; for comparison evidence also exact physical-pixel `id, x, y, width, height` and pixel ratio/logical units |
-| comparison | report path/hash, result, baseline ID/revision/hash/approval, actual hash/build, comparator/threshold/masks and `recheck_policy_sha256`; `none` when absent |
+| comparison | report path/hash, result, baseline ID/revision/hash/approval, actual hash/build, comparator/threshold/masks and `recheck_policy_sha256`; for a component design comparison its outcome ([components § 5](components.md#5-compare-with-design--only-when-requested)); `none` when absent |
 | images | at least one **context** and one **detail** record, both opened; or why one frame is adequate |
 | root cause | `unknown` unless the source was read and establishes it |
 | suggested fix | a proposal for the responsible owner; never applied here |
@@ -158,6 +163,8 @@ reproduced".
 ## 10. Blocked and partial runs
 
 - Keep every failed check and finding already observed when a later step blocks.
+- Keep every component entry already written; mark the components the run did not reach
+  `not-run` with the reason (budget, stop, missing state) instead of dropping them.
 - `gaps` (in the report's summary) explains each `blocked`, `not-run` or `inconclusive` result and
   what would unblock it: a missing app, build, account, device, screen reader or reference image.
 - An unknown deployed SHA stays `unknown`; a local checkout cannot identify a remote build.
@@ -174,7 +181,27 @@ reproduced".
 - Filing an issue, uploading an image or commenting is an outward action: draft locally and ask
   the user to confirm each time.
 
-## 12. Skeleton
+## 12. Component sections
+
+Every report carries these sections between the checks and the findings, following
+[`components.md`](components.md). They extend the fields above; none replaces a check, image
+record or finding field.
+
+| Section | Contains |
+|---|---|
+| Component inventory | one row per component and state: hierarchical ID, parent, role, region, visual state, interaction, locator and confidence, coverage status with reason |
+| Component analysis | one entry per in-scope component: observed state, applicable dimensions with status and evidence, skipped dimensions with reason, finding IDs, suggested improvement (not applied) |
+| Design comparison | `not requested`, or per component: reference ID, revision, approval, expected vs actual per aspect, outcome, confidence, evidence and recheck policy |
+| Cross-component issues | relationship findings (`rel:<id-a>~<id-b>`) and the few `screen` findings with their reason |
+| Coverage and residual risk | components inspected, partial, blocked, not-run and excluded; states, cells, renderers and interactions not exercised |
+
+The **Summary** is written last and derived from these sections: counts by component coverage,
+severity and kind, the top three findings by component ID. A screen-level impression is never a
+substitute for a component entry. Findings are listed once, prioritized P0 → P3, each naming its
+stable component ID; a shared-pattern finding lists its affected instances instead of being
+repeated. Root cause stays `unknown` unless source read in this run establishes it.
+
+## 13. Skeleton
 
 ```markdown
 # UI inspection — <scenario id> — <surface>
@@ -183,10 +210,11 @@ Status: complete | partial | blocked | inconclusive
 Gaps: <what is missing and what would unblock it, or none>
 
 ## Scope
-<the scope block from § 3>
+<the scope block from § 3, including component targets and design comparison>
 
 ## Summary
-<3–5 lines: what was inspected, count of findings by severity and kind, the top three titles>
+<3–5 lines derived from the sections below: components by coverage, findings by severity and
+kind, the top three findings by component ID>
 
 ## Checks
 | id | expectation (ref) | status | detail |
@@ -196,13 +224,34 @@ Gaps: <what is missing and what would unblock it, or none>
 | path | sha256 | cell | tool / inspected by · at | observations |
 |---|---|---|---|---|
 
+## Component inventory
+| id | parent | role | region (unit) | state | interaction | locator · confidence | coverage |
+|---|---|---|---|---|---|---|---|
+
+## Component analysis
+### <component id> — <name> · <cell> · <state>
+| dimension | status | evidence | finding |
+|---|---|---|---|
+Skipped dimensions: <dimension — reason>
+Suggested improvement (not applied):
+
+## Design comparison
+Not requested | per component:
+| component | reference · revision · approval | aspect | expected | actual | outcome | confidence | evidence |
+|---|---|---|---|---|---|---|---|
+
+## Cross-component issues
+<relationship and screen findings, by ID>
+
 ## Findings
-### <id> — <title>
+### <surface>/<component id>/<symptom-key> — <title>
+- Component · cell · basis:
 - Kind · severity · confidence (reason):
 - Rule · authority:
 - Actual / expected / impact:
 - Repro:
 - Region · images (context, detail):
+- Comparison:
 - Root cause: unknown
 - Suggested fix (not applied):
 - Recheck:
@@ -211,8 +260,9 @@ Gaps: <what is missing and what would unblock it, or none>
 ## Fixtures and mutations
 <created · changed · retained; nothing deleted that the run did not create>
 
-## Not covered / residual risk
-<devices, readers, locales, themes and states not exercised; motion and interaction not observed>
+## Coverage and residual risk
+<components not inspected and why; devices, readers, locales, themes and states not exercised;
+motion and interaction not observed>
 ```
 
 The chat handoff in [`SKILL.md`](../SKILL.md#handoff-report) summarizes this report; it never
