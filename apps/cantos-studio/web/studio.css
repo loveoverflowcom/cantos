@@ -93,6 +93,9 @@ body { margin: 0; }
 .studio-shell [hidden] { display: none !important; }
 @container studio (max-width: 75rem) { .studio-shell .authoring-workspace { grid-template-columns: minmax(10rem, .7fr) minmax(0, 2fr); } .studio-shell .authoring-inspector { grid-column: 1 / -1; margin-block-start: var(--cantos-space-sm); } }
 @container studio (max-width: 45rem) { .studio-shell .authoring-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); } .studio-shell .authoring-nav button { min-height: var(--cantos-size-control); } .studio-shell .authoring-inspector { grid-column: auto; } .studio-shell .authoring-fields { grid-template-columns: minmax(0, 1fr); } }
+/* Narrow: the tree folds behind a toggle so the editing pane, not the whole tree, follows the heading. */
+.studio-shell .authoring-nav-toggle { display: none; }
+@container studio (max-width: 45rem) { .studio-shell .authoring-nav-toggle { display: block; inline-size: 100%; } .studio-shell .authoring-workspace[data-nav="closed"] > .authoring-nav { display: none; } }
 
 .studio-shell .authoring-field textarea { min-height: 7rem; font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
 .studio-shell .authoring-advanced textarea { min-height: 24rem; font-family: ui-monospace, monospace; }

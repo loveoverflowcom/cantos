@@ -265,6 +265,21 @@ pub fn StructuredEditor(
     let movement = RwSignal::new(None::<(String, usize, String)>);
     let pending_fields = RwSignal::new(InputActivity::default());
     let selected = RwSignal::new(None::<Target>);
+    let nav_open = RwSignal::new(false);
+    let nav_toggle = NodeRef::<leptos::html::Button>::new();
+    // Narrow containers render the toggle and fold the navigation away once a target is chosen, so the
+    // editing pane stays inside the first screen; wide layouts hide the toggle and keep focus on the tree.
+    let reveal_canvas = move || {
+        if nav_toggle
+            .get_untracked()
+            .is_some_and(|toggle| toggle.offset_parent().is_some())
+        {
+            nav_open.set(false);
+            leptos::leptos_dom::helpers::request_animation_frame(move || {
+                focus_field(&format!("{namespace}-canvas"))
+            });
+        }
+    };
     Effect::new(move |_| {
         let incoming = draft.get();
         let parsed = document.get();
@@ -355,24 +370,25 @@ pub fn StructuredEditor(
                     })}
                 </p>
             </Show>
-            <div class="authoring-workspace">
+            <div class="authoring-workspace" data-nav=move || if nav_open.get() { "open" } else { "closed" }>
             <Show when=move || document.get().is_some() fallback=move || view! {
                 <p class="authoring-empty">{move || if draft.get().is_empty() { copy().empty } else { copy().invalid }}</p>
             }>
-                    <nav class="authoring-nav" aria-label=move || copy().navigation>
+                    <button type="button" class="cui-button authoring-nav-toggle" id=format!("{namespace}-nav-toggle") data-variant="tonal" node_ref=nav_toggle aria-controls=format!("{namespace}-nav") aria-expanded=move || nav_open.get().to_string() on:click=move |_| nav_open.update(|open| *open = !*open)>{move || copy().navigation}</button>
+                    <nav class="authoring-nav" id=format!("{namespace}-nav") aria-label=move || copy().navigation>
                         <h3>{move || copy().scenes}</h3>
                         <For each=move || document.get().map(|document| document.acts()).unwrap_or_default() key=|act| act.id.clone() children=move |act| {
                             let id = StoredValue::new(act.id);
                             view! {
                                 <div class="authoring-act">
-                                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Act(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Act(id.get_value()))); } }>
+                                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Act(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Act(id.get_value()))); reveal_canvas(); } }>
                                         <span class="authoring-nav-kind">{move || copy().act}</span>
                                         <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.title).unwrap_or_default())/>
                                     </button>
                                     <For each=move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.scenes).unwrap_or_default() key=|scene| scene.id.clone() children=move |scene| {
                                         let scene_id = StoredValue::new(scene.id);
                                         view! {
-                                            <button type="button" class="cui-button authoring-nav-item authoring-nav-scene" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Scene(scene_id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Scene(scene_id.get_value()))); } }>
+                                            <button type="button" class="cui-button authoring-nav-item authoring-nav-scene" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Scene(scene_id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Scene(scene_id.get_value()))); reveal_canvas(); } }>
                                                 <span class="authoring-nav-kind">{move || copy().scene}</span>
                                                 <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| crate::authoring_view::scene(&document, &scene_id.get_value())).map(|scene| scene.title).unwrap_or_default())/>
                                             </button>
@@ -383,24 +399,24 @@ pub fn StructuredEditor(
                         } />
                         <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("act") {
-                                if ctx.structural_change(|document| document.insert_act(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Act))) { selected.set(Some(Target::Act(id))); }
+                                if ctx.structural_change(|document| document.insert_act(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Act))) { selected.set(Some(Target::Act(id))); reveal_canvas(); }
                             }
                         }>{move || copy().add_act}</button>
                         <h3>{move || copy().characters}</h3>
                         <For each=move || document.get().map(|document| document.characters()).unwrap_or_default() key=|character| character.id.clone() children=move |character| {
                             let id = StoredValue::new(character.id);
                             view! {
-                                <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Character(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Character(id.get_value()))); } }>
+                                <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Character(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Character(id.get_value()))); reveal_canvas(); } }>
                                     <crate::ui::ContentText language=content_language text=Signal::derive(move || document.get().and_then(|document| document.characters().into_iter().find(|character| character.id == id.get_value())).map(|character| character.name).unwrap_or_default())/>
                                 </button>
                             }
                         } />
                         <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("character") {
-                                if ctx.structural_change(|document| document.insert_character(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Character), "character", "")) { selected.set(Some(Target::Character(id))); }
+                                if ctx.structural_change(|document| document.insert_character(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Character), "character", "")) { selected.set(Some(Target::Character(id))); reveal_canvas(); }
                             }
                         }>{move || copy().add_character}</button>
-                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); } }>{move || copy().metadata}</button>
+                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); reveal_canvas(); } }>{move || copy().metadata}</button>
                     </nav>
                     <div class="authoring-canvas" id=format!("{namespace}-canvas") tabindex="-1">
                         {move || match selected.get() {
@@ -1496,6 +1512,40 @@ mod tests {
             Some(choice("unknown", crate::localization::Locale::Vietnamese))
         );
         assert_eq!(document.to_json(), original);
+    }
+
+    #[test]
+    fn the_navigation_toggle_starts_closed_and_names_the_tree_it_controls() {
+        let (html, commits) = editor(&fixture(), vec![], false);
+        assert_eq!(commits, 0);
+        let toggle = tag(&html, "test-nav-toggle");
+        assert!(toggle.contains("aria-controls=\"test-nav\""), "{toggle}");
+        assert!(toggle.contains("aria-expanded=\"false\""), "{toggle}");
+        assert!(html.contains("data-nav=\"closed\""), "{html}");
+        assert!(tag(&html, "test-nav").starts_with("<nav "), "{html}");
+        assert!(html.contains(">Điều hướng kịch bản</button>"), "{html}");
+    }
+
+    #[test]
+    fn studio_css_folds_the_navigation_only_in_the_narrow_container() {
+        let css = include_str!("../studio.css");
+        let rules = |needle: &str| {
+            css.lines()
+                .filter(|line| line.contains(needle))
+                .collect::<Vec<_>>()
+        };
+        let toggle = rules(".authoring-nav-toggle");
+        assert_eq!(toggle.len(), 2, "{toggle:?}");
+        assert!(
+            toggle[0].starts_with(".studio-shell .authoring-nav-toggle { display: none; }"),
+            "{toggle:?}"
+        );
+        assert!(
+            toggle[1].starts_with("@container studio (max-width: 45rem)")
+                && toggle[1].contains("display: block")
+                && toggle[1].contains("[data-nav=\"closed\"] > .authoring-nav { display: none; }"),
+            "{toggle:?}"
+        );
     }
 
     #[test]
