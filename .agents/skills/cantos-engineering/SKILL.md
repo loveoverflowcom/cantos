@@ -28,7 +28,10 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
   Inspect commands and runtime capabilities; see [local execution](references/local-execution.md#runtime-portability).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
-- For registered stateful expectations/scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md); keep model and implementation evidence separate.
+- **Behavior SSOT impact.** When a task can change a state, guard, outcome, permission, lifecycle,
+  retry/recovery step or its oracle, even with no `.qnt` in the diff, run the
+  [impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure) before choosing a write and
+  report it in § 9; presentation-only work records the reason. Keep model and implementation evidence separate.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level. An owner-selected target is not a runtime result.
 - **Keep accepted boundaries.** Rust/Axum, Leptos Web, CMP native playback and S3-compatible
@@ -239,6 +242,7 @@ Every field is required, including the last one:
 ```text
 Invariant:
 Owner / boundary:
+Behavior SSOT impact:      <capability · lifecycle · class · authority · delta | none: reason>
 Evidence level:            <from § 6>
 Evidence:                  test / property / tool → pass | fail
 Command:                   <exact, reproducible>

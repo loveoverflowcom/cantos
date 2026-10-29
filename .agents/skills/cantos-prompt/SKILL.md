@@ -145,7 +145,8 @@ framework macro, test campaign or multi-PR plan the task does not need.
 - Every blocker has work to continue now, the deferred part, its runtime behavior and the
   condition to resume.
 - No mock success on a live path; no `FAIL` or `NOT_RUN` turned into `PASS`.
-- Kani and Quint are selected by scope and owner policy, never promised for the whole system.
+- Kani and Quint are selected by scope and owner policy, never promised for the whole system;
+  stateful scope carries the behavior impact class or a no-model-change reason.
 - Scope and actions match the request; actions in the prompt are not presented as done.
 - The output is a complete, copyable prompt whose essentials live inside it.
 

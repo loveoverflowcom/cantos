@@ -12,7 +12,7 @@ they are not product documentation and they do not implement anything.
 ```text
 cantos-engineering                 ← foundation: invariants, decoupling, immutability, types,
         ↑                             functional core, tests, evidence vocabulary, residual risk
-        ├── cantos-behavior              ← shared Quint catalog, scenario generation, non-vacuity and model evidence
+        ├── cantos-behavior              ← shared Quint catalog, SSOT impact procedure, scenarios, non-vacuity and model evidence
         ├── cantos-script-ir             ← Script IR, editorial revisions, import/adaptation boundary
         ├── cantos-production-pipeline   ← external audio handoff, profiles, QC intake and producer isolation
         ├── cantos-publication           ← rights, approvals, staged publication, manifests, delivery
@@ -99,7 +99,7 @@ Passing it proves skill hygiene only.
 | The task is about… | Load |
 |---|---|
 | runtime image formats, AVIF conversion, SVG/native XML, launcher or legacy-image audit | [image policy](../../docs/design/runtime-images.md), then `cantos-ui-design`, renderer and Media owners |
-| registered stateful behavior, Quint models, shared API/Leptos/CMP scenarios, witnesses and counterexamples | [`cantos-behavior`](cantos-behavior/SKILL.md), composing the foundation |
+| stateful impact of any change (code-only diffs included), Quint models, shared API/Leptos/CMP scenarios, witnesses and counterexamples | [`cantos-behavior`](cantos-behavior/SKILL.md), composing the foundation |
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
 | layered verification, independently verified core delivery, unavailable infrastructure or deferred acceptance | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification strategy](cantos-engineering/references/verification-strategy.md#layered-verification) and [local handoff](cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion) |
 | when to run checks, checkpoint/handoff scope, repeated preflight or evidence reuse | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification cadence](cantos-engineering/references/verification-cadence.md) |
@@ -146,6 +146,14 @@ go to logic. Review-only tasks keep the reviewer/inspector read-only/report-only
 leave named core work independently verified, never hide an actual regression failure or establish
 database/device semantics. Wider architecture, schema/API, security, durability or redesign work
 escalates through `cantos-work-item` and its owners.
+
+Behavior SSOT impact has one owner. The foundation triggers the `cantos-behavior`
+[impact procedure](cantos-behavior/SKILL.md#ssot-impact-procedure) for any change to states,
+guards, outcomes, permissions, lifecycle, retry/recovery or their oracle, code-only diffs
+included. Entrypoints and domain/renderer skills inherit it and add only their boundary:
+delivery and repair write the classified delta within their grant; review, inspection and
+prompt authoring stay read-only; presentation-only, docs and story artifact work record no
+impact. A draft model or its PASS never accepts a requirement.
 
 `cantos-prompt` writes prompts for another agent and executes nothing unless the user also asks
 for execution. One [contract](cantos-prompt/references/prompt-contract.md) serves both sides:

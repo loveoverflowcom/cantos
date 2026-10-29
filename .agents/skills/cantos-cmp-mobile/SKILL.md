@@ -29,9 +29,9 @@ Product truth lives in [`docs/architecture/mobile.md`](../../../docs/architectur
 [work item 050](../../../docs/work-plan/050-cmp-native-listening.md), the [UI system](../../../docs/design/ui-system.md) and
 [business rules 25–29](../../../docs/product/business-rules.md#listening-and-mobile). Link them;
 when this skill and a document disagree, the document wins and the conflict is reported.
-For registered stateful scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md):
-reuse catalog IDs and accepted `.qnt` expectations, keep platform-native tests and observations,
-and never infer client/device acceptance from model simulation.
+Stateful decisions run the [behavior impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure);
+registered scenarios reuse catalog IDs and accepted `.qnt` expectations, keep platform-native tests
+and observations, and never infer client/device acceptance from model simulation.
 
 ## Repository reality
 

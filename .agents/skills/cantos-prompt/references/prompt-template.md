@@ -57,6 +57,7 @@ PSEUDOCODE — guidance for the agent, not an existing API or macro:
 
 ## Invariants and acceptance
 <correct/incorrect behavior table; runtime failure behavior; mocks are not real acceptance>
+<behavior SSOT: capability, lifecycle and class from the impact procedure, or the no-model-change reason; model writes only when classified and granted>
 <partial-source acceptance if the user allowed it; what stays unwired>
 
 ## Verification

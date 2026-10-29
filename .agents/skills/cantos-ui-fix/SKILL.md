@@ -45,6 +45,9 @@ Web-only. Inspect actual code, manifests and commands before treating a surface 
    source and state owner. Separate observed symptoms from an unverified root-cause hypothesis.
 3. Name the violated UI invariant and smallest owning boundary. Confirm that the incoming
    domain/API state is correct before patching its display. Apply the routing boundaries below.
+   A patch that would change a state, guard or outcome rather than its display runs the
+   [behavior impact procedure](../cantos-behavior/SKILL.md#ssot-impact-procedure); a pure
+   display, copy or layout repair records no impact.
 4. Plan the minimal patch, affected consumers and cheapest regression oracle. Reproduce the
    bug or record the observed baseline; prefer a failing deterministic regression before fixing.
    Use the foundation's documented CSS-only/metadata exemptions with inspected evidence or a

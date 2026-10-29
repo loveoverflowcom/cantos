@@ -42,8 +42,8 @@ If the domain is finite and small, a bounded exhaustive loop is cheaper and stro
 
 ## State-machine tests
 
-For a registered Cantos lifecycle, read [cantos-behavior](../../cantos-behavior/SKILL.md)
-and use its accepted Quint model as executable expectation. Do not add a hand-maintained
+For a Cantos lifecycle, run the behavior [impact procedure](../../cantos-behavior/SKILL.md#ssot-impact-procedure)
+and use an accepted Quint model as executable expectation. Do not add a hand-maintained
 Rust/Kotlin/JS reducer beside it. Keep existing native tests and distinct codec/numeric oracles.
 For an unmodeled lifecycle, resolve requirements/model ownership before shared scenario work.
 Generate command sequences, observe the actual implementation independently and check after every step:

@@ -1,4 +1,4 @@
 interface:
   display_name: "Cantos Behavior"
-  short_description: "Quint catalog, scenarios, counterexamples and honest model evidence"
-  default_prompt: "Use $cantos-behavior to find the stable capability and accepted requirements, derive scenarios from Quint, require non-vacuity and sensitive negative controls, and report model and implementation evidence separately."
+  short_description: "SSOT impact check, Quint catalog, scenarios and honest model evidence"
+  default_prompt: "Use $cantos-behavior to run the SSOT impact procedure for this change: look up the catalog capability and approved requirements, classify the change before any model write, derive scenarios from Quint, require non-vacuity and sensitive negative controls, and report model and implementation evidence separately."

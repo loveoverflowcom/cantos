@@ -3,7 +3,8 @@ name: cantos-behavior
 description: >-
   Use Cantos's stable Quint catalog to author or review executable stateful behavior contracts,
   derive AI test scenarios, run model and optional independent pure-core conformance gates,
-  and interpret counterexamples. Resolves approved
+  and interpret counterexamples. Owns the SSOT impact procedure every stateful change runs,
+  code-only diffs and unregistered capabilities included, before choosing a write. Resolves approved
   requirements, implementation facts and needs-decision gaps before modeling; requires named runs,
   reachability and sensitive negative controls; preserves Protobuf and native API/Rust/Leptos/CMP
   test boundaries and distinguishes sampled model evidence from implementation conformance.
@@ -17,6 +18,44 @@ CMP agents. It adds no product rule or outward-action permission. Compose
 Product rationale/unresolved decisions stay in owning docs; accepted `.qnt` declarations own
 executable expectations. [ADR 0027](../../../docs/decisions/0027-quint-executable-behavior.md)
 and [the inventory](../../../specs/behavior/inventory.md) explain that division.
+
+## SSOT impact procedure
+
+The one procedure for deciding whether a change touches executable stateful behavior. The
+[foundation](../cantos-engineering/SKILL.md#ground-rules) triggers it whenever a task can change
+a state, guard, outcome, permission, lifecycle, retry/recovery step or the oracle that tests one,
+including a code-only diff with no `.qnt` file and a capability nobody named. It is a lookup
+and a classification: it never mandates a model edit and grants no write the task lacks.
+
+1. **Look up before choosing a write.** Catalog → root pointer and module manifest (`owner`,
+   `sourceRefs`, `ownedSources`, `implementationTests`) → module inventory and the owning
+   requirement → `.qnt` model and named runs → actual code and callers. Search by the touched
+   paths and domain, not only for a capability you already know. As an optional aid,
+   `cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run` lists the
+   `behavior (CAPABILITY)` gates the registry's reverse index selects. Unmodeled entries
+   (`model: null`) and paths no record names select nothing: an empty selection is not "no impact".
+2. **Classify before writing.** Check the capability's `lifecycle` and the ADR status: a `draft`
+   or `needs-decision` model is a proposed expectation, so compare it and the code with the
+   inventory's approved-requirement rows. Only an `accepted` model is itself the oracle.
+   Classes can combine (a code defect over an unmodeled guard); report each.
+
+| Class | Selected by | Write, when the task grants it | Never |
+|---|---|---|---|
+| code defect | code diverges from an approved requirement the model also states | fix the implementation with a failing regression; reuse the run ID; model unchanged | edit expected results, witnesses or controls to bless the code |
+| model defect | model contradicts an approved requirement; source and counterexample cited | minimal model/run/inventory fix through the write bundle; lifecycle unchanged | rewrite the requirement or read it from code or UI |
+| approved requirement change | the user or a named owner accepted the new rule | the write bundle and the implementation as one delta | promote lifecycle from a PASS |
+| missing model, scenario or capability | no entry, `model: null`, or no run covers the changed guard | reuse the entry; author a bounded draft only with scope, permission and a clear approved requirement; otherwise record the gap, owner and next step | per-renderer copies or a second reducer |
+| needs-decision | requirement absent or conflicting | record the question and its source; continue independent work | adopt the UI's or the code's behavior as authority |
+| no semantic change | presentation, copy, layout or an outcome-preserving refactor | none; state the reason and still run what the reverse index selects | edit `.qnt` to satisfy the procedure |
+| read-only task | review, inspection or prompt authoring | report the class and the proposed delta | mutate code, model or catalog; widen the grant |
+
+3. **Write only the classified delta** through the
+   [write bundle](references/authoring-and-evidence.md#impact-write-bundle); model work then
+   follows the required order below, and control returns to the calling workflow.
+4. **Report** the foundation's `Behavior SSOT impact` field: capability ID and lifecycle (or
+   absence), class, authority source, delta or no-model-change reason, checks actually run and
+   open gaps. A draft, a model PASS or an unrun gate never stands for requirement acceptance or
+   implementation conformance.
 
 ## Required order
 
@@ -83,6 +122,7 @@ event-matrix tests.
 | Independent observation prevents a mirrored oracle | call actual production seam and compare Quint checkpoints / second handwritten Rust reducer | `--conformance` compares original traces against event-only real core observations; full receipt/call-count and semantic sensitivity checks | native codec/numeric/platform tests may keep their existing distinct oracles |
 | Honest tiers prevent invented acceptance | sampled model PASS; API NOT_RUN / model PASS called backend verified | existing status vocabulary, stage report, retained source/tool hashes | no tier promotion without actual attributable execution |
 
-Read [authoring and evidence](references/authoring-and-evidence.md) for the bounded recipe,
-scenario partitions and a counterexample example. [Execution guide](../../../specs/behavior/README.md)
-owns actual command/budget/output contracts. Skills own method, not a second product spec.
+Read [authoring and evidence](references/authoring-and-evidence.md) for the impact write bundle
+and lookup examples, the bounded recipe, scenario partitions and a counterexample example.
+[Execution guide](../../../specs/behavior/README.md) owns actual command/budget/output
+contracts. Skills own method, not a second product spec.

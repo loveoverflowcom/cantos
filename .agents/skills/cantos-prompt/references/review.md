@@ -21,8 +21,10 @@
    list every occurrence of `postgres`, `kanidm` or `mock` for deletion.
 4. Trace the real path: entrypoint → application → adapter → persistence/auth contract. Focus on
    reachable defects, invariants, dependencies, missing wiring or missing evidence.
-5. Check consumer/server contracts and stateful models where relevant. Unrun Kani or Quint is an
-   evidence gap, not a runtime bug; an existing test is not proof it ran.
+5. Check consumer/server contracts and classify stateful impact with the behavior
+   [impact procedure](../../cantos-behavior/SKILL.md#ssot-impact-procedure): a code-only stateful
+   delta missing the model or binding sync its class needs is a finding. Unrun Kani or Quint is
+   an evidence gap, not a runtime bug; an existing test is not proof it ran.
 6. Write each finding with a reasoned severity, path/symbol/line when observed, source SHA or
    link, current and expected behavior from a sourced rule, impact and fix. Keep confirmed
    findings apart from hypotheses and unknowns; never invent line numbers or status.
