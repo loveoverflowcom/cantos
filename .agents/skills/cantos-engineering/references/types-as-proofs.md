@@ -166,6 +166,22 @@ lints. At `cf3ab8ed` no `[lints]` table or `deny(clippy::…)` attribute exists,
 lints such as `clippy::unwrap_used` are not enforced; Wasm-only code needs the Wasm lint run and
 `cfg(kani)` code is never linted.
 
+## Choose a barrier for a concrete consumer
+
+Use these questions with the [admission pilot](../../../../docs/evidence/identity-session-admission-pilot.md):
+
+| Technique | Use when | Decline or qualify when |
+|---|---|---|
+| private construction / closed result / refined input | a named caller can forge an invalid state and the consumer can require the checked representation | no consumer gains a restriction, or the claimed invariant is durable I/O: a consumed revoke token cannot make an aborted write commit |
+| constructor-coupled proof | the production path constructs the refined input; separate raw rejection, meaningful accepted-value covers and accepted-value postconditions ([harness obligations](mutation-and-formal.md#bounded-model-checking)) | public literals, decoding or fixtures bypass the constructor; prove only the admitted domain and keep the bypass/entrypoint obligation open |
+| deterministic replay | event order, failed effects and recovery determine the result; production decisions/shell can be driven with named external failures | the claim concerns unrun restart/concurrency or independent model authority; reuse the registered observer instead of writing a second reducer |
+
+In the pilot `SecurityState` still has public fields; the real RPC path calls `from_response`,
+but a struct literal can reach the pure subject-mismatch branch. No privacy guarantee or new
+type barrier is claimed. The real-store abort and subsequent admissions answer the effect
+question a type cannot answer. Neither a different HTTP return code nor a type-level token
+would preserve a failed revocation obligation across the next read or a restart by itself.
+
 ## What a type does not prove
 
 - `#[must_use]` warns, where the lint runs, that a value was ignored; it does not make the caller

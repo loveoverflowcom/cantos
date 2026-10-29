@@ -51,6 +51,18 @@ Registry facts at the time of writing; re-read the catalog and manifests before 
 - Register stable properties, named runs, witnesses and controls together. IDs survive
   file/declaration rename; semantic splits need a reviewed old-to-new mapping.
 
+## Follow the effect through the next entrypoint
+
+For a rejected request with an intended effect, exercise both effect failure → still-different
+inputs and effect failure → recovered inputs at the next production entrypoint. Record the
+actual effect result and durable state independently of the request outcome. The
+[Identity pilot](../../../../docs/evidence/identity-session-admission-pilot.md) uses the existing
+RPC peer, production shell and real Turso SQL abort; its forwarding port probe contains no
+state machine. It fills a native coverage gap while the registered Quint observer remains
+`pure-core-synthetic-shell`. Keep its model runs/witnesses/controls separate and unchanged when
+no approved expectation changed. A characterization of unresolved behavior is reproduction,
+not authority to change a contract or a model's lifecycle.
+
 ## AI scenario partitions
 
 Derive these from the chosen capability's actual guards, not from a generic product template:
