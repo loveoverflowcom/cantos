@@ -191,6 +191,10 @@ pub enum Task {
         /// Print the selected gates and commands without running them.
         #[arg(long)]
         dry_run: bool,
+        /// Repository-relative JSON record answering the assurance obligations derived from the
+        /// changed paths (handoff --changed-only only); see xtask/README.md#assurance-decisions.
+        #[arg(long, value_name = "FILE")]
+        assurance_decisions: Option<String>,
     },
     /// Run the CI contract: every job, or the one GitHub Actions selects with --job.
     Ci {

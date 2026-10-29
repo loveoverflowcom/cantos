@@ -192,6 +192,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             changed_only,
             skip,
             dry_run,
+            assurance_decisions,
         } => {
             let options = preflight::PreflightOptions {
                 profile,
@@ -200,6 +201,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
                 changed_only,
                 skip: skip.into_iter().collect(),
                 dry_run,
+                assurance_decisions,
             };
             if let Err(message) = options.validate() {
                 return Ok(refuse(Refusal::Usage(message)));

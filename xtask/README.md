@@ -97,7 +97,7 @@ cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|sub
 cargo xtask verify native-isolation --test-binary /absolute/prebuilt-rust-test --test fully::qualified::name [--timeout-seconds 60] [--identity-binary /absolute/prebuilt/cantos-identity] [--dry-run]
 cargo xtask verify native-auth-qualification [--kani] [--report PATH] [--dry-run] # manual #336 Linux campaign
 
-cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
+cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run] [--assurance-decisions FILE]
 cargo xtask preflight --profile local --changed-only [--base REF] [--skip GATE]... [--dry-run] # DEV/CHECKPOINT subset
 cargo xtask ci [--job repository|rust|web] [--dry-run]
 cargo xtask doctor
@@ -794,6 +794,63 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 `--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
 `NOT_RUN`, never `PASS`. State the exact skip and prerequisite in the pull request; retired commands are not selectable gates.
 
+#### Assurance decisions
+
+Changed-only handoff preflight also derives the change set's *assurance obligations*
+([`preflight/assurance.rs`](src/preflight/assurance.rs)) from the owners that already exist, with
+no second registry, and prints them in the plan (dry run included):
+
+| Obligation | Derived from | Answered by |
+|---|---|---|
+| `behavior:<capability>` | a planned `behavior (…)` gate (registry reverse index) | that gate's own result in this run |
+| `unmodeled:<capability>` | non-document `owner`/`sourceRefs`/`ownedSources`/`implementationTests` of a live `model: null` record (index schema 2 `obligations`) | a decision |
+| `kani:<kernel>` | `kani::affected` for each changed path, whether or not `--kani` is set | the opted-in `kani (…)` gate, or a decision |
+| `impact:unknown` | a broadened selection, or code changes without a registry index | a decision |
+
+Documents (Markdown outside fixtures, `docs/`, `templates/`, `.agents/`, `.claude/`) never derive
+one, so documentation-only changes never require a verifier. Path mapping is an approximation:
+no obligation means none was *derived*, never that the change has no semantic impact.
+
+The `assurance-decisions` outcome FAILs while an obligation has neither a passing verifier nor an
+accepted decision. Answer them with `--assurance-decisions FILE`, a repository-relative JSON record
+kept in an ignored directory (for example `artifacts/assurance/<branch>.json`; a tracked or untracked
+file there would itself be a changed path):
+
+```json
+{"schemaVersion": 1, "decisions": [{
+  "obligations": ["unmodeled:cantos.publishing.lifecycle", "kani:publication-commit"],
+  "changedScope": ["services/cantos-server/src/contexts/media/domain/publication.rs"],
+  "authority": "specs/behavior/catalog.json",
+  "applicability": "REQUIRED",
+  "reason": "the release pointer guard changed",
+  "expectedEvidence": "server unit tests and a CURRENT publication-commit receipt",
+  "evidence": [
+    {"kind": "gate", "gate": "rust-tests (cantos-server)"},
+    {"kind": "kani-receipt", "kernel": "publication-commit", "path": "artifacts/agent-runs/kani-…/metadata.json"}]}]}
+```
+
+- `changedScope` must cover every changed path that derives a listed obligation and name only
+  paths in the current change set; a decision for an obligation no longer derived is stale.
+- `authority` is an existing repository file (optionally `#anchor`) or an issue, PR or file URL
+  of this repository. `reason` is always required and reviewable.
+- `REQUIRED` cites evidence only as gates planned in this run or `kani-receipt` checks; each
+  `kani:` obligation needs its own. A status written in the record is never evidence: the cited
+  step must actually report `PASS`, so `REQUIRED` + `NOT_RUN`/`FAIL`/`UNSUPPORTED` FAILs.
+- `NOT_APPLICABLE` cites no evidence. It is refused for `behavior:` obligations: a registered
+  model runs, or is deferred.
+- `DEFERRED` names `expectedEvidence` and `deferred.owner`/`deferred.resumeCondition`. The record
+  can PASS, but each deferred obligation is its own `assurance (<obligation>)` `NOT_RUN` row, so
+  the verdict reads `PASS with N explicitly skipped (NOT_RUN)`: owed acceptance, never a PASS.
+
+A `kani-receipt` evidence item plans the read-only `kani-receipt (KERNEL)` step:
+`scripts/verify_kani.py --check-receipt` re-validates one retained `metadata.json` against the
+current registration (see [Optional targeted Kani proofs](#optional-targeted-kani-proofs)). It needs
+only Python and never runs Kani. `--skip assurance` records the outcome as `NOT_RUN` and lists the
+unanswered obligations. The flag is refused by the local profile and without `--changed-only`;
+full preflight states that obligations were not derived. CI does not evaluate decisions: its
+jobs have no change set or record. The derivation, record rules and receipt checker are covered by
+xtask's Rust tests and the Python suite, which the `rust` and `repository` CI jobs run.
+
 #### Local profile
 
 ```sh
@@ -950,6 +1007,22 @@ An observed endpoint change cannot retain `PASS`. This is bounded local arithmet
 evidence, not SQL, authorization, publication, actual audio, native listening or complete-feature
 acceptance. See the exact retained
 output before making a `bounded-model-checked` claim; ordinary adapter tests do not establish one.
+
+**Receipt reuse.** `python3 scripts/verify_kani.py <pins> --check-receipt artifacts/agent-runs/kani-…/metadata.json
+--harness … --source … --package … --unwind 2 --cover-count N [--allow-unreachable ID]…` (planned
+as `kani-receipt (KERNEL)` by an [assurance decision](#assurance-decisions), with the registered
+values) is read-only and never probes or runs a verifier. It reports `CURRENT` only when the
+sibling `raw.log` re-parses as complete runner evidence for the *current* registration (harness,
+covers, reviewed unreachable IDs) with matching recorded counts, the recorded outcome is `PASS`,
+the tool/compiler/host pins, solver, unwind, `--no-default-features`/`--lib` argv and package are
+unchanged, `Cargo.lock` equals the run's before/after lock, the harness source and the run's whole
+per-package input tree (added/removed files included) hash the same, and the workspace Cargo
+configuration matches. Configuration present outside the checkout is comparable only on the
+machine and path that recorded it. Anything else is stale or invalid and FAILs with each reason.
+The package tree is the dependency boundary, so an unrelated package, Web/CMP or document change
+keeps a receipt current while any change inside the proof's package makes it stale; no
+per-function hash is trusted. A `CURRENT` receipt reuses one past run: checksums are not tamper
+evidence, and receipts made from fake bundles in tests are synthetic, never Kani evidence.
 
 ### ci
 

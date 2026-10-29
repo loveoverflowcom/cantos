@@ -245,6 +245,7 @@ Every field is required, including the last one:
 Invariant:
 Owner / boundary:
 Behavior SSOT impact:      <capability · lifecycle · class · authority · delta | none: reason>
+Assurance obligations:     <preflight obligation IDs → verifier, REQUIRED evidence, NOT_APPLICABLE reason or DEFERRED owner | none derived>
 Evidence level:            <from § 6>
 Evidence:                  test / property / tool → pass | fail
 Command:                   <exact, reproducible>

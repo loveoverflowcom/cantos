@@ -49,6 +49,8 @@ pub enum GateKind {
     TheatreCmpPreview,
     Mutation,
     Kani,
+    /// The assurance decision outcome of changed-only handoff preflight; not a command gate.
+    Assurance,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -132,6 +134,12 @@ pub enum Gate {
     CmpUiPreview,
     TheatreCmpPreview,
     Mutation,
+    /// Read-only re-validation of one retained Kani run named by an assurance decision; it
+    /// never executes a verifier and needs no Kani installation.
+    KaniReceipt {
+        kernel: Kernel,
+        receipt: String,
+    },
     Kani(Kernel),
 }
 
@@ -177,7 +185,7 @@ impl Gate {
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::TheatreCmpPreview => GateKind::TheatreCmpPreview,
             Gate::Mutation => GateKind::Mutation,
-            Gate::Kani(_) => GateKind::Kani,
+            Gate::KaniReceipt { .. } | Gate::Kani(_) => GateKind::Kani,
         }
     }
 
@@ -197,6 +205,7 @@ impl Gate {
             }
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
+            Gate::KaniReceipt { kernel, .. } => format!("kani-receipt ({})", kernel.name()),
             Gate::RepositoryStatic { .. } => "repository-static".into(),
             Gate::Behavior {
                 capability: Some(id),
@@ -234,6 +243,7 @@ impl Gate {
             }
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
+            Gate::KaniReceipt { .. } => vec![Tool::Python3],
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
             Gate::RustLint(_) | Gate::Turso => vec![Tool::Cargo, Tool::Clippy],
@@ -303,6 +313,9 @@ impl Gate {
             }
             Gate::RustFormat => vec![cargo(&["fmt", "--all", "--", "--check"])],
             Gate::Kani(kernel) => vec![kernel.command(workspace)],
+            Gate::KaniReceipt { kernel, receipt } => {
+                vec![kernel.receipt_command(workspace, receipt)]
+            }
             Gate::ScriptIrReference => vec![python(&["scripts/reference_script_ir.py"])],
             Gate::ProtobufReference => vec![
                 python(&["scripts/reference_protobuf.py"]),
@@ -1168,10 +1181,16 @@ mod tests {
         assert_eq!(gates, sorted);
         let kinds: BTreeSet<_> = gates.iter().map(Gate::kind).collect();
         let all: BTreeSet<_> = GateKind::value_variants().iter().copied().collect();
-        // Workspace tests already run every focused contract test target.
+        // Workspace tests already run every focused contract test target. Assurance is the
+        // decision outcome of a changed-only handoff, never a command gate.
         assert_eq!(
             all.difference(&kinds).copied().collect::<Vec<_>>(),
-            [GateKind::Behavior, GateKind::ContractTests, GateKind::Kani]
+            [
+                GateKind::Behavior,
+                GateKind::ContractTests,
+                GateKind::Kani,
+                GateKind::Assurance
+            ]
         );
     }
 

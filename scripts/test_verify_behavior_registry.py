@@ -539,6 +539,44 @@ class ImpactIndex(unittest.TestCase):
             self.assertNotIn("cantos.identity.theatre-registration", ids)
         self.assertEqual(index["inputs"]["specs/behavior/identity/theatre_registration.qnt"], ["*"])
 
+    def test_live_unmodeled_owners_derive_obligations_in_the_real_registry(self):
+        index = registry.impact_index(*behavior.load_registry(behavior.ROOT))
+        self.assertEqual(index["schemaVersion"], 2)
+        self.assertEqual(index["obligations"], {
+            "services/cantos-server/src/contexts/listening/domain/reconcile.rs": ["cantos.listening.progress"],
+            "services/cantos-server/src/contexts/media/domain/publication.rs": ["cantos.publishing.lifecycle"]})
+        self.assertEqual(index["unmodeled"]["cantos.listening.progress"]["lifecycle"], "needs-decision")
+        # A deprecated record keeps its history but owes no decision.
+        self.assertNotIn("cantos.identity.theatre-registration", index["unmodeled"])
+        self.assertFalse(set(index["unmodeled"]) & set(index["capabilities"]))
+
+    def test_unmodeled_obligations_follow_the_registry_and_never_select_a_model(self):
+        repo = build(self)
+        catalog = json.loads((repo.root / behavior.CATALOG).read_text())
+        live = real_capability("cantos.publishing.lifecycle")
+        live.update(sourceRefs=[*live["sourceRefs"], "services/demo/src/rule.rs#decision"],
+                    ownedSources=["services/demo/src/owned/"])
+        retired = dict(live, id="cantos.publishing.retired", lifecycle="deprecated",
+                       owner="services/demo/src/retired.rs", sourceRefs=["services/demo/src/retired.rs"])
+        retired.pop("ownedSources")
+        for relative in ("services/demo/src/rule.rs", "services/demo/src/owned/core.rs", "services/demo/src/retired.rs"):
+            repo.put(relative)
+        for cap in (live, retired):
+            references(repo, cap)
+        catalog["capabilities"] += [live, retired]
+        repo.put(behavior.CATALOG, json.dumps(catalog))
+        index = self.index(repo)
+        self.assertEqual(sorted(index["unmodeled"]), ["cantos.publishing.lifecycle"])
+        self.assertEqual(index["obligations"], {
+            live["owner"]: ["cantos.publishing.lifecycle"],
+            "services/demo/src/rule.rs": ["cantos.publishing.lifecycle"]})
+        self.assertEqual(index["obligationPrefixes"], {"services/demo/src/owned/": ["cantos.publishing.lifecycle"]})
+        for table in ("obligations", "obligationPrefixes"):
+            self.assertFalse([p for p in index[table] if p.endswith(".md")])
+        self.assertNotIn("services/demo/src/retired.rs", index["obligations"])
+        for table in ("sources", "sourcePrefixes", "conformance", "inputs"):
+            self.assertFalse(["x" for ids in index[table].values() if "cantos.publishing.lifecycle" in ids], table)
+
 
 if __name__ == "__main__":
     unittest.main()

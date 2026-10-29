@@ -1,6 +1,7 @@
 //! `cargo xtask preflight`: the developer safety gate before pushing. The default `handoff`
 //! profile is that gate; `--profile local` is a lighter DEV/CHECKPOINT subset of it.
 
+mod assurance;
 mod behavior_index;
 mod changes;
 mod graph;
@@ -37,11 +38,18 @@ pub struct PreflightOptions {
     pub changed_only: bool,
     pub skip: BTreeSet<GateKind>,
     pub dry_run: bool,
+    /// Repository-relative assurance decision record for the derived obligations.
+    pub assurance_decisions: Option<String>,
 }
 
 impl PreflightOptions {
     /// Rejects flag combinations the selected profile cannot honor.
     pub fn validate(&self) -> Result<(), String> {
+        if self.assurance_decisions.is_some()
+            && (self.profile == PreflightProfile::Local || !self.changed_only)
+        {
+            return Err("--assurance-decisions answers the obligations of a handoff diff; use `cargo xtask preflight --changed-only --base REF --assurance-decisions FILE`".into());
+        }
         if self.profile != PreflightProfile::Local {
             return Ok(());
         }
@@ -116,6 +124,25 @@ pub fn run(
         ),
     }
 
+    // Obligations come from the same diff, registry index and kernel registry as the plan; a
+    // record answering them may add read-only `kani-receipt` gates.
+    let assessment = changed.as_ref().map(|paths| {
+        let obligations = assurance::derive(paths, &selection, behavior.as_ref());
+        let record = options.assurance_decisions.as_deref().filter(|_| !local);
+        assurance::Assessment::new(
+            workspace.root(),
+            obligations,
+            paths,
+            &selection.gates,
+            record,
+        )
+    });
+    if let Some(assessment) = &assessment {
+        selection.gates.extend(assessment.receipts.iter().cloned());
+        selection.gates.sort();
+        selection.gates.dedup();
+    }
+
     let mut steps = gate::steps(&selection.gates, workspace);
     for (step, gate) in steps.iter_mut().zip(&selection.gates) {
         step.skipped = options.skip.contains(&gate.kind());
@@ -136,6 +163,17 @@ pub fn run(
     }
     for note in &selection.notes {
         println!("  note: {note}");
+    }
+    match &assessment {
+        Some(assessment) => {
+            assessment.print();
+            if local && !assessment.obligations.is_empty() {
+                println!("  (assurance decisions are evaluated by the handoff profile, not here)");
+            }
+        }
+        None => println!(
+            "  assurance:     obligations not derived without a change set (use --changed-only)"
+        ),
     }
     if options.dry_run {
         if local {
@@ -165,6 +203,14 @@ pub fn run(
     let mut report = pipeline::execute(title, &steps, tools, runner);
     for note in &selection.notes {
         report.note(note.clone());
+    }
+    match &assessment {
+        Some(assessment) if !local => {
+            assessment.record(&mut report, options.skip.contains(&GateKind::Assurance));
+        }
+        None => report
+            .note("assurance obligations were not derived: no change set (use --changed-only)"),
+        _ => {}
     }
     if local {
         if !deferred.is_empty() {
@@ -243,6 +289,7 @@ mod tests {
             changed_only,
             skip: BTreeSet::new(),
             dry_run: false,
+            assurance_decisions: None,
         }
     }
 
@@ -363,6 +410,67 @@ mod tests {
             .last()
             .unwrap()
             .starts_with("cargo clippy -p fixture"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn handoff_assurance_fails_without_a_decision_and_accepts_a_valid_record() {
+        let root = fixture_repository("assurance");
+        fs::write(root.join("xtask/src/main.rs"), "fn main() { let _ = 2; }\n").unwrap();
+        fs::write(root.join("README.md"), "Owner decision.\n").unwrap();
+        let workspace = Workspace::fixture(&root).unwrap();
+        let handoff = options(PreflightProfile::Handoff, true);
+        let mut runner = RecordingRunner::default();
+        // Tooling broadens the selection: impact is unknown, so it needs a decision.
+        assert_eq!(
+            run(&workspace, &handoff, &FakeTools::all(), &mut runner).unwrap(),
+            ExitCode::FAILURE
+        );
+        // The record lives in an ignored directory, so it is not itself a changed path.
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::write(
+            root.join("target/decisions.json"),
+            r#"{"schemaVersion": 1, "decisions": [{"obligations": ["impact:unknown"],
+                "changedScope": ["xtask/src/main.rs"], "authority": "README.md",
+                "applicability": "REQUIRED", "reason": "tooling change", "expectedEvidence": "xtask tests",
+                "evidence": [{"kind": "gate", "gate": "rust-tests (workspace)"}]}]}"#,
+        )
+        .unwrap();
+        let mut recorded = options(PreflightProfile::Handoff, true);
+        recorded.assurance_decisions = Some("target/decisions.json".into());
+        let mut runner = RecordingRunner::default();
+        assert_eq!(
+            run(&workspace, &recorded, &FakeTools::all(), &mut runner).unwrap(),
+            ExitCode::SUCCESS
+        );
+        // The cited gate failing makes the REQUIRED decision fail too.
+        let mut failing = RecordingRunner {
+            fail_on: Some("cargo test".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            run(&workspace, &recorded, &FakeTools::all(), &mut failing).unwrap(),
+            ExitCode::FAILURE
+        );
+        let mut skipped = options(PreflightProfile::Handoff, true);
+        skipped.skip.insert(GateKind::Assurance);
+        assert_eq!(
+            run(
+                &workspace,
+                &skipped,
+                &FakeTools::all(),
+                &mut RecordingRunner::default()
+            )
+            .unwrap(),
+            ExitCode::SUCCESS,
+            "an explicit skip is NOT_RUN, never PASS"
+        );
+        let mut local = options(PreflightProfile::Local, true);
+        local.assurance_decisions = Some("target/decisions.json".into());
+        assert!(local.validate().unwrap_err().contains("handoff"));
+        let mut full = options(PreflightProfile::Handoff, false);
+        full.assurance_decisions = Some("target/decisions.json".into());
+        assert!(full.validate().is_err());
         fs::remove_dir_all(root).unwrap();
     }
 
