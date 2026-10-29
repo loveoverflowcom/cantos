@@ -363,7 +363,9 @@ fn SearchForm(
         <div node_ref=panel class="theatre-public-search"
             on:focusin=move |event| { if !restoring.get_untracked() && crate::platform::focus_is_search_input(&event) { expanded.set(true); } }
             on:focusout=move |event| { if crate::platform::focus_left_search_field(&event) { expanded.set(false); } }
-            on:click=move |event| { if crate::platform::click_is_search_input(&event) { expanded.set(true); } }
+            // Observe input clicks before a dock result can navigate and dispose this panel.
+            // A delegated bubble handler would be visited after its callback was dropped.
+            on:click:capture=move |event| { if crate::platform::click_is_search_input(&event) { expanded.set(true); } }
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
                 // composing. On a chip or button it keeps its own activation.
