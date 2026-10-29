@@ -517,11 +517,11 @@ body { margin: 0; }
 .theatre-live-app .theatre-locale-field { min-inline-size: var(--cantos-size-control); }
 .theatre-live-app .theatre-locale-field.cui-select-field { grid-template-columns: minmax(0, 1fr); }
 .theatre-live-app .theatre-locale-field > .cui-field-label { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-/* Topbar utility role (Controls v3): a compact tonal pill with value and chevron centered as one group.
+/* Topbar utility role (Controls v3): a compact tonal control (reading radius) with value and chevron centered as one group.
    App-local composition of canonical roles until the shared Theatre expression is admitted; the labelled
    form Select keeps its field radius, and the shared control still owns focus, hit target and popup. */
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-field-control {
-  border-radius: var(--cantos-shape-pill);
+  border-radius: var(--cantos-web-shape-reading);
   background-color: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
 }
@@ -741,28 +741,10 @@ body { margin: 0; }
 }
 .theatre-guest-info-panel[hidden] { display: none; }
 .theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }
-/* Guest CTA pair (v4.2b), scoped to this card: sign-in is the card's own foreground (deep purple)
-   with the card surface as its light text/icon; create-account is transparent with a solid
-   foreground outline. Both are full-width pills of one height. Auth intents, eligibility and the
-   disabled state stay with the shared AuthPrimary/AuthOutlined buttons; no global role changes. */
-.theatre-account-profile .theatre-auth-actions .cui-button:is([data-variant="auth-primary"], [data-variant="auth-outlined"]) {
-  min-block-size: var(--cantos-size-auth-primary);
-  border: var(--cantos-size-auth-outline) solid var(--cantos-color-on-primary-container);
-}
+/* Guest CTA pair (v4.3, #526/#527): colors, equal full-width anatomy and the absence of a default
+   border come from the shared profile-card recipe. Only the equal row height of a wrapped label is
+   app layout. */
 .theatre-account-profile .theatre-auth-actions { grid-auto-rows: 1fr; }
-.theatre-account-profile .cui-button[data-variant="auth-primary"]:not(:disabled) {
-  background: var(--cantos-color-on-primary-container);
-  color: var(--cantos-color-primary-container);
-}
-.theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled) {
-  background: transparent;
-  color: var(--cantos-color-on-primary-container);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .theatre-account-profile .cui-button[data-variant="auth-outlined"]:not(:disabled):hover {
-    background: color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent);
-  }
-}
 
 /* Your space (v4.3): two compact preference tiles (label and value beside their control) and
    destinations as action rows with a leading icon, one label and a trailing chevron over the
