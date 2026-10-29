@@ -148,13 +148,21 @@ pub fn EdgeProgress(
     #[prop(optional)] announcement: Announcement,
     #[prop(optional, into)] class: Signal<String>,
 ) -> impl IntoView {
-    let showing = Signal::derive(move || active.get() && visible.get() && foreground.get());
+    // Queued renders can outlive route-owner cleanup. The view owns these projections until
+    // its readers are dropped; an arena-local derived signal would already be disposed.
+    let active: ArcSignal<bool> = active.into();
+    let visible: ArcSignal<bool> = visible.into();
+    let foreground: ArcSignal<bool> = foreground.into();
+    let label: ArcSignal<AccessibleName> = label.into();
+    let class: ArcSignal<String> = class.into();
+    let showing = ArcSignal::derive(move || active.get() && visible.get() && foreground.get());
+    let show_status = showing.clone();
     view! {
         <div class=move || format!("cui-edge-progress {}", class.get())
             data-active=move || if showing.get() { "true" } else { "false" }>
             <span class="cui-edge-track" aria-hidden="true"><span class="cui-edge-segment"></span></span>
             <span class="cui-edge-status" role=announcement.role() aria-atomic="true">
-                {move || showing.get().then(|| label.get().as_str().to_owned())}
+                {move || show_status.get().then(|| label.get().as_str().to_owned())}
             </span>
         </div>
     }

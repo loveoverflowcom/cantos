@@ -131,15 +131,7 @@ impl LiveNavigation {
             use web_sys::wasm_bindgen::JsCast;
             let read = move || {
                 let hash = browser::hash();
-                let destination = Route::from_live_hash(&hash);
-                reconcile_retired_language(destination, &hash);
-                if destination != navigation.route.get_untracked() {
-                    navigation.cancel();
-                }
-                if matches!(destination, Route::Discover | Route::Explore) {
-                    navigation.query.set(super::routes::discovery_query(&hash));
-                }
-                navigation.route.set(destination);
+                navigation.observe_address(&hash);
             };
             let hash_listener = window_event_listener_untyped("hashchange", move |_| read());
             let pop_listener = window_event_listener_untyped("popstate", move |_| read());
@@ -172,6 +164,27 @@ impl LiveNavigation {
             });
         }
         navigation
+    }
+
+    /// One traversal can emit both popstate and hashchange. Publish each changed fact once:
+    /// notifying an unchanged route tears down the newly mounted page's reactive owner.
+    #[cfg(any(target_arch = "wasm32", test))]
+    fn observe_address(self, hash: &str) {
+        let destination = Route::from_live_hash(hash);
+        reconcile_retired_language(destination, hash);
+        let route_changed = destination != self.route.get_untracked();
+        if route_changed {
+            self.cancel();
+        }
+        if matches!(destination, Route::Discover | Route::Explore) {
+            let query = super::routes::discovery_query(hash);
+            if self.query.with_untracked(|current| *current != query) {
+                self.query.set(query);
+            }
+        }
+        if route_changed {
+            self.route.set(destination);
+        }
     }
 
     fn observe_session(self, phase: SessionPhase) {
@@ -344,6 +357,55 @@ mod tests {
         account::AccountScope,
         account_view::{AccountFailure, LoginRefusal, SessionCompletion},
     };
+
+    #[test]
+    fn history_publishes_only_changed_route_and_query_across_work_home_and_search() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        Owner::new().with(|| {
+            let nav = LiveNavigation::new(
+                RwSignal::new(AccountViewState::default()),
+                NodeRef::new(),
+                true,
+            );
+            let route_reads = Arc::new(AtomicUsize::new(0));
+            let query_reads = Arc::new(AtomicUsize::new(0));
+            let count = route_reads.clone();
+            let route = Memo::new(move |_| {
+                count.fetch_add(1, Ordering::SeqCst);
+                nav.route.get()
+            });
+            let count = query_reads.clone();
+            let query = Memo::new(move |_| {
+                count.fetch_add(1, Ordering::SeqCst);
+                nav.query.get()
+            });
+            let check = |hash: &str, routes, queries| {
+                nav.observe_address(hash);
+                assert_eq!(route.get(), Route::from_live_hash(hash));
+                if matches!(route.get(), Route::Discover | Route::Explore) {
+                    assert_eq!(query.get(), super::super::routes::discovery_query(hash));
+                } else {
+                    let _ = query.get();
+                }
+                assert_eq!(route_reads.load(Ordering::SeqCst), routes, "route: {hash}");
+                assert_eq!(query_reads.load(Ordering::SeqCst), queries, "query: {hash}");
+            };
+            let _ = (route.get(), query.get());
+            check("#discover", 1, 1);
+            check("#work/10000000-0000-4000-8000-000000000001", 2, 1);
+            check("#discover", 3, 1);
+            // Browser Back can deliver both popstate and hashchange for one traversal.
+            check("#discover", 3, 1);
+            check("#discover?q=chuong", 3, 2);
+            check("#discover?q=chuong", 3, 2);
+            check("#discover", 3, 3);
+            check("#discover?q=chuong", 3, 4);
+            check("#explore?q=chuong", 4, 4);
+        });
+    }
 
     #[test]
     fn observed_session_phase_preserves_transition_sequence_without_unrelated_notifications() {
