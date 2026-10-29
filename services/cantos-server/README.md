@@ -260,5 +260,6 @@ never provisions an Identity/Studio account or changes production schemas/search
 New artwork and public-cover delivery follow [runtime image policy](../../docs/design/runtime-images.md).
 The inspector links pinned dav1d Rust bindings to libdav1d>=1.3: build hosts need pkg-config
 and development headers, deployed Server needs the shared library. OCI source packages and
-Rust CI include them. Header parsing precedes real AV1 pixel decoding. Historical receipts
+Rust CI include them. Header parsing precedes real AV1 pixel decoding of every item of the admitted profile: a
+single primary or an ImageGrid, with an optional alpha image, one picture at a time. Historical receipts
 and registered migrations are preserved; migration30 only guards future admission/selection.
