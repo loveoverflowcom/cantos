@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 42 unmodified SVG files come from
+These 42 unmodified SVG files (plus one Cantos-authored glyph, below) come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -16,6 +16,13 @@ HTML, use a remote CDN/font, accept arbitrary SVG markup or substitute emoji.
 originals, `src/action/visibility{,_off}/materialicons/24px.svg` at the same pinned revision. Their
 manifest paths and hashes record that style; the bytes equal the upstream files. The Outlined
 variants exist upstream, but no consumer selected them.
+
+`theme_system` (issue [#613](https://github.com/loveoverflowcom/cantos/issues/613)) is the one
+Cantos-authored glyph: a split-disc sun with right-hand rays, drawn on the 24-unit grid from the
+`light_mode` and `dark_mode` ring/ray geometry so the three theme modes share one stroke family.
+Its manifest entry records `origin: cantos-authored` and `derived_from` instead of an upstream
+path; the hash still binds the file to generation. It is the System mode of `ThemeCycleButton`
+and the CMP topbar theme action, never a composition of two small icons.
 
 Add icons only for concrete consumers. Keep an official original, its pinned upstream path/hash
 and license; extend the closed `IconName` API through generation. `auto_mirror: true` in the manifest marks the glyphs Material publishes as AutoMirrored
