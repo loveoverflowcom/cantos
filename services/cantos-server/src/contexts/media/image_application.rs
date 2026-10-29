@@ -251,10 +251,7 @@ impl ArtworkService {
     ) -> Result<ImageUploadTicket, ArtworkApplicationError> {
         let scope = OwnerWorkScope::new(token, work)?;
         let id = ImageIntentId::parse(id)?;
-        let mime = match mime {
-            dto::ImageMime::Png => ImageMime::Png,
-            dto::ImageMime::Jpeg => ImageMime::Jpeg,
-        };
+        let mime = ImageMime::from(mime);
         let initial = self
             .repository
             .admission_context(scope.clone(), id.clone())

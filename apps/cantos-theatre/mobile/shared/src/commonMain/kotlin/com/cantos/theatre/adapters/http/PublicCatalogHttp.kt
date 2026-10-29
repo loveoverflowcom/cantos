@@ -94,6 +94,7 @@ internal enum class UnitKindWire {
 internal enum class CoverContentTypeWire {
     @SerialName("image/png") Png,
     @SerialName("image/jpeg") Jpeg,
+    @SerialName("image/avif") Avif,
 }
 
 /** `CoverImage` of Discovery v1.2; every field is required and nothing else is admitted. */
@@ -254,6 +255,7 @@ private fun String?.toCursor(): CatalogCheck<CatalogCursor?> =
 private fun CoverContentTypeWire.toDomain(): CoverContentType = when (this) {
     CoverContentTypeWire.Png -> CoverContentType.Png
     CoverContentTypeWire.Jpeg -> CoverContentType.Jpeg
+    CoverContentTypeWire.Avif -> CoverContentType.Avif
 }
 
 private fun CoverImageWire?.toCover(work: PublicWorkId): CatalogCheck<PublicCover?> =

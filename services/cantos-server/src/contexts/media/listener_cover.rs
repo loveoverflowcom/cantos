@@ -71,6 +71,7 @@ pub(super) fn cover_image(
         content_type: match cover.content_type() {
             ImageMime::Png => dto::CoverMime::Png,
             ImageMime::Jpeg => dto::CoverMime::Jpeg,
+            ImageMime::Avif => dto::CoverMime::Avif,
         },
         width_px: u64::from(cover.width_px()),
         height_px: u64::from(cover.height_px()),

@@ -90,12 +90,14 @@ identity!(ImageOperationId, InvalidOperationId);
 pub enum ImageMime {
     Png,
     Jpeg,
+    Avif,
 }
 impl ImageMime {
     pub fn parse(value: &str) -> Result<Self, ImageError> {
         match value {
             "image/png" => Ok(Self::Png),
             "image/jpeg" => Ok(Self::Jpeg),
+            "image/avif" => Ok(Self::Avif),
             _ => Err(ImageError::UnsupportedMime),
         }
     }
@@ -103,12 +105,14 @@ impl ImageMime {
         match self {
             Self::Png => "image/png",
             Self::Jpeg => "image/jpeg",
+            Self::Avif => "image/avif",
         }
     }
     pub const fn document(self) -> dto::ImageMime {
         match self {
             Self::Png => dto::ImageMime::Png,
             Self::Jpeg => dto::ImageMime::Jpeg,
+            Self::Avif => dto::ImageMime::Avif,
         }
     }
 }
@@ -117,6 +121,7 @@ impl From<dto::ImageMime> for ImageMime {
         match value {
             dto::ImageMime::Png => Self::Png,
             dto::ImageMime::Jpeg => Self::Jpeg,
+            dto::ImageMime::Avif => Self::Avif,
         }
     }
 }

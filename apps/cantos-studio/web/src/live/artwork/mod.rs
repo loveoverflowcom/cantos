@@ -99,6 +99,7 @@ pub fn file_bounds(mime: &str, size: u64) -> Result<ImageMime, Problem> {
     match mime {
         "image/png" => Ok(ImageMime::Png),
         "image/jpeg" => Ok(ImageMime::Jpeg),
+        "image/avif" => Ok(ImageMime::Avif),
         _ => Err(Problem::File),
     }
 }
@@ -116,6 +117,7 @@ pub fn mime_name(mime: ImageMime) -> &'static str {
     match mime {
         ImageMime::Png => "image/png",
         ImageMime::Jpeg => "image/jpeg",
+        ImageMime::Avif => "image/avif",
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]

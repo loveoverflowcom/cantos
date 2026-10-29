@@ -67,6 +67,8 @@ pub enum CoverMime {
     Png,
     #[serde(rename = "image/jpeg")]
     Jpeg,
+    #[serde(rename = "image/avif")]
+    Avif,
 }
 
 /// Public image facts only (Discovery v1.2, ADR 0033): no asset ID, rights, provenance, owner or

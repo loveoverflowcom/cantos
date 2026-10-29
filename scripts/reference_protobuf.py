@@ -31,7 +31,7 @@ ARTWORK_FIELDS = {
     "WorkArtworkResponse": [(1, "work_id", "string"), (2, "work_revision", "uint64"), (3, "artwork", "WorkArtworkSelection"), (4, "changed_at_ms", "uint64")],
 }
 ENUMS = {
-    "ImageMime": {"image/png": 1, "image/jpeg": 2},
+    "ImageMime": {"image/png": 1, "image/jpeg": 2, "image/avif": 3},
     "ImageIntentState": {"pending": 1, "admitted": 2, "expired": 3},
 }
 OPTIONAL_ARTWORK_FIELDS = {

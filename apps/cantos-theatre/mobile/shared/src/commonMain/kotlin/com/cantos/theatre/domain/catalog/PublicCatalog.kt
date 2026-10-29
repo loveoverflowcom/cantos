@@ -99,8 +99,8 @@ val PublicWorkKind.unitKind: PublicUnitKind
         PublicWorkKind.Podcast -> PublicUnitKind.Episode
     }
 
-/** The only two image types the Server admits for a public cover. */
-enum class CoverContentType(val mime: String) { Png("image/png"), Jpeg("image/jpeg") }
+/** The three image types the Server admits for a public cover. */
+enum class CoverContentType(val mime: String) { Png("image/png"), Jpeg("image/jpeg"), Avif("image/avif") }
 
 /** Bounds the Server enforces on every cover (private Artwork v1 admission); no resize exists. */
 const val MaxCoverDimensionPx: Long = 4096

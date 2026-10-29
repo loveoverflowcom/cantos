@@ -639,15 +639,9 @@ fn ReadyWork(
     let description = (!work.description.trim().is_empty()).then(|| work.description.clone());
     // The server's count of currently public units, not the length of the loaded page.
     let unit_count = work.unit_count;
-    let fallback_lang = lang.clone();
-    let fallback_title = work.title.clone();
     view! {
         <header class="theatre-work-intro theatre-public-work-intro">
-            <PublicCover cover=work.cover.clone() lang=lang.clone() kind=kind_name(kind) class="theatre-public-work-cover">
-                <span class="theatre-cover-moon"></span>
-                <strong lang=fallback_lang>{fallback_title}</strong>
-                <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
-            </PublicCover>
+            <PublicCover cover=work.cover.clone() lang=lang.clone() kind=kind_name(kind) class="theatre-public-work-cover"/>
             <div>
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
@@ -1049,7 +1043,10 @@ mod tests {
     }
     /// Only the Server-authorized cover may be an image; nothing else is borrowed or invented.
     fn assert_no_fabrication(html: &str) {
-        assert!(html.matches("<img").count() <= 1, "{html}");
+        assert!(
+            html.matches("class=\"theatre-cover-art\"").count() <= 1,
+            "{html}"
+        );
         for absent in [
             "<audio",
             "<video",
@@ -1091,7 +1088,12 @@ mod tests {
             "{html}"
         );
         assert!(html.contains("data-cover=\"loading\""), "{html}");
-        assert_eq!(html.matches("<img").count(), 1, "{html}");
+        assert_eq!(
+            html.matches("class=\"theatre-cover-art\"").count(),
+            1,
+            "{html}"
+        );
+        assert!(!html.contains("theatre-cover-fallback-art"), "{html}");
         // Title, summary and Listen never depend on the image.
         assert!(
             html.contains("Ánh đèn cuối sân khấu") && html.contains("theatre-public-work-listen")
@@ -1110,8 +1112,13 @@ mod tests {
         state.finish_page(&first, Ok(page(vec![unit(1, "Chương một")], None)));
         let html = render(state, Locale::Vietnamese);
         assert!(html.contains("data-cover=\"none\""), "{html}");
-        assert!(!html.contains("<img"), "{html}");
-        assert!(html.contains("theatre-cover-moon"), "{html}");
+        assert!(!html.contains("theatre-cover-art"), "{html}");
+        assert!(html.contains("theatre-cover-fallback-art"), "{html}");
+        assert!(
+            html.contains("assets/artwork/cantos-cover-fallback.avif"),
+            "{html}"
+        );
+        assert!(!html.contains("theatre-cover-moon"), "{html}");
     }
 
     #[test]

@@ -219,26 +219,13 @@ fn feature_meta(kind: WorkKind, language: &str, count: u64, locale: Locale) -> S
     )
 }
 
-/// The Work's authorized public cover over the deliberate fallback: decoration plus the kind. The
-/// fallback invents no artwork and borrows no other Work's image; it stays for `cover: null` and
+/// The Work's authorized public cover over the textless 2:3 celestial fallback. The fallback
+/// invents no story artwork and borrows no other Work's image; it stays for `cover: null` and
 /// for any image that cannot be shown.
 #[component]
-fn WorkCover(
-    kind: WorkKind,
-    cover: Option<CoverImage>,
-    lang: String,
-    locale: RwSignal<Locale>,
-) -> impl IntoView {
-    let glyph = match kind {
-        WorkKind::Podcast => icon("headphones"),
-        WorkKind::Novel | WorkKind::Story => icon("library_books"),
-    };
+fn WorkCover(kind: WorkKind, cover: Option<CoverImage>, lang: String) -> impl IntoView {
     view! {
-        <PublicCover cover lang kind=kind_name(kind) class="theatre-public-cover">
-            <span class="theatre-cover-moon"></span>
-            <span class="theatre-public-cover-glyph">{glyph}</span>
-            <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
-        </PublicCover>
+        <PublicCover cover lang kind=kind_name(kind) class="theatre-public-cover"/>
     }
 }
 
@@ -497,7 +484,7 @@ fn WorkCard(
     let title = move || data.with(|w| w.as_ref().map(|w| w.title.clone()).unwrap_or_default());
     view! {
         <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=identity.clone()>
-            {move || cover.get().map(|(kind, cover, lang)| view! { <WorkCover kind cover lang locale/> })}
+            {move || cover.get().map(|(kind, cover, lang)| view! { <WorkCover kind cover lang/> })}
             <div class="theatre-public-work-body">
                 <p class="theatre-eyebrow">{move || data.with(|w| w.as_ref().map(|w| text(messages::work_kind_key(w.kind), locale.get())))}</p>
                 <h3>{match PublicWorkId::parse(&identity) {
@@ -860,13 +847,14 @@ mod tests {
         assert!(html.contains("theatre-discovery-more") && html.contains("Load more stories"));
         for absent in [
             "theatre-home-retry",
-            "<img",
+            "theatre-cover-art",
             "<audio",
             "publication_id",
             "opaque-page",
         ] {
             assert!(!html.contains(absent), "{absent}");
         }
+        assert!(html.contains("theatre-cover-fallback-art"), "{html}");
     }
 
     #[test]
@@ -1096,7 +1084,16 @@ mod tests {
         let cover = covered.items[0].cover.clone().unwrap();
         let state = answered(DiscoveryQuery::default(), Ok(covered));
         let html = render(state, Locale::Vietnamese);
-        assert_eq!(html.matches("<img").count(), 1, "{html}");
+        assert_eq!(
+            html.matches("class=\"theatre-cover-art\"").count(),
+            1,
+            "{html}"
+        );
+        assert_eq!(
+            html.matches("class=\"theatre-cover-fallback-art\"").count(),
+            1,
+            "{html}"
+        );
         assert!(html.contains(&format!("src=\"{}\"", cover.url)), "{html}");
         assert!(
             html.contains(&format!("alt=\"{}\"", cover.alt_text)),
@@ -1105,9 +1102,14 @@ mod tests {
         assert_eq!(html.matches("data-cover=\"loading\"").count(), 1, "{html}");
         assert_eq!(html.matches("data-cover=\"none\"").count(), 1, "{html}");
         // The covered card's image is not the link: navigation stays on the one named title link,
-        // and the card without a cover still shows the decorative kind glyph.
+        // and the card without a cover shows the textless celestial AVIF fallback.
         assert!(html.matches("theatre-public-work-link").count() >= 2);
-        assert!(html.contains("theatre-public-cover-glyph"), "{html}");
+        assert!(
+            html.contains("assets/artwork/cantos-cover-fallback.avif"),
+            "{html}"
+        );
+        assert!(!html.contains("theatre-public-cover-glyph"), "{html}");
+        assert!(!html.contains("theatre-cover-moon"), "{html}");
         // An image never carries another card's text or a private field.
         for private in ["asset_id", "rights", "provenance", "storage_key"] {
             assert!(!html.contains(private), "{private}");
@@ -1121,8 +1123,16 @@ mod tests {
             Ok(page(vec![work_with(1, "Một"), work_with(2, "Hai")], None)),
         );
         let html = render(state, Locale::Vietnamese);
-        assert!(!html.contains("<img"), "{html}");
-        assert!(!html.contains("assets/artwork"), "{html}");
+        assert!(!html.contains("theatre-cover-art"), "{html}");
+        assert_eq!(
+            html.matches("class=\"theatre-cover-fallback-art\"").count(),
+            2,
+            "{html}"
+        );
+        assert!(
+            !html.contains("son-ha-ky.webp") && !html.contains("den-khuya.webp"),
+            "{html}"
+        );
         assert_eq!(html.matches("data-cover=\"none\"").count(), 2, "{html}");
     }
 
@@ -1162,7 +1172,13 @@ mod tests {
             assert!(title.contains("theatre-public-work-arrow"));
             assert_eq!(card.matches("<a ").count(), 1);
         }
-        for absent in ["Tuyển chọn", "Thịnh hành", "<img", "Nghe ", "<audio"] {
+        for absent in [
+            "Tuyển chọn",
+            "Thịnh hành",
+            "theatre-cover-art",
+            "Nghe ",
+            "<audio",
+        ] {
             assert!(!html.contains(absent), "{absent}");
         }
         let narrowed = DiscoveryQuery::new("Một", None, "").unwrap();

@@ -139,4 +139,18 @@ mod tests {
         long.alt_text = "đ".repeat(512); // exactly 1024 bytes
         assert!(is_admitted(id(), &long));
     }
+
+    #[test]
+    fn avif_cover_mime_deserializes_and_is_admitted_under_the_same_contract_rules() {
+        let mut avif = cover();
+        avif.content_type = crate::contract::discovery::CoverMime::Avif;
+        let encoded = serde_json::to_string(&avif).unwrap();
+        assert!(
+            encoded.contains("\"content_type\":\"image/avif\""),
+            "{encoded}"
+        );
+        let decoded: CoverImage = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, avif);
+        assert!(is_admitted(id(), &decoded));
+    }
 }

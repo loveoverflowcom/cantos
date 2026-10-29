@@ -563,19 +563,20 @@ body { margin: 0; }
 .theatre-public-work-body { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
 .theatre-public-work-body :where(h3, p) { margin: 0; }
 .theatre-public-work-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-/* Fallback cover: decoration plus the kind, in the same shape as a real cover would take. */
-.theatre-public-cover { inline-size: 100%; min-block-size: 0; aspect-ratio: 2 / 3; justify-content: center; align-items: center; padding: var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); }
+/* Fallback cover: textless 2:3 celestial book-stage illustration in the same frame shape as a real cover. */
+.theatre-public-cover { inline-size: 100%; min-block-size: 0; aspect-ratio: 2 / 3; justify-content: center; align-items: center; padding: 0; border-radius: var(--cantos-web-shape-reading); }
 .theatre-public-cover-glyph { display: inline-flex; inline-size: 2.5rem; block-size: 2.5rem; }
 .theatre-public-cover-glyph .theatre-icon { inline-size: 100%; block-size: 100%; }
 .theatre-public-cover small { padding: 0; }
 /* The fallback frame is decorative markup that behaves as if it were the frame's own children. */
 .theatre-cover-fallback { display: contents; }
+.theatre-cover-fallback-art { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
 /* Every Discovery card thumbnail is the same 2:3 frame in a bounded column, whether it shows a cover
    or the fallback, so the shelf never reflows by image. The image fills it (`cover` crops only the
    edge of a non-portrait image); the Work detail keeps the declared ratio, bounded in height. A
    load failure removes the image and the frame keeps the fallback. */
-.theatre-cover[data-cover="loading"], .theatre-cover[data-cover="shown"] { padding: 0; }
-.theatre-cover[data-cover="shown"] > .theatre-cover-fallback { visibility: hidden; }
+.theatre-cover[data-cover] { padding: 0; }
+.theatre-cover:is([data-cover="loading"], [data-cover="shown"]) > .theatre-cover-fallback { visibility: hidden; }
 .theatre-public-work-cover { aspect-ratio: var(--theatre-cover-ratio, 2 / 3); max-block-size: 32rem; }
 .theatre-public-skeleton { min-block-size: 11rem; border-radius: var(--cantos-web-shape-panel); background: var(--cantos-color-surface-container); }
 /* The title link is the card's one named target; its hit area covers the card. */

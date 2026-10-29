@@ -8,6 +8,7 @@ import java.security.MessageDigest
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
@@ -70,6 +71,21 @@ class FontResourceTest {
             assertEquals(emptyList(), required.filterNot { font.canDisplay(it) }, name)
             assertTrue(font.family.startsWith("Noto "), name)
         }
+    }
+
+    @Test
+    fun empty_artwork_provenance_records_the_packaged_avif_cover_fallback() = runTest {
+        val provenance = Json.parseToJsonElement(Res.readBytes("files/theatre_empty_artwork_provenance.json").decodeToString()).jsonObject
+        val path = "files/artwork/cantos_cover_fallback.avif"
+        val fallback = provenance.getValue("assets").jsonArray
+            .map { it.jsonObject }
+            .single { it.getValue("resource").jsonPrimitive.content == path }
+        assertEquals(12506, fallback.getValue("bytes").jsonPrimitive.int)
+        val recordedHash = fallback.getValue("sha256").jsonPrimitive.content
+        assertEquals("dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5", recordedHash)
+        val bytes = Res.readBytes("files/artwork/cantos_cover_fallback.avif")
+        assertEquals(12506, bytes.size)
+        assertEquals(recordedHash, sha256(bytes))
     }
 
     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")

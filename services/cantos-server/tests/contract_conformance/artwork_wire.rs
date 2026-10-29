@@ -62,7 +62,7 @@ fn check<T: DeserializeOwned + Serialize + ProtobufDto + PartialEq + Debug>(case
 #[test]
 fn independent_artwork_goldens_preserve_raw_json_and_protobuf_intent() {
     let corpus: Value = serde_json::from_str(GOLDENS).unwrap();
-    assert_eq!(corpus["cases"].as_array().unwrap().len(), 38);
+    assert_eq!(corpus["cases"].as_array().unwrap().len(), 40);
     for case in corpus["cases"].as_array().unwrap() {
         match case["message"].as_str().unwrap() {
             "ImageDeclarations" => check::<ImageDeclarations>(case),
