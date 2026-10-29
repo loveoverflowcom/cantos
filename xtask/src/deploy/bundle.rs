@@ -31,9 +31,9 @@ pub const INDEX_LIMIT: u64 = 256 * 1024;
 /// How many leading bytes of each file the scan keeps for type checks.
 pub const HEAD_BYTES: usize = 64;
 
-const ALLOWED_EXTENSIONS: [&str; 15] = [
-    "html", "js", "wasm", "css", "json", "svg", "png", "webp", "jpg", "jpeg", "gif", "ico", "woff",
-    "woff2", "txt",
+const ALLOWED_EXTENSIONS: [&str; 16] = [
+    "html", "js", "wasm", "css", "json", "svg", "avif", "png", "webp", "jpg", "jpeg", "gif", "ico",
+    "woff", "woff2", "txt",
 ];
 /// Names that are valid JSON but never public content of a Cantos web bundle.
 const PRIVATE_NAMES: [&str; 5] = [
@@ -920,6 +920,40 @@ mod tests {
 
     fn findings(app: App, scan: &Scan) -> Vec<Finding> {
         validate(app, scan).unwrap_err()
+    }
+
+    #[test]
+    fn avif_assets_are_inventoried_for_both_apps_and_static_providers() {
+        let avif = include_bytes!("../../../scripts/fixtures/runtime-images/red-2x3.avif");
+        for app in [App::Theatre, App::Studio] {
+            for provider in [Provider::Firebase, Provider::Pages] {
+                let mut scan = good_scan(app);
+                let asset = file("assets/artwork/cover.avif", avif);
+                scan.files.push(asset.clone());
+                let manifest = validate_for(app, &scan, provider).expect("AVIF static bundle");
+                assert!(manifest.files.contains(&ManifestFile {
+                    path: asset.path,
+                    size: asset.size,
+                    sha256: asset.sha256,
+                }));
+            }
+        }
+    }
+
+    #[test]
+    fn avif_suffix_does_not_admit_an_html_page() {
+        let path = "assets/artwork/cover.avif";
+        for app in [App::Theatre, App::Studio] {
+            for provider in [Provider::Firebase, Provider::Pages] {
+                let mut scan = good_scan(app);
+                scan.files
+                    .push(file(path, b"<!doctype html><html>error</html>"));
+                assert_eq!(
+                    validate_for(app, &scan, provider).unwrap_err(),
+                    [Finding::HtmlMasquerade(path.into())]
+                );
+            }
+        }
     }
 
     #[test]
