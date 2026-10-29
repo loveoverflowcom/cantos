@@ -1,19 +1,24 @@
 ---
 name: cantos-ui-inspector
 description: >-
-  Report-only UI/UX inspection of Cantos Studio Web, Theatre Web or the CMP Theatre app on
-  Android and iOS. Pins surface, source and build, renderer, viewport, theme, locale and font
-  scale; reuses reviewed scenario contracts; drives only allowed actions within a budget and
-  never triggers paid generation, approval or publication; opens every cited image; reports
-  reproducible findings with rule source, kind, severity and confidence against the shared
-  Material 3 Expressive, accessibility, localization and state criteria. Inspection never implies
-  fixing. Use for a UI audit, UX review, visual QA, accessibility pass or screenshot review.
+  Report-only, component-first UI/UX inspection of Cantos Studio Web, Theatre Web or the CMP
+  Theatre app on Android and iOS. Pins surface, source and build, renderer, viewport, theme,
+  locale and font scale; reuses reviewed scenario contracts; drives only allowed actions within a
+  budget and never triggers paid generation, approval or publication; opens every cited image;
+  decomposes each screen state into a component inventory, analyzes every meaningful component
+  independently, then their relationships, and compares components with design references only
+  when requested; reports reproducible component-level findings with rule source, kind, severity,
+  confidence and honest coverage against the shared Material 3 Expressive, accessibility,
+  localization and state criteria. Inspection never implies fixing. Use for a UI audit, UX
+  review, visual QA, design comparison, accessibility pass or screenshot review.
 ---
 
 # Cantos UI inspector
 
-One agent runs **scope → scenario → inspection → report**. The deliverable is a findings report;
-inspection never implies fixing. A fix is a separate task through
+One agent runs **scope → scenario → capture → components → relationships → optional design
+comparison → report**. A screen is context; the unit of inspection is a meaningful
+[component](references/components.md#1-what-counts-as-a-component). The deliverable is a
+findings report; inspection never implies fixing. A fix is a separate task through
 [`cantos-work-item`](../cantos-work-item/SKILL.md) and the renderer skill, rechecked afterwards
 with the same scenario.
 
@@ -57,8 +62,8 @@ is out of scope; never scaffold it for inspection.
 | reviewing a diff instead of a running UI | [`cantos-code-review`](../cantos-code-review/SKILL.md) |
 
 This skill owns only the inspection order, the budget defaults, the
-[scenario contract](references/scenarios.md), the [report contract](references/report.md) and the
-reviewed scenarios. It cites UI rules by their owner's ID and heading; it never restates them.
+[component method](references/components.md), the [scenario contract](references/scenarios.md),
+the [report contract](references/report.md) and the reviewed scenarios. It cites UI rules by their owner's ID and heading; it never restates them.
 
 ## Ground rules
 
@@ -76,15 +81,22 @@ reviewed scenarios. It cites UI rules by their owner's ID and heading; it never 
 ## The inspection order
 
 ```text
-1  pin the scope                                                        § 1
-2  choose the mode: existing | live                                     § 2
-3  set the budget; list the forbidden actions                           § 3
-4  reuse a reviewed scenario; write one only when none fits             scenarios.md
-5  bind fixtures and a test account (live only)                         scenarios.md
-6  drive the required checks; capture context and detail                § 4
-7  open every cited image; pair pixels with DOM, semantics, interaction § 4
-8  classify findings; write the report, partial when needed             report.md
+ 1  pin the scope, component targets and design-comparison request     § 1
+ 2  choose the mode: existing | live                                     § 2
+ 3  set the budget; list the forbidden actions                           § 3
+ 4  reuse a reviewed scenario; write one only when none fits             scenarios.md
+ 5  bind fixtures and a test account (live only)                         scenarios.md
+ 6  drive the required checks; capture and open each state's context    § 4
+ 7  decompose each captured state into a component inventory            § 5
+ 8  inspect each meaningful component independently                     § 5
+ 9  inspect relationships between components                             § 5
+10  compare components with design references — only when requested    § 5
+11  classify findings; write the report, partial when needed             report.md
 ```
+
+Steps 1–5 decide what may be touched; they judge nothing. The first analysis of every captured
+state is component discovery (step 7): no screen-level verdict comes before the inventory, and
+the screen summary is derived from component results afterwards.
 
 ## 1. Pin the scope
 
@@ -102,6 +114,8 @@ Record before the first action; an unknown value is written `unknown`, never gue
 | fixture | the scenario's fixture ID |
 | viewport | `320×720 CSS px`, `360×800 dp @ 2.75x`, `390×844 pt` |
 | theme, locale, font scale, input | light/dark; `vi-VN`/`en`; 100 %/200 % zoom or OS font size; pointer, keyboard, touch, screen reader |
+| component targets | `whole screen` (default) or named components, e.g. `search-dock.results-overlay` plus affected neighbors |
+| design comparison | `not requested` (default) or requested, with each supplied or named reference |
 
 A `CANTOS_PROMPT_INPUT_V1` prompt can supply these fields through the
 [receiving procedure](../cantos-prompt/references/prompt-contract.md#receiving-a-prompt); values
@@ -157,6 +171,29 @@ control, inspect its enabled, disabled-with-reason and focus states **without ac
 7. Before reporting a violation, rule out known-good states: intentional overlays and scrims,
    hover and pressed treatments, platform-appropriate geometry differences.
 
+## 5. Decompose, then inspect component by component
+
+Follow [`components.md`](references/components.md) for every captured state:
+
+1. **Inventory.** Decompose the opened context into meaningful components with stable IDs,
+   parent, role, region, state, interaction, locator and confidence, and coverage. Use DOM and the
+   accessibility tree (Web) or exported semantics (CMP) when available; pixels alone never
+   establish source ownership. A targeted request deep-inspects the target and its affected
+   neighbors and marks every other component `excluded`.
+2. **Per-component analysis.** Inspect one component at a time across the applicable
+   dimensions, each with its own status and evidence; separate observed facts from inferences,
+   source hypotheses and preferences. A component has no overall PASS. Analyze a shared pattern
+   once and report instance deviations separately.
+3. **Relationships.** Then check overlap, anchoring, clipping, spacing, focus, keyboard/IME and
+   responsive behavior between components; attribute each finding to the smallest component or
+   relationship, and to `screen` only when it cannot be localized.
+4. **Design comparison, only when requested.** Pin each component's reference, revision, approval
+   and cell; record `MATCH`, `DEVIATION`, `INTENTIONAL_PLATFORM_DIFFERENCE`, `INCONCLUSIVE` or
+   `NOT_COMPARED`. Never invent or auto-normalize a baseline; an unapproved reference gives
+   advisory observations only; a missing one leaves independent inspection running.
+5. **Coverage.** Every in-scope component ends `inspected`, `partial`, `blocked`, `not-run` or
+   `excluded` with a reason. A run with any in-scope component not `inspected` is never `complete`.
+
 ## What the inspector can see of each non-negotiable
 
 | Non-negotiable | Observable symptom | Rule source |
@@ -181,8 +218,10 @@ the foundation fields follow, residual risk last:
 Surface / route / build:     <surface> · <route> · <build or unknown> · <SHA + dirty state>
 Mode / environment / account: existing | live · <environment> · <alias, role>
 Scenario / matrix:           <id> · required <n> → executed <m>
+Components:                  inventory <n> · inspected <n> · partial <n> · blocked <n> · not-run <n> · excluded <n>
 Checks:                      passed <n> · failed <n> · blocked <n> · not-run <n> · inconclusive <n>
-Findings:                    by severity and kind; the top three titles
+Design comparison:           not requested | MATCH <n> · DEVIATION <n> · PLATFORM <n> · INCONCLUSIVE <n> · NOT_COMPARED <n>
+Findings:                    by severity, kind and component ID; the top three titles
 Images opened:               <n> of <n> cited
 Report path:                 artifacts/ui-evidence/<run-id>/report.md
 Fixtures and mutations:      created, changed, retained
@@ -195,15 +234,20 @@ Useful invocation for any agent:
 
 > Read `.agents/skills/cantos-ui-inspector/SKILL.md`. Inspect the Theatre Web player report-only
 > with `theatre-web-player-v1` on the local QA instance, a wide light `vi-VN` and a 320 CSS px
-> dark state at 200 % zoom. Do not generate or publish anything. Write the report under
+> dark state at 200 % zoom. Build the component inventory first, analyze each component, then
+> their relationships. Do not generate or publish anything. Write the report under
 > `artifacts/ui-evidence/` and do not fix anything.
+
+> Inspect only the Theatre Web Search Dock in these screenshots and compare the field and results
+> overlay with the approved design `<reference and revision>`; mark everything else excluded.
 
 ## References and scenarios
 
 | Need | File |
 |---|---|
 | scenario contract schema, reuse and promotion, fixtures, test accounts and credentials | [`references/scenarios.md`](references/scenarios.md) |
-| report contract: scope block, checks, image records, finding fields, kinds, severity, confidence, skeleton | [`references/report.md`](references/report.md) |
+| component inventory, per-component dimensions, relationships, optional design comparison, coverage, examples | [`references/components.md`](references/components.md) |
+| report contract: scope block, checks, component sections, image records, finding fields, kinds, severity, confidence, skeleton | [`references/report.md`](references/report.md) |
 | Studio script editor: speaker correction, validation, save, reflow, keyboard, zoom | [`scenarios/studio-script-editor-v1.json`](scenarios/studio-script-editor-v1.json) |
 | Theatre Web: discovery, player, mini-player, bookmark, resume, failure states | [`scenarios/theatre-web-player-v1.json`](scenarios/theatre-web-player-v1.json) |
 | CMP Theatre: native playback, background, lock screen, interruption, large text, TalkBack, VoiceOver | [`scenarios/cmp-theatre-playback-v1.json`](scenarios/cmp-theatre-playback-v1.json) |

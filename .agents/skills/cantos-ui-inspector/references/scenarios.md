@@ -46,9 +46,18 @@ belong to a run.
 | `budget` | object | yes | `minutes`, `ui_actions`, `images` |
 | `cleanup` | string | yes | what to retain and what to remove; never delete what the run did not create |
 | `open_questions` | array of strings | no | product decisions an expectation depends on; a step that depends on one reports `inconclusive` instead of inventing the answer |
+| `component_hints` | array of objects | no | seeds for [decomposition](components.md#2-discover-components--the-first-analysis-of-every-captured-state): `id`, `name`, optional `parent` and `note`; never an expectation, a complete taxonomy or a source locator |
+| `design_references` | array of objects | no | design references a requested comparison may use: `component`, `reference_id`, optional `note`; the run pins revision, hash and approval status; listing one never triggers a comparison or makes the reference approved |
 
 The repository check validates JSON syntax and rejects duplicate keys. No schema validator
 exists; reviewers check the fields above by hand.
+
+The two component fields are optional additions to schema version 1: every existing reviewed
+scenario stays valid unchanged, and every inspection decomposes its captured states whether or
+not a scenario has hints. Component targets and the design-comparison request belong to the run's
+[scope](../SKILL.md#1-pin-the-scope), not to the scenario. Adding hints or references to a cited
+scenario changes no step, expectation or fixture, so it is an editorial change; changing a step
+or expectation for component work needs a new `-vN`.
 
 ## Rules for a scenario
 
@@ -60,6 +69,7 @@ exists; reviewers check the fields above by hand.
 | a cited contract is never edited in place | old reports point at expectations that changed under them | a new `-v2` file and `retired` on v1 / editing v1's `expected` after a report cited it | review of the diff · manual | editorial fixes that change no step, expectation or fixture |
 | no secret or environment binding | credentials or QA origins leak through Git | `account role: creator` / an alias with a password, a signed URL | review · manual | none |
 | no paid or publishing step | an audit charges a provider or releases an episode | inspect "Publish episode" disabled with its reason / a step that clicks it | review · manual | none |
+| component hints seed, never decide | a stale hint hides a new component or turns a missing one into a pass | `{"id": "search-dock", "name": "Search Dock"}` / a hint with `"expected": "passes"` or a guessed source file | review · manual | none |
 
 ## Reuse before creating
 

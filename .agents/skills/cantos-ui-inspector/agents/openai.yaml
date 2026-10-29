@@ -1,4 +1,4 @@
 interface:
   display_name: "Cantos UI Inspector"
-  short_description: "Report-only UI and UX inspection with reusable scenarios"
-  default_prompt: "Use $cantos-ui-inspector to inspect this Cantos surface report-only: pin the scope and build, reuse a reviewed scenario, stay within the action budget without generating or publishing, open every cited image and report findings with rule source, severity, confidence and residual risk."
+  short_description: "Report-only, component-first UI and UX inspection with reusable scenarios"
+  default_prompt: "Use $cantos-ui-inspector to inspect this Cantos surface report-only: pin the scope and build, reuse a reviewed scenario and stay within the action budget without generating or publishing; open every cited image, decompose each captured screen into a component inventory, inspect every meaningful component independently, then cross-component relationships, compare components with design references only if I request it, and report evidence-backed component-level findings with rule source, severity, confidence, coverage and residual risk."
