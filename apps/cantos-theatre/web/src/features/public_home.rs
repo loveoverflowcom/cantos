@@ -392,14 +392,11 @@ fn SearchForm(
                         on_composition_end=Callback::new(move |_| composing.set(false))
                         dock=cantos_ui::SearchDock { id: "theatre-search-dock".into(), expanded: expanded.into(),
                             content: (move || view! {
-                                <div class="theatre-search-dock-heading">
-                                    <span class="theatre-search-dock-context">{move || state.with(|s| displayed_context(s, locale.get()))}</span>
-                                    <Button id="theatre-search-collapse" variant=ButtonVariant::Text
-                                        on_press=Callback::new(move |_| {
-                                            restoring.set(true); crate::platform::focus_search_input(panel);
-                                            expanded.set(false); restoring.set(false);
-                                        })>{move || text(Key::SearchCollapse, locale.get())}</Button>
-                                </div>
+                                // Closing is the field's own behaviour (Escape, an outside press,
+                                // focus leaving it): no control here. An unfiltered catalogue has no
+                                // context, so no element is rendered for it.
+                                {move || state.with(|s| displayed_context(s, locale.get()))
+                                    .map(|context| view! { <p class="theatre-search-dock-context">{context}</p> })}
                                 <SearchDockResults state applied locale on_retry on_restart on_load_more on_open_work/>
                             }).into() }
 
@@ -883,10 +880,34 @@ mod tests {
                 "Tất cả loại · Tất cả loại",
                 "All types · All types",
                 "<p></p>",
+                "theatre-search-dock-heading",
+                "theatre-search-dock-context",
             ] {
                 assert!(!html.contains(absent), "{absent}: {html}");
             }
             assert!(html.contains("theatre-search-result-title"), "{html}");
+        }
+    }
+
+    #[test]
+    fn the_search_layer_has_no_collapse_control_in_any_state_or_locale() {
+        let narrowed = DiscoveryQuery::new("đèn", Some(WorkKind::Story), "").unwrap();
+        let narrowed_state = answered(narrowed.clone(), Ok(page(vec![work("Ánh đèn")], None)));
+        let unfiltered = answered(
+            DiscoveryQuery::default(),
+            Ok(page(vec![work("Ánh đèn cuối sân khấu")], None)),
+        );
+        for locale in Locale::supported() {
+            for html in [
+                render(PublicDiscoveryState::default(), locale),
+                render(unfiltered.clone(), locale),
+                render_with(narrowed_state.clone(), narrowed.clone(), locale),
+            ] {
+                // Escape, an outside press and focus leaving the field close the layer; a text
+                // button would only spend its first row.
+                assert!(!html.contains("theatre-search-collapse"), "{html}");
+                assert!(!html.contains(text(Key::SearchCollapse, locale)), "{html}");
+            }
         }
     }
 
@@ -896,7 +917,7 @@ mod tests {
         let state = answered(narrowed.clone(), Ok(page(vec![work("Đêm khuya")], None)));
         let en = render_with(state, narrowed, Locale::English);
         assert!(
-            en.contains("theatre-search-dock-context\">Podcast</span>"),
+            en.contains("theatre-search-dock-context\">Podcast</p>"),
             "{en}"
         );
         assert!(!en.contains("All types · All types"), "{en}");

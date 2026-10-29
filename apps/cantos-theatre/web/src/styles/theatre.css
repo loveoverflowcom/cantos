@@ -810,16 +810,22 @@ body { margin: 0; }
    field; their list remains separate from form state. Every row is one wide target with the title
    first and its real kind beneath; nothing here reserves empty space for a missing line. */
 .theatre-search-dock-results { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
-.theatre-search-dock-results > p { margin: 0; overflow-wrap: anywhere; }
-.theatre-search-dock-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
-.theatre-search-dock-context { flex: 1 1 0; min-inline-size: 0; overflow-wrap: anywhere; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
-.theatre-search-dock-context:empty { display: none; }
-.theatre-search-dock-heading > .cui-button-field { flex: none; margin-inline-start: auto; }
-.theatre-search-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cantos-space-xs); }
-.theatre-search-result-list button { box-sizing: border-box; display: grid; gap: 0; justify-items: start; inline-size: 100%; min-block-size: var(--cantos-size-control); text-align: start; overflow-wrap: anywhere; border: 0; border-radius: var(--cantos-web-shape-reading); padding: var(--cantos-space-sm) var(--cantos-space-md); color: inherit; background: transparent; cursor: pointer; font: inherit; }
+.theatre-search-dock-results > p { margin: 0; overflow-wrap: anywhere; padding-inline: var(--theatre-search-row-inset); }
+/* One shared inline inset: the shared layer pads its scroll box by `space-sm`, so a row's own
+   padding makes the title start exactly under the prompt (`--cantos-web-field-inset`). */
+.theatre-public-search-main .cui-field[data-kind="search"] { --theatre-search-row-inset: calc(var(--cantos-web-field-inset) - var(--cantos-space-sm)); }
+/* The context only exists for a narrowed catalogue; an unfiltered one renders no element at all. */
+.theatre-search-dock-context { margin: 0 0 var(--cantos-space-xs); padding-inline: var(--theatre-search-row-inset); overflow-wrap: anywhere; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.theatre-search-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.theatre-search-result-list button { box-sizing: border-box; display: grid; gap: 0; justify-items: start; inline-size: 100%; min-block-size: var(--cantos-size-control); text-align: start; overflow-wrap: anywhere; border: 0; border-radius: var(--cantos-web-shape-reading); padding: var(--cantos-space-sm) var(--theatre-search-row-inset); color: inherit; background: transparent; cursor: pointer; font: inherit; }
 .theatre-search-result-kind { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
-.theatre-search-result-list button:hover { background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), transparent); }
-.theatre-search-result-list button:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+/* No row is chosen until the listener acts: hover (a real pointer only), keyboard focus and a press
+   each paint their own state layer, so a resting list shows no highlight. */
+@media (hover: hover) {
+  .theatre-search-result-list button:hover { background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), transparent); }
+}
+.theatre-search-result-list button:focus-visible { background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-focus-opacity) * 100%), transparent); outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+.theatre-search-result-list button:active { background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-pressed-opacity) * 100%), transparent); }
 
 .theatre-search-clear-slot { display: inline-flex; inline-size: var(--cantos-size-search-action); flex: 0 0 var(--cantos-size-search-action); }
 /* Large text on a narrow screen: the header's chrome is in rem, so it grows with the text and

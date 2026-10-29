@@ -550,3 +550,40 @@ fn the_empty_search_prompt_stays_in_the_header_row_and_the_results_layer_floats_
     );
     assert!(FOUNDATION_CSS.contains("--cantos-web-search-layer: 30;"));
 }
+
+#[test]
+fn the_results_layer_scrolls_slimly_with_an_even_inset_and_keeps_system_bars_for_touch_and_forced_colors(
+) {
+    let css = theatre_section();
+    let scroll = rule_for(css, ".cui-search-dock-scroll {");
+    for declaration in [
+        "max-block-size: min(28rem, max(10rem,",
+        "overflow-y: auto;",
+        "overscroll-behavior: contain;",
+        "padding: var(--cantos-space-sm);",
+    ] {
+        assert!(
+            scroll.contains(declaration),
+            "missing {declaration}: {scroll}"
+        );
+    }
+    // The slim thumb is for a fine pointer only; it never replaces a touch overlay bar, and no
+    // `::-webkit-scrollbar` rule is allowed because it would disable `scrollbar-width`.
+    let fine = css
+        .find("@media (pointer: fine)")
+        .expect("fine-pointer scrollbar block");
+    let fine_rule = &css[fine..fine + css[fine..].find("\n}\n").unwrap()];
+    assert!(fine_rule.contains(".cui-search-dock-scroll"), "{fine_rule}");
+    assert!(fine_rule.contains("scrollbar-width: thin;"), "{fine_rule}");
+    assert!(fine_rule.contains("scrollbar-color:"), "{fine_rule}");
+    assert!(!css.contains("::-webkit-scrollbar"));
+    let forced = css
+        .find("@media (forced-colors: active)")
+        .and_then(|at| {
+            css[at..]
+                .find(".cui-search-dock-scroll")
+                .map(|i| &css[at..at + i + 120])
+        })
+        .expect("forced colors keeps the system scrollbar");
+    assert!(forced.contains("scrollbar-color: auto;"), "{forced}");
+}
