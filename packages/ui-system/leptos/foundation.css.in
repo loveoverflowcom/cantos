@@ -1673,10 +1673,21 @@
   max-block-size: min(28rem, max(10rem, calc(var(--cantos-web-search-available, 50dvh) - var(--cantos-space-xs) - env(safe-area-inset-bottom))));
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--cantos-space-md);
+  /* A small even inset: rows add their own inline padding, so the consumer can line their text up
+     with the prompt (`--cantos-web-field-inset`) without a second wrapper. */
+  padding: var(--cantos-space-sm);
+}
+/* A fine pointer gets a slim, tonal thumb on a transparent track (still draggable, still a
+   visible affordance); touch keeps its overlay scrollbar and forced colors its system one. */
+@media (pointer: fine) {
+  :where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--cantos-color-on-surface-variant) 55%, transparent) transparent;
+  }
 }
 @media (forced-colors: active) {
   :where(.cantos-ui)[data-expression="theatre"] .cui-field > .cui-search-dock { border: var(--cantos-size-border) solid CanvasText; }
+  :where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-scroll { scrollbar-color: auto; }
 }
 
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell[data-docked="true"][data-expanded="true"][data-invalid="true"] {

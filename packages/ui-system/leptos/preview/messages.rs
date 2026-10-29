@@ -25,7 +25,6 @@ pub mod pulse {
 }
 
 pub mod tool {
-    pub const THEATRE_COLLAPSE: &str = "Collapse";
     pub const THEATRE_TITLE: &str = "Theatre expression · v0.8.0";
     pub const THEATRE_INTRO: &str = "This subtree opts into Theatre expression; the rest of the gallery stays Standard. No app adopts it yet.";
     pub const THEATRE_CONTROL_HELP: &str =

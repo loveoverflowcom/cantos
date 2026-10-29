@@ -263,7 +263,6 @@ pub fn TheatreExpressionSamples(
                             <TextField id="theatre-search" label=fixture::SEARCH kind=TextFieldKind::Search
                                 variant=TextFieldVariant::Floating value=query name=SEARCH_QUERY_NAME
                                 dock=SearchDock { id: "preview-search-dock".into(), expanded: dock_open.into(), content: (move || view! {
-                                    <Button id="preview-search-collapse" variant=ButtonVariant::Text on_press=Callback::new(move |_| dock_open.set(false))>{tool::THEATRE_COLLAPSE}</Button>
                                     <p>{fixture::SEARCH}</p>
                                 }).into() }
                                 on_input=Callback::new(move |next| query.set(next))
