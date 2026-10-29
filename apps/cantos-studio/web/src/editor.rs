@@ -87,6 +87,17 @@ enum Phase {
     CheckingSession(Held),
 }
 
+/// What the revision strip may claim about the draft; a saved claim needs an acknowledged revision.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Standing {
+    /// Local text differs from the last acknowledged bytes, or a request is in flight.
+    Unsaved,
+    /// The server acknowledged `base`, and nothing local differs from it.
+    Saved,
+    /// Nothing acknowledged yet: no script is open, or it was selected but not read.
+    Unconfirmed,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Editor {
     actor: String,
@@ -205,6 +216,17 @@ impl Editor {
 
     pub fn is_dirty(&self) -> bool {
         self.draft != self.baseline
+    }
+
+    /// `activity` is the shell's own in-flight work (validation, preview) on this draft.
+    pub fn standing(&self, activity: bool) -> Standing {
+        if self.is_dirty() || activity {
+            Standing::Unsaved
+        } else if self.base > 0 {
+            Standing::Saved
+        } else {
+            Standing::Unconfirmed
+        }
     }
 
     /// The shell also checks IME composition before navigation or browser unload.
@@ -701,7 +723,7 @@ pub fn error_status(code: &ErrorCode) -> Status {
 
 #[cfg(test)]
 mod tests {
-    use super::{Editor, Phase, ReadTicket, Status, ValidationPreview};
+    use super::{Editor, Phase, ReadTicket, Standing, Status, ValidationPreview};
     use crate::contract::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
 
     /// A signed-in author typing into a selected script, built only from public transitions.
@@ -1267,6 +1289,34 @@ mod tests {
         let denied = retrying.save_failed(&intent, &error(ErrorCode::Forbidden));
         assert_eq!(denied.pending(), Some(&intent));
         assert_eq!(denied.status(), Status::Forbidden);
+    }
+
+    #[test]
+    fn nothing_is_called_saved_until_a_revision_is_acknowledged() {
+        let signed_in = Editor::default().signed_in("alice".into());
+        assert_eq!(signed_in.standing(false), Standing::Unconfirmed);
+        let selected = signed_in.select_script("script".into());
+        assert_eq!(selected.standing(false), Standing::Unconfirmed);
+        let (reading, ticket) = reading(&selected);
+        assert_eq!(reading.standing(false), Standing::Unconfirmed);
+        let failed = reading.read_failed(&ticket, &error(ErrorCode::Unavailable));
+        assert_eq!(failed.standing(false), Standing::Unconfirmed);
+
+        let opened = signed_in.open_revision(response(3));
+        assert_eq!(opened.standing(false), Standing::Saved);
+        assert_eq!(opened.standing(true), Standing::Unsaved);
+        assert_eq!(
+            opened.edit("changed".into()).standing(false),
+            Standing::Unsaved
+        );
+    }
+
+    #[test]
+    fn typing_without_a_script_is_unsaved_not_saved() {
+        let typed = Editor::default()
+            .signed_in("alice".into())
+            .edit("text".into());
+        assert_eq!(typed.standing(false), Standing::Unsaved);
     }
 
     fn response(revision: u64) -> RevisionResponse {

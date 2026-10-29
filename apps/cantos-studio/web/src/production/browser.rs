@@ -309,9 +309,11 @@ pub fn ProductionInputs(
         <p class="production-reference">{move || text(Key::ReferenceOnly, locale.get())}</p>
         <Show when=move || !state.with(|s| s.context.ready())><p class="help">{move || text(Key::OpenSaved, locale.get())}</p></Show>
         <Show when=script_dirty><p id="production-dirty-reason" class="status">{move || text(Key::Dirty, locale.get())}</p></Show>
-        <dl class="source-identity"><dt>{move || text(Key::Revision, locale.get())}</dt><dd><code>{move || state.with(|s| format!("{} · {}", s.context.script, s.context.revision))}</code></dd>
-            <dt>{move || text(Key::ExportDigest, locale.get())}</dt><dd><code>{move || state.with(|s| s.context.export_digest.clone())}</code></dd>
-        </dl>
+        <Show when=move || state.with(|s| s.context.ready())>
+            <dl class="source-identity"><dt>{move || text(Key::Revision, locale.get())}</dt><dd><code>{move || state.with(|s| format!("{} · {}", s.context.script, s.context.revision))}</code></dd>
+                <dt>{move || text(Key::ExportDigest, locale.get())}</dt><dd><code>{move || state.with(|s| s.context.export_digest.clone())}</code></dd>
+            </dl>
+        </Show>
         <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
             if session_pending.get_untracked() {return;}
             let Some((reading, ticket)) = state.get_untracked().start_read(ReadKind::State) else { return; };
