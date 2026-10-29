@@ -34,8 +34,8 @@ and a classification: it never mandates a model edit and grants no write the tas
    `cargo xtask preflight --changed-only --base "$BASE_REF" --dry-run` lists the
    `behavior (CAPABILITY)` gates the registry's reverse index selects. Unmodeled entries
    (`model: null`) and paths no record names select nothing: an empty selection is not "no impact".
-2. **Classify before writing.** At the time of writing no capability is `accepted` and
-   ADR 0027 is proposed, so a model is a proposed expectation: compare it and the code with the
+2. **Classify before writing.** Check the capability's `lifecycle` and the ADR status: a `draft`
+   or `needs-decision` model is a proposed expectation, so compare it and the code with the
    inventory's approved-requirement rows. Only an `accepted` model is itself the oracle.
    Classes can combine (a code defect over an unmodeled guard); report each.
 
