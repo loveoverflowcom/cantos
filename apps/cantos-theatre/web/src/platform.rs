@@ -382,8 +382,8 @@ pub(crate) fn focus_after_unit_page(id: String) {
 
 mod search_dock;
 pub(crate) use search_dock::{
-    bind_search_dock, click_is_search_input, focus_is_search_input, focus_search_input,
-    focus_search_result,
+    bind_search_dock, click_is_search_input, focus_is_search_input, focus_left_search_field,
+    focus_search_input, focus_search_result,
 };
 
 mod loading_presence;

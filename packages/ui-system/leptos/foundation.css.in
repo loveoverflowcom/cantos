@@ -33,6 +33,7 @@
    their existing motion scheme. Reduced motion updates at once. */
 :where(.cantos-ui) {
   --cantos-web-search-available: 50dvh;
+  --cantos-web-search-layer: 30;
   --cantos-web-search-travel: var(--cantos-space-sm);
   --cantos-web-search-open-duration: 280ms;
   --cantos-web-search-open-easing: cubic-bezier(0.2, 0, 0, 1);
@@ -1453,7 +1454,7 @@
   margin: 0;
   clip-path: none;
   white-space: normal;
-  grid-row: 1 / -1;
+  grid-row: 1;
   align-self: center;
   padding: var(--cantos-web-field-label-top) var(--cantos-web-field-inset);
   font-size: var(--cantos-type-body-size);
@@ -1590,53 +1591,67 @@
   outline-offset: calc(var(--cantos-size-focus-width) * -1);
 }
 
-/* Search v4.3: the field shell owns header, fill, perimeter and body. Header tracks never
-   change during morphing. Only the second grid track expands; the body scrolls independently. */
+/* Search v4.3: the field shell owns the header (control, label, trailing actions), fill and
+   perimeter, in one fixed row. The results dock is not part of it: it is a floating layer anchored
+   to the field's bottom edge (the positioning model of an overlay search, none of another
+   product's look), so opening, closing or growing it never changes the header, the hero or any
+   content after it. Closed, it is inert, hidden and not hit-tested. */
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] input::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
 }
+:where(.cantos-ui)[data-expression="theatre"] .cui-field[data-kind="search"] { position: relative; }
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell[data-docked="true"] {
-  grid-template-rows: minmax(var(--cantos-size-search-header), auto) auto;
-  overflow: clip;
-  transition: border-radius var(--cantos-web-search-close-duration) var(--cantos-web-search-close-easing);
+  grid-template-rows: minmax(var(--cantos-size-search-header), auto);
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] .cui-field-shell[data-docked="true"] > :is(.cui-field-control, .cui-field-trailing, .cui-field-label) {
-  grid-row: 1 / 2;
-}
-:where(.cantos-ui)[data-expression="theatre"] .cui-field-shell[data-docked="true"] .cui-search-dock {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows var(--cantos-web-search-close-duration) var(--cantos-web-search-close-easing),
-    opacity var(--cantos-web-search-effects-duration) var(--cantos-motion-effects-easing);
+  grid-row: 1;
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell[data-docked="true"][data-expanded="true"] {
-  border-radius: var(--cantos-shape-search-open);
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: calc(-1 * var(--cantos-size-focus-width));
-  transition-duration: var(--cantos-web-search-open-duration);
-  transition-timing-function: var(--cantos-web-search-open-easing);
 }
-:where(.cantos-ui)[data-expression="theatre"] .cui-field-shell[data-docked="true"][data-expanded="true"] .cui-search-dock {
-  grid-template-rows: 1fr;
+:where(.cantos-ui)[data-expression="theatre"] .cui-field > .cui-search-dock {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(100% + var(--cantos-space-xs));
+  z-index: var(--cantos-web-search-layer);
+  box-sizing: border-box;
+  border-radius: var(--cantos-shape-search-open);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(calc(-1 * var(--cantos-web-search-travel)));
+  transition: opacity var(--cantos-web-search-effects-duration) var(--cantos-motion-effects-easing),
+    transform var(--cantos-web-search-close-duration) var(--cantos-web-search-close-easing),
+    visibility 0s linear var(--cantos-web-search-close-duration);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-field > .cui-search-dock[data-expanded="true"] {
+  visibility: visible;
+  pointer-events: auto;
   opacity: 1;
-  transition-duration: var(--cantos-web-search-open-duration), var(--cantos-web-search-effects-duration);
-  transition-timing-function: var(--cantos-web-search-open-easing), var(--cantos-motion-effects-easing);
+  transform: translateY(0);
+  transition-duration: var(--cantos-web-search-effects-duration), var(--cantos-web-search-open-duration), 0s;
+  transition-timing-function: var(--cantos-motion-effects-easing), var(--cantos-web-search-open-easing), linear;
+  transition-delay: 0s;
 }
-:where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-clip { min-block-size: 0; overflow: hidden; }
+/* Only this scroll box clamps: it keeps its own scroll, never chaining to the page. The floor keeps
+   a few rows readable when the keyboard or the page edge leaves little room; the page then
+   scrolls to the rest instead of the layer collapsing to a sliver. */
 :where(.cantos-ui)[data-expression="theatre"] .cui-search-dock-scroll {
   box-sizing: border-box;
-  max-block-size: min(28rem, max(0px, calc(var(--cantos-web-search-available, 50dvh) - env(safe-area-inset-bottom))));
+  max-block-size: min(28rem, max(10rem, calc(var(--cantos-web-search-available, 50dvh) - var(--cantos-space-xs) - env(safe-area-inset-bottom))));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--cantos-space-md);
-  transform: translateY(var(--cantos-web-search-travel));
-  transition: transform var(--cantos-web-search-effects-duration) var(--cantos-motion-effects-easing);
 }
-:where(.cantos-ui)[data-expression="theatre"] [data-expanded="true"] .cui-search-dock-scroll { transform: translateY(0); }
+@media (forced-colors: active) {
+  :where(.cantos-ui)[data-expression="theatre"] .cui-field > .cui-search-dock { border: var(--cantos-size-border) solid CanvasText; }
+}
 
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"][data-kind="search"] .cui-field-shell[data-docked="true"][data-expanded="true"][data-invalid="true"] {
   outline-color: var(--cantos-color-error);

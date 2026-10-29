@@ -97,24 +97,27 @@ fn region(phase: PublicDiscoveryPhase) -> Region {
     }
 }
 
+/// What the displayed rows were narrowed by. An unfiltered catalogue has nothing to say: the
+/// copy would only repeat itself. A kind alone has no text to name, so it reads as the kind.
 fn displayed_context(state: &PublicDiscoveryState, locale: Locale) -> Option<String> {
-    state.applied_query().map(|q| {
-        messages::message(
-            locale,
-            crate::localization::generated::Message::TheatreShellDiscoveryDisplayedContext {
-                arg_query: if q.text().is_empty() {
-                    text(Key::DiscoveryKindAll, locale)
-                } else {
-                    q.text()
+    state
+        .applied_query()
+        .filter(|q| !q.is_unfiltered())
+        .map(|q| {
+            let kind = q
+                .kind()
+                .map_or(Key::DiscoveryKindAll, messages::work_kind_key);
+            if q.text().is_empty() {
+                return text(kind, locale).to_owned();
+            }
+            messages::message(
+                locale,
+                crate::localization::generated::Message::TheatreShellDiscoveryDisplayedContext {
+                    arg_query: q.text(),
+                    arg_kind: text(kind, locale),
                 },
-                arg_kind: text(
-                    q.kind()
-                        .map_or(Key::DiscoveryKindAll, messages::work_kind_key),
-                    locale,
-                ),
-            },
-        )
-    })
+            )
+        })
 }
 
 fn pending_chip(state: &PublicDiscoveryState, choice: Option<WorkKind>) -> bool {
@@ -274,7 +277,7 @@ fn SearchDockResults(
 ) -> impl IntoView {
     let current = Memo::new(move |_| state.with(|s| region(s.phase())));
     view! {
-        <div class="theatre-search-dock-results" role="region" aria-label=move || text(Key::StoryShelf, locale.get())>
+        <div class="theatre-search-dock-results" role="region" aria-label=move || text(Key::DiscoverySearchLabel, locale.get())>
             {move || match current.get() {
                 Region::Loading => view! { <p>{move || text(Key::PublicHomeLoading, locale.get())}</p> }.into_any(),
                 Region::Failed(failure) => {
@@ -294,18 +297,19 @@ fn SearchDockResults(
                 }.into_any(),
                 Region::Empty => view! { <p role="status">{move || text(if applied.with(|q| q.is_unfiltered()) { Key::PublicHomeEmpty } else { Key::DiscoveryNoMatches }, locale.get())}</p> }.into_any(),
                 Region::Incomplete | Region::Ready => view! {
-                    <p>{move || state.with(|s| displayed_context(s, locale.get()))}</p>
-                    <p>{move || state.with(|s| match s.tail() {
+                    {move || state.with(|s| match s.tail() {
                         Tail::Failed(PublicDiscoveryFailure::Diagnostic(kind)) => Some(text(crate::messages::error_key(kind), locale.get())),
                         Tail::Failed(PublicDiscoveryFailure::Unavailable) => Some(text(if s.replacement_failed() { Key::PublicHomeUnavailable } else { Key::DiscoveryPageUnavailable }, locale.get())),
                         Tail::Failed(PublicDiscoveryFailure::Protocol) => Some(text(if s.replacement_failed() { Key::PublicHomeProtocol } else { Key::DiscoveryPageProtocol }, locale.get())),
                         _ => None,
-                    })}</p>
+                    }).map(|message| view! { <p role="status">{message}</p> })}
                     <ul class="theatre-search-result-list">
                         <For each=move || state.with(|s| s.rows().iter().map(|w| w.work_id.clone()).collect::<Vec<_>>()) key=|id| id.clone() children=move |work_id| {
                             let id = PublicWorkId::parse(&work_id);
+                            let row = Memo::new(move |_| state.with(|s| s.rows().iter().find(|w| w.work_id == work_id).map(|w| (w.title.clone(), w.kind, w.language.clone()))));
                             view! { <li><button type="button" on:click=move |_| { if let Some(id) = id { on_open_work.run(id); } }>
-                                {move || state.with(|s| s.rows().iter().find(|w| w.work_id == work_id).map(|w| w.title.clone()).unwrap_or_default())}
+                                <span class="theatre-search-result-title" lang=move || row.get().map(|(_, _, lang)| lang)>{move || row.get().map(|(title, _, _)| title)}</span>
+                                <span class="theatre-search-result-kind">{move || row.get().map(|(_, kind, _)| text(messages::work_kind_key(kind), locale.get()))}</span>
                             </button></li> }
                         }/>
                     </ul>
@@ -371,6 +375,7 @@ fn SearchForm(
     view! {
         <div node_ref=panel class="theatre-public-search"
             on:focusin=move |event| { if !restoring.get_untracked() && crate::platform::focus_is_search_input(&event) { expanded.set(true); } }
+            on:focusout=move |event| { if crate::platform::focus_left_search_field(&event) { expanded.set(false); } }
             on:click=move |event| { if crate::platform::click_is_search_input(&event) { expanded.set(true); } }
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
@@ -401,7 +406,7 @@ fn SearchForm(
                         dock=cantos_ui::SearchDock { id: "theatre-search-dock".into(), expanded: expanded.into(),
                             content: (move || view! {
                                 <div class="theatre-search-dock-heading">
-                                    <span>{move || text(Key::StoryShelf, locale.get())}</span>
+                                    <span class="theatre-search-dock-context">{move || state.with(|s| displayed_context(s, locale.get()))}</span>
                                     <Button id="theatre-search-collapse" variant=ButtonVariant::Text
                                         on_press=Callback::new(move |_| {
                                             restoring.set(true); crate::platform::focus_search_input(panel);
@@ -636,7 +641,7 @@ pub(crate) fn PublicHome(
                             <For each=rows key=|work| work.work_id.clone()
                                 children=move |work| view! { <WorkCard work state locale on_open_work/> }/>
                         </div>
-                        <p class="theatre-muted theatre-displayed-context">{move || state.with(|s| displayed_context(s, locale.get()))}</p>
+                        {move || state.with(|s| displayed_context(s, locale.get())).map(|context| view! { <p class="theatre-muted theatre-displayed-context">{context}</p> })}
                         <p id=STATUS_ID class="theatre-muted theatre-public-status" role="status" tabindex="-1">{status_line}</p>
                         <Show when=move || state.with(|s| s.appending())>
                             <LoadingState>{move || text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState>
@@ -874,6 +879,46 @@ mod tests {
         assert!(html.contains("Tập đã công bố: 12"));
         assert!(html.contains("Đã hiển thị hết các tác phẩm: 1."));
         assert!(!html.contains("theatre-discovery-more"));
+    }
+
+    #[test]
+    fn the_search_layer_repeats_nothing_and_leaves_no_empty_line_for_an_unfiltered_catalogue() {
+        let state = answered(
+            DiscoveryQuery::default(),
+            Ok(page(vec![work("Ánh đèn cuối sân khấu")], None)),
+        );
+        for locale in [Locale::Vietnamese, Locale::English] {
+            let html = render(state.clone(), locale);
+            for absent in [
+                "Kết quả đang hiển thị",
+                "Displayed results",
+                "Tất cả loại · Tất cả loại",
+                "All types · All types",
+                "<p></p>",
+            ] {
+                assert!(!html.contains(absent), "{absent}: {html}");
+            }
+            assert!(html.contains("theatre-search-result-title"), "{html}");
+        }
+    }
+
+    #[test]
+    fn a_kind_filter_alone_reads_as_the_kind_and_a_text_keeps_its_one_line() {
+        let narrowed = DiscoveryQuery::new("", Some(WorkKind::Podcast), "").unwrap();
+        let state = answered(narrowed.clone(), Ok(page(vec![work("Đêm khuya")], None)));
+        let en = render_with(state, narrowed, Locale::English);
+        assert!(
+            en.contains("theatre-search-dock-context\">Podcast</span>"),
+            "{en}"
+        );
+        assert!(!en.contains("All types · All types"), "{en}");
+        let typed = DiscoveryQuery::new("đèn", None, "").unwrap();
+        let state = answered(typed.clone(), Ok(page(vec![work("Ánh đèn")], None)));
+        let vi = render_with(state, typed, Locale::Vietnamese);
+        assert!(
+            vi.contains("Kết quả đang hiển thị: đèn · Tất cả loại"),
+            "{vi}"
+        );
     }
 
     #[test]

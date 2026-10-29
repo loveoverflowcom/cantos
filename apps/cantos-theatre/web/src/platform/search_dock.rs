@@ -20,11 +20,12 @@ pub(crate) fn bind_search_dock(panel: NodeRef<leptos::html::Div>, expanded: RwSi
         let Some(window) = web_sys::window() else {
             return;
         };
-        // The input header is measured independently: growing the body cannot move the anchor.
+        // The field (header and its messages) is measured independently: the results layer floats
+        // below its bottom edge, so growing or showing it cannot move the anchor.
         let measured = panel.clone();
         let viewport = window.visual_viewport();
         let measure: Rc<dyn Fn()> = Rc::new(move || {
-            let Some(field) = measured.query_selector(".cui-field-control").ok().flatten() else {
+            let Some(field) = measured.query_selector(".cui-field").ok().flatten() else {
                 return;
             };
             let bottom = viewport
@@ -63,11 +64,13 @@ pub(crate) fn bind_search_dock(panel: NodeRef<leptos::html::Div>, expanded: RwSi
                 .target()
                 .and_then(|node| node.dyn_into::<web_sys::Node>().ok())
                 .is_some_and(|node| {
+                    // The field owns both the header and its results layer, so a press on a
+                    // result, its scrollbar or the layer's padding is never an outside press.
                     panel
-                        .query_selector(".cui-field-shell")
+                        .query_selector(".cui-field")
                         .ok()
                         .flatten()
-                        .is_some_and(|shell| shell.contains(Some(&node)))
+                        .is_some_and(|field| field.contains(Some(&node)))
                 });
             if !inside {
                 expanded.set(false);
@@ -95,6 +98,20 @@ pub(crate) fn bind_search_dock(_: NodeRef<leptos::html::Div>, _: RwSignal<bool>)
 
 pub(crate) fn focus_is_search_input(event: &leptos::ev::FocusEvent) -> bool {
     is_search_input(event.target())
+}
+/// Focus moved from inside the search field (header or results layer) to another element outside
+/// it, e.g. Tab past the last result onto a filter chip the open layer would otherwise cover.
+/// A press on the layer's own padding blurs to nothing (`relatedTarget` null) and stays open.
+pub(crate) fn focus_left_search_field(event: &leptos::ev::FocusEvent) -> bool {
+    use leptos::wasm_bindgen::JsCast;
+    let element = |target: Option<leptos::web_sys::EventTarget>| {
+        target.and_then(|t| t.dyn_into::<leptos::web_sys::Element>().ok())
+    };
+    let Some(field) = element(event.target()).and_then(|e| e.closest(".cui-field").ok().flatten())
+    else {
+        return false;
+    };
+    element(event.related_target()).is_some_and(|next| !field.contains(Some(&next)))
 }
 pub(crate) fn click_is_search_input(event: &leptos::ev::MouseEvent) -> bool {
     is_search_input(event.target())

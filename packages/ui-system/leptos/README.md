@@ -491,7 +491,7 @@ visible one.
   shell: idle 0, hover 1, focus 2, invalid 1; no outset ring. The 280/200 ms open and close
   (`--cantos-web-search-*`, effects reuse the feedback duration, 0 under reduced motion) are a Web
   seed for the Search composition, not a canonical or native role. The dock body is not a shared
-  component.
+  component; the empty prompt always sits on the header's one row, never centered across the dock.
 - `Avatar` gains `AvatarSize::Control` (48) and `accent=true`, which pins the Theatre pink pair
   instead of the identity hue; the golden initials and tone vectors are unchanged.
 - `UiRoot expression=Expression::Theatre` opts a subtree in. Everything Theatre-specific in
@@ -568,8 +568,15 @@ executed package tests, real Safari observations and incomplete acceptance matri
 ### Search v4.3 body
 
 `TextField`'s optional `SearchDock` extends the existing Floating search anatomy. The caller owns
-the expanded signal and body content; the existing shell paints one header/body perimeter.
-Closed content remains mounted, inert and hidden from accessibility. Opening changes the body
-track and radius; input/action bounds stay on the header track. The caller provides viewport
-clearance through `--cantos-web-search-available`. It supplies no suggestions, network, query
+the expanded signal and body content. Since #604 (the owner's overlay-positioning decision, which
+amends the earlier v4.3 "one header/body perimeter" reading, not the single trailing magnifier or
+the stroke rules) the dock is a **floating layer**: a sibling of the shell after the field
+messages, `position: absolute` below the field's bottom edge, full field width, elevated by
+`elevation.overlay` and layered by `--cantos-web-search-layer` (above page content, below the app's
+fixed header and menus). The header shell keeps one fixed row, so opening, closing or growing the
+dock never moves the input, the label or any content after the field. Closed content remains
+mounted, inert, hidden from accessibility and not hit-tested. The dock scrolls on its own with a
+10rem floor; the caller provides viewport clearance through `--cantos-web-search-available`
+(measured from the field's bottom edge). There is no flip above the field: with little room below,
+the layer keeps its floor and the page scrolls. It supplies no suggestions, network, query
 normalization or submit policy. The `theatre-docked-search` specimen exercises this extension.
