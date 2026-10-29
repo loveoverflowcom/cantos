@@ -1,0 +1,46 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.40392,0.31373,0.50196,1.00000"
+      }
+    },
+    {
+      "value": {
+        "solid": "srgb:0.85098,0.74118,0.94510,1.00000"
+      },
+      "appearance": "dark"
+    }
+  ],
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "cantos-light.svg",
+          "image-name-specializations": [
+            {
+              "appearance": "dark",
+              "value": "cantos-dark.svg"
+            }
+          ],
+          "name": "Cantos symbol",
+          "glass": false
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "specular": false
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "iOS"
+    ]
+  }
+}

@@ -6,9 +6,10 @@ revision `owner-feedback-2-bold-symmetry-density`, delivered by
 [`Cantos-Theatre-Redesign-v4-2026-10-25.zip`](https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view).
 The supplied asset manifest was checked against the actual downloaded bytes before packaging.
 
-`library-expressive.png` is the final transparent ImageGen raster from that handoff,
+`library-expressive.avif` is the AVIF derivative of the transparent ImageGen raster from that handoff,
 1374 × 1145; it is not SVG or compiled vector artwork. The same image is used in both
-themes without tinting. It replaces the earlier Library glyph only after all Library
+themes without tinting. The AVIF conversion preserves dimensions and every alpha sample;
+[provenance](assets/empty/provenance.json) retains the source identity and encoding settings. It replaces the earlier Library glyph only after all Library
 reads have completed successfully with no retained rows or continuation cursors.
 
 The works/history SVG pairs are unchanged originals from the handoff. Each has a
@@ -21,12 +22,12 @@ history artwork appears only for a completed-empty history section outside that 
 
 The app never fetches Drive at runtime. This directory contains no story covers,
 private manuscripts, audio or catalog fixture fallback. These design assets establish
-no release permission, public-cover policy or playback acceptance. Native XML and PNG
+no release permission, public-cover policy or playback acceptance. Native XML and AVIF
 counterparts remain the CMP owner's responsibility; this Web packaging claims no native support.
 
 | Packaged file | SHA-256 |
 | --- | --- |
-| `library-expressive.png` | `96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a` |
+| `library-expressive.avif` | `88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c` |
 | `light/cantos-empty-works.svg` | `1c13660f0c791e8ae52da9ac6dfe837500c0d18cdcf60f5fa5fbdfe42606ad55` |
 | `dark/cantos-empty-works.svg` | `8d239077d729f6916fa4188c767632b59f212cb37b82e269253e957f13e7e485` |
 | `light/cantos-empty-history.svg` | `b95aeb92c33e6eee439dab2127440712a61ad08efa9c0480016d43a48d09bf84` |

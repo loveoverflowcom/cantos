@@ -148,6 +148,10 @@ references the slice touches. A starting guess, to confirm against the map:
 | 040 (#12–#13) | `cantos-listening`, `cantos-publication`; #13 adds the Web and UI owners |
 | 050 (#14–#17) | `cantos-cmp-mobile`, `cantos-ui-design`, `cantos-listening` |
 
+For image work, inventory source, runtime consumers and built artifacts separately through the
+[runtime image policy](../../../docs/design/runtime-images.md). Carry codec/OS and immutable Media transition gaps into the
+ledger; convert actual bytes, update load paths and preserve existing rights authority.
+
 ## 6. Keep the working ledger
 
 Use the foundation's ledger

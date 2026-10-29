@@ -59,12 +59,18 @@ def web_archive(dist, destination):
         raise ValueError("Web bundle exceeds entry limit")
     if any(path.is_symlink() or not (path.is_file() or path.is_dir()) for path in files):
         raise ValueError("Web bundle contains an irregular file or symlink")
+    from runtime_images import image_failure
+    for path in files:
+        if path.is_file():
+            contract.regular(path)
+            if path.suffix not in contract.WEB_SUFFIXES:
+                raise ValueError("unexpected Web asset type")
+            failure = image_failure(path.relative_to(dist).as_posix(), path.read_bytes())
+            if failure:
+                raise ValueError(f"runtime image policy: {path.relative_to(dist)}: {failure}")
     with tarfile.open(destination, "w:gz") as archive:
         for path in files:
             if path.is_file():
-                contract.regular(path)
-                if path.suffix not in contract.WEB_SUFFIXES:
-                    raise ValueError("unexpected Web asset type")
                 archive.add(path, arcname=path.relative_to(dist), recursive=False)
     with tarfile.open(destination, "r:gz") as archive:
         contract.archive_members(archive, web=True)

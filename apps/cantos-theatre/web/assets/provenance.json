@@ -1,22 +1,10 @@
 {
   "purpose": "Isolated Theatre Web mock only. Web-sized derivatives of the artwork and fonts already bundled by the Theatre CMP mock.",
   "source": "https://drive.google.com/file/d/157jbpHUTKZ-tDzNfXD878nvnF4thWmM4/view",
-  "sourceRecord": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json",
+  "sourceRecord": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/provenance.json",
   "artworkRights": "User-supplied design assets used for the requested isolated mock. The package names no artist or independent redistribution license; production rights review remains required.",
   "fonts": "Noto Sans / Noto Serif 2.015, regular and bold. Copyright 2022 The Noto Project Authors. SIL OFL 1.1; see fonts/OFL.txt.",
   "files": {
-    "artwork/son-ha-ky.webp": {
-      "derivedFrom": "drawable/son_ha_moon.png",
-      "sourceSha256": "388f4770ef5c75d50f1bacd0426563a7546bd23675e5dfeb8f671a58c6dda393",
-      "sha256": "5d1d679925accfaecc632463c00434e4159fc3413a15cc2d60a93cffb90e6b18",
-      "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
-    },
-    "artwork/den-khuya.webp": {
-      "derivedFrom": "drawable/den_khuya.png",
-      "sourceSha256": "f96ae8c1532385499546f21c8bc2ee59d75c127e1e374dff4fa8125a8e2a2760",
-      "sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
-      "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
-    },
     "artwork/cantos-cover-fallback.avif": {
       "derivedFrom": "cantos-cover-fallback-trimmed-master.png",
       "sourceSha256": "abebf3c94acb525e85635590bde585f9c691215f046714807f8e32635d2eba58",
@@ -42,6 +30,32 @@
       "derivedFrom": "font/noto_serif_bold.ttf",
       "sourceSha256": "96656aa5cec8f1d6fd0e804c1fad397e1a1cfa082e6642124e0bda68cd8363ce",
       "sha256": "f1d87c57fa0b2f1411fffcc61727fd05d10c221612fa1163ccaa74676a7ddc4e"
+    },
+    "artwork/den-khuya.avif": {
+      "derivedFrom": "drawable/den_khuya.png",
+      "sourceSha256": "f96ae8c1532385499546f21c8bc2ee59d75c127e1e374dff4fa8125a8e2a2760",
+      "sha256": "700f357eecb63fb0f9d6c157a69f681dbc694a496de7f028fd722bb6d31e27bf",
+      "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved",
+      "previousDerivative": {
+        "path": "artwork/den-khuya.webp",
+        "sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
+        "bytes": 120320,
+        "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
+      },
+      "bytes": 149469
+    },
+    "artwork/son-ha-ky.avif": {
+      "derivedFrom": "drawable/son_ha_moon.png",
+      "sourceSha256": "388f4770ef5c75d50f1bacd0426563a7546bd23675e5dfeb8f671a58c6dda393",
+      "sha256": "c4efbe47b73842aa86448594c1f9fe8237c2723fb847d3cb6e243aa99e84b81c",
+      "derivation": "Pillow 12.3.0 / libavif 1.3.0; quality=75, 4:4:4, speed=4; dimensions preserved",
+      "previousDerivative": {
+        "path": "artwork/son-ha-ky.webp",
+        "sha256": "5d1d679925accfaecc632463c00434e4159fc3413a15cc2d60a93cffb90e6b18",
+        "bytes": 46284,
+        "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
+      },
+      "bytes": 53990
     }
   },
   "fontSubset": {
