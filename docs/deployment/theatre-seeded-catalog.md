@@ -1,5 +1,12 @@
 # Theatre development catalog seeding
 
+> AVIF-only follow-up to #607: the historical six-PNG source package described below is no
+> longer admissible. Current parsing names `.avif` sources and runs the AVIF-only inspector;
+> its original source hashes must be replaced only after authorized conversion and independent
+> re-inventory. No source bytes/hashes are fabricated or changed automatically. Prepared-sample
+> execution remains pending that repinned corpus; preserve the original package for recovery.
+
+
 ## Owner-approved metadata-only production path (draft)
 
 The separate `scripts/seed_approved_sample_metadata.py` path is for the six-Work/twelve-unit

@@ -59,7 +59,7 @@ jobs:
       - name: Install read-only inspection and owned-fixture test tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ffmpeg
+          sudo apt-get install --yes ffmpeg pkg-config libdav1d-dev
       - name: Format, lint, test, offline Forge wrapper and actual media inspection
         run: cargo xtask ci --job rust
   forge-probe-linux:
@@ -148,6 +148,8 @@ jobs:
           cargo kani setup
       - name: Allow the isolation guard's unprivileged user and network namespaces
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install native Media decoder headers
+        run: sudo apt-get update && sudo apt-get install --yes pkg-config libdav1d-dev
       - name: Native auth Linux qualification, isolation and Kani
         run: cargo xtask verify native-auth-qualification --kani --report "$RUNNER_TEMP/native-auth-qualification.json"
       - name: Retain the sanitized report

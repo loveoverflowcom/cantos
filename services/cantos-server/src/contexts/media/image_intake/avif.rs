@@ -236,18 +236,31 @@ fn parse_meta_and_bitstream(
     let (width, height, av1c) =
         parse_iprp(iprp_payload.ok_or(ImageIntakeError::MalformedImage)?, pitm)?;
 
-    let bounds = check_image_bounds(
+    check_image_bounds(
         file_bytes.len() as u64,
         width,
         height,
         av1c.bytes_per_pixel(),
     )
     .map_err(|_| ImageIntakeError::ImageLimit)?;
-    let mut decoded_probe: Vec<u8> = Vec::new();
-    decoded_probe
-        .try_reserve_exact(bounds.decoded_byte_length())
-        .map_err(|_| ImageIntakeError::InspectionUnavailable)?;
 
+    if locations.len() != exif_items.len() + 1 {
+        return Err(ImageIntakeError::UnsupportedFormat);
+    }
+    let mut extents: Vec<_> = locations.iter().map(|(_, extent)| *extent).collect();
+    extents.sort_by_key(|extent| extent.offset);
+    let mut expected_offset = mdat_start;
+    for extent in extents {
+        if extent.offset != expected_offset {
+            return Err(ImageIntakeError::MalformedImage);
+        }
+        expected_offset = expected_offset
+            .checked_add(extent.length)
+            .ok_or(ImageIntakeError::MalformedImage)?;
+    }
+    if expected_offset != mdat_end {
+        return Err(ImageIntakeError::MalformedImage);
+    }
     for exif_id in exif_items {
         let extent = locations
             .iter()
@@ -272,8 +285,42 @@ fn parse_meta_and_bitstream(
     }
 
     inspect_av1_obus(primary_bytes, width, height, av1c)?;
-    drop(decoded_probe);
+    decode_av1_pixels(primary_bytes, width, height, av1c)?;
     Ok((width, height))
+}
+
+// Structural parsing alone cannot establish that entropy-coded tiles contain pixels.
+// Set native limits before sending any data; one still frame, one thread, no queued frames.
+fn decode_av1_pixels(
+    bytes: &[u8],
+    width: u32,
+    height: u32,
+    config: Av1Config,
+) -> Result<(), ImageIntakeError> {
+    let mut settings = dav1d::Settings::new();
+    settings.set_n_threads(1);
+    settings.set_max_frame_delay(1);
+    settings.set_frame_size_limit(16_777_216);
+    settings.set_strict_std_compliance(true);
+    let mut decoder = dav1d::Decoder::with_settings(&settings)
+        .map_err(|_| ImageIntakeError::InspectionUnavailable)?;
+    decoder
+        .send_data(bytes.to_vec(), None, None, None)
+        .map_err(|_| ImageIntakeError::MalformedImage)?;
+    let picture = decoder
+        .get_picture()
+        .map_err(|_| ImageIntakeError::MalformedImage)?;
+    if picture.width() != width
+        || picture.height() != height
+        || picture.bit_depth() != usize::from(config.bit_depth())
+    {
+        return Err(ImageIntakeError::MalformedImage);
+    }
+    match decoder.get_picture() {
+        Err(dav1d::Error::Again) => Ok(()),
+        Ok(_) => Err(ImageIntakeError::AnimatedImage),
+        Err(_) => Err(ImageIntakeError::MalformedImage),
+    }
 }
 
 fn slice_in_mdat(
@@ -353,6 +400,10 @@ fn parse_iinf(payload: &[u8], primary_item_id: u32) -> Result<Vec<u32>, ImageInt
             found_primary = true;
         } else if item_type == b"Exif" {
             exif_items.push(item_id);
+        } else {
+            // Auxiliary alpha, grids and derived/multi-image items need their own complete
+            // decoding profile. Never admit unchecked auxiliary pixels as a verified image.
+            return Err(ImageIntakeError::UnsupportedFormat);
         }
         offset = next_offset;
     }

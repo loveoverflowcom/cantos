@@ -59,8 +59,8 @@ class InventoryTests(unittest.TestCase):
 
     def test_inventory_rejects_legacy_bytes_even_with_an_avif_name(self):
         self.bundle()
-        png = Path(__file__).resolve().parents[1] / "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"
-        self.write("assets/artwork.avif", png.read_bytes())
+        png = Path(__file__).resolve().parents[1] / "services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json"
+        self.write("assets/artwork.avif", bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
         with self.assertRaisesRegex(ValueError, "runtime image policy.*artwork.avif.*legacy"):
             inventory(self.dist)
 

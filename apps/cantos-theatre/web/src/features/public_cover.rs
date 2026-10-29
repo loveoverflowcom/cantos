@@ -47,6 +47,8 @@ pub(crate) fn PublicCover(
     /// Extra frame class beyond `theatre-cover`.
     class: &'static str,
 ) -> impl IntoView {
+    let cover =
+        cover.filter(|cover| cover.content_type == crate::contract::discovery::CoverMime::Avif);
     let node = NodeRef::<leptos::html::Div>::new();
     let active = crate::platform::loading_presence(node);
     let phase = RwSignal::new(if cover.is_some() {
@@ -158,5 +160,50 @@ mod tests {
         let html = render(Some(covered()));
         assert!(html.contains("data-cover=\"loading\""));
         assert!(html.contains("data-pulse=\"idle\""), "{html}");
+    }
+
+    /// An opaque image over the frame's own fill is masked twice at the rounded edge and the fill
+    /// bleeds into the antialiased pixels. Every state an image covers drops the fill; `loading`
+    /// keeps it for the pulse, and `shown` drops it only after the fade-in.
+    #[test]
+    fn a_frame_paints_no_fill_of_its_own_under_an_opaque_image() {
+        let css = include_str!("../styles/theatre.css");
+        let rule = |selector: &str| {
+            css.split(&format!("\n{selector} {{"))
+                .nth(1)
+                .and_then(|rest| rest.split('}').next())
+                .unwrap_or_else(|| panic!("missing rule {selector}"))
+        };
+        assert!(
+            rule(".theatre-cover:is([data-cover=\"none\"], [data-cover=\"failed\"])")
+                .contains("background: transparent")
+        );
+        let shown = rule(".theatre-cover[data-cover=\"shown\"]");
+        assert!(shown.contains("background-color: transparent"));
+        assert!(shown.contains(
+            "transition: background-color 0s linear var(--cantos-motion-loading-reveal-duration)"
+        ));
+        assert!(!css.contains("[data-cover=\"loading\"] { background"));
+        // The one mask stays the frame's own radius and overflow clip, never a second one.
+        let frame = rule(".theatre-cover");
+        assert!(frame.contains("border-radius: var(--cantos-web-shape-container)"));
+        assert!(frame.contains("overflow: hidden"));
+        assert!(!rule(".theatre-cover-fallback-art").contains("border-radius"));
+        assert!(!rule(".theatre-cover-art").contains("border-radius"));
+    }
+
+    #[test]
+    fn legacy_cover_metadata_never_emits_its_network_image_url() {
+        for mime in [
+            crate::contract::discovery::CoverMime::Png,
+            crate::contract::discovery::CoverMime::Jpeg,
+        ] {
+            let mut cover = covered();
+            cover.content_type = mime;
+            let url = cover.url.clone();
+            let html = render(Some(cover));
+            assert!(!html.contains(&url));
+            assert!(html.contains(COVER_FALLBACK_SRC));
+        }
     }
 }

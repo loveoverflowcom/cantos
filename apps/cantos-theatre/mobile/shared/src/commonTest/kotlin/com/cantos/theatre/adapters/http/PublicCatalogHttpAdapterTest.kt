@@ -181,9 +181,9 @@ class PublicCatalogHttpAdapterTest {
         )
         invalid.forEach { body -> assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid), covered(body), body) }
         // The type is a closed wire enum: an unknown one is malformed before the domain sees it.
-        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(mutated("image/jpeg", "image/gif")))
+        assertEquals(PublicCatalogRead.Protocol(CatalogProtocolFault.Malformed), covered(mutated("image/avif", "image/gif")))
         // AVIF is admitted under the exact same contract rules as PNG and JPEG.
-        assertIs<PublicCatalogRead.Ready<*>>(covered(mutated("image/jpeg", "image/avif")))
+        assertIs<PublicCatalogRead.Ready<*>>(covered(mutated("image/avif", "image/jpeg")))
         // The same facts at the schema's limits are accepted: 4096 px, 8 MiB and 1024 alt-text bytes.
         assertIs<PublicCatalogRead.Ready<*>>(covered(
             mutated("\"width_px\": 1200", "\"width_px\": 4096")

@@ -88,3 +88,5 @@ Do not recycle old numbers or renumber unrelated accepted decisions.
 ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1](../../services/cantos-server/contracts/auth/identity-auth/v1/README.md): Web cookie with exact-origin/CSRF; CMP/native retains Bearer. Provider-only ADRs 0016/0034/0036/0040/0044 are historical within that scope; current mailbox/password behavior follows ADR 0045. Provisioned-only Studio and no registration-issued role remain required.
 
 - [ADR0052: Decode bundled AVIF artwork at renderer adapters](0052-bundled-avif-decoding.md) — proposed bounded desktop dependency; native qualification and Media transition remain separate.
+
+- [ADR 0053: Fully decode AVIF before Media admission](0053-media-avif-only-admission.md) — proposed decoder integration; owner-selected AVIF-only admission.

@@ -1094,7 +1094,7 @@ pub fn LocalSampleApp() -> impl IntoView {
                     <LiveContainer>
                         <header class="theatre-topbar">
                             <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
-                            <div class="theatre-topbar-actions">
+                            <div class="theatre-topbar-actions cui-topbar-actions">
                                 <LiveLocaleSelect locale on_locale/>
                                 <ThemeCycleButton
                                     id="theatre-topbar-theme"
@@ -1174,7 +1174,7 @@ mod tests {
             cover: Some(SampleCover {
                 path: sample_cover_path(id, &sha256),
                 sha256,
-                content_type: CoverMime::Png,
+                content_type: CoverMime::Avif,
                 width_px: 1024,
                 height_px: 1536,
                 byte_length: 4096,

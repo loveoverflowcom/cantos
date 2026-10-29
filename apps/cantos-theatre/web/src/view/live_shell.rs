@@ -995,7 +995,9 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                         <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
                     </nav>
                     <div class="theatre-mobile-language">
-                        <TopbarLocale id="theatre-mobile-locale" locale on_locale/>
+                        <div class="cui-topbar-actions">
+                            <TopbarLocale id="theatre-mobile-locale" locale on_locale/>
+                        </div>
                     </div>
                 </aside>
                 <div class="theatre-content">
@@ -1090,7 +1092,7 @@ fn LiveTopbarActions(
     on_logout: Callback<()>,
 ) -> impl IntoView {
     view! {
-        <div class="theatre-topbar-actions">
+        <div class="theatre-topbar-actions cui-topbar-actions">
             <TopbarLocale id="theatre-live-locale" locale on_locale/>
             <ThemeCycleButton
                 id="theatre-topbar-theme"
@@ -1307,29 +1309,25 @@ mod tests {
     }
 
     #[test]
-    fn topbar_locale_select_is_a_compact_tonal_control_from_canonical_roles_with_the_reading_radius(
-    ) {
+    fn topbar_locale_uses_the_shared_pill_recipe_without_an_app_level_control_override() {
         let css = include_str!("../styles/theatre.css");
-        let rule = |selector: &str| {
-            css.split(&format!("{selector} {{"))
-                .nth(1)
-                .and_then(|rest| rest.split('}').next())
-                .unwrap_or_else(|| panic!("missing rule {selector}"))
-        };
-        let scope = ".theatre-live-app .theatre-locale-field.cui-select-field";
-        let control = rule(&format!("{scope} .cui-field-control"));
-        assert!(control.contains("border-radius: var(--cantos-web-shape-reading)"));
-        assert!(!control.contains("pill"));
-        assert!(control.contains("background-color: var(--cantos-color-surface-container-high)"));
-        assert!(!control.contains('#') && !control.contains("rgb"));
-        assert!(rule(&format!("{scope} .cui-select-trigger")).contains("justify-content: center"));
-        // The control override is scoped to the topbar locale field; no unscoped field or select override exists.
-        assert_eq!(
-            css.matches(".cui-select-field .cui-field-control {")
-                .count(),
-            1
-        );
-        assert!(!css.contains(".cui-field-control { border-radius"));
+        let shared = include_str!("../../../../../packages/ui-system/leptos/foundation.css.in");
+        // The pill, 48-unit height and tonal fill are one shared recipe, scoped to the topbar row.
+        let recipe = shared
+            .split(
+                ":where(.cantos-ui) .cui-topbar-actions .cui-select-field[data-select-density=\"compact\"] .cui-field-control {",
+            )
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .expect("shared topbar locale recipe");
+        assert!(recipe.contains("min-block-size: var(--cantos-size-control)"));
+        assert!(recipe.contains("border-radius: var(--cantos-shape-pill)"));
+        assert!(recipe.contains("background-color: var(--cantos-color-surface-container-high)"));
+        assert!(!recipe.contains('#') && !recipe.contains("rgb"));
+        // The app no longer restyles the select control, size, radius or fill.
+        assert!(!css.contains(".theatre-locale-field.cui-select-field .cui-field-control"));
+        assert!(!css.contains(".theatre-locale-field.cui-select-field .cui-select-trigger"));
+        assert!(include_str!("live_shell.rs").contains("theatre-topbar-actions cui-topbar-actions"));
     }
 
     #[test]

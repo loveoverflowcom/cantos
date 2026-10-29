@@ -293,7 +293,7 @@ impl Preview {
         }
         let number = |value: &Value| value.as_u64().ok_or(Failure::Mismatch);
         let content_type = media["content_type"].as_str().ok_or(Failure::Mismatch)?;
-        if !matches!(content_type, "image/png" | "image/jpeg" | "image/avif") {
+        if content_type != "image/avif" {
             return Err(Failure::Mismatch);
         }
         Ok(Some(Cover {

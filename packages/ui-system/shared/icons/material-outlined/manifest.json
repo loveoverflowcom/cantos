@@ -175,6 +175,15 @@
     "arrow_downward": {
       "path": "src/navigation/arrow_downward/materialiconsoutlined/24px.svg",
       "sha256": "61643262c55c5fe4022407585d2609a7e3e73420ff93267931148a5eb9782790"
+    },
+    "theme_system": {
+      "origin": "cantos-authored",
+      "derived_from": [
+        "light_mode",
+        "dark_mode"
+      ],
+      "path": "packages/ui-system/shared/icons/material-outlined/theme_system.svg",
+      "sha256": "e2af26a72c5ebc6b31166d999281410035f3eaa833dcd146a80ed1ca0a6d3509"
     }
   }
 }

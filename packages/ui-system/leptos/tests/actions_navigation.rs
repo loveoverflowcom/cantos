@@ -452,10 +452,30 @@ fn theme_cycle_steps_dark_light_system_dark_and_renders_mode_next_tooltip() {
             system_html.contains("Hệ thống · Chuyển sang Tối"),
             "{system_html}"
         );
+        // System is one registry glyph (a single svg), never two small icons side by side, and
+        // each of the three modes paints a different glyph.
+        assert_eq!(system_html.matches("<svg").count(), 1, "{system_html}");
         assert!(
-            system_html.contains("cui-theme-icon-system"),
+            system_html.contains("M12 7a5 5 0 0 0 0 10z"),
             "{system_html}"
         );
+        theme.set(Theme::Dark);
+        let dark_html =
+            view! { <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/> }.to_html();
+        theme.set(Theme::Light);
+        let light_html =
+            view! { <ThemeCycleButton id="theme-btn" theme=theme labels=labels.into()/> }.to_html();
+        assert_eq!(dark_html.matches("<svg").count(), 1, "{dark_html}");
+        assert_eq!(light_html.matches("<svg").count(), 1, "{light_html}");
+        assert!(
+            !dark_html.contains("M12 7a5 5 0 0 0 0 10z")
+                && !light_html.contains("M12 7a5 5 0 0 0 0 10z")
+        );
+        assert_ne!(
+            dark_html.split("<svg").nth(1),
+            light_html.split("<svg").nth(1)
+        );
+        theme.set(Theme::System);
 
         labels.set(cantos_ui::ThemeCycleLabels {
             dark_mode: "Dark",
@@ -494,4 +514,35 @@ fn icon_button_renders_accessible_tooltip_and_keeps_accessible_name() {
         assert!(html.contains("cui-sr-only"), "{html}");
         assert!(html.contains("Đóng bảng"), "{html}");
     });
+}
+
+#[test]
+fn topbar_recipe_gives_locale_theme_and_avatar_one_48_unit_height_from_the_shared_css() {
+    let css = include_str!("../foundation.css");
+    let rule = |selector: &str| {
+        css.split(&format!("{selector} {{"))
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .unwrap_or_else(|| panic!("missing rule {selector}"))
+    };
+    let theme = rule(":where(.cantos-ui) .cui-topbar-actions .cui-theme-cycle-button");
+    for declaration in [
+        "inline-size: var(--cantos-size-control)",
+        "block-size: var(--cantos-size-control)",
+        "min-block-size: var(--cantos-size-control)",
+    ] {
+        assert!(theme.contains(declaration), "{declaration}");
+    }
+    let locale = rule(
+        ":where(.cantos-ui) .cui-topbar-actions .cui-select-field[data-select-density=\"compact\"] .cui-field-control",
+    );
+    assert!(locale.contains("min-block-size: var(--cantos-size-control)"));
+    assert!(
+        locale.contains("border-block-width: 0"),
+        "painted height is the full 48 units"
+    );
+    assert!(locale.contains("border-radius: var(--cantos-shape-pill)"));
+    // The default theme action and the compact Select outside the row keep their own density.
+    assert!(rule(":where(.cantos-ui) .cui-theme-cycle-button").contains("inline-size: 2.75rem"));
+    assert!(css.contains(".cui-select-field[data-select-density=\"compact\"] .cui-field-control {\n  min-block-size: var(--cantos-size-control);\n  border-block: var(--cantos-space-xs) solid transparent;"));
 }

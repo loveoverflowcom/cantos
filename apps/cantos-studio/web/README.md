@@ -517,7 +517,7 @@ lost body, timeout/navigation cancellation, exact reload and JSON rollback.
 
 The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../services/cantos-server/contracts/studio/artwork/v1/README.md)
 Studio routes through `live::Command` and its session-fenced dispatcher. Select an original
-PNG/JPEG, declare provenance and rights, prepare the 30-minute intent, upload raw bytes, then
+AVIF, declare provenance and rights, prepare the 30-minute intent, upload raw bytes, then
 explicitly select the admitted asset with alt text and the displayed Work revision. The
 current cover and local replacement are separate. Upload admission never announces a saved
 cover or public delivery. Clearing requires confirmation and sends explicit `artwork: null`;
