@@ -19,6 +19,18 @@ val releaseSigning = providers.gradleProperty("cantos.releaseSigning").orNull.le
 }
 if (releaseAudit) layout.buildDirectory.set(layout.projectDirectory.dir("build-audit"))
 
+// Build identity (#644). Absent, the committed constants below apply (local, CI and audit builds).
+// `cargo xtask distribute firebase` supplies both so the installed APK states which source it
+// was built from and every upload is a strictly newer Android version.
+val buildVersionCode = providers.gradleProperty("cantos.versionCode").orNull?.let {
+    val code = it.toIntOrNull()
+    check(code != null && code in 1..2_100_000_000) { "Invalid cantos.versionCode" }
+    code
+}
+val sourceRevision = providers.gradleProperty("cantos.sourceRevision").orNull?.also {
+    check(Regex("[0-9a-f]{7,40}(-dirty)?").matches(it)) { "Invalid cantos.sourceRevision" }
+}
+
 plugins {
     // Root buildscript supplies pinned AGP 8.11.1 only when Android is selected.
     id("com.android.application")
@@ -35,8 +47,8 @@ android {
         // The shared library floor, not a production platform support decision (#14 ADR).
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = buildVersionCode ?: 1
+        versionName = if (sourceRevision == null) "0.1.0" else "0.1.0+$sourceRevision"
         // Optional API origin override for the live catalog in both debug and release. Explicit
         // Gradle property overrides the environment. A sentinel preserves absence; an empty override is refused. The app
         // resolves the production default in Kotlin (`selectCatalogOrigin`, #298), the one owner.

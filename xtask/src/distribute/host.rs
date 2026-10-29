@@ -66,6 +66,8 @@ pub trait Host {
     /// An already-installed Android SDK, if one is configured.
     fn android_sdk(&self) -> Option<PathBuf>;
     fn now(&mut self) -> String;
+    /// Whole seconds since the Unix epoch; the source of a development build's `versionCode`.
+    fn unix_seconds(&mut self) -> u64;
     fn source_identity(&mut self) -> Result<SourceIdentity, String>;
     /// First-line versions of the installed Gradle and JDK, when they report one.
     fn tool_versions(&mut self) -> (Option<String>, Option<String>);
@@ -120,6 +122,12 @@ impl Host for SystemHost {
 
     fn now(&mut self) -> String {
         run_files::now()
+    }
+
+    fn unix_seconds(&mut self) -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs())
     }
 
     fn source_identity(&mut self) -> Result<SourceIdentity, String> {

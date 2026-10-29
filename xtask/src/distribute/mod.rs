@@ -11,6 +11,7 @@
 //! - [`apk`] interprets Gradle metadata and the Android tools' reports (pure);
 //! - [`firebase`] builds the CLI argv and translates its result into a remote outcome (pure);
 //! - [`receipt`] is the per-run record;
+//! - [`identity`] derives the version/source identity a development APK must carry (pure);
 //! - [`host`] owns local files, Git and the clock;
 //! - [`flow`] orders the stages and enforces that nothing follows a failure.
 
@@ -18,6 +19,7 @@ mod apk;
 mod firebase;
 mod flow;
 mod host;
+mod identity;
 mod receipt;
 mod request;
 
@@ -176,10 +178,16 @@ fn build_command(
     workspace: &Workspace,
     policy: request::Policy,
     origin: Option<&str>,
+    identity: Option<&identity::BuildIdentity>,
 ) -> crate::command::CommandSpec {
     match policy {
         request::Policy::DevelopmentApk => {
-            crate::theatre_host::gradle_debug_command(workspace, origin.unwrap_or_default())
+            let command =
+                crate::theatre_host::gradle_debug_command(workspace, origin.unwrap_or_default());
+            match identity {
+                Some(identity) => command.args(identity.gradle_args()),
+                None => command.args(identity::PLAN_ARGS),
+            }
         }
         request::Policy::ProductionApk => {
             crate::command::CommandSpec::new("cargo", workspace.root()).args([
@@ -196,8 +204,13 @@ fn build_command(
 
 /// The reviewable plan. Built from pure values only: no probe, no file or environment access.
 fn plan_text(workspace: &Workspace, request: &request::Request) -> String {
-    let gradle = build_command(workspace, request.policy, request.api_origin.as_deref())
-        .display(workspace.root());
+    let gradle = build_command(
+        workspace,
+        request.policy,
+        request.api_origin.as_deref(),
+        None,
+    )
+    .display(workspace.root());
     let placeholder = PathBuf::from("artifacts/distributions/RUN-ID");
     let apk = placeholder.join("artifact/OUTPUT.apk");
     let notes = placeholder.join("release-notes.txt");
