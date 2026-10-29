@@ -131,7 +131,7 @@ pub fn parse(bytes: &[u8]) -> Result<Input, InputError> {
         let expected = COVERS.iter().find(|cover| cover.0 == work.sample_key);
         if expected.is_none_or(|cover| cover.1 != work.title)
             || !keys.insert(&work.sample_key)
-            || work.cover.relative_path != format!("covers/{}.png", work.sample_key)
+            || work.cover.relative_path != format!("covers/{}.avif", work.sample_key)
             || !matches!(work.kind.as_str(), "novel" | "story")
             || work.language != "vi-VN"
             || work.author.trim().is_empty()
@@ -172,7 +172,7 @@ pub fn parse(bytes: &[u8]) -> Result<Input, InputError> {
 pub async fn decode(bytes: Vec<u8>) -> Result<(u32, u32), InputError> {
     let image = ImageAdmission::try_acquire()
         .map_err(|error| InputError::ImageRejected(error.code()))?
-        .inspect(bytes, ImageMime::Png)
+        .inspect(bytes, ImageMime::Avif)
         .await
         .map_err(|error| InputError::ImageRejected(error.code()))?;
     Ok((image.metadata().width_px(), image.metadata().height_px()))

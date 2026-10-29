@@ -1,8 +1,8 @@
-//! Synthetic permission records, six original fictional metadata Works and an existing 2×3 PNG
+//! Synthetic permission records, six original fictional metadata Works and an existing 2×3 AVIF_RGB
 //! fixture in a real disposable Turso/private object root. No generated cover or real consent is
 //! substituted. The non-login principal is populated through checked domain/SQL fixture seams;
 //! this does not establish an operator image-intake workflow or authenticate a human owner.
-use super::{ORIGIN, PNG, PNG_SHA256, STUDIO};
+use super::{AVIF_RGB, AVIF_RGB_SHA256, ORIGIN, STUDIO};
 use crate::{
     adapters::inbound::http::{metadata_cover_test_router, AppState},
     contexts::{
@@ -92,9 +92,9 @@ impl MetadataWorld {
             PrepareImage::admit(&dto::CreateImageIntentRequest {
                 operation_id: uuid::Uuid::new_v4().to_string(),
                 id: intent_id,
-                expected_sha256: PNG_SHA256.into(),
-                expected_byte_length: PNG.len() as u64,
-                content_type: dto::ImageMime::Png,
+                expected_sha256: AVIF_RGB_SHA256.into(),
+                expected_byte_length: AVIF_RGB.len() as u64,
+                content_type: dto::ImageMime::Avif,
                 declarations: dto::ImageDeclarations {
                     provenance: "synthetic-private-provenance".into(),
                     rights_refs: vec!["synthetic-image-rights".into()],
@@ -108,7 +108,7 @@ impl MetadataWorld {
         .unwrap();
         let verified = ImageAdmission::from_test_lanes(Arc::new(tokio::sync::Semaphore::new(1)))
             .unwrap()
-            .inspect(PNG.to_vec(), ImageMime::Png)
+            .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
             .await
             .unwrap();
         let asset = ImageAsset::create(&intent, verified.metadata().clone(), now).unwrap();
@@ -240,7 +240,7 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
     assert_eq!(page.items.len(), 6);
     assert_eq!(page.items.iter().filter(|w| w.cover.is_some()).count(), 1);
     let actual = enabled.metadata_work(WORK).await.unwrap().cover.unwrap();
-    assert_eq!(actual.sha256, PNG_SHA256);
+    assert_eq!(actual.sha256, AVIF_RGB_SHA256);
     assert!(!serde_json::to_string(&actual)
         .unwrap()
         .contains("synthetic-private-provenance"));
@@ -251,7 +251,7 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
         },
         enabled.clone(),
     );
-    let path = format!("/api/v1/theatre/works/{WORK}/cover/{PNG_SHA256}");
+    let path = format!("/api/v1/theatre/works/{WORK}/cover/{AVIF_RGB_SHA256}");
     let response = app
         .clone()
         .oneshot(Request::get(&path).body(Body::empty()).unwrap())
@@ -261,7 +261,7 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
     assert_eq!(response.headers()["cache-control"], "public, no-cache");
     assert_eq!(
         response.into_body().collect().await.unwrap().to_bytes(),
-        PNG
+        AVIF_RGB
     );
     let old = app
         .clone()
@@ -275,7 +275,7 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
     let old: discovery::CoveredWorkPage =
         serde_json::from_slice(&old.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(old.items.is_empty()); // no fake audio release
-    let admitted = enabled.admit_cover(WORK, PNG_SHA256).await.unwrap();
+    let admitted = enabled.admit_cover(WORK, AVIF_RGB_SHA256).await.unwrap();
     world.consent(None, false).await;
     assert!(matches!(
         enabled.open_cover(&admitted).await,
@@ -305,7 +305,7 @@ async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_
     world.clock.advance(60_000_000);
     assert_eq!(enabled.metadata_work(WORK).await.unwrap().cover, None);
     assert!(matches!(
-        enabled.admit_cover(WORK, PNG_SHA256).await,
+        enabled.admit_cover(WORK, AVIF_RGB_SHA256).await,
         Err(ListenerError::NotFound)
     ));
     world.consent(Some(world.work.revision()), true).await;
@@ -331,7 +331,7 @@ async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_
         Err(ListenerError::NotFound)
     ));
     assert!(matches!(
-        enabled.admit_cover(WORK, PNG_SHA256).await,
+        enabled.admit_cover(WORK, AVIF_RGB_SHA256).await,
         Err(ListenerError::NotFound)
     ));
 }

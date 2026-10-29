@@ -13,7 +13,7 @@ class PublicCoverHttpTest {
     private val sha = sha256Hex(bytes)
     private val request = CoverRequest(
         "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/$sha",
-        sha, bytes.size, "image/png",
+        sha, bytes.size, "image/avif",
     )
 
     private class Scripted(val respond: (CatalogHttpRequest) -> CatalogHttpResponse) : CatalogHttpTransport {
@@ -21,7 +21,7 @@ class PublicCoverHttpTest {
         override suspend fun get(request: CatalogHttpRequest): CatalogHttpResponse = respond(request).also { requests += request }
     }
 
-    private fun reply(status: Int, body: ByteArray = bytes, type: String? = "image/png") = CatalogHttpResponse(status, type, body)
+    private fun reply(status: Int, body: ByteArray = bytes, type: String? = "image/avif") = CatalogHttpResponse(status, type, body)
 
     private suspend fun fetch(response: CatalogHttpResponse): CoverBytes =
         PublicCoverHttp(CatalogHttpTransport { response }).fetch(request)
@@ -34,9 +34,9 @@ class PublicCoverHttpTest {
         val sent = transport.requests.single()
         assertEquals(request.url, sent.url)
         assertEquals(bytes.size, sent.maxBodyBytes)
-        assertEquals("image/png", sent.accept)
+        assertEquals("image/avif", sent.accept)
         // A parameterised content type is the same type.
-        assertIs<CoverBytes.Verified>(fetch(reply(200, type = "image/png; charset=binary")))
+        assertIs<CoverBytes.Verified>(fetch(reply(200, type = "image/avif; charset=binary")))
         val avifRequest = CoverRequest(request.url, sha, bytes.size, "image/avif")
         assertIs<CoverBytes.Verified>(PublicCoverHttp(CatalogHttpTransport { reply(200, type = "image/avif") }).fetch(avifRequest))
     }
@@ -70,4 +70,13 @@ class PublicCoverHttpTest {
         assertEquals(CoverBytes.Unavailable, outcome(CookieRuntimeException()))
         assertFailsWith<CancellationException> { outcome(CancellationException("cancelled")) }
     }
+    @Test fun legacyTypesAreRefusedBeforeAnyNetworkRead() = runTest {
+        val transport = Scripted { error("Legacy image must never be fetched") }
+        for (mime in listOf("image/png", "image/jpeg")) {
+            val legacy = CoverRequest(request.url, request.sha256, request.byteLength, mime)
+            assertIs<CoverBytes.Refused>(PublicCoverHttp(transport).fetch(legacy))
+        }
+        assertTrue(transport.requests.isEmpty())
+    }
+
 }

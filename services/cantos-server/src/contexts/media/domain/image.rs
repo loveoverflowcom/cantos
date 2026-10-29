@@ -101,6 +101,14 @@ impl ImageMime {
             _ => Err(ImageError::UnsupportedMime),
         }
     }
+    /// Historical variants remain readable; only AVIF may enter active image flows.
+    pub fn require_avif(self) -> Result<(), ImageError> {
+        if self == Self::Avif {
+            Ok(())
+        } else {
+            Err(ImageError::UnsupportedMime)
+        }
+    }
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Png => "image/png",
@@ -505,6 +513,7 @@ impl ImageIntent {
         owner_id: &OwnerId,
         now: i64,
     ) -> Result<Self, ImageError> {
+        request.expected.content_type.require_avif()?;
         if now < 0 {
             return Err(ImageError::InvalidTimestamp);
         }

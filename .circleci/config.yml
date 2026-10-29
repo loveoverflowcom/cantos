@@ -247,7 +247,7 @@
               {
                 "run": {
                   "name": "Install offline API/Rust verification dependencies",
-                  "command": "set -Eeuo pipefail\nsudo apt-get update -qq\nsudo apt-get install -y -qq podman zstd ffmpeg\ncurl --proto '=https' --tlsv1.2 -fsSL https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz -o /tmp/cantos-node.tar.xz\necho 'df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  /tmp/cantos-node.tar.xz' | sha256sum -c -\nmkdir -p \"$HOME/.local/cantos-node\"\ntar -xJf /tmp/cantos-node.tar.xz --strip-components=1 -C \"$HOME/.local/cantos-node\"\necho 'export PATH=\"$HOME/.local/cantos-node/bin:$PATH\"' >> \"$BASH_ENV\"\n"
+                  "command": "set -Eeuo pipefail\nsudo apt-get update -qq\nsudo apt-get install -y -qq podman zstd ffmpeg pkg-config libdav1d-dev\ncurl --proto '=https' --tlsv1.2 -fsSL https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz -o /tmp/cantos-node.tar.xz\necho 'df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  /tmp/cantos-node.tar.xz' | sha256sum -c -\nmkdir -p \"$HOME/.local/cantos-node\"\ntar -xJf /tmp/cantos-node.tar.xz --strip-components=1 -C \"$HOME/.local/cantos-node\"\necho 'export PATH=\"$HOME/.local/cantos-node/bin:$PATH\"' >> \"$BASH_ENV\"\n"
                 }
               },
               "install-build-trunk"
@@ -367,7 +367,7 @@
               {
                 "run": {
                   "name": "Install offline API/Rust verification dependencies",
-                  "command": "set -Eeuo pipefail\nsudo apt-get update -qq\nsudo apt-get install -y -qq podman zstd ffmpeg\ncurl --proto '=https' --tlsv1.2 -fsSL https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz -o /tmp/cantos-node.tar.xz\necho 'df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  /tmp/cantos-node.tar.xz' | sha256sum -c -\nmkdir -p \"$HOME/.local/cantos-node\"\ntar -xJf /tmp/cantos-node.tar.xz --strip-components=1 -C \"$HOME/.local/cantos-node\"\necho 'export PATH=\"$HOME/.local/cantos-node/bin:$PATH\"' >> \"$BASH_ENV\"\n"
+                  "command": "set -Eeuo pipefail\nsudo apt-get update -qq\nsudo apt-get install -y -qq podman zstd ffmpeg pkg-config libdav1d-dev\ncurl --proto '=https' --tlsv1.2 -fsSL https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz -o /tmp/cantos-node.tar.xz\necho 'df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  /tmp/cantos-node.tar.xz' | sha256sum -c -\nmkdir -p \"$HOME/.local/cantos-node\"\ntar -xJf /tmp/cantos-node.tar.xz --strip-components=1 -C \"$HOME/.local/cantos-node\"\necho 'export PATH=\"$HOME/.local/cantos-node/bin:$PATH\"' >> \"$BASH_ENV\"\n"
                 }
               },
               "install-build-trunk"

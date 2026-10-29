@@ -138,13 +138,13 @@ class ReleaseBuildTests(unittest.TestCase):
 
     def test_new_web_archive_refuses_renamed_legacy_bytes_before_writing_output(self):
         root = Path(__file__).resolve().parents[1]
-        png = root / "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"
+        png = root / "services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json"
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)
             dist = output / "dist"
             dist.mkdir()
             (dist / "index.html").write_text("<html>Cantos</html>")
-            (dist / "cover.avif").write_bytes(png.read_bytes())
+            (dist / "cover.avif").write_bytes(bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
             archive = output / "bundle.tar.gz"
             with self.assertRaisesRegex(ValueError, "runtime image policy.*cover.avif.*legacy"):
                 release.web_archive(dist, archive)

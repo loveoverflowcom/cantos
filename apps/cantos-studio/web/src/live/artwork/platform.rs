@@ -80,6 +80,12 @@ async fn hash(bytes: &[u8]) -> Result<String, ClientError> {
 }
 pub async fn read(file: web_sys::File) -> Result<LocalImage, Problem> {
     let mime = file_bounds(&file.type_(), file.size() as u64)?;
+    let buffer = JsFuture::from(file.array_buffer())
+        .await
+        .map_err(|_| Problem::Decode)?;
+    let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+    file_bounds(&file.type_(), bytes.len() as u64)?;
+    avif_bytes(&bytes)?;
     let url = web_sys::Url::create_object_url_with_blob(&file).map_err(|_| Problem::Decode)?;
     let result = async {
         let image = web_sys::HtmlImageElement::new().map_err(|_| Problem::Decode)?;
@@ -89,11 +95,6 @@ pub async fn read(file: web_sys::File) -> Result<LocalImage, Problem> {
             .map_err(|_| Problem::Decode)?;
         let (width, height) = (image.natural_width(), image.natural_height());
         dimensions(width, height)?;
-        let buffer = JsFuture::from(file.array_buffer())
-            .await
-            .map_err(|_| Problem::Decode)?;
-        let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
-        file_bounds(&file.type_(), bytes.len() as u64)?;
         let sha256 = hash(&bytes).await.map_err(|_| Problem::Decode)?;
         Ok(LocalImage {
             name: file.name(),
@@ -445,7 +446,8 @@ pub async fn preview(
     credential
         .check()
         .map_err(crate::live::browser::auth_error)?;
-    if asset.work_id != work
+    if asset.verified_media.content_type != ImageMime::Avif
+        || asset.work_id != work
         || asset.id != selection.image_asset_id
         || asset.digest != selection.image_asset_digest
     {
@@ -497,7 +499,8 @@ pub async fn preview(
         .binary()
         .await
         .map_err(|_| ClientError::Transport)?;
-    if bytes.len() as u64 != asset.verified_media.byte_length
+    if avif_bytes(&bytes).is_err()
+        || bytes.len() as u64 != asset.verified_media.byte_length
         || hash(&bytes).await? != asset.verified_media.sha256
     {
         return Err(ClientError::ReplyMismatch);

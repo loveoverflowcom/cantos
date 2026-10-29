@@ -1,6 +1,6 @@
 # Private Work artwork v1
 
-This contract defines one owner-only, externally prepared PNG/JPEG/AVIF Work cover. Shared raw
+This contract defines one owner-only, externally prepared AVIF Work cover. Shared raw
 DTOs, JSON Schema and the opt-in Protobuf edge representation are implemented independently
 of runtime activation. The [archived reviewed plan](../../../../../../docs/archive/superseded-plans/012-private-work-artwork.md) records
 product policy, storage prerequisites and layered acceptance. A private admitted image is
@@ -15,7 +15,7 @@ MessagePack and the four Studio revision/validation pilot routes are unchanged.
 
 - POST `image-intents`: CreateImageIntentRequest → ImageIntentDocument
 - GET `image-intents/{id}`: ImageIntentResponse with exact intent, nullable asset and derived state
-- PUT `image-intents/{id}/bytes`: actual PNG/JPEG/AVIF bytes → ImageAssetDocument
+- PUT `image-intents/{id}/bytes`: actual AVIF bytes → ImageAssetDocument
 - GET `image-assets/{id}`: exact immutable ImageAssetDocument
 - GET/HEAD `image-assets/{id}/bytes`: exact private accepted bytes with inspected MIME/length
 - GET `artwork?work_revision=R`: exact WorkArtworkResponse, current head when R is omitted
@@ -169,10 +169,20 @@ metadata responses carry `Vary: Accept`, `Cache-Control: no-store` and `nosniff`
 - Busy decoder/storage unavailable: 503 `unavailable`; corrupt stored facts/object evidence:
   500 `corrupt_revision`. No provider/path/credential text is returned.
 
-Raw PUT accepts only exact `image/png` or `image/jpeg` with no Content-Encoding. Its success
+Raw PUT accepts only exact `image/avif` with no Content-Encoding. Its success
 metadata still negotiates JSON/Protobuf; the image body itself does not. Active owner/intent
 checks precede admission, which is acquired before buffering. GET/HEAD preview uses inspected
 MIME, byte length and quoted SHA-256 ETag. HEAD verifies/open-reauthorizes then drops the stream;
 Range/conditional headers do not confer a grant or change the full-byte 200 policy. Actual
 loopback HTTP, database, target/version resolution and storage readback remain separate pending
 acceptance. Executed Router probes establish extractor/header/limit and composition behavior only.
+
+### AVIF-only admission amendment (#607)
+
+New commands/uploads accept only image/avif. Values1/2 (PNG/JPEG) remain decodable for
+historical metadata/receipts and are never reused. Schema/Protobuf enum membership alone
+does not grant admission. Server and Studio reject legacy selection/upload; legacy private
+byte previews are refused and public projection returns no cover. Original digests, database
+rows, rights and stored objects remain unchanged. Converting old data requires a new asset
+and explicit owner rebind/disclosure. The bounded AVIF profile and decoder/runtime packaging
+are owned by [runtime image policy](../../../../../../docs/design/runtime-images.md).

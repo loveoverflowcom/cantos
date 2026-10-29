@@ -1,6 +1,7 @@
 """Format guards reject real legacy bytes, renamed payloads and hidden SVG images."""
 
 import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,8 +10,9 @@ from runtime_images import image_failure, repository_failures, signature
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PNG = (ROOT / "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png").read_bytes()
-JPEG = (ROOT / "services/cantos-server/src/contexts/media/image_intake/fixtures/pillow-rgb-2x3.jpg").read_bytes()
+LEGACY = json.loads((ROOT / "services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json").read_text())
+PNG = bytes.fromhex(LEGACY["python-rgb-2x3.png"])
+JPEG = bytes.fromhex(LEGACY["pillow-rgb-2x3.jpg"])
 AVIF = (ROOT / "scripts/fixtures/runtime-images/red-2x3.avif").read_bytes()
 
 
@@ -49,20 +51,16 @@ class RuntimeImagePolicy(unittest.TestCase):
             self.assertEqual(debt, [])
             self.assertEqual([row.split(":", 1)[0] for row in errors], sorted(names[1:]))
 
-    def test_only_exact_frozen_media_inputs_are_classified_as_unresolved_debt(self):
-        name = "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"
-        errors, debt = repository_failures(ROOT, [name])
-        self.assertEqual(errors, [])
-        self.assertEqual(debt, [name])
-        self.assertEqual(hashlib.sha256(PNG).hexdigest(), "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276")
+    def test_former_media_fixture_paths_have_no_legacy_permission(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            name = "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"
             path = root / name
             path.parent.mkdir(parents=True)
-            path.write_bytes(PNG + b"changed")
+            path.write_bytes(PNG)
             errors, debt = repository_failures(root, [name])
             self.assertEqual(debt, [])
-            self.assertIn("frozen Media migration input changed", errors[0])
+            self.assertIn("legacy/unsupported", errors[0])
 
     def test_nonimage_bmff_audio_and_fonts_remain_outside_image_policy(self):
         audio_header = b"\0\0\0\x10ftypM4A \0\0\0\0"

@@ -226,6 +226,7 @@ impl ArtworkService {
     ) -> Result<ArtworkReceipt<dto::ImageIntentDocument>, ArtworkApplicationError> {
         let scope = OwnerWorkScope::new(token, work)?;
         let request = PrepareImage::admit(&raw)?;
+        request.expected().content_type().require_avif()?;
         self.repository.prepare(scope, request).await
     }
     pub async fn intent(
@@ -252,6 +253,7 @@ impl ArtworkService {
         let scope = OwnerWorkScope::new(token, work)?;
         let id = ImageIntentId::parse(id)?;
         let mime = ImageMime::from(mime);
+        mime.require_avif()?;
         let initial = self
             .repository
             .admission_context(scope.clone(), id.clone())
@@ -327,6 +329,7 @@ impl ArtworkService {
         }
         if let ArtworkChangeValue::Set(selection) = request.change() {
             let asset = context.asset.as_ref().ok_or(ArtworkError::MissingAsset)?;
+            asset.asset.metadata().content_type().require_avif()?;
             selection.require_asset(&context.work, &asset.asset)?;
             self.objects.verify(asset.clone()).await?;
         }
@@ -345,6 +348,7 @@ impl ArtworkService {
         let id = ImageAssetId::parse(id)?;
         let stored = self.repository.asset(scope.clone(), id.clone()).await?;
         let metadata = stored.asset.metadata().clone();
+        metadata.content_type().require_avif()?;
         let opened = self.objects.open(stored.clone()).await?;
         if opened.byte_length != metadata.byte_length() {
             return Err(ImageObjectError::Corrupt.into());
