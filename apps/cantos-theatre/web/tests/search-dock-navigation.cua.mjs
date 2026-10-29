@@ -26,3 +26,41 @@ export async function searchDockResultNavigation(tab, { title, resultLabel, work
   }
   return { ...report, status: "PASS" };
 }
+
+/** Start with a non-empty applied query and a second work excluded by that query. */
+export async function searchClearKeyboardLifetime(tab, { restoredWorkId }) {
+  const startedAt = new Date().toISOString();
+  let failure;
+  let cleared;
+  try {
+    await tab.getAXState({ emit: false });
+    await tab.playwright.locator("#theatre-search-clear-input").press("Enter");
+    await tab.getAXState({ emit: false });
+    cleared = await tab.playwright.evaluate(() => ({
+      value: document.querySelector("#theatre-discovery-search").value,
+      focus: document.activeElement.id,
+    }));
+    if ((await tab.dev.logs({ levels: ["error"], limit: 200 }))
+      .some((entry) => entry.timestamp >= startedAt)) {
+      throw new Error("Runtime error while removing the focused clear action");
+    }
+    await tab.playwright.locator("#theatre-discovery-search").press("Enter");
+    await tab.getAXState({ emit: false });
+    await tab.playwright.locator(`#theatre-public-work-link-${restoredWorkId}`).waitFor({
+      state: "visible", timeoutMs: 20000,
+    });
+    await tab.getAXState({ emit: false });
+  } catch (error) {
+    failure = String(error);
+  }
+  const errors = (await tab.dev.logs({ levels: ["error"], limit: 200 }))
+    .filter((entry) => entry.timestamp >= startedAt);
+  const report = { startedAt, cleared, url: await tab.url(), failure, errors };
+  if (failure || cleared?.value !== "" || cleared?.focus !== "theatre-discovery-search"
+      || errors.length !== 0) {
+    const error = new Error("Keyboard clear must retain input focus and allow the next search");
+    error.report = report;
+    throw error;
+  }
+  return { ...report, status: "PASS" };
+}
