@@ -8,12 +8,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -213,7 +215,8 @@ class ShellPresentationStateTest {
                 }
             }
             onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled()
-            onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertExists()
+            onAllNodesWithText("Chưa có audio").assertCountEquals(2)
+            onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertDoesNotExist()
             onNodeWithTag("save-work").performScrollTo().performClick()
             assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetSaved(SampleWorkIds.SonHa, saved = true)), events)
             onNodeWithTag("save-work").assert(hasText("Lưu tác phẩm"))

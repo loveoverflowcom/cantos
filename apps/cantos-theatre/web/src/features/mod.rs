@@ -12,6 +12,7 @@ pub(crate) mod discovery_language;
 #[cfg(feature = "preview")]
 pub(crate) mod explore;
 pub(crate) mod library;
+pub(crate) mod listen_help;
 pub(crate) mod live_player;
 #[cfg(feature = "preview")]
 pub(crate) mod player;

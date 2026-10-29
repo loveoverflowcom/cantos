@@ -468,10 +468,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa có chương hoặc tập đã công bố để nghe. Danh sách có thể đang tải."
+          "text": "Chưa có audio"
         },
         "en": {
-          "text": "There is no published chapter or episode to play yet. The list may still be loading."
+          "text": "No audio yet"
         }
       }
     },
@@ -25294,14 +25294,50 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa có bản nghe khả dụng."
+          "text": "Chưa có audio"
         },
         "en": {
-          "text": "No playable audio is available."
+          "text": "No audio yet"
         }
       }
     },
     "theatre.shell.work_listen_no_target": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có audio trong phần đã tải"
+        },
+        "en": {
+          "text": "No audio in the loaded part yet"
+        }
+      }
+    },
+    "theatre.shell.work_listen_help_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Vì sao?"
+        },
+        "en": {
+          "text": "Why?"
+        }
+      }
+    },
+    "theatre.shell.work_listen_unavailable_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm này chưa có chương hoặc tập công khai kèm audio. Khi có bản nghe, nút Nghe sẽ dùng được."
+        },
+        "en": {
+          "text": "This work has no public chapter or episode with audio yet. Listen becomes available once one is published."
+        }
+      }
+    },
+    "theatre.shell.work_listen_no_target_help": {
       "args": {},
       "exposure": "production",
       "translations": {
@@ -25354,14 +25390,50 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa có bản nghe khả dụng."
+          "text": "Chưa có audio"
         },
         "en": {
-          "text": "No playable audio is available."
+          "text": "No audio yet"
         }
       }
     },
     "theatre.cmp_shell.work_listen_no_target": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có audio trong phần đã tải"
+        },
+        "en": {
+          "text": "No audio in the loaded part yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_help_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Vì sao?"
+        },
+        "en": {
+          "text": "Why?"
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_unavailable_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm này chưa có chương hoặc tập công khai kèm audio. Khi có bản nghe, nút Nghe sẽ dùng được."
+        },
+        "en": {
+          "text": "This work has no public chapter or episode with audio yet. Listen becomes available once one is published."
+        }
+      }
+    },
+    "theatre.cmp_shell.work_listen_no_target_help": {
       "args": {},
       "exposure": "production",
       "translations": {
@@ -25397,6 +25469,18 @@
         },
         "en": {
           "text": "The list could not load. Retry the list to choose audio."
+        }
+      }
+    },
+    "theatre.cmp_shell.episode_no_audio": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có audio"
+        },
+        "en": {
+          "text": "No audio yet"
         }
       }
     }

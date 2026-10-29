@@ -622,6 +622,39 @@ body { margin: 0; }
 .theatre-public-work-intro .theatre-work-save-controls > .cui-button-field:first-child > .cui-button {
   align-self: center;
 }
+/* Optional detail for an unavailable Listen: a named text trigger in the action band and a note
+   anchored to the band, so opening never moves another action and it cannot leave the column. */
+.theatre-public-work-intro .theatre-actions { position: relative; }
+.theatre-listen-help { display: inline-flex; align-items: center; min-block-size: var(--cantos-size-listen-hero); }
+.theatre-app button.theatre-listen-help-trigger {
+  min-block-size: var(--cantos-size-control);
+  padding-inline: var(--cantos-space-md);
+  border: 0;
+  border-radius: var(--cantos-shape-pill);
+  background: transparent;
+  color: var(--cantos-color-primary);
+  font: inherit;
+  font-size: var(--cantos-type-label-size);
+  text-decoration: underline;
+  text-underline-offset: var(--cantos-space-xs);
+  cursor: pointer;
+}
+.theatre-listen-help-scrim { position: fixed; inset: 0; z-index: 40; }
+.theatre-listen-help-note {
+  position: absolute;
+  z-index: 41;
+  inset-inline-start: 0;
+  inset-block-start: calc(100% + var(--cantos-space-xs));
+  box-sizing: border-box;
+  inline-size: min(22rem, 100%);
+  margin: 0;
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-overlay);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+  overflow-wrap: anywhere;
+}
 .theatre-work-save-controls { display: grid; justify-items: start; gap: var(--cantos-space-xs); }
 .theatre-public-unit-list { margin: 0; }
 .theatre-public-unit[data-unavailable="true"] { color: var(--cantos-color-on-surface-variant); }

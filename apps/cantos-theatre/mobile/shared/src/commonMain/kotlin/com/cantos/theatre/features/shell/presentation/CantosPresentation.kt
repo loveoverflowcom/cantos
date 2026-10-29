@@ -705,6 +705,17 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
                 Text(reason, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("work-listen-status").semantics { liveRegion = LiveRegionMode.Polite })
             }
+            listen.help?.let { help ->
+                // The short reason above is the essential blocker; this opens only the optional detail.
+                // A disabled native button takes no press, so the explanation has its own named control.
+                var helpOpen by remember(listen.phase) { mutableStateOf(false) }
+                TextButton(shape = MaterialTheme.shapes.small, onClick = { helpOpen = !helpOpen },
+                    modifier = Modifier.testTag("work-listen-help-trigger")) { Text(copy.text(CopyKey.WorkListenHelpLabel)) }
+                if (helpOpen) {
+                    Text(copy.text(help), style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.testTag("work-listen-help").semantics { liveRegion = LiveRegionMode.Polite })
+                }
+            }
         }
         SaveWorkButton(work, state, copy, dispatch, "save-work")
     }
@@ -712,7 +723,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) CopyKey.Chapters else CopyKey.Episodes),
         style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
     if (work.episodes.isEmpty() && work.unitsPhase == ShellListPhase.Complete) {
-        Text(copy.text(CopyKey.SelectionUnavailableNote))
+        Text(copy.text(CopyKey.EpisodeNoAudio))
     }
     work.episodes.forEach { episode -> key(episode.id) { EpisodeSelection(episode, state, copy, dispatch) } }
     ListFooter(work.unitsPhase, copy, dispatch, first = work.episodes.isEmpty())
@@ -752,7 +763,7 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
             Icon(rememberCantosIconVector("play_arrow"), null)
         }
     }
-    if (episode.durationSeconds <= 0) Text(copy.text(CopyKey.SelectionUnavailableNote), style = MaterialTheme.typography.bodySmall)
+    if (episode.durationSeconds <= 0) Text(copy.text(CopyKey.EpisodeNoAudio), style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
