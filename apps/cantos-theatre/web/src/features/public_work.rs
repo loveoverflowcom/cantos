@@ -68,6 +68,18 @@ pub(crate) enum RowListen {
     Failed(ListenFailure),
 }
 
+impl RowListen {
+    /// The decorative glyph mirrors the verb. `Preparing` shows the button's busy indicator
+    /// instead, so its Play glyph is never painted.
+    pub(crate) const fn icon(self) -> IconName {
+        match self {
+            Self::Playing => IconName::Pause,
+            Self::Failed(_) => IconName::Refresh,
+            Self::Ready | Self::Preparing => IconName::PlayArrow,
+        }
+    }
+}
+
 /// The action and the observed engine state stay distinct. A pending Play is cancellable.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum HeroListen {
@@ -782,6 +794,7 @@ fn UnitRow(
         RowListen::Failed(_) => Key::PublicRetry,
         RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
     };
+    let verb_icon = Signal::derive(move || row_state().icon());
     let unit_progress = move || {
         let controls = sync_controls?;
         row.with(|r| {
@@ -914,7 +927,7 @@ fn UnitRow(
                     offered
                 }>
                     <div node_ref=actions class="theatre-episode-actions">
-                        <Button id=format!("theatre-public-unit-listen-{}", id.get_value()) variant=ButtonVariant::Tonal state=button_state
+                        <Button id=format!("theatre-public-unit-listen-{}", id.get_value()) variant=ButtonVariant::Tonal icon_signal=verb_icon state=button_state
                             on_press=Callback::new(move |_| id.with_value(|id| press_current_unit(state, id, listen)))>
                             {move || text(verb(), locale.get())}
                             <span class="cui-sr-only">" "{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</span>
@@ -1275,6 +1288,66 @@ mod tests {
             "a complete list offers no Load more"
         );
         assert_no_fabrication(&html);
+    }
+
+    #[test]
+    fn unit_listen_icon_mirrors_the_verb_and_the_hero_glyphs() {
+        // Same registry glyphs as the Work hero for the same intent: Play, Pause, Retry.
+        for (state, icon) in [
+            (RowListen::Ready, IconName::PlayArrow),
+            (RowListen::Preparing, IconName::PlayArrow),
+            (RowListen::Playing, IconName::Pause),
+            (
+                RowListen::Failed(ListenFailure::NotFound),
+                IconName::Refresh,
+            ),
+        ] {
+            assert_eq!(state.icon(), icon, "{state:?}");
+        }
+        assert_eq!(RowListen::Ready.icon(), HeroListen::Ready.icon());
+        assert_eq!(
+            RowListen::Playing.icon(),
+            HeroListen::Pause(Status::Playing).icon()
+        );
+        assert_eq!(
+            RowListen::Failed(ListenFailure::NotFound).icon(),
+            HeroListen::ResolveFailed(ListenFailure::NotFound).icon()
+        );
+    }
+
+    #[test]
+    fn a_unit_listen_button_leads_with_the_decorative_play_glyph() {
+        let (mut state, first) = opened(fixture_work());
+        state.finish_page(&first, Ok(fixture_units()));
+        let html = render(state, Locale::Vietnamese);
+        let button_of = |id: &str| {
+            html.split(id)
+                .nth(1)
+                .and_then(|rest| rest.split("</button>").next())
+                .unwrap_or_else(|| panic!("{id} is rendered"))
+                .to_owned()
+        };
+        let icon_of = |button: &str| {
+            button
+                .split("cui-button-icon")
+                .nth(1)
+                .and_then(|rest| rest.split("</span>").next())
+                .unwrap_or_else(|| panic!("a labelled listen action carries an icon: {button}"))
+                .to_owned()
+        };
+        let unit =
+            button_of("id=\"theatre-public-unit-listen-20000000-0000-4000-8000-000000000002\"");
+        let hero = button_of("id=\"theatre-public-work-listen\"");
+        let glyph = icon_of(&unit);
+        assert!(glyph.contains("aria-hidden=\"true\""), "{unit}");
+        // Same registry glyph as the Work hero for the same intent (Ready: Play).
+        assert_eq!(glyph, icon_of(&hero));
+        assert!(
+            unit.find("cui-button-icon").unwrap() < unit.find("cui-control-label").unwrap(),
+            "the glyph leads the label: {unit}"
+        );
+        // The accessible name stays the visible verb plus the unit; the glyph adds nothing to it.
+        assert!(unit.contains(">Nghe<") && unit.contains("Một tiếng chuông trong sương"));
     }
 
     #[test]
