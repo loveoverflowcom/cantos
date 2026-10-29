@@ -22,6 +22,7 @@ use crate::{
     features::{
         auth_copy::{self, CopyKey},
         common::clock,
+        listen_help::{ListenAbsence, ListenHelp},
         public_cover::PublicCover,
     },
     messages::{self, text, Key, Locale},
@@ -581,27 +582,30 @@ fn ReadyWork(
     let first_pub =
         Signal::derive(move || first().and_then(|row| row.playback.map(|p| p.publication_id)));
     let hero = Memo::new(move |_| first().map(|row| listen.hero_of(&row)));
+    let listen_absence = move || {
+        ListenAbsence::of(
+            status().as_ref(),
+            state
+                .with(|s| with_units(s, UnitList::is_complete))
+                .unwrap_or(false),
+        )
+    };
+    let listen_detail = Signal::derive(move || {
+        hero.get()
+            .is_none()
+            .then(|| listen_absence().detail())
+            .flatten()
+    });
     let listen_state = Signal::derive(move || {
         let reason = match hero.get() {
             Some(HeroListen::Resolving) => Some((true, text(Key::ListenPreparing, locale.get()))),
             Some(HeroListen::Unavailable(failure)) => {
                 Some((false, text(resolve_failure_key(failure), locale.get())))
             }
-            None => Some(match status() {
-                Some(PageStatus::Loading) => {
-                    (true, text(Key::PublicWorkUnitsLoading, locale.get()))
-                }
-                Some(PageStatus::Failed(_)) => {
-                    (false, text(Key::PublicWorkUnitsFailed, locale.get()))
-                }
-                _ if state
-                    .with(|s| with_units(s, UnitList::is_complete))
-                    .unwrap_or(false) =>
-                {
-                    (false, text(Key::WorkListenUnavailable, locale.get()))
-                }
-                _ => (false, text(Key::WorkListenNoTarget, locale.get())),
-            }),
+            None => {
+                let absence = listen_absence();
+                Some((absence.is_busy(), text(absence.reason(), locale.get())))
+            }
             _ => None,
         };
         reason
@@ -656,6 +660,7 @@ fn ReadyWork(
                         {move || text(listen_label(), locale.get())}
                         {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                     </Button>
+                    <ListenHelp locale detail=listen_detail reason_id="theatre-public-work-listen-reason".to_owned()/>
                     {sync_controls.map(|controls| view! {
                         <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
                     })}
@@ -1206,6 +1211,81 @@ mod tests {
             press_current_unit(state.read_only(), &item.unit_id, listen);
             assert_eq!(calls.load(Ordering::SeqCst), 0);
         });
+    }
+
+    fn without_audio(n: u128, title: &str) -> MetadataUnitSummary {
+        let mut item = unit(n, title);
+        item.playback = None;
+        item
+    }
+
+    #[test]
+    fn absent_audio_keeps_one_short_reason_and_defers_only_the_detail_to_a_named_trigger() {
+        for locale in Locale::supported() {
+            let (mut complete, first) = opened(fixture_work());
+            complete.finish_page(&first, Ok(page(vec![without_audio(1, "Một")], None)));
+            let html = render(complete, locale);
+            let cta = html
+                .split("id=\"theatre-public-work-listen\"")
+                .nth(1)
+                .unwrap();
+            assert!(cta.contains("aria-disabled=\"true\""), "{cta}");
+            // The essential reason is visible and tied to the control with no interaction.
+            assert!(
+                html.contains(text(Key::WorkListenUnavailable, locale)),
+                "{html}"
+            );
+            assert!(html.contains("aria-describedby=\"theatre-work-listen-feedback theatre-public-work-listen-reason\""));
+            // The row repeats only the short phrase, never the long copy.
+            assert!(html.contains(text(Key::PublicWorkListenUnavailable, locale)));
+            // The long detail is on demand; its trigger is a named, collapsed button.
+            let trigger = html
+                .split("id=\"theatre-work-listen-help-trigger\"")
+                .nth(1)
+                .expect("a help trigger");
+            let trigger = trigger.split('>').next().unwrap();
+            assert!(trigger.contains("aria-expanded=\"false\""), "{trigger}");
+            assert!(trigger.contains("aria-controls=\"theatre-work-listen-help\""));
+            assert!(trigger.contains("aria-describedby=\"theatre-public-work-listen-reason\""));
+            assert!(html.contains(text(Key::WorkListenHelpLabel, locale)));
+            assert!(!html.contains(text(Key::WorkListenUnavailableHelp, locale)));
+            assert!(!html.contains("id=\"theatre-work-listen-help\""));
+        }
+    }
+
+    #[test]
+    fn a_partial_list_without_audio_is_not_reported_as_permanently_empty() {
+        let (mut partial, first) = opened(fixture_work());
+        partial.finish_page(
+            &first,
+            Ok(page(vec![without_audio(1, "Một")], Some("lc1_next"))),
+        );
+        let html = render(partial, Locale::English);
+        let reason = html
+            .split("id=\"theatre-public-work-listen-reason\"")
+            .nth(1)
+            .and_then(|rest| rest.split("</span>").next())
+            .unwrap();
+        assert!(
+            reason.contains(text(Key::WorkListenNoTarget, Locale::English)),
+            "{reason}"
+        );
+        assert!(html.contains("theatre-work-listen-help-trigger"));
+    }
+
+    #[test]
+    fn loading_and_failed_lists_keep_their_own_state_and_offer_no_audio_detail() {
+        for locale in Locale::supported() {
+            let (loading, _) = opened(fixture_work());
+            let html = render(loading, locale);
+            assert!(!html.contains("theatre-work-listen-help-trigger"), "{html}");
+            let (mut failed, first) = opened(fixture_work());
+            failed.finish_page(&first, Err(CatalogReadError::Unavailable));
+            let html = render(failed, locale);
+            assert!(html.contains(text(Key::PublicWorkUnitsFailed, locale)));
+            assert!(!html.contains("theatre-work-listen-help-trigger"), "{html}");
+            assert!(html.contains(UNITS_RETRY_ID));
+        }
     }
 
     #[test]

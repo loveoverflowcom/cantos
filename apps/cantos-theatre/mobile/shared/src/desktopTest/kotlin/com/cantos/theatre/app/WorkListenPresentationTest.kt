@@ -15,7 +15,10 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -108,5 +111,28 @@ class WorkListenPresentationTest {
                 File(output, "work-${theme.name}-$width-${scale.toInt()}.png").writeBytes(bytes)
             }
         }
+    }
+
+    @Test
+    fun absent_audio_keeps_one_short_reason_and_opens_the_detail_only_from_a_named_control() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val events = mutableListOf<ShellEvent>()
+        val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
+        var supplied by mutableStateOf(state())
+        setContent { CantosPresentation(supplied, empty, events::add) }
+        for ((locale, reason, label) in listOf(
+            Triple(ShellLocale.Vietnamese, "Chưa có audio", "Vì sao?"),
+            Triple(ShellLocale.English, "No audio yet", "Why?"),
+        )) {
+            runOnIdle { supplied = state(locale = locale) }
+            onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled().performClick()
+            // The control's reason and the empty list's note: two short phrases, never the long copy.
+            onAllNodesWithText(reason).assertCountEquals(2)
+            onNodeWithTag("work-listen-help").assertDoesNotExist()
+            onNodeWithTag("work-listen-help-trigger").performScrollTo().assertIsEnabled().assertTextEquals(label).performClick()
+            onNodeWithTag("work-listen-help").assertExists()
+            onNodeWithTag("work-listen-help-trigger").performClick()
+            onNodeWithTag("work-listen-help").assertDoesNotExist()
+        }
+        assertEquals(emptyList(), events, "neither the disabled Listen nor its help dispatches playback or navigation")
     }
 }
