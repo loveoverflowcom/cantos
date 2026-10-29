@@ -97,7 +97,7 @@ fun VerifyEmailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                     Button(copy.text(AuthText.SignIn), { onIntent(VerificationIntent.Continue) }, variant = ButtonVariant.AuthPrimary,
                         icon = authActionIcon(AuthIntent.OpenLogin), controlModifier = Modifier.fillMaxWidth().testTag("verify-continue"))
-                    Button(copy.text(AuthText.CreateAccount), { onIntent(VerificationIntent.RequestAnother) },
+                    Button(copy.text(AuthText.RegisterAction), { onIntent(VerificationIntent.RequestAnother) },
                         variant = ButtonVariant.AuthSecondary, icon = authActionIcon(AuthIntent.OpenRegister),
                         controlModifier = Modifier.fillMaxWidth().testTag("verify-request"))
                 }

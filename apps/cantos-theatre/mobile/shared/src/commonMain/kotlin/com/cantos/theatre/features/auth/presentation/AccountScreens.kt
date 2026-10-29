@@ -101,7 +101,7 @@ private fun GuestAccount(
                 controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
             )
             if (account.offersRegistration()) Button(
-                copy.text(AuthText.CreateAccountShort), { onIntent(AuthIntent.OpenRegister) },
+                copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
                 variant = ButtonVariant.AuthOutlined,
                 icon = authActionIcon(AuthIntent.OpenRegister),
                 controlModifier = Modifier.fillMaxWidth().testTag("create-account"),

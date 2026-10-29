@@ -67,7 +67,7 @@ internal fun AuthActionSample(state: String, onPress: () -> Unit, modifier: Modi
         else -> ButtonState.Enabled
     }
     val label = when (state) {
-        "auth-secondary" -> "Tạo tài khoản Cantos"
+        "auth-secondary" -> "Đăng ký"
         "auth-outlined" -> "Để sau, tiếp tục nghe nội dung công khai"
         "auth-long-label" -> "Đăng nhập với Cantos ID để giữ tủ sách của Nguyễn Thị Minh Phương · Ỗ, Ữ"
         else -> "Đăng nhập với Cantos ID"

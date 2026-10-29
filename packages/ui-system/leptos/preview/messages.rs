@@ -466,7 +466,7 @@ pub mod theatre_fixture {
     pub const LOADING: &str = "Đang nạp thông tin.";
     pub const SENDING: &str = "Đang gửi, vui lòng chờ.";
     pub const SIGN_IN: &str = "Đăng nhập";
-    pub const SIGN_UP: &str = "Tạo tài khoản";
+    pub const SIGN_UP: &str = "Đăng ký";
     pub const CONFIRM: &str = "Xác nhận";
     pub const LONG_ACTION: &str = "Gửi liên kết xác minh cho Nguyễn Thị Ánh Nguyệt";
     pub const SWITCH_LIGHT: &str = "Chuyển sang giao diện sáng";

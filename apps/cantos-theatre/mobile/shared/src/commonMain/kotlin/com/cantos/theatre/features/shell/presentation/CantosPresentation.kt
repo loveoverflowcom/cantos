@@ -324,7 +324,7 @@ private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
         ShellRoute.Account -> CopyKey.Account
         ShellRoute.MembershipPreview -> CopyKey.MembershipPreview
         ShellRoute.Login -> CopyKey.SignIn
-        ShellRoute.Register, ShellRoute.VerifyEmail -> CopyKey.CreateAccount
+        ShellRoute.Register, ShellRoute.VerifyEmail -> CopyKey.Register
         ShellRoute.History -> CopyKey.History
         ShellRoute.Settings -> CopyKey.Settings
         ShellRoute.Unavailable -> CopyKey.SelectionUnavailable

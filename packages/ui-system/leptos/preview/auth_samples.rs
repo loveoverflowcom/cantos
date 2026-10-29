@@ -49,7 +49,7 @@ pub fn AuthActionSamples(
                 </div>
                 <div data-preview-scenario="auth-secondary">
                     <Button id="auth-secondary" variant=ButtonVariant::AuthSecondary icon=IconName::PersonAdd state=state on_press=press>
-                        "Tạo tài khoản Cantos"
+                        "Đăng ký"
                     </Button>
                 </div>
                 <div data-preview-scenario="auth-outlined">

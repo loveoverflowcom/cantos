@@ -162,7 +162,7 @@ class TonalAuthRecipeTest {
         val actions = mapOf<String, @Composable (Modifier) -> Unit>(
             "primary" to { m -> CompositionLocalProvider(tonalAuthActions()) { Button("Đăng nhập", {}, variant = ButtonVariant.AuthPrimary, controlModifier = m.fillMaxWidth()) } },
             "outlined" to { m -> CompositionLocalProvider(tonalAuthActions()) { Button("Để sau", {}, variant = ButtonVariant.AuthOutlined, controlModifier = m.fillMaxWidth()) } },
-            "text" to { m -> CompositionLocalProvider(tonalAuthActions()) { Button("Tạo tài khoản Cantos", {}, variant = ButtonVariant.Text, controlModifier = m.fillMaxWidth()) } },
+            "text" to { m -> CompositionLocalProvider(tonalAuthActions()) { Button("Đăng ký", {}, variant = ButtonVariant.Text, controlModifier = m.fillMaxWidth()) } },
         )
         Theme.entries.forEach { theme ->
             actions.forEach { (name, content) ->

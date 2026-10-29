@@ -33,7 +33,7 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class GuestCtaPairPixelTest {
     private val signIn = "Đăng nhập"
-    private val create = "Tạo tài khoản"
+    private val create = "Đăng ký"
 
     private fun role(name: String, theme: Theme): Color =
         parseTokenColor(CantosTokens.color(CantosTokens.role(name, CantosExpression.Theatre.tokenName), theme.tokenName))
