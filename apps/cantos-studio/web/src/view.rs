@@ -8,7 +8,7 @@ use crate::{
     adaptation::ScriptAdaptation,
     api::{ObservedSession, StudioContext, StudioHttp},
     authoring_view::StructuredEditor,
-    editor::{Editor, Intent, ValidationPreview},
+    editor::{Editor, Intent, Standing, ValidationPreview},
     entry::{self, Entry},
     import::ManuscriptImport,
     inspector::RevisionInspector,
@@ -866,8 +866,14 @@ pub fn Studio() -> impl IntoView {
                         <FormSubmit id="revision-read" locale=locale blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())>{move || copy().read}</FormSubmit></div>
                 </form>
                 <div class="revision-strip">
-                    <p class="identity"><code>{move || state.with(|e| e.script().to_owned())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(Editor::base)}</output></p>
-                    <p>{move || if state.with(Editor::is_dirty) || activity.get() { text(Key::Unsaved, locale.get()) } else { text(Key::Saved, locale.get()) }}</p>
+                    <Show when=move || state.with(|e| !e.script().is_empty())>
+                        <p class="identity"><code>{move || state.with(|e| e.script().to_owned())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(Editor::base)}</output></p>
+                    </Show>
+                    <p>{move || match state.with(|e| e.standing(activity.get())) {
+                        Standing::Unsaved => text(Key::Unsaved, locale.get()),
+                        Standing::Saved => text(Key::Saved, locale.get()),
+                        Standing::Unconfirmed => "",
+                    }}</p>
                 </div>
                 <StructuredEditor draft=draft locale=locale activity=activity namespace="revision"
                     readonly=Signal::derive(move || session_pending.get() || state.with(|e| e.busy() || !e.can_edit()))
