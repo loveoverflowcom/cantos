@@ -119,6 +119,14 @@ Canonical skills live in [`.agents/skills/`](.agents/skills/README.md) and are s
 
 Skills own working method; `docs/` owns product rules. Keep one copy of each skill and update it rather than adding per-runtime instructions.
 
+## Runtime images
+
+Follow the canonical [image policy](docs/design/runtime-images.md): AVIF raster, SVG/native
+vector resources, explicit documentation-only legacy and recorded Media migration gaps.
+The owner permits Xcode-generated compatibility PNGs from `.icon`/SVG for the iOS launcher
+only; source PNGs and legacy content fallbacks remain disallowed. Audit bytes and consumers
+before conversion and preserve provenance, immutable identity and rights.
+
 ## Verification
 
 Use the foundation's [verification cadence](.agents/skills/cantos-engineering/references/verification-cadence.md):

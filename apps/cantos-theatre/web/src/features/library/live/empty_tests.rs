@@ -76,7 +76,7 @@ fn terminal_empty_library_has_one_expressive_illustration_quiet_summaries_and_on
         );
         assert_eq!(html.matches("data-artwork=\"library\"").count(), 1);
         assert_eq!(html.matches("<img ").count(), 1);
-        assert!(html.contains("assets/empty/library-expressive.png"));
+        assert!(html.contains("assets/empty/library-expressive.avif"));
         assert!(!html.contains("data-artwork=\"history\""));
     }
 }
@@ -126,7 +126,7 @@ fn contextual_history_art_requires_its_own_completed_read_and_keeps_other_rows()
         assert_eq!(html.matches("data-artwork=\"history\"").count(), 1);
         assert!(html.contains("assets/empty/light/cantos-empty-history.svg"));
         assert!(html.contains("assets/empty/dark/cantos-empty-history.svg"));
-        assert!(!html.contains("library-expressive.png"));
+        assert!(!html.contains("library-expressive.avif"));
     }
 }
 

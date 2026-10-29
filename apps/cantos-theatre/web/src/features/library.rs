@@ -392,7 +392,7 @@ mod tests {
                 .split_once("theatre-continue\"")
                 .expect("continue cluster");
             let cluster = cluster.split("theatre-saved-heading").next().unwrap();
-            assert!(cluster.contains("assets/artwork/son-ha-ky.webp"));
+            assert!(cluster.contains("assets/artwork/son-ha-ky.avif"));
             assert!(cluster.contains("Sơn Hà Ký"));
             assert!(cluster.contains("Người giữ tiếng chuông"));
             assert!(cluster.contains("role=\"progressbar\""));
@@ -424,9 +424,9 @@ mod tests {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());
             assert!(
-                artwork_src(WorkId::Mountain).is_some_and(|src| src.ends_with("son-ha-ky.webp"))
+                artwork_src(WorkId::Mountain).is_some_and(|src| src.ends_with("son-ha-ky.avif"))
             );
-            assert!(artwork_src(WorkId::River).is_some_and(|src| src.ends_with("den-khuya.webp")));
+            assert!(artwork_src(WorkId::River).is_some_and(|src| src.ends_with("den-khuya.avif")));
             assert_eq!(artwork_src(WorkId::Dream), None);
             let art = view! { <Cover ctx=ctx id=WorkId::River/> }.to_html();
             assert!(art.contains("data-art=\"true\"") && art.contains("alt=\"\""));

@@ -15,7 +15,7 @@ See [what the application reads from where](#the-application-over-real-owners).
 
 Discovery uses compact keyed Work cards, with one title/arrow navigation action and a separate
 save action. Catalog completeness, filtered no-results and retained partial data remain distinct.
-The app-owned empty artwork uses the supplied transparent Library PNG and theme-paired
+The app-owned empty artwork uses the AVIF derivative of the supplied transparent Library artwork and theme-paired
 Works/History XML through Compose resources; its provenance is bundled in
 `shared/src/commonMain/composeResources/files/theatre_empty_artwork_provenance.json`.
 The header cycles Dark → Light → System through the existing preference owner. The app root
@@ -302,17 +302,18 @@ Historical provider observations remain in the [earlier identity record](../../.
 The Android and iOS production hosts consume generated native launcher assets from the checksum-pinned
 [Cantos Logo Kit v2](../../../packages/ui-system/shared/assets/cantos-logo-kit-v2/Logo-Guide.md).
 These resources are independent of the launch presentation below. Both Android manifest icon
-attributes resolve to `ic_launcher`: opaque density-specific legacy PNGs for API23–25 and a
+attributes resolve to `ic_launcher`: native vector XML for API23–25 and a
 108dp adaptive descriptor for API26+, with light/night foreground/background and a tintable
 monochrome layer for supporting API33+ launchers. The C/bar paths and stroke ratios are unchanged;
 the monochrome layer uses the official knockout paths as positive ink. OS masking owns the outer
-tile; no rounded tile is nested in the adaptive foreground. The iOS `AppIcon` catalog supplies
-opaque 1024px default/dark sources and is selected by both Xcode target configurations. No custom
+tile; no rounded tile is nested in the adaptive foreground. The iOS `AppIcon.icon` bundle supplies
+default/dark SVG sources and is selected by both Xcode target configurations. Xcode 26+ compiles
+its native resources and compatibility PNGs, explicitly permitted by the owner for this launcher. No custom
 tinted iOS appearance is supplied; OS tint acceptance remains separate.
 
 Regeneration extends the existing `scripts/ui_logos.py` primitive with `--native-launcher`
-(installed `rsvg-convert 2.60.0` required, never downloaded); `--native-launcher --check` verifies
-the checked-in resources without a renderer. [Generated provenance](launcher-icons.provenance.json)
+(deterministic SVG/XML/JSON, no raster renderer needed); `--native-launcher --check` verifies
+the checked-in resources. Xcode compiles the iOS `.icon` source separately. [Generated provenance](launcher-icons.provenance.json)
 binds source and output hashes. The repository gate runs the focused source/resource regressions;
 `cargo xtask theatre-host android-debug --api-origin ORIGIN` checks APK compilation. See the
 [launcher evidence and pending native acceptance](../../../docs/evidence/theatre-native-launcher-icons.md).
@@ -990,3 +991,9 @@ owns the paired Web/CMP taxonomy and safe actions. Catalog 401/403 and HTTP/JVM 
 as typed diagnostics into the shared shell ErrorCenter. Unknown Library outcomes keep their
 existing receipt owner and never gain a generic modal Retry. Native identity configuration
 refusals now reach the Account view as typed reasons while public catalog remains available.
+
+Bundled AVIFs use raw `files/artwork` resources and platform adapters; the Desktop Preview
+pins its AVIF codec only in `desktopMain`. The native minimum OS versions are unchanged;
+unsupported codecs render the existing vector placeholder. Read the [image policy](../../../docs/design/runtime-images.md),
+[decoder proposal](../../../docs/decisions/0052-bundled-avif-decoding.md) and
+[platform evidence/gaps](../../../docs/evidence/runtime-images-607/README.md).

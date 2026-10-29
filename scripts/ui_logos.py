@@ -3,11 +3,9 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
-import shutil
-import struct
-import subprocess
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,13 +13,12 @@ ASSETS = ROOT / "packages/ui-system/shared/assets/cantos-logo-kit-v2"
 CMP_OUTPUT = ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosLogos.kt"
 MOBILE = ROOT / "apps/cantos-theatre/mobile"
 ANDROID_RES = MOBILE / "androidApp/src/main/res"
-IOS_ICONS = MOBILE / "iosApp/Cantos/Assets.xcassets/AppIcon.appiconset"
+IOS_ICONS = MOBILE / "iosApp/Cantos/AppIcon.icon"
 LAUNCHER_PROVENANCE = MOBILE / "launcher-icons.provenance.json"
 ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"
 # Native layout only: keep the original paths and stroke widths; the OS owns the tile mask.
 LAUNCHER_SCALE = 1.2
 LAUNCHER_OFFSET = 15.6  # (108 - 64 * 1.2) / 2
-LEGACY_SIZES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 SVG_NAMESPACE = "{http://www.w3.org/2000/svg}"
 ALLOWED = {
     "svg": {"viewBox", "width", "height", "role", "aria-labelledby"},
@@ -220,23 +217,83 @@ def launcher_text_outputs():
     outputs[ANDROID_RES / "mipmap-anydpi-v26/ic_launcher.xml"] = adaptive
     # Night outranks density/API during resource selection; retain adaptive masking in night.
     outputs[ANDROID_RES / "mipmap-night-anydpi-v26/ic_launcher.xml"] = adaptive
-    images = []
-    for theme in ("light", "dark"):
-        entry = {"filename": f"cantos-{theme}-1024.png", "idiom": "universal",
-                 "platform": "ios", "size": "1024x1024"}
-        if theme == "dark":
-            entry["appearances"] = [{"appearance": "luminosity", "value": "dark"}]
-        images.append(entry)
-    outputs[IOS_ICONS / "Contents.json"] = json.dumps(
-        {"images": images, "info": {"author": "xcode", "version": 1}}, indent=2) + "\n"
+    # API23-25 accepts vector drawables. Night resources retain the same priority
+    # as the adaptive v26+ pair, without density-specific raster copies.
+    for theme, qualifier in [("light", ""), ("dark", "-night")]:
+        vector = launcher_vector(theme)
+        # The old opaque launcher filled the 64-unit source canvas. Preserve that
+        # geometry on API23-25; only adaptive icons use the 66dp safe-circle inset.
+        vector = vector.replace('android:scaleX="1.2" android:scaleY="1.2"',
+                                'android:scaleX="1.6875" android:scaleY="1.6875"')
+        vector = vector.replace('android:translateX="15.6" android:translateY="15.6"',
+                                'android:translateX="0" android:translateY="0"')
+        background = next(node for node in launcher_symbol(theme) if tag(node) == "rect").attrib["fill"]
+        vector = vector.replace("    <group", f'    <path android:pathData="M0 0h108v108H0z" android:fillColor="{background}" />\n    <group', 1)
+        outputs[ANDROID_RES / f"mipmap{qualifier}-anydpi/ic_launcher.xml"] = vector
+    outputs.update(ios_launcher_outputs())
     return outputs
 
 
-def launcher_png_outputs():
-    outputs = {IOS_ICONS / f"cantos-{theme}-1024.png": (theme, 1024) for theme in ("light", "dark")}
-    for theme, qualifier in [("light", ""), ("dark", "-night")]:
-        for density, size in LEGACY_SIZES.items():
-            outputs[ANDROID_RES / f"mipmap{qualifier}-{density}/ic_launcher.png"] = (theme, size)
+def ios_launcher_outlines(svg):
+    """Expand the two canonical strokes; Icon Composer does not preserve their round caps.
+
+    The C is the same r20 circular arc, bounded by radii 22.5/17.5 and r2.5 caps.
+    Each vertical bar is the same width3 segment plus r1.5 endpoint caps.
+    Refuse a changed source geometry rather than guessing a replacement silhouette.
+    """
+    paths = [node for node in svg.iter() if tag(node) == "path"]
+    if [node.attrib["d"] for node in paths] != ["M42 15a20 20 0 1 0 0 34", "M27 27v10m7-16v22m7-17v12"]:
+        raise ValueError("review changed canonical launcher strokes before outlining")
+    if [node.attrib["stroke-width"] for node in paths] != ["5", "3"]:
+        raise ValueError("review changed canonical launcher widths before outlining")
+    dx = math.sqrt(20 ** 2 - 17 ** 2)
+    outer_x, inner_x = 42 + dx / 8, 42 - dx / 8
+    outline = (f"M{outer_x:.8f} 12.875 A22.5 22.5 0 1 0 {outer_x:.8f} 51.125 "
+               f"A2.5 2.5 0 0 0 {inner_x:.8f} 46.875 "
+               f"A17.5 17.5 0 1 1 {inner_x:.8f} 17.125 "
+               f"A2.5 2.5 0 0 0 {outer_x:.8f} 12.875 Z")
+    if any(node not in list(svg) for node in paths):
+        raise ValueError("review changed canonical launcher stroke containers")
+    group = svg
+    for node in paths:
+        group.remove(node)
+    ET.SubElement(group, SVG_NAMESPACE + "path", {"d": outline, "fill": paths[0].attrib["stroke"]})
+    for x, y, length in [(27, 27, 10), (34, 21, 22), (41, 26, 12)]:
+        ET.SubElement(group, SVG_NAMESPACE + "path", {
+            "d": f"M{x - 1.5} {y} a1.5 1.5 0 0 1 3 0 v{length} a1.5 1.5 0 0 1 -3 0 Z",
+            "fill": paths[1].attrib["stroke"],
+        })
+    return svg
+
+
+def ios_launcher_outputs():
+    """SVG inputs only; Xcode owns native compiled renditions and compatibility PNGs."""
+    outputs = {}
+    fills = []
+    for theme in ("light", "dark"):
+        svg = launcher_symbol(theme)
+        rect = next(node for node in svg if tag(node) == "rect")
+        rgb = [int(rect.attrib["fill"][index:index + 2], 16) / 255 for index in (1, 3, 5)]
+        fill = {"value": {"solid": "srgb:" + ",".join(f"{value:.5f}" for value in [*rgb, 1])}}
+        if theme == "dark":
+            fill["appearance"] = "dark"
+        fills.append(fill)
+        svg.remove(rect)
+        svg = ios_launcher_outlines(svg)
+        svg.set("width", "1024")
+        svg.set("height", "1024")
+        outputs[IOS_ICONS / f"Assets/cantos-{theme}.svg"] = ET.tostring(svg, encoding="unicode") + "\n"
+    descriptor = {
+        "fill-specializations": fills,
+        "groups": [{
+            "layers": [{"image-name": "cantos-light.svg", "image-name-specializations": [
+                {"appearance": "dark", "value": "cantos-dark.svg"}], "name": "Cantos symbol", "glass": False}],
+            "shadow": {"kind": "neutral", "opacity": 0},
+            "translucency": {"enabled": False, "value": 0}, "specular": False,
+        }],
+        "supported-platforms": {"squares": ["iOS"]},
+    }
+    outputs[IOS_ICONS / "icon.json"] = json.dumps(descriptor, indent=2) + "\n"
     return outputs
 
 
@@ -246,66 +303,34 @@ def launcher_sources():
             for suffix in ("", "-dark", "-mono")}
 
 
-def png_dimensions(data):
-    if len(data) < 33 or data[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR":
-        raise ValueError("launcher image is not PNG")
-    width, height, depth, color_type = struct.unpack(">IIBB", data[16:26])
-    if depth != 8 or color_type != 2 or b"tRNS" in data:
-        raise ValueError("launcher PNG must be opaque RGB without alpha/transparency")
-    return width, height
-
-
 def native_launchers(check):
-    text_outputs = launcher_text_outputs()
-    png_outputs = launcher_png_outputs()
+    generated = {path: content.encode() for path, content in launcher_text_outputs().items()}
+    expected = {
+        "kit": "Cantos Logo Kit v2", "generator": "scripts/ui_logos.py --native-launcher",
+        "generator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "sources": launcher_sources(),
+        "native_adaptation": "OS-owned tile; canonical C/bar strokes unchanged. Android API23+ vector XML; API26+ adaptive XML; iOS Icon Composer SVG layers.",
+        "android_foreground": {"canvas_dp": 108, "scale": LAUNCHER_SCALE, "translate_dp": LAUNCHER_OFFSET,
+                               "safe_circle_diameter_dp": 66},
+        "ios_compiler_boundary": "Owner permits compatibility PNGs generated by Xcode from the .icon/SVG source (#607). No source PNG or application-content exception. Xcode 26+ required; native/device appearance acceptance separate.",
+        "outputs": {str(path.relative_to(ROOT)): hashlib.sha256(data).hexdigest()
+                    for path, data in generated.items()},
+    }
     if check:
         manifest = json.loads(LAUNCHER_PROVENANCE.read_text())
         if manifest["sources"] != launcher_sources():
             raise ValueError("launcher source provenance drift")
-        if manifest["generator_sha256"] != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
-            raise ValueError("native launcher generator provenance drift")
-        expected_paths = {str(path.relative_to(ROOT)) for path in [*text_outputs, *png_outputs]}
-        if set(manifest["outputs"]) != expected_paths:
-            raise ValueError("launcher output inventory drift")
-        for path, expected in text_outputs.items():
-            if path.read_text() != expected:
+        if manifest != expected:
+            raise ValueError("native launcher provenance drift")
+        for path, data in generated.items():
+            if path.read_bytes() != data:
                 raise ValueError(f"native launcher resource drift: {path.relative_to(ROOT)}")
-        for path, (_, size) in png_outputs.items():
-            if png_dimensions(path.read_bytes()) != (size, size):
-                raise ValueError("native launcher PNG size drift")
-        for path in [*text_outputs, *png_outputs]:
-            if hashlib.sha256(path.read_bytes()).hexdigest() != manifest["outputs"][str(path.relative_to(ROOT))]:
-                raise ValueError(f"native launcher hash drift: {path.relative_to(ROOT)}")
-        print("PASS: native launcher sources, descriptors, PNG size/opacity and output hashes agree")
+        print("PASS: native launcher SVG/XML sources, descriptors and output hashes agree")
         return
-    renderer = shutil.which("rsvg-convert")
-    if not renderer:
-        raise ValueError("native PNG regeneration needs installed rsvg-convert 2.60.0; nothing is installed automatically")
-    version = subprocess.check_output([renderer, "--version"], text=True).strip()
-    if version != "rsvg-convert version 2.60.0":
-        raise ValueError("native PNG regeneration requires rsvg-convert 2.60.0 for reproducible output")
-    # Render all bytes before writing any resource; fail without a partially generated asset set.
-    generated = {path: content.encode() for path, content in text_outputs.items()}
-    for path, (theme, size) in png_outputs.items():
-        data = subprocess.check_output([renderer, "--width", str(size), "--height", str(size)],
-                                       input=launcher_svg(theme).encode())
-        if png_dimensions(data) != (size, size):
-            raise ValueError("renderer returned an invalid native icon")
-        generated[path] = data
     for path, data in generated.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    LAUNCHER_PROVENANCE.write_text(json.dumps({
-        "kit": "Cantos Logo Kit v2", "generator": "scripts/ui_logos.py --native-launcher",
-        "generator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-        "renderer": version, "sources": launcher_sources(),
-        "native_adaptation": "OS-owned full-bleed tile; canonical C/bar strokes unchanged. Android monochrome uses canonical knockout strokes as tintable ink.",
-        "android_foreground": {"canvas_dp": 108, "scale": LAUNCHER_SCALE, "translate_dp": LAUNCHER_OFFSET,
-                               "safe_circle_diameter_dp": 66},
-        "ios_tinted": "Not supplied: Xcode 16.3; default/dark use canonical kit palettes. OS tint acceptance pending.",
-        "outputs": {str(path.relative_to(ROOT)): hashlib.sha256(data).hexdigest()
-                    for path, data in generated.items()},
-    }, indent=2) + "\n")
+    LAUNCHER_PROVENANCE.write_text(json.dumps(expected, indent=2) + "\n")
 
 
 def main():

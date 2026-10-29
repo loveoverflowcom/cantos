@@ -220,6 +220,17 @@ class PreviewCatalog(unittest.TestCase):
                 path.write_text("// changed source\n")
                 self.assertNotEqual(before, catalog.renderer_digest(renderer, root, self.source["components"]))
 
+    def test_avif_byte_changes_invalidate_both_renderer_qualifications(self):
+        original = (Path(__file__).parent / "fixtures/runtime-images/red-2x3.avif").read_bytes()
+        for renderer in ("leptos", "cmp"):
+            with self.subTest(renderer=renderer):
+                path = self.root / f"packages/ui-system/{renderer}/src/artwork.avif"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(original)
+                before = catalog.renderer_digest(renderer, self.root, self.source["components"])
+                path.write_bytes(original + b"changed")
+                self.assertNotEqual(before, catalog.renderer_digest(renderer, self.root, self.source["components"]))
+
     def test_only_exact_generated_catalogs_and_package_build_outputs_are_excluded(self):
         for renderer, paths in (
             ("leptos", (catalog.RUST_OUTPUT.relative_to(catalog.ROOT).as_posix(),)),

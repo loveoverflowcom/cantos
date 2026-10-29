@@ -90,6 +90,10 @@ the browser renders and drives it, the owner decides what is true.
   mode, four cache layers, signal read/lifetime scope, comparable before/after conditions and
   browser/platform evidence. Build success, smaller bytes and warm HTTP reuse alone prove no speedup.
 
+For images, follow the [runtime image policy](../../../docs/design/runtime-images.md). Audit Trunk-copied assets, source paths,
+actual browser decoding and MIME separately; preserve SVG recovery and decorative/alt semantics.
+An AVIF suffix or a smaller inventory is not browser or deployed acceptance.
+
 ## Web non-negotiables
 
 Before product markup, search public APIs and the preview catalog for the component ID, variant

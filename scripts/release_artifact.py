@@ -23,7 +23,7 @@ MAX_ENTRIES = 10000
 MAX_BYTES = 2 * 1024**3
 MAX_JSON = 2 * 1024**2
 MAX_AGE = 24 * 3600
-WEB_SUFFIXES = {".html", ".js", ".wasm", ".css", ".svg", ".png", ".ico",
+WEB_SUFFIXES = {".html", ".js", ".wasm", ".css", ".svg", ".avif", ".png", ".ico",
                 ".webp", ".woff", ".woff2", ".ttf", ".json", ".txt"}
 EXPECTED = {
     "api": {"cantos-api.tar.zst", "image.json", "runtime.tar"},

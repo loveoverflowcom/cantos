@@ -19,12 +19,15 @@ pub(crate) enum EmptyArtworkKind {
 
 #[component]
 pub(crate) fn EmptyArtwork(kind: EmptyArtworkKind) -> impl IntoView {
+    let failed = RwSignal::new(false);
     match kind {
-        EmptyArtworkKind::Library => view! {
+        EmptyArtworkKind::Library => (move || if failed.get() {
+            paired_empty_artwork("works").into_any()
+        } else { view! {
             <div class="theatre-empty-artwork" data-artwork="library" aria-hidden="true">
-                <img src="assets/empty/library-expressive.png" alt="" width="1374" height="1145" decoding="async"/>
+                <img src="assets/empty/library-expressive.avif" alt="" width="1374" height="1145" decoding="async" on:error=move |_| failed.set(true)/>
             </div>
-        }.into_any(),
+        }.into_any() }).into_any(),
         EmptyArtworkKind::Works => paired_empty_artwork("works").into_any(),
         EmptyArtworkKind::History => paired_empty_artwork("history").into_any(),
     }
@@ -116,8 +119,8 @@ pub(crate) fn progress_percent(position_ms: u32, duration_seconds: u32) -> u8 {
 /// keep the typographic cover.
 pub(crate) fn artwork_src(id: WorkId) -> Option<&'static str> {
     match id {
-        WorkId::Mountain => Some("assets/artwork/son-ha-ky.webp"),
-        WorkId::River => Some("assets/artwork/den-khuya.webp"),
+        WorkId::Mountain => Some("assets/artwork/son-ha-ky.avif"),
+        WorkId::River => Some("assets/artwork/den-khuya.avif"),
         WorkId::Dream => None,
     }
 }
@@ -141,11 +144,16 @@ pub(crate) fn PageHeading(
 #[cfg(feature = "preview")]
 #[component]
 pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
-    match artwork_src(id) {
+    let failed = RwSignal::new(false);
+    let shown = RwSignal::new(false);
+    move || {
+        match artwork_src(id).filter(|_| !failed.get()) {
         Some(src) => view! {
-            <div class="theatre-cover" data-work=id.slug() data-art="true" role="img"
+            <div class="theatre-cover" data-work=id.slug() data-art="true"
+                data-cover=move || if shown.get() { "shown" } else { "loading" } role="img"
                 aria-label=move || ctx.message(crate::localization::generated::Message::TheatreShellCoverArtName { arg_title: ctx.work(id).title, arg_description: ctx.text(Key::CoverArtPlaceholder) })>
-                <img class="theatre-cover-art" src=src alt="" decoding="async" loading="lazy"/>
+                <img class="theatre-cover-art" src=src alt="" decoding="async" loading="lazy"
+                    on:load=move |_| shown.set(true) on:error=move |_| failed.set(true)/>
             </div>
         }
         .into_any(),
@@ -159,6 +167,7 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
             </div>
         }
         .into_any(),
+    }
     }
 }
 

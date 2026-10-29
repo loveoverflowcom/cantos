@@ -67,7 +67,7 @@ class NativeLauncherLogos(unittest.TestCase):
         self.assertEqual([dict(data.attrib) for data in activity.iter("data")],
                          [{self.android + "scheme": "https", self.android + "host": "cantos.cc",
                            self.android + "path": "/verify-email"}])
-        # Night is selected before density/API. A night legacy PNG must never override the
+        # Night is selected before density/API. A night base vector must never override the
         # adaptive icon on API26+, so both appearances need their own anydpi-v26 descriptor.
         for qualifier in ("mipmap-anydpi-v26", "mipmap-night-anydpi-v26"):
             adaptive = ET.parse(ui_logos.ANDROID_RES / qualifier / "ic_launcher.xml").getroot()
@@ -75,8 +75,12 @@ class NativeLauncherLogos(unittest.TestCase):
             self.assertEqual({child.tag: child.attrib[self.android + "drawable"] for child in adaptive}, {
                 "background": "@color/ic_launcher_background", "foreground": "@drawable/ic_launcher_foreground",
                 "monochrome": "@drawable/ic_launcher_monochrome"})
-        self.assertEqual(ui_logos.LEGACY_SIZES, {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192})
-        self.assertEqual(len(ui_logos.launcher_png_outputs()), 12)
+        for qualifier in ("mipmap-anydpi", "mipmap-night-anydpi"):
+            vector = ET.parse(ui_logos.ANDROID_RES / qualifier / "ic_launcher.xml").getroot()
+            self.assertEqual(vector.tag, "vector")
+            self.assertEqual(vector.find("path").attrib[self.android + "pathData"], "M0 0h108v108H0z")
+            self.assertEqual(len(vector.findall(".//group/path")), 2)
+        self.assertEqual(list(ui_logos.ANDROID_RES.rglob("*.png")), [])
         ui_logos.native_launchers(check=True)
 
     def test_native_foreground_preserves_official_paths_strokes_and_theme_palette(self):
@@ -113,26 +117,31 @@ class NativeLauncherLogos(unittest.TestCase):
             for y in (top, bottom):
                 self.assertLessEqual(math.hypot(x * sx + tx - 54, y * sy + ty - 54) + 1.5 * sx, 33)
 
-    def test_ios_target_binds_default_and_dark_opaque_1024_icons_with_os_owned_corners(self):
+    def test_ios_target_binds_svg_icon_composer_bundle_and_both_appearances(self):
         project = (ui_logos.MOBILE / "iosApp/Cantos.xcodeproj/project.pbxproj").read_text()
-        self.assertEqual(project.count("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;"), 2)
-        self.assertIn("Assets.xcassets in Resources", project)
-        contents = json.loads((ui_logos.IOS_ICONS / "Contents.json").read_text())
-        self.assertEqual(len(contents["images"]), 2)
-        for theme, image in zip(("light", "dark"), contents["images"]):
-            self.assertEqual((image["idiom"], image["platform"], image["size"]), ("universal", "ios", "1024x1024"))
-            self.assertEqual(ui_logos.png_dimensions((ui_logos.IOS_ICONS / image["filename"]).read_bytes()), (1024, 1024))
-            rect = ET.fromstring(ui_logos.launcher_svg(theme)).find(ui_logos.SVG_NAMESPACE + "rect")
-            self.assertNotIn("rx", rect.attrib)
-        self.assertNotIn("appearances", contents["images"][0])
-        self.assertEqual(contents["images"][1]["appearances"], [{"appearance": "luminosity", "value": "dark"}])
+        self.assertIn("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;", project)
+        self.assertIn("lastKnownFileType = folder.icon;", project)
+        self.assertIn("AppIcon.icon in Resources", project)
+        descriptor = json.loads((ui_logos.IOS_ICONS / "icon.json").read_text())
+        layer = descriptor["groups"][0]["layers"][0]
+        self.assertEqual(layer["image-name"], "cantos-light.svg")
+        self.assertEqual(layer["image-name-specializations"], [{"appearance": "dark", "value": "cantos-dark.svg"}])
+        self.assertFalse(layer["glass"])
+        self.assertEqual(descriptor["supported-platforms"], {"squares": ["iOS"]})
+        for theme in ("light", "dark"):
+            svg = ET.parse(ui_logos.IOS_ICONS / f"Assets/cantos-{theme}.svg").getroot()
+            self.assertEqual(svg.attrib["viewBox"], "0 0 64 64")
+            self.assertEqual(svg.attrib["width"], "1024")
+            paths = [node for node in svg.iter() if ui_logos.tag(node) == "path"]
+            self.assertEqual(len(paths), 4)
+            self.assertTrue(all(set(node.attrib) == {"d", "fill"} for node in paths))
+            self.assertIn("A22.5 22.5 0 1 0", paths[0].attrib["d"])
+            self.assertIn("A17.5 17.5 0 1 1", paths[0].attrib["d"])
+            self.assertTrue(all("a1.5 1.5" in node.attrib["d"] for node in paths[1:]))
+            self.assertFalse(any(ui_logos.tag(node) == "rect" for node in svg.iter()))
+        self.assertEqual(list(ui_logos.IOS_ICONS.rglob("*.png")), [])
 
-    def test_changed_source_provenance_and_alpha_png_are_rejected(self):
+    def test_changed_source_provenance_is_rejected(self):
         with patch.object(ui_logos, "launcher_sources", return_value={}):
             with self.assertRaisesRegex(ValueError, "source provenance drift"):
                 ui_logos.native_launchers(check=True)
-        png = (ui_logos.IOS_ICONS / "cantos-light-1024.png").read_bytes()
-        with self.assertRaisesRegex(ValueError, "opaque RGB"):
-            ui_logos.png_dimensions(png[:25] + bytes([6]) + png[26:])
-        with self.assertRaisesRegex(ValueError, "not PNG"):
-            ui_logos.png_dimensions(b"not an icon")

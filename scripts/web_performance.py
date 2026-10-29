@@ -24,7 +24,7 @@ APPS = {"cantos-studio": "apps/cantos-studio/web",
         "cantos-theatre": "apps/cantos-theatre/web"}
 MIME = {".wasm": "application/wasm", ".js": "text/javascript",
         ".css": "text/css", ".html": "text/html", ".woff2": "font/woff2",
-        ".svg": "image/svg+xml", ".webp": "image/webp", ".png": "image/png",
+        ".avif": "image/avif", ".svg": "image/svg+xml", ".webp": "image/webp", ".png": "image/png",
         ".jpg": "image/jpeg", ".json": "application/json", ".txt": "text/plain"}
 HASH_SHAPE = re.compile(r"-[0-9a-f]{16}(?:_bg)?\.[^.]+$")
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\"\s)]+)")
@@ -126,6 +126,11 @@ def inventory(dist, brotli_compress=None):
     if any(path.is_symlink() for path in paths):
         raise ValueError("dist symlinks are unsupported; refuse to inspect outside public build output")
     files = {path.relative_to(dist).as_posix(): path for path in paths if path.is_file()}
+    from runtime_images import image_failure
+    for name, path in files.items():
+        failure = image_failure(name, path.read_bytes())
+        if failure:
+            raise ValueError(f"runtime image policy: {name}: {failure}")
     if "index.html" not in files:
         raise ValueError("dist/index.html is missing")
     shell = ShellReferences()

@@ -21,6 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.adapters.image.decodeBundledAvif
+import com.cantos.theatre.features.shell.presentation.LocalBundledImageDecoder
 import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.application.identity.toAccountView
@@ -146,6 +148,7 @@ fun CantosTheatreApp(
         }
     }
     CompositionLocalProvider(
+        LocalBundledImageDecoder provides ::decodeBundledAvif,
         LocalShellLiveCopy provides true,
         LocalCoverImages provides coverImages,
         // Real bookmarks exist when the durable Library owner does; a guest is guided to sign in, not shown a fake save.

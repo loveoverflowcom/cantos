@@ -179,7 +179,7 @@ Saved or history and never starts media.
 A terminal empty section (`Ready`, no rows, no next cursor) keeps contextual guidance. Outside a
 global invitation, Continue/Saved use their existing Theatre Outlined icon and History uses the
 supplied light/dark artwork pair. When all three sections are terminally empty, one expressive
-transparent Library PNG and invitation link to Discover; the three section explanations remain
+transparent Library AVIF and invitation link to Discover; the three section explanations remain
 quiet summaries without repeated illustrations. Partial empty sections keep their own Discover
 link. An empty page with a cursor still offers Load more; loading, errors and retained rows never
 become empty success. The shared `EmptyState` remains unchanged; artwork composition is app-owned.
@@ -777,3 +777,7 @@ comes from `LibrarySyncState` and `AccountWriter`, not that legacy test API.
 
 See [the source-bound capability record](../../../docs/evidence/theatre-account-capabilities-361.md)
 for the local evidence boundary and remaining runtime acceptance.
+
+Static artwork follows the [runtime image policy](../../../docs/design/runtime-images.md).
+AVIF byte conversion and source guards do not accept the separate Studio/Server/public-cover
+contract or prepared-sample migration. See the [audit](../../../docs/evidence/runtime-images-607/README.md).

@@ -122,7 +122,7 @@ class ReleaseBuildTests(unittest.TestCase):
             release.web_archive(dist, output / "bundle.tar.gz")
             with tarfile.open(output / "bundle.tar.gz") as archive:
                 names = archive.getnames()
-            self.assertIn("assets/empty/library-expressive.png", names)
+            self.assertIn("assets/empty/library-expressive.avif", names)
             self.assertIn("assets/empty/light/cantos-empty-works.svg", names)
             self.assertFalse(any(name.endswith(".md") for name in names))
 
@@ -135,6 +135,20 @@ class ReleaseBuildTests(unittest.TestCase):
             with patch.object(release, "run", side_effect=["a" * 40, ""]):
                 with self.assertRaisesRegex(ValueError, "differs"):
                     release.source_revision(Path("."))
+
+    def test_new_web_archive_refuses_renamed_legacy_bytes_before_writing_output(self):
+        root = Path(__file__).resolve().parents[1]
+        png = root / "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            dist = output / "dist"
+            dist.mkdir()
+            (dist / "index.html").write_text("<html>Cantos</html>")
+            (dist / "cover.avif").write_bytes(png.read_bytes())
+            archive = output / "bundle.tar.gz"
+            with self.assertRaisesRegex(ValueError, "runtime image policy.*cover.avif.*legacy"):
+                release.web_archive(dist, archive)
+            self.assertFalse(archive.exists())
 
     @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
     @patch.object(release, "source_revision", side_effect=["a" * 40, "b" * 40])

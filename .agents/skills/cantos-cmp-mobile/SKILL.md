@@ -72,6 +72,9 @@ and never infer client/device acceptance from model simulation.
   API detail here against current docs and a real device. Never report a build, test, device run,
   screen-reader walkthrough or audio observation that did not happen; Linux cannot produce iOS evidence.
 
+Image work follows the [runtime image policy](../../../docs/design/runtime-images.md): inspect the exact resource compiler,
+byte decoder, launcher and minimum OS; qualify each native host separately from Desktop Preview.
+
 ## Scope and mode
 
 The separate [`packages/ui-system/cmp`](../../../packages/ui-system/cmp/README.md) Gradle package

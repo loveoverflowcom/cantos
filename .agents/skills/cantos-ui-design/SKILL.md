@@ -32,6 +32,7 @@ and preview fixtures never authorize a Studio mobile client or mock screen.
 
 | Requirement | Owner |
 |---|---|
+| image formats, native launcher allowance and Media migration gaps | [runtime image policy](../../../docs/design/runtime-images.md) |
 | direction, token families and roles, Studio and Theatre regions, component states, accessibility and motion targets, validation matrix | [UI system](../../../docs/design/ui-system.md) |
 | native semantics, focus order, large text, touch targets, safe areas, reduced motion on CMP | [mobile § UI and accessibility](../../../docs/architecture/mobile.md#ui-and-accessibility) |
 | lavender/purple palette, rounded and pill controls, compact adaptive layouts, restraint | [brief § Design direction](../../../docs/product/brief.md#design-direction) |
@@ -41,6 +42,10 @@ and preview fixtures never authorize a Studio mobile client or mock screen.
 
 Link these; never restate a competing copy of a target, token family or state list. When this
 skill and a document disagree on product behavior, the document wins; report the conflict.
+
+Before adding/exporting artwork, follow the image owner: classify its consumer, convert actual
+bytes and inspect decoded visuals/size. Route codec and migration work to its platform/Media owner.
+ImageGen PNG output is design source; convert it before adding any runtime reference or bundle.
 
 ## Naming on screen
 
