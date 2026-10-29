@@ -42,6 +42,7 @@ impl From<ImageMime> for generated::ImageMime {
         match value {
             ImageMime::Png => Self::Png,
             ImageMime::Jpeg => Self::Jpeg,
+            ImageMime::Avif => Self::Avif,
         }
     }
 }
@@ -51,6 +52,7 @@ impl TryFrom<i32> for ImageMime {
         match generated::ImageMime::try_from(value).map_err(|_| DecodeError::Shape)? {
             generated::ImageMime::Png => Ok(Self::Png),
             generated::ImageMime::Jpeg => Ok(Self::Jpeg),
+            generated::ImageMime::Avif => Ok(Self::Avif),
             generated::ImageMime::Unspecified => Err(DecodeError::Shape),
         }
     }

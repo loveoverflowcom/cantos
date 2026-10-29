@@ -36,6 +36,9 @@ const PNG: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/pytho
 const PNG_SHA256: &str = "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276";
 const JPEG: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/pillow-rgb-2x3.jpg");
 const JPEG_SHA256: &str = "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46";
+const AVIF: &[u8] =
+    include_bytes!("../contexts/media/image_intake/fixtures/ffmpeg-yuv420p-2x3.avif");
+const AVIF_SHA256: &str = "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257";
 const PROVENANCE: &str = "private-provenance-sentinel";
 const RIGHTS: &str = "synthetic-rights";
 
@@ -902,6 +905,31 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     .await;
     let summary: dto::CoveredWorkSummary = serde_json::from_slice(&body).unwrap();
     assert_eq!(summary.cover, None);
+}
+
+#[tokio::test]
+async fn avif_cover_intake_disclosure_and_origin_delivery_preserve_avif_content_type_and_etag() {
+    let mut world = World::new().await;
+    let avif = world
+        .admit(AVIF, AVIF_SHA256, studio_dto::ImageMime::Avif)
+        .await;
+    world.select(Some(&avif), ALT_A).await;
+    world.republish().await;
+    world.disclose(&avif, Some(HOUR / 1000)).await.unwrap();
+    let expected = world.expected(AVIF_SHA256, dto::CoverMime::Avif, AVIF.len(), ALT_A);
+    assert_eq!(world.cover().await, Some(expected.clone()));
+
+    let work = world.work.work_id.clone();
+    let path = format!("/api/v1/theatre/works/{work}/cover/{AVIF_SHA256}");
+    let app = world.router();
+    let (status, headers, body) = send(&app, get(&path).body(Body::empty()).unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, AVIF);
+    assert_eq!(headers[header::CONTENT_TYPE], "image/avif");
+    assert_eq!(headers[header::CONTENT_LENGTH], AVIF.len().to_string());
+    assert_eq!(headers[header::ETAG], format!("\"{AVIF_SHA256}\""));
+    assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
+    assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
 }
 
 #[tokio::test]

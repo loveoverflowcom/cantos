@@ -33,6 +33,7 @@ class InventoryTests(unittest.TestCase):
         self.write("app-0123456789abcdef_bg.wasm", b"\0asm\x01\0\0\0")
         self.write("assets/font.woff2", b"synthetic font")
         self.write("assets/artwork.webp", b"synthetic image")
+        self.write("assets/cover.avif", b"synthetic avif")
 
     def test_counts_deduplicated_html_links_and_separates_css_and_other_assets(self):
         self.bundle()
@@ -41,6 +42,7 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(report["totals"]["html-linked"]["files"], 4)
         self.assertEqual(rows["assets/font.woff2"]["role"], "css-referenced")
         self.assertEqual(rows["assets/artwork.webp"]["role"], "other-output")
+        self.assertEqual(rows["assets/cover.avif"]["expected_content_type"], "image/avif")
         wasm = rows["app-0123456789abcdef_bg.wasm"]
         self.assertEqual(wasm["expected_content_type"], "application/wasm")
         self.assertTrue(wasm["hash_shaped_filename"])

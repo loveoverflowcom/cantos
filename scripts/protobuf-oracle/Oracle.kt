@@ -34,7 +34,7 @@ fun <T> checkVector(name: String, serializer: KSerializer<T>, expected: T, hex: 
 }
 
 // Artwork is a fixture-only schema mirror. It grants no native API/serializer authority.
-@Serializable enum class ImageMime { Unspecified, Png, Jpeg }
+@Serializable enum class ImageMime { Unspecified, Png, Jpeg, Avif }
 @Serializable enum class ImageIntentState { Unspecified, Pending, Admitted, Expired }
 @Serializable data class ImageDeclarations(
     @ProtoNumber(1) val provenance: String? = null,

@@ -28,7 +28,8 @@
       "type": "string",
       "enum": [
         "image/png",
-        "image/jpeg"
+        "image/jpeg",
+        "image/avif"
       ]
     },
     "ImageIntentState": {

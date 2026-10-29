@@ -106,6 +106,8 @@ pub enum CoverMime {
     Png,
     #[serde(rename = "image/jpeg")]
     Jpeg,
+    #[serde(rename = "image/avif")]
+    Avif,
 }
 /// Public image facts only: no asset ID/digest, rights, provenance, owner or storage key.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

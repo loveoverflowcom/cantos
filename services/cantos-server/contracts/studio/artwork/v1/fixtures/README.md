@@ -7,7 +7,7 @@ integrity or public artwork. Existing pilot generated types and all 13 pilot gol
 
 ## Corpus contract
 
-- `goldens.json`: 38 independently authored values/byte expectations across all ten schema
+- `goldens.json`: 40 independently authored values/byte expectations across all ten schema
   messages. `value` is raw JSON/application shape, including explicit `artwork: null` for clear.
   Optional `wire_value` records a proto-only shape when needed for the clear arm or enum zero.
   `application_valid` means complete raw DTO presence/types/closed enums, not domain validity:

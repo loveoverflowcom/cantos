@@ -98,6 +98,7 @@ fn file_bounds_include_exact_limits_and_reject_overflow_dimensions() {
     for size in [1, MAX_BYTES] {
         assert_eq!(file_bounds("image/png", size), Ok(ImageMime::Png));
         assert_eq!(file_bounds("image/jpeg", size), Ok(ImageMime::Jpeg));
+        assert_eq!(file_bounds("image/avif", size), Ok(ImageMime::Avif));
     }
     for size in [0, MAX_BYTES + 1, u64::MAX] {
         assert_eq!(file_bounds("image/png", size), Err(Problem::File));

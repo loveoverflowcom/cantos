@@ -96,6 +96,7 @@ class ProtobufReferenceTests(unittest.TestCase):
         self.assertEqual(encode('SetWorkArtworkRequest', {'operation_id':'', 'expected_work_revision':1, 'artwork':None}).hex(), '0a0010012200')
         self.assertEqual(encode('SetWorkArtworkRequest', {'operation_id':'', 'expected_work_revision':1}).hex(), '0a001001')
         self.assertEqual(encode('ImageVariantMetadata', {'content_type':'image/jpeg', 'width_px':(1<<32)-1}).hex(), '180220ffffffff0f')
+        self.assertEqual(encode('ImageVariantMetadata', {'content_type':'image/avif', 'width_px':(1<<32)-1}).hex(), '180320ffffffff0f')
         self.assertEqual(encode('ImageIntentResponse', {'state':'expired'}).hex(), '1803')
         self.assertEqual(encode('WorkArtworkResponse', {'changed_at_ms':0}).hex(), '2000')
         self.assertEqual(encode('WorkArtworkResponse', {'changed_at_ms':None}).hex(), '')
@@ -160,7 +161,7 @@ class ProtobufReferenceTests(unittest.TestCase):
             self.assertIn('ArtworkChange.Clear(ClearArtwork)', content)
             self.assertIn('listOf(', content)
             self.assertIn('.joinToString("")', content)
-            self.assertEqual(content.count('        ArtworkGolden('), 38)
+            self.assertEqual(content.count('        ArtworkGolden('), 40)
             self.assertEqual(content.count('        ArtworkHostile('), 42)
         build = (ROOT/'apps/cantos-theatre/mobile/shared/build.gradle.kts').read_text()
         common_main = build.split('        commonMain {', 1)[1].split('        commonTest {', 1)[0]

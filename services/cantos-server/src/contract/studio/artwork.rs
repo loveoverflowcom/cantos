@@ -8,6 +8,8 @@ pub enum ImageMime {
     Png,
     #[serde(rename = "image/jpeg")]
     Jpeg,
+    #[serde(rename = "image/avif")]
+    Avif,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]

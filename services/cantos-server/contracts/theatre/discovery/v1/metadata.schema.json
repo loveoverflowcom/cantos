@@ -12,7 +12,7 @@
       "required": ["url", "sha256", "content_type", "width_px", "height_px", "byte_length", "alt_text"],
       "properties": {
         "url": {"type": "string", "maxLength": 4096}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "content_type": {"enum": ["image/png", "image/jpeg"]},
+        "content_type": {"enum": ["image/png", "image/jpeg", "image/avif"]},
         "width_px": {"type": "integer", "minimum": 1, "maximum": 4096},
         "height_px": {"type": "integer", "minimum": 1, "maximum": 4096},
         "byte_length": {"type": "integer", "minimum": 1, "maximum": 8388608},

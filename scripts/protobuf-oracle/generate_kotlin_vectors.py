@@ -19,7 +19,7 @@ FIELDS = {
     'WorkArtworkResponse': [('work_id', 'string'), ('work_revision', 'uint64'), ('artwork', 'WorkArtworkSelection'), ('changed_at_ms', 'uint64')],
 }
 ENUMS = {
-    'ImageMime': {'image/png': 'Png', 'image/jpeg': 'Jpeg', 0: 'Unspecified'},
+    'ImageMime': {'image/png': 'Png', 'image/jpeg': 'Jpeg', 'image/avif': 'Avif', 0: 'Unspecified'},
     'ImageIntentState': {'pending': 'Pending', 'admitted': 'Admitted', 'expired': 'Expired', 0: 'Unspecified'},
 }
 

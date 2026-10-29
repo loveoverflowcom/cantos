@@ -37,6 +37,8 @@ class PublicCoverHttpTest {
         assertEquals("image/png", sent.accept)
         // A parameterised content type is the same type.
         assertIs<CoverBytes.Verified>(fetch(reply(200, type = "image/png; charset=binary")))
+        val avifRequest = CoverRequest(request.url, sha, bytes.size, "image/avif")
+        assertIs<CoverBytes.Verified>(PublicCoverHttp(CatalogHttpTransport { reply(200, type = "image/avif") }).fetch(avifRequest))
     }
 
     @Test

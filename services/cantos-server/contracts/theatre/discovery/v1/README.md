@@ -259,7 +259,7 @@ route. Clients must still use URLs exactly as given and adopt this level only un
 | `GET /works?…&presentation=2`, `GET /search?…&presentation=2` | `CoveredWorkPage` |
 | `GET /works/{work_id}?presentation=2` | `CoveredWorkSummary` |
 | `GET /works/{work_id}/units?…&presentation=2` | `PresentedUnitPage`, identical to `presentation=1` |
-| `GET`, `HEAD /works/{work_id}/cover/{sha256}` | Raw `image/png` or `image/jpeg` bytes, or `ListenerError` |
+| `GET`, `HEAD /works/{work_id}/cover/{sha256}` | Raw `image/png`, `image/jpeg` or `image/avif` bytes, or `ListenerError` |
 
 `CoveredWorkSummary` is every `PresentedWorkSummary` field plus a **required nullable**
 `cover`. `null` is the only no-cover state: no artwork, an undisclosed/revoked/expired image,
@@ -268,7 +268,7 @@ explain why. Omitting `cover` is invalid. The presentation level is cursor ident
 `presentation=1` cursor is `invalid_cursor` under `presentation=2` and vice versa.
 
 `CoverImage` carries exactly `url`, `sha256` (of the image bytes), `content_type`
-(`image/png` or `image/jpeg`), `width_px`/`height_px` (1–4096), `byte_length` (1–8,388,608)
+(`image/png`, `image/jpeg` or `image/avif`), `width_px`/`height_px` (1–4096), `byte_length` (1–8,388,608)
 and `alt_text` (non-blank, at most 1024 UTF-8 bytes; the schema's character bound is looser).
 These are the private Artwork v1 admission bounds; no resize or thumbnail is produced.
 Asset IDs and digests, rights references, provenance, owner, receipts, disclosure history and

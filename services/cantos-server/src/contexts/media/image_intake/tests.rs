@@ -8,6 +8,7 @@ use super::*;
 const PNG: &[u8] = include_bytes!("fixtures/python-rgb-2x3.png");
 const PNG16: &[u8] = include_bytes!("fixtures/python-rgba16-2x3.png");
 const JPEG: &[u8] = include_bytes!("fixtures/pillow-rgb-2x3.jpg");
+const AVIF: &[u8] = include_bytes!("fixtures/ffmpeg-yuv420p-2x3.avif");
 
 fn lanes() -> Arc<Semaphore> {
     Arc::new(Semaphore::new(2))
@@ -42,6 +43,11 @@ fn independent_png_jpeg_and_sixteen_bit_fixtures_decode_exactly() {
             JPEG,
             ImageMime::Jpeg,
             "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
+        ),
+        (
+            AVIF,
+            ImageMime::Avif,
+            "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257",
         ),
     ] {
         let verified = inspect(bytes, mime).unwrap();
@@ -85,6 +91,18 @@ fn empty_oversize_unsupported_and_spoofed_formats_are_closed_errors() {
         inspect(JPEG, ImageMime::Png).unwrap_err(),
         ImageIntakeError::FormatMismatch
     );
+    assert_eq!(
+        inspect(PNG, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::FormatMismatch
+    );
+    assert_eq!(
+        inspect(AVIF, ImageMime::Png).unwrap_err(),
+        ImageIntakeError::FormatMismatch
+    );
+    assert_eq!(
+        inspect(AVIF, ImageMime::Jpeg).unwrap_err(),
+        ImageIntakeError::FormatMismatch
+    );
 }
 
 #[test]
@@ -110,6 +128,7 @@ fn every_truncated_fixture_and_header_only_input_is_rejected() {
         (PNG, ImageMime::Png),
         (PNG16, ImageMime::Png),
         (JPEG, ImageMime::Jpeg),
+        (AVIF, ImageMime::Avif),
     ] {
         for length in 0..fixture.len() {
             assert!(
@@ -131,7 +150,11 @@ fn every_truncated_fixture_and_header_only_input_is_rejected() {
 
 #[test]
 fn appended_payloads_and_second_images_are_rejected() {
-    for (fixture, mime) in [(PNG, ImageMime::Png), (JPEG, ImageMime::Jpeg)] {
+    for (fixture, mime) in [
+        (PNG, ImageMime::Png),
+        (JPEG, ImageMime::Jpeg),
+        (AVIF, ImageMime::Avif),
+    ] {
         for suffix in [b"<script>untrusted</script>".as_slice(), fixture] {
             let bytes = [fixture, suffix].concat();
             assert_eq!(
@@ -443,11 +466,82 @@ proptest! {
 }
 
 #[test]
+fn avif_animation_orientation_and_dimension_limits_fail_closed() {
+    let mut avis = AVIF.to_vec();
+    avis[8..12].copy_from_slice(b"avis");
+    assert_eq!(
+        inspect(&avis, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::AnimatedImage
+    );
+
+    let moov = [&AVIF[..32], b"\0\0\0\x08moov", &AVIF[32..]].concat();
+    assert_eq!(
+        inspect(&moov, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::AnimatedImage
+    );
+
+    // Duplicate the 21-byte OBU_FRAME inside mdat and update iloc/mdat sizes.
+    let mut multi_frame = AVIF.to_vec();
+    let frame_obu = AVIF[AVIF.len() - 21..].to_vec();
+    multi_frame.extend_from_slice(&frame_obu);
+    let new_mdat_size = (41 + frame_obu.len()) as u32;
+    multi_frame[281..285].copy_from_slice(&new_mdat_size.to_be_bytes());
+    let new_iloc_len = (33 + frame_obu.len()) as u32;
+    let iloc_pos = multi_frame.windows(4).position(|w| w == b"iloc").unwrap() - 4;
+    multi_frame[iloc_pos + 26..iloc_pos + 30].copy_from_slice(&new_iloc_len.to_be_bytes());
+    assert_eq!(
+        inspect(&multi_frame, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::AnimatedImage
+    );
+
+    // Replace colr in ipco with non-identity irot (9 bytes: size=9, 'irot', angle=1).
+    let mut rotated = AVIF.to_vec();
+    let ispe_pos = rotated.windows(4).position(|w| w == b"ispe").unwrap() - 4;
+    let mut over = rotated.clone();
+    over[ispe_pos + 12..ispe_pos + 16].copy_from_slice(&4097_u32.to_be_bytes());
+    assert_eq!(
+        inspect(&over, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::ImageLimit
+    );
+
+    // 4096x4096 at 10-bit (high_bitdepth=1 in av1C + pixi=10) exceeds 64 MiB RGBA16 budget.
+    let mut high_bit_limit = rotated.clone();
+    high_bit_limit[ispe_pos + 12..ispe_pos + 16].copy_from_slice(&4096_u32.to_be_bytes());
+    high_bit_limit[ispe_pos + 16..ispe_pos + 20].copy_from_slice(&4096_u32.to_be_bytes());
+    let av1c_pos = high_bit_limit
+        .windows(4)
+        .position(|w| w == b"av1C")
+        .unwrap()
+        - 4;
+    high_bit_limit[av1c_pos + 10] |= 0x40;
+    let pixi_pos = high_bit_limit
+        .windows(4)
+        .position(|w| w == b"pixi")
+        .unwrap()
+        - 4;
+    high_bit_limit[pixi_pos + 13..pixi_pos + 16].copy_from_slice(&[10, 10, 10]);
+    assert_eq!(
+        inspect(&high_bit_limit, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::ImageLimit
+    );
+
+    // Mutate colr box into an irot box with angle=1 while keeping box size 19 -> MalformedImage,
+    // or overwrite the first 9 bytes of colr (and shrink meta/iprp/ipco/iloc) to test irot(1).
+    let colr_pos = rotated.windows(4).position(|w| w == b"colr").unwrap() - 4;
+    rotated[colr_pos + 4..colr_pos + 8].copy_from_slice(b"imir");
+    assert_eq!(
+        inspect(&rotated, ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::NonIdentityOrientation
+    );
+}
+
+#[test]
 fn deterministic_mutations_reach_real_decoders_without_panicking() {
     for (fixture, mime) in [
         (PNG, ImageMime::Png),
         (PNG16, ImageMime::Png),
         (JPEG, ImageMime::Jpeg),
+        (AVIF, ImageMime::Avif),
     ] {
         for index in 0..fixture.len() {
             let mut bytes = fixture.to_vec();

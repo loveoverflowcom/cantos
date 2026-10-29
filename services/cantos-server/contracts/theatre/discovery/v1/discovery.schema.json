@@ -507,7 +507,8 @@
         "content_type": {
           "enum": [
             "image/png",
-            "image/jpeg"
+            "image/jpeg",
+            "image/avif"
           ]
         },
         "width_px": {

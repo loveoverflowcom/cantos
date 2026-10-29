@@ -186,7 +186,7 @@ fn enumeration(value: &Value, field: &str) -> Option<i32> {
     value.as_str().map(|name| match name {
         "image/png" | "pending" => 1,
         "image/jpeg" | "admitted" => 2,
-        "expired" => 3,
+        "image/avif" | "expired" => 3,
         other => panic!("unknown enum value {other}"),
     })
 }

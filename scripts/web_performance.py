@@ -24,7 +24,7 @@ APPS = {"cantos-studio": "apps/cantos-studio/web",
         "cantos-theatre": "apps/cantos-theatre/web"}
 MIME = {".wasm": "application/wasm", ".js": "text/javascript",
         ".css": "text/css", ".html": "text/html", ".woff2": "font/woff2",
-        ".svg": "image/svg+xml", ".webp": "image/webp", ".png": "image/png",
+        ".svg": "image/svg+xml", ".webp": "image/webp", ".avif": "image/avif", ".png": "image/png",
         ".jpg": "image/jpeg", ".json": "application/json", ".txt": "text/plain"}
 HASH_SHAPE = re.compile(r"-[0-9a-f]{16}(?:_bg)?\.[^.]+$")
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\"\s)]+)")

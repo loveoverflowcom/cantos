@@ -148,6 +148,10 @@ fn expected_metadata_accepts_only_canonical_hash_and_bounded_encoded_size() {
         Err(ImageError::InvalidDimensions)
     );
     let expected = ExpectedImage::new("a".repeat(64), 67, ImageMime::Png).unwrap();
+    assert_eq!(ImageMime::parse("image/avif"), Ok(ImageMime::Avif));
+    assert_eq!(ImageMime::Avif.as_str(), "image/avif");
+    assert_eq!(ImageMime::Avif.document(), dto::ImageMime::Avif);
+    assert_eq!(ImageMime::from(dto::ImageMime::Avif), ImageMime::Avif);
     assert_eq!(expected.matches(&metadata()), Ok(()));
     assert_eq!(
         expected.matches(&ImageMetadata::new("b".repeat(64), 67, ImageMime::Png, 2, 3).unwrap()),

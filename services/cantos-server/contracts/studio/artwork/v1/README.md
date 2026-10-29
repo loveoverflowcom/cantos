@@ -1,6 +1,6 @@
 # Private Work artwork v1
 
-This contract defines one owner-only, externally prepared PNG/JPEG Work cover. Shared raw
+This contract defines one owner-only, externally prepared PNG/JPEG/AVIF Work cover. Shared raw
 DTOs, JSON Schema and the opt-in Protobuf edge representation are implemented independently
 of runtime activation. The [archived reviewed plan](../../../../../../docs/archive/superseded-plans/012-private-work-artwork.md) records
 product policy, storage prerequisites and layered acceptance. A private admitted image is
@@ -15,7 +15,7 @@ MessagePack and the four Studio revision/validation pilot routes are unchanged.
 
 - POST `image-intents`: CreateImageIntentRequest → ImageIntentDocument
 - GET `image-intents/{id}`: ImageIntentResponse with exact intent, nullable asset and derived state
-- PUT `image-intents/{id}/bytes`: actual PNG/JPEG bytes → ImageAssetDocument
+- PUT `image-intents/{id}/bytes`: actual PNG/JPEG/AVIF bytes → ImageAssetDocument
 - GET `image-assets/{id}`: exact immutable ImageAssetDocument
 - GET/HEAD `image-assets/{id}/bytes`: exact private accepted bytes with inspected MIME/length
 - GET `artwork?work_revision=R`: exact WorkArtworkResponse, current head when R is omitted
@@ -39,7 +39,7 @@ Every non-nullable scalar/message is required. Protobuf scalar `optional` preser
 zero/empty present values remain raw values for domain validation, never manufactured defaults.
 Missing required nested messages fail. Unknown/reserved fields and duplicate singulars fail.
 
-ImageMime is exactly `image/png` or `image/jpeg`; wire enum 1 or 2. ImageIntentState is
+ImageMime is `image/png`, `image/jpeg` or `image/avif`; wire enum 1, 2 or 3. ImageIntentState is
 `pending`, `admitted`, or `expired`; wire enum 1, 2 or 3. Enum zero/unknown values fail.
 Raw u64 timestamps/revisions may represent the full unsigned width; domain validation bounds
 persisted timestamps to nonnegative i64 and revisions to 1..i64::MAX. Dimensions are raw u32;

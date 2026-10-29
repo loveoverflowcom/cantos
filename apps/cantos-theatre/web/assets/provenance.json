@@ -17,6 +17,12 @@
       "sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
       "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
     },
+    "artwork/cantos-cover-fallback.avif": {
+      "derivedFrom": "cantos-cover-fallback-trimmed-master.png",
+      "sourceSha256": "abebf3c94acb525e85635590bde585f9c691215f046714807f8e32635d2eba58",
+      "sha256": "dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5",
+      "derivation": "Textless 2:3 celestial Lavender Stage cover fallback (600x900 px), encoded via ffmpeg libsvtav1 (CRF 26, preset 4, yuv420p) for issue #608."
+    },
     "fonts/noto-sans-regular.woff2": {
       "derivedFrom": "font/noto_sans_regular.ttf",
       "sourceSha256": "f5f552c8c5edb61fe6efb824baf4d4de47b1a8689ab4925ff43f7bd6a4ebece5",

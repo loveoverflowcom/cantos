@@ -595,20 +595,11 @@ fn SampleCoverFrame(
     kind: WorkKind,
     cover: Option<SampleCover>,
     lang: String,
-    locale: RwSignal<Locale>,
     class: &'static str,
 ) -> impl IntoView {
-    let glyph = match kind {
-        WorkKind::Podcast => icon("headphones"),
-        WorkKind::Novel | WorkKind::Story => icon("library_books"),
-    };
     let cover_image = cover.as_ref().map(SampleCover::to_cover_image);
     view! {
-        <PublicCover cover=cover_image lang kind=kind_name(kind) class=class>
-            <span class="theatre-cover-moon"></span>
-            <span class="theatre-public-cover-glyph">{glyph}</span>
-            <small>{move || text(messages::work_kind_key(kind), locale.get())}</small>
-        </PublicCover>
+        <PublicCover cover=cover_image lang kind=kind_name(kind) class=class/>
     }
 }
 
@@ -627,7 +618,7 @@ fn SampleWorkCard(
     let arrow = icon("arrow_back");
     view! {
         <article class="theatre-public-work theatre-work-card theatre-panel" data-work-id=work.work_id.clone()>
-            <SampleCoverFrame kind cover=work.cover.clone() lang=work.language.clone() locale class="theatre-public-cover"/>
+            <SampleCoverFrame kind cover=work.cover.clone() lang=work.language.clone() class="theatre-public-cover"/>
             <div class="theatre-public-work-body">
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h3>{match PublicWorkId::parse(&work.work_id) {
@@ -870,7 +861,7 @@ pub fn SampleWorkView(
                     };
                     view! {
                         <header class="theatre-work-intro theatre-public-work-intro">
-                            <SampleCoverFrame kind cover=work.cover.clone() lang=lang.clone() locale class="theatre-public-work-cover"/>
+                            <SampleCoverFrame kind cover=work.cover.clone() lang=lang.clone() class="theatre-public-work-cover"/>
                             <div>
                                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>

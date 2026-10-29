@@ -1,7 +1,8 @@
-//! Bounded actual-byte PNG/JPEG inspection. Exact encoded bytes remain private and unchanged.
+//! Bounded actual-byte PNG/JPEG/AVIF inspection. Exact encoded bytes remain private and unchanged.
 //!
 //! Acquire admission after cheap authorization/intent checks and before buffering a body. A
 //! cancelled async caller cannot release the lane while its blocking decoder or bytes survive.
+mod avif;
 use std::{io::Cursor, sync::LazyLock};
 
 use image::{
@@ -183,6 +184,8 @@ fn inspect_body(
     let actual_mime = match image::guess_format(bytes) {
         Ok(ImageFormat::Png) => ImageMime::Png,
         Ok(ImageFormat::Jpeg) => ImageMime::Jpeg,
+        Ok(ImageFormat::Avif) => ImageMime::Avif,
+        _ if is_isobmff_avif_or_avis(bytes) => ImageMime::Avif,
         _ => return Err(ImageIntakeError::UnsupportedFormat),
     };
     if actual_mime != declared_mime {
@@ -216,11 +219,31 @@ fn inspect_body(
             }
             decode_pixels(decoder, bytes.len() as u64)?
         }
+        ImageMime::Avif => avif::inspect_avif(bytes)?,
     };
     let sha256 = format!("{:x}", Sha256::digest(bytes));
     let metadata = ImageMetadata::new(sha256, bytes.len() as u64, actual_mime, width, height)
         .map_err(|_| ImageIntakeError::MalformedImage)?;
     Ok(VerifiedImage { body, metadata })
+}
+
+fn is_isobmff_avif_or_avis(bytes: &[u8]) -> bool {
+    if bytes.len() < 12 || &bytes[4..8] != b"ftyp" {
+        return false;
+    }
+    let size = u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;
+    let end = size.min(bytes.len());
+    if end < 12 {
+        return false;
+    }
+    matches!(&bytes[8..12], b"avif" | b"avis")
+        || bytes.get(16..end).is_some_and(|brands| {
+            brands
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|b| b == b"avif" || b == b"avis")
+        })
 }
 
 fn decode_pixels(

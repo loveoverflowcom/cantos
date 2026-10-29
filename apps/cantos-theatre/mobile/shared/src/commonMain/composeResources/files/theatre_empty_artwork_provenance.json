@@ -36,6 +36,13 @@
       "sha256": "719ef97e0d39d39bbb0b151d2791e2a966b13fca28ed993a75672cfaa851e204",
       "bytes": 6575,
       "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
+    },
+    {
+      "resource": "files/artwork/cantos_cover_fallback.avif",
+      "source": "cantos-cover-fallback-trimmed-master.png",
+      "sha256": "dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5",
+      "bytes": 12506,
+      "provenance": "Textless 2:3 celestial Lavender Stage cover fallback (600x900 px, ffmpeg libsvtav1 CRF 26) for issue #608"
     }
   ],
   "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. PNG is transparent raster; XML native rendering must be observed separately."

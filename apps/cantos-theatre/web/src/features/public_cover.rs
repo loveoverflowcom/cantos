@@ -1,24 +1,26 @@
 //! The public cover of a Work, shown only when the Server authorized it (Discovery v1.2).
 //!
-//! The image sits over the existing accessible fallback, which stays exactly what it is without a
-//! cover: no artwork is invented and no other Work's image is borrowed. The element is used with
-//! the URL the Server issued (see `application::public_cover`). A load error (revoked, expired,
-//! withdrawn, unavailable, corrupt) removes the image and leaves the fallback; the title, link and
-//! playback never depend on it. The cover is a cross-origin `<img>`: it needs no CORS because the
-//! page never reads its pixels, sends no credentials or referrer and runs no script from it.
+//! When the Work has no authorized cover (`cover: null`) or its cover fails to load (revoked,
+//! expired, withdrawn, unavailable, corrupt), the frame renders the bundled textless 2:3 celestial
+//! fallback (`assets/artwork/cantos-cover-fallback.avif`): no artwork is invented from another
+//! Work, no text/logo/chip is baked into the cover, and the title, link and playback never depend
+//! on the image. While an authorized cover is in flight, `SurfacePulse` is shown without flashing
+//! the fallback image; once loaded, only the authorized cover is shown.
 use crate::contract::discovery::CoverImage;
 use cantos_ui::SurfacePulse;
 use leptos::prelude::*;
+
+pub(crate) const COVER_FALLBACK_SRC: &str = "assets/artwork/cantos-cover-fallback.avif";
 
 /// What the listener currently sees; the markup mirrors it in `data-cover` for styling and tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CoverPhase {
     /// The Work has no authorized cover.
     None,
-    /// An authorized cover is loading; the fallback stays visible.
+    /// An authorized cover is loading; `SurfacePulse` is shown while in flight.
     Loading,
     Shown,
-    /// The image failed to load; the fallback stays for the rest of this view.
+    /// The image failed to load; the static celestial fallback stays for the rest of this view.
     Failed,
 }
 
@@ -33,8 +35,8 @@ impl CoverPhase {
     }
 }
 
-/// One cover frame. `children` is the decorative fallback; it is hidden from assistive technology
-/// because the image (or the surrounding title link) names the Work, and never read twice.
+/// One cover frame. The textless celestial fallback is hidden from assistive technology because
+/// the surrounding title link names the Work, and an authorized cover image carries its own `alt`.
 #[component]
 pub(crate) fn PublicCover(
     cover: Option<CoverImage>,
@@ -44,7 +46,6 @@ pub(crate) fn PublicCover(
     kind: &'static str,
     /// Extra frame class beyond `theatre-cover`.
     class: &'static str,
-    children: Children,
 ) -> impl IntoView {
     let node = NodeRef::<leptos::html::Div>::new();
     let active = crate::platform::loading_presence(node);
@@ -74,7 +75,11 @@ pub(crate) fn PublicCover(
     view! {
         <div node_ref=node class=format!("theatre-cover {class}") data-kind=kind
             data-cover=move || phase.get().name() style=ratio>
-            <div class="theatre-cover-fallback" aria-hidden="true">{children()}</div>
+            <Show when=move || matches!(phase.get(), CoverPhase::None | CoverPhase::Failed)>
+                <div class="theatre-cover-fallback" aria-hidden="true">
+                    <img class="theatre-cover-fallback-art" src=COVER_FALLBACK_SRC alt="" width="600" height="900" decoding="async" loading="lazy"/>
+                </div>
+            </Show>
             <Show when=move || phase.get() == CoverPhase::Loading><div class="theatre-cover-pending"><SurfacePulse active/></div></Show>
             {image}
         </div>
@@ -96,15 +101,14 @@ mod tests {
 
     fn render(cover: Option<CoverImage>) -> String {
         view! {
-            <PublicCover cover lang="vi-VN".to_owned() kind="story" class="theatre-public-cover">
-                <small>"Truyện"</small>
-            </PublicCover>
+            <PublicCover cover lang="vi-VN".to_owned() kind="story" class="theatre-public-cover"/>
         }
         .to_html()
     }
 
     #[test]
-    fn an_authorized_cover_renders_the_issued_url_with_its_alt_text_over_the_fallback() {
+    fn an_authorized_cover_renders_the_issued_url_with_its_alt_text_and_loading_pulse_without_flashing_fallback(
+    ) {
         let cover = covered();
         let html = render(Some(cover.clone()));
         assert!(html.contains(&format!("src=\"{}\"", cover.url)), "{html}");
@@ -120,21 +124,33 @@ mod tests {
             html.contains("--theatre-cover-ratio: 1200 / 1800"),
             "{html}"
         );
-        // The fallback stays and stays decorative; the image alone names the cover.
-        assert!(
-            html.contains("aria-hidden=\"true\" class=\"theatre-cover-fallback\""),
-            "{html}"
-        );
-        assert!(html.contains("Truyện"), "{html}");
+        assert!(html.contains("theatre-cover-pending"), "{html}");
+        assert!(!html.contains("theatre-cover-fallback-art"), "{html}");
     }
 
     #[test]
-    fn a_work_without_a_cover_renders_only_the_fallback() {
+    fn a_work_without_a_cover_renders_only_the_textless_celestial_avif_fallback() {
         let html = render(None);
         assert!(html.contains("data-cover=\"none\""), "{html}");
-        assert!(!html.contains("<img"), "{html}");
+        assert!(!html.contains("theatre-cover-art"), "{html}");
+        assert!(!html.contains("theatre-cover-pending"), "{html}");
         assert!(!html.contains("style="), "{html}");
-        assert!(html.contains("Truyện"));
+        assert!(
+            html.contains("aria-hidden=\"true\" class=\"theatre-cover-fallback\"")
+                || html.contains("class=\"theatre-cover-fallback\" aria-hidden=\"true\""),
+            "{html}"
+        );
+        assert!(
+            html.contains("class=\"theatre-cover-fallback-art\""),
+            "{html}"
+        );
+        assert!(html.contains(COVER_FALLBACK_SRC), "{html}");
+        assert!(
+            html.contains("alt=\"\"")
+                && html.contains("width=\"600\"")
+                && html.contains("height=\"900\""),
+            "{html}"
+        );
     }
 
     #[test]
