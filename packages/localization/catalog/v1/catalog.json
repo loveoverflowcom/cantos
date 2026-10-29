@@ -12918,7 +12918,7 @@
           "text": "Chọn ảnh hợp lệ; hoàn tất hoặc đối soát thao tác đang chờ trước khi tiếp tục."
         },
         "en": {
-          "text": "Choose a valid image; finish or reconcile any pending operation first."
+          "text": "Choose a valid image; finish or reconcile any pending action first."
         }
       }
     },
@@ -12927,10 +12927,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chuẩn bị intent còn hạn và giữ đúng tệp; hoàn tất thao tác đang chờ trước khi tải."
+          "text": "Chuẩn bị yêu cầu tải ảnh còn hạn và giữ đúng tệp; hoàn tất thao tác đang chờ trước khi tải."
         },
         "en": {
-          "text": "Prepare an active intent and retain its matching file; finish pending operations first."
+          "text": "Prepare an active upload request and keep its matching file; finish pending actions first."
         }
       }
     },
@@ -12939,10 +12939,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Cần ảnh đã admission và revision tác phẩm đã tải; hoàn tất hoặc đối soát thao tác đang chờ."
+          "text": "Cần ảnh đã được máy chủ nhận và phiên bản tác phẩm đã tải; hoàn tất hoặc đối soát thao tác đang chờ."
         },
         "en": {
-          "text": "An admitted image and loaded Work revision are required; finish or reconcile pending operations."
+          "text": "An accepted image and a loaded Work revision are required; finish or reconcile pending actions."
         }
       }
     },
@@ -12954,7 +12954,7 @@
           "text": "Cần ảnh bìa hiện tại và phiên owner khả dụng; hoàn tất thao tác đang chờ trước khi bỏ liên kết."
         },
         "en": {
-          "text": "A current cover and active owner session are required; finish pending operations before unlinking."
+          "text": "A current cover and active owner session are required; finish pending actions before unlinking."
         }
       }
     },
@@ -12966,7 +12966,7 @@
           "text": "Cần tệp local đã chọn; hoàn tất hoặc đối soát thao tác đang chờ trước khi bỏ chọn."
         },
         "en": {
-          "text": "Select a local file; finish or reconcile pending operations before discarding it."
+          "text": "Select a local file; finish or reconcile pending actions before discarding it."
         }
       }
     },
@@ -12978,7 +12978,7 @@
           "text": "Cần phiên khả dụng của đúng owner và thao tác chưa rõ kết quả."
         },
         "en": {
-          "text": "Recovery requires the same owner's active session and an unresolved operation."
+          "text": "Recovery requires the same owner's active session and an unresolved action."
         }
       }
     },
@@ -12990,7 +12990,7 @@
           "text": "Cần phiên owner khả dụng; hoàn tất hoặc đối soát thao tác đang chờ trước khi tải lại."
         },
         "en": {
-          "text": "An active owner session is required; finish or reconcile pending operations before reloading."
+          "text": "An active owner session is required; finish or reconcile pending actions before reloading."
         }
       }
     },
@@ -12999,10 +12999,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Thông tin intent riêng tư"
+          "text": "Thông tin yêu cầu tải ảnh (riêng tư)"
         },
         "en": {
-          "text": "Private intent receipt"
+          "text": "Upload request details (private)"
         }
       }
     },
@@ -13023,10 +13023,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Ảnh admitted vẫn riêng tư. Chọn ảnh bìa không xuất bản tác phẩm lên Cantos. Tệp gốc và lịch sử được giữ bất biến."
+          "text": "Ảnh đã được máy chủ nhận vẫn riêng tư. Chọn ảnh bìa không xuất bản tác phẩm lên Cantos. Tệp gốc và lịch sử được giữ bất biến."
         },
         "en": {
-          "text": "Admitted images stay private. Selecting a cover does not publish the Work to Cantos. Original bytes and history are preserved."
+          "text": "Images the server has accepted stay private. Selecting a cover does not publish the Work to Cantos. Original bytes and history are preserved."
         }
       }
     },
@@ -13083,10 +13083,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Server kiểm tra và quyết định admission."
+          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Máy chủ kiểm tra và quyết định có nhận ảnh hay không."
         },
         "en": {
-          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server validates admission."
+          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server checks the file and decides whether to accept it."
         }
       }
     },
@@ -13179,10 +13179,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "2. Tải tệp & xác nhận admission"
+          "text": "2. Tải tệp & chờ máy chủ xác nhận"
         },
         "en": {
-          "text": "2. Upload & confirm admission"
+          "text": "2. Upload & wait for server confirmation"
         }
       }
     },
@@ -13239,10 +13239,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đối soát đúng intent"
+          "text": "Kiểm tra lại yêu cầu này"
         },
         "en": {
-          "text": "Read the exact intent"
+          "text": "Check this exact request again"
         }
       }
     },
@@ -13251,10 +13251,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Gửi lại đúng operation"
+          "text": "Gửi lại đúng thao tác này"
         },
         "en": {
-          "text": "Replay the exact operation"
+          "text": "Resend this exact action"
         }
       }
     },
@@ -13299,10 +13299,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Thao tác chưa hoàn tất. Giữ bản nháp và operation để đối soát; không tạo mutation mới. Bỏ chọn local không hủy thao tác đã commit."
+          "text": "Thao tác chưa hoàn tất. Giữ bản nháp và thao tác này để đối soát; không tạo thao tác thay đổi mới. Bỏ chọn tệp trên máy không hủy thao tác đã gửi đi."
         },
         "en": {
-          "text": "Operation unfinished. Keep the draft and operation for reconciliation; do not create a new mutation. Discarding a local file cannot cancel a committed operation."
+          "text": "Action unfinished. Keep the draft and this action for reconciliation; do not start a new change. Discarding a local file cannot cancel an action that was already sent."
         }
       }
     },
@@ -13347,10 +13347,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Operation chưa xác nhận"
+          "text": "Thao tác chưa được xác nhận"
         },
         "en": {
-          "text": "Unacknowledged operation"
+          "text": "Unconfirmed action"
         }
       }
     },
@@ -13359,10 +13359,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Intent có hạn 30 phút. Nguồn và quyền đã được pin; muốn đổi khai báo, bỏ chọn local rồi chọn lại."
+          "text": "Yêu cầu tải ảnh có hạn 30 phút. Nguồn và quyền đã được cố định; muốn đổi khai báo, bỏ chọn local rồi chọn lại."
         },
         "en": {
-          "text": "Intent lasts 30 minutes. Provenance and rights are pinned; discard and reselect to change declarations."
+          "text": "The upload request lasts 30 minutes. Provenance and rights are locked in; discard and reselect to change declarations."
         }
       }
     },
@@ -19455,10 +19455,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đang chuẩn bị intent"
+          "text": "Đang chuẩn bị yêu cầu tải ảnh"
         },
         "en": {
-          "text": "Preparing intent"
+          "text": "Preparing upload request"
         }
       }
     },
@@ -19467,10 +19467,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Sẵn sàng tải tệp · chưa admission"
+          "text": "Sẵn sàng tải tệp · máy chủ chưa nhận"
         },
         "en": {
-          "text": "Ready to upload · not admitted"
+          "text": "Ready to upload · not yet accepted"
         }
       }
     },
@@ -19503,10 +19503,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đã admission · chưa gắn ảnh"
+          "text": "Máy chủ đã nhận · chưa gắn ảnh bìa"
         },
         "en": {
-          "text": "Admitted · cover unchanged"
+          "text": "Accepted · cover unchanged"
         }
       }
     },
@@ -19539,10 +19539,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Intent hết hạn · chuẩn bị intent mới"
+          "text": "Yêu cầu tải ảnh hết hạn · chuẩn bị yêu cầu mới"
         },
         "en": {
-          "text": "Intent expired · prepare a new intent"
+          "text": "Upload request expired · prepare a new one"
         }
       }
     },
