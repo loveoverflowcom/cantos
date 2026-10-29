@@ -411,5 +411,11 @@ async fn v28_to_v29_preserves_existing_artwork_rows_and_admits_avif() {
     )
     .await
     .unwrap();
+    // v30 preserves the old rows, but direct SQL cannot add another legacy intent.
+    let legacy_error = tx.execute(
+        "INSERT INTO media_image_intents VALUES('20000000-0000-4000-8000-000000000099',?1,'alice','10000000-0000-4000-8000-000000000099',?2,67,'image/png','cover-image-v1',0,1800000,X'7b7d',?3)",
+        params_from_iter([text(work), text(&sha), text(&format!("ii-r1:sha256:{sha}"))]),
+    ).await.unwrap_err();
+    assert_eq!(legacy_error, guard("policy.avif_only"));
     tx.commit().await.unwrap();
 }

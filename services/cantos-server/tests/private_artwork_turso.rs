@@ -56,22 +56,22 @@ struct Fixture {
 // and Pillow; expected hashes are recorded independently of the production decoder.
 const FIXTURES: [Fixture; 3] = [
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.png"),
-        sha256: "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
-        mime: dto::ImageMime::Png,
-        content_type: "image/png",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif"),
+        sha256: "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f",
+        mime: dto::ImageMime::Avif,
+        content_type: "image/avif",
     },
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgba16-2x3.png"),
-        sha256: "1e2725064b73e8bdc0c7056ae8bf2d7f17dbcae5a7dac2d5f13fc398076c357d",
-        mime: dto::ImageMime::Png,
-        content_type: "image/png",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgba16-2x3.avif"),
+        sha256: "d200d30121283e2053867e2aa720e3b4b8e9fed50d3c006e3c893e36ed2f99d7",
+        mime: dto::ImageMime::Avif,
+        content_type: "image/avif",
     },
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/pillow-rgb-2x3.jpg"),
-        sha256: "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
-        mime: dto::ImageMime::Jpeg,
-        content_type: "image/jpeg",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/pillow-rgb-2x3.avif"),
+        sha256: "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3",
+        mime: dto::ImageMime::Avif,
+        content_type: "image/avif",
     },
 ];
 
@@ -492,7 +492,7 @@ async fn set(host: &HttpHost, work: &str, body: &dto::SetWorkArtworkRequest) -> 
 }
 
 #[tokio::test]
-async fn production_http_shared_storage_preserves_three_formats_receipts_targets_and_history_after_reopen(
+async fn production_http_shared_storage_preserves_three_avif_fixtures_receipts_targets_and_history_after_reopen(
 ) {
     let _media_lane = native_sql::media_lane().await;
     let mut h = Harness::new().await;
@@ -905,16 +905,22 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
             "unsupported_media_type",
         ),
         (
-            "image/png",
+            "image/avif",
             vec![("content-encoding", "gzip")],
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "unsupported_media_type",
+        ),
+        (
+            "image/png",
+            vec![],
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "unsupported_media_type",
         ),
         (
             "image/jpeg",
             vec![],
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "image_binding_mismatch",
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "unsupported_media_type",
         ),
     ] {
         let error = request(
@@ -939,7 +945,7 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
         &upload_path,
         Some(ALICE),
         Some(ALICE_FENCE),
-        Some("image/png"),
+        Some("image/avif"),
         FIXTURES[0].bytes.to_vec(),
         &[],
     )
@@ -981,7 +987,7 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
             "PUT",
             format!("image-intents/{}/bytes", asset.intent_id),
             FIXTURES[0].bytes.to_vec(),
-            Some("image/png"),
+            Some("image/avif"),
         ),
         (
             "PATCH",
@@ -1025,7 +1031,7 @@ async fn malformed_actual_images_and_corrupt_recorded_objects_fail_closed_withou
         .error(StatusCode::NOT_FOUND, "not_found");
     let asset = admit(&h.host, &h.work, FIXTURES[0]).await;
 
-    // Correct declarations for an actual truncated PNG cannot substitute for a full decode.
+    // Correct declarations for an actual truncated AVIF_RGB cannot substitute for a full decode.
     let malformed = FIXTURES[1].bytes[..FIXTURES[1].bytes.len() - 1].to_vec();
     let mut raw = prepare_request(FIXTURES[1]);
     raw.expected_sha256 = format!("{:x}", Sha256::digest(&malformed));
@@ -1041,7 +1047,7 @@ async fn malformed_actual_images_and_corrupt_recorded_objects_fail_closed_withou
         &path(&h.work, &format!("image-intents/{}/bytes", raw.id)),
         Some(ALICE),
         Some(ALICE_FENCE),
-        Some("image/png"),
+        Some("image/avif"),
         malformed,
         &[],
     )

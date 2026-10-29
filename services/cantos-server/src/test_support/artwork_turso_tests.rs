@@ -67,7 +67,7 @@ impl Harness {
             id: Uuid::new_v4().to_string(),
             expected_sha256: "1".repeat(64),
             expected_byte_length: 67,
-            content_type: dto::ImageMime::Png,
+            content_type: dto::ImageMime::Avif,
             declarations: dto::ImageDeclarations {
                 provenance: "Synthetic SQL receipt fixture, no real image admission".into(),
                 rights_refs: vec!["synthetic-rights".into()],
@@ -96,7 +96,7 @@ impl Harness {
         let metadata = ImageMetadata::new(
             "1".repeat(64),
             67,
-            crate::contexts::media::domain::image::ImageMime::Png,
+            crate::contexts::media::domain::image::ImageMime::Avif,
             1,
             1,
         )
@@ -375,7 +375,7 @@ async fn composite_foreign_keys_reject_wrong_owner_work_and_exact_asset_digest()
     let initial = h.work(ALICE).await;
     let bob = h.work(BOB).await;
     let asset = h.image(&initial).await;
-    let intent_sql="INSERT INTO media_image_intents(id,work_id,owner_id,operation_id,expected_sha256,expected_byte_length,content_type,profile_id,created_at_ms,expires_at_ms,document_bytes,digest) VALUES(?1,?2,?3,?4,?5,1,'image/png','cover-image-v1',0,1800000,?6,?7)";
+    let intent_sql="INSERT INTO media_image_intents(id,work_id,owner_id,operation_id,expected_sha256,expected_byte_length,content_type,profile_id,created_at_ms,expires_at_ms,document_bytes,digest) VALUES(?1,?2,?3,?4,?5,1,'image/avif','cover-image-v1',0,1800000,?6,?7)";
     let error = h
         .admin
         .execute(

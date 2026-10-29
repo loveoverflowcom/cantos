@@ -1,6 +1,6 @@
 use crate::test_support::FixtureSql;
 // Production TursoArtworkRepository transaction methods against a disposable database. The
-// PNG is really decoded; the recorded object location is a synthetic SQL fixture. This test
+// AVIF_RGB is really decoded; the recorded object location is a synthetic SQL fixture. This test
 // does not call private storage, prove object persistence or enable image HTTP routes.
 use std::sync::Arc;
 
@@ -25,8 +25,9 @@ use crate::contexts::{
 };
 
 const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const PNG: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.png");
-const PNG_SHA256: &str = "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276";
+const AVIF_RGB: &[u8] =
+    include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.avif");
+const AVIF_RGB_SHA256: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
 
 #[tokio::test]
 async fn production_repository_prepare_finalize_select_and_catalog_cas_race_preserve_exact_receipts(
@@ -39,9 +40,9 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
     let request = PrepareImage::admit(&dto::CreateImageIntentRequest {
         operation_id: Uuid::new_v4().to_string(),
         id: Uuid::new_v4().to_string(),
-        expected_sha256: PNG_SHA256.into(),
-        expected_byte_length: PNG.len() as u64,
-        content_type: dto::ImageMime::Png,
+        expected_sha256: AVIF_RGB_SHA256.into(),
+        expected_byte_length: AVIF_RGB.len() as u64,
+        content_type: dto::ImageMime::Avif,
         declarations: dto::ImageDeclarations {
             provenance: "Independent Python 2x3 synthetic image".into(),
             rights_refs: vec!["synthetic-rights".into()],
@@ -62,10 +63,10 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
 
     let image = ImageAdmission::try_acquire()
         .unwrap()
-        .inspect(PNG.to_vec(), ImageMime::Png)
+        .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
         .await
         .unwrap();
-    assert_eq!(image.metadata().sha256(), PNG_SHA256);
+    assert_eq!(image.metadata().sha256(), AVIF_RGB_SHA256);
     assert_eq!(
         (image.metadata().width_px(), image.metadata().height_px()),
         (2, 3)
@@ -78,7 +79,7 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
             image.metadata().clone(),
             RecordedImageLocation {
                 storage_target: "synthetic-sql-fixture".into(),
-                object_key: PNG_SHA256.into(),
+                object_key: AVIF_RGB_SHA256.into(),
             },
         )
         .await
@@ -91,7 +92,7 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
             image.metadata().clone(),
             RecordedImageLocation {
                 storage_target: "synthetic-other-target".into(),
-                object_key: PNG_SHA256.into(),
+                object_key: AVIF_RGB_SHA256.into(),
             },
         )
         .await
@@ -220,9 +221,9 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
         let request = PrepareImage::admit(&dto::CreateImageIntentRequest {
             operation_id: Uuid::new_v4().to_string(),
             id: Uuid::new_v4().to_string(),
-            expected_sha256: PNG_SHA256.into(),
-            expected_byte_length: PNG.len() as u64,
-            content_type: dto::ImageMime::Png,
+            expected_sha256: AVIF_RGB_SHA256.into(),
+            expected_byte_length: AVIF_RGB.len() as u64,
+            content_type: dto::ImageMime::Avif,
             declarations: dto::ImageDeclarations {
                 provenance: "Independent Python 2x3 synthetic image".into(),
                 rights_refs: vec!["synthetic-rights".into()],
@@ -252,10 +253,10 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
 
         let image = ImageAdmission::try_acquire()
             .unwrap()
-            .inspect(PNG.to_vec(), ImageMime::Png)
+            .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
             .await
             .unwrap();
-        assert_eq!(image.metadata().sha256(), PNG_SHA256);
+        assert_eq!(image.metadata().sha256(), AVIF_RGB_SHA256);
         assert_eq!(
             (image.metadata().width_px(), image.metadata().height_px()),
             (2, 3)
@@ -269,7 +270,7 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                     image.metadata().clone(),
                     RecordedImageLocation {
                         storage_target: "synthetic-sql-fixture".into(),
-                        object_key: PNG_SHA256.into()
+                        object_key: AVIF_RGB_SHA256.into()
                     }
                 )
                 .await,
@@ -284,7 +285,7 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                 image.metadata().clone(),
                 RecordedImageLocation {
                     storage_target: "synthetic-sql-fixture".into(),
-                    object_key: PNG_SHA256.into(),
+                    object_key: AVIF_RGB_SHA256.into(),
                 },
             )
             .await
@@ -297,7 +298,7 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                 image.metadata().clone(),
                 RecordedImageLocation {
                     storage_target: "synthetic-other-target".into(),
-                    object_key: PNG_SHA256.into(),
+                    object_key: AVIF_RGB_SHA256.into(),
                 },
             )
             .await

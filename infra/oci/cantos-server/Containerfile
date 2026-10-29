@@ -6,6 +6,7 @@
 
 FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
 ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libdav1d-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,id=cantos-oci-cargo-registry,target=/usr/local/cargo/registry \
@@ -17,7 +18,7 @@ RUN --mount=type=cache,id=cantos-oci-cargo-registry,target=/usr/local/cargo/regi
 FROM docker.io/library/debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483
 # No curl or shell tooling: the health probe is a binary the release provides, not a package here.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates libdav1d7 \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 10001 cantos-server \
  && useradd --system --uid 10001 --gid cantos-server --home-dir /nonexistent --shell /usr/sbin/nologin cantos-server

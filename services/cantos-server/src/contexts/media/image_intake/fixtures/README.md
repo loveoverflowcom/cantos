@@ -1,21 +1,18 @@
 # Synthetic image fixtures
 
-No real artwork or downloaded image is included. All fixtures are 2x3 pixels with alternating
-red/green RGB pixels (or solid red RGBA16) and were generated locally on 2026-10-13.
+The three original PNG/JPEG positive fixtures were converted to actual AVIF under #607.
+`conversions.json` records old/new names, independently computed SHA256, sizes and encoder.
+All are 2×3 synthetic images, not real artwork. RGB/RGBA16 originals were independently
+constructed with Python struct/zlib; the JPEG used Pillow. Original RGBA16 is opaque solid
+red, so RGB encoding retains its visible values and opacity. Converted files use Pillow12.3.0,
+libavif1.4.2, quality100, 4:4:4, speed4. No source digest is reused for changed bytes.
 
-- `python-rgb-2x3.png`: Python `struct`/`zlib`, 8-bit RGB; 74 encoded bytes;
-  SHA-256 `7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276`.
-- `python-rgba16-2x3.png`: Python `struct`/`zlib`, 16-bit RGBA; 77 encoded bytes;
-  SHA-256 `1e2725064b73e8bdc0c7056ae8bf2d7f17dbcae5a7dac2d5f13fc398076c357d`.
-- `pillow-rgb-2x3.jpg`: Pillow 12.3.0, RGB JPEG, quality90, baseline, no optimization;
-  667 encoded bytes; SHA-256 `a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46`.
+`ffmpeg-yuv420p-2x3.avif` is the independent FFmpeg/libaom fixture from #608 (322 bytes,
+SHA256 `7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257`).
+The production inspector now fully decodes AV1 pixels with pinned dav1d after framing,
+orientation, dimensions, bit-depth and allocation checks. No encoder participates in admission.
 
-Hashes were computed independently with Python `hashlib`. The PNG construction writes the PNG
-signature, IHDR with `(width=2,height=3,depth=8,color=2)` or `(depth=16,color=6)`, one zlib IDAT
-with unfiltered rows, and IEND. Every chunk has a Python `zlib.crc32` checksum. The JPEG was
-generated with `Image.new('RGB',(2,3))`, `putdata([(255,0,0),(0,255,0)]*3)` and
-`save(format='JPEG',quality=90,progressive=False,optimize=False)`.
-
-Hostile envelopes, large output, compressed ICC overload, EXIF rotation and animation markers
-are synthesized in the ordinary Rust test suite with separate test-only framing/CRC/zlib code.
-Actual acceptance always uses the pinned production image decoder, never these encoders.
+`legacy-rejection.json` contains the exact original synthetic encoded bytes as hex, exclusively
+for negative format/rename/admission tests. It is never a positive fixture, resource or served
+image. No legacy image files or checksum-waiver entries remain. Historical inventory records
+retain original source hashes without making those images admissible again.

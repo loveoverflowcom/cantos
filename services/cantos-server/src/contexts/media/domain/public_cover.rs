@@ -143,6 +143,9 @@ fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjection {
     match (cover_outcome(pinned_state, decision, facts.now_ms), bound) {
         (Ok(()), Ok(Some((selection, asset)))) => {
             let metadata = asset.metadata();
+            if metadata.content_type() != ImageMime::Avif {
+                return CoverProjection::Fallback(CoverFallback::Corrupt);
+            }
             CoverProjection::Shown(PublicCover {
                 image_asset_id: selection.image_asset_id().as_str().into(),
                 image_asset_digest: selection.image_asset_digest().into(),

@@ -344,3 +344,10 @@ mock-integration evidence, not playable-media admission, a public storage adapte
 delivery. No wire field, provider or runtime switch is introduced, and the normal composition
 remains unavailable. Cache security beyond no-store remains an
 [evidence-gated decision](../../../../../../docs/decisions/0038-publication-streaming-evidence-gates.md).
+
+### AVIF-only cover delivery (#607)
+
+Current cover responses use image/avif only. Legacy enum spellings remain readable by older
+metadata codecs; current Server projection suppresses PNG/JPEG covers, Web renders fallback
+and CMP refuses their byte request before network access. Titles/listening remain available.
+Existing receipts/releases are preserved; conversion/re-clearance is a separate data operation.

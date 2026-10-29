@@ -13107,10 +13107,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "PNG hoặc JPEG · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Server kiểm tra và quyết định admission."
+          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Server kiểm tra và quyết định admission."
         },
         "en": {
-          "text": "PNG or JPEG · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server validates admission."
+          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server validates admission."
         }
       }
     },
@@ -17823,10 +17823,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn PNG/JPEG không rỗng, tối đa 8 MiB."
+          "text": "Chọn AVIF không rỗng, tối đa 8 MiB."
         },
         "en": {
-          "text": "Choose a nonempty PNG/JPEG, at most 8 MiB."
+          "text": "Choose a nonempty AVIF, at most 8 MiB."
         }
       }
     },
@@ -17847,10 +17847,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không đọc được ảnh. Hãy chọn một PNG/JPEG hợp lệ."
+          "text": "Không đọc được ảnh. Hãy chọn một AVIF hợp lệ."
         },
         "en": {
-          "text": "Image could not be decoded. Choose a valid PNG/JPEG."
+          "text": "Image could not be decoded. Choose a valid AVIF."
         }
       }
     },

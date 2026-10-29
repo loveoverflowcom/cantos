@@ -34,7 +34,7 @@ fn asset() -> ImageAsset {
             id: INTENT.into(),
             expected_sha256: "a".repeat(64),
             expected_byte_length: 67,
-            content_type: dto::ImageMime::Png,
+            content_type: dto::ImageMime::Avif,
             declarations: dto::ImageDeclarations {
                 provenance: "Prepared cover".into(),
                 rights_refs: vec!["rights-z".into(), "rights-a".into()],
@@ -48,7 +48,7 @@ fn asset() -> ImageAsset {
     .unwrap();
     ImageAsset::create(
         &intent,
-        ImageMetadata::new("a".repeat(64), 67, ImageMime::Png, 2, 3).unwrap(),
+        ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap(),
         101,
     )
     .unwrap()
@@ -314,7 +314,7 @@ fn operation_replay_survives_later_edits_and_archive_but_changed_or_cross_kind_p
         );
     }
     assert_eq!(
-        decide_artwork_change(&initial, &set, Some(&asset), Some("image-operation1:sha256:a89ca0283d4c21f633a1f55b283a36158f94e36d87510f70bfda781b02ad1de9"), 101),
+        decide_artwork_change(&initial, &set, Some(&asset), Some("image-operation1:sha256:986d6ad04f10fe2cd35fa43b38ad4c28b18025adc883f4b03eb34e7d7e9726c3"), 101),
         Err(ArtworkError::Image(ImageError::OperationReused))
     );
     assert_eq!(applied.response().work_revision, 2);
@@ -368,7 +368,7 @@ fn ordered_change_and_set_clear_operation_preimages_match_independent_python_gol
     let set = request(1, Some(selection(&asset)));
     assert_eq!(
         set.fingerprint(initial.id()).unwrap(),
-        "image-operation1:sha256:5dc801d3698c0b6355554592c820ed8d94ebc484c604e9641f107403a08ed925"
+        "image-operation1:sha256:06717cc876a8fa88a91151e0e459eb5adfa06c702f5e1490ee0c8d79cf991a78"
     );
     assert_eq!(
         request(1, None).fingerprint(initial.id()).unwrap(),
@@ -377,7 +377,7 @@ fn ordered_change_and_set_clear_operation_preimages_match_independent_python_gol
     let applied = mutation(decide_artwork_change(&initial, &set, Some(&asset), None, 101).unwrap());
     assert_eq!(
         applied.change().document().digest,
-        "wa-r1:sha256:4f08adf0edd14497584cde71b9dd0b8c36f08ca372e0bb8e9388aeb0a5e03109"
+        "wa-r1:sha256:e991dac2780025d540181f6786fc7f6969f3cd2e60efe7e9d4584873151d78ea"
     );
     assert_eq!(
         ArtworkChange::restore(applied.change().document().clone()).unwrap(),
@@ -596,4 +596,23 @@ proptest! {
             }
         }
     }
+}
+
+#[test]
+fn a_restored_legacy_asset_cannot_be_selected_as_new_artwork() {
+    let mut raw = asset().document().clone();
+    raw.verified_media.content_type = dto::ImageMime::Png;
+    // Independent Python literal oracle retained from the historical fixture.
+    raw.digest =
+        "ia-r1:sha256:4200f444b5e0006f4d0a04b7388d5b1e91b9ae03b2f38256130f5e8b2dad7f63".into();
+    let legacy = ImageAsset::restore(raw).unwrap();
+    let initial = work();
+    let set = request(1, Some(selection(&legacy)));
+    assert_eq!(
+        decide_artwork_change(&initial, &set, Some(&legacy), None, 101),
+        Err(ArtworkError::Image(
+            crate::contexts::media::domain::image::ImageError::UnsupportedMime
+        ))
+    );
+    assert_eq!(initial.revision(), 1);
 }

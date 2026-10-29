@@ -32,10 +32,12 @@ const HOUR: i64 = 3_600_000_000;
 const TOKEN: &str = "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0";
 const ORIGIN: &str = "https://listen.example.test";
 const STUDIO: &str = "https://studio.example.test";
-const PNG: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.png");
-const PNG_SHA256: &str = "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276";
-const JPEG: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/pillow-rgb-2x3.jpg");
-const JPEG_SHA256: &str = "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46";
+const AVIF_RGB: &[u8] =
+    include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.avif");
+const AVIF_RGB_SHA256: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
+const AVIF_FROM_JPEG: &[u8] =
+    include_bytes!("../contexts/media/image_intake/fixtures/pillow-rgb-2x3.avif");
+const AVIF_JPEG_SHA256: &str = "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3";
 const AVIF: &[u8] =
     include_bytes!("../contexts/media/image_intake/fixtures/ffmpeg-yuv420p-2x3.avif");
 const AVIF_SHA256: &str = "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257";
@@ -289,7 +291,7 @@ mod metadata;
 async fn metadata_consent_is_explicit_revision_bound_atomic_and_replay_safe() {
     let world = World::new().await;
     let image = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     world.select(Some(&image), ALT_A).await;
     let revision = world.head_revision().await;
@@ -394,7 +396,7 @@ async fn metadata_consent_is_explicit_revision_bound_atomic_and_replay_safe() {
 async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() {
     let mut world = World::new().await;
     let a = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     world.select(Some(&a), ALT_A).await;
     // The seeded release pinned the Work before any artwork: no cover, whatever is disclosed.
@@ -403,7 +405,7 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 
     world.republish().await;
     // The new release pins A and the 24h clearance is current: A shows its admitted facts.
-    let shown = world.expected(PNG_SHA256, dto::CoverMime::Png, PNG.len(), ALT_A);
+    let shown = world.expected(AVIF_RGB_SHA256, dto::CoverMime::Avif, AVIF_RGB.len(), ALT_A);
     assert_eq!(world.cover().await, Some(shown.clone()));
 
     // Default and presentation=1 readers are unchanged by a disclosed cover.
@@ -431,7 +433,11 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 
     // Owner privately replaces A with B and even discloses B: public stays A (release-pinned).
     let b = world
-        .admit(JPEG, JPEG_SHA256, studio_dto::ImageMime::Jpeg)
+        .admit(
+            AVIF_FROM_JPEG,
+            AVIF_JPEG_SHA256,
+            studio_dto::ImageMime::Avif,
+        )
         .await;
     world.select(Some(&b), ALT_B).await;
     world.disclose(&b, Some(HOUR / 1000 * 24)).await.unwrap();
@@ -463,7 +469,7 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, PNG_SHA256)
+                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
                 .await
         ),
         ListenerError::NotFound
@@ -471,14 +477,19 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
     // Re-selecting B and republishing moves the cover to B, which is already disclosed.
     world.select(Some(&b), ALT_B).await;
     world.republish().await;
-    let shown_b = world.expected(JPEG_SHA256, dto::CoverMime::Jpeg, JPEG.len(), ALT_B);
+    let shown_b = world.expected(
+        AVIF_JPEG_SHA256,
+        dto::CoverMime::Avif,
+        AVIF_FROM_JPEG.len(),
+        ALT_B,
+    );
     // The 24h clearance of B was recorded ~4h ago and is still current.
     assert_eq!(world.cover().await, Some(shown_b));
     assert_eq!(
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, PNG_SHA256)
+                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
                 .await
         ),
         ListenerError::NotFound,
@@ -490,11 +501,11 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_cover() {
     let mut world = World::new().await;
     let a = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
-    let shown = world.expected(PNG_SHA256, dto::CoverMime::Png, PNG.len(), ALT_A);
+    let shown = world.expected(AVIF_RGB_SHA256, dto::CoverMime::Avif, AVIF_RGB.len(), ALT_A);
 
     // Published and visible, but undisclosed: no cover; title and units are unaffected.
     assert_eq!(world.cover().await, None);
@@ -526,7 +537,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, PNG_SHA256)
+                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
                 .await
         ),
         ListenerError::NotFound
@@ -547,7 +558,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
     assert_eq!(
         refusal(
             uncomposed
-                .admit_cover(&world.work.work_id, PNG_SHA256)
+                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
                 .await
         ),
         ListenerError::NotFound
@@ -574,7 +585,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, PNG_SHA256)
+                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
                 .await
         ),
         ListenerError::NotFound
@@ -585,7 +596,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
 async fn studio_disclosure_is_owner_only_digest_bound_and_replayable() {
     let world = World::new().await;
     let a = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     let service = CoverDisclosureService::new(world.store.clone());
     let request = studio_dto::RecordCoverDisclosureRequest {
@@ -713,12 +724,12 @@ fn get(path: &str) -> axum::http::request::Builder {
 async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     let mut world = World::new().await;
     let a = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
     let work = world.work.work_id.clone();
-    let path = format!("/api/v1/theatre/works/{work}/cover/{PNG_SHA256}");
+    let path = format!("/api/v1/theatre/works/{work}/cover/{AVIF_RGB_SHA256}");
     let app = world.router();
 
     // Before disclosure the composed route is the anonymous not_found, never cacheable.
@@ -821,10 +832,10 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, PNG);
-    assert_eq!(headers[header::CONTENT_TYPE], "image/png");
-    assert_eq!(headers[header::CONTENT_LENGTH], PNG.len().to_string());
-    assert_eq!(headers[header::ETAG], format!("\"{PNG_SHA256}\""));
+    assert_eq!(body, AVIF_RGB);
+    assert_eq!(headers[header::CONTENT_TYPE], "image/avif");
+    assert_eq!(headers[header::CONTENT_LENGTH], AVIF_RGB.len().to_string());
+    assert_eq!(headers[header::ETAG], format!("\"{AVIF_RGB_SHA256}\""));
     assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
     assert_eq!(headers[header::ACCEPT_RANGES], "none");
     assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
@@ -832,10 +843,10 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
         send(&app, Request::head(&path).body(Body::empty()).unwrap()).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.is_empty());
-    assert_eq!(headers[header::CONTENT_LENGTH], PNG.len().to_string());
+    assert_eq!(headers[header::CONTENT_LENGTH], AVIF_RGB.len().to_string());
     for tag in [
-        format!("\"{PNG_SHA256}\""),
-        format!("W/\"{PNG_SHA256}\""),
+        format!("\"{AVIF_RGB_SHA256}\""),
+        format!("W/\"{AVIF_RGB_SHA256}\""),
         "*".into(),
     ] {
         let (status, headers, body) = send(
@@ -849,19 +860,21 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
         assert_eq!(status, StatusCode::NOT_MODIFIED);
         assert!(body.is_empty());
         assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
-        assert_eq!(headers[header::ETAG], format!("\"{PNG_SHA256}\""));
+        assert_eq!(headers[header::ETAG], format!("\"{AVIF_RGB_SHA256}\""));
     }
 
     // Every denial is the same anonymous not_found: stale/malformed SHA, unknown/malformed Work.
     for denied in [
-        format!("/api/v1/theatre/works/{work}/cover/{JPEG_SHA256}"),
+        format!("/api/v1/theatre/works/{work}/cover/{AVIF_JPEG_SHA256}"),
         format!(
             "/api/v1/theatre/works/{work}/cover/{}",
-            PNG_SHA256.to_uppercase()
+            AVIF_RGB_SHA256.to_uppercase()
         ),
         format!("/api/v1/theatre/works/{work}/cover/not-a-sha"),
-        format!("/api/v1/theatre/works/90000000-0000-4000-8000-000000000009/cover/{PNG_SHA256}"),
-        format!("/api/v1/theatre/works/not-a-work/cover/{PNG_SHA256}"),
+        format!(
+            "/api/v1/theatre/works/90000000-0000-4000-8000-000000000009/cover/{AVIF_RGB_SHA256}"
+        ),
+        format!("/api/v1/theatre/works/not-a-work/cover/{AVIF_RGB_SHA256}"),
     ] {
         let (status, headers, body) = send(&app, get(&denied).body(Body::empty()).unwrap()).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{denied}");
@@ -876,7 +889,7 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     let (status, headers, _) = send(
         &app,
         get(&path)
-            .header(header::IF_NONE_MATCH, format!("\"{PNG_SHA256}\""))
+            .header(header::IF_NONE_MATCH, format!("\"{AVIF_RGB_SHA256}\""))
             .body(Body::empty())
             .unwrap(),
     )
@@ -936,13 +949,13 @@ async fn avif_cover_intake_disclosure_and_origin_delivery_preserve_avif_content_
 async fn stored_bytes_that_contradict_the_admitted_hash_are_never_served() {
     let mut world = World::new().await;
     let a = world
-        .admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png)
+        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
     world.disclose(&a, Some(HOUR / 1000)).await.unwrap();
     let path = format!(
-        "/api/v1/theatre/works/{}/cover/{PNG_SHA256}",
+        "/api/v1/theatre/works/{}/cover/{AVIF_RGB_SHA256}",
         world.work.work_id
     );
     let app = world.router();
@@ -951,9 +964,9 @@ async fn stored_bytes_that_contradict_the_admitted_hash_are_never_served() {
         StatusCode::OK
     );
     // Same length, different bytes, at the exact recorded private object.
-    let object = find_object(&world.fixture.dir().join("private"), PNG_SHA256)
+    let object = find_object(&world.fixture.dir().join("private"), AVIF_RGB_SHA256)
         .expect("the admitted object is on disk");
-    let mut damaged = PNG.to_vec();
+    let mut damaged = AVIF_RGB.to_vec();
     let last = damaged.len() - 1;
     damaged[last] ^= 0xff;
     let mut permissions = std::fs::metadata(&object).unwrap().permissions();
@@ -1004,7 +1017,7 @@ async fn damaged_cover_rows_fall_back_without_hiding_the_title() {
         ),
     ] {
         let mut world = World::new().await;
-        let a = world.admit(PNG, PNG_SHA256, studio_dto::ImageMime::Png).await;
+        let a = world.admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif).await;
         world.select(Some(&a), ALT_A).await;
         world.republish().await;
         world.disclose(&a, Some(HOUR / 1000)).await.unwrap();
@@ -1028,7 +1041,7 @@ async fn damaged_cover_rows_fall_back_without_hiding_the_title() {
             .await
             .is_ok());
         assert_eq!(
-            refusal(service.admit_cover(&world.work.work_id, PNG_SHA256).await),
+            refusal(service.admit_cover(&world.work.work_id, AVIF_RGB_SHA256).await),
             ListenerError::NotFound,
             "{trigger}"
         );

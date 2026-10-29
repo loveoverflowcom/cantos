@@ -1,19 +1,16 @@
-use std::{io::Write, sync::Arc, time::Duration};
-
-use flate2::{write::ZlibEncoder, Compression};
-use proptest::prelude::*;
-
+use super::super::domain::image::MAX_IMAGE_DIMENSION;
 use super::*;
-
-const PNG: &[u8] = include_bytes!("fixtures/python-rgb-2x3.png");
-const PNG16: &[u8] = include_bytes!("fixtures/python-rgba16-2x3.png");
-const JPEG: &[u8] = include_bytes!("fixtures/pillow-rgb-2x3.jpg");
+use proptest::prelude::*;
+use std::{sync::Arc, time::Duration};
 const AVIF: &[u8] = include_bytes!("fixtures/ffmpeg-yuv420p-2x3.avif");
-
+const CONVERTED: [&[u8]; 3] = [
+    include_bytes!("fixtures/python-rgb-2x3.avif"),
+    include_bytes!("fixtures/python-rgba16-2x3.avif"),
+    include_bytes!("fixtures/pillow-rgb-2x3.avif"),
+];
 fn lanes() -> Arc<Semaphore> {
     Arc::new(Semaphore::new(2))
 }
-
 fn inspect(bytes: &[u8], mime: ImageMime) -> Result<VerifiedImage, ImageIntakeError> {
     inspect_body(
         AdmittedBody {
@@ -23,350 +20,97 @@ fn inspect(bytes: &[u8], mime: ImageMime) -> Result<VerifiedImage, ImageIntakeEr
         mime,
     )
 }
-
 #[test]
-fn independent_png_jpeg_and_sixteen_bit_fixtures_decode_exactly() {
-    // PNGs are Python struct/zlib, JPEG is Pillow12.3.0/libjpeg. SHA256 expectations
-    // are independently computed by Python hashlib, not by the Rust acceptance code.
-    for (bytes, mime, hash) in [
-        (
-            PNG,
-            ImageMime::Png,
-            "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
-        ),
-        (
-            PNG16,
-            ImageMime::Png,
-            "1e2725064b73e8bdc0c7056ae8bf2d7f17dbcae5a7dac2d5f13fc398076c357d",
-        ),
-        (
-            JPEG,
-            ImageMime::Jpeg,
-            "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
-        ),
-        (
-            AVIF,
-            ImageMime::Avif,
-            "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257",
-        ),
-    ] {
-        let verified = inspect(bytes, mime).unwrap();
+fn independent_and_converted_avif_fixtures_decode_pixels_and_preserve_original_identity() {
+    let records: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/conversions.json")).unwrap();
+    for (bytes, record) in CONVERTED.into_iter().zip(records.as_array().unwrap()) {
+        let verified = inspect(bytes, ImageMime::Avif).unwrap();
         assert_eq!(verified.bytes(), bytes);
-        assert_eq!(verified.metadata().sha256(), hash);
-        assert_eq!(verified.metadata().byte_length(), bytes.len() as u64);
-        assert_eq!(verified.metadata().content_type(), mime);
-        assert_eq!(verified.metadata().width_px(), 2);
-        assert_eq!(verified.metadata().height_px(), 3);
-    }
-}
-
-#[test]
-fn empty_oversize_unsupported_and_spoofed_formats_are_closed_errors() {
-    assert_eq!(
-        inspect(&[], ImageMime::Png).unwrap_err(),
-        ImageIntakeError::EmptyImage
-    );
-    assert_eq!(
-        inspect(&vec![0; MAX_IMAGE_BYTES as usize + 1], ImageMime::Png).unwrap_err(),
-        ImageIntakeError::ImageTooLarge,
-    );
-    for bytes in [
-        b"<svg></svg>".as_slice(),
-        b"<html></html>",
-        b"GIF89a",
-        b"RIFFxxxxWEBP",
-        b"OggS",
-        &[0; 20],
-    ] {
         assert_eq!(
-            inspect(bytes, ImageMime::Png).unwrap_err(),
-            ImageIntakeError::UnsupportedFormat
+            verified.metadata().sha256(),
+            record["sha256"].as_str().unwrap()
+        );
+        assert_eq!(verified.metadata().byte_length(), bytes.len() as u64);
+        assert_eq!(
+            (
+                verified.metadata().width_px(),
+                verified.metadata().height_px()
+            ),
+            (2, 3)
         );
     }
     assert_eq!(
-        inspect(PNG, ImageMime::Jpeg).unwrap_err(),
-        ImageIntakeError::FormatMismatch
-    );
-    assert_eq!(
-        inspect(JPEG, ImageMime::Png).unwrap_err(),
-        ImageIntakeError::FormatMismatch
-    );
-    assert_eq!(
-        inspect(PNG, ImageMime::Avif).unwrap_err(),
-        ImageIntakeError::FormatMismatch
-    );
-    assert_eq!(
-        inspect(AVIF, ImageMime::Png).unwrap_err(),
-        ImageIntakeError::FormatMismatch
-    );
-    assert_eq!(
-        inspect(AVIF, ImageMime::Jpeg).unwrap_err(),
-        ImageIntakeError::FormatMismatch
+        inspect(AVIF, ImageMime::Avif).unwrap().metadata().sha256(),
+        "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257"
     );
 }
-
 #[test]
-fn exact_encoded_limit_preserves_private_ancillary_metadata() {
-    let extra_length = MAX_IMAGE_BYTES as usize - PNG.len() - 12;
-    let mut text = vec![b'x'; extra_length];
-    text[..5].copy_from_slice(b"note\0");
-    let encoded = [
-        &PNG[..PNG.len() - 12],
-        &chunk(b"tEXt", &text),
-        &PNG[PNG.len() - 12..],
-    ]
-    .concat();
-    assert_eq!(encoded.len() as u64, MAX_IMAGE_BYTES);
-    let verified = inspect(&encoded, ImageMime::Png).unwrap();
-    assert_eq!(verified.bytes(), encoded);
-    assert_eq!(verified.metadata().byte_length(), MAX_IMAGE_BYTES);
+fn legacy_actual_bytes_are_rejection_vectors_never_positive_admission() {
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/legacy-rejection.json")).unwrap();
+    for (name, value) in vectors.as_object().unwrap() {
+        let hex = value.as_str().unwrap();
+        let bytes: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect();
+        let mime = if name.ends_with("jpg") {
+            ImageMime::Jpeg
+        } else {
+            ImageMime::Png
+        };
+        assert_eq!(
+            inspect(&bytes, mime).unwrap_err(),
+            ImageIntakeError::UnsupportedFormat
+        );
+        assert_eq!(
+            inspect(&bytes, ImageMime::Avif).unwrap_err(),
+            ImageIntakeError::FormatMismatch
+        );
+    }
+    for mime in [ImageMime::Png, ImageMime::Jpeg] {
+        assert_eq!(
+            inspect(AVIF, mime).unwrap_err(),
+            ImageIntakeError::FormatMismatch
+        );
+    }
 }
-
 #[test]
-fn every_truncated_fixture_and_header_only_input_is_rejected() {
-    for (fixture, mime) in [
-        (PNG, ImageMime::Png),
-        (PNG16, ImageMime::Png),
-        (JPEG, ImageMime::Jpeg),
-        (AVIF, ImageMime::Avif),
-    ] {
-        for length in 0..fixture.len() {
+fn empty_oversized_truncated_and_appended_avif_fail_closed() {
+    assert_eq!(
+        inspect(&[], ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::EmptyImage
+    );
+    assert_eq!(
+        inspect(&vec![0; MAX_IMAGE_BYTES as usize + 1], ImageMime::Avif).unwrap_err(),
+        ImageIntakeError::ImageTooLarge
+    );
+    for fixture in [AVIF, CONVERTED[0], CONVERTED[1], CONVERTED[2]] {
+        for length in 1..fixture.len() {
             assert!(
-                inspect(&fixture[..length], mime).is_err(),
-                "accepted prefix {length} of {}",
-                fixture.len()
+                inspect(&fixture[..length], ImageMime::Avif).is_err(),
+                "accepted truncated {length}"
             );
         }
-    }
-    assert_eq!(
-        inspect(&PNG[..33], ImageMime::Png).unwrap_err(),
-        ImageIntakeError::MalformedImage
-    );
-    assert_eq!(
-        inspect(&[0xff, 0xd8, 0xff, 0xd9], ImageMime::Jpeg).unwrap_err(),
-        ImageIntakeError::MalformedImage
-    );
-}
-
-#[test]
-fn appended_payloads_and_second_images_are_rejected() {
-    for (fixture, mime) in [
-        (PNG, ImageMime::Png),
-        (JPEG, ImageMime::Jpeg),
-        (AVIF, ImageMime::Avif),
-    ] {
-        for suffix in [b"<script>untrusted</script>".as_slice(), fixture] {
-            let bytes = [fixture, suffix].concat();
+        for suffix in [b"untrusted".as_slice(), fixture] {
             assert_eq!(
-                inspect(&bytes, mime).unwrap_err(),
+                inspect(&[fixture, suffix].concat(), ImageMime::Avif).unwrap_err(),
                 ImageIntakeError::MalformedImage
             );
         }
     }
 }
-
-// Test-only encoding helpers synthesize hostile envelopes without depending on image's encoder.
-fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
-    let mut bytes = (data.len() as u32).to_be_bytes().to_vec();
-    bytes.extend_from_slice(kind);
-    bytes.extend_from_slice(data);
-    let mut crc = !0_u32;
-    for byte in bytes[4..].iter().copied() {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            crc = (crc >> 1) ^ (0xedb8_8320_u32 & 0_u32.wrapping_sub(crc & 1));
-        }
-    }
-    bytes.extend_from_slice(&(!crc).to_be_bytes());
-    bytes
-}
-
-fn compressed_zeros(length: usize) -> Vec<u8> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
-    let zeros = [0; 16 * 1024];
-    let mut remaining = length;
-    while remaining > 0 {
-        let count = remaining.min(zeros.len());
-        encoder.write_all(&zeros[..count]).unwrap();
-        remaining -= count;
-    }
-    encoder.finish().unwrap()
-}
-
-fn png_header(width: u32, height: u32, depth: u8, color: u8) -> Vec<u8> {
-    let mut header = width.to_be_bytes().to_vec();
-    header.extend_from_slice(&height.to_be_bytes());
-    header.extend_from_slice(&[depth, color, 0, 0, 0]);
-    [b"\x89PNG\r\n\x1a\n".as_slice(), &chunk(b"IHDR", &header)].concat()
-}
-
-fn png_with_header(width: u32, height: u32, depth: u8, color: u8) -> Vec<u8> {
-    [
-        png_header(width, height, depth, color),
-        chunk(b"IDAT", &compressed_zeros(1)),
-        chunk(b"IEND", &[]),
-    ]
-    .concat()
-}
-
 #[test]
-fn apng_is_rejected_even_when_animation_chunks_follow_pixels() {
-    for (kind, payload) in [
-        (b"acTL", vec![0, 0, 0, 1, 0, 0, 0, 0]),
-        (b"fcTL", vec![0; 26]),
-        (b"fdAT", vec![0; 4]),
-    ] {
-        for offset in [33, PNG.len() - 12] {
-            let bytes = [&PNG[..offset], &chunk(kind, &payload), &PNG[offset..]].concat();
-            assert_eq!(
-                inspect(&bytes, ImageMime::Png).unwrap_err(),
-                ImageIntakeError::AnimatedImage
-            );
-        }
-    }
-}
-
-#[test]
-fn hostile_dimensions_and_real_sixteen_bit_sample_layout_are_bounded_before_decode() {
-    for (width, height) in [(4097, 1), (1, 4097), (u32::MAX, u32::MAX)] {
-        assert_eq!(
-            inspect(&png_with_header(width, height, 8, 6), ImageMime::Png).unwrap_err(),
-            ImageIntakeError::ImageLimit
-        );
-    }
-    // Valid dimensions/pixel product would fit RGBA8, but actual RGBA16 output is 128MiB.
-    // The deliberately tiny IDAT cannot reach decoding: sample-layout rejection happens first.
+fn corrupt_entropy_tiles_are_rejected_even_with_valid_container_headers() {
+    let mut bytes = AVIF.to_vec();
+    let end = bytes.len();
+    bytes[end - 8..].fill(0xff);
     assert_eq!(
-        inspect(&png_with_header(4096, 4096, 16, 6), ImageMime::Png).unwrap_err(),
-        ImageIntakeError::ImageLimit
-    );
-    let mut jpeg = JPEG.to_vec();
-    let frame = jpeg
-        .windows(2)
-        .position(|bytes| bytes == [0xff, 0xc0])
-        .unwrap();
-    jpeg[frame + 5..frame + 9].copy_from_slice(&[0xff; 4]);
-    assert_eq!(
-        inspect(&jpeg, ImageMime::Jpeg).unwrap_err(),
-        ImageIntakeError::ImageLimit
-    );
-}
-
-#[test]
-fn max_rgba8_output_actually_decodes_at_the_exact_bound() {
-    let encoded = [
-        png_header(4096, 4096, 8, 6),
-        chunk(b"IDAT", &compressed_zeros(4096 * (1 + 4096 * 4))),
-        chunk(b"IEND", &[]),
-    ]
-    .concat();
-    assert!((encoded.len() as u64) < MAX_IMAGE_BYTES);
-    let verified = inspect(&encoded, ImageMime::Png).unwrap();
-    assert_eq!(
-        (
-            verified.metadata().width_px(),
-            verified.metadata().height_px()
-        ),
-        (4096, 4096)
-    );
-    assert_eq!(verified.bytes(), encoded);
-}
-
-#[test]
-fn hostile_chunk_lengths_metadata_decompression_and_invalid_pixels_fail_closed() {
-    let length_bomb = [b"\x89PNG\r\n\x1a\n".as_slice(), &[0xff; 4], b"iCCP"].concat();
-    assert_eq!(
-        inspect(&length_bomb, ImageMime::Png).unwrap_err(),
+        inspect(&bytes, ImageMime::Avif).unwrap_err(),
         ImageIntakeError::MalformedImage
     );
-    let jpeg_length_bomb = [0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff];
-    assert_eq!(
-        inspect(&jpeg_length_bomb, ImageMime::Jpeg).unwrap_err(),
-        ImageIntakeError::MalformedImage
-    );
-    // Bounded encoded bytes expand an ICC profile beyond the pre-constructor PNG budget.
-    let mut iccp = b"synthetic\0\0".to_vec();
-    iccp.extend_from_slice(&compressed_zeros(MAX_DECODED_IMAGE_BYTES as usize + 1));
-    let overloaded = [&PNG[..33], &chunk(b"iCCP", &iccp), &PNG[33..]].concat();
-    assert!((overloaded.len() as u64) < MAX_IMAGE_BYTES);
-    // Characterize upstream permissiveness: it silently drops the over-budget profile,
-    // even though its independent decompressor's output budget is enforced.
-    let mut permissive = PngDecoder::with_limits(Cursor::new(&overloaded), limits()).unwrap();
-    assert!(permissive.icc_profile().unwrap().is_none());
-    permissive.read_image(&mut [0; 18]).unwrap();
-    assert_eq!(
-        inspect(&overloaded, ImageMime::Png).unwrap_err(),
-        ImageIntakeError::MalformedImage
-    );
-    assert!(inspect(&png_with_header(2, 3, 8, 6), ImageMime::Png).is_err());
-    let mut bad_crc = PNG.to_vec();
-    bad_crc[29] ^= 1;
-    assert!(inspect(&bad_crc, ImageMime::Png).is_err());
 }
-
-fn icc_payload() -> Vec<u8> {
-    let mut profile = vec![0; 132];
-    profile[..4].copy_from_slice(&132_u32.to_be_bytes());
-    profile[8..12].copy_from_slice(&[4, 0x30, 0, 0]);
-    profile[12..16].copy_from_slice(b"mntr");
-    profile[16..20].copy_from_slice(b"RGB ");
-    profile[20..24].copy_from_slice(b"XYZ ");
-    profile[36..40].copy_from_slice(b"acsp");
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
-    encoder.write_all(&profile).unwrap();
-    [b"synthetic\0\0".as_slice(), &encoder.finish().unwrap()].concat()
-}
-
-#[test]
-fn parsed_private_icc_is_retained_but_malformed_duplicate_and_late_profiles_are_rejected() {
-    let iccp = chunk(b"iCCP", &icc_payload());
-    let valid = [&PNG[..33], &iccp, &PNG[33..]].concat();
-    assert_eq!(inspect(&valid, ImageMime::Png).unwrap().bytes(), valid);
-    let mut decoder = PngDecoder::with_limits(Cursor::new(&valid), limits()).unwrap();
-    assert_eq!(decoder.icc_profile().unwrap().unwrap().len(), 132);
-    let malformed = [
-        &PNG[..33],
-        &chunk(b"iCCP", b"synthetic\0\0malformed zlib"),
-        &PNG[33..],
-    ]
-    .concat();
-    let duplicate = [&PNG[..33], &iccp, &iccp, &PNG[33..]].concat();
-    let late = [&PNG[..PNG.len() - 12], &iccp, &PNG[PNG.len() - 12..]].concat();
-    for bytes in [malformed, duplicate, late] {
-        assert_eq!(
-            inspect(&bytes, ImageMime::Png).unwrap_err(),
-            ImageIntakeError::MalformedImage
-        );
-    }
-}
-
-fn with_exif(jpeg: &[u8], orientation: u16) -> Vec<u8> {
-    let mut exif = b"Exif\0\0II\x2a\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0".to_vec();
-    exif.extend_from_slice(&orientation.to_le_bytes());
-    exif.extend_from_slice(&[0; 6]);
-    let mut segment = vec![0xff, 0xe1];
-    segment.extend_from_slice(&((exif.len() + 2) as u16).to_be_bytes());
-    segment.extend_from_slice(&exif);
-    [&jpeg[..2], &segment, &jpeg[2..]].concat()
-}
-
-#[test]
-fn every_nonidentity_exif_orientation_and_duplicate_exif_rotation_is_rejected() {
-    let identity = with_exif(JPEG, 1);
-    assert!(inspect(&identity, ImageMime::Jpeg).is_ok());
-    for orientation in 2..=8 {
-        assert_eq!(
-            inspect(&with_exif(JPEG, orientation), ImageMime::Jpeg).unwrap_err(),
-            ImageIntakeError::NonIdentityOrientation
-        );
-        let hidden = with_exif(&with_exif(JPEG, orientation), 1);
-        assert_eq!(
-            inspect(&hidden, ImageMime::Jpeg).unwrap_err(),
-            ImageIntakeError::NonIdentityOrientation
-        );
-    }
-}
-
 #[tokio::test]
 async fn two_admissions_refuse_a_third_and_success_keeps_its_body_lane_until_drop() {
     let lanes = lanes();
@@ -376,7 +120,7 @@ async fn two_admissions_refuse_a_third_and_success_keeps_its_body_lane_until_dro
         ImageAdmission::from_lanes(lanes.clone()).unwrap_err(),
         ImageIntakeError::AdmissionBusy
     );
-    let verified = first.inspect(PNG.to_vec(), ImageMime::Png).await.unwrap();
+    let verified = first.inspect(AVIF.to_vec(), ImageMime::Avif).await.unwrap();
     assert_eq!(lanes.available_permits(), 0);
     drop(second);
     assert_eq!(lanes.available_permits(), 1);
@@ -388,7 +132,7 @@ async fn two_admissions_refuse_a_third_and_success_keeps_its_body_lane_until_dro
 async fn unpolled_inspection_future_owns_the_body_and_releases_its_lane_on_drop() {
     let lanes = lanes();
     let admission = ImageAdmission::from_lanes(lanes.clone()).unwrap();
-    let future = admission.inspect(PNG.to_vec(), ImageMime::Png);
+    let future = admission.inspect(AVIF.to_vec(), ImageMime::Avif);
     assert_eq!(lanes.available_permits(), 1);
     drop(future);
     assert_eq!(lanes.available_permits(), 2);
@@ -401,10 +145,10 @@ async fn cancellation_after_blocking_start_retains_admission_until_worker_and_bo
     let _second = ImageAdmission::from_lanes(lanes.clone()).unwrap();
     let (started_tx, started_rx) = tokio::sync::oneshot::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
-    let task = tokio::spawn(first.run_blocking(PNG.to_vec(), move |body| {
+    let task = tokio::spawn(first.run_blocking(AVIF.to_vec(), move |body| {
         started_tx.send(()).unwrap();
         release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
-        inspect_body(body, ImageMime::Png)
+        inspect_body(body, ImageMime::Avif)
     }));
     started_rx.await.unwrap();
     task.abort();
@@ -430,7 +174,7 @@ async fn rejected_bytes_and_panicking_blocking_worker_release_admission() {
     let admission = ImageAdmission::from_lanes(lanes.clone()).unwrap();
     assert_eq!(
         admission
-            .inspect(vec![1, 2], ImageMime::Png)
+            .inspect(vec![1, 2], ImageMime::Avif)
             .await
             .unwrap_err(),
         ImageIntakeError::UnsupportedFormat
@@ -439,7 +183,7 @@ async fn rejected_bytes_and_panicking_blocking_worker_release_admission() {
     let admission = ImageAdmission::from_lanes(lanes.clone()).unwrap();
     assert_eq!(
         admission
-            .run_blocking(PNG.to_vec(), |_body| panic!("synthetic decoder panic"))
+            .run_blocking(AVIF.to_vec(), |_body| panic!("synthetic decoder panic"))
             .await
             .unwrap_err(),
         ImageIntakeError::InspectionUnavailable
@@ -452,9 +196,8 @@ proptest! {
     #[test]
     fn arbitrary_bounded_bytes_never_panic_and_success_has_checked_original_facts(
         bytes in proptest::collection::vec(any::<u8>(), 0..8192),
-        png in any::<bool>(),
     ) {
-        let mime = if png { ImageMime::Png } else { ImageMime::Jpeg };
+        let mime = ImageMime::Avif;
         if let Ok(verified) = inspect(&bytes, mime) {
             prop_assert_eq!(verified.bytes(), bytes.as_slice());
             prop_assert_eq!(verified.metadata().byte_length(), bytes.len() as u64);
@@ -537,12 +280,7 @@ fn avif_animation_orientation_and_dimension_limits_fail_closed() {
 
 #[test]
 fn deterministic_mutations_reach_real_decoders_without_panicking() {
-    for (fixture, mime) in [
-        (PNG, ImageMime::Png),
-        (PNG16, ImageMime::Png),
-        (JPEG, ImageMime::Jpeg),
-        (AVIF, ImageMime::Avif),
-    ] {
+    for (fixture, mime) in [(AVIF, ImageMime::Avif)] {
         for index in 0..fixture.len() {
             let mut bytes = fixture.to_vec();
             bytes[index] ^= 0xff;

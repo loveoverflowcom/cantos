@@ -32,7 +32,7 @@ fn fixture(stage: Stage) -> Projection {
         id: "00000000-0000-4000-8000-000000000002".into(),
         expected_sha256: "ab".repeat(32),
         expected_byte_length: 128,
-        content_type: ImageMime::Png,
+        content_type: ImageMime::Avif,
         declarations: declarations.clone(),
     };
     let intent = ImageIntentDocument {
@@ -56,7 +56,7 @@ fn fixture(stage: Stage) -> Projection {
         verified_media: ImageVariantMetadata {
             sha256: "ab".repeat(32),
             byte_length: 128,
-            content_type: ImageMime::Png,
+            content_type: ImageMime::Avif,
             width_px: 320,
             height_px: 240,
             profile_id: "cover-image-v1".into(),
@@ -105,7 +105,7 @@ fn fixture(stage: Stage) -> Projection {
             name: "anh_den_cuoi_san_khau.png".into(),
             bytes: Arc::new(vec![0; 128]),
             sha256: "ab".repeat(32),
-            mime: ImageMime::Png,
+            mime: ImageMime::Avif,
             width: 320,
             height: 240,
             url: IMAGE.into(),

@@ -137,14 +137,14 @@ mod tests {
     async fn image_payload_facts_come_from_complete_actual_byte_inspection() {
         for (bytes, mime, hash) in [
             (
-                include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice(),
-                ImageMime::Png,
-                "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
+                include_bytes!("../image_intake/fixtures/python-rgb-2x3.avif").as_slice(),
+                ImageMime::Avif,
+                "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f",
             ),
             (
-                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
-                ImageMime::Jpeg,
-                "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
+                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.avif").as_slice(),
+                ImageMime::Avif,
+                "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3",
             ),
         ] {
             let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(

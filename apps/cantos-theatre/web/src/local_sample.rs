@@ -1174,7 +1174,7 @@ mod tests {
             cover: Some(SampleCover {
                 path: sample_cover_path(id, &sha256),
                 sha256,
-                content_type: CoverMime::Png,
+                content_type: CoverMime::Avif,
                 width_px: 1024,
                 height_px: 1536,
                 byte_length: 4096,
