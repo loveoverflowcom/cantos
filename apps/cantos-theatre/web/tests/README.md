@@ -18,6 +18,19 @@ catalogue, but the input, result button, route, renderer disposal and browser co
 The regression throws with a `report` when navigation fails or emits an error. Persist that
 report for a red run; a returned `status: PASS` is the green result.
 
+For keyboard clear, start with a nonempty applied query that excludes another known work:
+
+```js
+await searchClearKeyboardLifetime(tab, {
+  restoredWorkId: "10000000-0000-4000-8000-000000000002",
+});
+```
+
+This activates the conditional clear action with Enter, checks empty draft/input focus, then
+submits and requires that work to return without a console error. Use a fresh document after
+a panic. When alternating local build artifacts, use distinct page query strings so an older
+HTML timestamp cannot produce a cached document with missing hashed modules.
+
 This is a browser-only regression, not a Node CLI, injected DOM event or native SSR assertion.
 Ordinary CI does not start CUA or a browser. Record the source/build, browser, HTTP fixture or
 live backend, parameters and result separately; native format/lint/tests cannot prove this
