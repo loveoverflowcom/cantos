@@ -235,18 +235,54 @@ enum SearchKeyAction {
     Collapse,
     FirstResult,
     LastResult,
+    NextResult,
+    PreviousResult,
     Submit,
 }
 
-fn search_key_action(key: &str, composing: bool, code: u32, text_field: bool) -> SearchKeyAction {
+/// What asked to apply the form's query.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ApplyTrigger {
+    /// Enter in the field or the magnifier: the listener is searching.
+    Search,
+    /// A kind chip narrows the catalogue; it never asks to see the search layer.
+    KindChip,
+}
+
+/// The layer is presentation, not part of the applied query: only searching opens it.
+const fn opens_layer(trigger: ApplyTrigger) -> bool {
+    matches!(trigger, ApplyTrigger::Search)
+}
+
+/// Where a key was pressed inside the search form.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyTarget {
+    TextField,
+    Result,
+    Other,
+}
+
+fn key_target(event: &leptos::ev::KeyboardEvent) -> KeyTarget {
+    if from_text_field(event) {
+        KeyTarget::TextField
+    } else if crate::platform::key_is_on_result(event) {
+        KeyTarget::Result
+    } else {
+        KeyTarget::Other
+    }
+}
+
+fn search_key_action(key: &str, composing: bool, code: u32, target: KeyTarget) -> SearchKeyAction {
     if composing || code == 229 {
         return SearchKeyAction::Ignore;
     }
-    match (key, text_field) {
+    match (key, target) {
         ("Escape", _) => SearchKeyAction::Collapse,
-        ("ArrowDown", true) => SearchKeyAction::FirstResult,
-        ("ArrowUp", true) => SearchKeyAction::LastResult,
-        ("Enter", true) => SearchKeyAction::Submit,
+        ("ArrowDown", KeyTarget::TextField) => SearchKeyAction::FirstResult,
+        ("ArrowUp", KeyTarget::TextField) => SearchKeyAction::LastResult,
+        ("ArrowDown", KeyTarget::Result) => SearchKeyAction::NextResult,
+        ("ArrowUp", KeyTarget::Result) => SearchKeyAction::PreviousResult,
+        ("Enter", KeyTarget::TextField) => SearchKeyAction::Submit,
         _ => SearchKeyAction::Ignore,
     }
 }
@@ -340,11 +376,14 @@ fn SearchForm(
     });
     // Discovery never narrows by content language (#424). The listener's earlier language choice
     // is the interface locale, not a catalogue filter; no content-language preference exists yet.
-    let submit = move || {
+    // Applying a query and opening the layer are separate intents (`opens_layer`).
+    let apply = move |trigger: ApplyTrigger| {
         if composing.get_untracked() {
             return;
         }
-        expanded.set(true);
+        if opens_layer(trigger) {
+            expanded.set(true);
+        }
         match DiscoveryQuery::new(&search.get_untracked(), kind.get_untracked(), "") {
             Ok(query) => {
                 error.set(None);
@@ -353,12 +392,12 @@ fn SearchForm(
             Err(refused) => error.set(Some(refused)),
         }
     };
+    let submit = move || apply(ApplyTrigger::Search);
     let search_error = Signal::derive(move || {
         error
             .get()
             .map(|e| text(query_error_key(e), locale.get()).to_owned())
     });
-    let filtered = move || !applied.get().is_unfiltered();
     view! {
         <div node_ref=panel class="theatre-public-search"
             on:focusin=move |event| { if !restoring.get_untracked() && crate::platform::focus_is_search_input(&event) { expanded.set(true); } }
@@ -366,10 +405,12 @@ fn SearchForm(
             // Observe input clicks before a dock result can navigate and dispose this panel.
             // A delegated bubble handler would be visited after its callback was dropped.
             on:click:capture=move |event| { if crate::platform::click_is_search_input(&event) { expanded.set(true); } }
+            // A press on the layer's own background must not move focus off the input or a result.
+            on:mousedown=move |event| { if crate::platform::press_on_layer_background(&event) { event.prevent_default(); } }
             on:keydown=move |event| {
                 // Enter in a text field applies the search, except while an input method is
                 // composing. On a chip or button it keeps its own activation.
-                match search_key_action(&event.key(), event.is_composing() || composing.get_untracked(), event.key_code(), from_text_field(&event)) {
+                match search_key_action(&event.key(), event.is_composing() || composing.get_untracked(), event.key_code(), key_target(&event)) {
                     SearchKeyAction::Ignore => {},
                     SearchKeyAction::Collapse => {
                         event.prevent_default(); restoring.set(true);
@@ -379,6 +420,10 @@ fn SearchForm(
                     SearchKeyAction::FirstResult | SearchKeyAction::LastResult => {
                         event.prevent_default(); expanded.set(true);
                         crate::platform::focus_search_result(panel, event.key() == "ArrowUp");
+                    }
+                    SearchKeyAction::NextResult | SearchKeyAction::PreviousResult => {
+                        event.prevent_default();
+                        crate::platform::step_search_result(panel, event.key() == "ArrowDown");
                     }
                     SearchKeyAction::Submit => { event.prevent_default(); submit(); }
                 }
@@ -438,20 +483,11 @@ fn SearchForm(
                                 if state.with(|s| pending_chip(s, choice)) {
                                     DisabledReason::new(text(Key::PublicHomeLoading, locale.get())).ok().map(ButtonState::Loading).unwrap_or_default()
                                 } else { ButtonState::Enabled }
-                            }) on_change=Callback::new(move |_| { kind.set(choice); submit(); })>
+                            }) on_change=Callback::new(move |_| { kind.set(choice); apply(ApplyTrigger::KindChip); })>
                             {move || text(choice.map_or(Key::DiscoveryKindAll, messages::work_kind_key), locale.get())}
                         </FilterChip>
                     }).collect_view()}
                 </div>
-                <Show when=filtered>
-                    <Button id="theatre-discovery-clear" icon=IconName::Close variant=ButtonVariant::Text
-                        on_press=Callback::new(move |_| {
-                            on_search.run(DiscoveryQuery::default());
-                            crate::platform::restore_disappearing_action_focus(panel, "theatre-discovery-search");
-                        })>
-                        {move || text(Key::DiscoveryClear, locale.get())}
-                    </Button>
-                </Show>
             </div>
         </div>
     }
@@ -707,30 +743,62 @@ mod tests {
     fn search_keyboard_never_commits_or_dismisses_an_active_ime_and_native_buttons_keep_enter() {
         for key in ["Enter", "Escape", "ArrowDown", "ArrowUp"] {
             assert_eq!(
-                search_key_action(key, true, 13, true),
+                search_key_action(key, true, 13, KeyTarget::TextField),
                 SearchKeyAction::Ignore
             );
             assert_eq!(
-                search_key_action(key, false, 229, true),
+                search_key_action(key, false, 229, KeyTarget::TextField),
                 SearchKeyAction::Ignore
             );
         }
         assert_eq!(
-            search_key_action("Enter", false, 13, true),
+            search_key_action("Enter", false, 13, KeyTarget::TextField),
             SearchKeyAction::Submit
         );
         assert_eq!(
-            search_key_action("Enter", false, 13, false),
+            search_key_action("Enter", false, 13, KeyTarget::Other),
             SearchKeyAction::Ignore
         );
         assert_eq!(
-            search_key_action("Escape", false, 27, false),
+            search_key_action("Escape", false, 27, KeyTarget::Other),
             SearchKeyAction::Collapse
         );
         assert_eq!(
-            search_key_action("Tab", false, 9, true),
+            search_key_action("Tab", false, 9, KeyTarget::TextField),
             SearchKeyAction::Ignore
         );
+    }
+
+    #[test]
+    fn arrows_enter_the_list_from_the_field_and_step_through_it_from_a_result() {
+        let act = |key, target| search_key_action(key, false, 0, target);
+        assert_eq!(
+            act("ArrowDown", KeyTarget::TextField),
+            SearchKeyAction::FirstResult
+        );
+        assert_eq!(
+            act("ArrowUp", KeyTarget::TextField),
+            SearchKeyAction::LastResult
+        );
+        assert_eq!(
+            act("ArrowDown", KeyTarget::Result),
+            SearchKeyAction::NextResult
+        );
+        assert_eq!(
+            act("ArrowUp", KeyTarget::Result),
+            SearchKeyAction::PreviousResult
+        );
+        // A chip or the clear/search buttons keep their own arrow behavior; Enter on a result is
+        // its native button activation, never a second submit.
+        assert_eq!(act("ArrowDown", KeyTarget::Other), SearchKeyAction::Ignore);
+        assert_eq!(act("Enter", KeyTarget::Result), SearchKeyAction::Ignore);
+        assert_eq!(act("Escape", KeyTarget::Result), SearchKeyAction::Collapse);
+        for key in ["ArrowDown", "ArrowUp"] {
+            assert_eq!(
+                search_key_action(key, true, 40, KeyTarget::Result),
+                SearchKeyAction::Ignore
+            );
+        }
     }
 
     fn guest_account() -> RwSignal<AccountViewState> {
@@ -1037,28 +1105,38 @@ mod tests {
     }
 
     #[test]
-    fn the_form_mirrors_the_applied_search_and_can_always_clear_it() {
+    fn the_form_mirrors_the_applied_search_and_offers_no_clear_all_action() {
         let applied = DiscoveryQuery::new("lời hẹn", Some(WorkKind::Podcast), "").unwrap();
-        let html = render_with(
-            answered(applied.clone(), Ok(page(vec![], None))),
-            applied,
-            Locale::Vietnamese,
-        );
-        assert!(html.contains("value=\"lời hẹn\""), "{html}");
-        assert!(
-            html.contains("theatre-discovery-clear") && html.contains("Xóa tìm kiếm và bộ lọc")
-        );
-        let pressed: Vec<&str> = html
-            .match_indices("aria-pressed=\"true\"")
-            .map(|(i, _)| &html[i.saturating_sub(80)..i])
-            .collect();
-        assert_eq!(pressed.len(), 1);
-        assert!(pressed[0].contains("theatre-filter-podcast"), "{pressed:?}");
+        for locale in [Locale::Vietnamese, Locale::English] {
+            let html = render_with(
+                answered(applied.clone(), Ok(page(vec![], None))),
+                applied.clone(),
+                locale,
+            );
+            assert!(html.contains("value=\"lời hẹn\""), "{html}");
+            assert!(!html.contains("theatre-discovery-clear"), "{locale:?}");
+            assert!(!html.contains("Xóa tìm kiếm và bộ lọc"), "{locale:?}");
+            assert!(!html.contains("Clear search and filters"), "{locale:?}");
+            // The text is cleared by the field's own action; the kind by the all-types chip.
+            assert!(html.contains("theatre-search-clear-input"), "{locale:?}");
+            let pressed: Vec<&str> = html
+                .match_indices("aria-pressed=\"true\"")
+                .map(|(i, _)| &html[i.saturating_sub(80)..i])
+                .collect();
+            assert_eq!(pressed.len(), 1);
+            assert!(pressed[0].contains("theatre-filter-podcast"), "{pressed:?}");
+        }
         let plain = render(PublicDiscoveryState::default(), Locale::Vietnamese);
         assert!(!plain.contains("theatre-discovery-clear"));
         for kind in ["all", "novel", "story", "podcast"] {
             assert!(plain.contains(&format!("theatre-filter-{kind}")), "{kind}");
         }
+    }
+
+    #[test]
+    fn only_searching_opens_the_layer_never_a_kind_chip() {
+        assert!(opens_layer(ApplyTrigger::Search));
+        assert!(!opens_layer(ApplyTrigger::KindChip));
     }
 
     #[test]

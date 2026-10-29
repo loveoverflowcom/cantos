@@ -86,9 +86,14 @@ The intro and shared Floating search use the canonical Theatre hero/heading role
 extends that same `TextField` shell with an inert-on-collapse dock, one trailing magnifier and a
 separate Clear control. Its body shows the current real Discovery rows and loading/error/empty
 states; there is no autocomplete API. Typing alone never submits on Web. Enter/magnifier retain
-IME guards, validation, raw query and URL/Back/Forward semantics. Collapse keeps the draft query;
-Clear restores input focus. The body scrolls inside bounds measured from the visual viewport,
-including its keyboard resize, and respects safe-area/reduced-motion policy. Filters stay outside.
+IME guards, validation, raw query and URL/Back/Forward semantics. Escape, an outside press or
+focus leaving the field closes the layer and keeps the draft query; the field's own Clear action
+restores input focus. Only searching (focus, typing, Enter, the magnifier) opens the layer: a kind
+chip applies its filter and never opens it, and there is no separate clear-all action (Clear the
+text, then choose All types). Arrow keys step through the rows. The body scrolls inside bounds
+measured from the visual viewport and re-measured when the field moves; opening or a keyboard
+resize scrolls the page just enough to keep it above the fold. Safe-area/reduced-motion policy
+applies. Filters stay outside.
 Shared component preview qualification and browser/device coverage are recorded independently.
 
 The [app-owned empty artwork](empty-artwork.md) is packaged from the actual v4 handoff,

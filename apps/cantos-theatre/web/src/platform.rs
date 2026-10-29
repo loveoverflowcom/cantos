@@ -176,44 +176,6 @@ pub(crate) fn focus_in_signup(panel: NodeRef<leptos::html::Div>, id: &'static st
     let _ = (panel, id);
 }
 
-/// A cleared search removes its Clear action. Restore a useful target only if that removal
-/// lost focus; a listener who already moved elsewhere keeps it. Resolve within the same mount
-/// so a delayed frame cannot focus another route or a newly mounted search with the same ID.
-pub(crate) fn restore_disappearing_action_focus(
-    panel: NodeRef<leptos::html::Div>,
-    id: &'static str,
-) {
-    #[cfg(target_arch = "wasm32")]
-    leptos::leptos_dom::helpers::request_animation_frame(move || {
-        use leptos::wasm_bindgen::JsCast;
-        let Some(Some(panel)) = panel.try_get_untracked() else {
-            return;
-        };
-        if !panel.is_connected() {
-            return;
-        }
-        let Some(document) = panel.owner_document() else {
-            return;
-        };
-        if document
-            .active_element()
-            .is_some_and(|active| active.tag_name() != "BODY")
-        {
-            return;
-        }
-        if let Some(element) = panel
-            .query_selector(&format!("#{id}"))
-            .ok()
-            .flatten()
-            .and_then(|element| element.dyn_into::<leptos::web_sys::HtmlElement>().ok())
-        {
-            let _ = element.focus();
-        }
-    });
-    #[cfg(not(target_arch = "wasm32"))]
-    let _ = (panel, id);
-}
-
 /// Focus an element rendered by the current frame, after Leptos has applied the change.
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn focus_by_id(id: String) {
@@ -383,7 +345,8 @@ pub(crate) fn focus_after_unit_page(id: String) {
 mod search_dock;
 pub(crate) use search_dock::{
     bind_search_dock, click_is_search_input, focus_is_search_input, focus_left_search_field,
-    focus_search_input, focus_search_result,
+    focus_search_input, focus_search_result, key_is_on_result, press_on_layer_background,
+    step_search_result,
 };
 
 mod loading_presence;
