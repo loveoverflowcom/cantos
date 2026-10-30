@@ -16,6 +16,7 @@ pub const ADMIN_BASE: &str = "/api/v1/admin";
 pub const STUDIO_WORKS: &str = "/api/v1/studio/works";
 pub const STUDIO_WORK: &str = "/api/v1/studio/works/{work_id}";
 pub const STUDIO_WORK_HISTORY: &str = "/api/v1/studio/works/{work_id}/history";
+pub const STUDIO_WORK_PREVIEW: &str = "/api/v1/studio/works/{work_id}/preview";
 pub const STUDIO_CONTENT_UNITS: &str = "/api/v1/studio/works/{work_id}/content-units";
 pub const STUDIO_CONTENT_UNITS_REORDER: &str =
     "/api/v1/studio/works/{work_id}/content-units/reorder";

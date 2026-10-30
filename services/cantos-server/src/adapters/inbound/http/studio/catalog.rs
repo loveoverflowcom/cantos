@@ -41,6 +41,7 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .route("/works/{work_id}/content-units/reorder", post(reorder))
         .route("/works/{work_id}/history", get(history))
+        .route("/works/{work_id}/preview", get(preview))
         .route(
             "/works/{work_id}/metadata-publication",
             get(publication_state).post(publication_command),
@@ -584,6 +585,86 @@ async fn history(
         },
         Err(error) => catalog_error(error),
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreviewQuery {
+    work_revision: u64,
+    #[serde(default = "page_limit")]
+    limit: u64,
+    cursor: Option<String>,
+}
+
+/// Studio preview of the saved head the creator names. Auth precedes any field read, and the
+/// response is never cached or referred: draft text must not outlive the page that asked.
+async fn preview(
+    State(state): State<AppState>,
+    CatalogId(id): CatalogId,
+    headers: HeaderMap,
+    query: Result<Query<PreviewQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+    let Ok(Query(query)) = query else {
+        return failure(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidRequest,
+            None,
+            vec![],
+        );
+    };
+    if query.work_revision == 0 || query.work_revision > i64::MAX as u64 {
+        return failure(
+            StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidRequest,
+            None,
+            vec![issue("work_revision", "positive_revision")],
+        );
+    }
+    let id = match input::validate_work_id(&id) {
+        Ok(id) => id,
+        Err(issues) => {
+            return failure(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidCatalog,
+                None,
+                issues,
+            )
+        }
+    };
+    let cursor = match page_cursor(query.limit, query.cursor.as_deref()) {
+        Ok(cursor) => cursor,
+        Err(issues) => {
+            return failure(
+                StatusCode::BAD_REQUEST,
+                ErrorCode::InvalidRequest,
+                None,
+                issues,
+            )
+        }
+    };
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    let mut response = match state
+        .store
+        .catalog_preview(
+            &token,
+            &id,
+            query.work_revision,
+            query.limit,
+            cursor.as_ref(),
+        )
+        .await
+    {
+        Ok(preview) => Json(preview).into_response(),
+        Err(error) => catalog_error(error),
+    };
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
+    response
 }
 
 fn issue(path: &str, rule: &str) -> FieldIssue {

@@ -473,6 +473,26 @@ body { margin: 0; }
 .studio-shell .cw-archive { margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); max-inline-size: 40rem; }
 .studio-shell .cw-archive h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
 .studio-shell .cw-archive p { margin-block: 0 var(--cantos-space-sm); }
+/* Exact saved-revision preview (ADR 0054 D03): the banner never relies on colour alone, long
+   Vietnamese titles wrap, and nothing here scrolls the page horizontally at 320px. */
+.studio-shell .cw-preview-zone { margin-block-start: var(--cantos-space-lg); min-inline-size: 0; max-inline-size: 40rem; }
+.studio-shell .cw-preview { min-inline-size: 0; }
+.studio-shell .cw-preview-zone h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-preview-zone h5:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
+.studio-shell .cw-preview-banner { margin-block: 0 var(--cantos-space-sm); padding: var(--cantos-space-sm) var(--cantos-space-md); background: var(--cantos-color-warning-container); color: var(--cantos-color-on-surface); border-inline-start: 4px solid var(--cantos-color-warning); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
+.studio-shell .cw-preview-revision { font-weight: var(--cantos-type-label-weight); white-space: nowrap; }
+.studio-shell .cw-preview-surface { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-container); min-inline-size: 0; overflow-wrap: anywhere; }
+.studio-shell .cw-preview-work { margin: 0 0 var(--cantos-space-xs); font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-title-weight); }
+.studio-shell .cw-preview-surface h6 { margin: var(--cantos-space-md) 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-preview-surface h6.cw-preview-work { margin-block-start: 0; }
+.studio-shell .cw-preview-meta, .studio-shell .cw-preview-unavailable, .studio-shell .cw-preview-unit-kind { margin-block: 0 var(--cantos-space-sm); color: var(--cantos-color-on-surface-variant); }
+.studio-shell .cw-preview-synopsis { margin-block: 0 var(--cantos-space-md); white-space: pre-line; }
+.studio-shell .cw-preview-units { margin: 0; padding-inline-start: var(--cantos-space-lg); display: grid; gap: var(--cantos-space-sm); }
+.studio-shell .cw-preview-units li { padding-block: var(--cantos-space-xs); }
+.studio-shell .cw-preview-unit-title, .studio-shell .cw-preview-unit-kind, .studio-shell .cw-preview-unit-description { display: block; }
+.studio-shell .cw-preview-unit-description { color: var(--cantos-color-on-surface-variant); white-space: pre-line; }
+.studio-shell .cw-preview-problem { margin-block: var(--cantos-space-sm); padding: var(--cantos-space-sm) var(--cantos-space-md); background: var(--cantos-color-warning-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-preview-problem[hidden], .studio-shell .cw-preview[hidden] { display: none; }
 .studio-shell .cw-viewer { margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
 .studio-shell .cw-viewer h4 { margin-block: 0 var(--cantos-space-xs); }
 .studio-shell .cw-viewer-kind { margin-block: 0 var(--cantos-space-sm); }
