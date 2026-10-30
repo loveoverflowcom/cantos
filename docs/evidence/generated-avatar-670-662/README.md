@@ -1,7 +1,7 @@
 # Generated Theatre account identity: source and renderer evidence
 
 Scope: #670 and #662, one draft PR from `develop@e09bd769c1f1ef196150caf0cff98d3e00f87c9a`.
-This record accepts no deployment, real account flow, device or shared UI qualification.
+This record accepts no deployment, real user/browser/device flow or shared UI qualification. The later Linux router/Identity CI evidence below is separate from those boundaries.
 The [contract](../../../services/cantos-server/contracts/theatre/account-presentation/v1/README.md)
 owns the recipe and boundary. The work queue is unchanged: these issues remain the execution
 owners. No migration, auth/session format, mailbox proof, profile CRUD or photo source changes.
@@ -70,17 +70,22 @@ walk, OS reduced-motion test, Android/iOS runtime or real sign-in was performed.
 
 ## Remaining acceptance and review
 
-- Full preflight cannot pass: the selected locked Node 24.19.0/Quint tool is missing. No model
-  PASS is inferred from native tests. Resume the registered `cantos.identity.bearer-lifecycle`
-  gate using the pinned tooling; no model changes are proposed.
+- The initial missing-tool gap was resolved with isolated official Node 24.19.0 (published
+  SHA-256 checked), npm 11.9.0 and locked Quint 0.33.0 with lifecycle scripts disabled. The
+  selected `cantos.identity.bearer-lifecycle` gate PASSed, model-only. Implementation conformance,
+  exhaustive proof and device acceptance remain NOT_RUN. Full preflight now FAILs at the
+  repository qualification gate; subsequent planned steps are NOT_RUN, not passed.
 - Shared Avatar's API/source change makes 20 existing Leptos qualification records stale and
   triggers downstream two-renderer admission refusals, including the new CMP Avatar imports.
   Keep all existing records unchanged. Re-run/review the required scenarios against approved
   matching references and record actual evidence before adoption/merge. Gallery tests and these
   images do not waive the admission gate.
-- Full Server compilation and the production real-Identity cookie/Bearer router journey remain
-  unrun locally due disk. The journey now includes presentation parity, no-store, raw-ID absence,
-  mixed credentials and foreign-session refusals. Run it in CI/a prepared environment with space.
+- Full Server runtime/test linking remains unrun on the Mac due disk, but `cargo check --locked
+  -p cantos-server --lib` PASSed on this Mac. The production real-Identity cookie/Bearer router
+  journey PASSed in Linux CI on the unchanged implementation (details below). It includes
+  presentation parity, no-store, raw-ID absence, mixed credentials and foreign-session refusals.
+  A router driven in-process plus a real Identity executable is not an authenticated browser,
+  the Server binary over TCP, an external mail provider or a device.
 - #662 AC-07 still needs the same real account on a signed-in browser and Android APK/device,
   narrow/large text, Light/Dark and switch/logout/relogin observations. No test account was
   requested or credentials invented. No merge, deployment or APK distribution was performed.
@@ -90,3 +95,30 @@ walk, OS reduced-motion test, Android/iOS runtime or real sign-in was performed.
 Read-only review covered all changed source, call sites, fixture generation, dependency direction,
 session fences, image optionality, localization and visual evidence. Required evidence gaps above
 block ready/merge status. No unrelated product change or new dependency was introduced.
+
+
+## CI regression repair and later checks
+
+[CI run 41051474595](https://github.com/loveoverflowcom/cantos/actions/runs/41051474595)
+checked implementation head `79b5378abe74193f0dcebe61c4f97f208162ead0`:
+Web and Forge passed. Rust format, Protobuf reference and workspace lint passed. The actual
+Server alias vectors, `real_identity_actor_session_journey` and the production
+`catalog_to_playback_to_library_over_the_production_composition_with_a_real_identity` passed;
+`theatre_business_journey` reported 2 passed / 2 ignored. The workspace Rust job then failed
+only at `design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api`:
+left 199 versus the frozen baseline 198. Later job stages were NOT_RUN.
+
+This is an introduced test-oracle defect, not a baseline failure: comparing the pinned base
+and this catalog shows the same component IDs and exactly one added state,
+`avatar/generated-alias`. The repair adds that named state to the existing explicit Theatre
+extension list, checks its presence, and retains the archived v3 baseline assertion at 198.
+It changes no product, contract, dictionary, colors, capture or model expectations. The complete
+focused gallery suite then PASSed (39/39) with
+`cargo test --locked -p cantos-ui --test gallery`. Source-bound implementation results above
+remain attributable because only that oracle and this evidence record changed afterwards.
+
+Later local WASM lint also PASSed:
+`cargo clippy --locked -p cantos-ui -p cantos-theatre --target wasm32-unknown-unknown
+--features cantos-ui/preview,cantos-theatre/preview -- -D warnings`.
+The final PR body records the CI outcome on its last head. Repository/UI qualification remains
+a current-diff failure; none of the 20 existing qualification records was changed.

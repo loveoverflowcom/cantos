@@ -151,6 +151,10 @@
       "sha256": "25c80cce82546c29fd9d716e132a83b6c2303c9b30883996bad8f91c1994f73d"
     },
     {
+      "path": "packages/ui-system/leptos/tests/gallery.rs",
+      "sha256": "1eb00ba22ba13164183f7ba3db79e18c41bcf4992fdd96613f5a95c8ce52fafb"
+    },
+    {
       "path": "packages/ui-system/shared/README.md",
       "sha256": "85509214de00384bef14deef461d27f7381a88a705d2eca5dfa7fd15405ba778"
     },
