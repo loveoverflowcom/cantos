@@ -690,3 +690,96 @@ async fn concurrent_associations_settle_once_and_the_loser_retries_on_the_new_ve
         3
     );
 }
+
+#[tokio::test]
+async fn direct_manifest_and_discovery_require_the_exact_current_generation_association() {
+    use crate::contexts::media::{ListenerError, ListenerService};
+    let fixture = world().await;
+    let seeded = seed(&fixture, 0x6510_0001, &["Bản nghe chính xác"]).await;
+    let unit_id = seeded.units[0].unit_id.clone();
+    let release_id = release(&seeded, 0);
+    let service = ListenerService::new(fixture.store().clone());
+    assert_eq!(
+        service.manifest(&release_id).await,
+        Err(ListenerError::NotFound)
+    );
+    let (w, units) = revisions(&fixture, &seeded).await;
+    execute(&fixture, &seeded, publish(0, w, &units))
+        .await
+        .unwrap();
+    let manifest = service.manifest(&release_id).await.unwrap();
+    let page = service
+        .metadata_units(&seeded.work_id, 20, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        page.items[0].playback.as_ref().unwrap().publication_id,
+        release_id
+    );
+    // A display-only revision becomes metadata-only until the owner explicitly associates it.
+    let current = fixture
+        .store()
+        .catalog_unit(ALICE, &ContentUnitId::parse(&unit_id).unwrap())
+        .await
+        .unwrap();
+    let mut details = current.details().clone();
+    details.title = "Tên biên tập mới".into();
+    fixture
+        .store()
+        .catalog_execute(
+            ALICE,
+            &Uuid::new_v4().to_string(),
+            CatalogCommand::EditUnit {
+                id: current.id().clone(),
+                expected_revision: current.revision(),
+                expected_work_revision: w,
+                details,
+            },
+        )
+        .await
+        .unwrap();
+    let (w, units) = revisions(&fixture, &seeded).await;
+    execute(&fixture, &seeded, publish(1, w, &units))
+        .await
+        .unwrap();
+    assert_eq!(
+        service
+            .metadata_units(&seeded.work_id, 20, None)
+            .await
+            .unwrap()
+            .items[0]
+            .playback,
+        None
+    );
+    assert_eq!(
+        service.manifest(&release_id).await,
+        Err(ListenerError::NotFound)
+    );
+    execute(&fixture, &seeded, associate(2, &unit_id, &release_id, true))
+        .await
+        .unwrap();
+    assert_eq!(service.manifest(&release_id).await.unwrap(), manifest);
+    assert_eq!(
+        service
+            .metadata_units(&seeded.work_id, 20, None)
+            .await
+            .unwrap()
+            .items[0]
+            .title,
+        "Tên biên tập mới"
+    );
+    fixture.revoke_submission("alice", &seeded.units[0]).await;
+    assert_eq!(
+        service.manifest(&release_id).await,
+        Err(ListenerError::NotFound)
+    );
+    assert_eq!(
+        service
+            .metadata_units(&seeded.work_id, 20, None)
+            .await
+            .unwrap()
+            .items[0]
+            .playback,
+        None
+    );
+}

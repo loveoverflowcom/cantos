@@ -85,17 +85,17 @@ class PublicCatalogHttpTransportTest {
             if (headers.getFirst("X-Cantos-Theatre-Session") != null) violations += "session header"
             val path = exchange.requestURI.rawPath
             val query = exchange.requestURI.rawQuery
-            requests += "$path?$query"
+            requests += path + (query?.let { "?$it" } ?: "")
             when {
-                path == "/api/v1/theatre/works" && query == "limit=20&presentation=3" -> exchange.json(200,
+                path == "/api/v1/theatre/works" && query == "limit=20" -> exchange.json(200,
                     """{"items":[${workJson(work1, "story", "Ánh đèn cuối sân khấu", coverJson(work1, "a".repeat(64)))},${workJson(work2, "podcast", "Người dẫn chuyện")}],"next_cursor":"$cursor1"}""")
-                path == "/api/v1/theatre/works" && query == "limit=20&cursor=$cursor1&presentation=3" -> exchange.json(200,
+                path == "/api/v1/theatre/works" && query == "limit=20&cursor=$cursor1" -> exchange.json(200,
                     """{"items":[${workJson(work3, "novel", "Tiếng chuông trong sương")}],"next_cursor":null}""")
-                path == "/api/v1/theatre/works/$work1" && query == "presentation=3" -> exchange.json(200,
+                path == "/api/v1/theatre/works/$work1" && query == null -> exchange.json(200,
                     workJson(work1, "story", "Ánh đèn cuối sân khấu", coverJson(work1, "a".repeat(64))))
-                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&presentation=3" -> exchange.json(200,
+                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20" -> exchange.json(200,
                     """{"work_id":"$work1","items":[${unitJson(1, "chapter", 1)},${unitJson(2, "chapter", 2)}],"next_cursor":"$unitCursor"}""")
-                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&cursor=$unitCursor&presentation=3" -> exchange.json(200,
+                path == "/api/v1/theatre/works/$work1/units" && query == "limit=20&cursor=$unitCursor" -> exchange.json(200,
                     """{"work_id":"$work1","items":[${unitJson(3, "chapter", null)}],"next_cursor":null}""")
                 else -> exchange.json(404, """{"code":"not_found","retryable":false}""")
             }
@@ -126,11 +126,11 @@ class PublicCatalogHttpTransportTest {
             } finally { scope.cancel() }
             assertEquals(
                 listOf(
-                    "/api/v1/theatre/works?limit=20&presentation=3",
-                    "/api/v1/theatre/works?limit=20&cursor=$cursor1&presentation=3",
-                    "/api/v1/theatre/works/$work1?presentation=3",
-                    "/api/v1/theatre/works/$work1/units?limit=20&presentation=3",
-                    "/api/v1/theatre/works/$work1/units?limit=20&cursor=$unitCursor&presentation=3",
+                    "/api/v1/theatre/works?limit=20",
+                    "/api/v1/theatre/works?limit=20&cursor=$cursor1",
+                    "/api/v1/theatre/works/$work1",
+                    "/api/v1/theatre/works/$work1/units?limit=20",
+                    "/api/v1/theatre/works/$work1/units?limit=20&cursor=$unitCursor",
                 ),
                 requests.toList(),
             )

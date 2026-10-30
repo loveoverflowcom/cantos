@@ -597,3 +597,19 @@ unavailable delivery when the host has not explicitly configured its existing pu
 Registered rights/evidence and named owner reviews are claims, not legal verification or a claim
 that a human listened. [Combined CMS evidence](../../../docs/evidence/studio-cms-editorial-20261023.md)
 records the actual local/native/browser boundaries and remaining production acceptance.
+
+### Metadata publication workspace
+
+The Details task composes a generation publication strip and in-place review over the existing
+mounted Catalog draft. Read publication state before choosing saved Work/Unit revisions; the
+review preserves existing published pins and never selects an unloaded draft page. Confirm the
+complete final order once. Draft Save and private Studio Preview remain independent.
+
+Metadata withdrawal, Catalog archive and audio withdrawal are separate actions. Audio linking
+names the currently read exact release; display-only drift has its own owner confirmation.
+After a timeout use the same-operation reconciliation control; after a pointer conflict retain
+the selection, read current state and compare before explicitly rebasing. Historical receipts
+are not current state. The [owner contract](../../../services/cantos-server/contracts/studio/metadata-publication/v1/README.md)
+owns authority. Exact selected and earlier cover identities come from the existing owner-only
+artwork revision read. Historical Work field text is not supplied by publication state; the UI
+compares revision identities without substituting a newer head’s text.

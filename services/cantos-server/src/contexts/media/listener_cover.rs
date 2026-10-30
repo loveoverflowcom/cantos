@@ -8,14 +8,14 @@ use super::{
     domain::{
         image::{sha256_valid, ImageMime},
         public_cover::{
-            admit_cover_fetch, project_public_cover, CoverDisclosure, CoverFacts, CoverFallback,
-            CoverProjection, PublicCover,
+            project_public_cover, CoverDisclosure, CoverFacts, CoverFallback, CoverProjection,
+            PublicCover,
         },
     },
     image_application::{
         objects::SharedImageObjects, ImageByteStream, ImageObjectError, ImageObjects,
     },
-    listener_application::{id, ListenerError, ListenerService, PresentationLevel, ReadRequest},
+    listener_application::{ListenerError, ListenerService, PresentationLevel},
     listener_delivery::PublicMediaOrigin,
     turso::{image::StoredImageAsset, listener::ReadItem},
 };
@@ -204,31 +204,7 @@ impl ListenerService {
         if self.covers.is_none() || !sha256_valid(sha256) {
             return Err(ListenerError::NotFound);
         }
-        let work = id(work).map_err(|_| ListenerError::NotFound)?;
-        let snapshot = self
-            .read
-            .read(ReadRequest::Cover { work: work.clone() })
-            .await?;
-        let Some(row) = snapshot.items.into_iter().next() else {
-            return self.admit_metadata_cover(&work, sha256).await;
-        };
-        if row.publication.work().id().as_str() != work {
-            return Err(ListenerError::Corrupt);
-        }
-        let projection = cover_projection(&row, snapshot.now);
-        let cover = admit_cover_fetch(&projection, sha256)
-            .ok_or(ListenerError::NotFound)?
-            .clone();
-        let asset = row
-            .cover
-            .and_then(|facts| facts.asset)
-            .ok_or(ListenerError::Corrupt)?;
-        if asset.asset.id().as_str() != cover.image_asset_id()
-            || asset.asset.metadata().sha256() != cover.sha256()
-        {
-            return Err(ListenerError::Corrupt);
-        }
-        Ok(AdmittedCover { work, cover, asset })
+        self.admit_metadata_cover(work, sha256).await
     }
 
     /// Open the verified private bytes (the reader hashes the actual object before streaming),

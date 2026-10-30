@@ -166,6 +166,13 @@ fn cursor_query(cursor: &Option<String>) -> Result<String, ClientError> {
 /// Secrets intentionally have no Debug/Serialize representation at this shell boundary.
 #[derive(Clone)]
 pub enum Command {
+    MetadataState {
+        work: String,
+    },
+    MetadataCommand {
+        work: String,
+        request: MetadataPublicationRequest,
+    },
     Works {
         cursor: Option<String>,
     },
@@ -301,6 +308,10 @@ pub enum Command {
     Artwork {
         work: String,
     },
+    MetadataArtwork {
+        work: String,
+        revision: u64,
+    },
     PrepareImage {
         work: String,
         request: CreateImageIntentRequest,
@@ -334,6 +345,7 @@ pub enum Command {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reply {
+    MetadataState(MetadataPublicationState),
     Works(CatalogPage<CatalogWork>),
     Work(CatalogWork),
     Units(CatalogPage<CatalogContentUnit>),
@@ -376,6 +388,9 @@ impl Command {
             ))
         };
         Ok(match self {
+            Self::MetadataState { work } | Self::MetadataCommand { work, .. } => {
+                format!("{base}/works/{}/metadata-publication", id(work)?)
+            }
             Self::Works { cursor } => format!("{}{}", routes::STUDIO_WORKS, cursor_query(cursor)?),
             Self::CreateWork(_) => routes::STUDIO_WORKS.into(),
             Self::Work { id: work }
@@ -498,6 +513,15 @@ impl Command {
                     id(submission)?
                 )
             }
+            Self::MetadataArtwork { work, revision } => {
+                if *revision == 0 {
+                    return Err(ClientError::InvalidInput);
+                }
+                format!(
+                    "{base}/works/{}/artwork?work_revision={revision}",
+                    id(work)?
+                )
+            }
             Self::Artwork { work } | Self::SetArtwork { work, .. } => {
                 format!("{base}/works/{}/artwork", id(work)?)
             }
@@ -549,7 +573,8 @@ impl Command {
             | Self::Revoke { .. }
             | Self::RevokeDelegation { .. } => "DELETE",
             Self::Upload { .. } | Self::UploadImage { .. } => "PUT",
-            Self::CreateWork(_)
+            Self::MetadataCommand { .. }
+            | Self::CreateWork(_)
             | Self::CreateUnit { .. }
             | Self::Reorder { .. }
             | Self::AppendContent { .. }
@@ -596,6 +621,7 @@ impl Command {
                 .map_err(|_| ClientError::InvalidInput)
         }
         match self {
+            Self::MetadataCommand { request, .. } => encode(request),
             Self::CreateWork(v) => encode(v),
             Self::PatchWork { request, .. } => encode(request),
             Self::ArchiveWork { request, .. } => encode(request),
@@ -627,7 +653,10 @@ impl Command {
             Self::Readiness { .. } | Self::ActiveRelease { .. } | Self::Withdraw { .. } => {
                 Some(200)
             }
-            Self::Artwork { .. }
+            Self::MetadataState { .. }
+            | Self::MetadataCommand { .. }
+            | Self::Artwork { .. }
+            | Self::MetadataArtwork { .. }
             | Self::SetArtwork { .. }
             | Self::ImageIntent { .. }
             | Self::UploadImage { .. }
@@ -651,6 +680,9 @@ impl Command {
             serde_json::from_slice(body).map_err(|_| ClientError::Protocol { status })
         }
         let reply = match self {
+            Self::MetadataState { .. } | Self::MetadataCommand { .. } => {
+                Reply::MetadataState(parse(body, status)?)
+            }
             Self::Works { .. } => Reply::Works(parse(body, status)?),
             Self::Work { .. } => Reply::Work(parse(body, status)?),
             Self::Units { .. } => Reply::Units(parse(body, status)?),
@@ -691,7 +723,9 @@ impl Command {
             }
             Self::Withdraw { .. } => Reply::Withdrawal(parse(body, status)?),
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => Reply::Revoked,
-            Self::Artwork { .. } | Self::SetArtwork { .. } => Reply::Artwork(parse(body, status)?),
+            Self::Artwork { .. } | Self::MetadataArtwork { .. } | Self::SetArtwork { .. } => {
+                Reply::Artwork(parse(body, status)?)
+            }
             Self::PrepareImage { .. } => Reply::ImagePrepared(parse(body, status)?),
             Self::ImageIntent { .. } => Reply::ImageIntent(parse(body, status)?),
             Self::UploadImage { .. } => Reply::ImageAdmitted(parse(body, status)?),
@@ -709,6 +743,12 @@ impl Command {
     /// Correlate a raw DTO to the question asked, without deciding access or admission.
     pub fn check_reply(&self, reply: &Reply) -> Result<(), ClientError> {
         let matches = match self {
+            Self::MetadataState { work } => {
+                matches!(reply, Reply::MetadataState(state) if state.work_id == *work && super::metadata_publication::valid_state(state))
+            }
+            Self::MetadataCommand { work, request } => {
+                matches!(reply, Reply::MetadataState(state) if state.work_id == *work && super::metadata_publication::answers(request, state))
+            }
             Self::Works { .. } => matches!(reply, Reply::Works(_)),
             Self::Work { id } => matches!(reply, Reply::Work(work) if work.id == *id),
             Self::Units { work, .. } => matches!(reply, Reply::Units(page)
@@ -821,6 +861,9 @@ impl Command {
                     && (result.pointer_version == request.expected_pointer_version
                         || request.expected_pointer_version.checked_add(1) == Some(result.pointer_version))),
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => matches!(reply, Reply::Revoked),
+            Self::MetadataArtwork { work, revision } => {
+                matches!(reply, Reply::Artwork(r) if r.work_id == *work && r.work_revision == *revision)
+            }
             Self::Artwork { work } => {
                 matches!(reply, Reply::Artwork(r) if r.work_id == *work && r.work_revision > 0)
             }

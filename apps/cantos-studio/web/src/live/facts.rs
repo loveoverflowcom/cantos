@@ -19,6 +19,7 @@ pub struct Facts {
     pub submission: Option<AudioSubmissionResponse>,
     pub candidate: Option<ReleaseCandidateResponse>,
     pub publication: super::publication::PublicationFacts,
+    pub metadata: super::metadata_publication::MetadataFacts,
     /// The exact saved revision last previewed; dropped when the saved head moves past it.
     pub preview: Option<super::preview::PreviewFacts>,
 }
@@ -60,7 +61,31 @@ impl Facts {
             ),
             _ => None,
         };
+        let metadata_reply = match (command, &reply) {
+            (Command::MetadataState { .. }, Reply::MetadataState(state)) => {
+                Some((true, state.clone()))
+            }
+            (Command::MetadataCommand { .. }, Reply::MetadataState(state)) => {
+                Some((false, state.clone()))
+            }
+            _ => None,
+        };
+        let artwork = match (command, &reply) {
+            (Command::MetadataArtwork { .. }, Reply::Artwork(pin)) => Some(pin.clone()),
+            _ => None,
+        };
         let mut next = self.apply(reply);
+        if let Some(pin) = artwork {
+            next.metadata.artwork.insert(pin.work_revision, pin);
+        }
+        if let Some((read, state)) = metadata_reply {
+            if read {
+                next.metadata.current = Some(state);
+            } else {
+                next.metadata.receipt = Some(state);
+                next.metadata.current = None;
+            }
+        }
         if let Some(walk) = preview_walk {
             next.preview = walk;
         }
@@ -163,6 +188,9 @@ impl Facts {
                 next.works_next = page.next_cursor;
             }
             Reply::Work(work) => {
+                if next.work.as_ref().is_none_or(|old| old.id != work.id) {
+                    next.metadata = Default::default();
+                }
                 next.work = Some(work);
                 next.clear_publication();
             }
@@ -258,7 +286,7 @@ impl Facts {
                 next.publication.readiness = None;
                 next.publication.active = None;
             }
-            Reply::ActiveRelease(_) | Reply::AudioPreview(_) => {}
+            Reply::ActiveRelease(_) | Reply::AudioPreview(_) | Reply::MetadataState(_) => {}
             Reply::Withdrawal(receipt) => {
                 next.publication.withdrawal_receipt = Some(receipt);
                 next.publication.readiness = None;

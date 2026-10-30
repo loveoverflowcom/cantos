@@ -51,11 +51,11 @@ class PublicCatalogHttpAdapterTest {
         assertEquals(
             listOf(
                 // Work reads opt in to the cover (presentation=3); unit reads stay on default v1.
-                "https://api.cantos.example/api/v1/theatre/works?limit=20&presentation=3",
-                "https://api.cantos.example/api/v1/theatre/works?limit=20&cursor=${cursor(1).value}&presentation=3",
-                "https://api.cantos.example/api/v1/theatre/works/${workId(3).value}?presentation=3",
-                "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20&presentation=3",
-                "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20&cursor=${cursor(2).value}&presentation=3",
+                "https://api.cantos.example/api/v1/theatre/works?limit=20",
+                "https://api.cantos.example/api/v1/theatre/works?limit=20&cursor=${cursor(1).value}",
+                "https://api.cantos.example/api/v1/theatre/works/${workId(3).value}",
+                "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20",
+                "https://api.cantos.example/api/v1/theatre/works/${story.id.value}/units?limit=20&cursor=${cursor(2).value}",
             ),
             transport.urls,
         )
@@ -71,9 +71,9 @@ class PublicCatalogHttpAdapterTest {
         adapter.works(cursor(2), query)
         adapter.works(null, assertIs<CatalogCheck.Valid<PublicCatalogQuery>>(PublicCatalogQuery.of("", PublicWorkKind.Story)).value)
         assertEquals(listOf(
-            "https://api.cantos.example/api/v1/theatre/search?limit=20&presentation=3&q=%C3%A1%20%26%3F%23&kind=podcast",
-            "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&presentation=3&q=%C3%A1%20%26%3F%23&kind=podcast",
-            "https://api.cantos.example/api/v1/theatre/works?limit=20&presentation=3&kind=story",
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/search?limit=20&cursor=${cursor(2).value}&q=%C3%A1%20%26%3F%23&kind=podcast",
+            "https://api.cantos.example/api/v1/theatre/works?limit=20&kind=story",
         ), transport.urls)
     }
 

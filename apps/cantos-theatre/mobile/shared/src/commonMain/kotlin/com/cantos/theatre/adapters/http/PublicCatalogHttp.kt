@@ -109,50 +109,7 @@ internal data class CoverImageWire(
     @SerialName("alt_text") val altText: String,
 )
 
-/**
- * `CoveredWorkSummary` (`presentation=2`): the Work's own fields, its `unit_count` and a
- * **required nullable** `cover`. Omitting `cover` fails decoding (explicitNulls), exactly like a
- * missing `next_cursor`; a default or `presentation=1` body is therefore refused, never read as
- * "no cover".
- */
-@Serializable
-internal data class CoveredWorkSummaryWire(
-    @SerialName("work_id") val workId: String,
-    @SerialName("kind") val kind: WorkKindWire,
-    @SerialName("title") val title: String,
-    @SerialName("description") val description: String,
-    @SerialName("language") val language: String,
-    @SerialName("first_published_at_ms") @Serializable(with = StrictJsonLong::class) val firstPublishedAtMs: Long,
-    @SerialName("unit_count") @Serializable(with = StrictJsonLong::class) val unitCount: Long,
-    @SerialName("cover") val cover: CoverImageWire?,
-)
-
-@Serializable
-internal data class CoveredWorkPageWire(
-    @SerialName("items") val items: List<CoveredWorkSummaryWire>,
-    @SerialName("next_cursor") val nextCursor: String?,
-)
-
-@Serializable
-internal data class UnitSummaryWire(
-    @SerialName("unit_id") val unitId: String,
-    @SerialName("kind") val kind: UnitKindWire,
-    @SerialName("position") @Serializable(with = StrictJsonLong::class) val position: Long,
-    @SerialName("title") val title: String,
-    @SerialName("description") val description: String,
-    @SerialName("publication_id") val publicationId: String,
-    @SerialName("published_at_ms") @Serializable(with = StrictJsonLong::class) val publishedAtMs: Long,
-    @SerialName("duration_ms") @Serializable(with = StrictJsonLong::class) val durationMs: Long,
-)
-
-@Serializable
-internal data class UnitPageWire(
-    @SerialName("work_id") val workId: String,
-    @SerialName("items") val items: List<UnitSummaryWire>,
-    @SerialName("next_cursor") val nextCursor: String?,
-)
-
-/** `presentation=3` keeps metadata separate from eligible audio. */
+/** The canonical generation representation keeps metadata separate from associated playable audio. */
 @Serializable
 internal data class MetadataWorkWire(
     @SerialName("work_id") val workId: String,
@@ -264,31 +221,6 @@ private fun CoverImageWire?.toCover(work: PublicWorkId): CatalogCheck<PublicCove
         CatalogCheck.Valid(it)
     }
 
-/** `unit_count` is validated (positive, JSON-safe) but not modelled: no screen shows the server count. */
-internal fun CoveredWorkSummaryWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
-    if (unitCount !in 1..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
-    else cover.toCover(id).then { checked ->
-        PublicWork.of(id, kind.toDomain(), title, description, language, firstPublishedAtMs, checked)
-    }
-}
-
-internal fun UnitSummaryWire.toDomain(): CatalogCheck<PublicUnit> = PublicUnitId.parse(unitId).then { id ->
-    PublicationId.parse(publicationId).then { publication ->
-        PublicUnit.of(id, kind.toDomain(), position, title, description, publication, publishedAtMs, durationMs)
-    }
-}
-
-internal fun CoveredWorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain() }.then { works ->
-    nextCursor.toCursor().then { next -> PublicWorkPage.of(works, next) }
-}
-
-internal fun UnitPageWire.toDomain(requested: PublicWork): CatalogCheck<PublicUnitPage> =
-    PublicWorkId.parse(workId).then { pageWork ->
-        items.checkEach { it.toDomain() }.then { units ->
-            nextCursor.toCursor().then { next -> PublicUnitPage.of(requested, pageWork, units, next) }
-        }
-    }
-
 internal fun MetadataWorkWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
     if (unitCount !in 0..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
     else cover.toCover(id).then { checked -> PublicWork.of(id, kind.toDomain(), title, description, language, firstVisibleAtMs, checked) }
@@ -320,9 +252,6 @@ internal fun <T> CatalogCheck<T>.acceptedOrNull(): T? = (this as? CatalogCheck.V
  */
 const val CatalogBodyLimitBytes: Int = 4 * 1024 * 1024
 
-/** Discovery v1.2 `presentation` level that adds the required-nullable public `cover`. */
-const val CoverPresentation: Int = 2
-const val MetadataPresentation: Int = 3
 
 /** Explicit page size (the server default); a cursor is bound to the limit it was issued for. */
 const val CatalogPageLimit: Int = 20
@@ -357,20 +286,20 @@ class PublicCatalogHttpAdapter(
         // /search and /works share the v1 query/response contract. The server searches the full
         // eligible catalog, never only the pages already present on this device.
         val path = if (query.text.isEmpty()) base else "${base.removeSuffix("/works")}/search"
-        // presentation=2 is the cover capability and part of cursor identity: never mixed with v1.
-        val url = pageUrl(path, cursor) + "&presentation=$MetadataPresentation" +
+        // One generation representation; the Server binds Unit continuations to their generation.
+        val url = pageUrl(path, cursor) +
             (if (query.text.isNotEmpty()) "&q=${query.text.queryEncoded()}" else "") +
             (query.kind?.let { "&kind=${it.name.lowercase()}" } ?: "")
         return read(url, cursor != null, MetadataWorkPageWire.serializer()) { it.toDomain().acceptedOrNull() }
     }
 
     override suspend fun work(id: PublicWorkId): PublicCatalogRead<PublicWork> =
-        read("$base/${id.value}?presentation=$MetadataPresentation", false, MetadataWorkWire.serializer()) { wire ->
+        read("$base/${id.value}", false, MetadataWorkWire.serializer()) { wire ->
             wire.toDomain().acceptedOrNull()?.takeIf { it.id == id }
         }
 
     override suspend fun units(work: PublicWork, cursor: CatalogCursor?): PublicCatalogRead<PublicUnitPage> =
-        read(pageUrl("$base/${work.id.value}/units", cursor) + "&presentation=$MetadataPresentation", cursor != null, MetadataUnitPageWire.serializer()) {
+        read(pageUrl("$base/${work.id.value}/units", cursor), cursor != null, MetadataUnitPageWire.serializer()) {
             it.toDomain(work).acceptedOrNull()
         }
 

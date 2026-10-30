@@ -84,22 +84,8 @@ impl MetadataPublicationService {
 /// An associated release that passed every live gate at the read's instant. Only
 /// `playable_releases` constructs it.
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "S05 composes generation playback into Discovery with every current client"
-    )
-)]
 pub(crate) struct PlayableRelease(AudioRelease);
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "S05 composes generation playback into Discovery with every current client"
-    )
-)]
 impl PlayableRelease {
     pub(crate) fn release(&self) -> &AudioRelease {
         &self.0
@@ -110,13 +96,6 @@ impl PlayableRelease {
 /// the caller's read snapshot. `None` means metadata-only for this read: no association, or an
 /// associated release that is withdrawn, superseded, revoked, expired or no longer approved.
 /// The caller has already applied the Work/Unit visibility gates.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "S05 composes generation playback into Discovery with every current client"
-    )
-)]
 pub(crate) async fn playable_releases(
     tx: &Tx<'_>,
     entries: &[(&ContentUnitId, Option<&AudioAssociation>)],
@@ -147,4 +126,47 @@ pub(crate) async fn playable_releases(
             Ok(playable.then_some(PlayableRelease(fact.release)))
         })
         .collect()
+}
+
+/// Every direct manifest/grant/fetch re-admits the exact association in a fresh snapshot.
+pub(super) async fn public_release(
+    tx: &Tx<'_>,
+    id: &str,
+) -> Result<Option<super::turso::listener::ReadItem>, super::listener_application::ListenerError> {
+    use crate::contexts::catalog::{
+        self,
+        domain::{ContentUnitId, WorkId},
+    };
+    let now = super::turso::listener::unit_millis(tx);
+    let Some(verified) = super::turso::listener::verified_generation_release(tx, id, now).await?
+    else {
+        return Ok(None);
+    };
+    let d = verified.publication.release().document();
+    let work_id = WorkId::parse(&d.manifest.work_id).map_err(|_| StoreError::CorruptRevision)?;
+    let unit_id =
+        ContentUnitId::parse(&d.manifest.unit_id).map_err(|_| StoreError::CorruptRevision)?;
+    let Some((work, unit)) = catalog::public_unit(tx, &work_id, &unit_id).await? else {
+        return Ok(None);
+    };
+    if unit
+        .audio
+        .as_ref()
+        .is_none_or(|pin| pin.release().release() != id)
+    {
+        return Ok(None);
+    }
+    let mut live = playable_releases(tx, &[(&unit_id, unit.audio.as_ref())]).await?;
+    let Some(Some(live)) = live.pop() else {
+        return Ok(None);
+    };
+    let publication =
+        super::domain::listening::ListenerPublication::associated(live.0, work.work, unit.unit)?;
+    Ok(Some(super::turso::listener::ReadItem {
+        publication,
+        first_at: work.first_visible_at,
+        position: unit.position,
+        presentation: None,
+        cover: None,
+    }))
 }

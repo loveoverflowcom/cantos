@@ -11,13 +11,6 @@ pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
 pub(super) mod metadata_publication;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "S05 composes the public projection into Discovery"
-    )
-)]
 pub(super) mod public_metadata;
 pub(super) mod sample_metadata;
 pub(super) mod sample_seed;
@@ -434,7 +427,8 @@ pub(super) async fn set_member(
 
 mod listener;
 pub(crate) use listener::{
-    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
+    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_ACTIVE_FILTER,
+    LISTENER_CURRENT_FILTER,
 };
 
 /// Move every existing position outside the final bounded range before a permutation.

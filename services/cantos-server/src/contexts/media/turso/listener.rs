@@ -49,9 +49,6 @@ pub(crate) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
     {
         return Err(StoreError::CorruptRevision);
     }
-    if w.details().visibility != crate::contexts::catalog::domain::Visibility::Public {
-        return Ok(());
-    }
     // First committed index writer wins. The anchor never moves on replacement or withdrawal.
     // A pre-checked insert instead of `ON CONFLICT DO NOTHING`: the index tables refuse an
     // insert over an existing key before conflict resolution (see `REPLACE`), so the check
@@ -118,6 +115,26 @@ fn decode(
     metadata: ListenerMetadata,
     owner_active: bool,
     now: i64,
+) -> Result<Option<ReadItem>, ListenerError> {
+    decode_for(
+        row,
+        metadata,
+        owner_active,
+        now,
+        ListenerPublication::resolve,
+    )
+}
+fn decode_for(
+    row: &Row,
+    metadata: ListenerMetadata,
+    owner_active: bool,
+    now: i64,
+    resolve: for<'a> fn(
+        ListenerFacts<'a>,
+    ) -> Result<
+        Option<ListenerPublication>,
+        super::super::domain::listening::ListenerDomainError,
+    >,
 ) -> Result<Option<ReadItem>, ListenerError> {
     let s = admit(AudioSubmission::restore(raw(row, "submission", 32768)?))?;
     let r = admit(AudioRendition::restore(raw(row, "rendition", 32768)?, &s))?;
@@ -247,7 +264,7 @@ fn decode(
             return Err(ListenerError::Corrupt);
         }
     }
-    let p = ListenerPublication::resolve(ListenerFacts {
+    let p = resolve(ListenerFacts {
         release: &release,
         pinned_work: &w,
         pinned_unit: &u,
@@ -520,40 +537,6 @@ fn unit_after<'a>(
     }
 }
 
-/// Rank insertion for one disclosed-only sample unit among eligible releases, in this snapshot.
-pub(in crate::contexts::media) async fn released_units_before(
-    tx: &Tx<'_>,
-    work: &str,
-    position: u32,
-    id: &str,
-    now: i64,
-) -> Result<u64, ListenerError> {
-    let from = relation();
-    let sql = format!("SELECT count(*) AS n {from} AND x.work_id=?2 AND (ordering.first_position<?3 OR (ordering.first_position=?3 AND x.unit_id<?4))");
-    let row = tx
-        .query_one(&sql, &[&now, &work, &i64::from(position), &id])
-        .await?;
-    u64::try_from(row.try_get::<_, i64>("n")?).map_err(|_| ListenerError::Corrupt)
-}
-
-pub(in crate::contexts::media) async fn presented_unit(
-    tx: &Tx<'_>,
-    work: &str,
-    unit: &str,
-    now: i64,
-) -> Result<Option<ReadItem>, ListenerError> {
-    let relation = presented_relation();
-    let sql = format!(
-        "WITH eligible AS ({relation} AND x.work_id=?2) SELECT * FROM eligible WHERE unit_id=?3"
-    );
-    let rows = tx.query(&sql, &[&now, &work, &unit]).await?;
-    Ok(presented_batch(tx, rows, 1, false, now)
-        .await?
-        .0
-        .into_iter()
-        .next())
-}
-
 pub(in crate::contexts::media) async fn works(
     tx: &Tx<'_>,
     q: &DiscoveryQuery,
@@ -614,20 +597,6 @@ pub(in crate::contexts::media) async fn units(
         .map_err(|_| ListenerError::Unavailable)?;
     batch(tx, rows, limit, false, now).await
 }
-pub(in crate::contexts::media) async fn publication(
-    tx: &Tx<'_>,
-    id: &str,
-    now: i64,
-) -> Result<Option<ReadItem>, ListenerError> {
-    let from = relation();
-    let sql = format!("SELECT {COLUMNS} {from} AND x.release_id=?2");
-    let rows = tx
-        .query(&sql, &[&now, &id])
-        .await
-        .map_err(|_| ListenerError::Unavailable)?;
-    Ok(batch(tx, rows, 1, false, now).await?.0.into_iter().next())
-}
-
 /// Attach each representative release's pinned cover facts in the same pinned snapshot: three
 /// bounded statements for the whole page, never one per item.
 pub(in crate::contexts::media) async fn with_covers(
@@ -693,11 +662,11 @@ impl ListenerRead for TursoRead {
                     )
                     .await?
                 }
-                ReadRequest::Cover { work: id } => {
-                    with_covers(&tx, work(&tx, &id, now).await?).await?
-                }
                 ReadRequest::Publication { id } => (
-                    publication(&tx, &id, now).await?.into_iter().collect(),
+                    super::super::generation_audio::public_release(&tx, &id)
+                        .await?
+                        .into_iter()
+                        .collect(),
                     None,
                 ),
             };
@@ -885,4 +854,43 @@ mod corrupt_row_tests {
         }
         tx.rollback().await.unwrap();
     }
+}
+
+/// Full release-chain integrity and live release gates for the generation lane, with no
+/// editorial visibility condition. Only `generation_audio::public_release` composes it into authority.
+pub(in crate::contexts::media) async fn verified_generation_release(
+    tx: &Tx<'_>,
+    id: &str,
+    now: i64,
+) -> Result<Option<ReadItem>, ListenerError> {
+    let from = FROM
+        .replace(
+            "{current_filter}",
+            crate::contexts::catalog::LISTENER_ACTIVE_FILTER,
+        )
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
+    let query = format!("SELECT {COLUMNS} {from} AND x.release_id=?2");
+    let Some(row) = tx.query_opt(&query, &[&now, &id]).await? else {
+        return Ok(None);
+    };
+    let request = ListenerMetadataRequest {
+        release: row.try_get("release_id")?,
+        work: row.try_get("work_id")?,
+        unit: row.try_get("unit_id")?,
+        work_revision: row.try_get("work_revision")?,
+        unit_revision: row.try_get("unit_revision")?,
+        content: row.try_get("content_revision_id")?,
+    };
+    let metadata = listener_metadata(tx, &[request])
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(ListenerError::Corrupt)?;
+    decode_for(
+        &row,
+        metadata,
+        true,
+        now,
+        ListenerPublication::resolve_generation,
+    )
 }

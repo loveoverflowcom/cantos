@@ -11,15 +11,9 @@ pub(crate) use application::metadata_publication::activate_audio;
 #[cfg(test)]
 pub(crate) use application::metadata_publication::ActivationAssociation;
 pub(crate) use application::metadata_publication::{ActiveAudioRelease, AudioReleaseFuture};
-#[cfg_attr(
-    not(test),
-    expect(
-        unused_imports,
-        reason = "S05 composes the public projection into Discovery"
-    )
-)]
 pub(crate) use application::metadata_publication_read::{
-    public_units, public_work, public_works, PublicReadError, PublicWorksQuery,
+    public_unit, public_units, public_work, public_works, PublicReadError, PublicWork,
+    PublicWorksQuery,
 };
 pub(crate) use application::owner_work::{
     advance_owner_work, owner_work, owner_work_now, owner_work_revision, recheck_owner_work,
@@ -28,6 +22,7 @@ pub(crate) use application::owner_work::{
 pub(crate) use application::production_content::{
     pinned_content, production_content, restore_content, ProductionContent,
 };
+#[cfg(test)]
 pub(crate) use application::sample_metadata_read::{sample_disclosed_work, SampleDisclosedWork};
 pub use application::seed_sample;
 pub use application::wire;
@@ -36,7 +31,8 @@ pub use application::{
 };
 
 pub(crate) use turso::{
-    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
+    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_ACTIVE_FILTER,
+    LISTENER_CURRENT_FILTER,
 };
 
 /// Test-only reads of a stored snapshot through the production decoders, so a fixture that edits a

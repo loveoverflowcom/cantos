@@ -126,6 +126,9 @@ fn conforms(schema: &str, definition: &str, value: &Value) {
 const DISCOVERY: &str = include_str!(
     "../../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json"
 );
+const METADATA: &str = include_str!(
+    "../../../services/cantos-server/contracts/theatre/discovery/v1/metadata.schema.json"
+);
 const LIBRARY: &str = include_str!(
     "../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json"
 );
@@ -248,7 +251,7 @@ async fn enroll(host: &Host, sink: &SmtpSink, email: &str, mail_number: usize) -
 async fn world(fixture: &ServerFixture) -> SeededWork {
     let storage = FilesystemPublicationStorage::new(&fixture.dir().join("publication")).unwrap();
     fixture
-        .seed_work(
+        .seed_published_work(
             Some(&storage),
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn", "Tập hai"]),
         )
@@ -301,17 +304,14 @@ async fn catalog_to_playback_to_library_over_the_production_composition_with_a_r
     // ---- anonymous catalog, manifest, authorization and media ------------------------------
     let works = send(&host.router, "GET", &theatre("/works"), &[], None).await;
     assert_eq!(works.status, StatusCode::OK);
-    conforms(DISCOVERY, "WorkPage", &works.json());
+    conforms(METADATA, "works", &works.json());
     let page = works.json();
     assert_eq!(page["items"].as_array().unwrap().len(), 1, "{page}");
     assert_eq!(page["items"][0]["work_id"], work.work_id);
     assert_eq!(page["items"][0]["title"], "Ánh đèn cuối sân khấu");
-    assert!(
-        page["items"][0].get("unit_count").is_none(),
-        "v1 stays the default"
-    );
+    assert_eq!(page["items"][0]["unit_count"], 2);
     assert_eq!(works.header("cache-control"), Some("no-store"));
-    let presented = send(
+    let retired = send(
         &host.router,
         "GET",
         &theatre("/works?presentation=1"),
@@ -319,8 +319,7 @@ async fn catalog_to_playback_to_library_over_the_production_composition_with_a_r
         None,
     )
     .await;
-    assert_eq!(presented.status, StatusCode::OK);
-    assert_eq!(presented.json()["items"][0]["unit_count"], 2);
+    assert_eq!(retired.status, StatusCode::BAD_REQUEST);
     let found = send(
         &host.router,
         "GET",
@@ -348,11 +347,11 @@ async fn catalog_to_playback_to_library_over_the_production_composition_with_a_r
     )
     .await;
     assert_eq!(units.status, StatusCode::OK);
-    conforms(DISCOVERY, "UnitPage", &units.json());
+    conforms(METADATA, "units", &units.json());
     let listed = units.json();
     assert_eq!(listed["items"].as_array().unwrap().len(), 2);
     assert_eq!(listed["items"][0]["unit_id"], unit.unit_id);
-    assert_eq!(listed["items"][0]["publication_id"], release);
+    assert_eq!(listed["items"][0]["playback"]["publication_id"], release);
     let manifest = send(
         &host.router,
         "GET",

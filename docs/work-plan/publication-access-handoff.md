@@ -330,3 +330,38 @@ Theatre Web is unchanged. Evidence: pure admission/projection/reducer tests, con
 both readers, real-file Turso Studio router tests (authority, exact revision, side-effect absence
 over Catalog and publication tables, headers, paging) and a real-browser run of the Studio WASM
 against a synthetic API (not Server or Identity).
+
+### S05 consumer contract (#651)
+
+Studio uses the existing Work draft/CAS, workspace mount and request authority for metadata
+publication. An explicit state read distinguishes unread/error from `never_published`, active
+from withdrawn, and current state from historical operation receipts. The bounded review starts
+with the exact existing published pins; only explicitly selected loaded drafts are added or
+updated. The full final membership/order is visible with keyboard reorder/removal controls and
+one final rights confirmation. Save/preview, metadata withdraw, Catalog archive and audio
+withdraw retain separate intents. Conflict preserves the selection; an explicit reload/compare
+can rebase its pointer version. Timeout/cancel retains the original operation and payload for
+replay, and a replay receipt never masquerades as the current pointer.
+
+Theatre Web and CMP use the one default [generation metadata representation](../../services/cantos-server/contracts/theatre/discovery/v1/README.md).
+The Server composes Catalog's exact pins and Media's live association gate. Old presentation
+selectors are rejected. A sample attestation or audio release without a generic generation is
+absent. Metadata-only rows dispatch no manifest/playback request. Manifest/grant/media reads
+recheck the exact current association and full release integrity; cover reads use the generation
+Work revision with independent image clearance and reproject after object I/O.
+
+No registered SQL is changed and no old row is converted into generic publication authority.
+Private sample seed provenance and its historical test oracles remain separate from anonymous
+Discovery. The sample behavior ID is deprecated; generic generation/association remains draft
+with no model until its accepted observation scope includes S06 audience transitions.
+
+The current state DTO exposes revision/digest/order/audio pins, not historical field text.
+Studio reads exact earlier/selected cover identities through the existing artwork revision
+endpoint and compares revision/order changes. It never presents a newer head's text as a
+historical snapshot. Full historical Work field text comparison remains a contract gap. Library projection and later restricted/cache/native qualification retain their
+own S06–S09 scope; source/JVM/browser evidence does not qualify Android or iOS.
+
+S06 receives unchanged publication command/CAS/receipt semantics and the generic public read
+composition. It must keep restricted access unavailable until every required route and bytes
+path enforces the new audience rules. No global Studio navigation, shared UI primitive,
+provider, deployment or production migration is introduced by S05.

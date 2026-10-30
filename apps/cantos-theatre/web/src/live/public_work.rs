@@ -16,17 +16,15 @@ const MAX_WORK_BYTES: usize = 262_144;
 const MAX_PAGE_BYTES: usize = 2_097_152;
 const MAX_ERROR_BYTES: usize = 4_096;
 
-/// The Work read opts in to `presentation=3` (public `unit_count` and the required-nullable
-/// `cover`); the unit read stays on `presentation=3` (each unit's `ordinal`, identical at v1.2).
+/// Work and Units use the single generation representation, with explicit nullable playback.
 /// The strict v1 DTOs are never extended.
 pub fn work_path(work: PublicWorkId) -> String {
-    format!("{THEATRE_BASE}/works/{work}?presentation=3")
+    format!("{THEATRE_BASE}/works/{work}")
 }
 
 /// The cursor is opaque: it is only form-encoded, never parsed or persisted.
 pub fn units_path(work: PublicWorkId, cursor: Option<&str>) -> String {
-    let mut path =
-        format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}&presentation=3");
+    let mut path = format!("{THEATRE_BASE}/works/{work}/units?limit={UNIT_PAGE_LIMIT}");
     if let Some(cursor) = cursor {
         path.push_str("&cursor=");
         path.extend(url::form_urlencoded::byte_serialize(cursor.as_bytes()));
@@ -272,11 +270,11 @@ mod tests {
     fn paths_use_the_theatre_group_canonical_id_and_an_encoded_opaque_cursor() {
         assert_eq!(
             work_path(work()),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001?presentation=3"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001"
         );
         assert_eq!(
             units_path(work(), None),
-            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20&presentation=3"
+            "/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/units?limit=20"
         );
         assert!(units_path(work(), Some("lc1_a+b/c=&d")).ends_with("&cursor=lc1_a%2Bb%2Fc%3D%26d"));
     }

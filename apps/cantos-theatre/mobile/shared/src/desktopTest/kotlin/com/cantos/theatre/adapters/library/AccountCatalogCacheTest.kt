@@ -77,12 +77,11 @@ class AccountCatalogCacheTest {
             }, cache)
             // An entry an earlier client stored for the page-one key, in the representation without `cover`.
             val legacy = """{"items":[{"work_id":"10000000-0000-4000-8000-000000000001","kind":"story","title":"Cũ","description":"","language":"vi","first_visible_at_ms":1,"unit_count":1}],"next_cursor":null}"""
-            cache.put("https://api.example/api/v1/theatre/works?limit=20&presentation=3", legacy, "A")
+            cache.put("https://api.example/api/v1/theatre/works?limit=20", legacy, "A")
             val page = assertIs<PublicCatalogRead.Ready<com.cantos.theatre.domain.catalog.PublicWorkPage>>(api.works(null, PublicCatalogQuery.All))
             assertEquals(1, requests, "the stale-shaped entry is refused and the network is read")
             assertEquals("Một lời hẹn", page.value.items.single().title)
-            // The earlier client's own key (no presentation) is never consulted at all.
-            cache.put("https://api.example/api/v1/theatre/works?limit=20", legacy, "A")
+            // The replacement was validated before caching; the next read needs no network.
             api.works(null, PublicCatalogQuery.All)
             assertEquals(1, requests, "the refreshed metadata entry now serves from cache")
             store.close()

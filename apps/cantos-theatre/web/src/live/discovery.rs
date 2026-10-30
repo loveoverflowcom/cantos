@@ -1,7 +1,6 @@
 //! Anonymous JSON discovery reads of the Work list. No identity cookie, credential, write or
-//! player effect. The request is always the one canonical `GET /works` with the opt-in
-//! `presentation=3` capability (Discovery v1.2), so every row carries its public `unit_count` and
-//! its required-nullable public `cover`.
+//! player effect. The canonical `GET /works` reads only active published generations, including
+//! their public `unit_count` and required-nullable `cover`.
 use super::public_work::{classify_error, is_json};
 use crate::contract::discovery::MetadataWorkPage;
 use crate::{
@@ -19,14 +18,13 @@ use std::collections::BTreeSet;
 const MAX_RESPONSE_BYTES: usize = 2_097_152;
 
 /// Query values are form-encoded; the cursor is opaque and only encoded, never parsed. The
-/// presentation capability is part of every request so a cursor never crosses representations.
+/// Server binds each cursor to this query and each Unit walk to its generation.
 pub fn works_path(query: &DiscoveryQuery, cursor: Option<&str>) -> String {
     let mut serializer = url::form_urlencoded::Serializer::new(String::new());
     for (name, value) in query.parameters() {
         serializer.append_pair(name, &value);
     }
     serializer.append_pair("limit", &PUBLIC_WORK_PAGE_LIMIT.to_string());
-    serializer.append_pair("presentation", "3");
     if let Some(cursor) = cursor {
         serializer.append_pair("cursor", cursor);
     }
@@ -128,11 +126,11 @@ mod tests {
     fn every_read_is_the_one_canonical_covered_works_request() {
         assert_eq!(
             works_path(&DiscoveryQuery::default(), None),
-            "/api/v1/theatre/works?limit=20&presentation=3"
+            "/api/v1/theatre/works?limit=20"
         );
         assert_eq!(
             works_path(&query("Ánh đèn & ma", Some(WorkKind::Story), "VI-vn"), None),
-            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20&presentation=3"
+            "/api/v1/theatre/works?q=%C3%81nh+%C4%91%C3%A8n+%26+ma&kind=story&language=vi-vn&limit=20"
         );
     }
 
@@ -141,7 +139,7 @@ mod tests {
         let path = works_path(&query("đèn", None, ""), Some("lc1_a+b/c=&d"));
         assert_eq!(
             path,
-            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&presentation=3&cursor=lc1_a%2Bb%2Fc%3D%26d"
+            "/api/v1/theatre/works?q=%C4%91%C3%A8n&limit=20&cursor=lc1_a%2Bb%2Fc%3D%26d"
         );
         // Decoding the query string returns exactly the typed values: nothing was lost or merged.
         let pairs: Vec<(String, String)> =

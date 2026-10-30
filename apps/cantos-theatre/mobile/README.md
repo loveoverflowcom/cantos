@@ -48,7 +48,7 @@ and window focus. [Bounded evidence](../../../docs/evidence/loading-588.md) reco
 separately from Android/iOS lifecycle, OS motion and AT acceptance still outstanding.
 
 **Public cover ([#159](https://github.com/loveoverflowcom/cantos/issues/159), ADR 0033).** Work
-list, search and detail reads send `presentation=3` and strictly decode the metadata-capable DTOs
+list, search and detail reads use the single default published-generation representation and strictly decode the metadata-capable DTOs
 (unit reads stay on default v1). `PublicCover` admits only the exact
 `https://{origin}/api/v1/theatre/works/{work}/cover/{sha256}` delivery shape; any other shape
 refuses the page. `PublicCoverHttp` reads the image anonymously, bounded by `byte_length`, and
@@ -1036,3 +1036,10 @@ pins its AVIF codec only in `desktopMain`. The native minimum OS versions are un
 unsupported codecs render the existing vector placeholder. Read the [image policy](../../../docs/design/runtime-images.md),
 [decoder proposal](../../../docs/decisions/0052-bundled-avif-decoding.md) and
 [platform evidence/gaps](../../../docs/evidence/runtime-images-607/README.md).
+
+
+Generation Discovery rejects the retired `presentation=1–3` selectors. The Kotlin consumer owns
+its strict metadata DTOs; Server schemas and fixtures are drift-checked in `PublicCatalogWireDriftTest`.
+Metadata-only rows remain readable and cannot request a manifest or start playback. Audio
+transitions keep the exact associated publication identity; there is no latest-release fallback.
+JVM adapter/controller tests, Android/iOS builds and device observations remain separate evidence.

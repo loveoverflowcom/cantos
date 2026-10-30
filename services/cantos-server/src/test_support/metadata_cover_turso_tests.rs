@@ -1,4 +1,4 @@
-//! Synthetic permission records, six original fictional metadata Works and an existing 2×3 AVIF_RGB
+//! Synthetic permission records, one generic owner-published metadata Work and an existing 2×3 AVIF_RGB
 //! fixture in a real disposable Turso/private object root. No generated cover or real consent is
 //! substituted. The non-login principal is populated through checked domain/SQL fixture seams;
 //! this does not establish an operator image-intake workflow or authenticate a human owner.
@@ -6,14 +6,7 @@ use super::{AVIF_RGB, AVIF_RGB_SHA256, ORIGIN, STUDIO};
 use crate::{
     adapters::inbound::http::{metadata_cover_test_router, AppState},
     contexts::{
-        catalog::{
-            self,
-            domain::{
-                metadata_disclosure::FICTIONAL_SAMPLE_SOURCE_SHA256,
-                sample_seed_request::{SampleSeedAction, SampleSeedRequest},
-                Work,
-            },
-        },
+        catalog::domain::{Work, WorkId},
         media::{
             domain::{
                 artwork::{decide_artwork_change, ArtworkDecision, SetWorkArtwork},
@@ -29,7 +22,7 @@ use crate::{
             ListenerError, ListenerService, PublicMediaOrigin,
         },
     },
-    contract::{studio as dto, theatre::discovery},
+    contract::studio as dto,
     test_support::ServerFixture,
 };
 use axum::{
@@ -41,7 +34,7 @@ use sha2::{Digest, Sha256};
 use std::{future::IntoFuture, sync::Arc};
 use tower::ServiceExt;
 
-const WORK: &str = "dbe1f751-0e5f-47d2-8910-62e2eafb2dcf";
+const WORK: &str = "65190000-0000-4000-8000-000000000001";
 
 struct MetadataWorld {
     clock: Arc<cantos_store_turso::testing::FixedClock>,
@@ -60,32 +53,20 @@ impl MetadataWorld {
             .clone()
             .with_audio_storage(&fixture.dir().join("private"))
             .unwrap();
-        catalog::seed_sample(
-            &store,
-            &SampleSeedRequest {
-                operation_id: uuid::Uuid::new_v4().to_string(),
-                action: SampleSeedAction::Publish,
-                source_sha256: FICTIONAL_SAMPLE_SOURCE_SHA256.into(),
-                operator_reference: "synthetic operator".into(),
-                evidence_reference: "synthetic metadata evidence".into(),
-                rights_statement: "isolated metadata fixture".into(),
-                confirm_source: true,
-                confirm_metadata_rights: true,
-            },
-            Some(include_bytes!(
-                "../../tests/fixtures/fictional-sample-metadata.json"
-            )),
-        )
-        .await
-        .unwrap();
-        let mut connection = store.connection().await.unwrap();
-        let tx = connection.read().await.unwrap();
-        let work = catalog::sample_disclosed_work(&tx, WORK)
+        let mut seed = crate::test_support::WorkSeed::podcast(
+            0x6519_0000,
+            "Mùa trăng metadata",
+            &["Chương tổng hợp"],
+        );
+        seed.units[0].stage = crate::test_support::Stage::Staged;
+        let seeded = fixture.seed_work(None, &seed).await;
+        assert_eq!(seeded.work_id, WORK);
+        fixture.studio_caller("alice", super::TOKEN).await;
+        let work = store
+            .catalog_work(super::TOKEN, &WorkId::parse(WORK).unwrap())
             .await
-            .unwrap()
-            .unwrap()
-            .work;
-        tx.commit().await.unwrap();
+            .unwrap();
+        let mut connection = store.connection().await.unwrap();
         let now = fixture.clock_reading().unwrap() / 1000;
         let intent_id = uuid::Uuid::new_v4().to_string();
         let intent = ImageIntent::create(
@@ -148,9 +129,8 @@ impl MetadataWorld {
         artwork::insert_change(&tx, mutation.change())
             .await
             .unwrap();
-        tx.execute("INSERT INTO catalog_fictional_metadata_disclosures SELECT work_id,subject_kind,subject_id,sequence+1,owner_id,decision,?2,?3,unit_revision,unit_digest,source_id,source_sha256,rights_kind,rights_id,recorded_by,recorded_at_ms,?4,fingerprint FROM catalog_fictional_metadata_disclosures WHERE subject_kind='work' AND subject_id=?1 ORDER BY sequence DESC LIMIT 1",
-            &[&WORK, &(work.revision() as i64), &digest, &uuid::Uuid::new_v4().to_string()]).await.unwrap();
         tx.commit().await.unwrap();
+        fixture.publish_work_metadata(&seeded).await;
         Self {
             clock,
             fixture,
@@ -160,14 +140,9 @@ impl MetadataWorld {
         }
     }
 
-    fn listener(&self, policy: bool) -> ListenerService {
-        let service = ListenerService::new(self.store.clone())
-            .with_cover_delivery(PublicMediaOrigin::parse(ORIGIN).unwrap(), &self.store);
-        if policy {
-            service.with_metadata_cover_policy()
-        } else {
-            service
-        }
+    fn listener(&self) -> ListenerService {
+        ListenerService::new(self.store.clone())
+            .with_cover_delivery(PublicMediaOrigin::parse(ORIGIN).unwrap(), &self.store)
     }
 
     async fn consent(&self, revision: Option<u64>, clear: bool) {
@@ -215,29 +190,16 @@ impl MetadataWorld {
 }
 
 #[tokio::test]
-async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after_revocation() {
+async fn generation_cover_requires_image_clearance_and_revalidates_real_bytes_after_revocation() {
     let world = MetadataWorld::new().await;
-    let enabled = world.listener(true);
+    let enabled = world.listener();
     assert_eq!(enabled.metadata_work(WORK).await.unwrap().cover, None);
-    world.consent(None, true).await; // existing release clearance cannot widen itself
-    assert_eq!(enabled.metadata_work(WORK).await.unwrap().cover, None);
-    world.consent(Some(1), true).await; // wrong pinned revision is not authority
-    assert_eq!(enabled.metadata_work(WORK).await.unwrap().cover, None);
-    world.consent(Some(world.work.revision()), true).await;
-    assert_eq!(
-        world
-            .listener(false)
-            .metadata_work(WORK)
-            .await
-            .unwrap()
-            .cover,
-        None
-    );
+    world.consent(None, true).await; // Per-image display clearance remains independent of text publication.
     let page = enabled
         .metadata_works("", None, None, 20, None)
         .await
         .unwrap();
-    assert_eq!(page.items.len(), 6);
+    assert_eq!(page.items.len(), 1);
     assert_eq!(page.items.iter().filter(|w| w.cover.is_some()).count(), 1);
     let actual = enabled.metadata_work(WORK).await.unwrap().cover.unwrap();
     assert_eq!(actual.sha256, AVIF_RGB_SHA256);
@@ -272,9 +234,11 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
         )
         .await
         .unwrap();
-    let old: discovery::CoveredWorkPage =
-        serde_json::from_slice(&old.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert!(old.items.is_empty()); // no fake audio release
+    assert_eq!(
+        old.status(),
+        StatusCode::BAD_REQUEST,
+        "retired selector is rejected"
+    );
     let admitted = enabled.admit_cover(WORK, AVIF_RGB_SHA256).await.unwrap();
     world.consent(None, false).await;
     assert!(matches!(
@@ -299,7 +263,7 @@ async fn metadata_cover_requires_distinct_scope_and_revalidates_real_bytes_after
 #[tokio::test]
 async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_url() {
     let world = MetadataWorld::new().await;
-    let enabled = world.listener(true);
+    let enabled = world.listener();
     world.consent(Some(world.work.revision()), true).await;
     assert!(enabled.metadata_work(WORK).await.unwrap().cover.is_some());
     world.clock.advance(60_000_000);
@@ -310,22 +274,22 @@ async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_
     ));
     world.consent(Some(world.work.revision()), true).await;
     assert!(enabled.metadata_work(WORK).await.unwrap().cover.is_some());
-    catalog::seed_sample(
-        &world.store,
-        &SampleSeedRequest {
-            operation_id: uuid::Uuid::new_v4().to_string(),
-            action: SampleSeedAction::Withdraw,
-            source_sha256: FICTIONAL_SAMPLE_SOURCE_SHA256.into(),
-            operator_reference: "synthetic operator".into(),
-            evidence_reference: "synthetic withdrawal evidence".into(),
-            rights_statement: "withdraw isolated metadata fixture".into(),
-            confirm_source: true,
-            confirm_metadata_rights: true,
-        },
-        None,
-    )
-    .await
-    .unwrap();
+    let state = world
+        .store
+        .metadata_publication_state(super::TOKEN, WORK)
+        .await
+        .unwrap();
+    crate::contexts::media::MetadataPublicationService::new(world.store.clone())
+        .settle(
+            super::TOKEN,
+            WORK,
+            dto::MetadataPublicationRequest::Withdraw {
+                operation_id: uuid::Uuid::new_v4().to_string(),
+                expected_version: state.version,
+            },
+        )
+        .await
+        .unwrap();
     assert!(matches!(
         enabled.metadata_work(WORK).await,
         Err(ListenerError::NotFound)
@@ -348,7 +312,7 @@ async fn metadata_search_browser_fixture() {
             store: world.store.clone(),
             web_origin: "http://127.0.0.1:8082".into(),
         },
-        world.listener(false),
+        world.listener(),
     );
     let app = crate::adapters::inbound::http::with_browser_cors(
         app,

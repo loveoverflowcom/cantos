@@ -207,7 +207,6 @@ pub async fn http(host: &HttpHost, p: &Plan, tokens: &[String]) {
     for path in [
         "/api/v1/theatre/works?limit=1",
         "/api/v1/theatre/search?q=%C3%A1nh&limit=20",
-        "/api/v1/theatre/works?presentation=1&limit=50",
     ] {
         let page = get(host, path, None).await;
         assert_eq!(page["items"], json!([]));

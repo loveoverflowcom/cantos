@@ -46,79 +46,27 @@ struct WorkQuery {
     language: Option<String>,
     limit: Option<u16>,
     cursor: Option<String>,
-    presentation: Option<Presentation>,
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 struct UnitQuery {
     limit: Option<u16>,
     cursor: Option<String>,
-    presentation: Option<Presentation>,
-}
-#[derive(Clone, Copy, Deserialize)]
-enum Presentation {
-    #[serde(rename = "1")]
-    Released,
-    /// Discovery v1.2 (ADR 0033): `CoveredWork*` with a required nullable cover.
-    #[serde(rename = "2")]
-    Covered,
-    /// Explicit metadata-only discovery, with nullable playback (ADR 0051 sample slice).
-    #[serde(rename = "3")]
-    Metadata,
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
-struct WorkDetailQuery {
-    presentation: Option<Presentation>,
-}
+struct WorkDetailQuery {}
 
 #[cfg(test)]
-mod presentation_query_tests {
+mod generation_query_tests {
     use super::*;
-    use axum::http::Uri;
-
     #[test]
-    fn presentation_query_is_an_explicit_closed_opt_in() {
-        for query in ["", "?presentation=1", "?presentation=2", "?presentation=3"] {
-            let uri: Uri = format!("/works{query}").parse().unwrap();
-            assert_eq!(
-                Query::<WorkQuery>::try_from_uri(&uri)
-                    .unwrap()
-                    .presentation
-                    .is_some(),
-                !query.is_empty()
-            );
-            assert_eq!(
-                Query::<UnitQuery>::try_from_uri(&uri)
-                    .unwrap()
-                    .presentation
-                    .is_some(),
-                !query.is_empty()
-            );
-            assert_eq!(
-                Query::<WorkDetailQuery>::try_from_uri(&uri)
-                    .unwrap()
-                    .presentation
-                    .is_some(),
-                !query.is_empty()
-            );
-        }
-        for query in [
-            "presentation=0",
-            "presentation=4",
-            "presentation=true",
-            "presentation=1&presentation=2",
-            "presentation=",
-            "presentation=1&presentation=1",
-            "other=1",
-        ] {
-            let uri: Uri = format!("/works?{query}").parse().unwrap();
-            assert!(Query::<WorkQuery>::try_from_uri(&uri).is_err(), "{query}");
-            assert!(Query::<UnitQuery>::try_from_uri(&uri).is_err(), "{query}");
-            assert!(
-                Query::<WorkDetailQuery>::try_from_uri(&uri).is_err(),
-                "{query}"
-            );
+    fn retired_presentation_selectors_are_refused() {
+        for value in ["1", "2", "3", "4", ""] {
+            let uri = format!("/works?presentation={value}").parse().unwrap();
+            assert!(Query::<WorkQuery>::try_from_uri(&uri).is_err());
+            assert!(Query::<UnitQuery>::try_from_uri(&uri).is_err());
+            assert!(Query::<WorkDetailQuery>::try_from_uri(&uri).is_err());
         }
     }
 }
@@ -171,24 +119,10 @@ async fn works(
         q.limit.unwrap_or(20),
     );
     let cursor = q.cursor.as_deref();
-    let result = match q.presentation {
-        None => service
-            .works(search, kind, language, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Released) => service
-            .presented_works(search, kind, language, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Covered) => service
-            .covered_works(search, kind, language, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Metadata) => service
-            .metadata_works(search, kind, language, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-    };
+    let result = service
+        .metadata_works(search, kind, language, limit, cursor)
+        .await
+        .map(|v| Json(v).into_response());
     result.unwrap_or_else(error)
 }
 async fn work(
@@ -196,24 +130,13 @@ async fn work(
     Path(work): Path<String>,
     query: Result<Query<WorkDetailQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Response {
-    let Ok(Query(q)) = query else {
+    let Ok(Query(_)) = query else {
         return error(ListenerError::InvalidRequest);
     };
-    let result = match q.presentation {
-        None => service.work(&work).await.map(|v| Json(v).into_response()),
-        Some(Presentation::Released) => service
-            .presented_work(&work)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Covered) => service
-            .covered_work(&work)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Metadata) => service
-            .metadata_work(&work)
-            .await
-            .map(|v| Json(v).into_response()),
-    };
+    let result = service
+        .metadata_work(&work)
+        .await
+        .map(|v| Json(v).into_response());
     result.unwrap_or_else(error)
 }
 async fn units(
@@ -225,24 +148,10 @@ async fn units(
         return error(ListenerError::InvalidRequest);
     };
     let (limit, cursor) = (q.limit.unwrap_or(20), q.cursor.as_deref());
-    let result = match q.presentation {
-        None => service
-            .units(&work, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Released) => service
-            .presented_units(&work, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Covered) => service
-            .covered_units(&work, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-        Some(Presentation::Metadata) => service
-            .metadata_units(&work, limit, cursor)
-            .await
-            .map(|v| Json(v).into_response()),
-    };
+    let result = service
+        .metadata_units(&work, limit, cursor)
+        .await
+        .map(|v| Json(v).into_response());
     result.unwrap_or_else(error)
 }
 async fn manifest(

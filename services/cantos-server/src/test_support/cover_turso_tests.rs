@@ -68,7 +68,7 @@ impl World {
             .with_audio_storage(&fixture.dir().join("private"))
             .expect("a private object root");
         let work = fixture
-            .seed_work(
+            .seed_published_work(
                 None,
                 &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn"]),
             )
@@ -76,7 +76,7 @@ impl World {
         fixture.seed_development_session("alice", TOKEN, 48).await;
         fixture
             .exec(
-                "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice','rights',?1,'Synthetic fixture declaration; no rights approval')",
+                "INSERT INTO script_evidence(owner_id,kind,id,description) SELECT 'alice','rights',?1,'Synthetic fixture declaration; no rights approval' WHERE NOT EXISTS(SELECT 1 FROM script_evidence WHERE owner_id='alice' AND kind='rights' AND id=?1)",
                 &[&RIGHTS],
             )
             .await
@@ -191,6 +191,7 @@ impl World {
             .publish_generation(None, &self.work, &self.unit, self.generation)
             .await;
         self.unit.chain = chain;
+        self.fixture.publish_work_metadata(&self.work).await;
     }
 
     async fn disclose(
@@ -224,9 +225,9 @@ impl World {
 
     async fn cover(&self) -> Option<dto::CoverImage> {
         let service = self.covered();
-        let detail = service.covered_work(&self.work.work_id).await.unwrap();
+        let detail = service.metadata_work(&self.work.work_id).await.unwrap();
         let page = service
-            .covered_works("", None, None, 20, None)
+            .metadata_works("", None, None, 20, None)
             .await
             .unwrap();
         assert_eq!(page.items, vec![detail.clone()], "list and detail agree");
@@ -401,35 +402,32 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
     world.select(Some(&a), ALT_A).await;
     // The seeded release pinned the Work before any artwork: no cover, whatever is disclosed.
     world.disclose(&a, Some(HOUR / 1000 * 24)).await.unwrap();
-    assert_eq!(world.cover().await, None, "the release pins no artwork");
+    assert_eq!(
+        world.cover().await,
+        None,
+        "the metadata generation pins no artwork"
+    );
 
     world.republish().await;
     // The new release pins A and the 24h clearance is current: A shows its admitted facts.
     let shown = world.expected(AVIF_RGB_SHA256, dto::CoverMime::Avif, AVIF_RGB.len(), ALT_A);
     assert_eq!(world.cover().await, Some(shown.clone()));
 
-    // Default and presentation=1 readers are unchanged by a disclosed cover.
-    let released = world
-        .covered()
-        .presented_work(&world.work.work_id)
+    // Cover delivery changes only the optional cover field of the same generation metadata.
+    let text = ListenerService::new(world.store.clone())
+        .metadata_work(&world.work.work_id)
         .await
         .unwrap();
-    assert_eq!(
-        ListenerService::new(world.store.clone())
-            .presented_work(&world.work.work_id)
-            .await
-            .unwrap(),
-        released
-    );
     let covered = world
         .covered()
-        .covered_work(&world.work.work_id)
+        .metadata_work(&world.work.work_id)
         .await
         .unwrap();
     assert_eq!(
         (covered.title.as_str(), covered.unit_count),
-        (released.title.as_str(), released.unit_count)
+        (text.title.as_str(), text.unit_count)
     );
+    assert!(text.cover.is_none());
 
     // Owner privately replaces A with B and even discloses B: public stays A (release-pinned).
     let b = world
@@ -549,7 +547,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
     let uncomposed = ListenerService::new(world.store.clone());
     assert_eq!(
         uncomposed
-            .covered_work(&world.work.work_id)
+            .metadata_work(&world.work.work_id)
             .await
             .unwrap()
             .cover,
@@ -570,13 +568,37 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
         .fixture
         .withdraw_release(&world.work.owner, &unit)
         .await;
+    // Audio withdrawal leaves metadata and its independently cleared cover visible.
+    assert!(world
+        .covered()
+        .metadata_work(&world.work.work_id)
+        .await
+        .unwrap()
+        .cover
+        .is_some());
+    let state = world
+        .store
+        .metadata_publication_state(TOKEN, &world.work.work_id)
+        .await
+        .unwrap();
+    crate::contexts::media::MetadataPublicationService::new(world.store.clone())
+        .settle(
+            TOKEN,
+            &world.work.work_id,
+            studio_dto::MetadataPublicationRequest::Withdraw {
+                operation_id: uuid::Uuid::new_v4().to_string(),
+                expected_version: state.version,
+            },
+        )
+        .await
+        .unwrap();
     assert_eq!(
-        refusal(world.covered().covered_work(&world.work.work_id).await),
+        refusal(world.covered().metadata_work(&world.work.work_id).await),
         ListenerError::NotFound
     );
     assert!(world
         .covered()
-        .covered_works("", None, None, 20, None)
+        .metadata_works("", None, None, 20, None)
         .await
         .unwrap()
         .items
@@ -780,13 +802,13 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     // Discovery v1.2 over HTTP carries the same URL the route serves.
     let (status, _, body) = send(
         &app,
-        get(&format!("/api/v1/theatre/works/{work}?presentation=2"))
+        get(&format!("/api/v1/theatre/works/{work}"))
             .body(Body::empty())
             .unwrap(),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let summary: dto::CoveredWorkSummary = serde_json::from_slice(&body).unwrap();
+    let summary: dto::MetadataWorkSummary = serde_json::from_slice(&body).unwrap();
     let cover = summary.cover.expect("a shown cover");
     assert_eq!(cover.url, format!("{ORIGIN}{path}"));
     let text = String::from_utf8_lossy(&body);
@@ -804,15 +826,13 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     }
     let (status, _, body) = send(
         &app,
-        get("/api/v1/theatre/works?presentation=2")
-            .body(Body::empty())
-            .unwrap(),
+        get("/api/v1/theatre/works").body(Body::empty()).unwrap(),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    let page: dto::CoveredWorkPage = serde_json::from_slice(&body).unwrap();
+    let page: dto::MetadataWorkPage = serde_json::from_slice(&body).unwrap();
     assert_eq!(page.items[0].cover.as_ref(), Some(&cover));
-    // Units at presentation=2 answer exactly as at presentation=1, apart from cursor identity.
+    // Units at  answer exactly as at presentation=1, apart from cursor identity.
     let units = |level: u8| {
         get(&format!(
             "/api/v1/theatre/works/{work}/units?presentation={level}"
@@ -911,12 +931,12 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     );
     let (_, _, body) = send(
         &plain,
-        get(&format!("/api/v1/theatre/works/{work}?presentation=2"))
+        get(&format!("/api/v1/theatre/works/{work}"))
             .body(Body::empty())
             .unwrap(),
     )
     .await;
-    let summary: dto::CoveredWorkSummary = serde_json::from_slice(&body).unwrap();
+    let summary: dto::MetadataWorkSummary = serde_json::from_slice(&body).unwrap();
     assert_eq!(summary.cover, None);
 }
 
@@ -1029,11 +1049,11 @@ async fn damaged_cover_rows_fall_back_without_hiding_the_title() {
             .unwrap();
         world.fixture.exec(statement, &[]).await.unwrap();
         let service = world.covered();
-        let detail = service.covered_work(&world.work.work_id).await.unwrap();
+        let detail = service.metadata_work(&world.work.work_id).await.unwrap();
         assert_eq!(detail.cover, None, "{trigger}");
         assert_eq!(detail.title, "Ánh đèn cuối sân khấu");
         assert_eq!(
-            service.covered_works("", None, None, 20, None).await.unwrap().items,
+            service.metadata_works("", None, None, 20, None).await.unwrap().items,
             vec![detail]
         );
         assert!(service
