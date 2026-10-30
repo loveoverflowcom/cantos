@@ -194,7 +194,8 @@ internal fun AccountView.Failed.offersRestoreRetry(): Boolean =
 @Composable
 internal fun AccountStatus(account: AccountView, copy: AuthCopy, nothingSaved: Boolean = false) {
     val message = when (account) {
-        is AccountView.Failed -> copy.failure(account.reason, account.identityFailure)
+        // Confirmed session loss is owned by the contextual notice, including after dismissal.
+        is AccountView.Failed -> if (account.sessionLoss != null) null else copy.failure(account.reason, account.identityFailure)
         AccountView.CleanupRequired -> copy.text(AuthText.CleanupRequired)
         AccountView.Pending -> copy.text(AuthText.PendingStatus)
         AccountView.SignedOut -> if (nothingSaved) copy.text(AuthText.NothingSaved) else null

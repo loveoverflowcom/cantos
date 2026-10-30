@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,16 +21,19 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.cantos.theatre.application.errors.ErrorAction
+import com.cantos.theatre.application.errors.ErrorKind
 import com.cantos.theatre.application.errors.ErrorMessageKey
 import com.cantos.theatre.application.errors.ErrorNotice
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp
+import com.cantos.ui.rememberCantosIconVector
 
 /**
  * The one standard modal error window for Cantos CMP (#298). Renders only the closed [ErrorNotice]
@@ -45,6 +49,12 @@ fun ErrorDialog(
     returnFocus: FocusRequester? = null,
 ) {
     val primaryFocus = remember(notice.key) { FocusRequester() }
+    // Desktop dialogs have a separate window. Bound the content to the measured app viewport,
+    // just as on native, so large copy scrolls instead of pushing actions beyond a narrow host.
+    val viewport = LocalLoadingViewport.current
+    val maximumHeight = with(LocalDensity.current) { viewport.height.toDp() }
+    val viewportConstraint = if (maximumHeight.value > 0f) Modifier.heightIn(max = maximumHeight) else Modifier
+    val expired = notice.kind == ErrorKind.SessionExpired
     val primary = notice.primary
     val closeOnly = primary == ErrorAction.Close
     fun dismissAndRestore() {
@@ -64,7 +74,7 @@ fun ErrorDialog(
     AlertDialog(
         shape = CantosShapes.overlay,
         containerColor = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
+        modifier = viewportConstraint
             .onPreviewKeyEvent {
                 if (it.key == Key.Escape && it.type == KeyEventType.KeyUp) {
                     dismissAndRestore()
@@ -75,9 +85,10 @@ fun ErrorDialog(
             }
             .testTag("error-dialog"),
         onDismissRequest = ::dismissAndRestore,
+        icon = if (expired) ({ Icon(rememberCantosIconVector("timer"), null, tint = MaterialTheme.colorScheme.primary) }) else null,
         title = {
             Text(
-                copy.text(CopyKey.ErrorDialogTitle),
+                copy.text(if (expired) CopyKey.SessionExpiredTitle else CopyKey.ErrorDialogTitle),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.semantics { heading() }.testTag("error-dialog-title"),
             )
@@ -99,7 +110,7 @@ fun ErrorDialog(
                         .focusRequester(primaryFocus)
                         .testTag("error-dialog-close"),
                 ) {
-                    Text(copy.text(CopyKey.CloseError))
+                    Text(copy.text(if (expired) CopyKey.SessionExpiredLater else CopyKey.CloseError))
                 }
             } else {
                 Button(
@@ -125,7 +136,7 @@ fun ErrorDialog(
                         .heightIn(min = tokenDp("size.control"))
                         .testTag("error-dialog-close"),
                 ) {
-                    Text(copy.text(CopyKey.CloseError))
+                    Text(copy.text(if (expired) CopyKey.SessionExpiredLater else CopyKey.CloseError))
                 }
             }
         },
@@ -133,6 +144,7 @@ fun ErrorDialog(
 }
 
 internal fun ErrorMessageKey.toCopyKey(): CopyKey = when (this) {
+    ErrorMessageKey.SessionExpired -> CopyKey.SessionExpiredBody
     ErrorMessageKey.Network -> CopyKey.ErrorNetwork
     ErrorMessageKey.Timeout -> CopyKey.ErrorTimeout
     ErrorMessageKey.Unauthenticated -> CopyKey.ErrorUnauthenticated

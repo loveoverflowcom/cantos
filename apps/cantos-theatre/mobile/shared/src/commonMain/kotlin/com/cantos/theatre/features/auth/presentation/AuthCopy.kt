@@ -25,6 +25,9 @@ internal class AuthCopy(private val locale: ShellLocale) {
         }
         if (identity != null) return text(when (identity) {
             AccountLoginFailure.InvalidCredentials -> AuthText.InvalidCredentials
+            AccountLoginFailure.AccessDenied -> AuthText.AccessDenied
+            AccountLoginFailure.SessionChanged -> AuthText.SessionChanged
+            AccountLoginFailure.UnknownOutcome -> AuthText.UnknownOutcome
             AccountLoginFailure.Protocol -> AuthText.FailureProtocol
             AccountLoginFailure.RetryLater, is AccountLoginFailure.RateLimited -> AuthText.RetryLater
         })

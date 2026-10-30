@@ -34,12 +34,12 @@ class IdentityV1AuthCopyTest {
             IdentityV1Failure.NotConfigured to AccountLoginFailure.RetryLater,
             IdentityV1Failure.ServiceUnavailable to AccountLoginFailure.RetryLater,
             IdentityV1Failure.Transport to AccountLoginFailure.RetryLater,
-            IdentityV1Failure.UnknownOutcome to AccountLoginFailure.RetryLater,
-            IdentityV1Failure.SessionChanged to AccountLoginFailure.RetryLater,
+            IdentityV1Failure.UnknownOutcome to AccountLoginFailure.UnknownOutcome,
+            IdentityV1Failure.SessionChanged to AccountLoginFailure.SessionChanged,
             IdentityV1Failure.RateLimited(17) to AccountLoginFailure.RateLimited(17),
         )
         expected.forEach { (failure, display) ->
-            assertEquals(AccountView.Failed(NativeAccountFailure.Api, display), NativeAccountState.Failed(NativeAccountFailure.Api, failure).toAccountView())
+            assertEquals(AccountView.Failed(NativeAccountFailure.Api, display), NativeAccountState.Failed(NativeAccountFailure.Api, failure, credentialAttempt = true).toAccountView())
         }
     }
     @Test fun login_command_diagnostics_never_include_either_form_value() {

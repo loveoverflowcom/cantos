@@ -272,7 +272,7 @@ class NativeAuthorizedLibraryRuntimeTest {
         }
     }
 
-    @Test fun genuine401AndExplicitWrongStampStillQuarantineAuthorityAndPlayer() = runTest {
+    @Test fun genuine401AndExplicitWrongStampQuarantinePrivateAuthorityWithoutStoppingPublicPlayback() = runTest {
         for (reply in listOf(NativeHttpResponse(401, null, null, null),
             NativeHttpResponse(200, "application/json", "{}", null, "other-session"))) {
             val f = Fixture(backgroundScope)
@@ -280,12 +280,13 @@ class NativeAuthorizedLibraryRuntimeTest {
                 runCurrent()
                 f.runtime.listening.restore(f.audio, 10_000); runCurrent()
                 f.start(); runCurrent(); f.acknowledgeStarted(); runCurrent()
+                val publicPlayer = f.runtime.listening.playback.state.value
                 f.sessionGate = CompletableDeferred()
                 f.nextResponse = reply
                 f.library.refresh(com.cantos.theatre.domain.library.LibrarySection.Continue); runCurrent()
                 assertNull(f.account.verifiedSession.value)
                 assertNull(f.library.state.value.account)
-                assertNull(f.runtime.listening.playback.state.value.session)
+                assertEquals(publicPlayer, f.runtime.listening.playback.state.value)
                 val before = f.requests.size
                 f.runtime.foregrounded(); f.runtime.networkRestored(); runCurrent()
                 assertEquals(before, f.requests.size, "recovery hints cannot grant authority")
