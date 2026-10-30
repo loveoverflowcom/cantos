@@ -307,10 +307,25 @@ fn theatre_geometry_matches_the_design_minimums_without_fixing_heights() {
 }
 
 #[test]
-fn a_chip_reads_by_shape_and_tone_with_an_interruptible_transition_that_reduced_motion_removes() {
+fn a_chip_is_a_borderless_tonal_capsule_that_reads_selection_by_tone_and_check() {
     let css = theatre_section();
-    assert!(css.contains(".cui-filter-chip[aria-pressed=\"true\"] {\n  border-radius: var(--cantos-web-chip-selected-radius);"));
-    assert!(css.contains("border-radius var(--cantos-motion-shape-duration)"));
+    assert!(
+        css.contains(".cui-filter-chip[aria-pressed=\"true\"] {\n  background: var(--cantos-color-surface-container-high);\n  color: var(--cantos-color-on-surface);"),
+        "selected is the stronger tonal role, because primaryContainer is the ink here"
+    );
+    assert!(
+        css.contains(".cui-filter-chip:is(:disabled, [aria-disabled=\"true\"]) {\n  background: var(--cantos-color-surface-container);"),
+        "a blocked or pending chip drops to the resting tone"
+    );
+    for gone in ["--cantos-web-chip-radius", "--cantos-web-chip-selected-radius"] {
+        assert!(!FOUNDATION_CSS.contains(gone), "selection no longer changes the shape: {gone}");
+    }
+    assert!(
+        !css.contains("border-radius var(--cantos-motion-shape-duration)"),
+        "no shape morph on the chip"
+    );
+    // One capsule in every state, with no stroke at rest: Standard's base rule owns both.
+    assert!(FOUNDATION_CSS.contains("  border: 0;\n  border-radius: var(--cantos-shape-pill);\n  background: var(--cantos-color-surface-container);"));
     assert!(
         css.contains(".cui-filter-chip .cui-chip-check {\n  display: none;"),
         "an unselected chip is centered on its label"
@@ -321,11 +336,20 @@ fn a_chip_reads_by_shape_and_tone_with_an_interruptible_transition_that_reduced_
         ),
         "selection or pending opens the slot that holds the check or the arc"
     );
-    let reduced = css
-        .rfind("@media (prefers-reduced-motion: reduce)")
-        .unwrap();
-    assert!(css[reduced..]
-        .contains("[data-expression=\"theatre\"] .cui-filter-chip { transition: none; }"));
+    // The container fade is the Standard base transition; reduced motion removes it for both.
+    assert!(FOUNDATION_CSS.contains(
+        "transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);"
+    ));
+    assert!(FOUNDATION_CSS.contains(
+        ":where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip) { transition: none; }"
+    ));
+    // A stroke exists only where the platform forces colors, never as decoration.
+    let stroke = FOUNDATION_CSS
+        .find(".cui-filter-chip { border: var(--cantos-size-border) solid ButtonText; }")
+        .expect("forced-colors keeps the chip visible");
+    let forced = FOUNDATION_CSS[..stroke].rfind("@media").unwrap();
+    assert!(FOUNDATION_CSS[forced..stroke].starts_with("@media (forced-colors: active)"));
+    assert_eq!(FOUNDATION_CSS.matches(".cui-filter-chip { border:").count(), 1, "no other chip stroke");
 }
 
 #[test]

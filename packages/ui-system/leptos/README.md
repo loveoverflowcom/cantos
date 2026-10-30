@@ -496,9 +496,9 @@ visible one.
   instead of the identity hue; the golden initials and tone vectors are unchanged.
 - `UiRoot expression=Expression::Theatre` opts a subtree in. Everything Theatre-specific in
   `foundation.css.in` sits under `[data-expression="theatre"]` (a Rust test refuses any unscoped rule
-  after the section marker): 68/72 field minimums with a 16 radius, a chip that is a tonal 12-radius
-  shape when unselected and an ink capsule with its check when selected (an interruptible radius
-  transition that reduced motion removes), and a tonal pill utility `Select` whose value and chevron
+  after the section marker): 68/72 field minimums with a 16 radius, a chip that is the same borderless
+  tonal capsule in every state, with the stronger tonal surface and its check when selected (a
+  background fade that reduced motion removes; forced colors alone add a stroke), and a tonal pill utility `Select` whose value and chevron
   are one centered group. Standard consumers keep every value above.
 
 ## Web AuthTonal spacing candidate — superseded, preview only

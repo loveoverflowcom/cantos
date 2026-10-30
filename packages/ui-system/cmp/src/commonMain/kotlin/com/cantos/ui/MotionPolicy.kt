@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
@@ -170,6 +171,12 @@ internal fun parseEasingToken(raw: String): MotionEasing {
 
 /** The Compose mapping of a spec; [MotionSpec.Instant] has no duration at all. */
 fun MotionSpec.toAnimationSpec(): FiniteAnimationSpec<Float> = when (this) {
+    MotionSpec.Instant -> snap()
+    is MotionSpec.Timed -> tween(durationMillis, easing = CubicBezierEasing(easing.x1, easing.y1, easing.x2, easing.y2))
+}
+
+/** The same mapping for a colour fade; [MotionSpec.Instant] snaps, so reduced motion changes it in one frame. */
+fun MotionSpec.toColorAnimationSpec(): FiniteAnimationSpec<Color> = when (this) {
     MotionSpec.Instant -> snap()
     is MotionSpec.Timed -> tween(durationMillis, easing = CubicBezierEasing(easing.x1, easing.y1, easing.x2, easing.y2))
 }

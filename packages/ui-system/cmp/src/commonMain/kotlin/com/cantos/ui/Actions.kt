@@ -9,7 +9,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,16 +41,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.disabled
@@ -380,23 +373,6 @@ fun IconButton(
 }
 
 /**
- * Pure: the corner radius of a Theatre chip between its resting radius and the capsule of its
- * shortest side, at [fraction] 0 (unselected) to 1 (selected). Out-of-range input is clamped.
- */
-internal fun chipRadius(shortestSidePx: Float, restingPx: Float, fraction: Float): Float {
-    val capsule = shortestSidePx / 2f
-    val resting = restingPx.coerceAtMost(capsule)
-    return resting + (capsule - resting) * fraction.coerceIn(0f, 1f)
-}
-
-private class ChipShape(private val fraction: Float, private val restingRadius: Dp) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: DisplayDensity): Outline {
-        val radius = chipRadius(size.minDimension, with(density) { restingRadius.toPx() }, fraction)
-        return Outline.Rounded(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(radius)))
-    }
-}
-
-/**
  * The chip's leading slot: pending shows the arc in the slot the check occupies, selected shows the
  * check, and selection survives while pending through the chip's own `selected` state. A ready
  * unselected chip has no leading slot, so it gains one when it turns pending, as it does on selection.
@@ -408,11 +384,14 @@ private fun chipLeadingIcon(selected: Boolean, state: ButtonState): (@Composable
 }
 
 /**
- * Standard keeps the Material filter chip. The Theatre expression reads selection by check, tone and
- * shape: unselected is a tonal reading-radius chip centered on its label, selected an ink capsule
- * that gains the check. The chip keeps its left edge, top and 48-unit height, so the press point
- * stays inside it; only its width grows. The shape change uses the interruptible feedback motion
- * that reduced motion removes.
+ * A borderless tonal capsule in both expressions: unselected is the quiet tonal container, selected
+ * a stronger tonal container plus the check, so selection reads by tone and the check, never by a
+ * stroke. Theatre reads its selected tone from `surfaceContainerHigh` because `primaryContainer` is
+ * the ink of selection there; Standard keeps the Material `primaryContainer` pair. The shape never
+ * changes, so selecting only grows the chip by the check; the container fades on the feedback motion
+ * (instant under reduced motion). The visible chip keeps its start edge and the 48-unit touch height.
+ * A focused chip paints its focus indicator (state, not decoration): the inset perimeter under Theatre,
+ * the outset ring under Standard.
  */
 @Composable
 fun FilterChip(
@@ -424,48 +403,41 @@ fun FilterChip(
     controlModifier: Modifier = Modifier,
 ) {
     val theatre = LocalUiPreferences.current.expression == CantosExpression.Theatre
+    val rest = tokenColor("color.surfaceContainer")
+    val chosen = tokenColor(if (theatre) "color.surfaceContainerHigh" else "color.primaryContainer")
+    val ink = tokenColor(if (theatre) "color.onSurface" else "color.onPrimaryContainer")
+    val fade = rememberMotionSpec(MotionIntent.Feedback, MotionProperty.Effects)
+    val container by animateColorAsState(
+        if (selected) chosen else rest,
+        fade.toColorAnimationSpec(),
+        label = "chip-container",
+    )
+    val shape = CantosShapes.full
     Column(modifier) {
-        if (theatre) {
-            val spec = rememberMotionSpec(MotionIntent.Feedback, MotionProperty.Spatial)
-            val fraction by animateFloatAsState(if (selected) 1f else 0f, spec.toAnimationSpec(), label = "chip-shape")
-            val resting = tokenDp("shape.reading")
-            val chipShape = remember(fraction, resting) { ChipShape(fraction, resting) }
-            MaterialFilterChip(
-                selected = selected,
-                onClick = { if (state.canPress()) onSelect(!selected) },
-                enabled = state.canPress(),
-                label = { Text(label) },
-                leadingIcon = chipLeadingIcon(selected, state),
-                shape = chipShape,
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = tokenColor("color.surfaceContainer"),
-                    labelColor = tokenColor("color.onSurface"),
-                    iconColor = tokenColor("color.onPrimaryContainer"),
-                    selectedContainerColor = tokenColor("color.primaryContainer"),
-                    selectedLabelColor = tokenColor("color.onPrimaryContainer"),
-                    selectedLeadingIconColor = tokenColor("color.onPrimaryContainer"),
-                    disabledContainerColor = tokenColor("color.surfaceContainer"),
-                    disabledLabelColor = tokenColor("color.onSurfaceVariant"),
-                    disabledLeadingIconColor = tokenColor("color.onSurfaceVariant"),
-                    disabledSelectedContainerColor = tokenColor("color.surfaceContainer"),
-                ),
-                border = null,
-                // The selected ink container is the label's inverse, so its ring reads from that.
-                modifier = controlModifier.heightIn(min = tokenDp("size.control"))
-                    .cantosInsetPerimeter(chipShape, ring = if (selected) tokenColor("color.onPrimaryContainer") else null,
-                        inward = if (selected) tokenDp("size.border") * InsetPerimeterActiveFactor else Dp(0f))
-                    .actionState(state),
-            )
-        } else {
-            MaterialFilterChip(
-                selected = selected,
-                onClick = { if (state.canPress()) onSelect(!selected) },
-                enabled = state.canPress(),
-                label = { Text(label) },
-                leadingIcon = chipLeadingIcon(selected, state),
-                modifier = controlModifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
-            )
-        }
+        MaterialFilterChip(
+            selected = selected,
+            onClick = { if (state.canPress()) onSelect(!selected) },
+            enabled = state.canPress(),
+            label = { Text(label) },
+            leadingIcon = chipLeadingIcon(selected, state),
+            shape = shape,
+            colors = FilterChipDefaults.filterChipColors(
+                containerColor = container,
+                labelColor = tokenColor("color.onSurface"),
+                iconColor = ink,
+                selectedContainerColor = container,
+                selectedLabelColor = ink,
+                selectedLeadingIconColor = ink,
+                disabledContainerColor = rest,
+                disabledLabelColor = tokenColor("color.onSurfaceVariant"),
+                disabledLeadingIconColor = tokenColor("color.onSurfaceVariant"),
+                disabledSelectedContainerColor = rest,
+            ),
+            border = null,
+            modifier = controlModifier.heightIn(min = tokenDp("size.control"))
+                .then(if (theatre) Modifier.cantosInsetPerimeter(shape) else Modifier.cantosFocus("shape.pill"))
+                .actionState(state),
+        )
         state.reason()?.let { FieldHelp(it) }
     }
 }
