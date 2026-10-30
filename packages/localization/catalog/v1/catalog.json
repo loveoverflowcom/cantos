@@ -25795,6 +25795,114 @@
           "text": "Chapters / episodes"
         }
       }
+    },
+    "theatre.cmp_shell.session_expired_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên đăng nhập đã hết hạn"
+        },
+        "en": {
+          "text": "Your session has expired"
+        }
+      }
+    },
+    "theatre.cmp_shell.session_expired_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập lại để đồng bộ mục đã lưu và tiến độ nghe."
+        },
+        "en": {
+          "text": "Sign in again to sync your saved items and listening progress."
+        }
+      }
+    },
+    "theatre.cmp_shell.session_expired_banner": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cần đăng nhập lại"
+        },
+        "en": {
+          "text": "Sign in again"
+        }
+      }
+    },
+    "theatre.cmp_shell.session_expired_banner_body": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập lại để tiếp tục đồng bộ."
+        },
+        "en": {
+          "text": "Sign in to resume syncing."
+        }
+      }
+    },
+    "theatre.cmp_shell.session_expired_later": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Để sau"
+        },
+        "en": {
+          "text": "Later"
+        }
+      }
+    },
+    "theatre.cmp_shell.session_expired_dismiss": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ẩn nhắc đăng nhập"
+        },
+        "en": {
+          "text": "Dismiss sign-in reminder"
+        }
+      }
+    },
+    "theatre.cmp_auth.session_changed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên đã thay đổi. Hãy kiểm tra lại tài khoản."
+        },
+        "en": {
+          "text": "The session changed. Check your account before continuing."
+        }
+      }
+    },
+    "theatre.cmp_auth.unknown_outcome": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xác định được kết quả. Hãy đăng nhập lại."
+        },
+        "en": {
+          "text": "The outcome is unknown. Sign in again."
+        }
+      }
+    },
+    "theatre.cmp_auth.access_denied": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản chưa được phép thực hiện thao tác này."
+        },
+        "en": {
+          "text": "This account cannot perform that action."
+        }
+      }
     }
   }
 }

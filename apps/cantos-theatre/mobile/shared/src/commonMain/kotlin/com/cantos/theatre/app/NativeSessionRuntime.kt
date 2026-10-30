@@ -1,5 +1,6 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.application.identity.AccountChange
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.NativeVerifiedSession
 import com.cantos.theatre.application.library.NativeLibraryController
@@ -73,6 +74,8 @@ class NativeSessionRuntime(
                     it.intent == verified.intent && it.session.actor == verified.session.actor &&
                         it.session.session == verified.session.session
                 } == true
+                val keepPublicPlayback = identity.change == AccountChange.Passive ||
+                    (verified != null && previous == null && listening.playback.state.value.session != null)
                 previous = verified
                 if (sameFamily) {
                     // Rotation changes credentials, not the account or playback session. The
@@ -86,21 +89,26 @@ class NativeSessionRuntime(
                     return@collect
                 }
                 onAccountChanged(verified?.session?.actor)
-                listening.cancelSelection()
-                // A new admission (login, account switch or revalidation) clears the old engine
-                // even if its intermediate null authority was conflated by StateFlow.
-                listening.playback.dispatch(PlaybackEvent.SessionCleared)
+                // Playback has a separate public release capability. Passive account quarantine/loss
+                // fences Library immediately but cannot pause public audio or replace its position.
+                // Explicit logout/switch retains the engine fence, including conflated transitions.
+                if (!keepPublicPlayback) {
+                    listening.cancelSelection()
+                    listening.playback.dispatch(PlaybackEvent.SessionCleared)
+                }
                 if (verified == null) {
                     library?.leave()
                 } else {
                     library?.enter(verified.session, verified.bearer)
-                    library?.state?.value?.restoredPaused?.let { saved ->
+                    library?.state?.value?.restoredPaused?.takeUnless { keepPublicPlayback }?.let { saved ->
                         listening.restore(saved.audio, saved.positionMs, saved.speedPermille)
                     }
                 }
-                started = false
-                restartPending = false
-                engineSession = newUuid()
+                if (identity.change != AccountChange.Passive) {
+                    started = false
+                    restartPending = false
+                    engineSession = newUuid()
+                }
             }
         } }
         // API validation precedes every account-owned database read or replay.
