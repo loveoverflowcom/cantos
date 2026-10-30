@@ -250,7 +250,7 @@ fun CantosPresentation(
                     }
                 }
                 // Search is a fullscreen task with its own Back and input; no shared header repeats above it.
-                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, themeMode, accountSignedIn)
+                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn)
                 state.listeningFailure?.let { failure ->
                     Column(
                         Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
@@ -371,7 +371,6 @@ private fun ShellHeader(
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
     accountFocus: FocusRequester,
-    themeMode: ShellThemeMode,
     accountSignedIn: Boolean,
 ) {
     val branded = topBarShowsBrandMark(state.route)
@@ -379,8 +378,8 @@ private fun ShellHeader(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
     ) {
         val reflow = maxWidth < tokenDp("breakpoint.medium") && LocalDensity.current.fontScale > 1.3f
-        val actionsWidth = tokenDp("size.control") + tokenDp("size.avatarControl") + tokenDp("space.sm")
-        val brandWidth = if (reflow) maxWidth else (maxWidth - actionsWidth).coerceAtLeast(tokenDp("size.control"))
+        val brandWidth = if (reflow || state.route == ShellRoute.Account) maxWidth
+            else (maxWidth - tokenDp("size.avatarControl")).coerceAtLeast(tokenDp("size.control"))
         FlowRow(
             Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
@@ -411,24 +410,15 @@ private fun ShellHeader(
             color = MaterialTheme.colorScheme.primary,
         )
         }
-        Row(if (reflow) Modifier.fillMaxWidth() else Modifier,
+        if (state.route != ShellRoute.Account) Row(if (reflow) Modifier.fillMaxWidth() else Modifier,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"), Alignment.End),
             verticalAlignment = Alignment.CenterVertically) {
-        TopBarThemeButton(
-            themeMode,
-            copy.themeAction(themeMode),
-            copy.themeName(themeMode),
-            { dispatch(ShellEvent.SetThemeMode(themeMode.cycle())) },
-            Modifier.testTag("theme-toggle"),
-        )
-        if (state.route != ShellRoute.Account) {
             TopBarAccountButton(
                 label = copy.text(CopyKey.Account),
                 signedIn = accountSignedIn,
                 onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
                 modifier = Modifier.focusRequester(accountFocus).testTag("account"),
             )
-        }
         }
         }
     }

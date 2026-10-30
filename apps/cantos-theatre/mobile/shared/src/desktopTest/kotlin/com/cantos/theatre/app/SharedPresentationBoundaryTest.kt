@@ -22,8 +22,8 @@ class SharedPresentationBoundaryTest {
         )
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { CantosPresentation(state, ShellCatalogView(), {}) }
-            onNodeWithTag("setting-Theme").assertExists()
-            onNodeWithTag("setting-Language").assertExists()
+            onNodeWithTag("setting-Theme").assertDoesNotExist()
+            onNodeWithTag("setting-Language").assertDoesNotExist()
             onNodeWithTag("setting-Diagnostics").assertDoesNotExist()
             onNodeWithTag("demo-notice").assertDoesNotExist()
             onNodeWithTag("reset").assertDoesNotExist()

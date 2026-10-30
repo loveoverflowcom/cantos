@@ -45,7 +45,8 @@ class DiscoveryPresentationTest {
             onNodeWithTag("header-logo", useUnmergedTree = true)
                 .assertHeightIsAtLeast(44.dp).assertWidthIsAtLeast(44.dp)
                 .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
-            assertEquals(onNodeWithTag("theme-toggle").fetchSemanticsNode().boundsInRoot.center.y,
+            onNodeWithTag("theme-toggle").assertDoesNotExist()
+            assertEquals(onNodeWithTag("account").fetchSemanticsNode().boundsInRoot.center.y,
                 onNodeWithTag("header-logo", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center.y)
             onNodeWithTag("header-title").assertExists()
         }

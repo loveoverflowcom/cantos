@@ -424,6 +424,20 @@ mod tests {
         fs::rename(&root, temp.0.join("archived")).unwrap();
         assert!(operation_lock(&root).is_err());
         drop(first);
-        assert!(operation_lock(&root).is_ok());
+        // Parallel process tests may fork while this descriptor is open. The inherited
+        // descriptor retains the lock until close-on-exec, even after the parent closes it.
+        // Observe release with a deadline; the live-owner refusal assertions stay immediate.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            let acquired = operation_lock(&root);
+            if acquired.is_ok() {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "sample operation lock was not released: {acquired:?}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     }
 }

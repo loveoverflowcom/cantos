@@ -25543,6 +25543,66 @@
           "text": "Close menu"
         }
       }
+    },
+    "theatre.cmp_shell.preferences_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tùy chọn"
+        },
+        "en": {
+          "text": "Preferences"
+        }
+      }
+    },
+    "theatre.auth.preference_language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ"
+        },
+        "en": {
+          "text": "Language"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ"
+        },
+        "en": {
+          "text": "Language"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_light": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sáng"
+        },
+        "en": {
+          "text": "Light"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_dark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tối"
+        },
+        "en": {
+          "text": "Dark"
+        }
+      }
     }
   }
 }

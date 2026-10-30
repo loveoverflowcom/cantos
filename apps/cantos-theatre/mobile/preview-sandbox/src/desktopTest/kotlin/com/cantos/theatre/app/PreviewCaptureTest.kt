@@ -209,8 +209,8 @@ class PreviewCaptureTest {
 
     @Test
     fun preference_dialogs_are_captured_in_context_and_at_double_text_scale() {
-        capture("jvm-light-theme-dialog-390x844", 390, 844,
-            scene(stack = listOf(ShellRoute.Discovery, ShellRoute.Settings)),
+        capture("jvm-light-me-theme-dialog-390x844", 390, 844,
+            scene(stack = listOf(ShellRoute.Discovery, ShellRoute.Account)),
             clickTag = "setting-Theme", captureTag = "preference-dialog")
         capture("jvm-dark-timer-dialog-text2-320x800", 320, 800,
             scene(stack = listOf(ShellRoute.Discovery, ShellRoute.Settings), theme = ShellTheme.Dark),

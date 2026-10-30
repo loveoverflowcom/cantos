@@ -120,6 +120,18 @@ class AuthCaptureTest {
         capture("logout-sheet-light-768x1024", 768, 1024, account) { it.completeLogin(); it.click("logout") }
     }
 
+    @Test
+    fun compact_me_preferences_and_existing_choosers_are_captured() {
+        capture("me-preferences-light-390x844", 390, 844, account, scrollToTag = "account-preferences")
+        capture("me-preferences-dark-en-text2-320x800", 320, 800,
+            account.copy(state = account.state.copy(theme = ShellTheme.Dark, locale = ShellLocale.English)),
+            textScale = 2f, scrollToTag = "account-preferences")
+        capture("me-theme-dialog-light-390x844", 390, 844, account) { it.click("setting-Theme") }
+        capture("me-language-dialog-dark-text2-320x800", 320, 800, account.themed(ShellTheme.Dark), textScale = 2f) {
+            it.click("setting-Language")
+        }
+    }
+
     /** The preview owners plus the Compose test that drives them, so a step can click and settle. */
     private class Drive(val test: ComposeUiTest, val h: PreviewOwners) {
         fun click(tag: String) {

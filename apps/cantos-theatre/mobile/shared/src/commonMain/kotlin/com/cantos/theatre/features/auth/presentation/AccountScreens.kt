@@ -34,7 +34,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.presentation.model.ShellLocale
-import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
@@ -62,26 +61,26 @@ import com.cantos.ui.rememberCantosIconVector
 @Composable
 fun AccountContent(
     locale: ShellLocale,
-    theme: ShellTheme,
     account: AccountView,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
     loginAttempt: LoginAttempt = LoginAttempt.None,
+    preferences: @Composable () -> Unit = {},
     backOverlay: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     val copy = AuthCopy(locale)
-    if (account == AccountView.SignedIn) SignedInAccount(copy, theme, onIntent, backOverlay)
-    else GuestAccount(copy, theme, account, loginAttempt, onIntent, loginFocus)
+    if (account == AccountView.SignedIn) SignedInAccount(copy, onIntent, preferences, backOverlay)
+    else GuestAccount(copy, account, loginAttempt, onIntent, loginFocus, preferences)
 }
 
 @Composable
 private fun GuestAccount(
     copy: AuthCopy,
-    theme: ShellTheme,
     account: AccountView,
     loginAttempt: LoginAttempt,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
+    preferences: @Composable () -> Unit,
 ) {
     // The guest card uses the admitted Theatre profile action pair; adjacent account groups and
     // signed-in identity retain their existing expression, state and composition owners.
@@ -116,6 +115,7 @@ private fun GuestAccount(
             }
         }
     }
+    preferences()
     Surface(Modifier.fillMaxWidth().testTag("account-membership"), tone = SurfaceTone.Container,
         variant = SurfaceVariant.Membership, inset = Space.Lg) {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
@@ -133,7 +133,6 @@ private fun GuestAccount(
     Surface(Modifier.fillMaxWidth().testTag("account-settings-group"), tone = SurfaceTone.Surface,
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
-            AppearanceRow(copy, theme, onIntent)
             AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
         }
@@ -146,7 +145,12 @@ private fun GuestAccount(
  * fallback (page 4) and nothing here invents a person, a plan or a support address.
  */
 @Composable
-private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIntent) -> Unit, backOverlay: @Composable (onBack: () -> Unit) -> Unit) {
+private fun SignedInAccount(
+    copy: AuthCopy,
+    onIntent: (AuthIntent) -> Unit,
+    preferences: @Composable () -> Unit,
+    backOverlay: @Composable (onBack: () -> Unit) -> Unit,
+) {
     var confirming by remember { mutableStateOf(false) }
     var submitted by remember { mutableStateOf(false) }
     var returnFocus by remember { mutableStateOf(false) }
@@ -173,6 +177,7 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
             }
         }
     }
+    preferences()
     Surface(Modifier.fillMaxWidth().testTag("account-nav-group"), tone = SurfaceTone.Container,
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
@@ -181,7 +186,6 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
             AccountRow(rememberCantosIconVector("menu_book"), copy.text(AuthText.LibraryAndHistory), null, "open-library") {
                 onIntent(AuthIntent.OpenLibrary)
             }
-            AppearanceRow(copy, theme, onIntent)
             AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
             // No verified support destination exists, so this is information, never a control.
@@ -227,16 +231,6 @@ private fun AccountAvatar(guest: Boolean = false) {
             .background(tokenColor(if (guest) "color.surfaceContainerHigh" else "color.primary")).testTag("account-avatar"),
         contentAlignment = Alignment.Center,
     ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor(if (guest) "color.onSurface" else "color.onPrimary")) }
-}
-
-@Composable
-private fun AppearanceRow(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIntent) -> Unit) {
-    AccountRow(
-        if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-        copy.text(AuthText.Appearance),
-        copy.text(if (theme == ShellTheme.Dark) AuthText.AppearanceDark else AuthText.AppearanceLight),
-        "theme-toggle",
-    ) { onIntent(AuthIntent.ToggleTheme) }
 }
 
 @Composable

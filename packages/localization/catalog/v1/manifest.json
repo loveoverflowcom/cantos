@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "8498302b31bdc9450afc4c71545b145f888779d287c0fc8a7b1b76d9b3e826cd",
+  "catalogSha256": "4ffdd3126cdc277abfd7260f60f853885ebd2bbcff341629f0562b91dca1ef3c",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1274,6 +1274,7 @@
     "theatre.auth.membership_unknown": {},
     "theatre.auth.open_account": {},
     "theatre.auth.open_library": {},
+    "theatre.auth.preference_language": {},
     "theatre.auth.preferences_heading": {},
     "theatre.auth.register_action": {},
     "theatre.auth.register_eyebrow": {},
@@ -1637,6 +1638,10 @@
       "elapsed": "text",
       "total": "text"
     },
+    "theatre.cmp_shell.preference_dark": {},
+    "theatre.cmp_shell.preference_language": {},
+    "theatre.cmp_shell.preference_light": {},
+    "theatre.cmp_shell.preferences_heading": {},
     "theatre.cmp_shell.preferences_note": {},
     "theatre.cmp_shell.progress_conflict": {},
     "theatre.cmp_shell.queue": {},

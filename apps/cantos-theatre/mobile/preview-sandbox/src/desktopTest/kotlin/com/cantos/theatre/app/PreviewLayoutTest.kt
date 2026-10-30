@@ -58,7 +58,9 @@ class PreviewLayoutTest {
             assertTrue(settings.bottom <= mini.top)
             assertTrue(mini.bottom <= tabs.top)
             onNodeWithTag("settings").performClick()
-            onNodeWithTag("setting-Theme").assertIsDisplayed()
+            onNodeWithTag("setting-Speed").assertIsDisplayed()
+            onNodeWithTag("setting-Theme").assertDoesNotExist()
+            onNodeWithTag("setting-Language").assertDoesNotExist()
         }
     }
 

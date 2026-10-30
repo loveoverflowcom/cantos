@@ -1,32 +1,69 @@
-/* Me owns these app-level rows; shared controls retain their admitted tokens and states. */
+/* Me owns the preference-row composition. The admitted Select keeps its native fallback,
+   value, keyboard/popover/focus state and accessible label; no second chooser is introduced. */
 .theatre-live-app #account .theatre-pref-row {
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--cantos-space-md);
-  margin-block-end: 0;
+  gap: var(--cantos-space-sm);
+  margin-block: 0;
 }
 .theatre-live-app #account .theatre-pref-tile {
-  display: block;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0;
   padding: 0;
-  border-radius: 0;
-  background: transparent;
+  border-radius: var(--cantos-web-shape-control);
+  background: var(--cantos-color-surface-container);
 }
+/* The wrapper is not a semantic node. Its existing label and field share the app row's grid;
+   both labels activate the same real trigger, so decorative icons add no focus stop. */
 .theatre-live-app #account .theatre-pref-tile .cui-select-field {
-  inline-size: 100%;
-  min-inline-size: 0;
+  display: contents;
+}
+.theatre-live-app #account .theatre-pref-icon {
+  grid-column: 1;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-inline-size: var(--cantos-size-control);
+  min-block-size: var(--cantos-size-control);
+  margin: 0;
+  padding: var(--cantos-space-xs);
+  cursor: pointer;
+  color: var(--cantos-color-on-primary-container);
+}
+.theatre-live-app #account .theatre-pref-icon .cui-icon {
+  box-sizing: content-box;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  padding: var(--cantos-space-xs);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-primary-container);
 }
 .theatre-live-app #account .theatre-pref-tile .cui-field-label {
-  color: var(--cantos-color-on-surface-variant);
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  min-inline-size: 0;
+  padding: var(--cantos-space-sm);
+  color: var(--cantos-color-on-surface);
   font-size: var(--cantos-type-label-size);
-  font-weight: 400;
+  font-weight: var(--cantos-type-label-weight);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select {
+  grid-column: 3;
+  min-inline-size: 0;
 }
 .theatre-live-app #account .theatre-pref-tile .cui-select-trigger {
-  justify-content: flex-start;
-  padding-inline-start: var(--cantos-space-md);
-  background: var(--cantos-color-surface-container);
+  justify-content: flex-end;
+  padding-inline: var(--cantos-space-sm);
+  background: transparent;
 }
 .theatre-live-app #account .theatre-pref-tile .cui-select-value {
   flex: 1 1 auto;
-  text-align: start;
+  text-align: end;
 }
 .theatre-live-app #account .theatre-me-shortcuts {
   margin-block: var(--cantos-space-md);
@@ -36,4 +73,45 @@
 }
 .theatre-live-app #account .theatre-account-membership .cui-button {
   max-inline-size: 100%;
+}
+/* Text expansion follows available content space, rather than a device guess. Keep the
+   current value whole on a second line; icon + label remain the first line of the same row. */
+@container (max-width: 18rem) {
+  .theatre-live-app #account .theatre-pref-tile {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .theatre-live-app #account .theatre-pref-icon {
+    grid-column: 1;
+    grid-row: 1;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+  .theatre-live-app #account .theatre-pref-tile .cui-field-label {
+    grid-column: 2;
+    grid-row: 1;
+    padding-inline: var(--cantos-space-xs);
+  }
+  .theatre-live-app #account .theatre-pref-tile .cui-select {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .theatre-live-app #account .theatre-pref-tile .cui-select-trigger {
+    padding-inline: var(--cantos-space-xs);
+    gap: var(--cantos-space-xs);
+  }
+}
+/* At the smallest enlarged-text capacity, preserve the icon and whole label on separate lines. */
+@container (max-width: 10rem) {
+  .theatre-live-app #account .theatre-pref-tile { grid-template-columns: minmax(0, 1fr); }
+  .theatre-live-app #account .theatre-pref-icon { grid-column: 1; grid-row: 1; justify-self: start; }
+  .theatre-live-app #account .theatre-pref-tile .cui-field-label { grid-column: 1; grid-row: 2; }
+  .theatre-live-app #account .theatre-pref-tile .cui-select { grid-column: 1; grid-row: 3; }
+}
+@container (max-width: 12rem) {
+  .theatre-live-app #account .theatre-account-membership.cui-surface {
+    padding-inline: var(--cantos-space-sm);
+  }
+  .theatre-live-app #account .theatre-account-membership .cui-button {
+    padding-inline: var(--cantos-space-xs);
+  }
 }

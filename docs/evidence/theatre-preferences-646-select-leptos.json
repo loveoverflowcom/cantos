@@ -1,0 +1,31 @@
+{
+  "component_id": "select",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-30; one automated reviewer, bounded Chromium/JVM compact-preferences checkpoint",
+  "reference": "Current canonical globe and compact-preferences observations plus source-attributable unchanged component coverage from the navigation and merged guest/FilterChip checkpoints. See docs/evidence/theatre-preferences-646.md for actual scope, provenance and remaining acceptance.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "577751ddc8b44f8dee41bedf3dbab7e9e2e9b7dfd037fe16ec2970b029072040",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; actual renderer tests/lint/build as applicable",
+      "artifact": "docs/evidence/theatre-preferences-646.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; trusted browser input and native modal observations",
+      "artifact": "docs/evidence/theatre-preferences-646.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Browser labels, decorative/named semantics, native modal focus/Escape plus component tests; no AT claim",
+      "artifact": "docs/evidence/theatre-preferences-646.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened current shared globe/Avatar and app preference captures in both themes; unaffected component observations reused only within the source-attributable scope in the report; no every-state, pixel-match or device claim",
+      "artifact": "docs/evidence/theatre-preferences-646.md"
+    }
+  }
+}

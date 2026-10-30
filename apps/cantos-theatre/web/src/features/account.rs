@@ -14,8 +14,8 @@ use crate::{
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
-    SurfaceTone, SurfaceVariant, Theme,
+    Button, ButtonVariant, Icon, IconName, Select, SelectDensity, SelectLabelPlacement, Space,
+    Surface, SurfaceTone, SurfaceVariant, Theme,
 };
 use leptos::prelude::*;
 
@@ -251,31 +251,39 @@ pub(crate) fn LiveAccount(
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
                 <div class="theatre-account-content">
-                    <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup inset=Space::Lg class="theatre-account-preferences">
-                        <section aria-labelledby="theatre-account-preferences-heading">
-                            <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                            <div class="theatre-pref-row">
-                                <div class="theatre-pref-tile theatre-pref-theme">
-                                    <Select id="theatre-account-theme" class="theatre-pref-select"
-                                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Above
-                                        label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
-                                        value=Signal::derive(move || theme.get().as_str().to_owned())
-                                        options=Signal::derive(move || theme_options(locale.get()))
-                                        on_input=Callback::new(move |value: String| {
-                                            if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
-                                        })/>
-                                </div>
-                                <div class="theatre-pref-tile theatre-pref-language">
-                                    <Select id="theatre-account-locale" class="theatre-pref-locale"
-                                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Above
-                                        label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-                                        value=Signal::derive(move || locale.get().lang().to_owned())
-                                        options=crate::localization::locale_options()
-                                        on_input=on_locale/>
-                                </div>
+                    <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
+                        <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
+                        <div class="theatre-pref-row">
+                            <div class="theatre-pref-tile theatre-pref-theme">
+                                <label class="theatre-pref-icon" for="theatre-account-theme-trigger" aria-hidden="true">
+                                    {move || view! { <Icon name=match theme.get() {
+                                        Theme::Light => IconName::LightMode,
+                                        Theme::Dark => IconName::DarkMode,
+                                        Theme::System => IconName::ThemeSystem,
+                                    }/> }}
+                                </label>
+                                <Select id="theatre-account-theme" class="theatre-pref-select"
+                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
+                                    value=Signal::derive(move || theme.get().as_str().to_owned())
+                                    options=Signal::derive(move || theme_options(locale.get()))
+                                    on_input=Callback::new(move |value: String| {
+                                        if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
+                                    })/>
                             </div>
-                        </section>
-                    </Surface>
+                            <div class="theatre-pref-tile theatre-pref-language">
+                                <label class="theatre-pref-icon" for="theatre-account-locale-trigger" aria-hidden="true">
+                                    <Icon name=IconName::Language/>
+                                </label>
+                                <Select id="theatre-account-locale" class="theatre-pref-locale"
+                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
+                                    value=Signal::derive(move || locale.get().lang().to_owned())
+                                    options=crate::localization::locale_options()
+                                    on_input=on_locale/>
+                            </div>
+                        </div>
+                    </section>
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
                         <section aria-labelledby="theatre-account-membership-heading">
                             <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
@@ -356,7 +364,8 @@ mod tests {
             for language in [Locale::Vietnamese, Locale::English] {
                 let theme_label = messages::text(Key::Theme, language);
                 let theme_value = messages::text(Key::System, language);
-                let locale_label = messages::text(Key::Locale, language);
+                let locale_label =
+                    super::super::auth_copy::text(CopyKey::PreferenceLanguage, language);
                 let autonym = language.autonym();
                 let state = RwSignal::new(AccountViewState::default());
                 let locale = RwSignal::new(language);

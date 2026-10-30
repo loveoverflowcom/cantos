@@ -822,141 +822,141 @@
     {
       "component_id": "button",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-button-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-button-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-button-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-button-cmp.json"
       }
     },
     {
       "component_id": "icon-button",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-icon-button-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-icon-button-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-icon-button-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-icon-button-cmp.json"
       }
     },
     {
       "component_id": "text-field",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-text-field-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-text-field-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-text-field-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-text-field-cmp.json"
       }
     },
     {
       "component_id": "text-area",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-text-area-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-text-area-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-text-area-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-text-area-cmp.json"
       }
     },
     {
       "component_id": "select",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-select-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-select-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-select-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-select-cmp.json"
       }
     },
     {
       "component_id": "checkbox",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-checkbox-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-checkbox-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-checkbox-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-checkbox-cmp.json"
       }
     },
     {
       "component_id": "surface",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-surface-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-surface-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-surface-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-surface-cmp.json"
       }
     },
     {
       "component_id": "badge",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-badge-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-badge-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-badge-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-badge-cmp.json"
       }
     },
     {
       "component_id": "status",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-status-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-status-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-status-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-status-cmp.json"
       }
     },
     {
       "component_id": "loading-state",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-loading-state-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-loading-state-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-loading-state-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-loading-state-cmp.json"
       }
     },
     {
       "component_id": "error-state",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-error-state-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-error-state-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-error-state-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-error-state-cmp.json"
       }
     },
     {
       "component_id": "icon",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-icon-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-icon-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-icon-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-icon-cmp.json"
       }
     },
     {
       "component_id": "logo",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-logo-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-logo-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-logo-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-logo-cmp.json"
       }
     },
     {
       "component_id": "back-button",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-back-button-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-back-button-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-back-button-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-back-button-cmp.json"
       }
     },
     {
       "component_id": "dialog",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-dialog-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-dialog-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-dialog-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-dialog-cmp.json"
       }
     },
     {
       "component_id": "nav-item",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-nav-item-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-nav-item-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-nav-item-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-nav-item-cmp.json"
       }
     },
     {
       "component_id": "edge-progress",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-edge-progress-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-edge-progress-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-edge-progress-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-edge-progress-cmp.json"
       }
     },
     {
       "component_id": "surface-pulse",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-surface-pulse-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-surface-pulse-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-surface-pulse-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-surface-pulse-cmp.json"
       }
     },
     {
       "component_id": "filter-chip",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-filter-chip-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-filter-chip-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-filter-chip-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-filter-chip-cmp.json"
       }
     },
     {
       "component_id": "avatar",
       "evidence": {
-        "leptos": "docs/evidence/theatre-guest-tonal-646-avatar-leptos.json",
-        "cmp": "docs/evidence/theatre-guest-tonal-646-avatar-cmp.json"
+        "leptos": "docs/evidence/theatre-preferences-646-avatar-leptos.json",
+        "cmp": "docs/evidence/theatre-preferences-646-avatar-cmp.json"
       }
     }
   ]

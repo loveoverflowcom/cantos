@@ -138,8 +138,14 @@ scrolling. Crossing presentation modes also closes it and restores a visible nav
 same-mode resizes preserve it. The current destination gets initial focus. Selected items use
 a filled indicator, bold label and check; keyboard focus has one flush perimeter with no gap.
 
-Me (`#account`) contains the single locale and explicit Light/Dark/System selectors, account
-recovery/logout and truthful Cantos Premium information. The header has no locale/theme/avatar
+Me (`#account`) contains the single locale and explicit Light/Dark/System selectors as compact
+tonal rows with canonical mode/globe icons, the current value and the existing chooser. Labels
+and icons activate the same control; enlarged text reflows instead of truncating words.
+The labelled group has no additional card around those tonal rows; removing that redundant
+surface/inset keeps the controls full-sized and brings Premium closer. The
+[Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records the
+measured before/after, actual popup/focus and locale-reload observations.
+Account recovery/logout and truthful Cantos Premium information remain present. The header has no locale/theme/avatar
 utilities. `#settings` remains a compatibility entry to the same Me composition; Membership is
 in the Me family. Discover/Search/Work and Library/History retain their own families. Guest
 Library offers auth actions directly with a typed Library return; it does not redirect into Me.

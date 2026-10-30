@@ -46,7 +46,7 @@ internal fun SettingsScreen(
     Text(copy.text(CopyKey.PersonalRhythm), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Column {
-        PreferencePanel.entries.filter { it != PreferencePanel.Diagnostics || diagnostics != null }.forEach { choice ->
+        listOf(PreferencePanel.Speed, PreferencePanel.Timer, PreferencePanel.Diagnostics).filter { it != PreferencePanel.Diagnostics || diagnostics != null }.forEach { choice ->
             val value = when (choice) {
                 PreferencePanel.Theme -> copy.themeName(themeMode)
                 PreferencePanel.Language -> state.locale.autonym

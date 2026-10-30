@@ -58,6 +58,7 @@ class AvatarAdmissionTest {
                         Column(Modifier.testTag("avatar-admission").padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Icon("language")
                                 Icon("home")
                                 Icon("library_spines")
                                 Icon("library_spines", tint = tokenColor("color.primary"))

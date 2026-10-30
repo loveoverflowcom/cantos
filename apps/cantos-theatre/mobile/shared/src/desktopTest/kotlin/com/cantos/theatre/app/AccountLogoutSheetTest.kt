@@ -63,7 +63,7 @@ class AccountLogoutSheetTest {
     private fun Mounted(host: Host, textScale: Float) {
         CantosTheme(UiPreferences(theme = Theme.Light, textScale = textScale)) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                AccountContent(host.locale, ShellTheme.Light, host.account, { host.intents += it }, FocusRequester()) { onBack -> BackOverlay(host.overlays, onBack) }
+                AccountContent(host.locale, host.account, { host.intents += it }, FocusRequester()) { onBack -> BackOverlay(host.overlays, onBack) }
             }
         }
     }
@@ -188,7 +188,7 @@ class AccountLogoutSheetTest {
         }
         onNodeWithTag("account-nav-group").performScrollTo().assertIsDisplayed()
         // Every navigation row meets the minimum hit target; support is information, not a control.
-        listOf("membership-preview-entry", "open-library", "theme-toggle", "settings", "logout").forEach { tag ->
+        listOf("membership-preview-entry", "open-library", "settings", "logout").forEach { tag ->
             val node = onNodeWithTag(tag).performScrollTo().fetchSemanticsNode()
             assertTrue(node.boundsInRoot.height >= 48f * density.density - 1f, tag)
             assertNotNull(node.config.getOrNull(SemanticsActions.OnClick), tag)
@@ -206,7 +206,6 @@ class AccountLogoutSheetTest {
             "membership-preview-entry" to AuthIntent.OpenMembership,
             "open-library" to AuthIntent.OpenLibrary,
             "settings" to AuthIntent.OpenSettings,
-            "theme-toggle" to AuthIntent.ToggleTheme,
         ).forEach { (tag, intent) ->
             onNodeWithTag(tag).performScrollTo().performClick()
             assertEquals(intent, host.intents.last(), tag)

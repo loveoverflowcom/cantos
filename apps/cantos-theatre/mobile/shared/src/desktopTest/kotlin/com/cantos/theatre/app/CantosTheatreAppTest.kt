@@ -130,7 +130,7 @@ class CantosTheatreAppTest {
     }
 
     @Test
-    fun header_and_settings_keep_system_selected_while_the_host_appearance_changes() =
+    fun me_keeps_system_selected_while_the_host_appearance_changes() =
         runDesktopComposeUiTest(width = 390, height = 844) {
             lateinit var fixture: Fixture
             var hostDark by mutableStateOf(false)
@@ -141,7 +141,9 @@ class CantosTheatreAppTest {
                 DisposableEffect(owner) { onDispose { owner.close() } }
                 CantosTheatreApp(owner.shell, systemIsDark = hostDark, onThemeChanged = { renderedDark = it })
             }
-            onNodeWithTag("theme-toggle").performClick() // Light → System
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("setting-Theme").performScrollTo().performClick()
+            onNodeWithTag("theme-System").performClick()
             waitForIdle()
             assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
             assertEquals(false, renderedDark)
@@ -151,8 +153,8 @@ class CantosTheatreAppTest {
             assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
             onNodeWithText("C", substring = false).assertDoesNotExist()
 
-            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Settings)) }
-            onNodeWithTag("setting-Theme").performClick()
+            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Account)) }
+            onNodeWithTag("setting-Theme").performScrollTo().performClick()
             onNodeWithTag("theme-System").assertIsSelected()
             onNodeWithTag("theme-Dark").performClick()
             waitForIdle()
@@ -160,7 +162,7 @@ class CantosTheatreAppTest {
             runOnIdle { hostDark = false }
             waitForIdle()
             assertEquals(true, renderedDark, "an explicit choice ignores later host changes")
-            onNodeWithTag("setting-Language").performClick()
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
             onNodeWithTag("locale-English").performClick()
             waitForIdle()
             assertEquals(PreferenceLocale.English, fixture.preferences.state.value.locale)
