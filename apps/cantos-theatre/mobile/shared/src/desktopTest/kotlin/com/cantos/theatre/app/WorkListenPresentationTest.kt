@@ -114,6 +114,29 @@ class WorkListenPresentationTest {
     }
 
     @Test
+    fun save_states_keep_accessible_action_and_target_in_work_detail() {
+        val output = File("build/reports/save-665").apply { mkdirs() }
+        val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
+        for (theme in ShellTheme.entries) for (saved in listOf(false, true)) {
+            runDesktopComposeUiTest(width = 390, height = 844) {
+                val supplied = state(theme = theme).copy(savedWorks = if (saved) setOf(id) else emptySet())
+                setContent {
+                    Box(Modifier.requiredSize(390.dp, 844.dp).testTag("capture")) {
+                        CantosPresentation(supplied, empty, {})
+                    }
+                }
+                val action = onNodeWithTag("save-work").performScrollTo().assertIsEnabled()
+                action.assert(hasContentDescription(if (saved) "Bỏ lưu tác phẩm Người gom tiếng chuông" else "Lưu tác phẩm Người gom tiếng chuông"))
+                val bounds = action.fetchSemanticsNode().boundsInRoot
+                kotlin.test.assertTrue(bounds.height >= 48f, "Save needs a 48dp touch target")
+                val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("capture").captureToImage().asSkiaBitmap())
+                    .encodeToData(EncodedImageFormat.PNG)).bytes
+                File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-390.png").writeBytes(bytes)
+            }
+        }
+    }
+
+    @Test
     fun absent_audio_keeps_short_reason_without_help_control() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
         val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
