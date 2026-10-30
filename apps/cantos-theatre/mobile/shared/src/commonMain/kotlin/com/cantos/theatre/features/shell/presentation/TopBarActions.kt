@@ -62,8 +62,8 @@ internal fun TopBarThemeButton(
 }
 
 /**
- * The account owner supplies admission only, never a display name. A person glyph stays anonymous;
- * only a confirmed account receives the avatar's pink container. Guests keep the same navigation.
+ * Navigation uses the same generated presentation as Me. Missing presentation keeps the
+ * existing anonymous affordance; a raw actor or credential is never a display name.
  */
 @Composable
 internal fun TopBarAccountButton(
@@ -71,16 +71,21 @@ internal fun TopBarAccountButton(
     signedIn: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    presentation: com.cantos.theatre.domain.identity.AccountPresentation? = null,
 ) {
     FilledTonalIconButton(
         onClick = onClick,
-        modifier = modifier.size(tokenDp("size.avatarControl")).semantics { contentDescription = label },
+        modifier = modifier.size(tokenDp("size.avatarControl")).semantics { contentDescription = presentation?.let { "$label: ${it.alias}" } ?: label },
         shape = CantosShapes.full,
         colors = IconButtonDefaults.filledTonalIconButtonColors(
             containerColor = tokenColor(if (signedIn) "color.theatrePink" else "color.theatreSurfaceContainerHigh"),
             contentColor = tokenColor(if (signedIn) "color.theatreOnPink" else "color.theatreOnSurface"),
         ),
     ) {
-        Icon(rememberCantosIconVector("person"), null, Modifier.size(tokenDp("size.icon")))
+        if (presentation != null) com.cantos.ui.Avatar(
+            displayName = presentation.alias, stableId = presentation.avatarSeed,
+            size = com.cantos.ui.AvatarSize.Control, initials = com.cantos.ui.AvatarInitials.Pair,
+            tone = com.cantos.ui.AvatarTone.Lavender,
+        ) else Icon(rememberCantosIconVector("person"), null, Modifier.size(tokenDp("size.icon")))
     }
 }

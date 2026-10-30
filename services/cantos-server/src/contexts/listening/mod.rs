@@ -1,6 +1,7 @@
 //! Account-owned listener state, separate from Studio and public Media authority.
 pub mod domain;
 
+pub mod account_presentation;
 pub mod auth;
 
 mod application;

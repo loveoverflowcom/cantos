@@ -19,14 +19,14 @@ private fun com.cantos.theatre.ports.IdentityV1Failure.toAccountFailure(): Accou
 
 /**
  * Immutable presentation of the account boundary. It carries no actor, session, credential,
- * expiry or page count: nothing here can be shown as a name or a library total.
+ * expiry or page count. Only Server-projected pseudonyms may supply the displayed name.
  */
 sealed interface AccountView {
     /** No identity boundary is configured. The guest shell stays complete; this is not a failure. */
     data object Unavailable : AccountView
     data object SignedOut : AccountView
     data object Pending : AccountView
-    data object SignedIn : AccountView
+    data class SignedIn(val presentation: com.cantos.theatre.domain.identity.AccountPresentation? = null) : AccountView
     /** An earlier credential is not yet acknowledged as removed; login stays blocked. */
     data object CleanupRequired : AccountView
     data class Failed(val reason: NativeAccountFailure, val identityFailure: AccountLoginFailure? = null) : AccountView
@@ -39,7 +39,7 @@ fun NativeAccountState?.toAccountView(): AccountView = when (this) {
     null -> AccountView.Unavailable
     NativeAccountState.SignedOut -> AccountView.SignedOut
     NativeAccountState.Pending -> AccountView.Pending
-    is NativeAccountState.SignedIn -> AccountView.SignedIn
+    is NativeAccountState.SignedIn -> AccountView.SignedIn(presentation)
     NativeAccountState.CleanupRequired -> AccountView.CleanupRequired
     is NativeAccountState.Failed -> AccountView.Failed(reason, identityFailure?.toAccountFailure())
 }

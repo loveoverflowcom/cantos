@@ -9,6 +9,18 @@ use leptos::prelude::*;
 use AvatarInitials::{Pair, Single};
 
 #[test]
+fn pinned_palette_preserves_initials_and_picture_priority() {
+    for tone in AvatarTone::ALL {
+        let html = view! { <Avatar display_name="Mây Lam" stable_id=Some("user-42".to_owned())
+        initials=Pair tone=tone image_src=Some("/authorized-avatar.avif".to_owned())/> }
+        .to_html();
+        assert!(html.contains(&format!("data-tone=\"{}\"", tone.as_str())));
+        assert!(html.contains(">ML<"));
+        assert!(html.contains("/authorized-avatar.avif"));
+    }
+}
+
+#[test]
 fn single_initial_follows_google_and_preserves_vietnamese() {
     for (name, expected) in [
         ("  Nguyễn Thị Ánh  ", "N"),

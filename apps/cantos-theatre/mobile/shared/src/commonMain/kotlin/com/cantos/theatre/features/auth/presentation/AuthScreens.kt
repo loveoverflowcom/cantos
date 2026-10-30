@@ -171,7 +171,7 @@ private fun AuthHeading(heading: String) {
 /** Primary state follows the account owner; a disabled or loading action always states why. */
 internal fun loginState(account: AccountView, copy: AuthCopy): ButtonState = when (account) {
     AccountView.SignedOut, is AccountView.Failed -> ButtonState.Enabled
-    AccountView.Pending, AccountView.SignedIn -> ButtonState.Loading(DisabledReason.of(copy.text(AuthText.PendingReason)))
+    AccountView.Pending, is AccountView.SignedIn -> ButtonState.Loading(DisabledReason.of(copy.text(AuthText.PendingReason)))
     AccountView.CleanupRequired -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.CleanupReason)))
     AccountView.Unavailable -> ButtonState.Disabled(DisabledReason.of(copy.text(AuthText.UnavailableReason)))
 }
@@ -198,7 +198,7 @@ internal fun AccountStatus(account: AccountView, copy: AuthCopy, nothingSaved: B
         AccountView.CleanupRequired -> copy.text(AuthText.CleanupRequired)
         AccountView.Pending -> copy.text(AuthText.PendingStatus)
         AccountView.SignedOut -> if (nothingSaved) copy.text(AuthText.NothingSaved) else null
-        AccountView.SignedIn, AccountView.Unavailable -> null
+        is AccountView.SignedIn, AccountView.Unavailable -> null
     } ?: return
     Column(Modifier.fillMaxWidth().testTag("auth-status").semantics { liveRegion = LiveRegionMode.Polite }) {
         if (account is AccountView.Failed || account == AccountView.CleanupRequired) ErrorText(message) else SupportingText(message)
@@ -258,7 +258,7 @@ fun LoginScreen(
                         icon = authActionIcon(AuthIntent.RestoreSession),
                         variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                     )
-                    AccountView.SignedOut, AccountView.SignedIn, AccountView.Unavailable -> Unit
+                    AccountView.SignedOut, is AccountView.SignedIn, AccountView.Unavailable -> Unit
                 }
             }
         }

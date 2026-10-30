@@ -1,8 +1,8 @@
 //! Local component diagnostics. Values and callbacks here never call a Cantos service.
 
 use cantos_ui::{
-    AccessibleName, Announcement, Avatar, AvatarInitials, AvatarSize, Badge, Button, ButtonState,
-    ButtonVariant, Checkbox, ChoiceState, Container, ContainerWidth, Density, Dialog,
+    AccessibleName, Announcement, Avatar, AvatarInitials, AvatarSize, AvatarTone, Badge, Button,
+    ButtonState, ButtonVariant, Checkbox, ChoiceState, Container, ContainerWidth, Density, Dialog,
     DisabledReason, EmptyState, ErrorState, FieldError, FieldHelp, FieldLabel, FieldState,
     FilterChip, Grid, GridColumns, Icon, IconButton, IconName, Link, LinkHref, LoadingState,
     NumberField, Radio, RangeField, Select, Space, Stack, StackDirection, Status, StatusTone,
@@ -453,6 +453,13 @@ pub fn Gallery(
                                 <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::AVATARS_HELP}</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm class="cui-gallery-avatars">
                                     <span data-avatar-state="initials-single"><Avatar display_name="Nguyễn Thị Ánh" stable_id=Some("user-42".to_owned())/>"Nguyễn Thị Ánh"</span>
+                                    <span data-avatar-state="generated-alias">
+                                        <Stack gap=Space::Sm>
+                                            <span>{tool::AVATAR_LAVENDER}<Avatar display_name="Mây Lam" initials=AvatarInitials::Pair size=AvatarSize::Large tone=AvatarTone::Lavender/><Avatar display_name="Mây Lam" initials=AvatarInitials::Pair size=AvatarSize::Control tone=AvatarTone::Lavender/></span>
+                                            <span>{tool::AVATAR_GOLD}<Avatar display_name="Mây Lam" initials=AvatarInitials::Pair size=AvatarSize::Large tone=AvatarTone::Gold/><Avatar display_name="Mây Lam" initials=AvatarInitials::Pair size=AvatarSize::Control tone=AvatarTone::Gold/></span>
+                                            <span>{tool::AVATAR_PERSONAL}<Avatar display_name="Mây Lam" stable_id=Some("6e45675a6ee0e0dd5a16f55c6fcaafd1f8737a27c0572ffc39a2a1bd22100ecb".to_owned()) initials=AvatarInitials::Pair size=AvatarSize::Large/><Avatar display_name="Mây Lam" stable_id=Some("6e45675a6ee0e0dd5a16f55c6fcaafd1f8737a27c0572ffc39a2a1bd22100ecb".to_owned()) initials=AvatarInitials::Pair size=AvatarSize::Control/></span>
+                                        </Stack>
+                                    </span>
                                     <span data-avatar-state="initials-pair"><Avatar display_name="Người dẫn chuyện" initials=AvatarInitials::Pair/>"Người dẫn chuyện"</span>
                                     <span data-avatar-state="no-initial"><Avatar display_name="😀"/>"Không có chữ cái"</span>
                                     <span data-avatar-state="image"><Avatar display_name="Đỗ Văn An" image_src=Some(PREVIEW_AVATAR_IMAGE.to_owned())/>"Đỗ Văn An"</span>

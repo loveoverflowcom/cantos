@@ -114,7 +114,7 @@ fun CantosTheatreApp(
     }
     val accountView = accountState.toAccountView()
     // A private draft must not outlive the account that made it; a guest draft survives sign-in.
-    val signedIn = accountView == AccountView.SignedIn
+    val signedIn = accountView is AccountView.SignedIn
     var wasSignedIn by remember(shell) { mutableStateOf(signedIn) }
     LaunchedEffect(signedIn) {
         if (wasSignedIn && !signedIn) shell.clearMembership()
@@ -163,6 +163,7 @@ fun CantosTheatreApp(
             state, projection.catalog, dispatch, modifier, textScale, onThemeChanged, backHandler,
             themeMode = themeMode,
             accountSignedIn = signedIn,
+            accountPresentation = (accountView as? AccountView.SignedIn)?.presentation,
             membershipContent = {
                 MembershipPreview(ui.membership, locale, shell::membership,
                     onExplore = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) })

@@ -162,13 +162,19 @@ pub fn Avatar(
     /// identity hue. The hue stays the stable identity default; the host decides when to pin.
     #[prop(optional)]
     accent: bool,
+    /// Optional semantic palette pair; `None` retains the stable identity hue.
+    #[prop(optional)]
+    tone: Option<AvatarTone>,
     #[prop(optional)] accessible_name: Option<AccessibleName>,
     #[prop(optional, into)] class: Signal<String>,
 ) -> impl IntoView {
     let failed_src = RwSignal::new(None::<String>);
-    let tone = move || {
+    let resolved_tone = move || {
         if accent {
             return "accent";
+        }
+        if let Some(tone) = tone {
+            return tone.as_str();
         }
         let stable_id = stable_id.get();
         avatar_tone(&avatar_seed(&display_name.get(), stable_id.as_deref())).as_str()
@@ -184,7 +190,7 @@ pub fn Avatar(
     let decorative = label.is_none();
     view! {
         <span class=move || format!("cui-avatar {}", class.get())
-            data-size=size.as_str() data-tone=tone
+            data-size=size.as_str() data-tone=resolved_tone
             data-initials=move || if initials == AvatarInitials::Pair { "pair" } else { "single" }
             role=(!decorative).then_some("img") aria-label=label
             aria-hidden=decorative.then_some("true")>

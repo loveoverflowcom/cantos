@@ -158,6 +158,13 @@ impl AccountViewState {
     pub fn actor(&self) -> Option<&str> {
         self.account.scope().map(AccountScope::actor)
     }
+    pub fn presentation(
+        &self,
+    ) -> Option<&crate::contract::account_presentation::AccountPresentation> {
+        (self.phase == SessionPhase::SignedIn)
+            .then(|| self.account.scope()?.presentation())
+            .flatten()
+    }
     pub fn cleanup_in_flight(&self) -> bool {
         self.cleanup_in_flight
     }
@@ -1188,6 +1195,45 @@ mod tests {
             .finish_page_with_followup(&request, Ok(page), || uuid::Uuid::from_u128(53).to_string())
             .unwrap();
         assert_eq!(repeated, (LibraryCompletion::Ignored, None));
+    }
+
+    #[test]
+    fn presentation_is_bound_to_the_admitted_generation_and_clears_before_io() {
+        let mut state = AccountViewState::default();
+        let a = crate::contract::account_presentation::AccountPresentation {
+            version: "generated-alias-v1".into(),
+            alias: "Mây Lam".into(),
+            avatar_seed: "a".repeat(64),
+        };
+        let issued = state.begin_refresh().unwrap();
+        state
+            .finish_session(
+                issued,
+                Ok(scope("a", 1).with_presentation(a.clone())),
+                || uuid::Uuid::from_u128(100).to_string(),
+            )
+            .unwrap();
+        assert_eq!(state.presentation(), Some(&a));
+        let old = state.begin_refresh().unwrap();
+        assert!(state.presentation().is_none());
+        let current = state.begin_cookie_observation().unwrap();
+        assert_eq!(
+            state.finish_session(old, Ok(scope("a", 1).with_presentation(a)), || panic!(
+                "late presentation"
+            )),
+            Ok(SessionCompletion::Ignored)
+        );
+        state
+            .finish_session(current, Ok(scope("b", 2)), || {
+                uuid::Uuid::from_u128(101).to_string()
+            })
+            .unwrap();
+        assert_eq!(state.phase(), SessionPhase::SignedIn);
+        assert!(state.presentation().is_none());
+        let logout = state.begin_logout().unwrap();
+        assert!(state.presentation().is_none());
+        assert!(state.finish_logout(logout, Ok(())));
+        assert!(state.presentation().is_none());
     }
 
     #[test]

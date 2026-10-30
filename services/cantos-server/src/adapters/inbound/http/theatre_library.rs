@@ -18,6 +18,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 pub(super) fn routes() -> Router<AppState> {
     Router::new()
+        .route("/account/presentation", get(account_presentation))
         .route("/library/continue", get(continue_listening))
         .route("/library/saved", get(saved_works))
         .route("/library/saved/{work}", get(saved).put(set_saved))
@@ -32,6 +33,24 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .route("/progress/{publication}", get(progress).put(put_progress))
         .route("/operations/{operation}", get(receipt))
+}
+async fn account_presentation(
+    Extension(service): Extension<LibraryService>,
+    Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
+    headers: HeaderMap,
+) -> Response {
+    match principal(auth.as_ref(), &headers, trusted).await {
+        Ok(principal) => {
+            let mut response = Json(service.account_presentation(&principal)).into_response();
+            response.headers_mut().insert(
+                header::CACHE_CONTROL,
+                axum::http::HeaderValue::from_static("no-store"),
+            );
+            response
+        }
+        Err(failure) => error(failure),
+    }
 }
 async fn principal(
     auth: &dyn ListenerAuthenticator,

@@ -157,6 +157,18 @@ fn now() -> Result<i64, LibraryError> {
     .map_err(|_| LibraryError::Unavailable)
 }
 impl LibraryService {
+    /// Display-only projection of an already admitted actor; no persistence or authority change.
+    pub fn account_presentation(
+        &self,
+        principal: &AuthenticatedListener,
+    ) -> crate::contract::theatre::account_presentation::AccountPresentation {
+        let generated = super::account_presentation::for_actor(principal.listener().as_str());
+        crate::contract::theatre::account_presentation::AccountPresentation {
+            version: super::account_presentation::VERSION.into(),
+            alias: generated.alias,
+            avatar_seed: generated.avatar_seed,
+        }
+    }
     pub async fn progress(
         &self,
         principal: &AuthenticatedListener,

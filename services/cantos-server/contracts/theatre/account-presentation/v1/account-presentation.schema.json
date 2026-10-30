@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Theatre account presentation V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "alias",
+    "avatar_seed"
+  ],
+  "properties": {
+    "version": {
+      "const": "generated-alias-v1"
+    },
+    "alias": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "avatar_seed": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

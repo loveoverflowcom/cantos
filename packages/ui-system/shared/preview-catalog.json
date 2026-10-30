@@ -666,7 +666,8 @@
         "image-failed",
         "sizes",
         "named",
-        "theatre-control"
+        "theatre-control",
+        "generated-alias"
       ],
       "leptos": {
         "status": "registered",

@@ -19,6 +19,8 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -54,7 +56,20 @@ import org.junit.Test
  */
 @OptIn(ExperimentalTestApi::class)
 class AccountLogoutSheetTest {
-    private class Host(val locale: ShellLocale = ShellLocale.Vietnamese, val account: AccountView = AccountView.SignedIn) {
+    @Test
+    fun generated_alias_replaces_the_static_name_without_a_healthy_status_caption() {
+        for (locale in ShellLocale.entries) {
+            val identity = com.cantos.theatre.domain.identity.AccountPresentation("Mây Lam", "a".repeat(64))
+            run(host = Host(locale, AccountView.SignedIn(identity))) {
+                onNodeWithTag("account-name").assertTextEquals("Mây Lam")
+                onAllNodesWithText("Người nghe Cantos").assertCountEquals(0)
+                onAllNodesWithText("Đã đăng nhập").assertCountEquals(0)
+                onAllNodesWithText("Signed in").assertCountEquals(0)
+            }
+        }
+    }
+
+    private class Host(val locale: ShellLocale = ShellLocale.Vietnamese, val account: AccountView = AccountView.SignedIn()) {
         val intents = mutableListOf<AuthIntent>()
         val overlays = BackOverlayRegistry()
     }

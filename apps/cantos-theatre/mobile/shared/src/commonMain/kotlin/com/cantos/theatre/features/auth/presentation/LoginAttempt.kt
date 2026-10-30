@@ -24,7 +24,7 @@ sealed interface LoginAttempt {
         Open -> when (account) {
             is AccountView.Failed -> Settled(account)
             AccountView.Pending -> Open
-            AccountView.SignedOut, AccountView.SignedIn, AccountView.CleanupRequired, AccountView.Unavailable -> None
+            AccountView.SignedOut, is AccountView.SignedIn, AccountView.CleanupRequired, AccountView.Unavailable -> None
         }
         is Settled -> if (account == failure) this else None
     }

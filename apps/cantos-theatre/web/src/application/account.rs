@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 pub struct AccountScope {
     actor: String,
     session: String,
+    presentation: Option<crate::contract::account_presentation::AccountPresentation>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountError {
@@ -25,7 +26,23 @@ impl AccountScope {
         {
             return Err(AccountError::InvalidScope);
         }
-        Ok(Self { actor, session })
+        Ok(Self {
+            actor,
+            session,
+            presentation: None,
+        })
+    }
+    pub fn with_presentation(
+        mut self,
+        presentation: crate::contract::account_presentation::AccountPresentation,
+    ) -> Self {
+        self.presentation = presentation.valid().then_some(presentation);
+        self
+    }
+    pub fn presentation(
+        &self,
+    ) -> Option<&crate::contract::account_presentation::AccountPresentation> {
+        self.presentation.as_ref()
     }
     pub fn actor(&self) -> &str {
         &self.actor

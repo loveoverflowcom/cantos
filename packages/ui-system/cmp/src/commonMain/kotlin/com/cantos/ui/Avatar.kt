@@ -131,11 +131,12 @@ fun Avatar(
     initials: AvatarInitials = AvatarInitials.Single,
     accessibleName: AccessibleName? = null,
     accent: Boolean = false,
+    tone: AvatarTone? = null,
 ) {
-    val tone = avatarTone(avatarSeed(displayName, stableId))
+    val resolvedTone = tone ?: avatarTone(avatarSeed(displayName, stableId))
     // The accent pins the Theatre pink pair; the identity hue stays the default and is never inferred.
-    val fill = if (accent) "color.theatrePink" else "color.avatar${tone.name}"
-    val ink = if (accent) "color.theatreOnPink" else "color.onAvatar${tone.name}"
+    val fill = if (accent) "color.theatrePink" else "color.avatar${resolvedTone.name}"
+    val ink = if (accent) "color.theatreOnPink" else "color.onAvatar${resolvedTone.name}"
     val diameter = tokenDp(size.token)
     val ratio = if (initials == AvatarInitials.Pair) PAIR_GLYPH_RATIO else SINGLE_GLYPH_RATIO
     // toSp divides by fontScale, keeping the glyph inside the circle at large text sizes.

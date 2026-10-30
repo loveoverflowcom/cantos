@@ -17,7 +17,7 @@ class AccountViewTest {
         assertEquals(AccountView.SignedOut, NativeAccountState.SignedOut.toAccountView())
         assertEquals(AccountView.Pending, NativeAccountState.Pending.toAccountView())
         assertEquals(AccountView.CleanupRequired, NativeAccountState.CleanupRequired.toAccountView())
-        assertEquals(AccountView.SignedIn, NativeAccountState.SignedIn(actor, 200).toAccountView())
+        assertEquals(AccountView.SignedIn(), NativeAccountState.SignedIn(actor, 200).toAccountView())
         NativeAccountFailure.entries.forEach {
             assertEquals(AccountView.Failed(it), NativeAccountState.Failed(it).toAccountView())
         }
@@ -36,7 +36,7 @@ class AccountViewTest {
             listOf(true, true, false, false, false, false),
             listOf(
                 AccountView.SignedOut, AccountView.Failed(NativeAccountFailure.Api), AccountView.Unavailable,
-                AccountView.Pending, AccountView.SignedIn, AccountView.CleanupRequired,
+                AccountView.Pending, AccountView.SignedIn(), AccountView.CleanupRequired,
             ).map { it.canBeginLogin },
         )
     }

@@ -27,6 +27,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
+import com.cantos.theatre.domain.identity.AccountPresentation
+import com.cantos.theatre.ports.AccountPresentationApi
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * First-party Identity v1 only. Native hosts pair this transport with the origin-bound
@@ -39,24 +42,44 @@ class NativeIdentityV1Client(
     private val origin: ApiOrigin,
     private val http: NativeHttpPort,
     private val now: () -> Long,
-) : NativeIdentityV1Api, SignupCompletionApi {
+) : NativeIdentityV1Api, SignupCompletionApi, AccountPresentationApi {
     private val prefix = "$origin/api/v1/theatre/native/identity"
 
     private suspend fun request(
         method: String, path: String, body: String? = null,
-        bearer: String? = null, expectedSession: String? = null,
+        bearer: String? = null, expectedSession: String? = null, accountPath: Boolean = false,
     ): NativeHttpResponse {
         if (body != null && body.encodeToByteArray().size > 4096) {
             return NativeHttpResponse(400, null, null, null)
         }
         return withTimeoutOrNull(15_000) {
             suspendCancellableCoroutine { continuation ->
-                val handle = http.send(NativeHttpRequest(method, prefix + path, body, bearer, expectedSession)) {
+                val url = if (accountPath) "$origin/api/v1/theatre/account/presentation" else prefix + path
+                val handle = http.send(NativeHttpRequest(method, url, body, bearer, expectedSession)) {
                     if (continuation.isActive) continuation.resume(it)
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
             }
         } ?: NativeHttpResponse(0, null, null, NativeHttpFailure.Timeout)
+    }
+
+    override suspend fun presentation(previous: NativeGrant): IdentityV1Result<AccountPresentation> {
+        val response = request("GET", "", bearer = previous.accessToken,
+            expectedSession = previous.view.session, accountPath = true)
+        failure(response, mutation = false)?.let { return IdentityV1Result.Refused(it) }
+        val invalid = IdentityV1Result.Refused(IdentityV1Failure.Protocol)
+        if (response.status != 200 || response.actualSession != previous.view.session ||
+            response.contentType?.substringBefore(';')?.trim()?.lowercase() != "application/json") return invalid
+        val body = response.body ?: return invalid
+        if (body.encodeToByteArray().size > 4096 || repeatedTopLevelKeys(body)) return invalid
+        val dto = try { Json.parseToJsonElement(body) as? JsonObject } catch (_: SerializationException) { null } ?: return invalid
+        if (dto.keys != setOf("version", "alias", "avatar_seed") || dto.values.any { it !is kotlinx.serialization.json.JsonPrimitive || !it.isString }) return invalid
+        if (dto["version"]?.jsonPrimitive?.content != "generated-alias-v1") return invalid
+        val alias = dto["alias"]?.jsonPrimitive?.content ?: return invalid
+        val seed = dto["avatar_seed"]?.jsonPrimitive?.content ?: return invalid
+        if (alias.isBlank() || alias.length > 64 || alias.any(Char::isISOControl) ||
+            seed.length != 64 || seed.any { it !in '0'..'9' && it !in 'a'..'f' }) return invalid
+        return IdentityV1Result.Accepted(AccountPresentation(alias, seed))
     }
 
     private fun failure(response: NativeHttpResponse, mutation: Boolean): IdentityV1Failure? = when {

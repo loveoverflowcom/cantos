@@ -310,6 +310,7 @@ one letter and Leptos two. One contract serves both renderers:
 | No initial | empty text and a plain tone circle, never `?` |
 | Tone seed | trimmed caller stable ID (account/creator ID) so a rename keeps the color; else the display name with whitespace runs collapsed |
 | Tone | 32-bit FNV-1a over UTF-8 of the seed, mod 6, in the order Lavender, Gold, Sage, Rose, Sky, Clay |
+| Palette override | optional `tone` pins a semantic palette pair on both renderers; existing `accent` takes precedence; absent override retains FNV hue. Theatre generated accounts pin Lavender by default; Gold and personal tones are preview comparisons |
 | Glyph size | proportional to the diameter (0.44 single, 0.36 pair), not to text scale, so it never escapes the circle |
 | Picture | caller-owned and drawn over the tone; while loading or after failure the initials show. CMP takes a host-decoded `ImageBitmap`; Web accepts only HTTPS, same-origin, `blob:` or `data:image/` URLs |
 | Semantics | decorative by default; an optional localized accessible name makes it a standalone image |

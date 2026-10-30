@@ -83,6 +83,29 @@ class NativeIdentityV1ClientTest {
         assertEquals("NativeHttpRequest([redacted])", actual.toString())
     }
 
+    @Test fun presentation_is_a_separate_session_fenced_read_and_rejects_malformed_or_foreign_answers() = runTest {
+        val body = """{"version":"generated-alias-v1","alias":"Mây Lam","avatar_seed":"${"a".repeat(64)}"}"""
+        val http = RecordingHttp().apply { response = NativeHttpResponse(200, "application/json", body, null, actualSession = session) }
+        val view = assertIs<IdentityV1Result.Accepted<com.cantos.theatre.domain.identity.AccountPresentation>>(client(http).presentation(grant())).value
+        assertEquals("Mây Lam", view.alias)
+        val sent = http.requests.single()
+        assertEquals("GET", sent.method)
+        assertEquals("$origin/api/v1/theatre/account/presentation", sent.url)
+        assertEquals(access, sent.bearer)
+        assertEquals(session, sent.expectedSession)
+        assertFalse(sent.headers.keys.any { it.equals("Cookie", true) || it.equals("Origin", true) })
+        for (invalidBody in listOf(body.replace("generated-alias-v1", "v2"),
+            body.replace("Mây Lam", ""), body.replace("avatar_seed", "actor_id"),
+            body.replace("Mây Lam", "Mây\\nLam"), body.replace("\"version\":", "\"version\":\"generated-alias-v1\",\"version\":"))) {
+            http.response = NativeHttpResponse(200, "application/json", invalidBody, null, actualSession = session)
+            assertEquals(protocol, client(http).presentation(grant()))
+        }
+        http.response = NativeHttpResponse(200, "application/json", body, null, actualSession = "00000000-0000-4000-8000-000000000002")
+        assertEquals(protocol, client(http).presentation(grant()))
+        http.response = response(body)
+        assertEquals(protocol, client(http).presentation(grant()))
+    }
+
     @Test fun signup_only_sends_initiation_email_and_returns_generic_ttl() = runTest {
         val http = RecordingHttp().apply { response = response("""{"accepted":true,"proof_ttl_seconds":900}""", 202) }
         val accepted = assertIs<IdentityV1Result.Accepted<IdentitySignupAccepted>>(client(http).signup(email)).value
