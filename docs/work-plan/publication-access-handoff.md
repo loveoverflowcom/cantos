@@ -2,18 +2,19 @@
 
 This is the S01 ([#647](https://github.com/loveoverflowcom/cantos/issues/647)) **source map,
 boundary design and evidence plan** for epic [#634](https://github.com/loveoverflowcom/cantos/issues/634).
-[ADR 0054](../decisions/0054-publication-generation-and-access.md) owns the D01–D08 choices and
-their owner questions; this file owns the inventory, the proposed state/transaction/read
-boundaries, the compatibility matrix, the behavior impact plan, the acceptance mapping and the
-per-slice resume conditions. Everything here is **proposed** unless it cites an accepted record.
+[ADR 0054](../decisions/0054-publication-generation-and-access.md) owns the D01–D08 choices,
+accepted by the owner on 30 October 2026, including the owner's breaking-change direction. This
+file owns the inventory, the state/transaction/read boundaries, the wire/data transition, the
+behavior impact plan, the acceptance mapping and the per-slice conditions. The boundaries apply
+the accepted rows; table, module and route names in them are design, not implemented code.
 GitHub owns execution status and acceptance.
 
 ## Review boundary and baseline
 
 | | |
 | --- | --- |
-| Delivers | Decision ledger (ADR 0054); this source map and boundary design; compatibility and rollback oracle; behavior impact plan; AC→slice→owner→oracle mapping; workload and recovery plan; successor contracts |
-| Does not deliver | Any DTO, protobuf field, schema, migration, endpoint, query, Quint model, registry entry or client change; any accepted policy |
+| Delivers | Accepted decision ledger (ADR 0054); this source map and boundary design; wire/data transition and rollback oracle; behavior impact plan; AC→slice→owner→oracle mapping; workload and recovery plan; successor contracts |
+| Does not deliver | Any DTO, protobuf field, schema, migration, endpoint, query, Quint model, registry entry or client change; the D08a budgets and D08d RPO/RTO/retention values |
 | Baseline | `develop@aa0bec8d`. The issue snapshot `d9f79480` differs only by #659/#660 (Theatre search UI, chips, localization); no publication, catalog, identity, contract or behavior source changed |
 | Turso review input | [Epic addendum](https://github.com/loveoverflowcom/cantos/issues/634#issuecomment-6493415800), sourced at `75d4b795`; its schema/index/backup points are hypotheses, carried into D02/D08 and the workload plan |
 | Closes | Nothing; S01 is `Part of #634` and of #647 |
@@ -25,7 +26,7 @@ GitHub owns execution status and acceptance.
 | [`catalog_publication_read.sql`](../../services/cantos-server/src/platform/turso/catalog_publication_read.sql) | `head_revision` on Works/Units; immutable digest-bound revisions; mutable `catalog_units.position`; lifecycle `draft`/`archived` | Generation pins revisions, never position (S02) |
 | [Catalog v1](../../services/cantos-server/contracts/studio/catalog/v1/README.md) | Owner mutates; editor members edit metadata/children/order; archive, rights refs and visibility owner-only; ≤1,000 Units per Work | D01 baseline; D02 bound |
 | [Publication v1](../../services/cantos-server/contracts/studio/publication/v1/README.md), [`publication.rs`](../../services/cantos-server/src/contexts/media/domain/publication.rs) | Exact-revision releases, clearance/approval, `MetadataChanged` blocker, owner-only | D06; S03 keeps every gate |
-| [`audio_release_chain.sql`](../../services/cantos-server/src/platform/turso/audio_release_chain.sql) | Per-Unit `audio_publication_pointers(version)`; append-only withdrawals; immutable `audio_listener_works/units` anchors | Association target (S03); legacy backfill input (S02/S03) |
+| [`audio_release_chain.sql`](../../services/cantos-server/src/platform/turso/audio_release_chain.sql) | Per-Unit `audio_publication_pointers(version)`; append-only withdrawals; immutable `audio_listener_works/units` anchors | Association target (S03); obsolete listener index may be dropped (D07b) |
 | [`listening.rs`](../../services/cantos-server/src/contexts/media/domain/listening.rs) | Eligibility requires pinned **and current** Work `visibility=public` | Gate replaced on the generation lane (D05b, S02) |
 | [`media/turso/listener.rs`](../../services/cantos-server/src/contexts/media/turso/listener.rs), [`catalog/turso/listener.rs`](../../services/cantos-server/src/contexts/catalog/turso/listener.rs) | Representative-release selection; search `instr(search_text, …)`; keyset by anchors | Public projection (S02), performance (S11) |
 | [Discovery v1](../../services/cantos-server/contracts/theatre/discovery/v1/README.md) | Default/1/2 release-only; 3 sample union; strict readers; cursor binds presentation | D07 version boundary |
@@ -48,7 +49,7 @@ GitHub owns execution status and acceptance.
 - Some skill prose still names signed URLs, CDN or Moka; #384 and ADR 0032 govern. Not a
   requirement to restore those mechanisms.
 
-## State and transaction boundary (proposed)
+## State and transaction boundary
 
 | Command | Expected version (CAS) | Writes in one transaction | Never |
 | --- | --- | --- | --- |
@@ -75,11 +76,13 @@ lock is held across an RPC or object open.
 | Restart or reopen | Pointers, receipts, policy versions and revocations persist; no replay resurrects data |
 
 Read boundary: each page reads the active pointer, generation entries and live gates in one read
-transaction; eligibility filters before pagination, count, ordinal and ranking. Public cursors
-keep binding presentation and query over immutable anchors; shared cursors also bind actor and
-access scope. Projection rows commit with the publication, so there is no projection lag in v1.
+transaction; eligibility filters before pagination, count, ordinal and ranking. Work lists key on
+the immutable recency anchor (D02c). Because public Unit order is explicit per generation (D02b),
+a Unit-list cursor also binds the generation it walks; a newer generation restarts the walk.
+Shared cursors also bind actor and access scope. Projection rows commit with the publication, so
+there is no projection lag in v1.
 
-## Access, identity, preview and media boundaries (proposed)
+## Access, identity, preview and media boundaries
 
 ```text
 CanViewWork(s, w)  = pointer(w) = ACTIVE ∧ owner active ∧ ¬archived(w) ∧ rights(w) ∧ WorkAudienceAllows(s, w)
@@ -93,51 +96,63 @@ CanPlay(s, u, r)   = CanViewUnit(s, u) ∧ association(u) = r ∧ eligible(r)
   by the Identity owner: canonicalize owner-entered mailbox text with no account-existence
   result; return the calling Server's **current session subject's** verified canonical mailbox
   with `security_version` and `instance_epoch`. No public lookup endpoint; no `identity.db` read
-  by the Server.
+  by the Server. Pending shares expire after 14 days, at most 100 per Work (D04b); a claim binds
+  the actor once and never follows later mailbox reuse (D04c).
 - **Groups (S06).** Owner-scoped, flat, versioned membership; a group name is never identity;
   no Studio role is derived from membership.
 - **Preview (S04, D03).** Exact saved revision set; `private, no-store`, no-referrer; no
   OpenGraph, sitemap, analytics or listening history; missing private asset is unavailable, never
   a public substitute; logout/account switch fences late responses.
 - **Media (S07–S09, D08).** Grant issuance and every GET/HEAD/Range recheck subject, session,
-  Work AND Unit policy, expiry and exact release identity. Web transport is qualified in real
-  browsers; Android/iOS each record their own player result; an unrun target stays `NOT_RUN`.
+  Work AND Unit policy, expiry and exact release identity; an admitted response may finish within
+  the 60 s body deadline (D08b). Web sends the Theatre cookie; native sends its Bearer where the
+  player supports headers, otherwise a ≤120 s subject/session/policy-bound URL (D08c). Web is
+  qualified in real browsers; Android/iOS each record their own player result; an unrun target
+  stays `NOT_RUN`.
 
-## Compatibility matrix and rehearsal oracle
+## Wire and data transition (D07)
 
-| Reader | Legacy-lane Work | Generation-lane PUBLIC Work | Generation-lane RESTRICTED Work |
-| --- | --- | --- | --- |
-| Default v1, `presentation=1`, `presentation=2` | Unchanged | Released Units in the active generation only; release-pinned text (old semantics) | Absent (fail closed) |
-| `presentation=3` | Unchanged sample union | Q-D07c | Absent |
-| Next `presentation` level (D07a) | Release rows in the new shape | Generation rows; `playback: null` or an associated release | Absent |
-| Authenticated shared module | None | Optional dedup with public | Rows the caller may see |
-| Old client build | Never sends new levels; unaffected | Same as its level | Absent |
+The owner direction in ADR 0054 replaces the old-reader compatibility plan. There is no legacy
+lane, no compatibility alias and no data conversion.
 
-Rehearsal oracle for S02/S03 (real files, not mocks): from the prepared sample root and a legacy
-release fixture, capture default/1/2/3 responses; run the backfill; assert old-level responses are
-byte-identical for PUBLIC Works, the new level lists the same public set with correct playback,
-draft/unknown/`visibility=public`-without-release Works stay absent, sample withdrawal stays
-permanent; reopen the files; rerun the backfill and assert no new rows. Old strict-reader
-fixtures stay byte-for-byte; new fixtures are added beside them.
+| Surface | After the generation slices land |
+| --- | --- |
+| Discovery list/search/detail/units | One representation from active PUBLIC generations; rows carry `playback: null` or an associated release |
+| `presentation=1`, `2`, `3` and the default shape | Removed with their DTOs and fixtures; S02 decides whether a leftover `presentation` parameter is `invalid_request` or ignored, never a fallback to another shape |
+| Restricted/shared reads | Separate authenticated Theatre module (S07) |
+| Existing Works, releases and sample disclosures | Absent until a generation is published under the new model; obsolete tables may be dropped by a new registry version |
+| Current consumers (Theatre Web, CMP Android/iOS) | Updated and tested in the same delivery as each breaking change |
+
+Delivery rule: a slice that changes a wire shape includes every current consumer's adoption and
+tests, or keeps the shape unchanged until the slice that adopts it. `develop` never carries a
+Server shape a current client cannot read. S02/S05 therefore plan the Discovery switch as one
+delivery or keep the existing shape until S05.
+
+Fail-closed oracle for S02/S03 (real files, not mocks): from the prepared sample root and a
+release fixture, apply the new registry versions; assert every Theatre path returns no Work or
+Unit, without fallback to release-only eligibility. Publish a generation and assert exactly its
+entries, order and associations appear; withdraw it and assert absence again. Reopen the files and
+assert pointers, receipts and withdrawals persist.
 
 Rollback: the registry refuses an older binary on a newer `server.db`, so rollback means restoring
-a pre-migration backup. That restore can predate later withdrawals or revocations; restricted
-delivery therefore stays disabled after restore until the owner re-confirms policies (Q-D08d).
-Never "roll back to run" by removing a gate.
+a pre-migration backup. That restore can predate later withdrawals or revocations, so restricted
+delivery stays disabled after restore until the owner re-confirms policies (D08d). Never "roll
+back to run" by removing a gate.
 
 ## Behavior SSOT impact
 
-Lookup: catalog → manifests → inventories → models → code, at the baseline. S01 is a design task:
-**no catalog, manifest, model or run is written**; every model delta waits for its accepted row.
+Lookup: catalog → manifests → inventories → models → code, at the baseline. The accepted rows are
+an **approved requirement change**, but S01 changes no code. The procedure carries each write
+bundle together with its implementation, so S01 writes **no catalog, manifest, model or run**.
 
-| Capability (lifecycle) | Relevance | S01 class | Planned delta, slice, prerequisite |
+| Capability (lifecycle) | Relevance | Class | Planned delta and slice |
 | --- | --- | --- | --- |
-| `cantos.publishing.lifecycle` (draft, `model: null`) | Audio pointer/withdrawal; association | needs-decision + missing model | S03 records the association scope once D06 is accepted; no `.qnt` before an exact observation scope |
-| none (candidate: metadata generation) | Generation, CAS, Work/Unit selection | missing capability | S02 registers a bounded draft at the generation domain owner after D02/D05 acceptance; candidate ID chosen there |
-| none (candidate: Work/Unit access policy) | Work AND Unit, INHERIT, revocation monotonicity, no email principal | missing capability | S06 after D04/D05 acceptance; witnesses and negative controls per property |
-| `cantos.media.sample-metadata` (draft, sample-scoped) | Backfill input | no change | Keep scope; S03 only if Q-D07c changes sample semantics |
-| `cantos.media.public-playback-delivery` (draft) | Restricted grant/fetch | needs-decision | S07 adds subject/session binding after D08b/c |
-| `cantos.media.public-cover-projection` (draft) | Cover stays release-pinned | no change | — |
+| `cantos.publishing.lifecycle` (draft, `model: null`) | Audio pointer/withdrawal; association | approved change + missing model | S03 records the D06 association scope; no `.qnt` before an exact observation scope |
+| none (candidate: metadata generation) | Generation, CAS, explicit order, Work/Unit selection | missing capability | S02 registers a bounded draft at the generation domain owner (D02/D05); candidate ID chosen there |
+| none (candidate: Work/Unit access policy) | Work AND Unit, INHERIT, revocation monotonicity, no email principal | missing capability | S06 (D04/D05); witnesses and negative controls per property |
+| `cantos.media.sample-metadata` (draft, sample-scoped) | Retires with the sample path (D07c) | approved change | S03 deprecates or removes it together with the sample code |
+| `cantos.media.public-playback-delivery` (draft) | Restricted grant/fetch | approved change | S07 adds subject/session binding (D08b/c) |
+| `cantos.media.public-cover-projection` (draft) | ADR 0033 cover authority is unchanged | no change in S01 | S02/S03 state how the single representation selects a cover; change the capability only if its guard changes |
 | `cantos.identity.native-mailbox-proof`, `…native-session-admission` (draft) | Claim and restricted admission | no change in S01 | S06/S07 reuse; extend only if a guard changes |
 | `cantos.listening.progress` (needs-decision) | Restore paths reauthorize | needs-decision | S07/S09 regression; no model change implied |
 
@@ -166,8 +181,8 @@ observers of a production seam.
 | 16 Public search | S02, S07, S10, S11 | Listening | Public-only eligibility before pagination; no ACL N+1 |
 | 17 Shared discovery | S07, S08, S09, S10, S11 | Listening | Dedup, scoped cursor, login-return |
 | 18 Cache/privacy | S04, S07, S08, S09, S10, S11 | Listening, clients | No restricted data in public/persistent cache; logout fences |
-| 19 Contract compatibility | S01–S10 | Each providing service | Old fixtures byte-stable; unsupported restricted fails closed |
-| 20 Migration/rollback | S01, S02, S03, S06, S07, S12 | Publication, Ops | Rehearsal oracle above; post-restore fence |
+| 19 Contract compatibility | S01–S10 | Each providing service | Owner direction: every current consumer updated with each contract change and its tests; unknown or unsupported restricted access fails closed |
+| 20 Migration/rollback | S01, S02, S03, S06, S07, S12 | Publication, Ops | Append-only registry versions; fail-closed oracle above; rollback/reopen never drop a gate; post-restore fence |
 | 21 Behavior SSOT | S01, S02, S03, S04, S06, S07, S10 | Behavior owners | Impact table above; witnesses and controls |
 | 22 Backend qualification | S02, S03, S04, S06, S07, S10 | Server | Pure, Turso, HTTP, Identity RPC, bytes as separate rows |
 | 23 Browser qualification | S04, S05, S08, S10 | Web | Real browser journeys, keyboard/focus/VI-EN |
@@ -175,17 +190,22 @@ observers of a production seam.
 | 25 Performance | S01, S11 | Server, #384 | Budgets recorded first; plans and measurements on 0.8.3 |
 | 26 Handoff/rollout | S01, S12 | All | Commands, SHAs, targets, deferred production acceptance |
 
+The epic's AC-19 and AC-20 wording still asks for old strict readers, backfill and preserved
+sample/legacy history; the owner direction in ADR 0054 replaces those parts. The rows above
+state the accepted oracle. The GitHub issue text is unchanged by this PR.
+
 ## Workload, budget and recovery plan
 
-S01 records what the owner must choose (Q-D08a/d); no number below is a target.
+D08a: S11 extends the #568 profiles, measures a baseline and proposes the values below for owner
+acceptance before any optimization. No number here is a target.
 
-| Input for S11 | Owner value |
+| Input for S11 | Value |
 | --- | --- |
-| Works; Units per Work (≤1,000); generations per Work | to choose |
-| Grants per Work; groups per owner; members per group; shared Works per actor | to choose |
-| Query mix: public list/search/detail/units, shared list, preview, grant issue, fetch admission, publish, revoke | to choose |
-| Concurrency (readers with publish/revoke), cold and warm runs | to choose |
-| p95 budgets per query class; publish write latency; RSS | to choose |
+| Works; Units per Work (≤1,000); generations per Work | S11 proposes |
+| Grants per Work; groups per owner; members per group; shared Works per actor; pending shares per Work (≤100, D04b) | S11 proposes |
+| Query mix: public list/search/detail/units, shared list, preview, grant issue, fetch admission, publish, revoke | S11 proposes |
+| Concurrency (readers with publish/revoke), cold and warm runs | S11 proposes |
+| p95 budgets per query class; publish write latency; RSS | S11 proposes, owner accepts |
 
 Method: `cargo xtask seed dataset` profiles ([localhost datasets](../deployment/localhost-datasets.md),
 #568) and the [Turso read method](../../.agents/skills/cantos-engineering/references/turso-read-performance.md)
@@ -195,24 +215,26 @@ principal-first index, partial index on ACTIVE PUBLIC) stay hypotheses until mea
 and caches are out of scope unless measured benefit and parity evidence exist.
 
 S12 recovery constraints: `backup_to` per file; `server.db` and `identity.db` restored as a pair
-on disposable copies; no live file copy; owner-chosen RPO, RTO and retention; the post-restore
-restricted-delivery fence; production restore and activation remain separate tasks.
+on disposable copies; no live file copy; the accepted post-restore restricted-delivery fence
+(D08d); S12 proposes RPO, RTO and retention for owner acceptance; production restore and
+activation remain separate tasks.
 
 ## Successor handoff
 
-A successor may start only when the listed rows are accepted and the predecessor's contract is in
-the base; before that, only independent reading or a labeled prototype the user approves.
+Every D01–D08 row is accepted. A successor starts when its predecessor's contract is in the base
+and follows the synchronized-delivery rule above. Only the listed open values still need owner
+acceptance.
 
-| Slice | Needs accepted | Receives | Must not |
-| --- | --- | --- | --- |
-| S02 [#648](https://github.com/loveoverflowcom/cantos/issues/648) | Q-D01a, Q-D02a–c, Q-D05a–b, Q-D07a–b | This boundary, rehearsal oracle | Read current heads/position into a generation; enable restricted |
-| S03 [#649](https://github.com/loveoverflowcom/cantos/issues/649) | Q-D06a–c, Q-D07c | S02 schema, fixtures, generation API | Rebind audio implicitly; broaden the sample model |
-| S04 [#650](https://github.com/loveoverflowcom/cantos/issues/650) | Q-D01b, Q-D03 | S02/S03 contracts | Forward Studio credentials to Theatre |
-| S05 [#651](https://github.com/loveoverflowcom/cantos/issues/651) | S02–S04 rows | Server fixtures | Choose backend semantics in UI |
-| S06 [#652](https://github.com/loveoverflowcom/cantos/issues/652) | Q-D01a, Q-D04a–c, Q-D05a | Identity RPC design above | Grant from email text; activate restricted |
-| S07 [#653](https://github.com/loveoverflowcom/cantos/issues/653) | Q-D08b–c | S06 core | Activate before every read/bytes path is gated |
-| S08 [#654](https://github.com/loveoverflowcom/cantos/issues/654) | Q-D04, Q-D08c | S07 contracts | Show sharing UI the backend cannot enforce |
-| S09 [#655](https://github.com/loveoverflowcom/cantos/issues/655) | Q-D08c | S07/S08 contracts | Use stale offline restricted metadata as access |
-| S10 [#656](https://github.com/loveoverflowcom/cantos/issues/656) | Q-D02, Q-D05a | S06–S09 | Add LOCK/Unlisted |
-| S11 [#657](https://github.com/loveoverflowcom/cantos/issues/657) | Q-D08a | S10 | Claim O(1) or unmeasured latency |
-| S12 [#658](https://github.com/loveoverflowcom/cantos/issues/658) | Q-D07, Q-D08d | S11 | Tick epic AC from partial PRs; deploy without a separate task |
+| Slice | Accepted decisions it consumes | Still open | Receives | Must not |
+| --- | --- | --- | --- | --- |
+| S02 [#648](https://github.com/loveoverflowcom/cantos/issues/648) | D01a, D02a–c, D05a–b, D07a–b | — | This boundary, fail-closed oracle | Read current heads/position into a generation; ship a wire change without its consumers; enable restricted |
+| S03 [#649](https://github.com/loveoverflowcom/cantos/issues/649) | D06a–c, D07b–c | — | S02 schema and generation API | Rebind audio implicitly; keep a sample-only lane |
+| S04 [#650](https://github.com/loveoverflowcom/cantos/issues/650) | D01b, D03 | — | S02/S03 contracts | Forward Studio credentials to Theatre |
+| S05 [#651](https://github.com/loveoverflowcom/cantos/issues/651) | D02b, D06, D07a | — | Server fixtures | Choose backend semantics in UI |
+| S06 [#652](https://github.com/loveoverflowcom/cantos/issues/652) | D01a, D04a–c, D05a | — | Identity RPC design above | Grant from email text; activate restricted |
+| S07 [#653](https://github.com/loveoverflowcom/cantos/issues/653) | D08b–c | — | S06 core | Activate before every read/bytes path is gated |
+| S08 [#654](https://github.com/loveoverflowcom/cantos/issues/654) | D04, D08c | — | S07 contracts | Show sharing UI the backend cannot enforce |
+| S09 [#655](https://github.com/loveoverflowcom/cantos/issues/655) | D08c | — | S07/S08 contracts | Use stale offline restricted metadata as access |
+| S10 [#656](https://github.com/loveoverflowcom/cantos/issues/656) | D02, D05a | — | S06–S09 | Add LOCK/Unlisted |
+| S11 [#657](https://github.com/loveoverflowcom/cantos/issues/657) | D08a | Budgets (S11 proposes) | S10 | Claim O(1) or unmeasured latency |
+| S12 [#658](https://github.com/loveoverflowcom/cantos/issues/658) | D07, D08d | RPO/RTO/retention (S12 proposes) | S11 | Tick epic AC from partial PRs; deploy without a separate task |

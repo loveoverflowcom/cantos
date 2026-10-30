@@ -188,9 +188,9 @@ manufactured. `first_visible_at_ms` anchors Works by earliest sample disclosure 
 units order by their disclosed position or their release's existing anchor, then UUID. Counts,
 ranks and eligibility are evaluated on each request and may change between cursor pages.
 The opaque cursor is bound to this presentation and query. Existing representations do not
-include metadata-only Works or units. Generic metadata publication is only proposed in
-[ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md); it would add
-a new explicit level and leave default, `presentation=1`, `2` and `3` unchanged.
+include metadata-only Works or units. [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md)
+(accepted, not implemented) replaces default, `presentation=1`, `2` and `3` with one generation
+representation, in the same delivery that updates every current consumer.
 
 | Opt-in DTO | Added field | Meaning |
 | --- | --- | --- |

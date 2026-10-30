@@ -50,9 +50,10 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
 
 - [#634](https://github.com/loveoverflowcom/cantos/issues/634): publication lifecycle and
   Work/Unit access run sequentially #647 → #658. [ADR 0054](../decisions/0054-publication-generation-and-access.md)
-  is proposed; each slice starts only after the decision rows its
-  [handoff](publication-access-handoff.md#successor-handoff) lists are accepted (S02/#648 needs
-  D01a, D02, D05 and D07a–b). Preserve #539's acceptance and the sample-only scope of ADR 0051.
+  is accepted (D01–D08), including the owner's development-phase direction: breaking wire and
+  data changes are allowed when every current client is updated and tested in the same delivery.
+  S02/#648 can start from the [handoff](publication-access-handoff.md#successor-handoff); S11
+  budgets and S12 RPO/RTO values are still proposed by those slices. #539 keeps its own checklist.
 - [#203](https://github.com/loveoverflowcom/cantos/issues/203): trusted Forge invocation and
   provider/Drive/Functions execution; reuse the finite worker and attempt/recovery cores.
 - [#427](https://github.com/loveoverflowcom/cantos/issues/427): use the isolated

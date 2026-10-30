@@ -1,36 +1,36 @@
 # ADR 0054: Metadata publication generations and Work/Unit access (#634)
 
-- Status: **proposed** — S01 design reconciliation for epic
-  [#634](https://github.com/loveoverflowcom/cantos/issues/634). Every D01–D08 row below is a
-  recommendation with an exact owner question. None is accepted until the owner records
-  acceptance for that row; ADRs [0028](0028-work-scoped-delegation.md),
-  [0030](0030-release-safe-public-metadata.md), [0032](0032-theatre-origin-playback-delivery.md),
-  [0033](0033-release-pinned-public-cover.md), [0035](0035-theatre-catalog-unit-availability.md),
-  [0046](0046-service-owned-contracts.md) and [0051](0051-metadata-only-public-discovery.md)
-  remain authoritative within their recorded scopes
-- Date: 2026-10-30
-- Decision owner: Cantos product owner; the Publication/Media, Listening, Catalog and Identity
-  owners for the rows that name them
+- Status: **accepted (owner, 30 October 2026, #647 decision review)** for D01–D08 as recorded
+  in the ledger. Two values remain to be proposed and accepted: the S11 performance budgets
+  (D08a) and the S12 RPO/RTO/retention values (D08d). **Not implemented.** Until each slice
+  lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
+  [0032](0032-theatre-origin-playback-delivery.md), [0035](0035-theatre-catalog-unit-availability.md)
+  and [0051](0051-metadata-only-public-discovery.md) describe actual behavior; ADRs
+  [0028](0028-work-scoped-delegation.md), [0033](0033-release-pinned-public-cover.md) and
+  [0046](0046-service-owned-contracts.md) are unchanged
+- Date: proposed and accepted 2026-10-30
+- Decision owner: Cantos product owner (answers recorded per row below); Publication/Media,
+  Listening, Catalog and Identity owners implement their rows
 - Related issue or PR: [#647](https://github.com/loveoverflowcom/cantos/issues/647) (S01);
   successors [#648](https://github.com/loveoverflowcom/cantos/issues/648)–[#658](https://github.com/loveoverflowcom/cantos/issues/658);
   related [#539](https://github.com/loveoverflowcom/cantos/issues/539),
   [#633](https://github.com/loveoverflowcom/cantos/issues/633),
   [#384](https://github.com/loveoverflowcom/cantos/issues/384),
   [#568](https://github.com/loveoverflowcom/cantos/issues/568)
-- Supersedes / superseded by: N/A. If accepted, D02/D06 amend the authority source in ADR 0030
-  (release-pinned → generation-pinned for generically published Works), D02/D05/D07 generalize
-  ADR 0051 beyond the prepared sample, D06 amends ADR 0051 decision item 2 and ADR 0035's
-  "listenable now" unit list for the new representation only, and D08 extends ADR 0032's
-  public-only permit to subject/session-bound restricted grants
+- Supersedes / superseded by: when implemented, this record makes metadata authority
+  generation-pinned for every Work (amends ADR 0030 option B), replaces ADR 0051's sample-only
+  disclosure and `presentation=3` with generic publication (D07), replaces ADR 0035's
+  "listenable now" unit list with the single generation representation (D06/D07), and extends
+  ADR 0032 with subject/session-bound restricted grants (D08)
 
 The [design handoff](../work-plan/publication-access-handoff.md) owns the source map, state and
-transaction boundaries, compatibility matrix, behavior impact plan, acceptance-to-slice mapping
-and per-slice resume conditions. This record owns only the choices.
+transaction boundaries, the wire/data transition, the behavior impact plan, the
+acceptance-to-slice mapping and the per-slice conditions. This record owns the choices.
 
 ## Context
 
 Source-inspected at `develop@aa0bec8d` (the S01 snapshot `d9f79480` plus UI/localization-only
-commits). Proposed, accepted, implemented and verified stay distinct below.
+commits). Proposed, accepted, implemented and verified stay distinct.
 
 - **Catalog already owns one editing head.** `catalog_works`/`catalog_units.head_revision`
   point at immutable digest-bound revisions; lifecycle is `draft | archived`. Work `visibility`
@@ -62,205 +62,208 @@ commits). Proposed, accepted, implemented and verified stay distinct below.
 - **Engine.** `turso =0.8.3` with default features off (no FTS), one serialized
   `BEGIN IMMEDIATE` writer, separate readers, MVCC off, `UnixMicros` time and a verified
   `backup_to` ([store-turso](../../packages/store-turso/README.md)). The Server registry is
-  append-only through v30, and an older binary refuses a file migrated by a newer one
-  (`Refusal::NewerThanBinary`).
+  checksummed and append-only through v30; an older binary refuses a file migrated by a newer
+  one (`Refusal::NewerThanBinary`).
 - **Behavior SSOT.** `cantos.publishing.lifecycle` is `draft` with `model: null`;
   `cantos.media.sample-metadata` is a draft model scoped to the sample
   ([catalog](../../specs/behavior/catalog.json)).
 
-The epic's D01–D08 are proposals. The owner must choose each before the slice it blocks starts;
-independent work continues without them.
-
 ## Decision
+
+### Owner direction for this epic: breaking changes during development
+
+Accepted by the owner during the D07 review and applied to every row, including earlier answers:
+
+1. Breaking wire and API changes are allowed while Cantos is in development, provided **every
+   current client** — Theatre Web, Theatre CMP Android/iOS and Studio Web — is updated and fully
+   tested in the same synchronized delivery. No code, alias, presentation level or fixture is
+   kept only for previously released APKs or builds.
+2. Existing data needs no compatibility either: data follows the new code and wire. No
+   conversion or backfill command is required; prefer the best code quality and architecture.
+3. Unchanged by the direction: fail-closed authorization, no disclosure of hidden or restricted
+   data, revocation, rollback that never drops a gate, immutable settled records and rights/
+   consent provenance for whatever is kept. Schema changes still append new registry versions
+   (which may drop or replace obsolete tables); registered SQL is never edited, because the
+   checksummed registry refuses divergent history.
+
+The direction is recorded here for epic #634; recording it repository-wide (AGENTS,
+CONTRIBUTING, skills) is a separate task.
 
 ### Shared principles
 
-These restate accepted rules or are part of D02/D05 where marked; they add no authority by
-themselves.
-
-1. Catalog keeps the only editing head; publication never stores a second draft pointer (fact).
-2. Four independent axes (D05): saved editing head; metadata publication lifecycle
+1. Catalog keeps the only editing head; publication never stores a second draft pointer.
+2. Four independent axes: saved editing head; metadata publication lifecycle
    `NEVER_PUBLISHED | ACTIVE | WITHDRAWN`; audience `PUBLIC | RESTRICTED`; Unit mode
    `INHERIT | OVERRIDE_WITHIN_PARENT`. Catalog `archived` and audio withdrawal stay separate.
-3. Effective access is Work gate **AND** Unit gate; grants within one policy are OR (D05).
+3. Effective access is Work gate **AND** Unit gate; grants within one policy are OR.
 4. Owner active, archive, withdrawal, rights, audience policy and session/security state are
-   live gates on every read, grant and fetch; a pin preserves a fact, not a right (ADR 0030 B).
+   live gates on every read, grant and fetch; a pin preserves a fact, not a right.
 5. Metadata publication grants no audio, cover or transcript right (ADR 0033, ADR 0051).
 
 ### Decision ledger
 
-| ID | Status | Accepted source today | Recommendation | Blocks |
-| --- | --- | --- | --- | --- |
-| D01 Action authority | needs-decision | Catalog v1 and Publication v1 make visibility, rights, archive and audio publication owner-only; ADR 0028 has no delegated publication | Closed action set; owner-only publish, withdraw, audience, grants and groups; preview by owner and current Catalog reader/editor members | S02, S04, S06, S08 |
-| D02 Coherent generation | needs-decision | ADR 0030 B principle only | Immutable Work generation with ordered exact Unit entries and one CAS-versioned active pointer | S02, S03, S10 |
-| D03 Preview origin | needs-decision | ADR 0041 surface CORS, Identity auth v1 surface cookies, [repository layout](../architecture/repository-layout.md) forbids app-to-app imports | A: Studio-origin preview with a narrow DTO and shared presentation owner | S04 |
-| D04 Mailbox sharing | needs-decision | Identity owns mailbox proof and canonicalization; no share RPC | Pending email share in Server, claimed by a signed-in subject whose verified mailbox Identity reports | S06, S08 |
-| D05 Audience scope | needs-decision | ADR 0051 rejected `visibility=public` as publication | PUBLIC or RESTRICTED, Unit restrict-within-parent, HIDE only; audience replaces Catalog visibility as the listener gate on the generation lane | S02, S06, S10 |
-| D06 Audio compatibility | needs-decision | Releases pin exact revisions; `MetadataChanged` blocker; ADR 0051 item 2 | Exact-pin association by default, explicit owner association for display-only drift, same-transaction association on audio activation | S03, S05 |
-| D07 Wire, legacy and rollout | needs-decision | ADR 0046; strict readers; ADR 0030 wire row open; ADR 0051 item 3 | Next `presentation` level for public generation reads, separate authenticated shared module, per-Work lane cutover by explicit idempotent backfill | S02, S03, S05, S07, S09, S12 |
-| D08 Workload and revocation | needs-decision | #384 SQL-first; ADR 0032 120 s grant and per-fetch recheck; Web cookie / native Bearer | Owner-chosen budgets before S11; per-fetch revocation; owner-accepted restricted transport; fail-closed restricted delivery after restore | S07, S09, S11, S12 |
+| ID | Status | Owner answer (30 October 2026) | Consumed by |
+| --- | --- | --- | --- |
+| D01 Action authority | accepted | D01a owner-only for the five mutating actions; D01b preview by owner and current Catalog reader/editor members | S02, S04, S06, S08 |
+| D02 Coherent generation | accepted | D02a full-copy generation; D02b explicit order sent at publish; D02c first metadata publication sets the recency anchor (`first_visible_at`) | S02, S03, S10 |
+| D03 Preview origin | accepted | A: Studio-origin preview | S04 |
+| D04 Mailbox sharing | accepted | D04a claim by the proven subject; D04b 14 days and at most 100 pending shares per Work; D04c later-created accounts may claim, and a claimed binding is immune to mailbox reuse | S06, S08 |
+| D05 Audience scope | accepted | D05a PUBLIC or RESTRICTED + HIDE, Unlisted/LOCK deferred; D05b audience policy replaces Catalog `visibility` as the listener gate | S02, S06, S10 |
+| D06 Audio compatibility | accepted | D06a display-only fields are Work title/synopsis and Unit title/description; D06b explicit owner association for display-only drift; D06c same-transaction association on audio activation | S03, S05 |
+| D07 Wire, data and rollout | accepted | D07a one representation replaced in place; D07b superseded (no data conversion); D07c `presentation=3` retired | S02, S03, S05, S07, S09, S12 |
+| D08 Workload and revocation | accepted; two values open | D08a S11 measures a baseline and proposes budgets; D08b admitted streams may finish; D08c cookie/Bearer with a 120 s bound-URL fallback; D08d post-restore fence, S12 proposes RPO/RTO/retention | S07, S09, S11, S12 |
 
 #### D01 — Action-specific publication and sharing authority
 
-Recommendation: one closed action set — `publish_metadata`, `withdraw_metadata`, `set_audience`,
-`manage_viewer_grants`, `manage_viewer_groups`, `preview_revision`. The first five are
-current-owner only through the Studio surface, checked in the settling transaction. Preview is
-open to the owner and current Catalog reader/editor members, because they can already read the
-same revisions. ADR 0028 delegation credentials gain no new action. Theatre grants never confer
-any Studio action.
-
-| Option | Benefits | Costs | Assessment |
-| --- | --- | --- | --- |
-| Owner-only (recommended) | Matches existing owner-only visibility/rights/audio publication; fail-closed | Teams cannot delegate publishing | Smallest authority delta |
-| Editors may publish | Team workflow | Widens the editor role past ADR 0028 and Catalog v1 | Needs a role-model decision |
-| New delegated publisher action | Explicit, revocable | New credential/action design, audit and tests | Deferred extension |
-
-Owner questions: **Q-D01a** accept owner-only for the five mutating actions in v1?
-**Q-D01b** preview for current reader/editor members, or owner only?
+One closed action set: `publish_metadata`, `withdraw_metadata`, `set_audience`,
+`manage_viewer_grants`, `manage_viewer_groups` and `preview_revision`. The first five are
+**current-owner only** through the Studio surface, checked in the settling transaction.
+Preview is open to the owner and current Catalog reader/editor members, who can already read the
+same revisions. ADR 0028 delegation credentials gain no new action. Theatre grants never confer a
+Studio action. An editor or delegated publisher role is a future extension.
 
 #### D02 — Coherent publication generation
 
-Recommendation: an immutable **Work publication generation** pins the Work metadata revision and
-digest and an ordered list of entries `(unit_id, unit metadata revision, digest,
-published_position, optional audio association)`, plus actor, operation receipt and parent
-generation. One active pointer per Work carries `NEVER_PUBLISHED | ACTIVE | WITHDRAWN` and a
-monotonic version for compare-and-set. Publishing or withdrawing one Unit writes generation
-N+1 that copies unchanged entries. The command carries the explicit ordered selection; the
-server never completes a generation from current Catalog heads or `catalog_units.position`.
-Entries are bounded by Catalog's existing limit (1,000 units per Work, tombstones included);
-full-copy storage cost is measured in S11 before any delta encoding.
+An immutable **Work publication generation** pins the Work metadata revision and digest and an
+ordered list of entries `(unit_id, unit metadata revision, digest, published_position, optional
+audio association)`, plus actor, operation receipt and parent generation. One active pointer per
+Work carries the lifecycle and a monotonic version for compare-and-set. Publishing or withdrawing
+one Unit writes generation N+1 that copies unchanged entries. Entries are bounded by Catalog's
+limit (1,000 units per Work, tombstones included); S11 measures the full-copy cost.
 
-| Option | Benefits | Costs | Assessment |
-| --- | --- | --- | --- |
-| Full-copy generation (recommended) | One snapshot answers membership, order and pins; simple reads; CAS on one row | O(entries) rows per publish | Bounded by the 1,000-unit limit |
-| Independent per-subject pointers (sample style) | Cheap writes | No coherent order/membership snapshot; Work/Unit races | Rejected for the generic lane |
-| Delta chain | Small writes | Read-time reconstruction, harder recovery | Only if S11 measures a need |
-
-Owner questions: **Q-D02a** accept the full-copy generation model and its bound?
-**Q-D02b** is published order the explicit order sent at publish (recommended), or must it
-always preserve the existing first-publication anchors? **Q-D02c** does a metadata-only first
-publication set the public recency anchor, as `first_visible_at_ms` does for the sample?
+- **Order (D02b).** The publish command carries the explicit ordered selection. Studio defaults
+  it from the Catalog order but sends it explicitly, and the server never reads
+  `catalog_units.position` or unselected heads. A later generation may change public order. This
+  replaces Discovery's "first published position, never reordered" rule.
+- **Recency (D02c).** The first ACTIVE generation of a Work sets its immutable public recency
+  anchor (`first_visible_at`), whether or not audio exists; later generations, releases and
+  withdrawals never move it.
 
 #### D03 — Preview origin
 
-Recommendation **A**: preview on the Studio origin over a Studio-protected, narrow preview
-DTO of one exact saved revision set, rendered with Theatre presentation through a shared package
-owner. No Studio cookie or Bearer reaches Theatre; no Theatre app is imported into Studio.
-**B**, a Theatre-domain preview, needs its own scoped exchange protocol (owner, Work, revision,
-purpose, short expiry, exact Origin/CORS, revocation) recorded before S04. **C**, keeping the
-debug fixture, does not meet the outcome.
-
-Owner question: **Q-D03** accept A for v1, or is a Theatre-domain preview required (then B is
-designed and accepted before S04)?
+Option **A**: preview on the Studio origin over a Studio-protected, narrow preview DTO of one
+exact saved revision set, rendered with Theatre presentation through a shared package owner. No
+Studio cookie or Bearer reaches Theatre, and no Theatre app is imported into Studio. A
+Theatre-domain preview (B) would need its own accepted protocol first.
 
 #### D04 — Mailbox sharing and claim
 
-Recommendation: the owner enters an email; the Server stores a **pending share** keyed by the
-Identity-canonical mailbox, scope, expiry and issuing receipt, and grants nothing. A signed-in
-Theatre subject claims pending shares; the Server asks Identity, over the private RPC, for **that
-subject's** verified canonical mailbox and binds matching pending shares to the stable actor in
-one audited transaction. Identity canonicalizes owner-entered text without reporting whether an
-account exists. No email is sent in v1 ("Grant access by email", not "Invite"). Runtime
-authorization uses only actor or owner-scoped group IDs.
-
-| Option | Benefits | Costs | Assessment |
-| --- | --- | --- | --- |
-| Claim by proven subject (recommended) | No account enumeration; binding needs the subject's own verified mailbox | Two new narrow RPCs; claim UX | Fits Identity/Server ownership |
-| Resolve email→subject at grant time | Immediate grant | Owner learns account existence; mailbox reuse moves access | Rejected |
-| Server re-implements canonicalization | No RPC | Two owners of one policy | Rejected (ADR 0046) |
-
-Owner questions: **Q-D04a** accept the claim model? **Q-D04b** pending-share lifetime and
-per-Work pending bound (no default is assumed)? **Q-D04c** may an account created after the
-share was issued claim it (recommended yes), and is a claimed binding immune to later mailbox
-reuse (recommended yes)?
+The owner enters an email; the Server stores a **pending share** keyed by the Identity-canonical
+mailbox, with scope, expiry and issuing receipt, and grants nothing. A signed-in Theatre subject
+claims pending shares: the Server asks Identity, over the private RPC, for **that subject's**
+verified canonical mailbox and binds matching pending shares to the stable actor in one audited
+transaction. Identity canonicalizes owner-entered text without reporting whether an account
+exists. Bounds (D04b): a pending share expires after **14 days**, and a Work holds at most
+**100** pending shares. An account created after issuance may claim (D04c). After a claim the
+grant belongs to the actor and never follows the mailbox. No email is sent in v1 ("Grant access by
+email", not "Invite"). Runtime authorization uses only actor or owner-scoped group IDs.
 
 #### D05 — Audience scope and the Catalog visibility gate
 
-Recommendation: v1 audiences are `PUBLIC` and `RESTRICTED` (owner-scoped actor and flat group
-grants with expiry and revocation). A Unit may only restrict within its Work. Denied Units are
-hidden (row, count, ordinal, next/previous, search text). Unlisted, LOCK/teaser and tiers are
-deferred. For a Work on the generation lane, the versioned audience policy **replaces** Catalog
-`visibility` as the listener gate; keeping `visibility` as an extra AND gate would make saving a
-private r4 hide the published r3. The legacy release lane keeps today's gate until cutover (D07).
-
-Owner questions: **Q-D05a** accept `PUBLIC | RESTRICTED` + HIDE with Unlisted/LOCK deferred?
-**Q-D05b** accept that Catalog `visibility` stops gating listener reads for generation-lane
-Works, so it remains editorial metadata there?
+v1 audiences are `PUBLIC` and `RESTRICTED` (owner-scoped actor and flat group grants with
+expiry and revocation). A Unit may only restrict within its Work. Denied Units are hidden: row,
+count, ordinal, next/previous and search text. Unlisted, LOCK/teaser and tiers are deferred.
+The versioned audience policy **replaces** Catalog `visibility` as the listener gate (D05b).
+Under the D07 direction there is no legacy lane keeping the old gate, so saving a private r4
+never hides a published r3. S02 decides whether Catalog `visibility` remains editorial metadata
+or is removed.
 
 #### D06 — Metadata/audio compatibility
 
-Recommendation: a generation entry is associated with an audio release only when (a) the release
-pins exactly the entry's Unit metadata revision, or (b) the owner records an explicit association
-for a **display-only** difference while the release's content revision, language and kind are
-unchanged. Otherwise the entry is metadata-only (`playback: null`) or the previous generation
-stays active. Display-only fields proposed: Work title/synopsis, Unit title/description. An
-associated row displays the generation's text, which amends ADR 0051 item 2 for the new
-representation only. When an audio release activates, the same Turso transaction writes
-generation N+1 with the association if the active generation has a compatible entry; otherwise
-Studio reports "audio ready, not associated". Nothing searches for the latest audio.
+A generation entry is associated with an audio release only when one of these holds:
 
-Owner questions: **Q-D06a** accept the display-only field list? **Q-D06b** accept explicit
-owner association for display-only drift (versus exact pins only)? **Q-D06c** accept
-same-transaction association on audio activation (versus a separate publish action)?
+- the release pins exactly the entry's Unit metadata revision; or
+- the owner records an explicit association (actor and receipt) for a difference limited to the
+  **display-only** fields (Work title/synopsis, Unit title/description), while the release's
+  content revision, language and kind are unchanged.
 
-#### D07 — Wire evolution, legacy cutover and rollout
+Otherwise the entry is metadata-only (`playback: null`), or the previous generation stays active.
+An associated row displays the generation's text. When an audio release activates, the same Turso
+transaction writes generation N+1 with the association if the active generation has a compatible
+entry. Otherwise Studio reports "audio ready, not associated". Nothing searches for the latest
+audio.
 
-Recommendation: public generation reads use the **next `presentation` level** on the existing
-Discovery v1 routes, because cursor identity already binds the level; default, 1 and 2 stay
-release-only and 3 stays the sample union. Restricted/shared reads use a separate authenticated
-Theatre contract module. Each Work is on exactly one lane: legacy release lane or generation
-lane. An explicit, idempotent backfill moves a Work by writing generation 1 from exact eligible
-release pins and `first_position` anchors, and sample disclosures with their pins and consent
-provenance; Catalog heads and `visibility=public` without a release are never backfilled.
-Rollout order: Server contract and fixtures, Web, CMP; restricted activation only after S07.
-Because an older binary refuses a newer `server.db`, rollback is a restore (D08), never a
-binary swap that drops gates.
+#### D07 — Wire evolution, data and rollout
 
-Owner questions: **Q-D07a** next `presentation` level (recommended) or a v2 route? **Q-D07b**
-backfill as an explicit operator command (recommended) or at migration time? **Q-D07c** after
-cutover, does `presentation=3` remain a compatibility alias or retire with its fixtures?
+- **Wire (D07a).** The existing Discovery routes return **one** current representation built
+  from generations. Default, `presentation=1`, `=2` and `=3`, together with their DTOs and
+  fixtures, are removed in the delivery that updates every current consumer and its tests.
+  Restricted/shared reads use a separate authenticated Theatre contract module. There is no
+  compatibility alias or dual-read lane.
+- **Data (D07b, superseded).** The first answer chose an explicit operator backfill; the data
+  direction withdrew it. No conversion is required. New registry versions may drop or replace
+  obsolete tables (sample disclosures, the listener index). Until a generation is published under
+  the new model, existing Works and releases are absent from Theatre: fail-closed, never a fallback
+  to release-only eligibility.
+- **Sample (D07c).** `presentation=3` and the sample-only disclosure path retire. S03 decides
+  whether the sample's non-login principal publishes through the generic command or the sample
+  path is simply removed.
+- **Synchronized delivery.** A breaking change lands in one PR, or one integration merge,
+  together with every current consumer's update and tests. `develop` never carries a Server shape
+  that a current client cannot read.
+- **Rollback.** An older binary refuses a newer `server.db`, so rollback means a restore (D08d),
+  never a binary swap that drops gates.
 
 #### D08 — Workload, revocation and restricted transport
 
-Recommendation: (1) the owner records the dataset profile and p95 budgets before S11; no number
-is assumed here. (2) Revocation: a committed revoke, withdrawal, expiry or member removal denies
-every later grant issuance and fetch (per-fetch recheck, ADR 0032); an admitted response may
-finish within the existing 60 s body deadline; buffered bytes are not recalled. (3) Projection
-writes commit in the publishing transaction (no async outbox in v1), so a receipt implies
-visibility on the next read. (4) Restricted media: Web uses the host-only Theatre cookie
-(`Path=/api/v1/theatre`) on media requests, qualified in real browsers; native sends its Bearer
-when the platform player supports headers; otherwise a ≤120 s grant bound to subject, session and
-policy version is a bearer URL whose residual risk the owner must accept. (5) After any restore,
-restricted delivery stays disabled until the owner re-confirms policies.
-
-Owner questions: **Q-D08a** dataset profile and budgets? **Q-D08b** accept the revocation
-semantics in (2)? **Q-D08c** accept the restricted transport in (4), including the bearer-URL
-fallback? **Q-D08d** RPO/RTO/retention and the post-restore fence in (5)?
+1. **Budgets (D08a).** S11 extends the #568 dataset profiles with grants, groups and
+   generations, measures a real baseline on Turso 0.8.3 and proposes budgets. The owner accepts
+   them before any optimization; no number is assumed here.
+2. **Revocation (D08b).** A committed revoke, withdrawal, expiry or member removal denies every
+   later grant issuance and every later fetch, including each Range/seek (per-fetch recheck,
+   ADR 0032). An admitted response may finish within the existing 60 s body deadline; buffered
+   bytes are not recalled.
+3. **Read-your-write.** Projection writes commit in the publishing transaction (no async outbox
+   in v1), so a receipt implies visibility on the next read.
+4. **Transport (D08c).**
+   - Web uses the host-only Theatre cookie (`Path=/api/v1/theatre`) on media requests, qualified
+     in real browsers.
+   - Native sends its Bearer when the platform player supports request headers.
+   - Otherwise a grant of at most 120 s, bound to subject, session and policy version, is a
+     bearer URL. The owner accepts that residual risk.
+5. **Restore (D08d).** After any restore, restricted delivery stays disabled until the owner
+   re-confirms policies. S12 proposes RPO, RTO and retention for acceptance.
 
 ## Alternatives
 
-Per-decision alternatives are in each row above. The rejected whole-design alternatives are the
-epic's single `DRAFT | RESTRICTED | PUBLIC | HIDDEN` enum (mixes four axes), a
-`draft_revision_id` on publication (second editing head), JWT/Redis ACL snapshots (contradicts
-fresh security-state admission) and PostgreSQL `TEXT[]`/GIN (not the engine).
+| Decision | Considered and not selected | Reason |
+| --- | --- | --- |
+| D01 | Editors publish; delegated publisher action | Widens roles beyond Catalog v1/ADR 0028; deferred |
+| D02 | Independent per-subject pointers; delta chain | No coherent order/membership snapshot; read-time reconstruction |
+| D02b | Always keep first-publication anchors | Public reorder would never be possible |
+| D03 | Theatre-domain preview exchange | Needs a new cross-origin protocol; Studio-origin is sufficient for v1 |
+| D04 | Resolve email to account at grant time; Server-side canonicalization | Account enumeration and mailbox-reuse transfer; two owners of one policy |
+| D05 | Unlisted now; Catalog `visibility` as an extra AND gate | Out of epic scope; would hide r3 when r4 is saved private |
+| D06 | Exact pins only; separate publish to attach audio | Owner chose explicit association and same-transaction attach |
+| D07 | Next presentation level beside old levels; contract v2; operator backfill; `presentation=3` alias | Owner direction: no compatibility code or data conversion |
+| D08 | Cancel admitted streams; no transport fallback; no post-restore fence | Complexity without recall of buffered bytes; platform gaps; resurrecting revoked access |
+
+The whole-design alternatives rejected by the epic review also stay rejected: a single
+`DRAFT | RESTRICTED | PUBLIC | HIDDEN` enum, a `draft_revision_id` on publication, JWT/Redis ACL
+snapshots and PostgreSQL `TEXT[]`/GIN.
 
 ## Consequences
 
-- Product and user impact: none now. Accepted rows unlock their slices; unaccepted rows keep
-  today's release-gated, sample-only and public-only behavior.
-- Compatibility and migrations: none now. Every later schema is an appended `server.db` (or
-  `identity.db`) version; registered SQL is never edited.
-- Operations, storage and production cost: none now; generation storage and query cost are
-  measured in S11; restore drills are S12.
+- Product and user impact: none until slices land. Then Theatre lists only generation-published
+  Works, and existing Works stay absent until the owner publishes them.
+- Compatibility and migrations: intentionally breaking for wire and data within the owner
+  direction; every current client changes in the same delivery. Schemas append registry versions.
+- Operations, storage and production cost: S11 measures generation storage and query cost; S12
+  runs the restore drill. Production data conversion, migration and activation remain separate
+  tasks.
 - Implementation and recovery requirements: pure decisions callable from plain tests; CAS and
   receipts in one Turso transaction; no writer lock held across Identity RPC or object I/O.
-- Deferred questions: delegated publisher, Unlisted, LOCK/teaser, tiers/entitlements,
-  scheduling, nested groups, FTS, CDN/edge delivery, offline restricted downloads, SSE.
+- Deferred questions: D08a budgets; D08d RPO/RTO/retention; delegated publisher; Unlisted;
+  LOCK/teaser; tiers/entitlements; scheduling; nested groups; FTS; CDN/edge delivery; offline
+  restricted downloads; SSE.
 
 ## Validation and revisit conditions
 
-Evidence for the context is source review at `develop@aa0bec8d`; no runtime, test, benchmark or
-deployment ran for this record. Repository hygiene validates this document only. Each accepted
-row is validated by its slice's oracles in the handoff. Revisit D02 if S11 measures generation
-copy cost over budget, D08 if real Web/CMP transport qualification fails, and D04 if Identity
-adds mailbox change.
+Evidence for the context is source review at `develop@aa0bec8d`. No runtime, test, benchmark or
+deployment ran for this record, and repository hygiene validates only this document. Each slice's
+oracles in the handoff validate its rows. Revisit:
+
+- D02 if S11 measures generation copy cost over budget;
+- D08c if real Web/CMP transport qualification fails;
+- D04 if Identity adds a mailbox change;
+- the owner direction when Cantos leaves the development phase.
