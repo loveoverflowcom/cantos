@@ -63,7 +63,7 @@ pub(crate) struct PublicWorkRow {
     pub unit_count: u32,
 }
 
-/// Live gates of the only v1 audience (PUBLIC): ACTIVE pointer, current Work not archived and
+/// Live gates of the public-only serving lane: a RESTRICTED policy always denies. ACTIVE pointer, current Work not archived and
 /// (appended by each query) the platform's active-owner filter. Mirrors
 /// `metadata_publication::work_visible`; visible Units mirror `visible_entries`.
 const PUBLIC_WORKS: &str = "SELECT p.work_id,p.generation,p.first_visible_at_ms,g.work_revision,g.work_digest,r.snapshot,r.snapshot_digest,\
@@ -73,7 +73,7 @@ const PUBLIC_WORKS: &str = "SELECT p.work_id,p.generation,p.first_visible_at_ms,
  JOIN catalog_works w ON w.id=p.work_id \
  JOIN catalog_metadata_generations g ON g.work_id=p.work_id AND g.generation=p.generation \
  JOIN catalog_work_revisions r ON r.work_id=g.work_id AND r.revision=g.work_revision \
- WHERE p.lifecycle='active' AND w.lifecycle<>'archived'";
+ WHERE p.lifecycle='active' AND w.lifecycle<>'archived' AND NOT EXISTS(SELECT 1 FROM catalog_viewer_policies vp WHERE vp.work_id=p.work_id AND vp.audience<>'public')";
 
 fn public_work_row(row: &Row) -> Result<PublicWorkRow, StoreError> {
     let id: String = get(row, "work_id")?;

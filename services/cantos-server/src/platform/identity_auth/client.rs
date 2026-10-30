@@ -4,6 +4,9 @@
 //! has a deadline and an in-flight ceiling, and a response never leaves this module except as a
 //! typed fact. Nothing here retries: a lost or late answer is an *unknown effect*, never proof
 //! that Identity rolled back, and login/signup attempts are repeated only by the person.
+mod mailbox;
+pub(crate) use mailbox::ValidatedMailbox;
+
 use super::decision::{Epoch, MalformedState, SecurityState, Subject};
 use crate::platform::identity_auth::rpc::{
     identity_client::IdentityClient as Rpc, validate_fact, AuthenticatePasswordRequest,

@@ -29,6 +29,8 @@ mod metadata_publication;
 pub use metadata_publication::*;
 mod preview;
 pub use preview::*;
+mod viewer_access;
+pub use viewer_access::*;
 pub mod protobuf;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

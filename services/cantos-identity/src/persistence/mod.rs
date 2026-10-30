@@ -2,6 +2,7 @@
 //! verifier, public provisioning API, AuthenticationFact or authorization boundary.
 
 pub mod firebase;
+mod mailbox;
 pub mod proofs;
 mod rows;
 pub mod signup;

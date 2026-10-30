@@ -985,3 +985,76 @@ async fn concurrent_starts_of_one_operation_for_two_addresses_keep_the_first_bin
     );
     h.complete(100, &link, GOOD).await.unwrap();
 }
+
+#[tokio::test]
+async fn verified_mailbox_is_a_current_exact_subject_fact_not_syntax_or_a_receipt() {
+    use cantos_identity::domain::{
+        ids::{InstanceEpoch, SubjectId},
+        security_version::SecurityVersion,
+    };
+    let h = harness().await;
+    let one = SecurityVersion::new(1).unwrap();
+    let unverified = SubjectId::from_bytes([9; 16]).unwrap();
+    h.store
+        .create_subject(operation(900), unverified, h.store.epoch())
+        .await
+        .unwrap();
+    assert!(h
+        .store
+        .verified_mailbox(unverified, one, h.store.epoch())
+        .await
+        .unwrap()
+        .is_none());
+    h.start(1, OWNER).await.unwrap();
+    assert!(h
+        .store
+        .verified_mailbox(unverified, one, h.store.epoch())
+        .await
+        .unwrap()
+        .is_none());
+    let (_, link) = h.mail.last();
+    let SignupOutcome::Completed { subject, epoch } = h.complete(100, &link, GOOD).await.unwrap()
+    else {
+        panic!("fresh signup")
+    };
+    assert_eq!(
+        h.service
+            .verified_mailbox(subject, one, epoch)
+            .await
+            .unwrap()
+            .0
+            .as_str(),
+        OWNER
+    );
+    assert!(matches!(
+        h.service
+            .verified_mailbox(subject, SecurityVersion::new(2).unwrap(), epoch)
+            .await,
+        Err(ServiceError::Denied)
+    ));
+    assert!(matches!(
+        h.service
+            .verified_mailbox(subject, one, InstanceEpoch::from_bytes([8; 16]).unwrap())
+            .await,
+        Err(ServiceError::Denied)
+    ));
+    h.store
+        .disable_subject(operation(901), subject, one, epoch)
+        .await
+        .unwrap();
+    assert!(matches!(
+        h.service.verified_mailbox(subject, one, epoch).await,
+        Err(ServiceError::Denied)
+    ));
+    // An immutable successful signup receipt never supplies a current verified fact after disable.
+    assert!(matches!(
+        h.complete(100, &link, GOOD).await.unwrap(),
+        SignupOutcome::Replayed { .. }
+    ));
+    assert!(matches!(
+        h.service
+            .verified_mailbox(subject, SecurityVersion::new(2).unwrap(), epoch)
+            .await,
+        Err(ServiceError::Denied)
+    ));
+}

@@ -1684,3 +1684,6 @@ async fn identity_studio_catalog_content_and_script_receipts_survive_restart_wit
         assert_eq!(new_account.status, StatusCode::NOT_FOUND);
     }
 }
+
+#[path = "support/viewer_claim_http_turso.rs"]
+mod viewer_claim_http_turso;

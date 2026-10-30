@@ -114,6 +114,48 @@ pub struct GetSecurityStateResponse {
     #[prost(bytes = "vec", tag = "4")]
     pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CanonicalizeMailboxRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub email: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CanonicalizeMailboxResponse {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub canonical_email: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetVerifiedMailboxRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub subject_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub security_version: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
+}
+/// Fact only: grants no session, Studio action, group membership or resource access.
+/// Unknown, unverified, disabled and mismatched security state all have the same denial.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VerifiedMailboxFact {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub subject_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub security_version: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "5")]
+    pub canonical_email: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub observed_at_unix_micros: i64,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum Purpose {
@@ -437,6 +479,62 @@ pub mod identity_client {
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new("cantos.identity.v1.Identity", "GetSecurityState"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Syntax only, with no account lookup or existence result (ADR 0054 D04).
+        pub async fn canonicalize_mailbox(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CanonicalizeMailboxRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CanonicalizeMailboxResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/cantos.identity.v1.Identity/CanonicalizeMailbox",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("cantos.identity.v1.Identity", "CanonicalizeMailbox"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Only the subject of the caller's admitted Theatre session may be supplied. Returns that
+        /// subject's current verified mailbox, never a lookup of an owner-entered recipient address.
+        /// The Server binds every echoed field and re-admits its session before settling a claim.
+        pub async fn get_verified_mailbox(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetVerifiedMailboxRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::VerifiedMailboxFact>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/cantos.identity.v1.Identity/GetVerifiedMailbox",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("cantos.identity.v1.Identity", "GetVerifiedMailbox"),
                 );
             self.inner.unary(req, path, codec).await
         }

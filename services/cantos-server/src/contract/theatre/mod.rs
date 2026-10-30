@@ -4,3 +4,5 @@ pub mod discovery;
 pub mod identity;
 pub mod library;
 pub mod registration;
+
+pub mod viewer_access;

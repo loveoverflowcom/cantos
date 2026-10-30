@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.catalog.viewer-access",
+  "sourceRefs": [
+    "docs/decisions/0054-publication-generation-and-access.md",
+    "services/cantos-server/contracts/studio/viewer-access/v1/README.md"
+  ],
+  "model": "services/cantos-server/behavior/catalog/viewer_access.qnt",
+  "module": "viewer_access",
+  "scenarios": "services/cantos-server/behavior/catalog/viewer_access_tests.qnt",
+  "scenarioModule": "viewer_access_tests",
+  "inventory": "services/cantos-server/behavior/catalog/viewer_access.md",
+  "properties": [
+    {
+      "id": "cantos.catalog.viewer-access.property.work-and-unit",
+      "declaration": "workAndUnit"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.property.binding-stable",
+      "declaration": "bindingStable"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.property.revoked-sticky",
+      "declaration": "revokedSticky"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.property.group-isolation",
+      "declaration": "groupIsolation"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.catalog.viewer-access.run.work-and-unit",
+      "declaration": "workAndUnitTest"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.run.binding-stable",
+      "declaration": "bindingStableTest"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.run.revoked-sticky",
+      "declaration": "revokedStickyTest"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.run.group-isolation",
+      "declaration": "groupIsolationTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.catalog.viewer-access.witness.work-and-unit",
+      "declaration": "admitted"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.witness.binding-stable",
+      "declaration": "reusedBound"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.witness.revoked-sticky",
+      "declaration": "replayAfterRevoke"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.witness.group-isolation",
+      "declaration": "foreignDenied"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "652",
+    "samples": 500,
+    "steps": 25,
+    "scenarioSamples": 1,
+    "witnessSamples": 1000,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.catalog.viewer-access.control.work-and-unit",
+      "property": "cantos.catalog.viewer-access.property.work-and-unit",
+      "from": "(s.work and s.unit)",
+      "to": "(s.work or s.unit)"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.control.binding-stable",
+      "property": "cantos.catalog.viewer-access.property.binding-stable",
+      "from": "else state.claimed",
+      "to": "else state.mailbox"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.control.revoked-sticky",
+      "property": "cantos.catalog.viewer-access.property.revoked-sticky",
+      "from": "state'=project(state),before'=state,last'=Replay",
+      "to": "state'=project({...state,revoked:false}),before'=state,last'=Replay"
+    },
+    {
+      "id": "cantos.catalog.viewer-access.control.group-isolation",
+      "property": "cantos.catalog.viewer-access.property.group-isolation",
+      "from": "(s.groupMember and s.groupOwner)",
+      "to": "s.groupMember"
+    }
+  ],
+  "aliases": [],
+  "ownedSources": [
+    "services/cantos-server/src/contexts/catalog/domain/viewer_access.rs",
+    "services/cantos-server/src/contexts/catalog/application/viewer_access.rs",
+    "services/cantos-server/src/contexts/catalog/turso/viewer_access.rs"
+  ],
+  "implementationTests": [
+    "services/cantos-server/src/test_support/viewer_access_tests.rs"
+  ]
+}

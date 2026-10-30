@@ -13,6 +13,7 @@ mod reorder;
 mod revision;
 pub mod sample_seed_request;
 mod unit;
+pub mod viewer_access;
 mod work;
 
 pub use error::{CatalogError, IdKind};

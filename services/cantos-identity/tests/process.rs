@@ -770,3 +770,66 @@ fn production_sources_and_the_executable_name_no_capture_inbox_or_test_bypass() 
         }
     }
 }
+
+#[tokio::test]
+async fn verified_mailbox_rpc_has_no_recipient_lookup_and_binds_current_subject_security() {
+    use support::rpc_client::{CanonicalizeMailboxRequest, GetVerifiedMailboxRequest};
+    let w = world().await;
+    let instance = w.env.serve().await.ok().expect("serve");
+    let mut rpc = client(&instance.socket).await;
+    let canonical = rpc
+        .canonicalize_mailbox(CanonicalizeMailboxRequest {
+            operation_id: vec![9; 16],
+            email: "A+tag@EXAMPLE.COM".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(canonical.canonical_email, "A+tag@example.com");
+    assert_eq!(canonical.operation_id, vec![9; 16]);
+    assert_eq!(w.sink.messages().len(), 0);
+    rpc.start_theatre_signup(start(1, OWNER)).await.unwrap();
+    let mail = w.sink.wait_for(1).await.remove(0);
+    let link = mail.link();
+    let done = rpc
+        .complete_theatre_signup(complete(10, &link, PASSWORD))
+        .await
+        .unwrap()
+        .into_inner();
+    let asked = GetVerifiedMailboxRequest {
+        operation_id: vec![4; 16],
+        subject_id: done.subject_id.clone(),
+        security_version: 1,
+        instance_epoch: done.instance_epoch.clone(),
+    };
+    let fact = rpc
+        .get_verified_mailbox(asked.clone())
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(fact.canonical_email, OWNER);
+    assert_eq!(fact.subject_id, done.subject_id);
+    assert_eq!(fact.operation_id, asked.operation_id);
+    assert!(fact.observed_at_unix_micros > 0);
+    for dimension in 0..3 {
+        let mut wrong = asked.clone();
+        match dimension {
+            0 => wrong.subject_id = vec![99; 16],
+            1 => wrong.instance_epoch = vec![99; 16],
+            _ => wrong.security_version = 2,
+        };
+        assert_eq!(
+            rpc.get_verified_mailbox(wrong).await.unwrap_err().code(),
+            Code::PermissionDenied
+        );
+    }
+    let mut malformed = asked;
+    malformed.operation_id = vec![0; 16];
+    assert_eq!(
+        rpc.get_verified_mailbox(malformed)
+            .await
+            .unwrap_err()
+            .code(),
+        Code::InvalidArgument
+    );
+}

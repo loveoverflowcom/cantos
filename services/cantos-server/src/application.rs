@@ -3,6 +3,11 @@
 use crate::contexts::media::{
     domain::object_storage::StorageError, storage::registry::StorageRegistry,
 };
+// Typed access use-case failures cross the application facade; HTTP maps them without
+// importing Catalog's domain or persistence modules.
+pub use crate::contexts::catalog::{
+    domain::viewer_access::AccessError as ViewerAccessRefusal, ViewerAccessError,
+};
 use crate::contract::studio::FieldIssue;
 use crate::script_ir::ReadError;
 use std::sync::Arc;

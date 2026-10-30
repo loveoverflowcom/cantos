@@ -268,3 +268,12 @@ and development headers, deployed Server needs the shared library. OCI source pa
 Rust CI include them. Header parsing precedes real AV1 pixel decoding of every item of the admitted profile: a
 single primary or an ImageGrid, with an optional alpha image, one picture at a time. Historical receipts
 and registered migrations are preserved; migration30 only guards future admission/selection.
+
+
+S06 adds the private [viewer access](contracts/studio/viewer-access/v1/README.md) and
+[Theatre claim](contracts/theatre/viewer-access/v1/README.md) control planes on `server.db` v33.
+Identity's private RPC canonicalizes syntax and returns only the current session subject's
+verified mailbox. Grants bind immutable actors, flat groups are owner scoped, mutations carry
+CAS/audit/receipts, and public generation reads exclude restricted policies. The Work/Unit
+pure evaluator is the successor seam; restricted metadata/bytes serving remains gated to S07.
+No invitation mail, public account lookup or direct Identity-file access is introduced.

@@ -21,3 +21,5 @@ mod production_wire;
 mod protobuf_wire;
 mod studio_wire;
 mod theatre_discovery_wire;
+
+mod viewer_access_wire;

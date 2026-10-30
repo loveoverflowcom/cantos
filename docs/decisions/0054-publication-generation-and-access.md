@@ -13,6 +13,8 @@
   Studio-origin [preview v1](../../services/cantos-server/contracts/studio/preview/v1/README.md)
   read of one exact saved Work revision and its Studio Web view, with no generation read, member
   cover/audio preview or Theatre-domain preview (B);
+  S06 ([#652](https://github.com/loveoverflowcom/cantos/issues/652)) adds private viewer policies,
+  verified-mailbox actor claims and owner-scoped flat groups; restricted serving remains gated to S07;
   S05 ([#651](https://github.com/loveoverflowcom/cantos/issues/651)) composes Studio publication
   review and the single generation-based Theatre Web/CMP Discovery reader with exact audio
   association admission; browser/native/deployed qualification remains independent. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),

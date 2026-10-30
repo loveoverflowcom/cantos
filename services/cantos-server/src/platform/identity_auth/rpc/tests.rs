@@ -211,3 +211,28 @@ fn unknown_enum_numbers_do_not_become_known_values() {
     assert!(AccountState::try_from(99).is_err());
     assert!(SetupOutcome::try_from(99).is_err());
 }
+
+#[test]
+fn mailbox_messages_match_independent_wire_goldens() {
+    let request = CanonicalizeMailboxRequest {
+        operation_id: vec![4; 16],
+        email: "A+tag@EXAMPLE.COM".into(),
+    };
+    assert_eq!(
+        request.encode_to_vec(),
+        golden("canonicalize_mailbox_request")
+    );
+    let fact = VerifiedMailboxFact {
+        operation_id: vec![4; 16],
+        subject_id: vec![2; 16],
+        security_version: 3,
+        instance_epoch: vec![3; 16],
+        canonical_email: "A+tag@example.com".into(),
+        observed_at_unix_micros: 1_700_000_000_123_456,
+    };
+    assert_eq!(fact.encode_to_vec(), golden("verified_mailbox_fact"));
+    assert_eq!(
+        VerifiedMailboxFact::decode(golden("verified_mailbox_fact").as_slice()).unwrap(),
+        fact
+    );
+}

@@ -60,6 +60,32 @@ async fn every_method_refuses_a_request_without_a_peer_credential() {
     let rpc = rpc(&run).await;
     assert_eq!(
         code(
+            rpc.canonicalize_mailbox(Request::new(
+                cantos_identity::rpc::generated::CanonicalizeMailboxRequest {
+                    operation_id: vec![1; 16],
+                    email: "a@example.com".into()
+                }
+            ))
+            .await
+        ),
+        Code::PermissionDenied
+    );
+    assert_eq!(
+        code(
+            rpc.get_verified_mailbox(Request::new(
+                cantos_identity::rpc::generated::GetVerifiedMailboxRequest {
+                    operation_id: vec![1; 16],
+                    subject_id: vec![2; 16],
+                    security_version: 1,
+                    instance_epoch: vec![3; 16]
+                }
+            ))
+            .await
+        ),
+        Code::PermissionDenied
+    );
+    assert_eq!(
+        code(
             rpc.start_theatre_signup(Request::new(StartTheatreSignupRequest {
                 operation_id: vec![1; 16],
                 email: "a@example.com".into(),

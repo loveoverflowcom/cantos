@@ -12,9 +12,11 @@ use std::fmt;
 mod generated;
 pub use generated::{
     identity_client, AccountState, Assurance, AuthenticatePasswordRequest,
-    AuthenticatePasswordResponse, AuthenticationFact, ClientContext, CompleteTheatreSignupRequest,
-    CompleteTheatreSignupResponse, GetSecurityStateRequest, GetSecurityStateResponse, Purpose,
-    SetupOutcome, StartTheatreSignupRequest, StartTheatreSignupResponse,
+    AuthenticatePasswordResponse, AuthenticationFact, CanonicalizeMailboxRequest,
+    CanonicalizeMailboxResponse, ClientContext, CompleteTheatreSignupRequest,
+    CompleteTheatreSignupResponse, GetSecurityStateRequest, GetSecurityStateResponse,
+    GetVerifiedMailboxRequest, Purpose, SetupOutcome, StartTheatreSignupRequest,
+    StartTheatreSignupResponse, VerifiedMailboxFact,
 };
 
 /// Largest request or response the Server sends or accepts on this channel.
@@ -129,3 +131,19 @@ pub fn validate_fact(
 
 #[cfg(test)]
 mod tests;
+
+impl std::fmt::Debug for generated::CanonicalizeMailboxRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CanonicalizeMailboxRequest([REDACTED])")
+    }
+}
+impl std::fmt::Debug for generated::CanonicalizeMailboxResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CanonicalizeMailboxResponse([REDACTED])")
+    }
+}
+impl std::fmt::Debug for generated::VerifiedMailboxFact {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("VerifiedMailboxFact([REDACTED])")
+    }
+}
