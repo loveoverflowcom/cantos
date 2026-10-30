@@ -152,6 +152,19 @@ PASS after this test-only repair: full parallel `cargo test --locked -p xtask --
 preflight is run again with the repair and this report staged; its actual result is recorded
 in the PR. The original failing run and all focused/parallel/probe outcomes remain separate.
 
+The next complete attempt (`preflight-handoff-final.log`) passed that lifecycle case but exposed
+the same immediate-close assumption in the adjacent archive/reset fixture: after dropping its
+database/snapshot locks, archive still reported an owner. This was **FAIL**, with later
+gates **NOT_RUN**, not a passing handoff. The fixture now calls the standard `File::unlock()`
+on its own two handles after each active-owner refusal assertion, before dropping them and
+expecting archive success. This releases only the fixture's shared lock description, not an
+independent owner; archive/production code remains unchanged. The lifecycle/drop test retains
+its separate bounded eventual-release observation. All database/WAL/snapshot preservation and
+active-owner refusal assertions remain in place. The full parallel xtask binary passed again
+after this second fixture correction (708 passed, five ignored;
+`lock-full-parallel-reset-fixed.log`). The final PR ledger names the subsequent exact-source run;
+both earlier failing attempts remain available.
+
 Residual risk: actual authenticated browser layout/data, denied browser storage with error/retry,
 browser zoom, screen-reader walk, OS touch/IME/Back, live audio and deployed acceptance remain
 NOT_RUN. Existing deterministic CMP refusal/retry and Web warning/source coverage are narrower

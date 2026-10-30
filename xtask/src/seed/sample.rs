@@ -354,6 +354,8 @@ mod tests {
             archive(&root).unwrap_err().to_string(),
             "sample database is owned; stop its Server/import before reset"
         );
+        // Explicit fixture release also unlocks a descriptor inherited by a parallel fork.
+        lock.unlock().unwrap();
         drop(lock);
         fs::write(root.join("sample.db"), b"preserve snapshot").unwrap();
         let snapshot_lock = File::create(root.join("sample.db.owner")).unwrap();
@@ -363,6 +365,7 @@ mod tests {
             "sample database is owned; stop its Server/import before reset"
         );
         assert!(root.join("server.db").exists());
+        snapshot_lock.unlock().unwrap();
         drop(snapshot_lock);
         let path = archive(&root).unwrap();
         assert!(!root.exists());
