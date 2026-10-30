@@ -42,6 +42,7 @@ import com.cantos.theatre.features.auth.presentation.VerifyEmailScreen
 import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
+import com.cantos.theatre.features.shell.presentation.SessionExpiryBanner
 import com.cantos.theatre.features.shell.presentation.MePreferences
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
@@ -154,7 +155,12 @@ fun CantosTheatreApp(
         LocalCoverImages provides coverImages,
         // Real bookmarks exist when the durable Library owner does; a guest is guided to sign in, not shown a fake save.
         LocalShellCapabilities provides ShellCapabilities(bookmarks = shell.runtime.library != null),
-        LocalShellNotice provides { _, copy -> CatalogNotice(cacheStatus, copy, dispatch) },
+        LocalShellNotice provides { _, copy ->
+            if (errors.sessionBanner != null) SessionExpiryBanner(copy,
+                onSignIn = { shell.onErrorEvent(ErrorEvent.SessionSignInChosen) },
+                onDismiss = { shell.onErrorEvent(ErrorEvent.SessionBannerDismissed) })
+            CatalogNotice(cacheStatus, copy, dispatch)
+        },
         LocalShellLibraryHeader provides {
             LibraryHeader(library, accountView, shell.runtime.library != null, ShellCopy(locale, live = true), shell, dispatch)
         },

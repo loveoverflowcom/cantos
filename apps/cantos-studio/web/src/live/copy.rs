@@ -5,6 +5,16 @@ pub fn diagnostic(path: &str, rule: &str) -> String {
     format!("{path} · {rule}")
 }
 
+/// Locale-neutral revision notation of the exact saved Work revision a preview shows.
+pub fn revision_label(revision: u64) -> String {
+    format!("r{revision}")
+}
+
+/// Locale-neutral kind and content-language line; the content language is never translated.
+pub fn kind_language(kind: &str, language: &str) -> String {
+    format!("{kind} · {language}")
+}
+
 /// Locale-neutral revision notation preserves the caller's exact title or kind label.
 pub fn labelled_revision(label: &str, revision: u64) -> String {
     format!("{label} · r{revision}")
@@ -261,6 +271,23 @@ pub enum Key {
     StatusSaved,
     StatusArchived,
     ReasonWorkArchived,
+    PreviewTitle,
+    PreviewBanner,
+    PreviewOpen,
+    PreviewSaveOpen,
+    PreviewClose,
+    PreviewMore,
+    PreviewReload,
+    PreviewUnsaved,
+    PreviewLoading,
+    PreviewFailed,
+    PreviewStale,
+    PreviewArchived,
+    PreviewUnavailable,
+    PreviewCoverUnavailable,
+    PreviewAudioUnavailable,
+    PreviewNoUnits,
+    PreviewUnits,
     ReasonUnitArchived,
     DoneCreateWork,
     DoneSaveWork,
@@ -523,6 +550,27 @@ pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
         Key::StatusSaved => resources::text(resources::Key::StatusSaved, locale),
         Key::StatusArchived => resources::text(resources::Key::StatusArchived, locale),
         Key::ReasonWorkArchived => resources::text(resources::Key::ReasonWorkArchived, locale),
+        Key::PreviewTitle => resources::text(resources::Key::PreviewTitle, locale),
+        Key::PreviewBanner => resources::text(resources::Key::PreviewBanner, locale),
+        Key::PreviewOpen => resources::text(resources::Key::PreviewOpen, locale),
+        Key::PreviewSaveOpen => resources::text(resources::Key::PreviewSaveOpen, locale),
+        Key::PreviewClose => resources::text(resources::Key::PreviewClose, locale),
+        Key::PreviewMore => resources::text(resources::Key::PreviewMore, locale),
+        Key::PreviewReload => resources::text(resources::Key::PreviewReload, locale),
+        Key::PreviewUnsaved => resources::text(resources::Key::PreviewUnsaved, locale),
+        Key::PreviewLoading => resources::text(resources::Key::PreviewLoading, locale),
+        Key::PreviewFailed => resources::text(resources::Key::PreviewFailed, locale),
+        Key::PreviewStale => resources::text(resources::Key::PreviewStale, locale),
+        Key::PreviewArchived => resources::text(resources::Key::PreviewArchived, locale),
+        Key::PreviewUnavailable => resources::text(resources::Key::PreviewUnavailable, locale),
+        Key::PreviewCoverUnavailable => {
+            resources::text(resources::Key::PreviewCoverUnavailable, locale)
+        }
+        Key::PreviewAudioUnavailable => {
+            resources::text(resources::Key::PreviewAudioUnavailable, locale)
+        }
+        Key::PreviewNoUnits => resources::text(resources::Key::PreviewNoUnits, locale),
+        Key::PreviewUnits => resources::text(resources::Key::PreviewUnits, locale),
         Key::ReasonUnitArchived => resources::text(resources::Key::ReasonUnitArchived, locale),
         Key::DoneCreateWork => resources::text(resources::Key::DoneCreateWork, locale),
         Key::DoneSaveWork => resources::text(resources::Key::DoneSaveWork, locale),
@@ -748,6 +796,23 @@ mod tests {
             Key::StatusSaved,
             Key::StatusArchived,
             Key::ReasonWorkArchived,
+            Key::PreviewTitle,
+            Key::PreviewBanner,
+            Key::PreviewOpen,
+            Key::PreviewSaveOpen,
+            Key::PreviewClose,
+            Key::PreviewMore,
+            Key::PreviewReload,
+            Key::PreviewUnsaved,
+            Key::PreviewLoading,
+            Key::PreviewFailed,
+            Key::PreviewStale,
+            Key::PreviewArchived,
+            Key::PreviewUnavailable,
+            Key::PreviewCoverUnavailable,
+            Key::PreviewAudioUnavailable,
+            Key::PreviewNoUnits,
+            Key::PreviewUnits,
             Key::ReasonUnitArchived,
             Key::DoneCreateWork,
             Key::DoneSaveWork,

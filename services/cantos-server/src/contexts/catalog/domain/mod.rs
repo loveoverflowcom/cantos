@@ -8,6 +8,7 @@ mod metadata;
 pub mod metadata_disclosure;
 pub mod metadata_publication;
 mod patch;
+mod preview;
 mod reorder;
 mod revision;
 pub mod sample_seed_request;
@@ -21,6 +22,7 @@ pub use metadata::{
     WorkKind, DESCRIPTION_MAX_BYTES, LANGUAGE_MAX_BYTES, MAX_RIGHTS_REFS, TITLE_MAX_BYTES,
 };
 pub use patch::{LinkPatch, UnitPatch, WorkPatch};
+pub use preview::admit_preview;
 pub use reorder::{plan_reorder, OrderAssignment, ReorderPlan};
 pub use revision::Revision;
 pub use unit::{ContentUnit, NewContentUnit, StoredContentUnit};

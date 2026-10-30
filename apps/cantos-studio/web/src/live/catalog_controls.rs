@@ -178,6 +178,7 @@ mod browser {
         blocked: Signal<bool>,
         unsaved: Signal<bool>,
         dirty: RwSignal<bool>,
+        after_save: RwSignal<Option<crate::live::preview::AfterSave>>,
     ) -> impl IntoView {
         let draft = RwSignal::new(WorkDraft::default());
         Effect::new(move |_| {
@@ -223,6 +224,31 @@ mod browser {
                 FieldState::Editable
             }
         });
+        // One save path; "Save, then preview" only arms the follow-up for this exact operation.
+        let save = move |then_preview: bool| {
+            if cannot_edit.get_untracked() {
+                return;
+            }
+            dispatch.build((|| {
+                let work = facts
+                    .with_untracked(|facts| facts.work.clone())
+                    .ok_or(ClientError::InvalidInput)?;
+                let snapshot = draft.get_untracked();
+                if work.id != snapshot.id {
+                    return Err(ClientError::InvalidInput);
+                }
+                let command = snapshot
+                    .save_command(uuid()?)
+                    .ok_or(ClientError::InvalidInput)?;
+                draft.set(snapshot.submitted());
+                after_save.set(
+                    then_preview
+                        .then(|| crate::live::preview::AfterSave::of(&command))
+                        .flatten(),
+                );
+                Ok(command)
+            })());
+        };
         view! {
             <div id="live-work-metadata" class="cw-form-stack">
                     <TextField id="live-edit-work-title" label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned())
@@ -235,17 +261,8 @@ mod browser {
             </div>
             <p class="help cw-reason" id="live-work-reason" role="status" hidden=move||refusal.get()!=Some(Refusal::WorkArchived)>{move||text(Key::ReasonWorkArchived,locale.get())}</p>
             <div class="cw-actions">
-                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| {
-                    if cannot_edit.get_untracked() { return; }
-                    dispatch.build((|| {
-                        let work=facts.with_untracked(|facts|facts.work.clone()).ok_or(ClientError::InvalidInput)?;
-                        let snapshot=draft.get_untracked();
-                        if work.id!=snapshot.id { return Err(ClientError::InvalidInput); }
-                        let command=snapshot.save_command(uuid()?).ok_or(ClientError::InvalidInput)?;
-                        draft.set(snapshot.submitted());
-                        Ok(command)
-                    })());
-                })>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
+                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(false))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
+                <ActionButton id="live-save-preview-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(true))>{move ||text(Key::PreviewSaveOpen,locale.get())}</ActionButton>
                 <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) { dispatch.send(Command::Work {id:work.id}); }

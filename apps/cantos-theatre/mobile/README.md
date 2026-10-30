@@ -400,6 +400,34 @@ count); a missing identity capability is `Unavailable`, a guest shell and not a 
   (the pinned Kotlin/Native compiler is absent), TalkBack/VoiceOver, IME, font scale on a device and the
   real Identity service. The #35 two primary destinations remain; Account is not a third tab.
 
+### Contextual session loss
+
+The process account owner supplies `ConfirmedSessionLoss` only after a bound session/refresh
+rejection or an elapsed immutable deadline, and only a cleaned terminal failure reaches the
+notice projection. A malformed response or clock anomaly is protocol failure; password refusal,
+409/session change, 429/503, transport and unknown refresh outcomes never imply expiration.
+Unknown consuming refresh remains cleanup-only and is never replayed. Cleanup failure keeps
+its existing recovery state instead of an expired notice.
+
+`TheatreShell` feeds that nonsecret epoch into the existing error center. Passive loss, including
+startup restore and listening, shows a dismissible inline reminder. A private Library/save/
+bookmark intent can promote that same epoch into the existing `ErrorDialog` once. Sign in opens
+the existing typed Login suffix; Later, Back, Escape and scrim dismiss. A dismissed epoch cannot
+reopen from repeated observations or private requests. A new account/intent clears obsolete
+queued notices; there is still one bounded error queue and one modal. Confirmed loss no longer
+repeats as `AccountStatus` text on Login or the guest profile.
+
+A new private mutation checks the existing account authorization before enqueue; a bookmark
+captures its exact release/position at the press, before waiting for that check. Unknown outcomes
+never replay a private mutation. Public playback retains its separate release capability during
+passive account quarantine/loss, while Library projections and writes remain fenced. Explicit
+logout/account switch keep their existing engine fence. Signing in from a public playback context
+does not substitute an account checkpoint. No Library partition, outbox or progress is deleted.
+
+These are implemented CMP composition rules, not Android/iOS runtime or assistive-technology
+acceptance. [#666](https://github.com/loveoverflowcom/cantos/issues/666) owns current evidence and
+remaining device, screen-reader, OS Back/IME and reduced-motion qualification.
+
 ## Screens and behavior
 
 The Work hero uses shared `ListenHero`. Its `WorkListenRelease` projection binds work/unit/publication

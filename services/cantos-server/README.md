@@ -66,7 +66,9 @@ binary or Web/CMP login. Ordinary public discovery requires an accepted release;
 fictional Works have a separate, source-bound [metadata disclosure](../../docs/decisions/0051-metadata-only-public-discovery.md).
 Owner-settled [metadata publication generations](contracts/studio/metadata-publication/v1/README.md)
 (`server.db` v31, ADR 0054) and their exact audio associations (v32) are not read by any Theatre
-route until S05 adopts them.
+route until S05 adopts them. A creator reads one exact saved Work revision as Theatre presentation
+text through the Studio-only [preview v1](contracts/studio/preview/v1/README.md); it is a read of the
+Catalog head, not a publication.
 That grants no image permission, and
 [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)'s public cover additionally
 needs a newer eligible release pinning the image and the owner's explicit

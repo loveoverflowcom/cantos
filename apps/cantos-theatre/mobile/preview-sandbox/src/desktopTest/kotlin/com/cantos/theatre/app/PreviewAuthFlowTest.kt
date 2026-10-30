@@ -116,7 +116,7 @@ class PreviewAuthFlowTest {
         try {
             h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
             h.identity.completeLogin(approve = false); runCurrent()
-            assertEquals(NativeAccountState.Failed(NativeAccountFailure.Api, com.cantos.theatre.ports.IdentityV1Failure.Unauthorized), h.account.state.value)
+            assertEquals(NativeAccountState.Failed(NativeAccountFailure.Api, com.cantos.theatre.ports.IdentityV1Failure.Unauthorized, credentialAttempt = true), h.account.state.value)
             assertEquals(TheatreRoute.Login, h.route)
             assertEquals(1, h.identity.loginRequests)
             assertEquals(0, h.identity.admissions)

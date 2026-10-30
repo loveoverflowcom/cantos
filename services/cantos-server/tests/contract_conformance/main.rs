@@ -16,6 +16,7 @@ mod import_wire;
 mod listener_library_wire;
 mod metadata_publication_wire;
 mod msgpack_wire;
+mod preview_wire;
 mod production_wire;
 mod protobuf_wire;
 mod studio_wire;

@@ -99,6 +99,15 @@ pub fn admit(
                 Err(Refusal::OtherTarget)
             }
         }
+        // A read, so an archived Work is still asked (the Server answers it); but only for the
+        // Work on screen, never another one.
+        Command::Preview { work: id, .. } => {
+            if work_matches(id) {
+                Ok(())
+            } else {
+                Err(Refusal::OtherTarget)
+            }
+        }
         _ => Ok(()),
     }
 }
@@ -313,6 +322,23 @@ mod tests {
                 Ok(())
             );
         }
+        let preview = |work: &str| Command::Preview {
+            work: work.into(),
+            work_revision: 1,
+            cursor: None,
+        };
+        assert_eq!(
+            admit(&preview(&archived_work.id), Some(&archived_work), None),
+            Ok(())
+        );
+        assert_eq!(
+            admit(&preview("another"), Some(&archived_work), None),
+            Err(Refusal::OtherTarget)
+        );
+        assert_eq!(
+            admit(&preview(&archived_work.id), None, None),
+            Err(Refusal::OtherTarget)
+        );
     }
 
     #[test]

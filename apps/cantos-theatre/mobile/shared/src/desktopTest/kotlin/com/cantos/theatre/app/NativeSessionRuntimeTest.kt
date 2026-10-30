@@ -82,6 +82,7 @@ class NativeSessionRuntimeTest {
         var identityNow = 1L
         var rotations = 0
         var sessionGate: CompletableDeferred<Unit>? = null
+        var sessionFailure: IdentityV1Failure? = null
         private var sequence = 10
         private fun uuid() = "90000000-0000-4000-8000-${sequence++.toString().padStart(12, '0')}"
         private val folder = Files.createTempDirectory("cantos-runtime-ack").toFile()
@@ -102,6 +103,7 @@ class NativeSessionRuntimeTest {
             override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
                 assertEquals(grant.accessToken, previous.accessToken)
                 sessionGate?.await()
+                sessionFailure?.let { return IdentityV1Result.Refused(it) }
                 return IdentityV1Result.Accepted(grant.view)
             }
         }, object : NativeCredentialJournal {
@@ -131,7 +133,7 @@ class NativeSessionRuntimeTest {
     }
 
     @Test
-    fun revalidationQuarantinesTheEngineAndPrivateLibraryUntilApiConfirmationThenRestoresPaused() = runTest {
+    fun revalidationFencesPrivateLibraryButPreservesTheIndependentPublicPlayer() = runTest {
         val f = Fixture(backgroundScope)
         try {
             runCurrent()
@@ -144,13 +146,13 @@ class NativeSessionRuntimeTest {
             f.library.refresh(); runCurrent()
             assertEquals(null, f.account.verifiedSession.value)
             assertEquals(null, f.library.state.value.account)
-            assertEquals(null, f.runtime.listening.playback.state.value.session)
+            assertEquals(player.session, f.runtime.listening.playback.state.value.session)
             f.library.setSaved(f.audio.workId, true)
             f.library.progressCheckpoint(f.audio, 30_000, force = true)
             assertEquals(operations, f.intents().map { it.operation }, "quarantine cannot authorize local edits")
             confirmation.complete(Unit); runCurrent()
             assertEquals(f.actor, f.library.state.value.account)
-            assertNotEquals(player.identity, f.runtime.listening.playback.state.value.identity)
+            assertEquals(player.identity, f.runtime.listening.playback.state.value.identity)
             assertEquals(10_000L, f.runtime.listening.playback.state.value.session?.positionMs)
             assertEquals(PlaybackStatus.Paused, f.runtime.listening.playback.state.value.status)
             assertEquals(operations, f.intents().map { it.operation }, "confirmation cannot enqueue playback or progress")
@@ -159,7 +161,7 @@ class NativeSessionRuntimeTest {
     }
 
     @Test
-    fun immediateRevalidationClearsThePreviousEngineAndOnlyRestoresAnExistingCheckpointPaused() = runTest {
+    fun immediatePassiveRevalidationNeverReplacesThePublicPlayerWithAnAccountCheckpoint() = runTest {
         for (persistCheckpoint in listOf(false, true)) {
             val f = Fixture(backgroundScope)
             try {
@@ -176,13 +178,9 @@ class NativeSessionRuntimeTest {
                 // observing each transient null between quarantine and confirmation.
                 f.account.revalidate(family); runCurrent()
                 assertEquals(f.actor, f.library.state.value.account)
-                assertNotEquals(player.identity, f.runtime.listening.playback.state.value.identity)
-                if (persistCheckpoint) {
-                    assertEquals(10_000L, f.runtime.listening.playback.state.value.session?.positionMs)
-                    assertEquals(PlaybackStatus.Paused, f.runtime.listening.playback.state.value.status)
-                } else {
-                    assertEquals(null, f.runtime.listening.playback.state.value.session)
-                }
+                assertEquals(player.identity, f.runtime.listening.playback.state.value.identity)
+                assertEquals(player.session, f.runtime.listening.playback.state.value.session)
+                assertEquals(PlaybackStatus.Playing, f.runtime.listening.playback.state.value.status)
                 assertEquals(operations, f.intents().map { it.operation }, "confirmation has no playback side effects")
             } finally { f.close() }
         }
@@ -209,6 +207,30 @@ class NativeSessionRuntimeTest {
             assertEquals(operations, f.intents().map { it.operation })
             assertEquals(reads, f.libraryApi.continueReads, "rotation never leaves/reenters the Library")
             assertEquals(f.actor, f.library.state.value.account)
+        } finally { f.close() }
+    }
+
+    @Test
+    fun confirmed_expiry_keeps_public_audio_and_local_outbox_but_cannot_enqueue_private_progress() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            f.runtime.listening.restore(f.audio, 10_000); runCurrent()
+            f.runtime.listening.playback.dispatch(PlaybackEvent.PlayRequested); runCurrent()
+            f.started(); runCurrent()
+            f.library.setSaved(f.audio.workId, true); runCurrent()
+            val player = f.runtime.listening.playback.state.value
+            val operations = f.intents().map { it.operation }
+            f.sessionFailure = IdentityV1Failure.Unauthorized
+            f.account.revalidate(requireNotNull(f.account.verifiedSession.value).session.session)
+            runCurrent()
+            assertNotNull((f.account.state.value as? com.cantos.theatre.application.identity.NativeAccountState.Failed)?.sessionLoss)
+            assertEquals(null, f.library.state.value.account)
+            assertEquals(player, f.runtime.listening.playback.state.value)
+            f.decoder.emit(PlaybackEvent.EnginePosition(requireNotNull(player.identity), 30_000))
+            f.runtime.backgrounded(); runCurrent()
+            assertEquals(operations, f.intents().map { it.operation })
+            assertEquals(PlaybackStatus.Playing, f.runtime.listening.playback.state.value.status)
         } finally { f.close() }
     }
 

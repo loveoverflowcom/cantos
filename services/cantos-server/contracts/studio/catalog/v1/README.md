@@ -14,6 +14,8 @@ audio handoff, producer scopes, Theatre routes and Studio Mobile are outside thi
 Saving any Catalog revision never publishes it: an owner pins exact saved revisions into a
 metadata generation through [metadata publication v1](../../metadata-publication/v1/README.md),
 whose public gate is that generation, not `visibility` (ADR 0054 D05b).
+A creator reads an exact saved revision as Theatre presentation text through
+[Studio preview v1](../../preview/v1/README.md), a narrow read that is not a publication.
 See [ADR 0015](../../../../../../docs/decisions/0015-api-surface-boundaries.md) and
 [ADR 0018](../../../../../../docs/decisions/0018-external-audio-production.md).
 
