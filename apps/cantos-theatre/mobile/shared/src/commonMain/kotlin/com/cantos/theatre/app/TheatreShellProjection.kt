@@ -52,6 +52,7 @@ import com.cantos.theatre.presentation.model.WorkListenPhase
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellTimer
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellCover
 import com.cantos.theatre.presentation.model.ShellWork
@@ -86,6 +87,7 @@ class TheatreShellInputs(
     val libraryTab: ShellLibraryTab,
     val timer: ShellTimer,
     val accessFailure: com.cantos.theatre.ports.PlaybackAccessFailure? = null,
+    val searchKind: ShellSearchKind = ShellSearchKind.All,
 )
 
 class ShellProjection(val state: ShellState, val catalog: ShellCatalogView)
@@ -164,6 +166,7 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         savedWorks = saved.map(::ShellWorkId).toSet(),
         libraryTab = i.libraryTab,
         query = i.query,
+        searchKind = i.searchKind,
         catalogMode = worksWalk.catalogMode(),
         theme = i.theme,
         locale = i.locale,

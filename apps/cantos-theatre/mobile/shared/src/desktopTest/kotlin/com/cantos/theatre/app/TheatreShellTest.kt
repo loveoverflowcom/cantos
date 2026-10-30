@@ -4,7 +4,9 @@ import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.domain.catalog.CatalogCursor
+import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
+import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicCatalogSamples
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicWork
@@ -25,6 +27,7 @@ import com.cantos.theatre.ports.StreamingMediaEngine
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.ShellWorkId
 import kotlin.test.Test
@@ -169,6 +172,45 @@ class TheatreShellTest {
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(listOf("", "sân khấu"), f.queries.map { it.text }, "the submit costs exactly one read")
+    }
+
+    @Test
+    fun a_kind_chip_reads_now_with_the_typed_text_and_all_clears_only_the_kind() = runTest {
+        val f = fixture()
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Search))
+        f.shell.dispatch(ShellEvent.Search("sân khấu"))
+        f.shell.dispatch(ShellEvent.SelectSearchKind(ShellSearchKind.Podcast))
+        runCurrent()
+        assertEquals(PublicWorkKind.Podcast, f.catalog.state.value.query.kind)
+        assertEquals("sân khấu", f.catalog.state.value.query.text, "the chip keeps the text")
+        f.shell.dispatch(ShellEvent.SelectSearchKind(ShellSearchKind.Novel))
+        runCurrent()
+        assertEquals(PublicWorkKind.Novel, f.catalog.state.value.query.kind)
+        f.shell.dispatch(ShellEvent.SelectSearchKind(ShellSearchKind.All))
+        runCurrent()
+        assertNull(f.catalog.state.value.query.kind)
+        assertEquals("sân khấu", f.catalog.state.value.query.text)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(
+            listOf("" to null, "sân khấu" to PublicWorkKind.Podcast, "sân khấu" to PublicWorkKind.Novel, "sân khấu" to null),
+            f.queries.map { it.text to it.kind }, "each chip costs exactly one read and typing in between is not repeated")
+    }
+
+    @Test
+    fun a_kind_filter_alone_is_a_server_query_and_never_outlives_the_search_route() = runTest {
+        val f = fixture()
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Search))
+        f.shell.dispatch(ShellEvent.SelectSearchKind(ShellSearchKind.Story))
+        runCurrent()
+        assertEquals(PublicCatalogQuery.of("", PublicWorkKind.Story).let { (it as CatalogCheck.Valid).value }, f.catalog.state.value.query)
+        f.shell.dispatch(ShellEvent.Back)
+        runCurrent()
+        assertEquals(PublicCatalogQuery.All, f.catalog.state.value.query, "Discover is never a filtered list")
+        assertEquals(ShellSearchKind.Story, f.shell.ui.value.searchKind, "the chip is restored when Search reopens")
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Search))
+        runCurrent()
+        assertEquals(PublicWorkKind.Story, f.catalog.state.value.query.kind)
     }
 
     @Test

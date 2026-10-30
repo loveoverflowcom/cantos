@@ -25089,18 +25089,6 @@
         }
       }
     },
-    "theatre.cmp_shell.search_collapse": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Thu gọn"
-        },
-        "en": {
-          "text": "Collapse"
-        }
-      }
-    },
     "theatre.cmp_shell.search_clear_input": {
       "args": {},
       "exposure": "production",
@@ -25481,6 +25469,42 @@
         },
         "en": {
           "text": "No audio yet"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_filter_all": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tất cả"
+        },
+        "en": {
+          "text": "All"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_filter_group": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Loại truyện"
+        },
+        "en": {
+          "text": "Story type"
+        }
+      }
+    },
+    "theatre.cmp_shell.search_results_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kết quả tìm kiếm"
+        },
+        "en": {
+          "text": "Search results"
         }
       }
     }

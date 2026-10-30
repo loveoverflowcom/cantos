@@ -26,12 +26,17 @@ presentation. Qualified Logo Symbol, FloatingSearch and the Library Button are a
 bounded continuation below. Avatar, tonal IconButton, FilterChip and UiRoot/Theatre expression
 still await admission; see the [bounded #453 evidence](../../../docs/evidence/theatre-discovery-library-453.md).
 
-The Search route now uses the shared FloatingSearch dock: one shell owns its stable input
-header, trailing search action and the existing catalog result/state composition. Typing keeps
-the existing query-on-change owner; the magnifier and IME Search dispatch `SubmitSearch`.
-Collapse retains the raw query and restores input focus; clear keeps focus. The body scrolls
-within the measured viewport after safe/IME insets. JVM desktop tests exercise the production
-composition over declared preview ports; they do not establish Android/iOS keyboard acceptance.
+The Search route is the Search v4.4 fullscreen screen, not a dock over Discovery: a leading Back,
+one shared FloatingSearch pill with a clear action and a single magnifier, the typed story-type
+chips (All, Novel, Story, Podcast) and an independently scrolling result list of cover rows. The
+shared header, tab bar and mini-player step aside on this route; playback continues. Typing keeps
+the existing query-on-change owner and the magnifier and IME Search dispatch `SubmitSearch`. A chip
+dispatches `SelectSearchKind`, which becomes a typed `PublicCatalogQuery.kind` read through the same
+catalog controller (it reads now, keeps the text and resets pagination). The input is focused on
+entry only while it is empty; clear keeps focus. Back (the control or Android Back) leaves in one
+step. The chips and Back use Standard Material controls until the shared tonal IconButton and
+FilterChip are admitted. JVM desktop tests exercise the production composition over declared
+preview ports; they do not establish Android/iOS keyboard, IME Back or frame-timing acceptance.
 
 Loading v1 (#588) retains a catalog snapshot separately from the pending query/walk. Accepted
 responses commit its applied search with the rows; new queries reset pagination and preserve token

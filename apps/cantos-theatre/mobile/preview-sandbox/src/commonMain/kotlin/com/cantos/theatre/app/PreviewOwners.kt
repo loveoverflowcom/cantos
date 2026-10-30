@@ -36,6 +36,7 @@ import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellProgress
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
@@ -162,7 +163,7 @@ class PreviewOwners(
                 shell.library.value,
                 if (prefs.theme == PreferenceTheme.Dark) ShellTheme.Dark else ShellTheme.Light,
                 if (prefs.locale == PreferenceLocale.English) ShellLocale.English else ShellLocale.Vietnamese,
-                ui.query, ui.libraryTab, ui.timer,
+                ui.query, ui.libraryTab, ui.timer, searchKind = ui.searchKind,
             ),
         ).state
     }
@@ -180,6 +181,7 @@ class PreviewOwners(
         // a signed-in seed has no Login destination.
         if (ShellRoute.Register in state.stack) shell.openRegister() else if (ShellRoute.Login in state.stack) shell.openLogin()
         if (state.query.isNotEmpty()) shell.dispatch(ShellEvent.Search(state.query))
+        if (state.searchKind != ShellSearchKind.All) shell.dispatch(ShellEvent.SelectSearchKind(state.searchKind))
         if (state.libraryTab != ShellLibraryTab.Continuing) shell.dispatch(ShellEvent.SelectLibrary(state.libraryTab))
         if (state.timer != ShellTimer.Off) shell.dispatch(ShellEvent.SetTimer(state.timer))
         selectionSeed()?.let { selected ->

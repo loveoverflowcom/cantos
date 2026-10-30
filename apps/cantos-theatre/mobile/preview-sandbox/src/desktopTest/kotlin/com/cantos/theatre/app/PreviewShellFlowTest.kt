@@ -122,17 +122,14 @@ class PreviewShellFlowTest {
     fun source_search_filters_by_the_catalog_port_empty_results_recover_and_clear_restores_the_list() = run { owners ->
         untilTag("work-$sonHa")
         onNodeWithTag("search").performScrollTo().performClick()
-        onNodeWithTag("nav-discovery").assertIsSelected()
+        onNodeWithTag("nav-discovery").assertDoesNotExist()
         val input = onNodeWithTag("search-input")
         input.performTextReplacement("Đèn")
         untilNoTag("work-$sonHa")
         onNodeWithTag("work-$denKhua").assertExists()
         input.performTextReplacement("  Đèn  ")
-        onNodeWithTag("search-collapse").performClick()
         input.assertIsFocused().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("  Đèn  ")))
         onNodeWithTag("search-dock").assertDoesNotExist()
-        input.performClick()
-        onNodeWithTag("search-dock").assertExists()
         input.performTextReplacement("không có trong tủ sách")
         untilNoTag("work-$denKhua")
         onNodeWithTag("search-clear").performClick()
@@ -169,6 +166,8 @@ class PreviewShellFlowTest {
         onNodeWithTag("search").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         onNodeWithTag("search").performScrollTo().performClick()
         onNodeWithTag("search-input").performTextReplacement("Đèn")
+        // Fullscreen Search has no shared header; the control is on the route Back returns to.
+        onNodeWithTag("back").performClick()
         onNodeWithTag("theme-toggle").performClick()
         waitForIdle()
         assertEquals(PreferenceTheme.System, owners.shell.preferences.state.value.theme)
@@ -176,7 +175,7 @@ class PreviewShellFlowTest {
         waitForIdle()
         assertEquals(ShellTheme.Dark, owners.projection().theme)
         assertEquals("Đèn", owners.projection().query)
-        assertEquals(TheatreRoute.Search, owners.shell.navigation.value.route)
+        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
         onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Mực tím · Tối · Chuyển sang giao diện sáng")
     }
 
