@@ -181,7 +181,8 @@ class AccountLogoutSheetTest {
     fun without_a_profile_projection_the_account_is_the_honest_fallback() = run { host ->
         onNodeWithTag("account-name").assertTextEquals("Người nghe Cantos")
         onNodeWithTag("account-profile").assertIsDisplayed()
-        onNodeWithText("Đã đăng nhập").assertIsDisplayed()
+        // A healthy signed-in account carries no status caption in either locale.
+        assertEquals(0, onAllNodes(hasText("Đã đăng nhập", substring = true)).fetchSemanticsNodes().size)
         // No email, no member name from the design sample, no invented plan or contact address.
         listOf("Minh Anh", "minhanh@example.com", "@").forEach {
             assertEquals(0, onAllNodes(hasText(it, substring = true)).fetchSemanticsNodes().size, it)
@@ -198,6 +199,15 @@ class AccountLogoutSheetTest {
         assertNull(support.config.getOrNull(SemanticsProperties.Role))
         onNodeWithTag("account-support-info").assertTextContains("Thông tin hỗ trợ đang cập nhật")
         assertTrue(host.intents.isEmpty())
+    }
+
+    @Test
+    fun the_english_profile_has_no_status_caption_and_centers_the_name_on_the_avatar() = run(Host(ShellLocale.English)) { _ ->
+        onNodeWithTag("account-name").assertTextEquals("Cantos listener")
+        assertEquals(0, onAllNodes(hasText("Signed in", substring = true)).fetchSemanticsNodes().size)
+        val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
+        val name = onNodeWithTag("account-name").fetchSemanticsNode().boundsInRoot
+        assertTrue(kotlin.math.abs(avatar.center.y - name.center.y) <= 1f, "a lone name sits on the avatar's centre line")
     }
 
     @Test

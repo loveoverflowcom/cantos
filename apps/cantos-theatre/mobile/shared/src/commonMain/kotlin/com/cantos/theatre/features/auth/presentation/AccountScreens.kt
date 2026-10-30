@@ -142,7 +142,8 @@ private fun GuestAccount(
 /**
  * The signed-in Account (design v4.1, page 3): identity first, one grouped list second, the sign-out
  * entry last. The owner projects no name, email or entitlement, so the profile is the honest
- * fallback (page 4) and nothing here invents a person, a plan or a support address.
+ * fallback (page 4) and nothing here invents a person, a plan or a support address. The fallback
+ * is the name alone; a status caption would only restate the signed-in state.
  */
 @Composable
 private fun SignedInAccount(
@@ -169,12 +170,11 @@ private fun SignedInAccount(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
             AccountAvatar()
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                Text(copy.text(AuthText.SignedProfileName),
-                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
-                    modifier = Modifier.semantics { heading() }.testTag("account-name"))
-                Text(copy.text(AuthText.SignedBadge), style = MaterialTheme.typography.bodyMedium)
-            }
+            // A healthy signed-in account needs no status caption: the sign-out entry and the missing
+            // sign-in actions already say it, and real failures are shown by their own state.
+            Text(copy.text(AuthText.SignedProfileName),
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+                modifier = Modifier.weight(1f).semantics { heading() }.testTag("account-name"))
         }
     }
     preferences()

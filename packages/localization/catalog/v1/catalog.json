@@ -23397,18 +23397,6 @@
         }
       }
     },
-    "theatre.cmp_auth.signed_badge": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Đã đăng nhập"
-        },
-        "en": {
-          "text": "Signed in"
-        }
-      }
-    },
     "theatre.cmp_auth.membership_badge": {
       "args": {},
       "exposure": "production",
