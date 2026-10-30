@@ -40,7 +40,7 @@ fn story(tag: u32, title: &str, language: &str) -> WorkSeed {
 
 async fn single(fixture: &ServerFixture) -> SeededWork {
     fixture
-        .seed_work(
+        .seed_published_work(
             None,
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn"]),
         )
@@ -63,14 +63,14 @@ fn release(work: &SeededWork, unit: usize) -> String {
 async fn discovery_orders_filters_searches_and_pages_by_immutable_anchor() {
     let (fixture, clock) = fixture().await;
     let first = fixture
-        .seed_work(
+        .seed_published_work(
             None,
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn", "Tập hai"]),
         )
         .await;
     clock.advance(10_000_000);
     let second = fixture
-        .seed_work(None, &story(2, "Chuyện nhỏ", "en-US"))
+        .seed_published_work(None, &story(2, "Chuyện nhỏ", "en-US"))
         .await;
     let service = service(&fixture);
 
@@ -198,7 +198,7 @@ async fn discovery_orders_filters_searches_and_pages_by_immutable_anchor() {
     // so `%` finds only the title that contains it and `_` matches no single character.
     clock.advance(10_000_000);
     let percent = fixture
-        .seed_work(None, &story(3, "Trăm phần trăm 100%", "vi-VN"))
+        .seed_published_work(None, &story(3, "Trăm phần trăm 100%", "vi-VN"))
         .await;
     for (query, expected) in [
         ("%", vec![percent.work_id.as_str()]),
@@ -223,7 +223,7 @@ async fn discovery_orders_filters_searches_and_pages_by_immutable_anchor() {
 async fn presentation_is_an_opt_in_with_exact_counts_and_ordinals_over_the_eligible_relation() {
     let (fixture, _) = fixture().await;
     let work = fixture
-        .seed_work(
+        .seed_published_work(
             None,
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một", "Hai", "Ba"]),
         )
@@ -316,7 +316,7 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
             // Another owner: disabling one actor must not hide anyone else's Work.
             seed.owner = "carol".into();
         }
-        cases.push((name, fixture.seed_work(None, &seed).await));
+        cases.push((name, fixture.seed_published_work(None, &seed).await));
     }
     let mut staged = WorkSeed::podcast(17, "Tác phẩm chưa phát hành", &["Một lời hẹn"]);
     staged.units[0].stage = Stage::Staged;
@@ -326,7 +326,7 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
         rights_until_from_now_ms: -60_000,
         ..UnitSeed::published("Một lời hẹn")
     };
-    let expired = fixture.seed_work(None, &expired).await;
+    let expired = fixture.seed_published_work(None, &expired).await;
     let mut hidden = WorkSeed::podcast(19, "Tác phẩm riêng tư", &["Một lời hẹn"]);
     hidden.visibility = Visibility::Private;
     let hidden = fixture.seed_work(None, &hidden).await;
@@ -351,6 +351,24 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
     fixture
         .edit_work_visibility(by_name("private"), Visibility::Private)
         .await;
+    let token = "6510651065106510651065106510651065106510651065106510651065106510";
+    fixture.studio_caller("alice", token).await;
+    let metadata = fixture
+        .store()
+        .metadata_publication_state(token, &by_name("private").work_id)
+        .await
+        .unwrap();
+    crate::contexts::media::MetadataPublicationService::new(fixture.store().clone())
+        .settle(
+            token,
+            &metadata.work_id,
+            crate::contract::studio::MetadataPublicationRequest::Withdraw {
+                operation_id: uuid::Uuid::new_v4().to_string(),
+                expected_version: metadata.version,
+            },
+        )
+        .await
+        .unwrap();
     fixture
         .withdraw_release("alice", &by_name("withdrawn").units[0])
         .await;
@@ -364,7 +382,29 @@ async fn private_staged_withdrawn_revoked_expired_superseded_archived_and_disabl
     fixture.set_actor_active("carol", false).await;
     let replacement = {
         let w = by_name("superseded");
-        fixture.publish_replacement(None, w, &w.units[0]).await
+        let replacement = fixture.publish_replacement(None, w, &w.units[0]).await;
+        let token = "6520652065206520652065206520652065206520652065206520652065206520";
+        fixture.studio_caller("alice", token).await;
+        let state = fixture
+            .store()
+            .metadata_publication_state(token, &w.work_id)
+            .await
+            .unwrap();
+        crate::contexts::media::MetadataPublicationService::new(fixture.store().clone())
+            .settle(
+                token,
+                &w.work_id,
+                crate::contract::studio::MetadataPublicationRequest::AssociateAudio {
+                    operation_id: uuid::Uuid::new_v4().to_string(),
+                    expected_version: state.version,
+                    unit_id: w.units[0].unit_id.clone(),
+                    release_id: replacement.release_id.clone().unwrap(),
+                    confirm_display_only_drift: false,
+                },
+            )
+            .await
+            .unwrap();
+        replacement
     };
 
     let gone: Vec<(&str, String)> = vec![
@@ -479,7 +519,7 @@ async fn a_withdrawal_or_revocation_fact_denies_even_while_the_pointer_still_nam
 async fn list_and_detail_share_one_representative_release_per_work() {
     let (fixture, _) = fixture().await;
     let work = fixture
-        .seed_work(
+        .seed_published_work(
             None,
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một", "Hai", "Ba"]),
         )
@@ -504,7 +544,7 @@ async fn list_and_detail_share_one_representative_release_per_work() {
 }
 
 #[tokio::test]
-async fn released_metadata_is_pinned_while_current_privacy_still_governs() {
+async fn released_metadata_is_pinned_and_editorial_privacy_never_changes_the_generation() {
     let (fixture, _) = fixture().await;
     let work = single(&fixture).await;
     let service = service(&fixture);
@@ -538,14 +578,11 @@ async fn released_metadata_is_pinned_while_current_privacy_still_governs() {
         0,
         "search is over the released text"
     );
-    // Current privacy, in contrast, applies at once and again when it is lifted.
+    // Editorial visibility is isolated from the explicitly published generation (ADR 0054 D05).
     fixture
         .edit_work_visibility(&work, Visibility::Private)
         .await;
-    assert_eq!(
-        service.manifest(&release(&work, 0)).await.unwrap_err(),
-        ListenerError::NotFound
-    );
+    assert_eq!(service.manifest(&release(&work, 0)).await.unwrap(), before);
     fixture
         .edit_work_visibility(&work, Visibility::Public)
         .await;
@@ -635,7 +672,7 @@ async fn playback_is_authorized_for_the_exact_release_and_the_bytes_are_those_it
     let (fixture, clock) = fixture().await;
     let (storage, origin) = playback(&fixture);
     let work = fixture
-        .seed_work(
+        .seed_published_work(
             Some(&storage),
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn"]),
         )

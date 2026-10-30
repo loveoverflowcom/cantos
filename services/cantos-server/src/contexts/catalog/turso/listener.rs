@@ -134,3 +134,6 @@ JOIN catalog_units d_u ON d_u.work_id=d_w.id AND d_u.id=x.unit_id \
 JOIN catalog_work_revisions d_r ON d_r.work_id=d_w.id AND d_r.revision=d_w.head_revision \
 WHERE d_w.id=x.work_id AND d_w.lifecycle<>'archived' AND d_u.lifecycle<>'archived' \
 AND json_extract(CAST(d_r.snapshot AS TEXT),'$.details.visibility')='public')";
+
+/// Lifecycle-only half for generation admission; editorial visibility never gates that lane.
+pub(crate) const LISTENER_ACTIVE_FILTER: &str = "EXISTS(SELECT 1 FROM catalog_works d_w JOIN catalog_units d_u ON d_u.work_id=d_w.id AND d_u.id=x.unit_id WHERE d_w.id=x.work_id AND d_w.lifecycle<>'archived' AND d_u.lifecycle<>'archived')";

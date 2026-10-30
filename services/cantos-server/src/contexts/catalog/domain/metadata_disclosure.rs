@@ -120,10 +120,12 @@ const FICTIONAL_SAMPLE_IDS: [(&str, [&str; 2]); 6] = [
 ];
 
 /// Bounded approved identities; this is membership, never publication authority.
+#[cfg(test)]
 pub(crate) fn approved_sample_ids() -> &'static [(&'static str, [&'static str; 2])] {
     &APPROVED_SAMPLE_IDS
 }
 
+#[cfg(test)]
 pub(crate) fn fictional_sample_ids() -> &'static [(&'static str, [&'static str; 2])] {
     &FICTIONAL_SAMPLE_IDS
 }

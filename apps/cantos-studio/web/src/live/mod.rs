@@ -40,6 +40,9 @@ pub use pages::ReadPages;
 pub mod delegation;
 
 pub mod brief_controls;
+#[cfg(target_arch = "wasm32")]
+mod metadata_panel;
+pub mod metadata_publication;
 pub mod publication;
 #[cfg(test)]
 mod publication_commands_tests;

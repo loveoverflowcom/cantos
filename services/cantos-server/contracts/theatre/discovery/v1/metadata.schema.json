@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cantos.example/contracts/theatre/discovery/metadata.schema.json",
-  "title": "Opt-in sample metadata Discovery",
+  "$id": "https://cantos.example/contracts/theatre/discovery/v1/metadata.schema.json",
+  "title": "Theatre published generation metadata v1",
   "$defs": {
     "id": {"type": "string", "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"},
     "cursor": {"anyOf": [{"type": "null"}, {"type": "string", "pattern": "^lc1_[a-f0-9]{64}$"}]},

@@ -84,6 +84,36 @@ impl PublishedFixture {
         serde_json::from_str(&text).unwrap()
     }
 }
+// Explicit owner action: audio activation by itself never creates public metadata.
+async fn publish_metadata(h: &Harness, work: &str, units: &[&str]) -> Value {
+    let path = format!("/works/{work}/metadata-publication");
+    let state = h
+        .json("GET", &path, Some(ALICE), None)
+        .await
+        .success(StatusCode::OK);
+    let saved = h
+        .json("GET", &format!("/works/{work}"), Some(ALICE), None)
+        .await
+        .success(StatusCode::OK);
+    let mut selected = Vec::new();
+    for id in units {
+        let unit = h
+            .json("GET", &format!("/content-units/{id}"), Some(ALICE), None)
+            .await
+            .success(StatusCode::OK);
+        selected.push(json!({"unit_id":id,"revision":unit["revision"]}));
+    }
+    h.json("POST", &path, Some(ALICE), Some(json!({"action":"publish","operation_id":operation(),"expected_version":state["version"],"work_revision":saved["revision"],"units":selected,"confirm_metadata_rights":true}))).await.success(StatusCode::OK)
+}
+async fn withdraw_metadata(h: &Harness, work: &str) {
+    let path = format!("/works/{work}/metadata-publication");
+    let state = h
+        .json("GET", &path, Some(ALICE), None)
+        .await
+        .success(StatusCode::OK);
+    h.json("POST", &path, Some(ALICE), Some(json!({"action":"withdraw","operation_id":operation(),"expected_version":state["version"]}))).await.success(StatusCode::OK);
+}
+
 // Shared by single-release regressions and same-database catalog walks. Every record below
 // passes the actual Studio HTTP boundary; only the public-delivery observer is a named fake.
 async fn approve_candidate(
@@ -581,13 +611,21 @@ async fn theatre_public_discovery_manifest_search_replacement_and_withdrawal() {
         .await
         .success(StatusCode::CREATED);
     let release = &published["release"];
+    publish_metadata(
+        h,
+        published["release"]["manifest"]["work_id"]
+            .as_str()
+            .unwrap(),
+        &[&f.a.unit],
+    )
+    .await;
     let id = release["id"].as_str().unwrap();
     let work = release["manifest"]["work_id"].as_str().unwrap();
     let (status, page) = theatre_call(h.app.clone(), "GET", "/works?limit=1").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(page["items"].as_array().unwrap().len(), 1);
     assert_eq!(page["items"][0]["work_id"], work);
-    let anchor = page["items"][0]["first_published_at_ms"].clone();
+    let anchor = page["items"][0]["first_visible_at_ms"].clone();
     let (status, search) = theatre_call(
         h.app.clone(),
         "GET",
@@ -598,9 +636,9 @@ async fn theatre_public_discovery_manifest_search_replacement_and_withdrawal() {
     assert_eq!(search["items"].as_array().unwrap().len(), 1);
     let (status, units) = theatre_call(h.app.clone(), "GET", &format!("/works/{work}/units")).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(units["items"][0]["publication_id"], id);
+    assert_eq!(units["items"][0]["playback"]["publication_id"], id);
     assert_eq!(
-        units["items"][0]["duration_ms"],
+        units["items"][0]["playback"]["duration_ms"],
         release["manifest"]["media"]["duration_ms"]
     );
     for _ in 0..3 {
@@ -639,9 +677,16 @@ async fn theatre_public_discovery_manifest_search_replacement_and_withdrawal() {
         )
         .await
         .success(StatusCode::CREATED);
+    // D06c moves the exact Unit association in the same audio activation transaction.
+    assert_eq!(
+        theatre_call(h.app.clone(), "GET", &format!("/works/{work}/units"))
+            .await
+            .1["items"][0]["playback"]["publication_id"],
+        replacement["release"]["id"]
+    );
     let newer = replacement["release"]["id"].as_str().unwrap();
     let (_, page) = theatre_call(h.app.clone(), "GET", "/works?limit=1").await;
-    assert_eq!(page["items"][0]["first_published_at_ms"], anchor);
+    assert_eq!(page["items"][0]["first_visible_at_ms"], anchor);
     assert_eq!(
         theatre_call(h.app.clone(), "GET", &format!("/publications/{id}"))
             .await
@@ -650,7 +695,14 @@ async fn theatre_public_discovery_manifest_search_replacement_and_withdrawal() {
     );
     h.json("POST",&format!("/content-units/{}/publication/withdraw",f.a.unit),Some(ALICE),Some(json!({"operation_id":operation(),"release_id":newer,"expected_pointer_version":2,"reason":"Synthetic withdrawal"}))).await.success(StatusCode::OK);
     let (_, page) = theatre_call(h.app.clone(), "GET", "/works").await;
-    assert_eq!(page["items"], json!([]));
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        theatre_call(h.app.clone(), "GET", &format!("/works/{work}/units"))
+            .await
+            .1["items"][0]["playback"],
+        Value::Null
+    );
+    withdraw_metadata(h, work).await;
     assert_eq!(
         theatre_call(h.app.clone(), "GET", &format!("/works/{work}"))
             .await
@@ -777,6 +829,14 @@ async fn theatre_rejects_copied_approval_snapshot_with_forged_latest_scalar_iden
         )
         .await
         .success(StatusCode::CREATED);
+    publish_metadata(
+        h,
+        published["release"]["manifest"]["work_id"]
+            .as_str()
+            .unwrap(),
+        &[&f.a.unit],
+    )
+    .await;
     let id = published["release"]["id"].as_str().unwrap();
     h.json("POST", &format!("{}/publication-approvals", f.base()), Some(ALICE), Some(json!({"operation_id":operation(),"candidate_digest":f.candidate["digest"],"clearance_digest":f.clearance["digest"],"decision":"withdrawn","notes":"Synthetic current approval withdrawal"}))).await.success(StatusCode::CREATED);
     assert_eq!(

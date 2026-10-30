@@ -163,8 +163,12 @@ class RealCatalogCompatibility(unittest.TestCase):
         # The retained historical model is registered through its scenario's import.
         self.assertEqual(by_id["cantos.identity.theatre-registration"]["importClosure"],
                          ["specs/behavior/identity/theatre_registration.qnt"])
+        sample = by_id["cantos.media.sample-metadata"]
+        self.assertEqual(sample["lifecycle"], "deprecated")
+        self.assertIsNone(sample["model"])
+        self.assertEqual(sample["importClosure"], ["services/cantos-server/behavior/media/sample_metadata.qnt"])
         for identity in ("cantos.publishing.lifecycle", "cantos.listening.progress",
-                         "cantos.identity.theatre-registration"):
+                         "cantos.identity.theatre-registration", "cantos.media.sample-metadata"):
             with self.subTest(identity=identity), self.assertRaises(behavior.BehaviorError):
                 behavior.load_catalog(behavior.ROOT, identity)
 
@@ -177,7 +181,8 @@ class RealCatalogCompatibility(unittest.TestCase):
                                 capture_output=True, text=True, cwd=behavior.ROOT, check=True)
         index = json.loads(result.stdout)
         self.assertEqual(set(index["capabilities"]), {cap["id"] for cap in behavior.load_catalog(behavior.ROOT)})
-        self.assertIn("cantos.media.sample-metadata", index["capabilities"])
+        self.assertNotIn("cantos.media.sample-metadata", index["capabilities"])
+        self.assertEqual(index["inputs"]["services/cantos-server/behavior/media/sample_metadata_tests.qnt"], ["*"])
         self.assertEqual(index["inputs"]["specs/behavior/identity/theatre_registration_tests.qnt"], ["*"])
         for argument in ("--setup", "--conformance"):
             failed = subprocess.run([sys.executable, str(behavior.ROOT / "scripts/verify_behavior.py"),

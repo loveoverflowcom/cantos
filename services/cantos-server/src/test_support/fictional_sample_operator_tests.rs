@@ -148,11 +148,11 @@ async fn offline_operator_seed_is_atomic_idempotent_non_login_and_revocable() {
         .unwrap();
     let old: serde_json::Value =
         serde_json::from_slice(&old.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert!(old["items"].as_array().unwrap().is_empty());
+    assert_eq!(old["code"], "invalid_request");
     let response = app
         .clone()
         .oneshot(
-            Request::get("/api/v1/theatre/works?presentation=3")
+            Request::get("/api/v1/theatre/works")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -161,17 +161,17 @@ async fn offline_operator_seed_is_atomic_idempotent_non_login_and_revocable() {
     assert_eq!(response.status(), StatusCode::OK);
     let page: crate::contract::theatre::discovery::MetadataWorkPage =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(page.items.len(), 6);
+    assert!(
+        page.items.is_empty(),
+        "private sample attestations cannot create generic publication authority"
+    );
     for work in page.items {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!(
-                    "/api/v1/theatre/works/{}/units?presentation=3",
-                    work.work_id
-                ))
-                .body(Body::empty())
-                .unwrap(),
+                Request::get(format!("/api/v1/theatre/works/{}/units", work.work_id))
+                    .body(Body::empty())
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -212,7 +212,7 @@ async fn offline_operator_seed_is_atomic_idempotent_non_login_and_revocable() {
     );
     let response = app
         .oneshot(
-            Request::get("/api/v1/theatre/works?presentation=3")
+            Request::get("/api/v1/theatre/works")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -370,7 +370,7 @@ async fn fictional_discovery_excludes_other_private_works() {
         });
     let response = app
         .oneshot(
-            Request::get("/api/v1/theatre/works?presentation=3")
+            Request::get("/api/v1/theatre/works")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -378,7 +378,10 @@ async fn fictional_discovery_excludes_other_private_works() {
         .unwrap();
     let page: crate::contract::theatre::discovery::MetadataWorkPage =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(page.items.len(), 6);
+    assert!(
+        page.items.is_empty(),
+        "private sample attestations cannot create generic publication authority"
+    );
     assert!(!page
         .items
         .iter()

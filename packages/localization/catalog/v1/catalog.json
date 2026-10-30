@@ -10347,10 +10347,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Hiển thị tác phẩm trong danh mục"
+          "text": "Hiển thị biên tập"
         },
         "en": {
-          "text": "Work catalog visibility"
+          "text": "Editorial visibility"
         }
       }
     },
@@ -10395,10 +10395,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn chế độ hiển thị trước khi tạo ứng viên. Đổi thông tin làm ứng viên cũ cần kiểm tra lại. Công khai danh mục không tự phát hành âm thanh."
+          "text": "Giá trị biên tập này không công bố hoặc tạm ẩn nội dung. Dùng mục Công bố nội dung để thay đổi bản ở Cantos."
         },
         "en": {
-          "text": "Choose visibility before creating a candidate. Metadata changes require a new candidate check. Public catalog visibility never publishes audio automatically."
+          "text": "This editorial value does not publish or withdraw content. Use Metadata publication to change the version shown in Cantos."
         }
       }
     },
@@ -25841,6 +25841,582 @@
         },
         "en": {
           "text": "Updating saved state…"
+        }
+      }
+    },
+    "studio.live.metadata_publication": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Công bố nội dung"
+        },
+        "en": {
+          "text": "Metadata publication"
+        }
+      }
+    },
+    "studio.live.metadata_load": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc trạng thái công bố"
+        },
+        "en": {
+          "text": "Read publication state"
+        }
+      }
+    },
+    "studio.live.metadata_unread": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc trạng thái công bố."
+        },
+        "en": {
+          "text": "Publication state has not been read."
+        }
+      }
+    },
+    "studio.live.metadata_never": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa từng công bố"
+        },
+        "en": {
+          "text": "Never published"
+        }
+      }
+    },
+    "studio.live.metadata_active": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang công bố"
+        },
+        "en": {
+          "text": "Published"
+        }
+      }
+    },
+    "studio.live.metadata_withdrawn": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã tạm ẩn · giữ lịch sử"
+        },
+        "en": {
+          "text": "Withdrawn · history retained"
+        }
+      }
+    },
+    "studio.live.metadata_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản nháp đã lưu"
+        },
+        "en": {
+          "text": "Saved draft"
+        }
+      }
+    },
+    "studio.live.metadata_version": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản trạng thái"
+        },
+        "en": {
+          "text": "State version"
+        }
+      }
+    },
+    "studio.live.metadata_review": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn bản công bố"
+        },
+        "en": {
+          "text": "Review publication"
+        }
+      }
+    },
+    "studio.live.metadata_selection": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản chọn và thứ tự cuối cùng"
+        },
+        "en": {
+          "text": "Final selection and order"
+        }
+      }
+    },
+    "studio.live.metadata_select_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn bản đã lưu"
+        },
+        "en": {
+          "text": "Select saved revision"
+        }
+      }
+    },
+    "studio.live.metadata_remove": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ khỏi bản công bố này"
+        },
+        "en": {
+          "text": "Remove from this publication"
+        }
+      }
+    },
+    "studio.live.metadata_no_auto_select": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ chọn chương đã đọc. Chương chưa tải không tự được thêm; bản đã công bố chưa chọn cập nhật giữ nguyên revision."
+        },
+        "en": {
+          "text": "Only observed chapters can be selected. Unloaded drafts are never added; published entries retain their revisions until explicitly updated."
+        }
+      }
+    },
+    "studio.live.metadata_bounds": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tối đa 1.000 chương. Danh sách dưới đây là toàn bộ bản sẽ công bố."
+        },
+        "en": {
+          "text": "Up to 1,000 chapters. The list below is the complete publication selection."
+        }
+      }
+    },
+    "studio.live.metadata_pin_assets": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh bìa lấy theo revision tác phẩm đã chọn và quyền hiển thị riêng; công bố văn bản không cấp quyền ảnh hay audio."
+        },
+        "en": {
+          "text": "Cover selection follows the selected Work revision and independent display clearance; publishing text grants no image or audio rights."
+        }
+      }
+    },
+    "studio.live.metadata_rights": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tôi xác nhận có quyền công bố metadata đã chọn."
+        },
+        "en": {
+          "text": "I confirm the right to publish the selected metadata."
+        }
+      }
+    },
+    "studio.live.metadata_publish": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Công bố bản đã chọn"
+        },
+        "en": {
+          "text": "Publish selected revisions"
+        }
+      }
+    },
+    "studio.live.metadata_withdraw": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạm ẩn metadata"
+        },
+        "en": {
+          "text": "Withdraw metadata"
+        }
+      }
+    },
+    "studio.live.metadata_confirm_withdraw": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạm ẩn đúng bản công bố này? Bản nháp và lịch sử được giữ; audio không bị thu hồi."
+        },
+        "en": {
+          "text": "Withdraw this exact metadata publication? Drafts and history remain; audio is not revoked."
+        }
+      }
+    },
+    "studio.live.metadata_audio_linked": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã liên kết audio · quyền phát được kiểm tra khi nghe"
+        },
+        "en": {
+          "text": "Audio associated · playback is checked when listening"
+        }
+      }
+    },
+    "studio.live.metadata_audio_none": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa liên kết audio"
+        },
+        "en": {
+          "text": "No audio association"
+        }
+      }
+    },
+    "studio.live.metadata_audio_ready": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Audio đã sẵn sàng, chưa liên kết"
+        },
+        "en": {
+          "text": "Audio ready, not associated"
+        }
+      }
+    },
+    "studio.live.metadata_associate": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết bản audio hiện tại"
+        },
+        "en": {
+          "text": "Associate the current audio release"
+        }
+      }
+    },
+    "studio.live.metadata_display_only": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xác nhận riêng chênh lệch chỉ ở tiêu đề hoặc mô tả của bản audio này."
+        },
+        "en": {
+          "text": "Separately confirm display-only title or description differences for this audio release."
+        }
+      }
+    },
+    "studio.live.metadata_associate_confirm": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết đúng release và revision dưới đây? Server sẽ kiểm tra tính tương thích."
+        },
+        "en": {
+          "text": "Associate this exact release and revision? The Server checks compatibility."
+        }
+      }
+    },
+    "studio.live.metadata_receipt": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã nhận kết quả của lần gửi trước. Đọc lại trạng thái hiện tại trước khi tiếp tục."
+        },
+        "en": {
+          "text": "Result of the earlier submission received. Read the current state before continuing."
+        }
+      }
+    },
+    "studio.live.metadata_conflict": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Trạng thái công bố đã đổi. Bản chọn được giữ; đọc lại và so sánh trước khi review mới."
+        },
+        "en": {
+          "text": "Publication state changed. Selection retained; reload and compare before reviewing again."
+        }
+      }
+    },
+    "studio.live.metadata_rebase": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giữ bản chọn, review với trạng thái mới"
+        },
+        "en": {
+          "text": "Keep selection and review against current state"
+        }
+      }
+    },
+    "studio.live.metadata_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang gửi đúng thao tác công bố…"
+        },
+        "en": {
+          "text": "Sending the publication operation…"
+        }
+      }
+    },
+    "studio.live.metadata_unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xác định kết quả. Thử lại thao tác cũ; bản chọn được giữ."
+        },
+        "en": {
+          "text": "Outcome unknown. Retry the same action; selection is preserved."
+        }
+      }
+    },
+    "studio.live.metadata_retry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Kiểm tra lại thao tác cũ"
+        },
+        "en": {
+          "text": "Check the earlier action"
+        }
+      }
+    },
+    "studio.live.metadata_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không đọc hoặc thay đổi được trạng thái công bố. Bản nháp và bản chọn được giữ."
+        },
+        "en": {
+          "text": "Publication state could not be read or changed. Drafts and selection are preserved."
+        }
+      }
+    },
+    "studio.live.metadata_dirty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Có thay đổi chưa lưu. Lưu bản nháp trước khi chọn công bố."
+        },
+        "en": {
+          "text": "There are unsaved changes. Save the draft before selecting a publication."
+        }
+      }
+    },
+    "studio.live.metadata_public_audience": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đối tượng: Công khai"
+        },
+        "en": {
+          "text": "Audience: Public"
+        }
+      }
+    },
+    "studio.live.metadata_history": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Revision công bố / lịch sử"
+        },
+        "en": {
+          "text": "Published / historical revision"
+        }
+      }
+    },
+    "studio.live.metadata_close": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng bản chọn"
+        },
+        "en": {
+          "text": "Close selection"
+        }
+      }
+    },
+    "studio.live.metadata_review_blocked": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu thay đổi và đọc trạng thái công bố trước khi chọn bản."
+        },
+        "en": {
+          "text": "Save changes and read publication status before reviewing."
+        }
+      }
+    },
+    "studio.live.metadata_publish_blocked": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu thay đổi, đọc trạng thái mới nhất và xác nhận quyền cho bản đã chọn."
+        },
+        "en": {
+          "text": "Save changes, read the latest status and confirm rights for this selection."
+        }
+      }
+    },
+    "studio.live.metadata_active_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc một bản đang công bố trước khi tạm ẩn."
+        },
+        "en": {
+          "text": "Read an active publication before withdrawing it."
+        }
+      }
+    },
+    "studio.live.metadata_audio_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc bản công bố và audio đang hoạt động của đúng chương trước khi liên kết."
+        },
+        "en": {
+          "text": "Read the publication and this unit’s active audio before associating them."
+        }
+      }
+    },
+    "studio.live.metadata_diff": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Revision và thứ tự so với trạng thái công bố đã đọc"
+        },
+        "en": {
+          "text": "Revisions and order compared with the publication state read"
+        }
+      }
+    },
+    "studio.live.metadata_work_text": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin tác phẩm ở revision đã chọn"
+        },
+        "en": {
+          "text": "Work text at the selected revision"
+        }
+      }
+    },
+    "studio.live.metadata_old_text_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ có định danh revision cũ; không dùng nội dung bản nháp mới để thay cho nó."
+        },
+        "en": {
+          "text": "Only the earlier revision identity is available; newer draft text does not represent it."
+        }
+      }
+    },
+    "studio.live.metadata_artwork": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh bìa theo revision"
+        },
+        "en": {
+          "text": "Cover selection at this revision"
+        }
+      }
+    },
+    "studio.live.metadata_artwork_read": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc lựa chọn ảnh bìa"
+        },
+        "en": {
+          "text": "Read cover selection"
+        }
+      }
+    },
+    "studio.live.metadata_artwork_none": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Revision này không chọn ảnh bìa."
+        },
+        "en": {
+          "text": "This revision selects no cover."
+        }
+      }
+    },
+    "studio.live.metadata_artwork_unread": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc lựa chọn ảnh của revision này."
+        },
+        "en": {
+          "text": "The cover selection for this revision has not been read."
+        }
+      }
+    },
+    "studio.live.metadata_archived": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm đã lưu trữ; nội dung không hiển thị trên Cantos."
+        },
+        "en": {
+          "text": "This work is archived; its content is not visible on Cantos."
         }
       }
     }

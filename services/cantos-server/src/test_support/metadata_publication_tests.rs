@@ -1179,3 +1179,168 @@ async fn studio_routes_require_the_owner_session_and_answer_the_contract_shape()
         1
     );
 }
+
+#[tokio::test]
+async fn generation_discovery_routes_keep_saved_drafts_private_and_reject_retired_selectors() {
+    let fixture = world().await;
+    work(&fixture, WORK, "Mùa trăng đã công bố", &["r1"], &[A, B, C]).await;
+    let app =
+        crate::adapters::inbound::http::api_router(crate::adapters::inbound::http::AppState {
+            store: fixture.store().clone(),
+            web_origin: "https://studio.example.test".into(),
+        });
+    async fn get(app: &axum::Router, path: &str) -> (StatusCode, serde_json::Value) {
+        let response = app
+            .clone()
+            .oneshot(HttpRequest::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+    let detail = format!("/api/v1/theatre/works/{WORK}");
+    assert_eq!(get(&app, &detail).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        get(&app, "/api/v1/theatre/works").await.1["items"],
+        serde_json::json!([])
+    );
+    let w = work_revision(&fixture, WORK).await;
+    execute(
+        &fixture,
+        publish(
+            0,
+            w,
+            &[
+                (B, unit_revision(&fixture, B).await),
+                (A, unit_revision(&fixture, A).await),
+            ],
+        ),
+    )
+    .await
+    .unwrap();
+    let before = get(&app, &detail).await;
+    assert_eq!(before.0, StatusCode::OK);
+    assert_eq!(before.1["unit_count"], 2);
+    let units_path = format!("{detail}/units?limit=1");
+    let first = get(&app, &units_path).await.1;
+    assert_eq!(first["items"][0]["unit_id"], B);
+    assert_eq!(first["items"][0]["ordinal"], 1);
+    assert_eq!(first["items"][0]["playback"], serde_json::Value::Null);
+    let cursor = first["next_cursor"].as_str().unwrap();
+    let last = get(&app, &format!("{units_path}&cursor={cursor}")).await.1;
+    assert_eq!(last["items"][0]["unit_id"], A);
+    assert_eq!(last["items"][0]["ordinal"], 2);
+    assert_eq!(last["next_cursor"], serde_json::Value::Null);
+    run(
+        &fixture,
+        CatalogCommand::EditWork {
+            id: WorkId::parse(WORK).unwrap(),
+            expected_revision: w,
+            details: work_details("Tên bản nháp bí mật", Visibility::Private, &["r1"]),
+        },
+    )
+    .await;
+    assert_eq!(get(&app, &detail).await, before);
+    assert_eq!(
+        get(&app, "/api/v1/theatre/search?q=b%C3%AD%20m%E1%BA%ADt")
+            .await
+            .1["items"],
+        serde_json::json!([])
+    );
+    for value in ["1", "2", "3"] {
+        assert_eq!(
+            get(&app, &format!("{detail}?presentation={value}")).await.0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    let new_w = work_revision(&fixture, WORK).await;
+    execute(
+        &fixture,
+        publish(1, new_w, &[(A, unit_revision(&fixture, A).await)]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        get(&app, &format!("{units_path}&cursor={cursor}")).await,
+        (
+            StatusCode::BAD_REQUEST,
+            serde_json::json!({"code":"invalid_cursor","retryable":false})
+        )
+    );
+    execute(&fixture, withdraw(2)).await.unwrap();
+    assert_eq!(get(&app, &detail).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(get(&app, &units_path).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        get(&app, "/api/v1/theatre/works").await.1["items"],
+        serde_json::json!([])
+    );
+}
+
+/// Manual browser fixture: real Catalog/metadata HTTP and Turso, with a named synthetic
+/// Identity-session response. No Identity executable, credential, provider or deployed authority.
+#[tokio::test]
+#[ignore = "explicit disposable browser session only; synthetic Identity session"]
+async fn studio_metadata_browser_fixture() {
+    use axum::{middleware, response::IntoResponse, Json};
+    use std::future::IntoFuture;
+    let fixture = world().await;
+    work(&fixture, WORK, "Mùa trăng trên sân khấu", &["r1"], &[A, B]).await;
+    let saved = work_revision(&fixture, WORK).await;
+    execute(
+        &fixture,
+        publish(0, saved, &[(A, unit_revision(&fixture, A).await)]),
+    )
+    .await
+    .unwrap();
+    run(
+        &fixture,
+        CatalogCommand::EditWork {
+            id: WorkId::parse(WORK).unwrap(),
+            expected_revision: saved,
+            details: work_details(
+                "Mùa trăng — bản nháp đã chỉnh sửa",
+                Visibility::Private,
+                &["r1"],
+            ),
+        },
+    )
+    .await;
+    let session: String = fixture
+        .rows(
+            "SELECT session_id FROM development_sessions WHERE actor_id='alice'",
+            &[],
+        )
+        .await
+        .unwrap()[0]
+        .get(0);
+    let now = (fixture.clock_reading().unwrap() / 1_000_000) as u64;
+    let origins = crate::platform::host::SurfaceOrigins::new(
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:8082",
+        None,
+    )
+    .unwrap();
+    let app=crate::adapters::inbound::http::server_router(crate::adapters::inbound::http::AppState {
+        store:fixture.store().clone().with_audio_storage(&fixture.dir().join("private")).unwrap(),web_origin:"http://127.0.0.1:8081".into(),
+    }, &origins, None, None).layer(middleware::from_fn(move |request: axum::extract::Request, next:middleware::Next| {
+        let session=session.clone();
+        async move {
+            if request.uri().path()=="/api/v1/studio/identity/session" {
+                let mut response=Json(serde_json::json!({"actor_id":"alice","session_id":session,"expires_at":now+3500,"absolute_expires_at":now+3600,"authenticated_at":now-10})).into_response();
+                response.headers_mut().insert(header::SET_COOKIE,format!("cantos_session={ALICE}; HttpOnly; SameSite=Strict; Path=/api/v1/studio").parse().unwrap());
+                return response;
+            }
+            next.run(request).await
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+        .await
+        .unwrap();
+    eprintln!("Studio metadata browser fixture at 127.0.0.1:8080; real resource HTTP, synthetic Identity session; ends in 20 minutes.");
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(1200),
+        axum::serve(listener, app).into_future(),
+    )
+    .await;
+}

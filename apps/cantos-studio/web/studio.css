@@ -515,3 +515,15 @@ html:has(.cw-context) { scroll-padding-block-start: 5rem; }
   .studio-shell .cw-actions > *, .studio-shell .cw-panel-head .toolbar > * { flex: 1 1 auto; }
 }
 @media (prefers-reduced-motion: reduce) { .studio-shell .cw * { scroll-behavior: auto; transition: none; } }
+/* Publication is a quiet app-owned task panel; the mounted editor keeps its draft and focus. */
+.studio-shell .cw-metadata { max-inline-size: 44rem; margin-block-start: var(--cantos-space-lg); overflow-wrap: anywhere; }
+.studio-shell .cw-metadata h5, .studio-shell .cw-metadata h6 { font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .cw-publication-strip { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs) var(--cantos-space-md); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-publication-strip p { margin: 0; }
+.studio-shell .cw-metadata-review { background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); min-inline-size: 0; }
+.studio-shell .cw-metadata-order { padding-inline-start: var(--cantos-space-lg); }
+.studio-shell .cw-metadata-order li { padding-block: var(--cantos-space-sm); }
+.studio-shell .cw-metadata-candidate { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.studio-shell .cw-metadata code, .studio-shell .cw-metadata-pin { overflow-wrap: anywhere; white-space: normal; }
+.studio-shell #metadata-review-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
+.studio-shell .cw-metadata[hidden], .studio-shell .cw-metadata [hidden] { display: none; }

@@ -188,6 +188,8 @@ async fn creator_intake_to_explicit_publication_uses_real_origin_bytes_and_recon
         rendition["verified_media"]
     );
     let release = published["release"]["id"].as_str().unwrap().to_owned();
+    let work_id = a.brief["work"]["id"].as_str().unwrap();
+    publish_metadata(&a.h, work_id, &[&a.unit]).await;
     let (status, page) = theatre_call(a.h.app.clone(), "GET", "/works").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(page["items"].as_array().unwrap().len(), 1);
@@ -253,6 +255,23 @@ async fn creator_intake_to_explicit_publication_uses_real_origin_bytes_and_recon
     );
     assert_eq!(a.counts().await["renditions"], 1);
 
+    // Metadata withdrawal alone revokes an already-issued grant while audio remains active.
+    withdraw_metadata(&a.h, work_id).await;
+    assert_eq!(
+        media(&a.h.app, &media_path, None).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        theatre_call(a.h.app.clone(), "GET", "/works").await.1["items"],
+        json!([])
+    );
+    assert_eq!(
+        a.h.json("GET", &active_path, Some(ALICE), None)
+            .await
+            .success(StatusCode::OK),
+        published
+    );
+
     a.h.json("POST", &format!("/content-units/{}/publication/withdraw", a.unit), Some(ALICE), Some(json!({"operation_id":operation(),"release_id":release,"expected_pointer_version":1,"reason":"Synthetic owner withdrawal after exact-byte acceptance"}))).await.success(StatusCode::OK);
     assert_eq!(
         theatre_call(a.h.app.clone(), "GET", "/works").await.1["items"],
@@ -270,11 +289,10 @@ async fn creator_intake_to_explicit_publication_uses_real_origin_bytes_and_recon
     );
 }
 
-/// #539: Catalog metadata is created, edited and kept without audio. Under ADR 0030/0035 a
-/// public-visibility Work with no eligible release discloses nothing anonymously (`200 []`,
-/// `404`); the first approved release later lists the same Work/unit identities.
+/// #539 + ADR 0054: saved metadata alone remains private. Explicit metadata publication may
+/// disclose text without audio. Later exact audio activation atomically records its association.
 #[tokio::test]
-async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps_its_ids() {
+async fn metadata_saved_without_audio_requires_publication_then_exact_audio_activation() {
     let _media_lane = native_sql::media_lane().await;
     let mut a = AudioHarness::new_visibility(true, "opus-mono-24-v1", true).await;
     let publication_root = PrivateRoot::new();
@@ -341,7 +359,6 @@ async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps
     // Public visibility alone is not a metadata disclosure: every anonymous read stays closed.
     for list in [
         "/works".to_owned(),
-        "/works?presentation=1".to_owned(),
         "/search?q=%C3%81nh%20%C4%91%C3%A8n".to_owned(),
     ] {
         assert_eq!(
@@ -358,6 +375,14 @@ async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps
             "{detail}"
         );
     }
+
+    publish_metadata(&a.h, &work, &[&a.unit]).await;
+    assert_eq!(
+        theatre_call(a.h.app.clone(), "GET", &format!("/works/{work}/units"))
+            .await
+            .1["items"][0]["playback"],
+        Value::Null
+    );
 
     // Audio arrives later through the existing intake, review, rights and approval gates.
     let bytes = a.root.encode("24k");
@@ -392,6 +417,21 @@ async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps
         .await
         .success(StatusCode::CREATED);
     let release = published["release"]["id"].as_str().unwrap();
+    let state =
+        a.h.json(
+            "GET",
+            &format!("/works/{work}/metadata-publication"),
+            Some(ALICE),
+            None,
+        )
+        .await
+        .success(StatusCode::OK);
+    assert_eq!(state["version"], 2);
+    assert_eq!(
+        state["generation"]["entries"][0]["audio"]["release_id"],
+        release
+    );
+    assert_eq!(state["generation"]["entries"][0]["audio"]["basis"], "exact");
 
     let (status, page) = theatre_call(a.h.app.clone(), "GET", "/works").await;
     assert_eq!(status, StatusCode::OK);
@@ -408,7 +448,7 @@ async fn metadata_saved_without_audio_stays_undiscoverable_until_a_release_keeps
         (
             &units["items"][0]["unit_id"],
             &units["items"][0]["title"],
-            &units["items"][0]["publication_id"]
+            &units["items"][0]["playback"]["publication_id"]
         ),
         (&json!(a.unit), &json!(unit_title), &json!(release))
     );

@@ -136,3 +136,23 @@ fn preview_fixtures_round_trip_and_refuse_catalog_private_fields() {
         assert!(serde_json::from_value::<StudioPreview>(value).is_err());
     }
 }
+
+#[test]
+fn metadata_publication_consumer_round_trips_every_owner_fixture() {
+    for raw in [
+        studio!("metadata-publication/v1/fixtures/active.json"),
+        studio!("metadata-publication/v1/fixtures/never-published.json"),
+        studio!("metadata-publication/v1/fixtures/withdrawn.json"),
+    ] {
+        same::<MetadataPublicationState>(raw);
+    }
+    for raw in [
+        studio!("metadata-publication/v1/fixtures/publish-request.json"),
+        studio!("metadata-publication/v1/fixtures/publish-unit-request.json"),
+        studio!("metadata-publication/v1/fixtures/withdraw-request.json"),
+        studio!("metadata-publication/v1/fixtures/withdraw-unit-request.json"),
+        studio!("metadata-publication/v1/fixtures/associate-audio-request.json"),
+    ] {
+        same::<MetadataPublicationRequest>(raw);
+    }
+}

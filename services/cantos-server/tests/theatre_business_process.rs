@@ -175,7 +175,7 @@ async fn the_server_binary_serves_the_cmp_slice_over_loopback_and_a_second_proce
     let storage =
         cantos_server::contexts::media::FilesystemPublicationStorage::new(&publication).unwrap();
     let work = fixture
-        .seed_work(
+        .seed_published_work(
             Some(&storage),
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một lời hẹn"]),
         )
@@ -211,7 +211,7 @@ async fn the_server_binary_serves_the_cmp_slice_over_loopback_and_a_second_proce
     let (_, units) = http
         .json("GET", &format!("/works/{}/units", work.work_id), None, None)
         .await;
-    assert_eq!(units["items"][0]["publication_id"], release);
+    assert_eq!(units["items"][0]["playback"]["publication_id"], release);
     let (status, manifest) = http
         .json("GET", &format!("/publications/{release}"), None, None)
         .await;

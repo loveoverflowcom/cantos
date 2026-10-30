@@ -247,6 +247,7 @@ pub enum BlockReason {
     ScriptReadOnly,
     ProductionReview,
     Artwork(crate::live::artwork::copy::Key),
+    Metadata(crate::localization::generated::live::Key),
     #[cfg(debug_assertions)]
     Forge(crate::messages::forge::Key),
 }
@@ -257,6 +258,7 @@ impl BlockReason {
         match self {
             #[cfg(debug_assertions)]
             Self::Forge(key) => crate::messages::forge::text(key, locale),
+            Self::Metadata(key) => crate::localization::generated::live::text(key, locale),
             Self::Artwork(key) => crate::live::artwork::copy::text(key, locale),
             Self::Busy => copy.busy,
             Self::ContextReady => text(Key::ControlBlocked, locale),

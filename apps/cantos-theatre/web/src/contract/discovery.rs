@@ -137,7 +137,7 @@ pub struct PresentedUnitPage {
     pub next_cursor: Option<String>,
 }
 
-/// Opt-in public metadata, with no implied audio release.
+/// Canonical generation metadata, with no implied audio release.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MetadataWorkSummary {

@@ -104,6 +104,7 @@ pub fn project_public_cover(
 /// Proposed metadata-only rule: the caller must first establish a current, source-verified
 /// metadata disclosure and pass that exact immutable Work snapshot. Host policy and image
 /// consent remain separate. This kernel neither reads nor grants either authority.
+#[cfg(test)]
 pub(crate) fn project_metadata_cover(
     disclosed: &Work,
     consent_revision: Option<u64>,
@@ -115,7 +116,7 @@ pub(crate) fn project_metadata_cover(
     project_at(disclosed, facts)
 }
 
-fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjection {
+pub(crate) fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjection {
     let bound = pinned_selection(pinned, facts.changes, facts.asset);
     let pinned_state = match &bound {
         Ok(Some(_)) => Pinned::Bound,

@@ -30,6 +30,30 @@ pub fn revision_identity(revision: u64, id: &str) -> String {
     format!("r{revision} · {id}")
 }
 
+/// Locale-neutral publication identity preserves the full target, state version and revision.
+pub fn metadata_identity(work: &str, version: u64, revision: u64) -> String {
+    format!("{work} · v{version} · r{revision}")
+}
+
+/// Exact before/after revision notation; an absent generation is the empty set.
+pub fn revision_transition(before: Option<u64>, after: u64) -> String {
+    let before = before.map(revision_label).unwrap_or_else(|| "∅".into());
+    format!("{before} → r{after}")
+}
+
+/// Published position/revision comparison, separate from any newer Catalog order.
+pub fn metadata_order_transition(before: Option<(u32, u64)>, after: (usize, u64)) -> String {
+    let before = before
+        .map(|(position, revision)| format!("{position} · r{revision}"))
+        .unwrap_or_else(|| "∅".into());
+    format!("{before} → {} · r{}", after.0, after.1)
+}
+
+/// Immutable asset identity; neither value is translated or abbreviated.
+pub fn asset_identity(id: &str, digest: &str) -> String {
+    format!("{id} · {digest}")
+}
+
 /// Locale-neutral notation for an immutable Script export, owned with visible Studio copy.
 pub fn script_binding(script: &crate::contract::CatalogScriptRef) -> String {
     format!(

@@ -6,7 +6,8 @@ use super::*;
 use axum::http::header;
 use cantos_server::adapters::inbound::http::server_router;
 use cantos_server::contract::theatre::discovery::{
-    PublicationManifest, UnitPage, WorkPage, WorkSummary,
+    MetadataUnitPage as UnitPage, MetadataWorkPage as WorkPage, MetadataWorkSummary as WorkSummary,
+    PublicationManifest,
 };
 const THEATRE_BROWSER_ORIGIN: &str = "http://127.0.0.1:8082";
 use cantos_server::contexts::media::{
@@ -930,6 +931,13 @@ impl SeedWorld {
             work["revision"] = response["work_revision"].clone();
             contents.push(response["content"].clone());
         }
+        // The explicit synthetic fixture publishes metadata independently of producing audio.
+        if matches!(spec.fate, Fate::Public | Fate::Withdrawn) {
+            let selected: Vec<_> = (0..spec.units.len())
+                .map(|index| json!({"unit_id":unit_id(spec.number,index),"revision":1}))
+                .collect();
+            self.json("POST", &format!("/works/{id}/metadata-publication"), Some(json!({"action":"publish","operation_id":operation(),"expected_version":0,"work_revision":work["revision"],"units":selected,"confirm_metadata_rights":true}))).await.success(StatusCode::OK);
+        }
         let mut seeded = Vec::new();
         for (index, (unit, content)) in spec.units.iter().zip(contents).enumerate() {
             let uid = unit_id(spec.number, index);
@@ -1034,6 +1042,14 @@ impl SeedWorld {
                 }
             }
             seeded.push(row);
+        }
+        if spec.fate == Fate::Withdrawn {
+            let path = format!("/works/{id}/metadata-publication");
+            let state = self
+                .studio("GET", &path, None)
+                .await
+                .success(StatusCode::OK);
+            self.json("POST",&path,Some(json!({"action":"withdraw","operation_id":operation(),"expected_version":state["version"]}))).await.success(StatusCode::OK);
         }
         seeded
     }
@@ -1185,26 +1201,28 @@ async fn theatre_development_catalog_seed() {
         );
         let pages = world.units(&wid).await;
         let rows: Vec<_> = pages.iter().flat_map(|p| p.items.clone()).collect();
-        let expected: Vec<&Seeded> = units.iter().filter(|u| !u.withdrawn).collect();
+        let expected: Vec<&Seeded> = units.iter().collect();
         assert_eq!(
             rows.iter()
                 .map(|r| (r.unit_id.as_str(), r.position as usize))
                 .collect::<Vec<_>>(),
             expected
                 .iter()
-                .map(|u| (u.id.as_str(), u.position))
+                .map(|u| (u.id.as_str(), u.position + 1))
                 .collect::<Vec<_>>(),
-            "withdrawn units are omitted and positions keep their Studio order with gaps"
+            "audio withdrawal keeps metadata membership and published positions"
         );
-        for (row, (unit, spec_unit)) in rows
-            .iter()
-            .zip(units.iter().zip(&spec.units).filter(|(u, _)| !u.withdrawn))
-        {
-            assert_eq!(Some(&row.publication_id), unit.publication.as_ref());
+        for (row, (unit, spec_unit)) in rows.iter().zip(units.iter().zip(&spec.units)) {
+            if unit.withdrawn {
+                assert_eq!(row.playback, None);
+            } else {
+                let audio = row.playback.as_ref().unwrap();
+                assert_eq!(Some(&audio.publication_id), unit.publication.as_ref());
+                let expected_ms = u64::from(spec_unit.seconds) * 1000;
+                assert!(audio.duration_ms.abs_diff(expected_ms) <= 100, "{row:?}");
+            }
             assert_eq!(row.title, spec_unit.title);
             assert_eq!(row.description, spec_unit.description);
-            let expected_ms = u64::from(spec_unit.seconds) * 1000;
-            assert!(row.duration_ms.abs_diff(expected_ms) <= 100, "{row:?}");
         }
         if spec.kind == "podcast" {
             assert_eq!(pages.len(), 2, "23 episodes are two default pages");

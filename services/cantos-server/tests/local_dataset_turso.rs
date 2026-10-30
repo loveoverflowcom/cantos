@@ -156,7 +156,7 @@ async fn theatre_corpus_reuses_typed_release_fixture_and_has_independent_public_
     // never becomes a normal persisted profile, real rights/QC, audio or publication evidence.
     for (i, d) in corpus["documents"].as_array().unwrap().iter().enumerate() {
         let seeded = fixture
-            .seed_work(
+            .seed_published_work(
                 None,
                 &WorkSeed {
                     owner: "dataset_release_fixture".into(),
@@ -221,7 +221,7 @@ async fn theatre_corpus_reuses_typed_release_fixture_and_has_independent_public_
         .await
         .success(axum::http::StatusCode::OK);
     let cursor = page["next_cursor"].as_str().unwrap().to_owned();
-    for query in ["limit=1&kind=story", "limit=20", "limit=1&presentation=1"] {
+    for query in ["limit=1&kind=story", "limit=20"] {
         host.json::<Value>(
             "GET",
             &format!("/api/v1/theatre/works?{query}&cursor={cursor}"),

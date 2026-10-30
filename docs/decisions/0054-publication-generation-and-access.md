@@ -13,7 +13,9 @@
   Studio-origin [preview v1](../../services/cantos-server/contracts/studio/preview/v1/README.md)
   read of one exact saved Work revision and its Studio Web view, with no generation read, member
   cover/audio preview or Theatre-domain preview (B);
-  no listener route reads generations yet. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
+  S05 ([#651](https://github.com/loveoverflowcom/cantos/issues/651)) composes Studio publication
+  review and the single generation-based Theatre Web/CMP Discovery reader with exact audio
+  association admission; browser/native/deployed qualification remains independent. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
   [0032](0032-theatre-origin-playback-delivery.md), [0035](0035-theatre-catalog-unit-availability.md)
   and [0051](0051-metadata-only-public-discovery.md) describe actual behavior; ADRs
   [0028](0028-work-scoped-delegation.md), [0033](0033-release-pinned-public-cover.md) and

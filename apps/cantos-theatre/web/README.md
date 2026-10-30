@@ -793,3 +793,12 @@ for the local evidence boundary and remaining runtime acceptance.
 Static artwork follows the [runtime image policy](../../../docs/design/runtime-images.md).
 AVIF byte conversion and source guards do not accept the separate Studio/Server/public-cover
 contract or prepared-sample migration. See the [audit](../../../docs/evidence/runtime-images-607/README.md).
+
+
+### Published generation reads
+
+Anonymous Work/search/detail/Unit reads use the single default generation representation from
+the [Discovery owner](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md).
+No presentation selector is sent. A null playback capability stays metadata-only; Play and
+manifest lookup require the exact associated publication. Opening metadata never autoplays.
+Saved draft edits cannot change a published pin, and a republish invalidates an older Unit cursor.

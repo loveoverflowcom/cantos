@@ -175,7 +175,41 @@ pub struct ListenerPublication {
     unit: ContentUnit,
 }
 impl ListenerPublication {
+    /// Media composes this only after Catalog's current generation gate and `playable_releases`.
+    /// The metadata may be owner-confirmed display-only drift; the manifest stays byte-identical.
+    pub(crate) fn associated(
+        release: AudioRelease,
+        work: Work,
+        unit: ContentUnit,
+    ) -> Result<Self, ListenerDomainError> {
+        let d = release.document();
+        if d.manifest.work_id != work.id().as_str()
+            || d.manifest.unit_id != unit.id().as_str()
+            || unit.work_id() != work.id()
+            || d.published_by != work.owner_id().as_str()
+        {
+            return Err(ListenerDomainError::BindingMismatch);
+        }
+        Ok(Self {
+            release,
+            work,
+            unit,
+        })
+    }
+
     pub fn resolve(f: ListenerFacts<'_>) -> Result<Option<Self>, ListenerDomainError> {
+        Self::resolve_with(f, true)
+    }
+    /// Release integrity/live gates only, composed with Catalog generation admission by Media.
+    pub(crate) fn resolve_generation(
+        f: ListenerFacts<'_>,
+    ) -> Result<Option<Self>, ListenerDomainError> {
+        Self::resolve_with(f, false)
+    }
+    fn resolve_with(
+        f: ListenerFacts<'_>,
+        editorial_visibility: bool,
+    ) -> Result<Option<Self>, ListenerDomainError> {
         let d = f.release.document();
         let m = &d.manifest;
         if m.work_id != f.pinned_work.id().as_str()
@@ -200,8 +234,9 @@ impl ListenerPublication {
         }
         let visible = f.active
             && f.owner_active
-            && f.pinned_work.details().visibility == Visibility::Public
-            && f.current_work.details().visibility == Visibility::Public
+            && (!editorial_visibility
+                || (f.pinned_work.details().visibility == Visibility::Public
+                    && f.current_work.details().visibility == Visibility::Public))
             && f.current_work.lifecycle() != Lifecycle::Archived
             && f.current_unit.lifecycle() != Lifecycle::Archived
             && access_window_valid(

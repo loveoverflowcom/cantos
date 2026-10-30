@@ -1,7 +1,6 @@
 //! Same-database catalog walks over real Studio writes and private Opus intake.
 //! VerifiedDeliveryFake is test-only; these tests do not establish public media delivery.
 use super::*;
-use std::collections::BTreeSet;
 
 struct CatalogWorld {
     h: Harness,
@@ -14,8 +13,6 @@ struct CatalogWork {
 }
 struct CatalogUnit {
     id: String,
-    submission: String,
-    rendition: Value,
     candidate: Value,
     pointer_version: u64,
     release: Option<Value>,
@@ -131,8 +128,6 @@ impl CatalogWorld {
             .await;
             prepared.push(CatalogUnit {
                 id: (*unit).into(),
-                submission,
-                rendition,
                 candidate,
                 pointer_version: 0,
                 release: None,
@@ -142,16 +137,6 @@ impl CatalogWorld {
             metadata: work,
             units: prepared,
         }
-    }
-    async fn refresh_candidate(&self, unit: &mut CatalogUnit, valid_until: i64) {
-        (unit.candidate, _, _) = approve_candidate(
-            &self.h,
-            &unit.id,
-            &unit.submission,
-            &unit.rendition,
-            valid_until,
-        )
-        .await;
     }
     async fn publish(&self, unit: &mut CatalogUnit) -> Value {
         let active = unit
@@ -198,7 +183,7 @@ fn ids(rows: &[Value], field: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish() {
+async fn theatre_units_walk_pins_selection_order_and_restarts_on_a_new_generation() {
     let _media_lane = native_sql::media_lane().await;
     let world = CatalogWorld::new().await;
     let wid = "11000000-0000-4000-8000-000000000001";
@@ -206,398 +191,165 @@ async fn theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish() {
         "10000000-0000-4000-8000-000000000001",
         "20000000-0000-4000-8000-000000000002",
         "30000000-0000-4000-8000-000000000003",
-        "40000000-0000-4000-8000-000000000004",
     ];
     let mut work = world
         .work(
             wid,
             "podcast",
-            "Đường về qua bốn tập",
+            "Đường về qua ba tập",
             &unit_ids.map(|id| (id, "vi-VN")),
         )
         .await;
-    for unit in &mut work.units[..3] {
-        world.publish(unit).await;
-    }
+    // Even an approved active release is private until the owner publishes metadata.
+    let release = world.publish(&mut work.units[0]).await;
+    assert_eq!(world.page("/works").await["items"], json!([]));
+    let selected = publish_metadata(&world.h, wid, &[unit_ids[1], unit_ids[0]]).await;
     let base = format!("/works/{wid}/units?limit=1");
     let first = world.page(&base).await;
-    assert_eq!(first["items"][0]["unit_id"], unit_ids[0]);
-    assert_eq!(first["items"][0]["position"], 0);
-    assert!(first["items"][0].get("ordinal").is_none());
-    let initial_presented = world.page(&format!("/works/{wid}?presentation=1")).await;
+    let cursor = first["next_cursor"].as_str().unwrap();
+    let rows = world.walk(&base, first.clone()).await;
+    assert_eq!(ids(&rows, "unit_id"), [unit_ids[1], unit_ids[0]]);
+    assert_eq!(rows[0]["ordinal"], 1);
+    assert_eq!(rows[1]["ordinal"], 2);
+    assert_eq!(rows[0]["playback"], Value::Null);
+    assert_eq!(rows[1]["playback"]["publication_id"], release["id"]);
+    assert_eq!(world.page(&format!("/works/{wid}")).await["unit_count"], 2);
+    // A Catalog reorder/head edit changes neither selected membership nor its published positions.
+    world.h.json("POST", &format!("/works/{wid}/content-units/reorder"), Some(ALICE), Some(json!({"operation_id":operation(),"expected_revision":work.metadata["revision"],"ordered":[unit_ids[2],unit_ids[0],unit_ids[1]]}))).await.success(StatusCode::OK);
+    assert_eq!(world.walk(&base, world.page(&base).await).await, rows);
+    // Explicit generation replacement changes the walk; a cursor cannot silently cross it.
+    let replacement = publish_metadata(&world.h, wid, &[unit_ids[0], unit_ids[1]]).await;
     assert_eq!(
-        initial_presented["unit_count"], 3,
-        "staged unit is not counted"
+        replacement["version"],
+        selected["version"].as_u64().unwrap() + 1
     );
-    assert!(world
-        .page(&format!("/works/{wid}"))
-        .await
-        .get("unit_count")
-        .is_none());
-    let original_publication = first["items"][0]["publication_id"].clone();
-    let cursor = first["next_cursor"].as_str().unwrap().to_owned();
-    world.withdraw(&mut work.units[1]).await;
-    let reordered = world.h.json("POST", &format!("/works/{wid}/content-units/reorder"), Some(ALICE), Some(json!({"operation_id":operation(),"expected_revision":work.metadata["revision"],"ordered":[unit_ids[3],unit_ids[2],unit_ids[1],unit_ids[0]]}))).await.success(StatusCode::OK);
-    assert_eq!(
-        reordered["work"]["revision"],
-        work.metadata["revision"].as_u64().unwrap() + 1
-    );
-    // Reorder acknowledges the Work revision; its response does not enumerate units.
-    // Read the persisted Studio position before comparing it with the public anchor.
-    let studio_unit = world
-        .h
-        .json(
-            "GET",
-            &format!("/content-units/{}", unit_ids[0]),
-            Some(ALICE),
-            None,
-        )
-        .await
-        .success(StatusCode::OK);
-    assert_eq!(studio_unit["position"], 3);
-    for index in [0, 3] {
-        world
-            .refresh_candidate(&mut work.units[index], now(&world.h).await + 3_600_000)
-            .await;
-        world.publish(&mut work.units[index]).await;
-    }
-    let fresh = world.page(&format!("/works/{wid}/units?limit=10")).await;
-    assert_eq!(
-        ids(fresh["items"].as_array().unwrap(), "unit_id"),
-        [unit_ids[0], unit_ids[3], unit_ids[2]]
-    );
-    assert_eq!(
-        fresh["items"][0]["position"], 0,
-        "republish must retain the first index position"
-    );
-    assert_eq!(
-        fresh["items"][1]["position"], 0,
-        "newly indexed unit takes its current Studio position"
-    );
-    assert_ne!(fresh["items"][0]["publication_id"], original_publication);
-    assert_eq!(
-        fresh["items"][0]["publication_id"],
-        work.units[0].release.as_ref().unwrap()["id"]
-    );
-    assert_eq!(fresh["items"][0]["unit_id"], first["items"][0]["unit_id"]);
-    let presented_base = format!("/works/{wid}/units?presentation=1&limit=1");
-    let presented_first = world.page(&presented_base).await;
-    let presented = world.walk(&presented_base, presented_first).await;
-    assert_eq!(
-        ids(&presented, "unit_id"),
-        [unit_ids[0], unit_ids[3], unit_ids[2]]
-    );
-    assert_eq!(
-        presented
-            .iter()
-            .map(|unit| unit["position"].as_u64().unwrap())
-            .collect::<Vec<_>>(),
-        [0, 0, 2],
-        "the regression includes both duplicate and gapped immutable public positions"
-    );
-    assert_eq!(
-        presented
-            .iter()
-            .map(|unit| unit["ordinal"].as_u64().unwrap())
-            .collect::<Vec<_>>(),
-        [1, 2, 3],
-        "each page ranks all eligible units before applying its cursor"
-    );
-    assert_eq!(
-        world.page(&format!("/works/{wid}?presentation=1")).await["unit_count"],
-        3
-    );
-    for path in [
-        "/works?presentation=1&limit=1",
-        "/search?q=%C4%90%C6%B0%E1%BB%9Dng&presentation=1&limit=1",
-    ] {
-        let page = world.page(path).await;
-        assert_eq!(page["items"][0]["work_id"], wid);
-        assert_eq!(page["items"][0]["unit_count"], 3);
-    }
-    let continuation = format!("{base}&cursor={cursor}");
-    let second = world.page(&continuation).await;
-    let retried = world.page(&continuation).await;
-    assert_eq!(second["items"], retried["items"]);
-    assert_eq!(
-        second["items"][0]["unit_id"], unit_ids[3],
-        "equal positions use UUID text C order"
-    );
-    assert!(second["next_cursor"].is_string());
-    let tail = world.walk(&base, second).await;
-    assert_eq!(ids(&tail, "unit_id"), [unit_ids[3], unit_ids[2]]);
-    assert_eq!(
-        ids(&world.walk(&base, retried).await, "unit_id"),
-        ids(&tail, "unit_id")
-    );
-    let mut walked = ids(first["items"].as_array().unwrap(), "unit_id");
-    walked.extend(ids(&tail, "unit_id"));
-    assert_eq!(walked.iter().collect::<BTreeSet<_>>().len(), walked.len());
-    assert!(!walked.iter().any(|id| id == unit_ids[1]));
-    for path in [
-        format!("/works?limit=1&cursor={cursor}"),
-        format!("/works/{wid}/units?limit=2&cursor={cursor}"),
-        format!("/works/12000000-0000-4000-8000-000000000001/units?limit=1&cursor={cursor}"),
-    ] {
-        world.invalid_cursor(&path).await;
-    }
-    // Failed uses do not consume or invalidate the original continuation.
-    assert_eq!(
-        world.page(&continuation).await["items"],
-        json!(fresh["items"].as_array().unwrap()[1..2])
-    );
-    let latest_work = world
-        .h
-        .json("GET", &format!("/works/{wid}"), Some(ALICE), None)
-        .await
-        .success(StatusCode::OK);
-    let latest_unit = world
-        .h
-        .json(
-            "GET",
-            &format!("/content-units/{}", unit_ids[2]),
-            Some(ALICE),
-            None,
-        )
-        .await
-        .success(StatusCode::OK);
     world
-        .h
-        .json(
-            "DELETE",
-            &format!("/content-units/{}", unit_ids[2]),
-            Some(ALICE),
-            Some(json!({
-                "operation_id":operation(),
-                "expected_revision":latest_unit["revision"],
-                "expected_work_revision":latest_work["revision"]
-            })),
-        )
-        .await
-        .success(StatusCode::OK);
-    assert_eq!(
-        world.page(&format!("/works/{wid}?presentation=1")).await["unit_count"],
-        2,
-        "a currently archived unit cannot contribute its title or count"
-    );
-    let after_archive = world
-        .page(&format!("/works/{wid}/units?presentation=1&limit=10"))
+        .invalid_cursor(&format!("{base}&cursor={cursor}"))
         .await;
     assert_eq!(
-        ids(after_archive["items"].as_array().unwrap(), "unit_id"),
-        [unit_ids[0], unit_ids[3]]
+        ids(&world.walk(&base, world.page(&base).await).await, "unit_id"),
+        [unit_ids[0], unit_ids[1]]
     );
-    assert_eq!(after_archive["items"][1]["ordinal"], 2);
-}
-
-#[tokio::test]
-async fn theatre_works_walk_rechecks_visibility_and_binds_filter_cursors() {
-    let _media_lane = native_sql::media_lane().await;
-    let world = CatalogWorld::new().await;
-    let mut works = Vec::new();
-    for index in 1..=4 {
-        let wid = if index == 4 {
-            "01000000-0000-4000-8000-000000000001".into()
-        } else {
-            format!("{index}2000000-0000-4000-8000-000000000001")
-        };
-        let uid = format!("{index}3000000-0000-4000-8000-000000000001");
-        works.push(
-            world
-                .work(
-                    &wid,
-                    "podcast",
-                    &format!("Ánh trăng tập hợp {index}"),
-                    &[(&uid, "vi-VN")],
-                )
-                .await,
-        );
-    }
-    for work in &mut works[..3] {
-        world.publish(&mut work.units[0]).await;
-    }
-    let initial = world.page("/works?limit=10").await;
-    let expected = ids(initial["items"].as_array().unwrap(), "work_id");
-    assert_eq!(expected.len(), 3);
-    let first = world.page("/works?limit=1").await;
-    assert_eq!(first["items"][0]["work_id"], expected[0]);
-    let cursor = first["next_cursor"].as_str().unwrap().to_owned();
-    let seen = works
-        .iter()
-        .position(|w| w.metadata["id"] == expected[0])
-        .unwrap();
-    let withdrawn = works
-        .iter()
-        .position(|w| w.metadata["id"] == expected[1])
-        .unwrap();
-    world.withdraw(&mut works[withdrawn].units[0]).await;
-    world.publish(&mut works[seen].units[0]).await;
-    world.publish(&mut works[3].units[0]).await;
-    let fresh = world.page("/works?limit=10").await;
-    assert_eq!(fresh["items"][0]["work_id"], works[3].metadata["id"]);
-    let republished = fresh["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|w| w["work_id"] == expected[0])
-        .unwrap();
+    world.withdraw(&mut work.units[0]).await;
+    let rows = world.page(&format!("/works/{wid}/units")).await;
+    assert_eq!(rows["items"].as_array().unwrap().len(), 2);
+    assert_eq!(rows["items"][0]["playback"], Value::Null);
+    withdraw_metadata(&world.h, wid).await;
+    assert_eq!(world.page("/works").await["items"], json!([]));
     assert_eq!(
-        republished["first_published_at_ms"],
-        first["items"][0]["first_published_at_ms"]
-    );
-    let path = format!("/works?limit=1&cursor={cursor}");
-    let second = world.page(&path).await;
-    assert_eq!(second["items"], world.page(&path).await["items"]);
-    let rows = world.walk("/works?limit=1", second).await;
-    assert_eq!(ids(&rows, "work_id"), expected[2..]);
-    assert!(rows.iter().all(|w| w["work_id"] != works[3].metadata["id"]));
-    for path in [
-        format!("/works?limit=2&cursor={cursor}"),
-        format!("/works?limit=1&kind=story&cursor={cursor}"),
-        format!("/works?limit=1&language=en-US&cursor={cursor}"),
-        format!("/search?limit=1&q=changed&cursor={cursor}"),
-        format!("/works/{}/units?limit=1&cursor={cursor}", expected[0]),
-    ] {
-        world.invalid_cursor(&path).await;
-    }
-    assert_eq!(
-        world.page(&format!("/works?limit=1&cursor={cursor}")).await["items"],
-        json!(rows)
-    );
-    let filter = "/search?q=%C3%81NH&kind=podcast&language=vi-VN&limit=1";
-    let filtered = world.page(filter).await;
-    assert!(filtered["next_cursor"].is_string());
-    let token = filtered["next_cursor"].as_str().unwrap();
-    let filtered_path = format!("{filter}&cursor={token}");
-    let continuation = world.page(&filtered_path).await;
-    assert_eq!(
-        continuation["items"],
-        world.page(&filtered_path).await["items"]
-    );
-    for path in [
-        format!("/search?q=other&kind=podcast&language=vi-VN&limit=1&cursor={token}"),
-        format!("/search?q=%C3%81NH&kind=story&language=vi-VN&limit=1&cursor={token}"),
-        format!("/search?q=%C3%81NH&kind=podcast&language=en-US&limit=1&cursor={token}"),
-    ] {
-        world.invalid_cursor(&path).await;
-    }
-    let filtered_rows = world.walk(filter, filtered).await;
-    assert_eq!(
-        ids(&filtered_rows, "work_id"),
-        ids(fresh["items"].as_array().unwrap(), "work_id")
+        theatre_call(world.h.app.clone(), "GET", &format!("/works/{wid}/units"))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
     );
 }
 
 #[tokio::test]
-async fn theatre_work_filters_follow_the_latest_eligible_representative() {
+async fn theatre_works_walk_binds_filters_and_uses_pinned_work_not_release_metadata() {
     let _media_lane = native_sql::media_lane().await;
     let world = CatalogWorld::new().await;
-    let wid = "51000000-0000-4000-8000-000000000001";
-    let mut work = world
+    let a = world
         .work(
-            wid,
-            "story",
-            "Dấu xưa trong mưa",
-            &[
-                ("52000000-0000-4000-8000-000000000001", "vi-VN"),
-                ("53000000-0000-4000-8000-000000000001", "en-US"),
-            ],
+            "11000000-0000-4000-8000-000000000001",
+            "podcast",
+            "Ánh đèn thứ nhất",
+            &[("10000000-0000-4000-8000-000000000001", "vi-VN")],
         )
         .await;
-    world.publish(&mut work.units[0]).await;
-    work.metadata = world.h.json("PATCH", &format!("/works/{wid}"), Some(ALICE), Some(json!({"operation_id":operation(),"expected_revision":work.metadata["revision"],"details":{"title":"Bình minh mới"}}))).await.success(StatusCode::OK)["work"].clone();
-    world
-        .refresh_candidate(&mut work.units[1], now(&world.h).await + 3_600_000)
+    let b = world
+        .work(
+            "22000000-0000-4000-8000-000000000002",
+            "podcast",
+            "Ánh đèn thứ hai",
+            &[("20000000-0000-4000-8000-000000000002", "en")],
+        )
         .await;
-    let newer = world.publish(&mut work.units[1]).await;
-    assert!(
-        newer["published_at"].as_i64().unwrap()
-            >= work.units[0].release.as_ref().unwrap()["published_at"]
-                .as_i64()
-                .unwrap()
-    );
-    let representative = world.page(&format!("/works/{wid}")).await;
-    assert_eq!(representative["title"], "Bình minh mới");
-    assert_eq!(representative["language"], "en-US");
-    for query in [
-        "/search?q=D%E1%BA%A5u&kind=story&language=vi-VN",
-        "/works?language=vi-VN",
-        "/works?kind=podcast&language=en-US",
-    ] {
-        assert_eq!(world.page(query).await["items"], json!([]), "{query}");
+    world
+        .work(
+            "33000000-0000-4000-8000-000000000003",
+            "podcast",
+            "Bản nháp chưa công bố",
+            &[("30000000-0000-4000-8000-000000000003", "vi-VN")],
+        )
+        .await;
+    for w in [&a, &b] {
+        publish_metadata(
+            &world.h,
+            w.metadata["id"].as_str().unwrap(),
+            &[&w.units[0].id],
+        )
+        .await;
     }
+    let base = "/works?limit=1&kind=podcast&language=vi-VN";
+    let first = world.page(base).await;
+    let cursor = first["next_cursor"].as_str().unwrap().to_owned();
+    assert_eq!(
+        world.walk(base, first).await.len(),
+        2,
+        "language is pinned editorial Work metadata, not audio's language"
+    );
+    world
+        .invalid_cursor(&format!(
+            "/works?limit=1&kind=novel&language=vi-VN&cursor={cursor}"
+        ))
+        .await;
+    let aid = a.metadata["id"].as_str().unwrap();
+    world.h.json("PATCH",&format!("/works/{aid}"),Some(ALICE),Some(json!({"operation_id":operation(),"expected_revision":a.metadata["revision"],"details":{"title":"Bản nháp mới","visibility":"private","language":"en"}}))).await.success(StatusCode::OK);
+    assert_eq!(
+        world.page(&format!("/works/{aid}")).await["title"],
+        "Ánh đèn thứ nhất"
+    );
+    assert_eq!(
+        world.page("/search?q=%C3%81nh%20%C4%91%C3%A8n").await["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
     assert_eq!(
         world
-            .page("/search?q=B%C3%ACnh&kind=story&language=en-US")
-            .await["items"][0]["work_id"],
-        wid
-    );
-    world.withdraw(&mut work.units[1]).await;
-    let fallback = world
-        .page("/search?q=D%E1%BA%A5u&kind=story&language=vi-VN")
-        .await;
-    assert_eq!(fallback["items"][0]["work_id"], wid);
-    assert_eq!(fallback["items"][0]["title"], "Dấu xưa trong mưa");
-    assert_eq!(
-        world.page("/works?language=en-US").await["items"],
+            .page("/search?q=B%E1%BA%A3n%20nh%C3%A1p%20m%E1%BB%9Bi")
+            .await["items"],
         json!([])
     );
+    withdraw_metadata(&world.h, aid).await;
+    assert_eq!(world.walk(base, world.page(base).await).await.len(), 1);
 }
 
 #[tokio::test]
-async fn theatre_units_walk_rechecks_rights_expiry_on_the_database_clock() {
+async fn theatre_audio_eligibility_changes_do_not_remove_published_metadata() {
     let _media_lane = native_sql::media_lane().await;
     let world = CatalogWorld::new().await;
-    let wid = "61000000-0000-4000-8000-000000000001";
+    let wid = "11000000-0000-4000-8000-000000000001";
     let mut work = world
         .work(
             wid,
             "podcast",
-            "Quyền có thời hạn",
-            &[
-                ("62000000-0000-4000-8000-000000000001", "vi-VN"),
-                ("63000000-0000-4000-8000-000000000001", "vi-VN"),
-                ("64000000-0000-4000-8000-000000000001", "vi-VN"),
-            ],
+            "Quyền nghe được kiểm tra lại",
+            &[("10000000-0000-4000-8000-000000000001", "vi-VN")],
         )
         .await;
-    world.publish(&mut work.units[0]).await;
-    world.publish(&mut work.units[2]).await;
-    // Expensive media setup is complete before the short rights window begins.
-    let expiry = now(&world.h).await + 3_000;
-    world.refresh_candidate(&mut work.units[1], expiry).await;
-    let expiring = world.publish(&mut work.units[1]).await;
-    let publication = expiring["id"].as_str().unwrap();
-    assert!(
-        now(&world.h).await < expiry,
-        "fixture must observe the release before expiry"
-    );
-    let before = world.page(&format!("/works/{wid}/units?limit=10")).await;
-    assert_eq!(before["items"].as_array().unwrap().len(), 3);
-    let first = world.page(&format!("/works/{wid}/units?limit=1")).await;
-    let cursor = first["next_cursor"].as_str().unwrap();
-    let deadline = Instant::now() + Duration::from_secs(6);
-    while now(&world.h).await < expiry {
-        assert!(
-            Instant::now() < deadline,
-            "database clock did not reach the rights deadline"
-        );
-        tokio::time::sleep(Duration::from_millis(25)).await;
-    }
-    let tail = world
-        .page(&format!("/works/{wid}/units?limit=1&cursor={cursor}"))
-        .await;
+    let release = world.publish(&mut work.units[0]).await;
+    publish_metadata(&world.h, wid, &[&work.units[0].id]).await;
     assert_eq!(
-        ids(tail["items"].as_array().unwrap(), "unit_id"),
-        [work.units[2].id.clone()]
+        world.page(&format!("/works/{wid}/units")).await["items"][0]["playback"]["publication_id"],
+        release["id"]
     );
-    assert_eq!(tail["next_cursor"], Value::Null);
-    let (status, error) = theatre_call(
-        world.h.app.clone(),
-        "GET",
-        &format!("/publications/{publication}"),
-    )
-    .await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    assert_eq!(error, json!({"code":"not_found","retryable":false}));
+    // Revoking the exact candidate's clearance invalidates audio while retaining metadata.
+    let candidate = &work.units[0].candidate;
+    world.h.json("POST",&format!("/content-units/{}/release-candidates/{}/distribution-rights",work.units[0].id,candidate["id"].as_str().unwrap()),Some(ALICE),Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"decision":"revoked","rights_refs":["catalog-rights"],"valid_until":now(&world.h).await+3_600_000,"evidence_refs":["catalog-rights"],"notes":"Synthetic revocation of the pinned candidate"}))).await.success(StatusCode::CREATED);
+    let units = world.page(&format!("/works/{wid}/units")).await;
+    assert_eq!(units["items"].as_array().unwrap().len(), 1);
+    assert_eq!(units["items"][0]["playback"], Value::Null);
+    assert_eq!(world.page(&format!("/works/{wid}")).await["unit_count"], 1);
+    assert_eq!(
+        theatre_call(
+            world.h.app.clone(),
+            "GET",
+            &format!("/publications/{}", release["id"].as_str().unwrap())
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
 }

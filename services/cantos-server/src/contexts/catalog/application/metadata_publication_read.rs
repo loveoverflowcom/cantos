@@ -1,8 +1,8 @@
 //! The public metadata projection of active generations, for the only v1 audience (PUBLIC,
 //! D05a). The caller owns one read transaction, so list, count, detail and Units share one
 //! snapshot; eligibility filters before count, ordinal and pagination. No draft head, Catalog
-//! position or `visibility` is read. No Theatre route composes this yet: S05 replaces the
-//! Discovery representation with it together with every current client (ADR 0054 D07a).
+//! position or `visibility` is read. S05 composes this into the single Discovery representation together with every current
+//! client (ADR 0054 D07a).
 use crate::contexts::catalog::{
     domain::{
         metadata_publication::{
@@ -157,4 +157,40 @@ pub(crate) async fn public_units(
         items,
         next_after,
     }))
+}
+
+/// One exact visible entry for byte/manifest admission. No head or unrelated-release fallback.
+pub(crate) async fn public_unit(
+    tx: &Tx<'_>,
+    id: &WorkId,
+    unit: &super::super::domain::ContentUnitId,
+) -> Result<Option<(PublicWork, PublicUnit)>, StoreError> {
+    let Some(work) = public_work(tx, id).await? else {
+        return Ok(None);
+    };
+    let stored = metadata_publication::generation(tx, id.as_str(), work.generation)
+        .await?
+        .ok_or(StoreError::CorruptRevision)?;
+    let archived = store::archived_units(tx, id.as_str(), work.generation).await?;
+    let visible = visible_entries(&stored, |unit| archived.contains(unit.as_str()));
+    let Some(entry) = visible.into_iter().find(|entry| entry.entry.unit() == unit) else {
+        return Ok(None);
+    };
+    let mut pinned = store::pinned_units(
+        tx,
+        id.as_str(),
+        work.work.kind(),
+        &[(entry.entry.unit(), entry.entry.pin())],
+    )
+    .await?;
+    let unit = pinned.pop().ok_or(StoreError::CorruptRevision)?;
+    Ok(Some((
+        work,
+        PublicUnit {
+            unit,
+            ordinal: entry.ordinal,
+            position: entry.position,
+            audio: entry.entry.audio().cloned(),
+        },
+    )))
 }

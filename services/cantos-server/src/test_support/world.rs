@@ -1130,3 +1130,69 @@ async fn publish_chain(
         duration_ms: 60_000,
     }
 }
+
+impl ServerFixture {
+    /// Explicit generic metadata publication for listener fixtures. Audio seeding alone grants none.
+    pub async fn publish_work_metadata(&self, work: &SeededWork) -> dto::MetadataPublicationState {
+        use crate::contexts::media::MetadataPublicationService;
+        let token = format!(
+            "{:x}",
+            Sha256::digest(format!(
+                "synthetic metadata fixture {} {}",
+                work.owner,
+                uuid::Uuid::new_v4()
+            ))
+        );
+        self.studio_caller(&work.owner, &token).await;
+        self.exec("INSERT INTO script_evidence(owner_id,kind,id,description) SELECT ?1,'rights',?2,'Synthetic fixture declaration' WHERE NOT EXISTS(SELECT 1 FROM script_evidence WHERE owner_id=?1 AND kind='rights' AND id=?2)",&[&work.owner.as_str(),&RIGHTS]).await.unwrap();
+        let saved = self
+            .store()
+            .catalog_work(&token, &WorkId::parse(&work.work_id).unwrap())
+            .await
+            .unwrap();
+        let state = self
+            .store()
+            .metadata_publication_state(&token, &work.work_id)
+            .await
+            .unwrap();
+        let mut units = Vec::new();
+        for unit in &work.units {
+            let saved = self
+                .store()
+                .catalog_unit(&token, &ContentUnitId::parse(&unit.unit_id).unwrap())
+                .await
+                .unwrap();
+            if saved.lifecycle() != crate::contexts::catalog::domain::Lifecycle::Archived {
+                units.push(dto::MetadataPublicationUnit {
+                    unit_id: unit.unit_id.clone(),
+                    revision: saved.revision(),
+                });
+            }
+        }
+        MetadataPublicationService::new(self.store().clone())
+            .settle(
+                &token,
+                &work.work_id,
+                dto::MetadataPublicationRequest::Publish {
+                    operation_id: uuid::Uuid::new_v4().to_string(),
+                    expected_version: state.version,
+                    work_revision: saved.revision(),
+                    units,
+                    confirm_metadata_rights: true,
+                },
+            )
+            .await
+            .unwrap()
+    }
+
+    /// A legacy release fixture explicitly upgraded to a generic owner publication for this test.
+    pub async fn seed_published_work(
+        &self,
+        storage: Option<&FilesystemPublicationStorage>,
+        seed: &WorkSeed,
+    ) -> SeededWork {
+        let work = self.seed_work(storage, seed).await;
+        self.publish_work_metadata(&work).await;
+        work
+    }
+}

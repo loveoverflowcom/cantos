@@ -101,7 +101,10 @@ pub fn admit(
         }
         // A read, so an archived Work is still asked (the Server answers it); but only for the
         // Work on screen, never another one.
-        Command::Preview { work: id, .. } => {
+        Command::Preview { work: id, .. }
+        | Command::MetadataArtwork { work: id, .. }
+        | Command::MetadataState { work: id }
+        | Command::MetadataCommand { work: id, .. } => {
             if work_matches(id) {
                 Ok(())
             } else {

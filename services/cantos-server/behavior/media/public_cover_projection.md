@@ -7,3 +7,11 @@ Module-owned inventory of [`cantos.media.public-cover-projection`](../../../../s
 | Accepted policy, draft executable expectation | [ADR 0033](../../../../docs/decisions/0033-release-pinned-public-cover.md#decision) was accepted for #157 with the release-pinned cover, owner per-image clearance/revocation and a fresh projection on every fetch that serves only the currently shown SHA-256. | `fetch` and `fetch-matches-projection` cover that delivery admission rule. Lifecycle stays `draft`; no wire field or delivery follows from a PASS. |
 | Implemented, independently of this model | [Pure kernel](../../src/contexts/media/domain/public_cover.rs) `project_public_cover`/`cover_outcome`/`admit_cover_fetch` over existing [artwork history](../../src/contexts/media/domain/artwork.rs) `artwork_at`. No production shell supplies a disclosure; it is always `Undecided`. | `effectiveAt`, `disclosure`, `coverView` and `fetchOutcome` mirror those seams; no observer is registered. Named native fetch tests reuse the six `run.fetch-*` IDs as traceability, not model-trace conformance. |
 | Model assumption | Two synthetic images with distinct byte SHA identities; requests name those equality classes. Separate assets sharing the same bytes are outside this instance. Asset binding is exact (malformed hashes, binding/corruption and actual-byte partitions remain native tests). Release eligibility is one flag; a publish pins the current head revision. Time classes 0–6. | Fetch runs cover shown/mismatched requests, private replacement isolation, stale URL after republish, revoke, half-open expiry and withdrawal. No SQL, storage, wire, cache or client claim. |
+
+
+S05 (#651), under accepted ADR 0054 D02/D07, supplies the Work revision from the active metadata
+generation rather than an audio representative. The existing `Pinned(revision)`, eligibility,
+artwork and independent image-consent expectations are unchanged; the model abstracts the
+source of the publication pin and does not cover generation SQL, DTOs or browser behavior.
+Class: approved requirement change + missing generation-shell scenario. No model edit or
+conformance claim; native tests must cover the new facade and fetch reachability.

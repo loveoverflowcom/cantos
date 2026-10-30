@@ -650,7 +650,14 @@ pub fn ContentWorkspace(
                             f.content_head = None;
                         });
                     }
-                    Err(_) => {}
+                    Err(_) => {
+                        if matches!(
+                            command,
+                            Command::MetadataState { .. } | Command::MetadataCommand { .. }
+                        ) {
+                            let _ = facts.try_update(|f| f.metadata.current = None);
+                        }
+                    }
                 }
             },
         ),
@@ -1359,6 +1366,7 @@ pub fn ContentWorkspace(
                             <Show when=move ||has_work.get()>
                                 <section class="cw-block" aria-labelledby="live-work-details-title"><h4 id="live-work-details-title">{move ||text(Key::WorkDetails,locale.get())}</h4>
                                     <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save/>
+                                    <super::metadata_panel::MetadataPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get())/>
                                     <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
                                 </section>
                             </Show>

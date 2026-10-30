@@ -5,11 +5,11 @@ Implemented Server core, routes and file-backed Turso persistence (`server.db` v
 [#634](https://github.com/loveoverflowcom/cantos/issues/634)), applying the accepted
 [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md) rows D01a,
 D02a–c, D05a–b and D07a–b, and exact audio association (`server.db` v32, D06a–c) for
-[#649](https://github.com/loveoverflowcom/cantos/issues/649) (S03). **No Theatre route reads generations yet**: Discovery keeps its current
-release-driven shapes until S05 replaces them together with every current client (the
-[synchronized-delivery rule](../../../../../../docs/work-plan/publication-access-handoff.md#wire-and-data-transition-d07)).
-No Studio Web client calls these routes yet (S05). Browser, device and deployed acceptance are
-separate.
+[#649](https://github.com/loveoverflowcom/cantos/issues/649) (S03). S05 ([#651](https://github.com/loveoverflowcom/cantos/issues/651)) composes the generation reader
+into the single Theatre Discovery representation and its exact manifest/media admission. Studio
+Web consumes the owner routes through its existing workspace request owner, with an explicit
+bounded selection, pinned review, pointer CAS and same-operation recovery. Browser, device and
+deployed acceptance are separate.
 
 ## Operations
 
@@ -130,9 +130,9 @@ The existing Studio `ApiError` shape and codes; `issues` name the path and rule.
 | 422 | `evidence_unavailable` | `details.rights_refs`/`unavailable` |
 | 500 | `corrupt_revision` | A stored generation, pin or pointer contradicts its invariants |
 
-## Public projection (Server-internal until S05)
+## Public projection
 
-`contexts/catalog/application/metadata_publication_read.rs` is the read facade S05 composes into
+`contexts/catalog/application/metadata_publication_read.rs` is the read facade composed into
 the single Discovery representation. Within one caller-owned read snapshot it applies the v1
 PUBLIC gates (D05a): ACTIVE pointer, active owner, current Work not archived; a Unit additionally
 needs generation membership and a current Unit that is not archived. Catalog `visibility` is
@@ -158,9 +158,8 @@ audiences are S06.
 
 ## Not covered
 
-Theatre Discovery adoption, the generation `playback` representation and removal of the
-default/`presentation=1–3` shapes together with the sample-only disclosure lane (S05, see the
-[S03 handoff](../../../../../../docs/work-plan/publication-access-handoff.md#s03-delivered-contract-649)),
-the Studio Web publish and association workflow (S05), preview (S04), RESTRICTED audiences,
-grants and groups (S06–S10) and performance budgets (S11). Production migration and activation
-are separate tasks.
+RESTRICTED audiences, grants and groups (S06–S10), performance budgets (S11), full publication
+history browsing beyond state/operation receipts, deployed activation and production data
+conversion. The Studio review exposes exact revision/order/audio facts and reads cover selections at exact
+Work revisions through the existing owner-only artwork endpoint. The state DTO does not supply
+historical field text. That must not be inferred from a newer Catalog head. Preview retains its separate Studio-origin v1 authority and asset limits (S04).

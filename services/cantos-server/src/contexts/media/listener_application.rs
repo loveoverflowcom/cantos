@@ -113,10 +113,6 @@ pub(super) enum ReadRequest {
         query: DiscoveryQuery,
         after: Option<Keyset>,
     },
-    /// The detail representative release and its pinned cover facts, for the cover route.
-    Cover {
-        work: String,
-    },
     Publication {
         id: String,
     },
@@ -156,7 +152,6 @@ pub struct ListenerService {
     pub(super) media_lanes: Arc<Semaphore>,
     /// Present only when trusted composition enabled cover delivery (ADR 0033).
     pub(super) covers: Option<CoverDelivery>,
-    pub(super) metadata_covers: bool,
 }
 
 /// Named external-read double for the crate-root transport contract fixture only.
@@ -218,7 +213,6 @@ impl ListenerService {
             media: None,
             media_lanes: Arc::new(Semaphore::new(MEDIA_LANES)),
             covers: None,
-            metadata_covers: false,
         }
     }
     /// A grant-only adapter. It enables no Theatre media route.

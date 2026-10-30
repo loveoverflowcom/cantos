@@ -45,6 +45,7 @@ pub(crate) async fn unit_digest(tx: &Tx<'_>, id: &str, rev: i64) -> Result<Row, 
         )
         .await?)
 }
+#[cfg(test)]
 pub(crate) async fn first_work_disclosure(tx: &Tx<'_>, id: &str) -> Result<Row, StoreError> {
     Ok(tx.query_one(&format!("SELECT min(recorded_at_ms) AS first_at FROM {} WHERE subject_kind='work' AND subject_id=?1 AND decision='disclosed'", table(id)), &[&id]).await?)
 }

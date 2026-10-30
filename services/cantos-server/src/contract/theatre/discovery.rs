@@ -171,7 +171,7 @@ pub struct PresentedUnitPage {
     pub next_cursor: Option<String>,
 }
 
-/// Opt-in metadata disclosure presentation. No field here implies audio publication.
+/// Canonical generation metadata. Only the nullable playback field admits an associated release.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MetadataWorkSummary {

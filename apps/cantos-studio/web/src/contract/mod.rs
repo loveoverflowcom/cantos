@@ -159,6 +159,8 @@ mod audio_lifecycle;
 pub use audio_lifecycle::*;
 mod publication;
 pub use publication::*;
+mod metadata_publication;
+pub use metadata_publication::*;
 
 #[cfg(test)]
 mod conformance_tests;

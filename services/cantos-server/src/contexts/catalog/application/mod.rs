@@ -13,15 +13,9 @@ use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, StoreError, Tx};
 
 pub(crate) mod metadata_publication;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "S05 composes the public projection into Discovery"
-    )
-)]
 pub(crate) mod metadata_publication_read;
 mod sample_metadata;
+#[cfg(test)]
 pub(super) mod sample_metadata_read;
 mod sample_metadata_rights;
 mod sample_seed_operator;
