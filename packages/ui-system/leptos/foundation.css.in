@@ -1448,8 +1448,6 @@
   --cantos-web-field-label-top: 0.75rem;
   --cantos-web-field-value-bottom: 0.75rem;
   --cantos-web-field-trailing-inset: 0.5rem;
-  --cantos-web-chip-radius: var(--cantos-web-shape-reading);
-  --cantos-web-chip-selected-radius: calc(var(--cantos-size-control) / 2);
 }
 /* A search field is the docked search header (v4.3): at least 72 high with its action docked
    inside (a 52-unit visible action, at least 48 to touch) and a larger inline inset so the rounded
@@ -1503,23 +1501,24 @@
   padding: 0;
   border-radius: var(--cantos-shape-pill);
 }
-/* Selection reads by check + tone + shape: unselected 12, selected a pill. An unselected chip is
-   centered on its label, so the check's space is not reserved here (Standard still reserves it);
-   the chip keeps its start edge and 48-unit height and only grows. */
+/* A borderless tonal capsule: selection reads by tone + check, never a stroke and never a shape
+   change. primaryContainer is the ink of selection in this expression, so the chosen tone comes from
+   the stronger tonal surface role. An unselected chip is centered on its label, so the check's space
+   is not reserved here (Standard still reserves it); the chip keeps its start edge and 48-unit height
+   and only grows. */
 :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip .cui-chip-check {
   display: none;
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip:where([aria-pressed="true"], [aria-busy="true"]) .cui-chip-check {
   display: inline-flex;
 }
-:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip {
-  border-radius: var(--cantos-web-chip-radius);
-  transition:
-    background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing),
-    border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
-}
 :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip[aria-pressed="true"] {
-  border-radius: var(--cantos-web-chip-selected-radius);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip:is(:disabled, [aria-disabled="true"]) {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
 }
 /* The utility select is one tonal pill; its value, trailing chevron and optional leading icon
    are one centered group. */
@@ -1562,9 +1561,6 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-field[data-variant="floating"] > .cui-field-error {
   padding: 0 var(--cantos-web-field-inset);
   background: transparent;
-}
-@media (prefers-reduced-motion: reduce) {
-  :where(.cantos-ui)[data-expression="theatre"] .cui-filter-chip { transition: none; }
 }
 /* Guest card actions (design v4.3, #526). Inside the profile card (PrimaryContainer + Profile) the
    sign-in action is the contextual pink/raspberry role and create-account the card's inverse pair:

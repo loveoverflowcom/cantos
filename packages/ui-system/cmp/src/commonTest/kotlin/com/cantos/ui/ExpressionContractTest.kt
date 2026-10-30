@@ -66,17 +66,4 @@ class ExpressionContractTest {
         // The 280/200 ms open and close are a Web design seed; native keeps its motion scheme.
         assertTrue(CantosTokens.names.none { it.startsWith("motion.search") })
     }
-
-    @Test
-    fun the_theatre_chip_radius_moves_from_its_resting_radius_to_a_capsule_without_overshoot() {
-        val side = 48f
-        assertEquals(12f, chipRadius(side, 12f, 0f))
-        assertEquals(24f, chipRadius(side, 12f, 1f))
-        assertEquals(18f, chipRadius(side, 12f, 0.5f))
-        assertEquals(12f, chipRadius(side, 12f, -3f), "an overshooting fraction is clamped")
-        assertEquals(24f, chipRadius(side, 12f, 7f))
-        // A chip shorter than twice its resting radius never exceeds its own capsule.
-        assertEquals(10f, chipRadius(20f, 12f, 0f))
-        assertTrue(chipRadius(96f, 12f, 1f) > chipRadius(48f, 12f, 1f), "a wrapped two-line chip keeps a capsule of its own height")
-    }
 }
