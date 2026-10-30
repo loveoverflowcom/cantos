@@ -156,4 +156,40 @@ class WorkListenPresentationTest {
         }
         assertEquals(emptyList(), events, "disabled Listen dispatches no playback or navigation")
     }
+
+    @Test
+    fun saved_write_failure_and_pending_offer_the_correct_retry_without_claiming_success() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val events = mutableListOf<ShellEvent>()
+        val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
+        var supplied by mutableStateOf(state().copy(savedWorks = setOf(id), confirmedSavedWorks = emptySet(), failedSavedWorks = setOf(id), retryableSavedWorks = setOf(id), savedAccount = "fixture"))
+        val output = File("build/reports/save-665").apply { mkdirs() }
+        setContent { Box(Modifier.requiredSize(390.dp, 844.dp).testTag("retry-capture")) { CantosPresentation(supplied, empty, events::add) } }
+        fun capture(name: String) {
+            val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("retry-capture").captureToImage().asSkiaBitmap())
+                .encodeToData(EncodedImageFormat.PNG)).bytes
+            File(output, "work-$name-390.png").writeBytes(bytes)
+        }
+        onNodeWithTag("save-work").performScrollTo().assert(hasContentDescription("Lưu tác phẩm Người gom tiếng chuông"))
+        onNodeWithTag("save-work-status").assertTextEquals("Đồng bộ chưa thành công")
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("failed-save")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", true, false), events.last())
+        runOnIdle { supplied = state().copy(savedWorks = setOf(id), confirmedSavedWorks = emptySet(), pendingSavedWorks = setOf(id), savedAccount = "fixture") }
+        onNodeWithTag("save-work").performScrollTo().assertIsNotEnabled()
+        onNodeWithTag("save-work-status").assertTextEquals("Đang cập nhật trạng thái lưu…")
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("pending-save")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", true, true), events.last())
+        runOnIdle { supplied = state().copy(savedWorks = emptySet(), confirmedSavedWorks = setOf(id), failedSavedWorks = setOf(id), retryableSavedWorks = setOf(id), savedAccount = "fixture") }
+        onNodeWithTag("save-work").performScrollTo().assert(hasContentDescription("Bỏ lưu tác phẩm Người gom tiếng chuông"))
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("failed-unsave")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", false, false), events.last())
+        runOnIdle { supplied = state().copy(failedSavedWorks = setOf(id)) }
+        onNodeWithTag("save-work").performScrollTo().assertIsNotEnabled()
+        onNodeWithTag("save-work-retry").assertDoesNotExist()
+    }
 }

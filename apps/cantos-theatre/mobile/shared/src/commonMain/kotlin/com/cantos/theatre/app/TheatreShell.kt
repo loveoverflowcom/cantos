@@ -226,6 +226,7 @@ class TheatreShell(
             is ShellEvent.ResumeEpisode -> resume(event.id, fromHistory = false)
             is ShellEvent.ResumeHistoryEpisode -> resume(event.id, fromHistory = true)
             is ShellEvent.SetSaved -> setSaved(event.id.value, event.saved)
+            is ShellEvent.RetrySaved -> retrySaved(event)
             is ShellEvent.SaveWork -> setSaved(event.id.value, saved = event.id.value !in savedIds())
             ShellEvent.ClearHistory -> activeLibrary()?.clearHistory()
             ShellEvent.RetryListening -> mutableRequested.value?.let(::start)
@@ -438,6 +439,15 @@ class TheatreShell(
     private fun setSaved(workId: String, saved: Boolean) {
         val owner = activeLibrary()
         if (owner == null) requireAccount() else owner.setSaved(workId, saved)
+    }
+
+    private fun retrySaved(event: ShellEvent.RetrySaved) {
+        val current = library.value
+        if (current.account != event.account) return
+        val row = current.saved.firstOrNull { it.workId == event.id.value && it.saved == event.desired } ?: return
+        val owner = activeLibrary() ?: return
+        if (event.pending && row.sync == com.cantos.theatre.domain.library.LibrarySync.Pending) owner.drain()
+        else if (!event.pending && row.sync == com.cantos.theatre.domain.library.LibrarySync.Failed && row.retryableFailure) owner.setSaved(event.id.value, event.desired)
     }
 
     /**

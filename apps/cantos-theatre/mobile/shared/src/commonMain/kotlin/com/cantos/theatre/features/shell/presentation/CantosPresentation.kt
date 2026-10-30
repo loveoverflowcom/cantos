@@ -825,21 +825,38 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
 internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
     val saved = work.id in state.confirmedSavedWorks
     val pending = work.id in state.pendingSavedWorks
-    FilledTonalButton(shape = RoundedCornerShape(tokenDp("shape.pill")),
-        enabled = !pending,
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = if (saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
-        ),
-        onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
-        modifier = Modifier.heightIn(min = tokenDp("size.control")).widthIn(min = tokenDp("size.savedWork")).testTag(tag).semantics {
-            contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
-            stateDescription = copy.text(if (pending) CopyKey.SavePending else if (saved) CopyKey.SavedTab else CopyKey.Save)
-        },
-    ) {
-        Icon(rememberCantosIconVector(if (saved) "bookmark" else "bookmark_border"), null, Modifier.size(tokenDp("size.iconCompact")))
-        Spacer(Modifier.width(tokenDp("space.sm")))
-        Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+    val failed = work.id in state.failedSavedWorks
+    val desiredSaved = work.id in state.savedWorks
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        FilledTonalButton(shape = RoundedCornerShape(tokenDp("shape.pill")),
+            enabled = !pending && !failed,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = if (saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = if (saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+                disabledContainerColor = if (failed && saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                disabledContentColor = if (failed && saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+            ),
+            onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
+            modifier = Modifier.heightIn(min = tokenDp("size.control")).widthIn(min = tokenDp("size.savedWork")).testTag(tag).semantics {
+                contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
+                stateDescription = copy.text(if (pending) CopyKey.SavePending else if (saved) CopyKey.SavedTab else CopyKey.Save)
+            },
+        ) {
+            Icon(rememberCantosIconVector(if (saved) "bookmark" else "bookmark_border"), null, Modifier.size(tokenDp("size.iconCompact")))
+            Spacer(Modifier.width(tokenDp("space.sm")))
+            Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+        }
+        if (pending || failed) {
+            Text(copy.text(if (failed) CopyKey.SyncFailed else CopyKey.SavePending),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("$tag-status").semantics { liveRegion = LiveRegionMode.Polite })
+            if (state.savedAccount != null && (pending || work.id in state.retryableSavedWorks)) TextButton(
+                onClick = { dispatch(ShellEvent.RetrySaved(work.id, state.savedAccount, desiredSaved, pending)) },
+                modifier = Modifier.heightIn(min = tokenDp("size.control")).testTag("$tag-retry").semantics {
+                    contentDescription = copy.text(CopyKey.Retry) + " · " + copy.text(if (desiredSaved) ShellMessage.SaveName(title = work.title) else ShellMessage.UnsaveName(title = work.title))
+                },
+            ) { Text(copy.text(CopyKey.Retry)) }
+        }
     }
 }
 

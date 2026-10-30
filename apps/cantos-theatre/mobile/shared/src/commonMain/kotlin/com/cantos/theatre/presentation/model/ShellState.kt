@@ -129,6 +129,9 @@ class ShellState(
     savedWorks: Set<ShellWorkId> = emptySet(),
     confirmedSavedWorks: Set<ShellWorkId> = savedWorks,
     pendingSavedWorks: Set<ShellWorkId> = emptySet(),
+    failedSavedWorks: Set<ShellWorkId> = emptySet(),
+    retryableSavedWorks: Set<ShellWorkId> = emptySet(),
+    val savedAccount: String? = null,
     bookmarks: List<ShellBookmark> = emptyList(),
     val libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
     val query: String = "",
@@ -150,6 +153,8 @@ class ShellState(
     private val savedWorksSnapshot: Set<ShellWorkId> = savedWorks.toSet()
     private val confirmedSavedWorksSnapshot = confirmedSavedWorks.toSet()
     private val pendingSavedWorksSnapshot = pendingSavedWorks.toSet()
+    private val failedSavedWorksSnapshot = failedSavedWorks.toSet()
+    private val retryableSavedWorksSnapshot = retryableSavedWorks.toSet()
     private val bookmarksSnapshot: List<ShellBookmark> = bookmarks.toList()
     private val progressSnapshot = progress.toList()
     private val historySnapshot = history.toList()
@@ -158,6 +163,8 @@ class ShellState(
     val savedWorks: Set<ShellWorkId> get() = savedWorksSnapshot.toSet()
     val confirmedSavedWorks: Set<ShellWorkId> get() = confirmedSavedWorksSnapshot.toSet()
     val pendingSavedWorks: Set<ShellWorkId> get() = pendingSavedWorksSnapshot.toSet()
+    val failedSavedWorks: Set<ShellWorkId> get() = failedSavedWorksSnapshot.toSet()
+    val retryableSavedWorks: Set<ShellWorkId> get() = retryableSavedWorksSnapshot.toSet()
     val bookmarks: List<ShellBookmark> get() = bookmarksSnapshot.toList()
     val progress: List<ShellProgress> get() = progressSnapshot.toList()
     val history: List<ShellProgress> get() = historySnapshot.toList()
@@ -184,6 +191,9 @@ class ShellState(
         savedWorks: Set<ShellWorkId> = this.savedWorks,
         confirmedSavedWorks: Set<ShellWorkId> = if (savedWorks == this.savedWorks) this.confirmedSavedWorks else savedWorks,
         pendingSavedWorks: Set<ShellWorkId> = this.pendingSavedWorks,
+        failedSavedWorks: Set<ShellWorkId> = this.failedSavedWorks,
+        retryableSavedWorks: Set<ShellWorkId> = this.retryableSavedWorks,
+        savedAccount: String? = this.savedAccount,
         bookmarks: List<ShellBookmark> = this.bookmarks,
         libraryTab: ShellLibraryTab = this.libraryTab,
         query: String = this.query,
@@ -207,6 +217,9 @@ class ShellState(
         savedWorks = savedWorks,
         confirmedSavedWorks = confirmedSavedWorks,
         pendingSavedWorks = pendingSavedWorks,
+        failedSavedWorks = failedSavedWorks,
+        retryableSavedWorks = retryableSavedWorks,
+        savedAccount = savedAccount,
         bookmarks = bookmarks,
         libraryTab = libraryTab,
         query = query,
@@ -233,6 +246,9 @@ class ShellState(
         savedWorksSnapshot == other.savedWorksSnapshot &&
         confirmedSavedWorksSnapshot == other.confirmedSavedWorksSnapshot &&
         pendingSavedWorksSnapshot == other.pendingSavedWorksSnapshot &&
+        failedSavedWorksSnapshot == other.failedSavedWorksSnapshot &&
+        retryableSavedWorksSnapshot == other.retryableSavedWorksSnapshot &&
+        savedAccount == other.savedAccount &&
         bookmarksSnapshot == other.bookmarksSnapshot &&
         progressSnapshot == other.progressSnapshot &&
         historySnapshot == other.historySnapshot &&
@@ -257,6 +273,9 @@ class ShellState(
         result = 31 * result + savedWorksSnapshot.hashCode()
         result = 31 * result + confirmedSavedWorksSnapshot.hashCode()
         result = 31 * result + pendingSavedWorksSnapshot.hashCode()
+        result = 31 * result + failedSavedWorksSnapshot.hashCode()
+        result = 31 * result + retryableSavedWorksSnapshot.hashCode()
+        result = 31 * result + (savedAccount?.hashCode() ?: 0)
         result = 31 * result + bookmarksSnapshot.hashCode()
         result = 31 * result + progressSnapshot.hashCode()
         result = 31 * result + historySnapshot.hashCode()
@@ -291,6 +310,9 @@ sealed interface ShellEvent {
     data class ResumeEpisode(val id: ShellEpisodeId) : ShellEvent
     data class ResumeHistoryEpisode(val id: ShellEpisodeId) : ShellEvent
     data class SetSaved(val id: ShellWorkId, val saved: Boolean) : ShellEvent
+    data class RetrySaved(val id: ShellWorkId, val account: String, val desired: Boolean, val pending: Boolean) : ShellEvent {
+        override fun toString(): String = "RetrySaved([redacted])"
+    }
     data object ClearHistory : ShellEvent
     data object RetryListening : ShellEvent
     data class OpenBookmark(val bookmark: ShellBookmark) : ShellEvent
