@@ -25603,6 +25603,210 @@
           "text": "Dark"
         }
       }
+    },
+    "studio.live.preview_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem trước theo Theatre"
+        },
+        "en": {
+          "text": "Theatre preview"
+        }
+      }
+    },
+    "studio.live.preview_banner": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem trước bản nháp — chưa công bố. Chỉ bạn và thành viên của tác phẩm này thấy."
+        },
+        "en": {
+          "text": "Draft preview — not published. Only you and this work's members can see it."
+        }
+      }
+    },
+    "studio.live.preview_open": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xem trước bản đã lưu"
+        },
+        "en": {
+          "text": "Preview saved version"
+        }
+      }
+    },
+    "studio.live.preview_save_open": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu rồi xem trước"
+        },
+        "en": {
+          "text": "Save, then preview"
+        }
+      }
+    },
+    "studio.live.preview_close": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng xem trước"
+        },
+        "en": {
+          "text": "Close preview"
+        }
+      }
+    },
+    "studio.live.preview_more": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tải thêm chương / tập"
+        },
+        "en": {
+          "text": "Load more chapters / episodes"
+        }
+      }
+    },
+    "studio.live.preview_reload": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc lại bản đã lưu mới nhất"
+        },
+        "en": {
+          "text": "Read the latest saved version"
+        }
+      }
+    },
+    "studio.live.preview_unsaved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hãy lưu hoặc bỏ thay đổi chưa lưu trước khi xem trước bản đã lưu."
+        },
+        "en": {
+          "text": "Save or discard unsaved changes before previewing the saved version."
+        }
+      }
+    },
+    "studio.live.preview_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang tải bản xem trước…"
+        },
+        "en": {
+          "text": "Loading the preview…"
+        }
+      }
+    },
+    "studio.live.preview_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không tải được bản xem trước. Bản nháp của bạn không bị thay đổi."
+        },
+        "en": {
+          "text": "The preview could not be loaded. Your draft is unchanged."
+        }
+      }
+    },
+    "studio.live.preview_stale": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đã lưu đã thay đổi. Hãy đọc lại để xem trước bản mới nhất."
+        },
+        "en": {
+          "text": "The saved version has changed. Read it again to preview the latest."
+        }
+      }
+    },
+    "studio.live.preview_archived": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tác phẩm đã được lưu trữ nên không xem trước được."
+        },
+        "en": {
+          "text": "This work is archived, so it cannot be previewed."
+        }
+      }
+    },
+    "studio.live.preview_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bạn không còn quyền xem trước tác phẩm này."
+        },
+        "en": {
+          "text": "You can no longer preview this work."
+        }
+      }
+    },
+    "studio.live.preview_cover_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh bìa chưa có bản xem trước riêng."
+        },
+        "en": {
+          "text": "The cover has no preview of its own yet."
+        }
+      }
+    },
+    "studio.live.preview_audio_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Âm thanh chưa có bản xem trước riêng; nút Nghe tắt."
+        },
+        "en": {
+          "text": "Audio has no preview of its own yet; Listen is off."
+        }
+      }
+    },
+    "studio.live.preview_no_units": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có chương / tập nào được lưu."
+        },
+        "en": {
+          "text": "No chapters or episodes are saved."
+        }
+      }
+    },
+    "studio.live.preview_units": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chương / tập"
+        },
+        "en": {
+          "text": "Chapters / episodes"
+        }
+      }
     }
   }
 }

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/studio-preview/v1",
+  "title": "Cantos Studio preview v1",
+  "description": "Narrow read projection of one exact saved Work revision for a Studio creator (ADR 0054 D03). JSON only. Authority (owner or current reader/editor member), the named revision still being the saved head and the archived refusal are decided by the service, not by this schema. An allowlist of presentation text: no owner, visibility, rights reference, link, lifecycle, Catalog position, digest, timestamp, cover or audio field exists in v1.",
+  "$defs": {
+    "CanonicalId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "PreviewWork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "revision", "title", "synopsis", "language"],
+      "properties": {
+        "id": {"$ref": "#/$defs/CanonicalId"},
+        "kind": {"enum": ["novel", "story", "podcast"]},
+        "revision": {"$ref": "#/$defs/Revision"},
+        "title": {"type": "string", "minLength": 1},
+        "synopsis": {"type": "string"},
+        "language": {"type": "string", "minLength": 1, "maxLength": 63}
+      }
+    },
+    "PreviewUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "revision", "ordinal", "title", "description"],
+      "properties": {
+        "id": {"$ref": "#/$defs/CanonicalId"},
+        "kind": {"enum": ["chapter", "episode"]},
+        "revision": {"$ref": "#/$defs/Revision"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "title": {"type": "string", "minLength": 1},
+        "description": {"type": "string"}
+      }
+    },
+    "StudioPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work", "units", "next_cursor"],
+      "properties": {
+        "work": {"$ref": "#/$defs/PreviewWork"},
+        "units": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/PreviewUnit"}
+        },
+        "next_cursor": {"type": ["string", "null"], "minLength": 1, "maxLength": 2048}
+      }
+    }
+  }
+}

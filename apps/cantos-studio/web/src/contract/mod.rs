@@ -22,6 +22,8 @@ mod audio_intake;
 pub use audio_intake::*;
 mod artwork;
 pub use artwork::*;
+mod preview;
+pub use preview::*;
 pub mod codec;
 pub mod protobuf;
 pub mod routes;

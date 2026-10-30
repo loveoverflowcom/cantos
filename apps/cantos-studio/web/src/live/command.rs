@@ -185,6 +185,12 @@ pub enum Command {
         work: String,
         cursor: Option<String>,
     },
+    /// A read of the exact saved Work revision the creator names (ADR 0054 D03); never a write.
+    Preview {
+        work: String,
+        work_revision: u64,
+        cursor: Option<String>,
+    },
     CreateUnit {
         work: String,
         request: CreateContentUnitRequest,
@@ -331,6 +337,7 @@ pub enum Reply {
     Works(CatalogPage<CatalogWork>),
     Work(CatalogWork),
     Units(CatalogPage<CatalogContentUnit>),
+    Preview(StudioPreview),
     Mutation(CatalogMutationResponse),
     Content(ContentRevisionResponse),
     ContentSaved(AppendContentResponse),
@@ -379,6 +386,20 @@ impl Command {
                 id(work)?,
                 cursor_query(cursor)?
             ),
+            Self::Preview {
+                work,
+                work_revision,
+                cursor,
+            } => {
+                if *work_revision == 0 || *work_revision > i64::MAX as u64 {
+                    return Err(ClientError::InvalidInput);
+                }
+                format!(
+                    "{}?work_revision={work_revision}{}",
+                    routes::STUDIO_WORK_PREVIEW.replace("{work_id}", id(work)?),
+                    cursor_query(cursor)?.replacen('?', "&", 1)
+                )
+            }
             Self::CreateUnit { work, .. } => format!("{base}/works/{}/content-units", id(work)?),
             Self::Reorder { work, .. } => {
                 format!("{base}/works/{}/content-units/reorder", id(work)?)
@@ -609,7 +630,8 @@ impl Command {
             Self::Artwork { .. }
             | Self::SetArtwork { .. }
             | Self::ImageIntent { .. }
-            | Self::UploadImage { .. } => Some(200),
+            | Self::UploadImage { .. }
+            | Self::Preview { .. } => Some(200),
             _ => None,
         };
         if (200..300).contains(&status) && exact_status.is_some_and(|expected| expected != status) {
@@ -632,6 +654,7 @@ impl Command {
             Self::Works { .. } => Reply::Works(parse(body, status)?),
             Self::Work { .. } => Reply::Work(parse(body, status)?),
             Self::Units { .. } => Reply::Units(parse(body, status)?),
+            Self::Preview { .. } => Reply::Preview(parse(body, status)?),
             Self::CreateWork(_)
             | Self::PatchWork { .. }
             | Self::ArchiveWork { .. }
@@ -690,6 +713,15 @@ impl Command {
             Self::Work { id } => matches!(reply, Reply::Work(work) if work.id == *id),
             Self::Units { work, .. } => matches!(reply, Reply::Units(page)
                 if page.items.iter().all(|unit| unit.work_id == *work)),
+            // The reply must be the revision asked for: a banner naming another revision, or a
+            // Unit of another Work, is a mismatch and never reaches the screen.
+            Self::Preview {
+                work,
+                work_revision,
+                ..
+            } => matches!(reply, Reply::Preview(page)
+                if page.work.id == *work && page.work.revision == *work_revision
+                    && page.units.len() <= 50),
             Self::CreateWork(request) => matches!(reply, Reply::Mutation(result)
                 if result.work.id == request.id && consistent_units(result)),
             Self::PatchWork { work, .. }

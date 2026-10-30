@@ -19,6 +19,8 @@ pub struct Facts {
     pub submission: Option<AudioSubmissionResponse>,
     pub candidate: Option<ReleaseCandidateResponse>,
     pub publication: super::publication::PublicationFacts,
+    /// The exact saved revision last previewed; dropped when the saved head moves past it.
+    pub preview: Option<super::preview::PreviewFacts>,
 }
 impl Facts {
     /// Only a head read or an append receipt advances the current-content projection.
@@ -44,7 +46,24 @@ impl Facts {
                 | (Command::Units { .. }, Reply::Units(_))
                 | (Command::ContentHistory { .. }, Reply::History(_))
         );
+        let preview_walk = match (command, &reply) {
+            (
+                Command::Preview {
+                    cursor: Some(_), ..
+                },
+                Reply::Preview(page),
+            ) => Some(
+                self.preview
+                    .as_ref()
+                    .and_then(|shown| shown.extend(page.clone()))
+                    .or_else(|| self.preview.clone()),
+            ),
+            _ => None,
+        };
         let mut next = self.apply(reply);
+        if let Some(walk) = preview_walk {
+            next.preview = walk;
+        }
         if paged_read {
             next.pages = pages;
         }
@@ -75,6 +94,12 @@ impl Facts {
             next.submission = None;
             next.candidate = None;
             next.clear_publication();
+        }
+        // A save, archive, reorder or newer read moves the head: older text must not stay shown.
+        if let (Some(shown), Some(saved)) = (&next.preview, &next.work) {
+            if !shown.current_for(saved) {
+                next.preview = None;
+            }
         }
         next.publication.form_ack = match command {
             Command::RecordDistributionRights { request, .. } => Some(request.operation_id.clone()),
@@ -141,6 +166,7 @@ impl Facts {
                 next.work = Some(work);
                 next.clear_publication();
             }
+            Reply::Preview(page) => next.preview = Some(super::preview::PreviewFacts::first(page)),
             Reply::Units(page) => {
                 if let Some(current) = &next.unit {
                     if let Some(observed) = page.items.iter().find(|unit| unit.id == current.id) {

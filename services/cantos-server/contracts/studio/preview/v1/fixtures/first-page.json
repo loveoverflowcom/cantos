@@ -1,0 +1,29 @@
+{
+  "work": {
+    "id": "10000000-0000-4000-8000-000000000001",
+    "kind": "novel",
+    "revision": 5,
+    "title": "Ánh đèn cuối sân khấu",
+    "synopsis": "Một lời hẹn dưới mái hiên nhà hát cũ, khi cơn mưa đầu mùa vừa tạnh.",
+    "language": "vi-VN"
+  },
+  "units": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "kind": "chapter",
+      "revision": 2,
+      "ordinal": 1,
+      "title": "Chương một — Những lời chưa nói",
+      "description": "Người kể chuyện trở về sân khấu vắng."
+    },
+    {
+      "id": "20000000-0000-4000-8000-000000000002",
+      "kind": "chapter",
+      "revision": 1,
+      "ordinal": 2,
+      "title": "Chương hai — Ngọn đèn cuối",
+      "description": ""
+    }
+  ],
+  "next_cursor": "7b7d"
+}

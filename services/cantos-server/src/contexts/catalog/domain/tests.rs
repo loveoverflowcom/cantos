@@ -1,8 +1,8 @@
 use super::{
-    plan_reorder, CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, IdKind, Lifecycle,
-    LinkPatch, NewContentUnit, NewWork, OwnerId, ScriptRef, SourceRef, StoredContentUnit,
-    StoredWork, UnitDetails, UnitPatch, Visibility, Work, WorkDetails, WorkId, WorkKind, WorkPatch,
-    DESCRIPTION_MAX_BYTES, MAX_RIGHTS_REFS, TITLE_MAX_BYTES,
+    admit_preview, plan_reorder, CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, IdKind,
+    Lifecycle, LinkPatch, NewContentUnit, NewWork, OwnerId, ScriptRef, SourceRef,
+    StoredContentUnit, StoredWork, UnitDetails, UnitPatch, Visibility, Work, WorkDetails, WorkId,
+    WorkKind, WorkPatch, DESCRIPTION_MAX_BYTES, MAX_RIGHTS_REFS, TITLE_MAX_BYTES,
 };
 
 const WORK_ID: &str = "10000000-0000-4000-8000-000000000001";
@@ -987,4 +987,41 @@ fn reorder_refuses_corrupt_duplicate_entities_or_positions_and_accepts_empty_cat
             .assignments(),
         &[]
     );
+}
+
+#[test]
+fn preview_admits_only_the_named_saved_head_of_a_live_work() {
+    let first = work(WorkKind::Story);
+    assert!(admit_preview(&first, 1).is_ok());
+    let second = first.edit(1, work_details(), 2_000).unwrap();
+    assert!(admit_preview(&second, 2).is_ok());
+    // A moved head is stale, never a silent preview of the newer revision.
+    assert!(matches!(
+        admit_preview(&second, 1),
+        Err(CatalogError::RevisionConflict {
+            current_revision: 2,
+            expected_revision: 1
+        })
+    ));
+    // A revision that does not exist yet is just as stale.
+    assert!(matches!(
+        admit_preview(&second, 3),
+        Err(CatalogError::RevisionConflict {
+            current_revision: 2,
+            expected_revision: 3
+        })
+    ));
+}
+
+#[test]
+fn preview_refuses_an_archived_work_at_its_head_and_reports_a_moved_head_as_stale() {
+    let archived = work(WorkKind::Podcast).archive(1, 2_000).unwrap();
+    assert!(matches!(
+        admit_preview(&archived, archived.revision()),
+        Err(CatalogError::WorkArchived)
+    ));
+    assert!(matches!(
+        admit_preview(&archived, 1),
+        Err(CatalogError::RevisionConflict { .. })
+    ));
 }
