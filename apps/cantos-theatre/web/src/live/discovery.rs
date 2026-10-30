@@ -148,13 +148,8 @@ mod tests {
                 .collect();
         assert_eq!(
             pairs,
-            [
-                ("q", "đèn"),
-                ("limit", "20"),
-                ("presentation", "3"),
-                ("cursor", "lc1_a+b/c=&d")
-            ]
-            .map(|(n, v)| (n.to_owned(), v.to_owned()))
+            [("q", "đèn"), ("limit", "20"), ("cursor", "lc1_a+b/c=&d")]
+                .map(|(n, v)| (n.to_owned(), v.to_owned()))
         );
         for kind in [WorkKind::Novel, WorkKind::Story, WorkKind::Podcast] {
             assert!(

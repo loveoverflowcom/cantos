@@ -1,4 +1,4 @@
-//! Actual HTTP host protocol tests. Lazy unavailable PG is not database acceptance.
+//! Actual HTTP host protocol tests over file-backed Turso, including unavailable-read failures.
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -87,10 +87,21 @@ async fn unavailable_database_never_returns_mock_catalog_or_a_signed_url() {
         serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(v, json!({"items":[],"next_cursor":null}));
     schema("WorkPage", &v);
-    // A database that cannot answer is a typed, retryable unavailability: no empty-success
-    // fallback, no mock catalog, no signed URL.
+    // An empty metadata catalog has no audio dependency. Retiring the old release-backed
+    // Discovery read must not turn an unrelated audio-table failure into fabricated data.
     fixture
         .exec("DROP TABLE audio_listener_releases", &[])
+        .await
+        .unwrap();
+    let r = list(app()).await;
+    assert_eq!(r.status(), StatusCode::OK);
+    let v: Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(v, json!({"items":[],"next_cursor":null}));
+    // A catalog that cannot answer is a typed, retryable unavailability: no empty-success
+    // fallback, no mock catalog, no signed URL from the unavailable audio store either.
+    fixture
+        .exec("DROP TABLE catalog_metadata_publication_pointers", &[])
         .await
         .unwrap();
     let r = list(app()).await;

@@ -265,7 +265,12 @@ pub(super) fn MetadataPanel(
                   <p><code>{super::copy::revision_label(revision)}</code></p>
                   <p>{move ||facts.with(|f|match f.metadata.artwork.get(&revision){None=>text(Key::MetadataArtworkUnread,locale.get()).into(),Some(pin)=>pin.artwork.as_ref().map(|a|a.alt_text.clone()).unwrap_or_else(||text(Key::MetadataArtworkNone,locale.get()).into())})}</p>
                   <code>{move ||facts.with(|f|f.metadata.artwork.get(&revision).and_then(|p|p.artwork.as_ref()).map(|a|super::copy::asset_identity(&a.image_asset_id,&a.image_asset_digest)))}</code>
-                  <ActionButton id=format!("metadata-artwork-{revision}") locale blocked variant=ButtonVariant::Text on_press=Callback::new(move |_|{if blocked.get_untracked(){return;}if let Some(selection)=review.get_untracked(){dispatch.send(Command::MetadataArtwork{work:selection.work().into(),revision});}})>{move ||text(Key::MetadataArtworkRead,locale.get())}</ActionButton>
+                  <ActionButton id=format!("metadata-artwork-{revision}") locale blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
+                      if blocked.get_untracked() { return; }
+                      if let Some(selection) = review.get_untracked() {
+                          dispatch.send(Command::MetadataArtwork { work: selection.work().into(), revision });
+                      }
+                  })>{move ||text(Key::MetadataArtworkRead,locale.get())}</ActionButton>
                 </div>
             }/>
             <p class="help">{move || text(Key::MetadataPinAssets, locale.get())}</p>

@@ -6,9 +6,11 @@ native device, real identity journey, deployed service, rights claim or human-li
 ## Provenance and boundary
 
 - Base: `origin/develop@0901b20b9a97d3b10780bef91ec93e1c3b43f13c`; branch `codex/651-studio-publish` in a new worktree.
-- Implementation patch SHA-256: `7543b7b4690755a0a50c5ee7bcac6785ad7ed1054308aa7e6b6b6cf7b02c1c83`, from
+- Implementation patch SHA-256: `0016e129c1f0c33999fbfec9274b82b2d8fe9fa4279c4ae8a8f4cc5b60139bf4`, from
   `git diff --binary origin/develop HEAD -- apps packages services specs`; verification-only
-  follow-up changes are identified by the PR head.
+  follow-up changes are identified by the PR head. Captures precede the test-oracle repairs
+  and callback whitespace formatting in later commits; these change no rendered markup or
+  runtime decision, and no repeat browser observation is claimed.
 - Linux, Rust 1.98.1, locked Cargo dependencies; behavior uses Node 24.19.0, npm 11.9.0 and
   Quint 0.33.0. JVM checks use the existing Theatre Desktop target and repository Gradle inputs.
 - In-app browser, default desktop viewport and an explicitly measured 390 CSS px viewport;
@@ -92,7 +94,7 @@ a later packaging commit does not itself re-run or accept a gate.
 | --- | --- |
 | L1 Architecture | Existing Catalog → Media → HTTP facade; consumer-owned DTOs; no SQL registry, provider or dependency changes |
 | L2 Domain / types | Existing generation decisions and validated snapshots; private frozen review, exact response correlation and bounded explicit selection |
-| L3 Pure / static | Studio library: 464 tests PASS, including bounds, old published pins, same-operation recovery, mismatched replies and exact artwork reads. Behavior/protobuf/reference runs are independently recorded; model PASS is model-only |
+| L3 Pure / static | Studio library: 464 tests PASS; Theatre Web library: 575 tests PASS, including strict reads, bounds, old published pins, same-operation recovery, mismatched replies and exact artwork reads. Behavior/protobuf/reference runs are independently recorded; model PASS is model-only |
 | L4 Adapter / orchestration | Kotlin catalog/cache focused suite PASS; production HTTP adapter exercised, strict old/malformed shapes refused. Host/JVM is not device playback |
 | L5 Real file / HTTP / bytes | Server generation/router, audio association, immutable manifest, cover and creator→origin tests use real Turso/files. The origin regression withdraws metadata while audio stays active and refuses a previously issued media grant. Seeded domain chains and named delivery doubles retain their disclosed limits |
 | L5 Browser | The six bounded observations above; synthetic session boundary, no native audio or deployed origin |
@@ -124,7 +126,10 @@ were also isolated under ignored `target/verification/`.
   native sidecar-fixture mode errors and a localization fixture that assumed a default branch
   other than `develop`. Both latter classes reproduce on the clean baseline. The independent
   controlled campaign uses a process-local `umask 077` and `init.defaultBranch=main`, preserving
-  the user's global Git configuration and native security guards; its result is recorded in the PR.
+  the user's global Git configuration and native security guards; it ran 1,337 tests with 18 skips and one failure. The remaining legacy VPS fixture creates a
+  `0755` directory without overriding the process umask, so `077` turns its intended bad-mode
+  input into `0700`; the same failure reproduces on the pinned clean baseline. No legacy VPS
+  implementation or security guard was changed.
 - Repository verification has 60 UI qualification findings on both this branch and the pinned
   clean `develop` baseline, with no branch-only finding after the focused fixes. Their hashes
   were not rewritten to manufacture qualification.
