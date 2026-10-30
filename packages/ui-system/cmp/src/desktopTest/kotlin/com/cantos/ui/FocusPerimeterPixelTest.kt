@@ -92,7 +92,7 @@ class FocusPerimeterPixelTest {
         Scenario("chip-unselected-theatre", CantosExpression.Theatre, "color.focus") { m ->
             FilterChip("Truyện đêm khuya", false, {}, controlModifier = m)
         },
-        Scenario("chip-selected-theatre", CantosExpression.Theatre, "color.onPrimaryContainer") { m ->
+        Scenario("chip-selected-theatre", CantosExpression.Theatre, "color.focus") { m ->
             FilterChip("Truyện đêm khuya", true, {}, controlModifier = m)
         },
         Scenario("auth-field-standard", CantosExpression.Standard, "color.focus") { m ->

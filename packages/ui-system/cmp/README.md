@@ -68,18 +68,20 @@ Everything below is additive and local to the control that opts in:
 - `IconButton(variant, circular)`: `Text` (default) is the existing plain muted glyph; `Tonal` and
   `Primary` fill a 48-unit container (a reading-radius square, or a circle when `circular`). A docked
   search action passes `controlModifier = Modifier.size(tokenDp("size.searchAction"))`.
-- `FilterChip` under the Theatre expression is a tonal 12-radius chip that becomes an ink capsule
-  with its check when selected; it keeps its start edge and 48-unit height, so only its width grows.
-  The shape change uses the interruptible feedback motion that reduced motion removes.
+- `FilterChip` is a borderless tonal capsule (`shape.pill`) in both expressions: unselected is
+  `color.surfaceContainer`, selected a stronger tone plus the check (`surfaceContainerHigh` under
+  Theatre, where `primaryContainer` is the ink of selection; `primaryContainer` under Standard). Selection
+  never changes the shape or paints a stroke; it keeps its start edge and 48-unit height, so only its
+  width grows by the check. The container fades on the feedback effects motion (instant under reduced
+  motion). A blocked or pending chip shows the resting tone.
 - Focus perimeter ([#478](https://github.com/loveoverflowcom/cantos/issues/478)): a painted action keeps
   one focus perimeter on its own edge, never outside it. `Button` (and `BackButton`) draw
   `cantosInsetPerimeter` for every auth variant and for every variant under the Theatre expression;
-  `IconButton` and `FilterChip` do under the Theatre expression. The stroke is `2 × size.border`, its
+  `IconButton` and `FilterChip` do under the Theatre expression (a chip's ring is `color.focus`, drawn only while focused). The stroke is `2 × size.border`, its
   corner follows the measured shape (so the pressed auth capsule keeps it on the edge), and it paints
   over the content with no layout, size or hit-area change. `Primary` and `AuthPrimary` fills are the
   focus hue itself (about 1.1:1), so their ring is `color.onPrimary`, drawn one stroke (2 dp) inside the
-  fill so it cannot merge with the page; a selected Theatre chip's ring is `color.onPrimaryContainer`,
-  inset the same way; every other fill uses `color.focus` (at least 3:1, contract-tested). The
+  fill so it cannot merge with the page; every other fill, a chip included, uses `color.focus` (at least 3:1, contract-tested). The
   Standard expression, unpainted controls (`Link`, `NavTabs`, `Checkbox`/`Radio`/`Switch` rows,
   `RangeField`) and menu items keep the outset `cantosFocus` ring, which needs parent spacing. The
   `AuthTonal` label/help gap still includes that clearance, so form rhythm is unchanged.

@@ -270,9 +270,9 @@ class TheatrePixelTest {
     }
 
     @Test
-    fun theatre_chips_read_by_tone_the_selected_one_an_ink_capsule() {
+    fun theatre_chips_are_borderless_tonal_capsules_and_the_selected_one_is_the_stronger_tone() {
         val tonal = role("color.surfaceContainer")
-        val ink = role("color.primaryContainer")
+        val stronger = role("color.surfaceContainerHigh")
         lateinit var chips: Pair<ImageBitmap, ImageBitmap>
         runDesktopComposeUiTest(width = 360, height = 120) {
             setContent {
@@ -289,13 +289,21 @@ class TheatrePixelTest {
         }
         fun ImageBitmap.edgeFill() = toPixelMap()[width - 6, height / 2]
         assertTrue(chips.first.edgeFill().isNear(tonal), "unselected chip is the tonal container")
-        assertTrue(chips.second.edgeFill().isNear(ink), "selected chip is the ink container")
-        // A resting radius leaves the very corner unpainted; a capsule leaves much more of it.
+        assertTrue(chips.second.edgeFill().isNear(stronger), "selected chip is the stronger tonal container, not the ink")
+        assertTrue(!tonal.isNear(stronger), "the two tones are distinct roles")
+        // No stroke: the row through the capsule's centre is the fill right up to the label's inset.
+        for (image in chips.toList()) {
+            val fill = image.toPixelMap()[image.width - 6, image.height / 2]
+            val map = image.toPixelMap()
+            assertTrue((2..10).all { x -> map[x, image.height / 2].isNear(fill) }, "no border or ring paints at rest")
+        }
+        // Both states are the same capsule: the very corner is equally unpainted.
         fun ImageBitmap.cornerCoverage(): Int {
             val map = toPixelMap()
-            return (0 until 12).sumOf { y -> (0 until 12).count { x -> map[x, y].isNear(tonal) || map[x, y].isNear(ink) } }
+            return (0 until 12).sumOf { y -> (0 until 12).count { x -> map[x, y].isNear(tonal) || map[x, y].isNear(stronger) } }
         }
-        assertTrue(chips.second.cornerCoverage() < chips.first.cornerCoverage(), "the selected shape is rounder than the resting shape")
+        assertTrue(abs(chips.first.cornerCoverage() - chips.second.cornerCoverage()) <= 4, "selection never changes the shape")
+        assertTrue(chips.first.cornerCoverage() < 12 * 12 / 2, "the shape is a capsule, not a rounded rectangle")
     }
 
     @Test

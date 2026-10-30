@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "0afcfca1a072535b9d7d2db2c3867af27b3ac1c277904328a5ce2198609e1bff",
+  "catalogSha256": "cbb433fa18bfbf0efa64411e02cde50f74d2d46d780d8056955bcef9385144c6",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1674,9 +1674,11 @@
     "theatre.cmp_shell.search": {},
     "theatre.cmp_shell.search_clear": {},
     "theatre.cmp_shell.search_clear_input": {},
-    "theatre.cmp_shell.search_collapse": {},
+    "theatre.cmp_shell.search_filter_all": {},
+    "theatre.cmp_shell.search_filter_group": {},
     "theatre.cmp_shell.search_hint": {},
     "theatre.cmp_shell.search_label": {},
+    "theatre.cmp_shell.search_results_heading": {},
     "theatre.cmp_shell.search_submit": {},
     "theatre.cmp_shell.seconds_spoken": {
       "minutes": "text",

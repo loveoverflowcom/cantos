@@ -2,6 +2,9 @@ package com.cantos.theatre.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
@@ -11,6 +14,9 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasSetTextAction
@@ -32,6 +38,7 @@ import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellProgress
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellWork
@@ -75,21 +82,78 @@ class DiscoveryParityTest {
     }
 
     @Test
-    fun search_back_collapses_before_navigation_and_preserves_query_and_focus() = runDesktopComposeUiTest(width = 390, height = 844) {
+    fun search_is_a_fullscreen_route_whose_back_leaves_in_one_step() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
         var back: () -> Unit = {}
         setContent {
             CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "  Đèn  "),
                 ShellCatalogView(), events::add, backHandler = { _, action -> back = action })
         }
-        onNodeWithTag("search-dock").assertExists()
-        onNodeWithTag("search-input").assertIsFocused()
-        runOnIdle { back() }
-        onNodeWithTag("search-dock").assertDoesNotExist()
-        onNodeWithTag("search-input").assertIsFocused()
-        assertEquals(emptyList<ShellEvent>(), events.toList())
-        runOnIdle { back() }
+        // No dock to collapse, no shared header or tab bar above or below the fullscreen route.
+        for (gone in listOf("search-dock", "search-collapse", "header-title", "theme-toggle", "account", "nav-discovery", "nav-library", "mini-open"))
+            onNodeWithTag(gone).assertDoesNotExist()
+        onNodeWithTag("search-input").assertExists()
+        onNodeWithTag("search-submit").assertExists()
+        onNodeWithTag("search-clear").assertExists()
+        onNodeWithTag("search-results-heading").assertExists()
+        onNodeWithTag("back").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).performClick()
         assertEquals(listOf<ShellEvent>(ShellEvent.Back), events.toList())
+        runOnIdle { back() }
+        assertEquals(listOf<ShellEvent>(ShellEvent.Back, ShellEvent.Back), events.toList())
+    }
+
+    @Test
+    fun search_focuses_an_empty_input_on_entry_but_does_not_reopen_the_keyboard_over_existing_text() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search)), ShellCatalogView(), {}) }
+            onNodeWithTag("search-input").assertIsFocused()
+            onNodeWithTag("search-clear").assertDoesNotExist()
+        }
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn"), ShellCatalogView(), {}) }
+            onNodeWithTag("search-input").assertIsNotFocused()
+        }
+    }
+
+    @Test
+    fun search_kind_chips_dispatch_typed_kinds_and_show_one_selection() = runDesktopComposeUiTest(width = 320, height = 640) {
+        val events = mutableListOf<ShellEvent>()
+        var kind by mutableStateOf(ShellSearchKind.All)
+        setContent {
+            CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), searchKind = kind),
+                ShellCatalogView(), { events += it; if (it is ShellEvent.SelectSearchKind) kind = it.kind })
+        }
+        onNodeWithTag("search-kind-all").assertIsSelected()
+        for (chip in listOf("search-kind-all", "search-kind-novel", "search-kind-story", "search-kind-podcast"))
+            onNodeWithTag(chip).assertHeightIsAtLeast(48.dp)
+        onNodeWithTag("search-kind-podcast").performClick()
+        onNodeWithTag("search-kind-podcast").assertIsSelected()
+        onNodeWithTag("search-kind-all").assertIsNotSelected()
+        onNodeWithTag("search-kind-all").performClick()
+        onNodeWithTag("search-kind-all").assertIsSelected()
+        assertEquals(listOf<ShellEvent>(ShellEvent.SelectSearchKind(ShellSearchKind.Podcast), ShellEvent.SelectSearchKind(ShellSearchKind.All)), events.toList())
+    }
+
+    @Test
+    fun search_results_are_rows_with_one_navigation_intent_and_a_filtered_empty_state() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            val events = mutableListOf<ShellEvent>()
+            setContent {
+                CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn"),
+                    ShellCatalogView(listOf(work), searchedBySource = true, appliedSearch = "Đèn"), events::add)
+            }
+            onNodeWithTag("work-$workId").assertHasClickAction().performClick()
+            assertEquals(listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Work(workId))), events.toList())
+        }
+        // A kind filter with no text is still a filtered (not a completed-empty) result.
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), catalogMode = ShellCatalogMode.Empty,
+                    searchKind = ShellSearchKind.Podcast), ShellCatalogView(), {})
+            }
+            onNodeWithText("Chưa tìm thấy câu chuyện").assertExists()
+            onNodeWithTag("catalog-clear-search").assertExists()
+        }
     }
 
     @Test

@@ -19,6 +19,9 @@ sealed interface ShellRoute {
     data class Work(val id: ShellWorkId) : ShellRoute
 }
 
+/** The story-type chips on the Search route. [All] is no kind filter; the rest map to a typed server kind. */
+enum class ShellSearchKind { All, Novel, Story, Podcast }
+
 enum class ShellLibraryTab { Continuing, Saved, Bookmarks }
 
 /** The paged Library sections. They read, fail and retry independently. */
@@ -127,6 +130,7 @@ class ShellState(
     bookmarks: List<ShellBookmark> = emptyList(),
     val libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
     val query: String = "",
+    val searchKind: ShellSearchKind = ShellSearchKind.All,
     val catalogMode: ShellCatalogMode = ShellCatalogMode.Ready,
     val theme: ShellTheme = ShellTheme.Light,
     val locale: ShellLocale = ShellLocale.Default,
@@ -175,6 +179,7 @@ class ShellState(
         bookmarks: List<ShellBookmark> = this.bookmarks,
         libraryTab: ShellLibraryTab = this.libraryTab,
         query: String = this.query,
+        searchKind: ShellSearchKind = this.searchKind,
         catalogMode: ShellCatalogMode = this.catalogMode,
         theme: ShellTheme = this.theme,
         locale: ShellLocale = this.locale,
@@ -195,6 +200,7 @@ class ShellState(
         bookmarks = bookmarks,
         libraryTab = libraryTab,
         query = query,
+        searchKind = searchKind,
         catalogMode = catalogMode,
         theme = theme,
         locale = locale,
@@ -222,6 +228,7 @@ class ShellState(
         workListenRelease == other.workListenRelease &&
         libraryTab == other.libraryTab &&
         query == other.query &&
+        searchKind == other.searchKind &&
         catalogMode == other.catalogMode &&
         theme == other.theme &&
         locale == other.locale &&
@@ -243,6 +250,7 @@ class ShellState(
         result = 31 * result + (workListenRelease?.hashCode() ?: 0)
         result = 31 * result + libraryTab.hashCode()
         result = 31 * result + query.hashCode()
+        result = 31 * result + searchKind.hashCode()
         result = 31 * result + catalogMode.hashCode()
         result = 31 * result + theme.hashCode()
         result = 31 * result + locale.hashCode()
@@ -256,7 +264,7 @@ class ShellState(
     override fun toString(): String = "ShellState(" +
         "stack=$stack, selectedEpisode=$selectedEpisode, positionSeconds=$positionSeconds, positionMs=$positionMs, " +
         "savedWorks=$savedWorks, bookmarks=$bookmarks, progress=$progress, history=$history, listeningFailure=$listeningFailure, " +
-        "libraryTab=$libraryTab, query=$query, catalogMode=$catalogMode, theme=$theme, " +
+        "libraryTab=$libraryTab, query=$query, searchKind=$searchKind, catalogMode=$catalogMode, theme=$theme, " +
         "locale=$locale, speedPercent=$speedPercent, timer=$timer, " +
         "playbackStatus=$playbackStatus, transportRequested=$transportRequested)"
 }
@@ -281,6 +289,8 @@ sealed interface ShellEvent {
     data object Bookmark : ShellEvent
     data class SelectLibrary(val tab: ShellLibraryTab) : ShellEvent
     data class Search(val query: String) : ShellEvent
+    /** Selects a story-type chip on the Search route; the typed text is kept. */
+    data class SelectSearchKind(val kind: ShellSearchKind) : ShellEvent
     /** The docked magnifier or the keyboard's search action: reads the typed text now instead of after the debounce. */
     data object SubmitSearch : ShellEvent
     data class CatalogMode(val mode: ShellCatalogMode) : ShellEvent
