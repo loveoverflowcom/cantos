@@ -26,6 +26,7 @@ restore, Kani, footprint or deployed behavior.
 | Review/publication | [030](030-mix-review-and-publish.md) |
 | Theatre Web/CMP listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library handoff](listener-library-progress-handoff.md) |
 | Catalog/cover/metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover](public-cover-implementation-handoff.md), [metadata](public-metadata-decision-handoff.md) |
+| Publication lifecycle and Work/Unit access | [#634](https://github.com/loveoverflowcom/cantos/issues/634), [design handoff](publication-access-handoff.md), accepted [ADR 0054](../decisions/0054-publication-generation-and-access.md) |
 | Runtime image transition | [#607](https://github.com/loveoverflowcom/cantos/issues/607), [image policy and dependency order](../design/runtime-images.md); AVIF-only source admission is separate from historical data conversion, repinned sample inputs and native/deployed qualification |
 | Shared UI | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
 | Forge | [Worker boundary](../deployment/forge-worker.md), [attempt evidence](../evidence/forge-attempt-reconciliation.md); #203 |
