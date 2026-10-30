@@ -117,6 +117,51 @@ package was extracted under ignored artifacts and selected through `PKG_CONFIG_P
 package or runtime host was changed. The exact Node/npm runtime and locked Quint installation
 were also isolated under ignored `target/verification/`.
 
+### Cumulative local check ledger
+
+Source checkpoint: `75e2890a`. Later evidence-only commits do not change the compiled input.
+These are independently attributed runs, not a passing aggregate preflight. `--skip` always
+remains NOT_RUN in its own continuation; earlier passing checks are reused only for unchanged
+inputs. Remote CI was neither queried nor awaited.
+
+| Gate / run | Observed result | Provenance and limit |
+| --- | --- | --- |
+| Behavior, Script IR reference, Protobuf reference/drift | PASS | `preflight-layers.log`; behavior is model-only, no implementation conformance |
+| Rust format / workspace lint | PASS | `preflight-render-final.log`; the intermediate test-array format and WASM callback lint failures were repaired |
+| Workspace Rust tests | FAIL in the original aggregate run | `preflight-remaining.log` stopped at the old audio-table fault assumption; the repaired complete `theatre_contract` target passes 4 tests. `rust-remaining-packages-final.log` passes every non-Server workspace target, including Studio 464 and Theatre Web 575; remaining Server WAV/wire targets pass in `server-remaining-contracts.log`. Earlier Server suites retain their unchanged production inputs. No whole workspace PASS after those test-only repairs is claimed |
+| Forge functions / Turso | PASS | `preflight-renderers.log`. The engine report has 42 PASS, 3 UNSUPPORTED, 3 FAIL and zero differences from recorded expectations; those expected engine gaps are not accepted capabilities |
+| WAV reference / installed audio inspection | PASS | `preflight-web-final-2.log`; five independent Python/ffprobe PCM comparisons and the two explicitly ignored real-tool inspection tests. No listening-quality claim |
+| Web lint, Studio/Theatre build, shared Leptos preview | PASS | `preflight-render-final.log`; both preview and production WASM lint lanes, both app builds and shared preview build |
+| Shared CMP preview | PASS | `preflight-render-final.log`, installed JVM/Desktop test target; no Android/iOS claim |
+| Script IR mutation | PASS | `preflight-render-final.log`; the isolated baseline passes 16 tests, all nine mutants are killed, with no survivor, timeout or unviable mutant. This qualifies those Script IR assertions, not publication-state conformance |
+| Theatre CMP broad / focused catalog-cache | FAIL broad, PASS focused | Baseline artwork/logout-layout failures remain. The scoped production adapter/cache suite executes 60 tests with one live-origin test skipped; no device or live-origin qualification |
+| Repository | FAIL | Same 60 qualification findings on the pinned baseline and this branch; zero branch-only findings after repairs. Controlled Python: 1,337 tests, one baseline fixture/umask failure, 18 skips; registry-specific suite: 114 PASS |
+| Assurance | FAIL | `impact:unknown` explicitly requires workspace Rust tests and Web lint. A skipped workspace test gate is NOT_RUN in the continuation, so the REQUIRED obligation cannot pass; no waiver or fabricated PASS |
+
+The final renderer continuation uses:
+
+```sh
+cargo xtask preflight --changed-only --base origin/develop \
+  --skip repository --skip behavior --skip rust-tests \
+  --skip script-ir-reference --skip protobuf-reference \
+  --skip forge-functions --skip turso --skip wav-reference \
+  --skip audio-inspection --skip theatre-cmp-preview \
+  --assurance-decisions artifacts/agent-runs/651/assurance.json
+```
+
+The earlier WAV reference attempt failed because its default binary path is worktree-local
+while the Cargo build used the shared `CARGO_TARGET_DIR`. An ignored local symlink to that
+actual compiled binary resolved the path; no oracle or production WAV code was changed.
+The continuation ends FAIL only at its assurance decision because the workspace test gate
+is skipped. The original repository, workspace-test and Theatre CMP failures remain in their
+own records. A clean aggregate result still requires the full workspace gate and the outstanding
+repository/CMP qualification; passed independent layers do not waive those requirements.
+
+The test-hosted API and both owned frontend sessions have ended. No listener remains on their
+8080/8081/8082 ports; mutation copies and compiler children completed normally. The requested
+worktree and ignored evidence are retained, and the main checkout's unrelated untracked
+table-ownership record is untouched.
+
 ## Failures, deferred acceptance and residual risk
 
 - The behavior registry contract suite passes 114 tests after fixture mutations were pinned to
