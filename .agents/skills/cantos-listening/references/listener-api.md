@@ -190,15 +190,17 @@ and print floats differently, and the drift appears exactly at seek boundaries.
 
 | Change | Class | Requirement |
 |---|---|---|
-| New optional response field; new endpoint; new optional request field with a server default | additive (minor) | old fixtures still decode; clients ignore unknown response fields |
+| New optional response field; new endpoint; new optional request field with a server default | additive | old fixtures still decode; schema, fixtures and every current client's reader change in the same delivery |
 | New value in an enum the schema declares **open** (error `code`) | additive | clients map unknown values to a documented fallback by HTTP status and `retryable` |
-| New value in a **closed** enum (playback status, write kind) | breaking (major) | new path version or a negotiated capability, plus an ADR |
-| Rename, removal, type or unit change, optional → required, changed meaning of a code | breaking | new major; keep the previous major for the documented support window |
+| New value in a **closed** enum (playback status, write kind) | breaking | Server, Theatre Web and CMP change with fixtures and tests in one delivery; no path version or negotiated capability kept for older builds |
+| Rename, removal, type or unit change, optional → required, changed meaning of a code | breaking | the same delivery removes the replaced shape and its fixtures; an old request fails closed instead of being reinterpreted |
 
 Server enums are always closed and exhaustively matched. "Open" is a property of the wire
 mapping only: the client's boundary has one explicit `Unrecognized` arm, and its domain enum
-stays closed. Mobile clients in the field lag releases, so the support window for the previous
-major is a product decision to record before the first breaking change. A schema-diff tool
+stays closed. During development installed builds get no support window
+([ADR 0055](../../../../docs/decisions/0055-development-phase-compatibility.md)): an older APK
+may fail after a breaking delivery but never misreads. The support window for field clients is a
+product decision to record before the development phase ends. A schema-diff tool
 (oasdiff is a candidate) can classify changes; its verdict is `statically-checked`, not a
 replacement for review.
 
