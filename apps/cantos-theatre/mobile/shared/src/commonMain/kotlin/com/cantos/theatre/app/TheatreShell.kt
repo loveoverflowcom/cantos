@@ -23,6 +23,7 @@ import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
+import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.library.BookmarkSync
 import com.cantos.theatre.domain.library.LibraryResume
@@ -40,6 +41,7 @@ import com.cantos.theatre.presentation.model.ShellLibrarySection
 import com.cantos.theatre.presentation.model.ShellLibraryTab
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.theatre.presentation.model.ShellTimer
@@ -61,6 +63,7 @@ import kotlinx.coroutines.launch
 /** Route text a listener typed, the Library tab, the sleep timer and the Membership preview. */
 data class TheatreUiInputs(
     val query: String = "",
+    val searchKind: ShellSearchKind = ShellSearchKind.All,
     val libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
     val timer: ShellTimer = ShellTimer.Off,
     val membership: MembershipState = MembershipState.unavailable(),
@@ -137,7 +140,7 @@ class TheatreShell(
         scope.launch { navigation.collect { syncDetail(it) } }
         scope.launch {
             var seenSubmits = 0
-            combine(navigation, ui, searchSubmits) { nav, inputs, submits -> DesiredSearch(desiredQuery(nav, inputs.query), submits) }
+            combine(navigation, ui, searchSubmits) { nav, inputs, submits -> DesiredSearch(desiredQuery(nav, inputs.query, inputs.searchKind), submits) }
                 .distinctUntilChanged()
                 .collectLatest { (query, submits) ->
                     val submitted = submits != seenSubmits
@@ -235,6 +238,11 @@ class TheatreShell(
             is ShellEvent.SeekTo -> runtime.listening.playback.dispatch(PlaybackEvent.SeekRequested(event.seconds.toLong() * 1000L))
             is ShellEvent.SelectLibrary -> mutableUi.update { it.copy(libraryTab = event.tab) }
             is ShellEvent.Search -> mutableUi.update { it.copy(query = event.query) }
+            // A chip is a deliberate choice: it reads now, like a submit, and keeps the typed text.
+            is ShellEvent.SelectSearchKind -> {
+                mutableUi.update { it.copy(searchKind = event.kind) }
+                searchSubmits.update { it + 1 }
+            }
             ShellEvent.SubmitSearch -> searchSubmits.update { it + 1 }
             ShellEvent.Retry -> retry()
             is ShellEvent.LoadMoreLibrary -> activeLibrary()?.nextPage(event.section.toDomain())
@@ -377,9 +385,9 @@ class TheatreShell(
     }
 
     /** Typed text is a server search only on the Search route; everywhere else the full list. */
-    private fun desiredQuery(navigation: NavigationState, text: String): PublicCatalogQuery? =
+    private fun desiredQuery(navigation: NavigationState, text: String, kind: ShellSearchKind): PublicCatalogQuery? =
         if (navigation.route != TheatreRoute.Search) PublicCatalogQuery.All
-        else (PublicCatalogQuery.of(text) as? CatalogCheck.Valid)?.value
+        else (PublicCatalogQuery.of(text, kind.toPublic()) as? CatalogCheck.Valid)?.value
 
     private data class DesiredSearch(val query: PublicCatalogQuery?, val submits: Int)
 
@@ -556,6 +564,13 @@ class TheatreShell(
         registration?.leave()
         verification?.leave()
     }
+}
+
+private fun ShellSearchKind.toPublic(): PublicWorkKind? = when (this) {
+    ShellSearchKind.All -> null
+    ShellSearchKind.Novel -> PublicWorkKind.Novel
+    ShellSearchKind.Story -> PublicWorkKind.Story
+    ShellSearchKind.Podcast -> PublicWorkKind.Podcast
 }
 
 private fun ShellLibrarySection.toDomain(): LibrarySection = when (this) {

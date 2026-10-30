@@ -26,6 +26,7 @@ import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellListPhase
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.ShellWorkId
@@ -132,7 +133,7 @@ class DiscoveryPresentationTest {
             onNodeWithText("Chưa tìm thấy câu chuyện").assertExists()
             onNodeWithText("Chưa có câu chuyện khả dụng").assertDoesNotExist()
             onNodeWithTag("catalog-clear-search").performScrollTo().performClick()
-            assertEquals(listOf<ShellEvent>(ShellEvent.Search("")), events.toList())
+            assertEquals(listOf<ShellEvent>(ShellEvent.Search(""), ShellEvent.SelectSearchKind(ShellSearchKind.All)), events.toList())
         }
     }
 

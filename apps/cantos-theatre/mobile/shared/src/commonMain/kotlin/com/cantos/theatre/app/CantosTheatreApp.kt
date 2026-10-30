@@ -109,7 +109,7 @@ fun CantosTheatreApp(
     val theme = themeMode.resolve(systemIsDark)
     val projection = remember(navigation, catalog, known, playback, selection, failure, requested, library, ui, theme, locale) {
         projectTheatreShell(TheatreShellInputs(navigation, catalog, known, playback, selection, requested,
-            failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer, accessFailure = failure))
+            failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer, accessFailure = failure, searchKind = ui.searchKind))
     }
     val accountView = accountState.toAccountView()
     // A private draft must not outlive the account that made it; a guest draft survives sign-in.

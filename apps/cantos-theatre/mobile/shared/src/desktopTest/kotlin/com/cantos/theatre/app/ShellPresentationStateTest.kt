@@ -308,9 +308,9 @@ class ShellPresentationStateTest {
                     CantosPresentation(state, catalog(), {})
                 }
             }
-            onNodeWithTag("nav-discovery").assertIsSelected()
-            onNodeWithTag("nav-library").assertIsNotSelected()
-            onNodeWithTag("nav-search").assertDoesNotExist()
+            // Search is fullscreen: it owns no primary destination and shows no tab bar.
+            onNodeWithTag("nav-discovery").assertDoesNotExist()
+            onNodeWithTag("nav-library").assertDoesNotExist()
             runOnIdle { state = state.copy(stack = listOf(ShellRoute.History)) }
             onNodeWithTag("nav-discovery").assertIsNotSelected()
             onNodeWithTag("nav-library").assertIsSelected()
