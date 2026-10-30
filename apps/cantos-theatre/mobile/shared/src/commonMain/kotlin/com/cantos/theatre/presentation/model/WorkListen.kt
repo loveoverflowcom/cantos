@@ -31,13 +31,6 @@ data class WorkListenProjection(val target: ShellEpisode?, val phase: WorkListen
         WorkListenPhase.Ready -> null
     }
 
-    /** Optional detail for an absence conclusion. [status] stays the visible reason; this never replaces it. */
-    val help: CopyKey? get() = when (phase) {
-        WorkListenPhase.NoTarget -> CopyKey.WorkListenNoTargetHelp
-        WorkListenPhase.Unavailable -> CopyKey.WorkListenUnavailableHelp
-        else -> null
-    }
-
     val icon: String get() = when (phase) {
         WorkListenPhase.PauseLoading, WorkListenPhase.PauseBuffering, WorkListenPhase.PausePlaying -> "pause"
         WorkListenPhase.ResolveFailed, WorkListenPhase.TransportFailed -> "refresh"

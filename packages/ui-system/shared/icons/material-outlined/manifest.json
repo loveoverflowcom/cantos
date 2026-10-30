@@ -193,6 +193,14 @@
     "language": {
       "path": "src/action/language/materialiconsoutlined/24px.svg",
       "sha256": "41ea8791f31e264e4f06fcc0b24f92c8284707f9e0612b44690350e625536706"
+    },
+    "bookmark": {
+      "path": "src/action/bookmark/materialicons/24px.svg",
+      "sha256": "2da2cc7c80170bd0a75628f8dd516510a0ebb40e3959fd9bc4e0373d8d84f746"
+    },
+    "bookmark_border": {
+      "path": "src/action/bookmark_border/materialiconsoutlined/24px.svg",
+      "sha256": "1a624fa82577014fbf066bd8ffd6817ea3532c34413a9810af442e7b1c78f9eb"
     }
   }
 }

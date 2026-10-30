@@ -33,6 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -167,6 +168,7 @@ class TheatreWorkbenchControllerTest {
             host.callback()(ShellEvent.SelectLibrary(ShellLibraryTab.Saved))
             host.callback()(ShellEvent.SetTimer(ShellTimer.Thirty))
             val before = host.snapshot().state
+            assertNull(before.savedAccount, "snapshot never exports the account fence")
             val payload = assertIs<TheatreSnapshotExport.Exported>(encodeTheatreSnapshot(host.snapshot())).text
             val decoded = assertIs<TheatreSnapshotResult.Accepted>(decodeTheatreSnapshot(payload)).snapshot
             assertEquals(before, decoded.state)

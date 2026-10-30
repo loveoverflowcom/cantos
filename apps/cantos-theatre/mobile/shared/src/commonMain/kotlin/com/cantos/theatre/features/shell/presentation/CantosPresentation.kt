@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,9 +24,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -768,17 +771,6 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
                 Text(reason, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("work-listen-status").semantics { liveRegion = LiveRegionMode.Polite })
             }
-            listen.help?.let { help ->
-                // The short reason above is the essential blocker; this opens only the optional detail.
-                // A disabled native button takes no press, so the explanation has its own named control.
-                var helpOpen by remember(listen.phase) { mutableStateOf(false) }
-                TextButton(shape = MaterialTheme.shapes.small, onClick = { helpOpen = !helpOpen },
-                    modifier = Modifier.testTag("work-listen-help-trigger")) { Text(copy.text(CopyKey.WorkListenHelpLabel)) }
-                if (helpOpen) {
-                    Text(copy.text(help), style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.testTag("work-listen-help").semantics { liveRegion = LiveRegionMode.Polite })
-                }
-            }
         }
         SaveWorkButton(work, state, copy, dispatch, "save-work")
     }
@@ -831,16 +823,40 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
 
 @Composable
 internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
-    val saved = work.id in state.savedWorks
-    FilledTonalButton(shape = MaterialTheme.shapes.medium,
-        onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
-        modifier = Modifier.testTag(tag).semantics {
-            contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
-            stateDescription = copy.text(if (saved) CopyKey.SavedTab else CopyKey.Save)
-        },
-    ) {
-        Icon(rememberCantosIconVector("star"), null)
-        Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+    val saved = work.id in state.confirmedSavedWorks
+    val pending = work.id in state.pendingSavedWorks
+    val failed = work.id in state.failedSavedWorks
+    val desiredSaved = work.id in state.savedWorks
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        FilledTonalButton(shape = RoundedCornerShape(tokenDp("shape.pill")),
+            enabled = !pending && !failed,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = if (saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = if (saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+                disabledContainerColor = if (failed && saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                disabledContentColor = if (failed && saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+            ),
+            onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
+            modifier = Modifier.heightIn(min = tokenDp("size.control")).widthIn(min = tokenDp("size.savedWork")).testTag(tag).semantics {
+                contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
+                stateDescription = copy.text(if (pending) CopyKey.SavePending else if (saved) CopyKey.SavedTab else CopyKey.Save)
+            },
+        ) {
+            Icon(rememberCantosIconVector(if (saved) "bookmark" else "bookmark_border"), null, Modifier.size(tokenDp("size.iconCompact")))
+            Spacer(Modifier.width(tokenDp("space.sm")))
+            Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+        }
+        if (pending || failed) {
+            Text(copy.text(if (failed) CopyKey.SyncFailed else CopyKey.SavePending),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("$tag-status").semantics { liveRegion = LiveRegionMode.Polite })
+            if (state.savedAccount != null && (pending || work.id in state.retryableSavedWorks)) TextButton(
+                onClick = { dispatch(ShellEvent.RetrySaved(work.id, state.savedAccount, desiredSaved, pending)) },
+                modifier = Modifier.heightIn(min = tokenDp("size.control")).testTag("$tag-retry").semantics {
+                    contentDescription = copy.text(CopyKey.Retry) + " · " + copy.text(if (desiredSaved) ShellMessage.SaveName(title = work.title) else ShellMessage.UnsaveName(title = work.title))
+                },
+            ) { Text(copy.text(CopyKey.Retry)) }
+        }
     }
 }
 

@@ -260,6 +260,29 @@ class SqlLibraryPersistenceTest {
             controller.close()
         } finally { folder.deleteRecursively() }
     }
+    @Test fun repeatedSaveKeepsOnePendingIntentAndOnlyReceiptConfirmsIt() = runTest {
+        val folder = Files.createTempDirectory("cantos-saved-confirmation").toFile()
+        try {
+            val api = Api()
+            val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
+            val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
+            controller.setSaved(work, true)
+            controller.setSaved(work, true)
+            runCurrent()
+            assertEquals(1, store.transaction(actor) { intents().size })
+            assertFalse(controller.state.value.saved.single().confirmedSaved)
+            val original = api.writes.single()
+            val accepted = SavedRecord(work, true, 1, 1, 1000)
+            api.receiptValue = Receipt(original.operation, "accepted", null, MutationState.Saved(accepted))
+            api.savedResult = SavedPage(listOf(SavedItem(accepted)), null)
+            controller.drain(); runCurrent()
+            assertTrue(controller.state.value.saved.single().confirmedSaved)
+            controller.setSaved(work, false); runCurrent()
+            assertTrue(controller.state.value.saved.single().confirmedSaved, "unconfirmed removal retains last receipt")
+            controller.close()
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun pendingSaveThenUnsaveWaitsForOriginalReceiptAndChainsOnlyOwnAcceptedRevision() = runTest {
         val folder = Files.createTempDirectory("cantos-saved-fifo").toFile()
         try {
@@ -281,6 +304,47 @@ class SqlLibraryPersistenceTest {
             controller.drain(); runCurrent()
             assertNotEquals(original.operation, api.writes.last().operation)
             assertEquals(0, controller.state.value.pending)
+            controller.close()
+        } finally { folder.deleteRecursively() }
+    }
+    @Test fun an_older_failed_saved_intent_remains_visible_when_a_later_desire_is_queued() {
+        fun intent(operation: String, saved: Boolean, failure: String?) = LocalLibraryIntent(
+            operation, "saved:$work", "PUT", "/library/saved/$work",
+            """{"operation":{"operation_id":"$operation","device_id":"00000000-0000-4000-8000-000000000001","device_sequence":1,"device_reported_at_ms":null},"base_revision":0,"saved":$saved}""",
+            sent = true, failure = failure,
+        )
+        val first = "00000000-0000-4000-8000-000000000002"
+        val second = "00000000-0000-4000-8000-000000000003"
+        val rows = projectLibraryRows(emptyList(), listOf(intent(first, true, "listener_chooses"), intent(second, false, null))) { _, _ -> null }
+        assertEquals(com.cantos.theatre.domain.library.LibrarySync.Failed, rows.saved.single().sync)
+        assertFalse(rows.saved.single().saved, "latest desired value is retained for retry")
+        assertTrue(rows.saved.single().retryableFailure)
+        val unsafe = projectLibraryRows(emptyList(), listOf(intent(first, true, "protocol"), intent(second, false, null))) { _, _ -> null }
+        assertEquals(com.cantos.theatre.domain.library.LibrarySync.Failed, unsafe.saved.single().sync)
+        assertFalse(unsafe.saved.single().retryableFailure, "an unknown protocol rejection is not silently retired")
+    }
+    @Test fun retry_retires_an_older_rejection_before_deduplicating_the_later_desire() = runTest {
+        val folder = Files.createTempDirectory("cantos-saved-retry").toFile()
+        try {
+            val first = "00000000-0000-4000-8000-000000000002"
+            val second = "00000000-0000-4000-8000-000000000003"
+            fun body(operation: String, saved: Boolean) = """{"operation":{"operation_id":"$operation","device_id":"00000000-0000-4000-8000-000000000001","device_sequence":1,"device_reported_at_ms":null},"base_revision":0,"saved":$saved}"""
+            val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
+            store.transaction(actor) {
+                enqueue(LocalLibraryIntent(first, "saved:$work", "PUT", "/library/saved/$work", body(first, true)))
+                fail(first, "listener_chooses")
+                put(LocalLibraryRecord("conflict", "saved:$work", "old-conflict", 0))
+                enqueue(LocalLibraryIntent(second, "saved:$work", "PUT", "/library/saved/$work", body(second, false)))
+            }
+            val api = Api().apply { mutation = { intent -> LibraryResult.Value(Receipt(intent.operation, "accepted", null, MutationState.Saved(SavedRecord(work, false, 1, 1, 1000)))) } }
+            val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
+            assertTrue(api.writes.isEmpty(), "a rejected predecessor blocks the later desire")
+            assertTrue(controller.state.value.saved.single().retryableFailure)
+            controller.setSaved(work, false); runCurrent()
+            assertEquals(listOf(second), api.writes.map { it.operation }, "retry resumes the existing intent without duplicating it")
+            assertTrue(store.transaction(actor) { intents().isEmpty() })
+            assertEquals("", store.transaction(actor) { record("conflict", "saved:$work")?.body })
             controller.close()
         } finally { folder.deleteRecursively() }
     }

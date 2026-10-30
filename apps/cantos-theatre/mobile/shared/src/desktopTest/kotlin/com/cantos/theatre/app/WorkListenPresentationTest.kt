@@ -114,25 +114,82 @@ class WorkListenPresentationTest {
     }
 
     @Test
-    fun absent_audio_keeps_one_short_reason_and_opens_the_detail_only_from_a_named_control() = runDesktopComposeUiTest(width = 390, height = 844) {
+    fun save_states_keep_accessible_action_and_target_in_work_detail() {
+        val output = File("build/reports/save-665").apply { mkdirs() }
+        val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
+        for (theme in ShellTheme.entries) for (saved in listOf(false, true)) for ((width, scale) in listOf(390 to 1f, 320 to 2f)) {
+            runDesktopComposeUiTest(width = width, height = 844) {
+                val supplied = state(theme = theme).copy(savedWorks = if (saved) setOf(id) else emptySet())
+                setContent {
+                    Box(Modifier.requiredSize(width.dp, 844.dp).testTag("capture")) {
+                        CantosPresentation(supplied, empty, {}, textScale = scale)
+                    }
+                }
+                val action = onNodeWithTag("save-work").performScrollTo().assertIsEnabled()
+                action.assert(hasContentDescription(if (saved) "Bỏ lưu tác phẩm Người gom tiếng chuông" else "Lưu tác phẩm Người gom tiếng chuông"))
+                val bounds = action.fetchSemanticsNode().boundsInRoot
+                kotlin.test.assertTrue(bounds.height >= 48f, "Save needs a 48dp touch target")
+                kotlin.test.assertTrue(bounds.left >= 0 && bounds.right <= width, "Save remains within the viewport")
+                val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("capture").captureToImage().asSkiaBitmap())
+                    .encodeToData(EncodedImageFormat.PNG)).bytes
+                File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-$width-text${scale.toInt()}.png").writeBytes(bytes)
+            }
+        }
+    }
+
+    @Test
+    fun absent_audio_keeps_short_reason_without_help_control() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
         val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
         var supplied by mutableStateOf(state())
         setContent { CantosPresentation(supplied, empty, events::add) }
-        for ((locale, reason, label) in listOf(
-            Triple(ShellLocale.Vietnamese, "Chưa có audio", "Vì sao?"),
-            Triple(ShellLocale.English, "No audio yet", "Why?"),
+        for ((locale, reason) in listOf(
+            Pair(ShellLocale.Vietnamese, "Chưa có audio"),
+            Pair(ShellLocale.English, "No audio yet"),
         )) {
             runOnIdle { supplied = state(locale = locale) }
             onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled().performClick()
             // The control's reason and the empty list's note: two short phrases, never the long copy.
             onAllNodesWithText(reason).assertCountEquals(2)
             onNodeWithTag("work-listen-help").assertDoesNotExist()
-            onNodeWithTag("work-listen-help-trigger").performScrollTo().assertIsEnabled().assertTextEquals(label).performClick()
-            onNodeWithTag("work-listen-help").assertExists()
-            onNodeWithTag("work-listen-help-trigger").performClick()
-            onNodeWithTag("work-listen-help").assertDoesNotExist()
+            onNodeWithTag("work-listen-help-trigger").assertDoesNotExist()
         }
-        assertEquals(emptyList(), events, "neither the disabled Listen nor its help dispatches playback or navigation")
+        assertEquals(emptyList(), events, "disabled Listen dispatches no playback or navigation")
+    }
+
+    @Test
+    fun saved_write_failure_and_pending_offer_the_correct_retry_without_claiming_success() = runDesktopComposeUiTest(width = 390, height = 844) {
+        val events = mutableListOf<ShellEvent>()
+        val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
+        var supplied by mutableStateOf(state().copy(savedWorks = setOf(id), confirmedSavedWorks = emptySet(), failedSavedWorks = setOf(id), retryableSavedWorks = setOf(id), savedAccount = "fixture"))
+        val output = File("build/reports/save-665").apply { mkdirs() }
+        setContent { Box(Modifier.requiredSize(390.dp, 844.dp).testTag("retry-capture")) { CantosPresentation(supplied, empty, events::add) } }
+        fun capture(name: String) {
+            val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("retry-capture").captureToImage().asSkiaBitmap())
+                .encodeToData(EncodedImageFormat.PNG)).bytes
+            File(output, "work-$name-390.png").writeBytes(bytes)
+        }
+        onNodeWithTag("save-work").performScrollTo().assert(hasContentDescription("Lưu tác phẩm Người gom tiếng chuông"))
+        onNodeWithTag("save-work-status").assertTextEquals("Đồng bộ chưa thành công")
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("failed-save")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", true, false), events.last())
+        runOnIdle { supplied = state().copy(savedWorks = setOf(id), confirmedSavedWorks = emptySet(), pendingSavedWorks = setOf(id), savedAccount = "fixture") }
+        onNodeWithTag("save-work").performScrollTo().assertIsNotEnabled()
+        onNodeWithTag("save-work-status").assertTextEquals("Đang cập nhật trạng thái lưu…")
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("pending-save")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", true, true), events.last())
+        runOnIdle { supplied = state().copy(savedWorks = emptySet(), confirmedSavedWorks = setOf(id), failedSavedWorks = setOf(id), retryableSavedWorks = setOf(id), savedAccount = "fixture") }
+        onNodeWithTag("save-work").performScrollTo().assert(hasContentDescription("Bỏ lưu tác phẩm Người gom tiếng chuông"))
+        onNodeWithTag("save-work-retry").performScrollTo()
+        capture("failed-unsave")
+        onNodeWithTag("save-work-retry").performClick()
+        assertEquals(ShellEvent.RetrySaved(id, "fixture", false, false), events.last())
+        runOnIdle { supplied = state().copy(failedSavedWorks = setOf(id)) }
+        onNodeWithTag("save-work").performScrollTo().assertIsNotEnabled()
+        onNodeWithTag("save-work-retry").assertDoesNotExist()
     }
 }

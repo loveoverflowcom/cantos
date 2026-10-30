@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -219,7 +220,7 @@ class ShellPresentationStateTest {
             onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertDoesNotExist()
             onNodeWithTag("save-work").performScrollTo().performClick()
             assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetSaved(SampleWorkIds.SonHa, saved = true)), events)
-            onNodeWithTag("save-work").assert(hasText("Lưu tác phẩm"))
+            onNodeWithTag("save-work").assert(hasText("Lưu"))
         }
     }
 
@@ -251,6 +252,19 @@ class ShellPresentationStateTest {
     }
 
     @Test
+    fun pending_save_is_disabled_until_its_confirmed_state_arrives() {
+        val events = mutableListOf<ShellEvent>()
+        var state by mutableStateOf(sampleState(savedWorks = emptySet()).copy(pendingSavedWorks = setOf(SampleWorkIds.SonHa)))
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { CantosPresentation(state, catalog(), { events += it }) }
+            onNodeWithTag("save-card-SonHa").performScrollTo().assertIsNotEnabled().performClick()
+            assertEquals(emptyList(), events)
+            runOnIdle { state = state.copy(savedWorks = setOf(SampleWorkIds.SonHa), pendingSavedWorks = emptySet()) }
+            onNodeWithTag("save-card-SonHa").assert(hasContentDescription("Bỏ lưu tác phẩm Sơn Hà Ký")).assertIsEnabled()
+        }
+    }
+
+    @Test
     fun failed_memory_write_shows_retry_without_claiming_a_saved_work_or_hiding_the_player() {
         val events = mutableListOf<ShellEvent>()
         runDesktopComposeUiTest(width = 390, height = 844) {
@@ -267,7 +281,7 @@ class ShellPresentationStateTest {
             onNodeWithText("Chưa lưu được thay đổi. Dữ liệu trước đó được giữ lại.").assertExists()
             onNodeWithTag("listening-retry").performClick()
             assertEquals<List<ShellEvent>>(listOf(ShellEvent.RetryListening), events)
-            onNodeWithTag("save-card-SonHa").performScrollTo().assert(hasText("Lưu tác phẩm"))
+            onNodeWithTag("save-card-SonHa").performScrollTo().assert(hasText("Lưu"))
             onNodeWithTag("mini-open").assert(hasText("12:48"))
             onNodeWithTag("listening-failure").assertExists()
         }

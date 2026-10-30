@@ -504,7 +504,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.12.0";
+pub const TOKEN_VERSION: &str = "0.13.0";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -727,6 +727,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         alias_of: None,
     },
     TokenRegistration {
+        name: "color.onSavedWork",
+        css_variable: "--cantos-color-on-saved-work",
+        kind: "color",
+        light: "#281d2b",
+        dark: "#281d2b",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
         name: "color.onSurface",
         css_variable: "--cantos-color-on-surface",
         kind: "color",
@@ -802,6 +812,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "color",
         light: "#e6d9f1",
         dark: "#513b63",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "color.savedWork",
+        css_variable: "--cantos-color-saved-work",
+        kind: "color",
+        light: "#b77c17",
+        dark: "#d6a23f",
         compact: None,
         comfortable: None,
         alias_of: None,
@@ -1662,6 +1682,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "dimension",
         light: "0.125rem",
         dark: "0.125rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "size.savedWork",
+        css_variable: "--cantos-size-saved-work",
+        kind: "dimension",
+        light: "7.5rem",
+        dark: "7.5rem",
         compact: None,
         comfortable: None,
         alias_of: None,

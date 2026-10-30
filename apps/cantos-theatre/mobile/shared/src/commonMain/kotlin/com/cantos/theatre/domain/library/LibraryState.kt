@@ -32,6 +32,9 @@ val <T> LibraryPresentation<T>.valueOrNull: T? get() = (this as? LibraryPresenta
 data class SavedEntry(
     val workId: String, val saved: Boolean, val revision: Long, val sync: LibrarySync,
     val presentation: LibraryPresentation<LibraryWorkInfo> = LibraryPresentation.Unread,
+    val confirmedSaved: Boolean = sync == LibrarySync.Confirmed && saved,
+    /** A rejected Saved intent can be retired and explicitly submitted again. */
+    val retryableFailure: Boolean = false,
 )
 data class ContinueEntry(
     val audio: AudioIdentity, val positionMs: Long, val revision: Long, val resume: LibraryResume, val sync: LibrarySync,

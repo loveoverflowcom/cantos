@@ -215,7 +215,8 @@ class TheatreShellProjectionTest {
         val library = LibraryState(
             account = "actor",
             saved = listOf(SavedEntry(work(1).id.value, true, 1, LibrarySync.Confirmed), SavedEntry(work(9).id.value, true, 1, LibrarySync.Pending),
-                SavedEntry(work(5).id.value, false, 2, LibrarySync.Confirmed)),
+                SavedEntry(work(5).id.value, false, 2, LibrarySync.Confirmed),
+                SavedEntry(work(7).id.value, false, 2, LibrarySync.Failed, confirmedSaved = true, retryableFailure = true)),
             continueListening = listOf(
                 ContinueEntry(stranger, 30_000, 1, LibraryResume.ExactAvailable, LibrarySync.Confirmed),
                 ContinueEntry(known, 12_500, 1, LibraryResume.NeedsRefresh, LibrarySync.Confirmed),
@@ -225,6 +226,10 @@ class TheatreShellProjectionTest {
         val view = projectTheatreShell(inputs(library = library))
         assertEquals(setOf(ShellWorkId(work(1).id.value), ShellWorkId(work(9).id.value)), view.state.savedWorks,
             "an unsaved row is not saved")
+        assertEquals(setOf(ShellWorkId(work(1).id.value), ShellWorkId(work(7).id.value)), view.state.confirmedSavedWorks)
+        assertEquals(setOf(ShellWorkId(work(9).id.value)), view.state.pendingSavedWorks)
+        assertEquals(setOf(ShellWorkId(work(7).id.value)), view.state.failedSavedWorks)
+        assertEquals(setOf(ShellWorkId(work(7).id.value)), view.state.retryableSavedWorks)
         // The browsing list never grows by what Library merely references.
         assertEquals(listOf(work(1).id.value), view.catalog.works.map { it.id.value })
         assertEquals(setOf(work(1).id.value, work(9).id.value), view.catalog.knownWorks.map { it.id.value }.toSet())
