@@ -918,3 +918,6 @@ async fn publication_flow_replays_restarts_and_republishes_immutable_history() {
 
 #[path = "studio_cms_publication_http_turso.rs"]
 mod studio_cms_publication_http;
+
+#[path = "metadata_audio_http_turso.rs"]
+mod metadata_audio_http;

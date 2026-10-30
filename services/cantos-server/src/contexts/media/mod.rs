@@ -34,6 +34,18 @@ pub(crate) mod read {
     pub(crate) use super::read_application::AudioReadScope;
     pub(crate) use super::storage::port::{StorageRead, StorageStream};
 }
+mod generation_audio;
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "S05 composes generation playback into Discovery with every current client"
+    )
+)]
+pub(crate) use generation_audio::playable_releases;
+#[cfg(test)]
+pub(crate) use generation_audio::ActiveAudio;
+pub use generation_audio::MetadataPublicationService;
 mod publication_storage;
 pub use publication_storage::FilesystemPublicationStorage;
 mod publication_application;

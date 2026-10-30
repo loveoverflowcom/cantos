@@ -336,3 +336,113 @@ pub(in crate::contexts::media) async fn withdraw(
     .await?;
     Ok(())
 }
+
+/// A settled release row read on its own, checked against its canonical bytes and columns.
+fn settled_release(row: &Row) -> Result<AudioRelease, StoreError> {
+    let value = AudioRelease::restore_settled(payload(row, 262144)?)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let d = value.document();
+    let m = &d.manifest;
+    for (key, v) in [
+        ("id", &d.id),
+        ("unit_id", &m.unit_id),
+        ("owner_id", &d.published_by),
+        ("candidate_id", &m.candidate_id),
+        ("rendition_id", &m.rendition_id),
+        ("manifest_digest", &m.digest),
+        ("digest", &d.digest),
+    ] {
+        column(row, key, v)?;
+    }
+    Ok(value)
+}
+/// The release the Unit's audio pointer names now for `owner`, if any.
+pub(in crate::contexts::media) async fn active_release(
+    tx: &Tx<'_>,
+    unit: &str,
+    owner: &str,
+) -> Result<Option<AudioRelease>, StoreError> {
+    tx.query_opt(
+        "SELECT r.* FROM audio_publication_pointers p JOIN audio_releases r ON r.id=p.active_release_id AND r.unit_id=p.unit_id AND r.owner_id=p.owner_id WHERE p.unit_id=?1 AND p.owner_id=?2",
+        &[&unit, &owner],
+    )
+    .await?
+    .as_ref()
+    .map(settled_release)
+    .transpose()
+}
+/// One associated release and the live facts the listener gate needs, from one snapshot.
+pub(in crate::contexts::media) struct LiveRelease {
+    pub release: AudioRelease,
+    pub active: bool,
+    pub withdrawn: bool,
+    pub submission_revoked: bool,
+    pub latest_clearance: Option<String>,
+    pub latest_approval: Option<String>,
+}
+fn flag(row: &Row, key: &str) -> Result<bool, StoreError> {
+    match row
+        .try_get::<_, i64>(key)
+        .map_err(|_| StoreError::CorruptRevision)?
+    {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => Err(StoreError::CorruptRevision),
+    }
+}
+/// The asked `(unit, release)` pairs in order, in one statement over a bound JSON array. Every
+/// pair must name a stored release of that Unit; a missing one is corruption, never "absent".
+pub(in crate::contexts::media) async fn live_releases(
+    tx: &Tx<'_>,
+    asked: &[(&str, &str)],
+) -> Result<Vec<LiveRelease>, StoreError> {
+    if asked.is_empty() {
+        return Ok(Vec::new());
+    }
+    let bound = serde_json::to_string(
+        &asked
+            .iter()
+            .map(|(unit, release)| serde_json::json!({"unit": unit, "release": release}))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|_| StoreError::CorruptRevision)?;
+    let rows = tx
+        .query(
+            "SELECT r.*, \
+ EXISTS(SELECT 1 FROM audio_publication_pointers p WHERE p.unit_id=r.unit_id AND p.owner_id=r.owner_id AND p.active_release_id=r.id) AS active, \
+ EXISTS(SELECT 1 FROM audio_release_withdrawals w WHERE w.release_id=r.id) AS withdrawn, \
+ EXISTS(SELECT 1 FROM audio_renditions n JOIN audio_submission_revocations v ON v.submission_id=n.submission_id WHERE n.id=r.rendition_id) AS revoked, \
+ (SELECT c.digest FROM audio_distribution_clearances c WHERE c.candidate_id=r.candidate_id AND c.owner_id=r.owner_id \
+  AND c.sequence=(SELECT max(c2.sequence) FROM audio_distribution_clearances c2 WHERE c2.candidate_id=r.candidate_id AND c2.owner_id=r.owner_id)) AS latest_clearance, \
+ (SELECT a.digest FROM audio_publication_approvals a WHERE a.candidate_id=r.candidate_id AND a.owner_id=r.owner_id \
+  AND a.sequence=(SELECT max(a2.sequence) FROM audio_publication_approvals a2 WHERE a2.candidate_id=r.candidate_id AND a2.owner_id=r.owner_id)) AS latest_approval \
+ FROM json_each(?1) b JOIN audio_releases r ON r.id=json_extract(b.value,'$.release') AND r.unit_id=json_extract(b.value,'$.unit') \
+ ORDER BY b.key",
+            &[&bound],
+        )
+        .await?;
+    if rows.len() != asked.len() {
+        return Err(StoreError::CorruptRevision);
+    }
+    rows.iter()
+        .zip(asked)
+        .map(|(row, (unit, release))| {
+            let value = settled_release(row)?;
+            if value.document().id != *release || value.document().manifest.unit_id != *unit {
+                return Err(StoreError::CorruptRevision);
+            }
+            Ok(LiveRelease {
+                release: value,
+                active: flag(row, "active")?,
+                withdrawn: flag(row, "withdrawn")?,
+                submission_revoked: flag(row, "revoked")?,
+                latest_clearance: row
+                    .try_get("latest_clearance")
+                    .map_err(|_| StoreError::CorruptRevision)?,
+                latest_approval: row
+                    .try_get("latest_approval")
+                    .map_err(|_| StoreError::CorruptRevision)?,
+            })
+        })
+        .collect()
+}

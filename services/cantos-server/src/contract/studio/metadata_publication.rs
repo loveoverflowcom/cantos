@@ -42,6 +42,15 @@ pub enum MetadataPublicationRequest {
         operation_id: String,
         expected_version: u64,
     },
+    /// Associate one published Unit with the release its audio pointer names now. An exact pin
+    /// needs no confirmation; a display-only difference needs `confirm_display_only_drift`.
+    AssociateAudio {
+        operation_id: String,
+        expected_version: u64,
+        unit_id: String,
+        release_id: String,
+        confirm_display_only_drift: bool,
+    },
 }
 
 impl MetadataPublicationRequest {
@@ -50,7 +59,8 @@ impl MetadataPublicationRequest {
             Self::Publish { operation_id, .. }
             | Self::PublishUnit { operation_id, .. }
             | Self::WithdrawUnit { operation_id, .. }
-            | Self::Withdraw { operation_id, .. } => operation_id,
+            | Self::Withdraw { operation_id, .. }
+            | Self::AssociateAudio { operation_id, .. } => operation_id,
         }
     }
 
@@ -67,6 +77,9 @@ impl MetadataPublicationRequest {
             }
             | Self::Withdraw {
                 expected_version, ..
+            }
+            | Self::AssociateAudio {
+                expected_version, ..
             } => *expected_version,
         }
     }
@@ -80,6 +93,23 @@ pub enum MetadataPublicationLifecycle {
     Withdrawn,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MetadataAudioBasis {
+    Exact,
+    DisplayOnly,
+}
+
+/// The exact release an entry is associated with. A fact, not a playback state: the release
+/// may since have been withdrawn or superseded, which the live listener gate applies.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataGenerationAudio {
+    pub release_id: String,
+    pub release_digest: String,
+    pub basis: MetadataAudioBasis,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct MetadataGenerationEntry {
@@ -87,6 +117,9 @@ pub struct MetadataGenerationEntry {
     pub unit_id: String,
     pub revision: u64,
     pub digest: String,
+    /// `null` is metadata-only.
+    #[serde(deserialize_with = "required_nullable")]
+    pub audio: Option<MetadataGenerationAudio>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

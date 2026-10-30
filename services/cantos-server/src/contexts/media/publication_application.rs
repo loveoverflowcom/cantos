@@ -418,6 +418,21 @@ async fn commit(
         },
     )
     .await?;
+    // D06c: the same write unit associates the release with the Unit's ACTIVE metadata
+    // generation entry when it pins exactly that revision; otherwise nothing is written and
+    // Studio's generation state shows the entry metadata-only ("audio ready, not associated").
+    catalog::activate_audio(
+        tx,
+        &permit.owner,
+        &permit.unit,
+        super::generation_audio::release_pin(release)?,
+        d.published_at,
+    )
+    .await
+    .map_err(|e| match e {
+        catalog::CatalogStoreError::Storage(e) => e,
+        _ => StoreError::CorruptRevision,
+    })?;
     Ok(())
 }
 /// Media-owned composition of metadata authority and a publication delivery consumer.

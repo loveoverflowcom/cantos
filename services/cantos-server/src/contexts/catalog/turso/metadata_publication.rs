@@ -1,9 +1,13 @@
-//! Persistence for metadata publication generations (server.db v31). The application owns the
-//! transaction, owner authority and the pure decision; this module stores admitted values and
-//! rechecks every pin against the stored revision bytes when it reads them back.
+//! Persistence for metadata publication generations (server.db v31) and their audio pins
+//! (v32). The application owns the transaction, owner authority and the pure decision; this
+//! module stores admitted values and rechecks every pin against the stored revision bytes when
+//! it reads them back.
+use std::collections::BTreeMap;
+
 use super::super::domain::{
     metadata_publication::{
-        Generation, GenerationNumber, Live, Pin, PublicationState, PublicationVersion, Published,
+        AudioAssociation, AudioBasis, AudioRef, Generation, GenerationNumber, Live, Pin,
+        PublicationState, PublicationVersion, Published,
     },
     ContentUnitId, Revision, Work,
 };
@@ -84,19 +88,57 @@ pub(crate) async fn generation(
     if usize::try_from(count).ok() != Some(rows.len()) {
         return Err(StoreError::CorruptRevision);
     }
+    let mut audio = associations(tx, work, number_value).await?;
     let mut entries = Vec::with_capacity(rows.len());
     for (index, entry) in rows.iter().enumerate() {
         let position: i64 = get(entry, "position")?;
         if usize::try_from(position).ok() != Some(index + 1) {
             return Err(StoreError::CorruptRevision);
         }
-        let unit = ContentUnitId::parse(&get::<String>(entry, "unit_id")?)
-            .map_err(|_| StoreError::CorruptRevision)?;
-        entries.push((unit, pin(entry, "unit_revision", "unit_digest")?));
+        let raw: String = get(entry, "unit_id")?;
+        let unit = ContentUnitId::parse(&raw).map_err(|_| StoreError::CorruptRevision)?;
+        let association = audio.remove(&raw);
+        entries.push((
+            unit,
+            pin(entry, "unit_revision", "unit_digest")?,
+            association,
+        ));
+    }
+    // Every pin names an entry of its own generation (also a foreign key).
+    if !audio.is_empty() {
+        return Err(StoreError::CorruptRevision);
     }
     Generation::restore(number, pin(&row, "work_revision", "work_digest")?, entries)
         .map(Some)
         .map_err(|_| StoreError::CorruptRevision)
+}
+
+async fn associations(
+    tx: &Tx<'_>,
+    work: &str,
+    generation: i64,
+) -> Result<BTreeMap<String, AudioAssociation>, StoreError> {
+    let rows = tx
+        .query(
+            "SELECT unit_id,release_id,release_digest,basis FROM catalog_metadata_generation_audio WHERE work_id=?1 AND generation=?2",
+            &[&work, &generation],
+        )
+        .await?;
+    rows.iter()
+        .map(|row| {
+            let release = AudioRef::new(
+                &get::<String>(row, "release_id")?,
+                &get::<String>(row, "release_digest")?,
+            )
+            .map_err(|_| StoreError::CorruptRevision)?;
+            let basis = AudioBasis::parse(&get::<String>(row, "basis")?)
+                .map_err(|_| StoreError::CorruptRevision)?;
+            Ok((
+                get(row, "unit_id")?,
+                AudioAssociation::restore(release, basis),
+            ))
+        })
+        .collect()
 }
 
 /// The pointer as the domain sees it; a missing pointer is the only `NeverPublished`.
@@ -270,6 +312,20 @@ pub(crate) async fn insert_generation(
             ],
         )
         .await?;
+        if let Some(audio) = entry.audio() {
+            tx.execute(
+                "INSERT INTO catalog_metadata_generation_audio(work_id,generation,unit_id,release_id,release_digest,basis) VALUES(?1,?2,?3,?4,?5,?6)",
+                &[
+                    &work,
+                    &number,
+                    &entry.unit().as_str(),
+                    &audio.release().release(),
+                    &audio.release().digest(),
+                    &audio.basis().as_str(),
+                ],
+            )
+            .await?;
+        }
     }
     Ok(())
 }

@@ -1,9 +1,10 @@
-//! Pure metadata publication generations (ADR 0054 D01/D02/D05,
+//! Pure metadata publication generations (ADR 0054 D01/D02/D05/D06,
 //! `docs/decisions/0054-publication-generation-and-access.md`). Catalog keeps the only editing
 //! head: a generation pins exact saved Work/Unit revisions in an explicit published order, and
-//! one versioned pointer per Work carries the lifecycle for compare-and-set. The shell supplies
-//! IDs, digests, rights facts and time; nothing here reads a current head, a mutable Catalog
-//! position or an unselected Unit.
+//! one versioned pointer per Work carries the lifecycle for compare-and-set. An entry may also
+//! pin one exact audio release (D06); that pin is a fact, never a playback right. The shell
+//! supplies IDs, digests, rights facts, release pins and time; nothing here reads a current
+//! head, a mutable Catalog position, an unselected Unit or a "latest" audio release.
 use std::collections::BTreeSet;
 
 use unicode_normalization::UnicodeNormalization;
@@ -51,6 +52,14 @@ pub enum PublicationError {
     InvalidVersion,
     VersionLimit,
     InvalidTimestamp,
+    /// The release pin is not a canonical release ID and release document digest.
+    InvalidAudioRef,
+    /// The named release is not the Unit's active audio release (no substitute, D06).
+    ReleaseNotActive,
+    /// The release differs from the entry beyond the display-only fields (D06a).
+    AudioIncompatible,
+    /// A display-only difference needs the owner's explicit confirmation (D06b).
+    AudioConfirmationRequired,
     /// A stored generation or pointer contradicts the invariants below.
     Corrupt,
 }
@@ -134,12 +143,168 @@ impl Pin {
     }
 }
 
+/// One settled audio release as Media identifies it: the release ID and the digest of the
+/// immutable release document. It names exact bytes, approval and rights evidence; it never
+/// resolves to a newer release.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AudioRef {
+    release: String,
+    digest: String,
+}
+
+impl AudioRef {
+    pub fn new(release: &str, digest: &str) -> Result<Self, PublicationError> {
+        let hex = digest
+            .strip_prefix("rl-r1:sha256:")
+            .ok_or(PublicationError::InvalidAudioRef)?;
+        if crate::platform::ids::canonical_uuid(release).as_deref() != Some(release)
+            || hex.len() != 64
+            || !hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Err(PublicationError::InvalidAudioRef);
+        }
+        Ok(Self {
+            release: release.to_owned(),
+            digest: digest.to_owned(),
+        })
+    }
+
+    pub fn release(&self) -> &str {
+        &self.release
+    }
+
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+}
+
+/// The exact metadata revisions a release was approved against, as Media's manifest pins them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReleasePin {
+    pub release: AudioRef,
+    pub work_revision: Revision,
+    pub unit_revision: Revision,
+}
+
+/// D06 outcome of comparing a release's pinned metadata with a generation entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AudioCompatibility {
+    /// The release pins exactly the entry's Unit revision (D06, first rule).
+    Exact,
+    /// Only display-only fields differ: Work title/synopsis, Unit title/description (D06a).
+    DisplayOnly,
+    /// Content, language, kind or rights differ; the entry stays metadata-only.
+    Incompatible,
+}
+
+/// The D06 compatibility matrix. `released_*` are the snapshots at the revisions the release
+/// manifest pins; `work`/`unit` are the generation's pins. Work `visibility` is editorial
+/// metadata and never a listener gate (D05b), so it takes no part. Rights references are
+/// compared as sets, languages as case-insensitive BCP-47 tags.
+pub fn audio_compatibility(
+    released_work: &Work,
+    released_unit: &ContentUnit,
+    work: &Work,
+    unit: &ContentUnit,
+) -> AudioCompatibility {
+    fn rights(work: &Work) -> BTreeSet<&String> {
+        work.details().rights_refs.iter().collect()
+    }
+    let (released, entry) = (released_unit.details(), unit.details());
+    let same = released_work.id() == work.id()
+        && released_work.owner_id() == work.owner_id()
+        && released_work.kind() == work.kind()
+        && released_unit.id() == unit.id()
+        && released_unit.work_id() == work.id()
+        && unit.work_id() == work.id()
+        && released_unit.kind() == unit.kind()
+        && released_work
+            .details()
+            .language
+            .eq_ignore_ascii_case(&work.details().language)
+        && rights(released_work) == rights(work)
+        && released.source == entry.source
+        && released.script == entry.script
+        && released.content_digest == entry.content_digest;
+    if !same {
+        AudioCompatibility::Incompatible
+    } else if released_unit.revision() == unit.revision() {
+        AudioCompatibility::Exact
+    } else {
+        AudioCompatibility::DisplayOnly
+    }
+}
+
+/// How an association was admitted; a display-only one always carries the owner's receipt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AudioBasis {
+    Exact,
+    DisplayOnly,
+}
+
+impl AudioBasis {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::DisplayOnly => "display_only",
+        }
+    }
+
+    pub fn parse(stored: &str) -> Result<Self, PublicationError> {
+        match stored {
+            "exact" => Ok(Self::Exact),
+            "display_only" => Ok(Self::DisplayOnly),
+            _ => Err(PublicationError::Corrupt),
+        }
+    }
+}
+
+/// An entry's audio association. Only `admit` creates a new one, from a compatibility result.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AudioAssociation {
+    release: AudioRef,
+    basis: AudioBasis,
+}
+
+impl AudioAssociation {
+    /// Exact pins associate on their own; a display-only drift needs `owner_confirmed`;
+    /// anything else is refused, so the entry stays metadata-only.
+    pub fn admit(
+        release: AudioRef,
+        compatibility: AudioCompatibility,
+        owner_confirmed: bool,
+    ) -> Result<Self, PublicationError> {
+        let basis = match compatibility {
+            AudioCompatibility::Exact => AudioBasis::Exact,
+            AudioCompatibility::DisplayOnly if owner_confirmed => AudioBasis::DisplayOnly,
+            AudioCompatibility::DisplayOnly => {
+                return Err(PublicationError::AudioConfirmationRequired)
+            }
+            AudioCompatibility::Incompatible => return Err(PublicationError::AudioIncompatible),
+        };
+        Ok(Self { release, basis })
+    }
+
+    pub fn restore(release: AudioRef, basis: AudioBasis) -> Self {
+        Self { release, basis }
+    }
+
+    pub fn release(&self) -> &AudioRef {
+        &self.release
+    }
+
+    pub fn basis(&self) -> AudioBasis {
+        self.basis
+    }
+}
+
 /// One published Unit. Its published position is its index in the generation, never the
 /// Catalog `position` stored in the Unit snapshot.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublishedEntry {
     unit: ContentUnitId,
     pin: Pin,
+    audio: Option<AudioAssociation>,
 }
 
 impl PublishedEntry {
@@ -149,6 +314,16 @@ impl PublishedEntry {
 
     pub fn pin(&self) -> &Pin {
         &self.pin
+    }
+
+    /// `None` is metadata-only (`playback: null`).
+    pub fn audio(&self) -> Option<&AudioAssociation> {
+        self.audio.as_ref()
+    }
+
+    /// The same entry with an exact association offered by the shell for its pin.
+    pub fn with_audio(self, audio: Option<AudioAssociation>) -> Self {
+        Self { audio, ..self }
     }
 }
 
@@ -200,6 +375,7 @@ pub fn admit_unit(
     Ok(PublishedEntry {
         unit: pinned.id().clone(),
         pin: Pin::new(revision, digest)?,
+        audio: None,
     })
 }
 
@@ -231,11 +407,11 @@ impl Generation {
     pub fn restore(
         number: GenerationNumber,
         work: Pin,
-        entries: Vec<(ContentUnitId, Pin)>,
+        entries: Vec<(ContentUnitId, Pin, Option<AudioAssociation>)>,
     ) -> Result<Self, PublicationError> {
         let entries: Vec<_> = entries
             .into_iter()
-            .map(|(unit, pin)| PublishedEntry { unit, pin })
+            .map(|(unit, pin, audio)| PublishedEntry { unit, pin, audio })
             .collect();
         check_entries(&entries).map_err(|_| PublicationError::Corrupt)?;
         Ok(Self {
@@ -265,6 +441,11 @@ impl Generation {
 
     fn contains(&self, unit: &ContentUnitId) -> bool {
         self.entries.iter().any(|entry| &entry.unit == unit)
+    }
+
+    /// The entry of `unit`, if this generation publishes it.
+    pub fn entry(&self, unit: &ContentUnitId) -> Option<&PublishedEntry> {
+        self.entries.iter().find(|entry| &entry.unit == unit)
     }
 }
 
@@ -384,7 +565,8 @@ impl PublicationState {
         }
     }
 
-    fn active(&self) -> Result<&Published, PublicationError> {
+    /// The ACTIVE pointer, or `NotActive` (per-Unit actions, withdrawal, association).
+    pub fn active(&self) -> Result<&Published, PublicationError> {
         match self {
             Self::Published(published) if published.lifecycle == Live::Active => Ok(published),
             _ => Err(PublicationError::NotActive),
@@ -410,6 +592,28 @@ pub enum PublicationChange {
     },
     /// Withdraw the Work: the pointer turns WITHDRAWN; generations and history stay.
     Withdraw,
+    /// Associate one published entry with an admitted release (D06b owner command, or D06c
+    /// activation); every other entry is copied.
+    AssociateAudio {
+        unit: ContentUnitId,
+        audio: AudioAssociation,
+    },
+}
+
+/// An entry keeps the association of the ACTIVE generation's entry with the same Unit pin
+/// under the same Work pin, unless the shell offers a new exact one. A changed Unit or Work pin
+/// never inherits an association (the Work's language or rights may have changed), and a
+/// publication from NEVER_PUBLISHED or WITHDRAWN revives no earlier owner decision.
+fn carry_audio(active: Option<&Published>, work: &Pin, entry: PublishedEntry) -> PublishedEntry {
+    if entry.audio.is_some() {
+        return entry;
+    }
+    let prior = active
+        .filter(|published| &published.generation.work == work)
+        .and_then(|published| published.generation.entry(&entry.unit))
+        .filter(|prior| prior.pin == entry.pin)
+        .and_then(|prior| prior.audio.clone());
+    entry.with_audio(prior)
 }
 
 /// The settled pointer after one command. `created` says whether `generation` is new and must
@@ -439,6 +643,10 @@ pub fn decide(
     let (lifecycle, work, entries) = match change {
         PublicationChange::Publish { work, entries } => {
             check_entries(&entries)?;
+            let entries: Vec<_> = entries
+                .into_iter()
+                .map(|entry| carry_audio(state.active().ok(), &work, entry))
+                .collect();
             if let Ok(active) = state.active() {
                 let same = active.generation.work == work && active.generation.entries == entries;
                 if same {
@@ -449,6 +657,7 @@ pub fn decide(
         }
         PublicationChange::PublishUnit { entry, position } => {
             let active = state.active()?;
+            let entry = carry_audio(Some(active), &active.generation.work, entry);
             let mut entries: Vec<_> = active
                 .generation
                 .entries
@@ -480,6 +689,29 @@ pub fn decide(
                 .filter(|current| current.unit != unit)
                 .cloned()
                 .collect();
+            (Live::Active, active.generation.work.clone(), entries)
+        }
+        PublicationChange::AssociateAudio { unit, audio } => {
+            let active = state.active()?;
+            if !active.generation.contains(&unit) {
+                return Err(PublicationError::UnitNotPublished { unit });
+            }
+            let entries: Vec<_> = active
+                .generation
+                .entries
+                .iter()
+                .map(|current| {
+                    let entry = current.clone();
+                    if current.unit == unit {
+                        entry.with_audio(Some(audio.clone()))
+                    } else {
+                        entry
+                    }
+                })
+                .collect();
+            if entries == active.generation.entries {
+                return Err(PublicationError::Unchanged);
+            }
             (Live::Active, active.generation.work.clone(), entries)
         }
         PublicationChange::Withdraw => {

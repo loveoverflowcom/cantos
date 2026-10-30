@@ -267,6 +267,8 @@ mod port_ack_tests;
 #[cfg(test)]
 mod fictional_sample_operator_tests;
 #[cfg(test)]
+mod metadata_audio_tests;
+#[cfg(test)]
 mod metadata_publication_tests;
 #[cfg(test)]
 mod sample_metadata_application_tests;

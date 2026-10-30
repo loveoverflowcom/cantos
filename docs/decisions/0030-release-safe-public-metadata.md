@@ -10,9 +10,10 @@
 - Related issue or PR: [#177](https://github.com/loveoverflowcom/cantos/issues/177),
   prerequisite [#157](https://github.com/loveoverflowcom/cantos/issues/157)
 - Supersedes / superseded by: N/A; existing Discovery v1 remains authoritative.
-  [ADR 0054](0054-publication-generation-and-access.md) (accepted 2026-10-30, not implemented)
-  makes metadata authority generation-pinned for every Work (D02/D06); option B describes current
-  behavior until that slice lands
+  [ADR 0054](0054-publication-generation-and-access.md) (accepted 2026-10-30) makes metadata
+  authority generation-pinned for every Work (D02/D06). The Server implements generations (S02)
+  and exact audio association (S03), but no Theatre route reads them until S05, so option B
+  describes current listener behavior until that slice lands
 
 ## Context
 

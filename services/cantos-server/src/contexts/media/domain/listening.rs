@@ -108,6 +108,43 @@ pub fn access_window_valid(published: i64, expires: i64, now: i64) -> bool {
     published >= 0 && published <= now && now < expires
 }
 
+/// Live facts about one release a metadata generation associates with a Unit (ADR 0054 D06),
+/// read in the listener's own snapshot. The association is a pin, never a right.
+#[derive(Clone, Copy)]
+pub struct AssociatedReleaseFacts<'a> {
+    pub release: &'a AudioRelease,
+    /// The release document digest the generation entry pinned.
+    pub pinned_digest: &'a str,
+    /// The Unit's audio pointer names this release now (not withdrawn, not superseded).
+    pub active: bool,
+    pub withdrawn: bool,
+    pub submission_revoked: bool,
+    /// Digests of the candidate's latest distribution clearance and publication approval.
+    pub latest_clearance: Option<&'a str>,
+    pub latest_approval: Option<&'a str>,
+    pub now: i64,
+}
+
+/// CanPlay's release half for the generation lane: the exact pinned release is still the
+/// Unit's active release, neither withdrawn nor revoked, its own clearance and approval are
+/// still the latest records (a later revocation or withdrawal record replaces them) and its
+/// access window is open. Metadata visibility is the caller's separate gate.
+pub fn associated_release_playable(f: &AssociatedReleaseFacts<'_>) -> bool {
+    let d = f.release.document();
+    let m = &d.manifest;
+    d.digest == f.pinned_digest
+        && f.active
+        && !f.withdrawn
+        && !f.submission_revoked
+        && f.latest_clearance == Some(m.distribution_clearance.digest.as_str())
+        && f.latest_approval == Some(m.publication_approval.digest.as_str())
+        && access_window_valid(
+            d.published_at,
+            m.distribution_clearance.request.valid_until,
+            f.now,
+        )
+}
+
 pub struct ListenerFacts<'a> {
     pub release: &'a AudioRelease,
     pub pinned_work: &'a Work,

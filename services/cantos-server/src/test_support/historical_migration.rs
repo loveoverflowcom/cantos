@@ -419,3 +419,191 @@ async fn v28_to_v29_preserves_existing_artwork_rows_and_admits_avif() {
     assert_eq!(legacy_error, guard("policy.avif_only"));
     tx.commit().await.unwrap();
 }
+
+/// v32 rebuilds the metadata publication event and pointer tables only to admit the audio
+/// association actions (#649). A v31 file's publish/withdraw/republish history, receipts,
+/// pointer and recency anchor survive byte-for-byte; the rebuilt guards still refuse rewrites,
+/// replays and unknown actions, and the next association event settles on top.
+#[tokio::test]
+async fn v31_metadata_publications_survive_the_v32_rebuild_with_their_guards() {
+    let run = TestRun::new("metadata-v31-v32");
+    let path = run.path("server.db");
+    let v31 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..31]).unwrap();
+    let v32 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..32]).unwrap();
+    let old = OwnedDatabase::open(OpenRequest::new(&path, v31, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    let work = "65000000-0000-4000-8000-000000000001";
+    let unit = "66000000-0000-4000-8000-000000000001";
+    let (w, u) = ("a".repeat(64), "b".repeat(64));
+    let op = |n: u8| format!("67000000-0000-4000-8000-0000000000{n:02x}");
+    let tx = old.begin_write().await.unwrap();
+    for (sql, values) in [
+        ("INSERT INTO actors(id,active) VALUES('alice',1)", vec![]),
+        (
+            "INSERT INTO catalog_works(id,owner_id,kind,lifecycle,head_revision) VALUES(?1,'alice','novel','draft',1)",
+            vec![text(work)],
+        ),
+        (
+            "INSERT INTO catalog_work_revisions(work_id,revision,snapshot,snapshot_digest,recorded_by) VALUES(?1,1,X'7B7D',?2,'alice')",
+            vec![text(work), text(&w)],
+        ),
+        (
+            "INSERT INTO catalog_units(id,work_id,work_kind,kind,head_revision,\"position\",lifecycle) VALUES(?1,?2,'novel','chapter',1,1,'draft')",
+            vec![text(unit), text(work)],
+        ),
+        (
+            "INSERT INTO catalog_unit_revisions(unit_id,revision,snapshot,snapshot_digest,recorded_by) VALUES(?1,1,X'7B7D',?2,'alice')",
+            vec![text(unit), text(&u)],
+        ),
+    ] {
+        tx.execute(sql, params_from_iter(values)).await.unwrap();
+    }
+    // publish (v1, generation 1), withdraw (v2), republish (v3, generation 2).
+    for (generation, at) in [(1_i64, 1_000_i64), (2, 3_000)] {
+        tx.execute(
+            "INSERT INTO catalog_metadata_generations(work_id,generation,owner_id,kind,work_revision,work_digest,entry_count,language,search_text,recorded_by,recorded_at_ms) VALUES(?1,?2,'alice','novel',1,?3,1,'vi-vn','mùa trăng','alice',?4)",
+            params_from_iter([text(work), Value::Integer(generation), text(&w), Value::Integer(at)]),
+        )
+        .await
+        .unwrap();
+        tx.execute(
+            "INSERT INTO catalog_metadata_generation_entries(work_id,generation,position,unit_id,unit_revision,unit_digest) VALUES(?1,?2,1,?3,1,?4)",
+            params_from_iter([text(work), Value::Integer(generation), text(unit), text(&u)]),
+        )
+        .await
+        .unwrap();
+        if generation == 1 {
+            tx.execute(
+                "INSERT INTO catalog_metadata_publication_events(work_id,version,owner_id,action,lifecycle,generation,operation_id,fingerprint,recorded_by,recorded_at_ms) VALUES(?1,1,'alice','publish','active',1,?2,?3,'alice',1000)",
+                params_from_iter([text(work), text(&op(1)), text(&"c".repeat(64))]),
+            )
+            .await
+            .unwrap();
+            tx.execute(
+                "INSERT INTO catalog_metadata_publication_pointers(work_id,owner_id,version,lifecycle,generation,first_visible_at_ms) VALUES(?1,'alice',1,'active',1,1000)",
+                [work],
+            )
+            .await
+            .unwrap();
+            tx.execute(
+                "INSERT INTO catalog_metadata_publication_events(work_id,version,owner_id,action,lifecycle,generation,operation_id,fingerprint,recorded_by,recorded_at_ms) VALUES(?1,2,'alice','withdraw','withdrawn',1,?2,?3,'alice',2000)",
+                params_from_iter([text(work), text(&op(2)), text(&"d".repeat(64))]),
+            )
+            .await
+            .unwrap();
+            tx.execute(
+                "UPDATE catalog_metadata_publication_pointers SET version=2,lifecycle='withdrawn' WHERE work_id=?1",
+                [work],
+            )
+            .await
+            .unwrap();
+        }
+    }
+    tx.execute(
+        "INSERT INTO catalog_metadata_publication_events(work_id,version,owner_id,action,lifecycle,generation,operation_id,fingerprint,recorded_by,recorded_at_ms) VALUES(?1,3,'alice','publish','active',2,?2,?3,'alice',3000)",
+        params_from_iter([text(work), text(&op(3)), text(&"e".repeat(64))]),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        "UPDATE catalog_metadata_publication_pointers SET version=3,lifecycle='active',generation=2 WHERE work_id=?1",
+        [work],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    const EVENTS: &str =
+        "SELECT * FROM catalog_metadata_publication_events ORDER BY work_id,version";
+    const POINTERS: &str = "SELECT * FROM catalog_metadata_publication_pointers";
+    const GENERATIONS: &str = "SELECT * FROM catalog_metadata_generations ORDER BY generation";
+    let before = (
+        owner_values(&old, EVENTS).await,
+        owner_values(&old, POINTERS).await,
+        owner_values(&old, GENERATIONS).await,
+    );
+    let history = history_of(&old).await;
+    drop(old);
+
+    let upgraded = OwnedDatabase::open(OpenRequest::new(&path, v32, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    upgraded.check_integrity().await.unwrap();
+    assert_eq!(history_of(&upgraded).await[..31], history);
+    assert_eq!(
+        (
+            owner_values(&upgraded, EVENTS).await,
+            owner_values(&upgraded, POINTERS).await,
+            owner_values(&upgraded, GENERATIONS).await,
+        ),
+        before
+    );
+    assert_eq!(
+        owner_values(
+            &upgraded,
+            "SELECT count(*) FROM sqlite_schema WHERE name LIKE 'catalog_v32_%'"
+        )
+        .await,
+        vec![vec![Value::Integer(0)]]
+    );
+    let tx = upgraded.begin_write().await.unwrap();
+    for refused in [
+        "UPDATE catalog_metadata_publication_events SET fingerprint=fingerprint",
+        "DELETE FROM catalog_metadata_publication_events",
+        "DELETE FROM catalog_metadata_publication_pointers",
+        "UPDATE catalog_metadata_publication_pointers SET first_visible_at_ms=0",
+        "UPDATE catalog_metadata_publication_pointers SET version=9",
+    ] {
+        assert!(tx.execute(refused, ()).await.is_err(), "{refused}");
+    }
+    tx.execute(
+        "INSERT INTO catalog_metadata_generations(work_id,generation,owner_id,kind,work_revision,work_digest,entry_count,language,search_text,recorded_by,recorded_at_ms) VALUES(?1,3,'alice','novel',1,?2,1,'vi-vn','mùa trăng','alice',4000)",
+        params_from_iter([text(work), text(&w)]),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        "INSERT INTO catalog_metadata_generation_entries(work_id,generation,position,unit_id,unit_revision,unit_digest) VALUES(?1,3,1,?2,1,?3)",
+        params_from_iter([text(work), text(unit), text(&u)]),
+    )
+    .await
+    .unwrap();
+    let event = "INSERT INTO catalog_metadata_publication_events(work_id,version,owner_id,action,lifecycle,generation,operation_id,fingerprint,recorded_by,recorded_at_ms) VALUES(?1,4,'alice',?2,'active',3,?3,?4,'alice',4000)";
+    // Unknown actions, a replayed operation ID and a skipped version are refused.
+    for (action, operation) in [("rewrite", op(4)), ("associate_audio", op(3))] {
+        assert!(tx
+            .execute(
+                event,
+                params_from_iter([
+                    text(work),
+                    text(action),
+                    text(&operation),
+                    text(&"f".repeat(64))
+                ])
+            )
+            .await
+            .is_err());
+    }
+    tx.execute(
+        event,
+        params_from_iter([
+            text(work),
+            text("associate_audio"),
+            text(&op(4)),
+            text(&"f".repeat(64)),
+        ]),
+    )
+    .await
+    .unwrap();
+    tx.execute(
+        "UPDATE catalog_metadata_publication_pointers SET version=4,generation=3 WHERE work_id=?1",
+        [work],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(
+        owner_values(&upgraded, "SELECT version,lifecycle,generation,first_visible_at_ms FROM catalog_metadata_publication_pointers").await,
+        vec![vec![Value::Integer(4), text("active"), Value::Integer(3), Value::Integer(1000)]]
+    );
+}
