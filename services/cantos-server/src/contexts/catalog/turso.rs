@@ -353,6 +353,25 @@ pub(super) async fn list_units(
         .collect()
 }
 
+/// One-based rank of the active Unit at `(position, id)` among the Work's active Units.
+/// Archived tombstones keep their positions but never take a rank.
+pub(super) async fn active_unit_ordinal(
+    tx: &Tx<'_>,
+    work: &str,
+    position: u32,
+    id: &str,
+) -> Result<u32, StoreError> {
+    let position = i64::from(position);
+    let row = tx
+        .query_one(
+            "SELECT count(*) AS ordinal FROM catalog_units WHERE work_id=?1 AND lifecycle<>'archived' AND (position,id)<=(?2,?3)",
+            &[&work, &position, &id],
+        )
+        .await?;
+    let ordinal: i64 = corrupt(row.try_get("ordinal"))?;
+    u32::try_from(ordinal).map_err(|_| StoreError::CorruptRevision)
+}
+
 pub(super) async fn work_history(
     tx: &Tx<'_>,
     work: &str,

@@ -9,6 +9,10 @@
   S03 ([#649](https://github.com/loveoverflowcom/cantos/issues/649)) implements D06a–c (exact
   and owner-confirmed display-only association, same-transaction association on audio
   activation, `server.db` v32) and the live Media playback gate for associated releases;
+  S04 ([#650](https://github.com/loveoverflowcom/cantos/issues/650)) implements D01b/D03 as the
+  Studio-origin [preview v1](../../services/cantos-server/contracts/studio/preview/v1/README.md)
+  read of one exact saved Work revision and its Studio Web view, with no generation read, member
+  cover/audio preview or Theatre-domain preview (B);
   no listener route reads generations yet. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
   [0032](0032-theatre-origin-playback-delivery.md), [0035](0035-theatre-catalog-unit-availability.md)
   and [0051](0051-metadata-only-public-discovery.md) describe actual behavior; ADRs

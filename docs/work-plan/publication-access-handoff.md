@@ -300,3 +300,33 @@ file-backed Turso tests (exact offer, display-only confirmation, incompatibility
 withdrawal/supersession/revocation, replay, concurrent associations, reopen, schema barriers), a
 real-file v31→v32 upgrade preserving publish/withdraw/republish history and its guards, and the
 real Studio HTTP activation journey.
+
+### S04 delivered contract (#650)
+
+S04 implements D01b and D03 without a registry change or a generation read:
+[Studio preview v1](../../services/cantos-server/contracts/studio/preview/v1/README.md)
+(`GET /api/v1/studio/works/{work_id}/preview?work_revision=R`), the pure admission
+[`preview.rs`](../../services/cantos-server/src/contexts/catalog/domain/preview.rs), the Catalog read
+[`preview.rs`](../../services/cantos-server/src/contexts/catalog/application/preview.rs) and Studio Web's
+[`preview.rs`](../../apps/cantos-studio/web/src/live/preview.rs) /
+[`preview_panel.rs`](../../apps/cantos-studio/web/src/live/preview_panel.rs). Choices this boundary
+left to S04:
+
+| Question | S04 answer |
+| --- | --- |
+| What "exact revision set" means | The saved Catalog head the creator names: Work revision R and the active Units at their head revisions, each echoed with its revision. Every Unit change advances the Work revision, so R identifies the set; Catalog does not record Unit membership per older Work revision, so an older R is `409 stale_revision`, never the newer head under the old banner |
+| Authority | Owner and current reader/editor members through the existing Catalog `Action::Read` check, inside the read transaction and again before commit. A stranger, a guest and an absent Work are `404`/`401` and indistinguishable. Delegation credentials and Theatre sessions never reach the route |
+| Archived Work | `409 catalog_conflict` (`lifecycle: archived`); archived Units never take a rank |
+| DTO | Allowlist `{id, kind, revision, title, synopsis, language}` / `{…, ordinal, description}`; no owner, visibility, rights, link, lifecycle, position, digest or timestamp. `ordinal` counts active Units across pages |
+| Cover and audio | Not in v1: Studio shows both unavailable and never substitutes a public asset. The owner's private artwork and audio previews keep their own exact bindings; member cover/audio preview is not implemented |
+| Pagination | Catalog's epoch-bound cursor, scoped to actor, Work and revision; any Catalog write ends a walk with `stale_cursor` |
+| Headers | `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`; no cookie, no HTML, so OpenGraph, sitemap, autocomplete and image URLs do not exist |
+| Studio flow | "Preview saved version" asks for the saved revision it holds; "Save, then preview" arms a follow-up for its own acknowledged save only. A failed or unknown save, an unsaved draft elsewhere and any other operation open nothing. The reply must name the requested Work and revision or it is a reply mismatch |
+| Fencing | The preview is a Facts value: dropped when the saved head moves past it, the Work changes, the actor changes or the Work pane is covered by another route; a pending read is cancelled by the existing request owner |
+
+Presentation is bounded and Studio-owned on the shared tokens and `cantos-ui` components. There is
+no concrete second consumer for a Theatre-shared presentation package yet, so none was added and
+Theatre Web is unchanged. Evidence: pure admission/projection/reducer tests, contract fixtures in
+both readers, real-file Turso Studio router tests (authority, exact revision, side-effect absence
+over Catalog and publication tables, headers, paging) and a real-browser run of the Studio WASM
+against a synthetic API (not Server or Identity).

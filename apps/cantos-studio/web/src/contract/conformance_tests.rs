@@ -122,3 +122,17 @@ fn publication_requests_round_trip_through_the_studio_representation() {
         "publication/v1/fixtures/publish.json"
     ));
 }
+
+#[test]
+fn preview_fixtures_round_trip_and_refuse_catalog_private_fields() {
+    for json in [
+        studio!("preview/v1/fixtures/first-page.json"),
+        studio!("preview/v1/fixtures/last-page-empty-work.json"),
+    ] {
+        same::<StudioPreview>(json);
+        refuses_unknown_field::<StudioPreview>(json);
+        let mut value: Value = serde_json::from_str(json).unwrap();
+        value["work"]["owner_id"] = Value::String("alice".into());
+        assert!(serde_json::from_value::<StudioPreview>(value).is_err());
+    }
+}

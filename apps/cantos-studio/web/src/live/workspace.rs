@@ -329,6 +329,8 @@ pub fn ContentWorkspace(
     actor: Signal<String>,
     locale: Signal<crate::localization::Locale>,
     active: Signal<bool>,
+    /// False while another Studio pane covers this one; the pane stays mounted for its drafts.
+    pane_shown: Signal<bool>,
     session_epoch: Signal<u64>,
     session_pending: Signal<bool>,
     activity: RwSignal<bool>,
@@ -371,6 +373,7 @@ pub fn ContentWorkspace(
     let delegation_dirty = RwSignal::new(false);
     let publication_dirty = RwSignal::new(false);
     let catalog_dirty = RwSignal::new(false);
+    let preview_after_save = RwSignal::new(None::<super::preview::AfterSave>);
     let units_complete = RwSignal::new(false);
     let replace_head = StoredValue::new(None::<(String, super::drafts::ContentForm)>);
     let content_fields = ContentFields {
@@ -688,6 +691,7 @@ pub fn ContentWorkspace(
                 delegation_dirty.set(false);
                 publication_dirty.set(false);
                 catalog_dirty.set(false);
+                preview_after_save.set(None);
                 units_complete.set(false);
                 replace_head.set_value(None);
                 dashboard_query.set(super::dashboard::DashboardQuery::default());
@@ -1354,7 +1358,8 @@ pub fn ContentWorkspace(
                             <h3 id="live-details-title" class="cui-sr-only">{move ||text(Key::TaskDetails,locale.get())}</h3>
                             <Show when=move ||has_work.get()>
                                 <section class="cw-block" aria-labelledby="live-work-details-title"><h4 id="live-work-details-title">{move ||text(Key::WorkDetails,locale.get())}</h4>
-                                    <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty/>
+                                    <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save/>
+                                    <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
                                 </section>
                             </Show>
                             <p class="help" hidden=move ||has_unit.get()||!has_work.get()>{move ||text(Key::NoUnitSelected,locale.get())}</p>

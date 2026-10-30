@@ -28,6 +28,7 @@ impl Operation {
             Command::Works { .. }
             | Command::Work { .. }
             | Command::Units { .. }
+            | Command::Preview { .. }
             | Command::ContentHead { .. }
             | Command::ContentHistory { .. }
             | Command::ContentRevision { .. } => Self::Read,
@@ -91,6 +92,7 @@ impl Target {
             | Command::PatchWork { work, .. }
             | Command::ArchiveWork { work, .. }
             | Command::Units { work, .. }
+            | Command::Preview { work, .. }
             | Command::Reorder { work, .. } => Self::Work(work.clone()),
             Command::CreateUnit { request, .. } => Self::Unit(request.id.clone()),
             Command::PatchUnit { unit, .. }
