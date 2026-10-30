@@ -1,0 +1,31 @@
+{
+  "component_id": "error-state",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-30; one automated reviewer, bounded Chromium/JVM checkpoint",
+  "reference": "Current shared contracts and inspected v9.2 reference/runtime captures; scopes, inherited review and limitations in docs/evidence/theatre-navigation-646-shared-qa.md. Avatar does not establish real profile facts.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "125f1fe66cb42f27fd22987bccff1c9571c92b0293bd6c7e7e43f6cd0577e13e",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; actual renderer tests/lint/build as applicable",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; trusted browser input and native modal observations",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Browser labels, decorative/named semantics, native modal focus/Escape plus component tests; no AT claim",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened the current representative renderer captures and references listed in the report; bounded scope, no pixel-equivalence claim",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    }
+  }
+}

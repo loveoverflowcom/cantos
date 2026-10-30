@@ -317,8 +317,14 @@ fn a_chip_is_a_borderless_tonal_capsule_that_reads_selection_by_tone_and_check()
         css.contains(".cui-filter-chip:is(:disabled, [aria-disabled=\"true\"]) {\n  background: var(--cantos-color-surface-container);"),
         "a blocked or pending chip drops to the resting tone"
     );
-    for gone in ["--cantos-web-chip-radius", "--cantos-web-chip-selected-radius"] {
-        assert!(!FOUNDATION_CSS.contains(gone), "selection no longer changes the shape: {gone}");
+    for gone in [
+        "--cantos-web-chip-radius",
+        "--cantos-web-chip-selected-radius",
+    ] {
+        assert!(
+            !FOUNDATION_CSS.contains(gone),
+            "selection no longer changes the shape: {gone}"
+        );
     }
     assert!(
         !css.contains("border-radius var(--cantos-motion-shape-duration)"),
@@ -349,7 +355,11 @@ fn a_chip_is_a_borderless_tonal_capsule_that_reads_selection_by_tone_and_check()
         .expect("forced-colors keeps the chip visible");
     let forced = FOUNDATION_CSS[..stroke].rfind("@media").unwrap();
     assert!(FOUNDATION_CSS[forced..stroke].starts_with("@media (forced-colors: active)"));
-    assert_eq!(FOUNDATION_CSS.matches(".cui-filter-chip { border:").count(), 1, "no other chip stroke");
+    assert_eq!(
+        FOUNDATION_CSS.matches(".cui-filter-chip { border:").count(),
+        1,
+        "no other chip stroke"
+    );
 }
 
 #[test]

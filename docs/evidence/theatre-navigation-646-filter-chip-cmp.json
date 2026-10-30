@@ -1,0 +1,31 @@
+{
+  "component_id": "filter-chip",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-30; one automated reviewer, bounded Chromium/JVM checkpoint",
+  "reference": "Current shared contracts and inspected v9.2 reference/runtime captures; scopes, inherited review and limitations in docs/evidence/theatre-navigation-646-shared-qa.md. Avatar does not establish real profile facts.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "f96e4ae0013ae5c5d1a48c38d78b5b6ff83ecc0da7e9077f034bc94d8b4338a9",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; actual renderer tests/lint/build as applicable",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; actual JVM composable/input/clock tests; no OS-window claim",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Compose semantics/input assertions in actual JVM tests; no device/AT claim",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened the current representative renderer captures and references listed in the report; bounded scope, no pixel-equivalence claim",
+      "artifact": "docs/evidence/theatre-navigation-646-shared-qa.md"
+    }
+  }
+}

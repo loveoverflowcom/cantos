@@ -42,6 +42,7 @@ import com.cantos.theatre.features.auth.presentation.VerifyEmailScreen
 import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
+import com.cantos.theatre.features.shell.presentation.MePreferences
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.LocalCoverImages
@@ -173,7 +174,9 @@ fun CantosTheatreApp(
             },
             membershipScreen = ui.membership.screen,
             accountContent = { loginFocus, backOverlay ->
-                AccountContent(locale, theme, accountView, onAuth, loginFocus, loginAttempt, backOverlay)
+                AccountContent(locale, accountView, onAuth, loginFocus, loginAttempt,
+                    preferences = { MePreferences(state, ShellCopy(locale, live = true), dispatch, themeMode) },
+                    backOverlay = backOverlay)
             },
             authContent = {
                 val verifier = shell.verification

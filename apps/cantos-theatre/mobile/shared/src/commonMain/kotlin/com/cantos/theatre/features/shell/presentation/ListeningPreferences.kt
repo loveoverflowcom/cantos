@@ -1,5 +1,12 @@
 package com.cantos.theatre.features.shell.presentation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import com.cantos.ui.tokenColor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,12 +58,31 @@ internal fun timerKey(timer: ShellTimer): CopyKey = when (timer) {
     ShellTimer.EndOfEpisode -> CopyKey.TimerEnd
 }
 
+/** One app-owned preference entry. The existing listening rows keep their plain presentation. */
 @Composable
-internal fun PreferenceRow(title: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PreferenceRow(
+    title: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: String? = null,
+    compact: Boolean = false,
+) {
     Surface(onClick = onClick, modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
-        color = MaterialTheme.colorScheme.background) {
-        Row(Modifier.padding(vertical = tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        shape = if (compact) MaterialTheme.shapes.large else RectangleShape,
+        color = if (compact) tokenColor("color.surfaceContainerHigh") else MaterialTheme.colorScheme.background) {
+        Row(Modifier.then(if (compact) Modifier.heightIn(min = tokenDp("size.control"))
+                .padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.sm"))
+            else Modifier.padding(vertical = tokenDp("space.inset"))),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp(if (compact) "space.xs" else "space.sm"))) {
+            if (leadingIcon != null) Box(
+                Modifier.size(tokenDp("size.avatarSmall")).clip(CircleShape)
+                    .background(tokenColor("color.primaryContainer")), contentAlignment = Alignment.Center,
+            ) {
+                Icon(rememberCantosIconVector(leadingIcon), null,
+                    tint = tokenColor("color.onPrimaryContainer"))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 Text(title, style = MaterialTheme.typography.labelLarge)
                 Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7 template-sha256:9198f1c71ec532d8a8e4165e19415abce1090c250a73a72458d425fa1fa3a8ca
+/* Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7 template-sha256:97498a8beb89438c9429ff9c82031ce5dbf1c5f8e55ad049b81314d43fc961d3
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -1579,6 +1579,8 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"]) {
   inline-size: 100%;
   min-block-size: var(--cantos-size-auth-primary);
+  /* Keep the icon and a whole short action label together at 320px / 200% root text. */
+  padding-inline: var(--cantos-space-xs);
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-primary"]:not(:disabled) {
   background-color: var(--cantos-color-theatre-profile-action);

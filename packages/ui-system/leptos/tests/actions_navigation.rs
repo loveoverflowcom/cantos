@@ -73,6 +73,7 @@ fn the_action_registry_is_closed_named_and_every_icon_is_decorative() {
         "login",
         "logout",
         "home",
+        "language",
         "mail",
         "person_add",
         "save",

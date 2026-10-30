@@ -9,6 +9,8 @@ pub mod library_sync;
 pub mod media_driver;
 #[cfg(test)]
 mod media_session_tests;
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) mod navigation_layout;
 pub mod player_session;
 pub mod ports;
 pub mod public_cover;

@@ -1933,10 +1933,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Của tôi"
+          "text": "Thư viện"
         },
         "en": {
-          "text": "My library"
+          "text": "Library"
         }
       }
     },
@@ -5828,30 +5828,6 @@
         }
       }
     },
-    "theatre.auth.guest_info_label": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Về chế độ nghe không đăng nhập"
-        },
-        "en": {
-          "text": "About listening without signing in"
-        }
-      }
-    },
-    "theatre.auth.guest_info": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập."
-        },
-        "en": {
-          "text": "You can still explore and listen to public content without signing in."
-        }
-      }
-    },
     "theatre.auth.signed_heading": {
       "args": {},
       "exposure": "production",
@@ -5893,10 +5869,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Cantos Membership"
+          "text": "Cantos Premium"
         },
         "en": {
-          "text": "Cantos Membership"
+          "text": "Cantos Premium"
         }
       }
     },
@@ -5953,10 +5929,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tìm hiểu Membership"
+          "text": "Tìm hiểu Premium"
         },
         "en": {
-          "text": "Explore Membership"
+          "text": "Explore Premium"
         }
       }
     },
@@ -5965,10 +5941,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Theo cách bạn muốn nghe"
+          "text": "Tùy chọn"
         },
         "en": {
-          "text": "The way you like to listen"
+          "text": "Preferences"
         }
       }
     },
@@ -23385,18 +23361,6 @@
         }
       }
     },
-    "theatre.cmp_auth.guest_badge": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Người nghe khách"
-        },
-        "en": {
-          "text": "Guest listener"
-        }
-      }
-    },
     "theatre.cmp_auth.guest_heading": {
       "args": {},
       "exposure": "production",
@@ -23414,10 +23378,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình."
+          "text": "Đăng nhập để mở thư viện của bạn."
         },
         "en": {
-          "text": "You can still explore and play public stories. Sign in when you want to open your own library."
+          "text": "Sign in to open your library."
         }
       }
     },
@@ -25505,6 +25469,138 @@
         },
         "en": {
           "text": "Search results"
+        }
+      }
+    },
+    "theatre.shell.me": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Me"
+        },
+        "en": {
+          "text": "Me"
+        }
+      }
+    },
+    "theatre.auth.return_library": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Thư viện"
+        },
+        "en": {
+          "text": "Back to Library"
+        }
+      }
+    },
+    "theatre.shell.menu": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Menu"
+        },
+        "en": {
+          "text": "Menu"
+        }
+      }
+    },
+    "theatre.shell.collapse_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn điều hướng"
+        },
+        "en": {
+          "text": "Collapse navigation"
+        }
+      }
+    },
+    "theatre.shell.expand_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở rộng điều hướng"
+        },
+        "en": {
+          "text": "Expand navigation"
+        }
+      }
+    },
+    "theatre.shell.close_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng menu"
+        },
+        "en": {
+          "text": "Close menu"
+        }
+      }
+    },
+    "theatre.cmp_shell.preferences_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tùy chọn"
+        },
+        "en": {
+          "text": "Preferences"
+        }
+      }
+    },
+    "theatre.auth.preference_language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ"
+        },
+        "en": {
+          "text": "Language"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_language": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngôn ngữ"
+        },
+        "en": {
+          "text": "Language"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_light": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sáng"
+        },
+        "en": {
+          "text": "Light"
+        }
+      }
+    },
+    "theatre.cmp_shell.preference_dark": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tối"
+        },
+        "en": {
+          "text": "Dark"
         }
       }
     }

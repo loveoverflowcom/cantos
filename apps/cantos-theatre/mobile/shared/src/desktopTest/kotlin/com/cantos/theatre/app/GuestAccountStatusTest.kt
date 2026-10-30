@@ -48,7 +48,7 @@ class GuestAccountStatusTest {
             Box(Modifier.requiredSize(390.dp, 844.dp)) {
                 CantosTheme(UiPreferences(theme = if (theme == ShellTheme.Dark) Theme.Dark else Theme.Light)) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        AccountContent(locale, theme, account, {}, FocusRequester(), attempt) { }
+                        AccountContent(locale, account, {}, FocusRequester(), attempt) { }
                     }
                 }
             }

@@ -8,6 +8,7 @@ pub enum ReturnDestination {
     #[default]
     Home,
     Account,
+    Library,
     Membership,
     MembershipFromAccount,
 }
@@ -17,6 +18,7 @@ impl ReturnDestination {
         match self {
             Self::Home => "home",
             Self::Account => "account",
+            Self::Library => "library",
             Self::Membership => "membership",
             Self::MembershipFromAccount => "membership-account",
         }
@@ -26,6 +28,7 @@ impl ReturnDestination {
         match value {
             "home" => Some(Self::Home),
             "account" => Some(Self::Account),
+            "library" => Some(Self::Library),
             "membership" => Some(Self::Membership),
             "membership-account" => Some(Self::MembershipFromAccount),
             _ => None,
@@ -36,6 +39,7 @@ impl ReturnDestination {
         match self {
             Self::Home => NavigationTarget::Home,
             Self::Account => NavigationTarget::Account,
+            Self::Library => NavigationTarget::Library,
             Self::Membership => NavigationTarget::Membership(MembershipReturn::Home),
             Self::MembershipFromAccount => NavigationTarget::Membership(MembershipReturn::Account),
         }
@@ -140,6 +144,7 @@ impl MembershipReturn {
 pub enum NavigationTarget {
     Home,
     Account,
+    Library,
     Auth(AuthRoute),
     Membership(MembershipReturn),
 }
@@ -245,9 +250,32 @@ impl AuthIntentState {
 mod tests {
     use super::*;
 
-    const ORIGINS: [ReturnDestination; 4] = [
+    #[test]
+    fn library_auth_context_roundtrips_without_accepting_redirect_parameters() {
+        for page in ["login", "register"] {
+            let hash = format!("#{page}?from=library");
+            let route = AuthRoute::from_hash(&hash).unwrap();
+            assert_eq!(route.origin.slug(), "library");
+            assert_eq!(route.hash(), hash);
+        }
+        for context in [
+            "from=library&redirect=https://example.com",
+            "from=library&from=account",
+            "from=%6cibrary",
+            "from=library#account",
+            "from=/library",
+        ] {
+            assert_eq!(
+                AuthRoute::from_hash(&format!("#login?{context}")),
+                Some(AuthRoute::login(ReturnDestination::Home))
+            );
+        }
+    }
+
+    const ORIGINS: [ReturnDestination; 5] = [
         ReturnDestination::Home,
         ReturnDestination::Account,
+        ReturnDestination::Library,
         ReturnDestination::Membership,
         ReturnDestination::MembershipFromAccount,
     ];
@@ -257,6 +285,7 @@ mod tests {
         let cases = [
             (ReturnDestination::Home, NavigationTarget::Home),
             (ReturnDestination::Account, NavigationTarget::Account),
+            (ReturnDestination::Library, NavigationTarget::Library),
             (
                 ReturnDestination::Membership,
                 NavigationTarget::Membership(MembershipReturn::Home),
@@ -280,6 +309,11 @@ mod tests {
     fn hash_reconstruction_restores_back_targets_without_a_browser_stack() {
         let cases = [
             ("#login?from=account", NavigationTarget::Account),
+            ("#login?from=library", NavigationTarget::Library),
+            (
+                "#register?from=library",
+                NavigationTarget::Auth(AuthRoute::login(ReturnDestination::Library)),
+            ),
             (
                 "#register?from=membership",
                 NavigationTarget::Auth(AuthRoute::login(ReturnDestination::Membership)),

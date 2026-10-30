@@ -16,6 +16,8 @@ pub struct LocalPackage {
     pub dir: String,
     /// Names of local packages this one depends on (normal, dev and build).
     pub deps: BTreeSet<String>,
+    /// Local edges present only in Cargo dev-dependencies, never in a runtime/build target.
+    pub dev_only_deps: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -38,6 +40,7 @@ struct MetadataPackage {
 #[derive(Deserialize)]
 struct MetadataDependency {
     path: Option<String>,
+    kind: Option<String>,
 }
 
 impl PackageGraph {
@@ -86,6 +89,7 @@ impl PackageGraph {
                     .context("manifest has no parent directory")?,
             )?;
             let mut deps = BTreeSet::new();
+            let mut production_deps = BTreeSet::new();
             for dependency in &package.dependencies {
                 if let Some(path) = &dependency.path {
                     let dep_dir = relative(Path::new(path))?;
@@ -99,12 +103,16 @@ impl PackageGraph {
                     // on itself; that is not an edge to a different package.
                     if *name != package.name {
                         deps.insert(name.clone());
+                        if dependency.kind.as_deref() != Some("dev") {
+                            production_deps.insert(name.clone());
+                        }
                     }
                 }
             }
             packages.push(LocalPackage {
                 name: package.name.clone(),
                 dir,
+                dev_only_deps: deps.difference(&production_deps).cloned().collect(),
                 deps,
             });
         }
@@ -146,19 +154,20 @@ pub mod testing {
             name: name.into(),
             dir: dir.into(),
             deps: deps.iter().map(|dep| (*dep).to_owned()).collect(),
+            dev_only_deps: BTreeSet::new(),
         };
-        PackageGraph {
+        let mut graph = PackageGraph {
             packages: vec![
                 package("cantos-forge", "services/cantos-forge-functions", &[]),
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
-                    &["cantos-ui", "cantos-web-auth"],
+                    &["cantos-localization", "cantos-ui", "cantos-web-auth"],
                 ),
                 package(
                     "cantos-server",
                     "services/cantos-server",
-                    &["cantos-store-turso"],
+                    &["cantos-identity", "cantos-store-turso"],
                 ),
                 package(
                     "cantos-identity",
@@ -169,13 +178,22 @@ pub mod testing {
                 package(
                     "cantos-theatre",
                     "apps/cantos-theatre/web",
-                    &["cantos-ui", "cantos-web-auth"],
+                    &["cantos-localization", "cantos-ui", "cantos-web-auth"],
                 ),
+                package("cantos-localization", "packages/localization/rust", &[]),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
                 package("cantos-web-auth", "packages/web-auth", &[]),
                 package("xtask", "xtask", &[]),
             ],
-        }
+        };
+        graph
+            .packages
+            .iter_mut()
+            .find(|p| p.name == "cantos-server")
+            .unwrap()
+            .dev_only_deps
+            .insert("cantos-identity".to_owned());
+        graph
     }
 }
 
@@ -196,6 +214,37 @@ mod tests {
         assert_eq!(api.name, "cantos-server");
         assert_eq!(api.deps.iter().collect::<Vec<_>>(), ["cantos-store-turso"]);
         assert!(graph.owner("services/kanidm/README.md").is_none());
+    }
+
+    #[test]
+    fn identity_test_peer_is_dev_only_and_still_participates_in_impact_selection() {
+        for (kind, allowed) in [("dev", true), ("build", false), ("normal", false)] {
+            let kind_json = if kind == "normal" {
+                "null".to_owned()
+            } else {
+                format!("\"{kind}\"")
+            };
+            let json = format!(
+                r#"{{"packages":[
+                {{"name":"cantos-server","manifest_path":"/r/services/cantos-server/Cargo.toml",
+                  "dependencies":[{{"path":"/r/services/cantos-identity","kind":{kind_json}}}]}},
+                {{"name":"cantos-identity","manifest_path":"/r/services/cantos-identity/Cargo.toml","dependencies":[]}}
+            ]}}"#
+            );
+            let graph = PackageGraph::from_metadata(Path::new("/r"), &json).unwrap();
+            assert_eq!(inward_violations(&graph).is_empty(), allowed, "{kind}");
+            assert_eq!(
+                graph.dependents_closure(&["cantos-identity".to_owned()].into()),
+                ["cantos-identity".to_owned(), "cantos-server".to_owned()].into()
+            );
+        }
+        // A normal edge plus the same dev dependency cannot disguise runtime coupling.
+        let json = r#"{"packages":[
+          {"name":"cantos-server","manifest_path":"/r/services/cantos-server/Cargo.toml","dependencies":[
+            {"path":"/r/services/cantos-identity","kind":"dev"},{"path":"/r/services/cantos-identity","kind":null}]},
+          {"name":"cantos-identity","manifest_path":"/r/services/cantos-identity/Cargo.toml","dependencies":[]}] }"#;
+        let graph = PackageGraph::from_metadata(Path::new("/r"), json).unwrap();
+        assert_eq!(inward_violations(&graph), ["cantos-server (services/cantos-server) -> cantos-identity (services/cantos-identity)"]);
     }
 
     #[test]
@@ -252,6 +301,15 @@ mod tests {
                 };
                 let allowed = match (area(&package.dir).as_str(), area(dep_dir).as_str()) {
                     (_, "xtask") => false,
+                    // The accepted native HTTP fixture mutates a stopped, run-owned identity.db.
+                    // Runtime/build imports still cross the private-RPC boundary and are forbidden.
+                    ("services", "services")
+                        if package.name == "cantos-server"
+                            && dep == "cantos-identity"
+                            && package.dev_only_deps.contains(dep) =>
+                    {
+                        true
+                    }
                     ("apps", "apps") => product(&package.dir) == product(dep_dir),
                     ("apps" | "services" | "packages" | "xtask", "packages") => true,
                     _ => false,
@@ -294,6 +352,7 @@ mod tests {
                 .find(|package| package.name == from)
                 .unwrap();
             package.deps.insert(to.to_owned());
+            package.dev_only_deps.remove(to);
         }
         assert_eq!(
             inward_violations(&graph),

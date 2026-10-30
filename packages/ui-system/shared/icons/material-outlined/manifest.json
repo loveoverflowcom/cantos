@@ -184,6 +184,15 @@
       ],
       "path": "packages/ui-system/shared/icons/material-outlined/theme_system.svg",
       "sha256": "e2af26a72c5ebc6b31166d999281410035f3eaa833dcd146a80ed1ca0a6d3509"
+    },
+    "library_spines": {
+      "origin": "cantos-authored",
+      "path": "packages/ui-system/shared/icons/material-outlined/library_spines.svg",
+      "sha256": "cd85b4bfe509d1146b94d6725b1718955ac2c47378736fb773655ecd7f6fa062"
+    },
+    "language": {
+      "path": "src/action/language/materialiconsoutlined/24px.svg",
+      "sha256": "41ea8791f31e264e4f06fcc0b24f92c8284707f9e0612b44690350e625536706"
     }
   }
 }

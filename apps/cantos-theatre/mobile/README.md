@@ -442,7 +442,7 @@ device gaps](../../../docs/evidence/listen-hero-595.md).
   in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
   and client over a JDK transport against a file-backed Server API. The separate authorized
   journey above adds real Identity; neither is device, audio or deployed acceptance.
-- Contextual settings from the account screen: light/dark, vi/en UI and speed/timer preferences.
+- Account/Me owns Light/Dark/System and VI/EN preference rows; its Listening Settings entry retains speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
 Play expresses intent; only a matching engine observation confirms running. The Desktop Preview
@@ -496,12 +496,18 @@ Search adopts the qualified `TextField.FloatingSearch` with its editor-owned tag
 query-on-change/Clear contract. Library's invitation uses the qualified shared `Button`.
 The app-owned search containment reads the dedicated Theatre hero/foreground and heading-weight
 tokens. It does not enable the global Theatre expression or change account/Auth/Membership
-presentation. The one app-owned top bar (#532) composes the official Logo Symbol, a 48 dp tonal
-theme square and a 48 dp circular account action from canonical Theatre roles and
-stable Material controls in the Shell feature. Its person glyph stays anonymous because no
-display name is held; only the actual signed-in account receives the pink container. Guests
-retain Account → Listening settings → Interface language. Shared pointer observation uses
-`pointerInput` so search reopening and outside dismissal compile on native targets too.
+presentation globally. The app-owned Shell header keeps the official Logo and 48 dp Account
+opener; theme and language now live once in the Account/Me preference group. The opener remains
+necessary until the separately scoped native three-root navigation (#583) is implemented.
+Both guest and signed-in Account compose the same compact tonal rows, with canonical mode/globe
+icons and controlled values; the existing PreferenceDialog dispatches to the root
+PreferencesController. Light/Dark/System and host resolution remain intact, theme stays memory-only,
+and rejected locale writes keep the previous value and can be retried through the chooser.
+Listening Settings keeps Speed/Timer/Diagnostics. Shared pointer observation uses `pointerInput`
+so search reopening and outside dismissal compile on native targets too. The guest profile alone
+opts into the admitted Theatre profile recipe; signed-in identity is unchanged. See the
+[preference checkpoint](../../../docs/evidence/theatre-preferences-646.md) for actual Web/JVM
+captures, focused checks and independent Android/device limitations.
 Auth and Membership keep their focused-task headers (the layer guard
 forbids a cross-feature import), so their theme action awaits a shared owner. This is not the
 shared Avatar or tonal IconButton. Avatar, tonal shared IconButton, filters and expression adoption remain separate

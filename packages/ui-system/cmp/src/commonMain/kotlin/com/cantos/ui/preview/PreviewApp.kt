@@ -765,6 +765,15 @@ private fun previewAvatarImage(): ImageBitmap {
 @Composable
 private fun AvatarExample(state: String, modifier: Modifier) {
     val image = remember { previewAvatarImage() }
+    if (state == "sizes") {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically) {
+                AvatarSize.entries.forEach { Avatar("Lan", size = it) }
+            }
+            FieldHelp(SyntheticPreviewText.narratorVi)
+        }
+        return
+    }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
         verticalAlignment = Alignment.CenterVertically) {
         when (state) {
@@ -773,7 +782,6 @@ private fun AvatarExample(state: String, modifier: Modifier) {
             "image" -> Avatar("Đỗ Văn An", image = image)
             // The host passes null after a failed decode; initials return immediately.
             "image-failed" -> Avatar("Đỗ Văn An", image = null)
-            "sizes" -> AvatarSize.entries.forEach { Avatar("Lan", size = it) }
             "named" -> Avatar("岑 昕", initials = AvatarInitials.Pair,
                 accessibleName = AccessibleName.of("Ảnh đại diện của 岑 昕"))
             else -> Avatar("Nguyễn Thị Ánh", stableId = "user-42")

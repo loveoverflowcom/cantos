@@ -306,7 +306,7 @@ mod tests {
             ] {
                 assert!(html.contains(heading), "{heading}");
             }
-            assert!(html.contains("Của tôi"));
+            assert!(html.contains("Thư viện"));
             assert!(html.contains("Lịch sử ghi nhận"));
             assert!(html.contains("href=\"#history\""));
             assert!(!html.contains("role=\"tab"));

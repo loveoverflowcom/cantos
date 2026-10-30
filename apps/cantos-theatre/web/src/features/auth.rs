@@ -30,6 +30,7 @@ fn back_key(route: AuthRoute) -> CopyKey {
         AuthStep::Login => match route.origin {
             ReturnDestination::Home => CopyKey::ReturnHome,
             ReturnDestination::Account => CopyKey::ReturnAccount,
+            ReturnDestination::Library => CopyKey::ReturnLibrary,
             ReturnDestination::Membership | ReturnDestination::MembershipFromAccount => {
                 CopyKey::ReturnMembership
             }
@@ -195,7 +196,7 @@ pub(crate) fn SessionRecovery(
                 </Button>
             </Show>
             <Show when=move || ui.get().can_retry_logout>
-                <Button id=format!("{scope}-logout-retry") variant=ButtonVariant::AuthSecondary
+                <Button id=format!("{scope}-logout-retry") variant=ButtonVariant::AuthSecondary focus_on_press=true
                     icon=IconName::Refresh
                     on_press=Callback::new(move |_| on_logout.run(()))>
                     {move || messages::text(Key::AccountLogoutRetry, locale.get())}
@@ -556,9 +557,10 @@ mod tests {
         after.split('>').next().unwrap().to_owned()
     }
 
-    const ORIGINS: [ReturnDestination; 4] = [
+    const ORIGINS: [ReturnDestination; 5] = [
         ReturnDestination::Home,
         ReturnDestination::Account,
+        ReturnDestination::Library,
         ReturnDestination::Membership,
         ReturnDestination::MembershipFromAccount,
     ];
@@ -568,6 +570,7 @@ mod tests {
         for (origin, back) in [
             (ReturnDestination::Home, "Về Trang chủ"),
             (ReturnDestination::Account, "Về Tài khoản"),
+            (ReturnDestination::Library, "Về Thư viện"),
             (ReturnDestination::Membership, "Về Membership"),
             (ReturnDestination::MembershipFromAccount, "Về Membership"),
         ] {

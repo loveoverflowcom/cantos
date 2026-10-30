@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 42 unmodified SVG files (plus one Cantos-authored glyph, below) come from
+These 43 unmodified SVG files (plus two Cantos-authored glyphs, below) come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -11,13 +11,16 @@ nodes. It replaces the SVG root with `currentColor`, the shared size class,
 `aria-hidden="true"` and `focusable="false"`; child geometry is preserved. It does not inject
 HTML, use a remote CDN/font, accept arbitrary SVG markup or substitute emoji.
 
+`language` is the unmodified upstream globe at `src/action/language/materialiconsoutlined/24px.svg`;
+Me preference rows use the same pinned geometry in Web and CMP.
+
 `visibility` and `visibility_off` are the exception to the Outlined style: the Theatre v4 design
 (issue [#452](https://github.com/loveoverflowcom/cantos/issues/452)) selects the filled Material Icons
 originals, `src/action/visibility{,_off}/materialicons/24px.svg` at the same pinned revision. Their
 manifest paths and hashes record that style; the bytes equal the upstream files. The Outlined
 variants exist upstream, but no consumer selected them.
 
-`theme_system` (issue [#613](https://github.com/loveoverflowcom/cantos/issues/613)) is the one
+`theme_system` (issue [#613](https://github.com/loveoverflowcom/cantos/issues/613)) is a
 Cantos-authored glyph: a split-disc sun with right-hand rays, drawn on the 24-unit grid from the
 `light_mode` and `dark_mode` ring/ray geometry so the three theme modes share one stroke family.
 Its manifest entry records `origin: cantos-authored` and `derived_from` instead of an upstream
@@ -69,3 +72,10 @@ The existing `icon`, `button`/AuthPrimary and `icon-button` previews exercise th
 The [23 October delta](../../../../../docs/evidence/ui-parity-402.md) records the bounded
 Button/Select admission, optional option icons and actual preference/auth consumers.
 Browser/device and remaining #221/#228/#229 acceptance retain their own boundaries.
+
+`library_spines` (#641/#613) is Cantos-authored navigation artwork: two upright spines and one
+slightly tilted. Its filled contours are the 1.5px outline of the owner-supplied v9.1 SVG,
+including rounded corners and spine bands. This preserves identical 24px geometry in the
+existing Leptos SVG and CMP filled-path adapters without a global stroke or scale override.
+The [owner source](https://drive.google.com/file/d/13kHSMHjhWiGa35BFZmz-MzCqc_OWnKxu/view)
+is design provenance, not a Google upstream icon or a personal-profile fact.

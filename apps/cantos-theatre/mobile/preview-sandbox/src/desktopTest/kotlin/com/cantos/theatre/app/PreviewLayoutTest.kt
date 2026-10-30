@@ -40,10 +40,10 @@ class PreviewLayoutTest {
             val signIn = onNodeWithTag("sign-in").fetchSemanticsNode().boundsInRoot
             val membership = onNodeWithTag("account-membership").fetchSemanticsNode().boundsInRoot
             val group = onNodeWithTag("account-settings-group").fetchSemanticsNode().boundsInRoot
-            assertEquals(64f * density.density, avatar.width)
+            assertEquals(40f * density.density, avatar.width)
             assertEquals(avatar.width, avatar.height)
             assertTrue(title.bottom <= profile.top)
-            // A guest is offered the one sign-in action inside the profile card.
+            // Both guest auth actions remain inside the compact profile card.
             assertTrue(profile.top <= avatar.top && avatar.bottom <= signIn.top)
             assertTrue(signIn.bottom <= profile.bottom)
             assertTrue(profile.bottom <= membership.top)
@@ -58,7 +58,9 @@ class PreviewLayoutTest {
             assertTrue(settings.bottom <= mini.top)
             assertTrue(mini.bottom <= tabs.top)
             onNodeWithTag("settings").performClick()
-            onNodeWithTag("setting-Theme").assertIsDisplayed()
+            onNodeWithTag("setting-Speed").assertIsDisplayed()
+            onNodeWithTag("setting-Theme").assertDoesNotExist()
+            onNodeWithTag("setting-Language").assertDoesNotExist()
         }
     }
 

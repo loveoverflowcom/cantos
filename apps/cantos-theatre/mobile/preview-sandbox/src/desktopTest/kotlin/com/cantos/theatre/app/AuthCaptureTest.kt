@@ -90,7 +90,13 @@ class AuthCaptureTest {
     fun account_is_captured_as_guest_and_signed_in() {
         capture("account-guest-light-390x844", 390, 844, account)
         capture("account-guest-dark-390x844", 390, 844, account.themed(ShellTheme.Dark))
+        val english = account.copy(state = account.state.copy(locale = ShellLocale.English))
+        capture("account-guest-light-en-390x844", 390, 844, english)
+        capture("account-guest-dark-en-768x1024", 768, 1024, english.themed(ShellTheme.Dark))
+        capture("account-guest-dark-en-text2-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f)
+        capture("account-guest-dark-en-text2-actions-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f, scrollToTag = "create-account")
         capture("account-guest-light-text2-320x800", 320, 800, account, textScale = 2f)
+        capture("account-guest-light-text2-actions-320x800", 320, 800, account, textScale = 2f, scrollToTag = "create-account")
         capture("account-guest-light-text2-settings-320x800", 320, 800, account, textScale = 2f, scrollToTag = "settings")
         capture("account-guest-light-768x1024", 768, 1024, account)
         capture("account-signed-light-390x844", 390, 844, account) { it.completeLogin() }
@@ -112,6 +118,18 @@ class AuthCaptureTest {
         capture("logout-sheet-light-320x568", 320, 568, account) { it.completeLogin(); it.click("logout") }
         capture("logout-sheet-light-text2-320x800", 320, 800, account, textScale = 2f) { it.completeLogin(); it.click("logout") }
         capture("logout-sheet-light-768x1024", 768, 1024, account) { it.completeLogin(); it.click("logout") }
+    }
+
+    @Test
+    fun compact_me_preferences_and_existing_choosers_are_captured() {
+        capture("me-preferences-light-390x844", 390, 844, account, scrollToTag = "account-preferences")
+        capture("me-preferences-dark-en-text2-320x800", 320, 800,
+            account.copy(state = account.state.copy(theme = ShellTheme.Dark, locale = ShellLocale.English)),
+            textScale = 2f, scrollToTag = "account-preferences")
+        capture("me-theme-dialog-light-390x844", 390, 844, account) { it.click("setting-Theme") }
+        capture("me-language-dialog-dark-text2-320x800", 320, 800, account.themed(ShellTheme.Dark), textScale = 2f) {
+            it.click("setting-Language")
+        }
     }
 
     /** The preview owners plus the Compose test that drives them, so a step can click and settle. */

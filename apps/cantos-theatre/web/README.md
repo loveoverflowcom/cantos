@@ -126,44 +126,51 @@ sites, so this composition does not import them or alter the admission baseline.
 migration needs the existing qualification process; source registration is not runtime approval.
 
 The default entrypoint opens public Home without a login wall. It reads actual published work
-summaries anonymously, independently of session availability. Account opens through the avatar:
-a guest's avatar links to Account, and a signed-in avatar is a disclosure button
-(`features/account_menu.rs`, design v4.1, [#473](https://github.com/loveoverflowcom/cantos/issues/473))
-with real links to membership information, Library and Settings, an informational support line
-(no verified support destination exists, so it is not a control) and a logout entry. The menu
-never invents a name, email, membership or profile-edit action, and a healthy signed-in session
-shows no status line under the name ([#481](https://github.com/loveoverflowcom/cantos/issues/481)).
-The native logout dialog stays mounted for the header lifetime, including guest and session
-checks; only the explicit logout request opens it. This keeps its control signals alive while
-release-WASM effects settle across `SignedIn → Checking → SignedIn`. The primary destinations
-show a decorative selected check, with a token-driven opacity transition and immediate paired
-selection colors; hover preserves that pair and reduced motion removes the transition. See the
-[bounded lifecycle and navigation observations](../../../docs/evidence/theatre-web-navigation-lifecycle.md).
+summaries anonymously, independently of session availability. The live Web shell follows
+[#641 v9.2](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**.
+At 1200 CSS px and above it defaults to a 216px labelled rail; the local toggle collapses it to
+96px without a route/history change. At 600–1199px the default is a 96px icon/caption rail;
+Menu opens the same destinations in a modal drawer without shifting content. Below 600px only
+the header Menu remains. Actual localized text measurements fall back to the drawer when labels
+cannot fit. The drawer is `min(320px, viewport − 32px)` wide; Web has no bottom bar.
+Escape, Close, backdrop, selection and route/history changes close the drawer and release body
+scrolling. Crossing presentation modes also closes it and restores a visible navigation target;
+same-mode resizes preserve it. The current destination gets initial focus. Selected items use
+a filled indicator, bold label and check; keyboard focus has one flush perimeter with no gap.
 
-Discover's intro reads the same mounted `AccountViewState` as the header
-([#538](https://github.com/loveoverflowcom/cantos/issues/538)). Only a guest the owner admits for
-sign-in sees **Đăng nhập / Đăng ký**; a confirmed session shows neither and no extra text.
-Idle/Checking, a failed lookup and an unresolved sign-out show the owner's own status line and
-recovery (`theatre-home-session-*`), so none of them is presented as a guest or as signed in.
+Me (`#account`) contains the single locale and explicit Light/Dark/System selectors as compact
+tonal rows with canonical mode/globe icons, the current value and the existing chooser. Labels
+and icons activate the same control; enlarged text reflows instead of truncating words.
+The labelled group has no additional card around those tonal rows; removing that redundant
+surface/inset keeps the controls full-sized and brings Premium closer. The
+[Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records the
+measured before/after, actual popup/focus and locale-reload observations.
+Account recovery/logout and truthful Cantos Premium information remain present. The header has no locale/theme/avatar
+utilities. `#settings` remains a compatibility entry to the same Me composition; Membership is
+in the Me family. Discover/Search/Work and Library/History retain their own families. Guest
+Library offers auth actions directly with a typed Library return; it does not redirect into Me.
+Only an admitted Guest can start authentication; checking, failed and logout-pending states
+keep their actual recovery and never expose private Library data.
 
-At narrow widths the header puts the official brand, tonal theme action and account entry on
-one row. The compact locale pill moves beside Discover/Library and retains its full accessible
-name, registry options and saved preference; desktop keeps Locale → Theme → Account. Header,
-navigation and content follow the same DOM/focus order as their visual order. The same theme
-signal serves the header, Account and Settings. A confirmed account receives the pink avatar
-container; other phases retain the anonymous account link.
+The shell-owned logout confirmation remains mounted across account phases; an explicit request
+opens it, and one confirmation dispatches at most one intent. Back/Escape/backdrop dismiss;
+normal dismissal restores the opener, and a removed logout opener falls back to main content.
+The same shell-owned player, account and preference signals survive navigation and resize.
+Healthy signed-in copy is absent from Me. The isolated mock retains its earlier two-destination
+layout and remains outside live acceptance.
 
-The header and menu still use the app-private `PersonGlyph`: shared `Avatar` has no two-renderer
-qualification record, so the text avatar (resolved initials, or a neutral `C` without a name)
-waits for #452/#467 admission. Choosing logout closes the menu and opens one shared-Dialog
-confirmation: Back (leading `arrow_back`)/Escape/backdrop dismiss before any intent, focus starts
-on Back and returns to the avatar, and confirm calls the existing logout owner once; the
-dialog then shows the owner's pending or unconfirmed step and closes on the guest transition.
-Browser, screen-reader and real-logout acceptance remain separate. Login and Register are
-explicit secondary routes. The two primary destinations remain
-**Khám phá** and **Của tôi**, following [#35](https://github.com/loveoverflowcom/cantos/issues/35).
-The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
-as required by [#129](https://github.com/loveoverflowcom/cantos/issues/129).
+The shared Avatar now supplies the same neutral person fallback in Me and navigation, following
+[the two-renderer checkpoint](../../../docs/evidence/theatre-navigation-646-shared-qa.md).
+Authorized name/photo facts remain absent under #481, so no initials are derived from an actor ID,
+email buffer or fixture. The admitted canonical three-spine Library vector is generated for both
+renderers under #613. No new profile endpoint or fabricated membership capability is used.
+
+The guest profile is a compact borderless tonal card with a decorative 40-unit avatar and the
+existing filled Login/Register pair. The optional guest-info row/panel and its interaction state
+are removed, including unused copy; public listening remains available. The corresponding CMP
+guest card uses the same scoped Theatre profile roles and leaves signed-in identity unchanged.
+The [guest-card checkpoint](../../../docs/evidence/theatre-guest-tonal-646.md) records current
+paired qualification, actual Web/JVM captures and the separate zoom/device/profile-data gaps.
 
 The live Account/Login surface offers email/password sign-in to every guest behind an
 acknowledged session-cleanup barrier; there is no provider capability to read first, so an API
@@ -171,7 +178,7 @@ without Identity answers the attempt with a clear `404`-based message instead of
 browser keeps the API-issued HttpOnly cookie; this app only holds nonsecret session facts
 (actor, session id, deadlines) in RAM under [the shared owner](../../../packages/web-auth/README.md).
 
-The live **Của tôi** reads Continue, Saved and History with `presentation=1`, limit20 and independent
+The live **Thư viện** reads Continue, Saved and History with `presentation=1`, limit20 and independent
 opaque cursors. It renders released Work/unit titles and canonical UUID Work links directly from
 `Presented*Page` DTOs, retaining exact audio identities, progress revisions, history state and
 resume status. Each section owns loading/empty/page-error/retry/load-more; one Library action refreshes all three lists. Failed next
@@ -194,11 +201,11 @@ pending status. Its current-state intent guard rejects repeats; no completion ef
 steals focus moved by the listener. Section retries/paging keep the existing status focus target.
 
 For a signed-in listener ([#272](https://github.com/loveoverflowcom/cantos/issues/272)), live
-Work detail, **Của tôi** and `#player` synchronize Saved Works, exact-release progress, history
+Work detail, **Thư viện** and `#player` synchronize Saved Works, exact-release progress, history
 starts/clear and paused exact-release resume against `/api/v1/theatre`:
 
 - **Saved Works (`GET/PUT /library/saved/{work}`).** Work detail shows a Save/Unsave control and
-  each Saved row in **Của tôi** offers Unsave. Guests pressing Save on a Work are routed to Login
+  each Saved row in **Thư viện** offers Unsave. Guests pressing Save on a Work are routed to Login
   with a contextual Back return to that Work; guest state is never auto-merged on sign-in.
   Concurrent Save/Unsave intentions on the same Work coalesce into a single desired boolean
   queued behind the in-flight write, advancing `expected_revision` and `device_sequence` from
@@ -213,7 +220,7 @@ starts/clear and paused exact-release resume against `/api/v1/theatre`:
   unacknowledged checkpoint is recovered on the next sign-in via receipt lookup.
   Server reconciliation never uses `max(position)`: `Resolution::KeepServer` adopts the server
   record, while `Resolution::ListenerChooses` exposes an explicit choice between the local
-  position and the server position on `#player` and **Của tôi**.
+  position and the server position on `#player` and **Thư viện**.
 - **History starts and clear (`POST /library/history/playback-starts`, `POST /library/history/clear`).**
   A history start is emitted only after `HTMLAudioElement` (`EngineStarted`) acknowledges
   playback for the current signed-in session, deduplicated per `(engine_identity, publication_id)`
@@ -245,7 +252,7 @@ are `NOT_RUN`.
 The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample
 state is never imported into the authenticated account, and its controls never call live APIs.
 
-- Two primary navigation destinations: **Khám phá** (Discover) and **Của tôi** (My library).
+- Two primary navigation destinations: **Khám phá** (Discover) and **Thư viện** (My library).
   Search and filters belong to Khám phá; account opens through the avatar. Work details,
   full/compact mock player, queue, settings and unknown-route recovery remain hash-routed
   secondary views. The account view shows a guest identity, states that sign-in and sync are not integrated and that data lives only in this session, and links to listening settings and Của tôi; it draws no conflict choice because the mock has no conflict model.

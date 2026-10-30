@@ -30,14 +30,13 @@ use crate::{
     platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonVariant, IconName, Logo, LogoTone, LogoVariant,
-    Select, SelectDensity, SelectLabelPlacement, Theme, ThemeCycleButton,
+    AccessibleName, BackButton, Button, ButtonVariant, Icon, IconName, Logo, LogoTone, LogoVariant,
+    Theme,
 };
 use leptos::prelude::*;
 
-// Registered outline icons (assets/icons) of the two primary destinations.
+// The existing app Home glyph and the admitted canonical Library outline.
 const NAV_ICON_DISCOVER: &str = "home";
-const NAV_ICON_LIBRARY: &str = "library_books";
 
 const CANTOS_BRAND: &str = "Cantos";
 
@@ -50,6 +49,19 @@ pub(crate) fn LiveBrand() -> impl IntoView {
             <Logo variant=LogoVariant::Symbol tone=LogoTone::Dark class="theatre-logo-dark"/>
             <strong class="theatre-live-brand-name">{CANTOS_BRAND}</strong>
         </a>
+    }
+}
+
+/// One route projection reused in the wide rail and the browser-native modal drawer.
+/// The shared neutral avatar is retained until authorized display-name/photo facts exist.
+#[component]
+fn PrimaryNavigation(route: RwSignal<Route>, locale: RwSignal<Locale>) -> impl IntoView {
+    view! {
+        <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
+            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true/><span class="theatre-nav-label">{move || messages::text(Key::Me, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+        </nav>
     }
 }
 
@@ -796,10 +808,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             refresh_account(state);
         }
     });
-    let on_logout = Callback::new(move |()| {
+    let confirm_logout = Callback::new(move |()| {
         crate::live::signup::cancel(signup, preview);
         nav.logout(state);
     });
+    let logout_open = RwSignal::new(false);
+    let on_logout = Callback::new(move |()| logout_open.set(true));
     let on_signup_submit = Callback::new(move |()| {
         if preview {
             signup.update(|current| {
@@ -972,34 +986,63 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         // listener once; failed scrub/reload keeps this owner blocked and exposes no signup IO.
         let _ = signup_browser::discard_link_and_reload();
     });
+    let drawer = NodeRef::<leptos::html::Dialog>::new();
+    let menu_button = NodeRef::<leptos::html::Button>::new();
+    let drawer_close = NodeRef::<leptos::html::Button>::new();
+    let shell = NodeRef::<leptos::html::Div>::new();
+    let rail_toggle = NodeRef::<leptos::html::Button>::new();
+    platform::navigation_drawer::bind(
+        drawer,
+        menu_button,
+        rail_toggle,
+        drawer_close,
+        shell,
+        nav.route.read_only(),
+    );
     view! {
         <super::LiveFrame theme>
             <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
             <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
-            <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
+            <div class="theatre-app theatre-live-app" node_ref=shell data-navigation="drawer" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <div class="theatre-header">
                     <super::LiveContainer>
                     <header class="theatre-topbar">
+                        <button id="theatre-navigation-menu" node_ref=menu_button type="button" class="theatre-action theatre-menu" aria-controls="theatre-navigation-drawer" aria-expanded="false" aria-haspopup="dialog">
+                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
+                            <span>{move || messages::text(Key::Menu, locale.get())}</span>
+                        </button>
                         <div class="theatre-mobile-brand"><LiveBrand/></div>
-                        // On narrow screens the brand shares the header with the two account tools.
                         <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
-                        <LiveTopbarActions state=state.read_only() locale theme route=nav.route on_locale on_logout/>
                     </header>
                     </super::LiveContainer>
                 </div>
-                <aside class="theatre-rail">
-                    <LiveBrand/>
-                    <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
-                        <a class="theatre-nav-link" href="#discover" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span>{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-                        <a class="theatre-nav-link" href="#library" aria-current=move || (nav.route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-                    </nav>
-                    <div class="theatre-mobile-language">
-                        <div class="cui-topbar-actions">
-                            <TopbarLocale id="theatre-mobile-locale" locale on_locale/>
-                        </div>
+                <aside id="theatre-navigation-rail" class="theatre-rail">
+                    <div class="theatre-rail-header">
+                        <LiveBrand/>
+                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-tonal" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
+                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
+                            <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
+                            <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
+                            <span data-toggle-label="collapse">{move || messages::text(Key::CollapseNavigation, locale.get())}</span>
+                            <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
+                        </button>
                     </div>
+                    <PrimaryNavigation route=nav.route locale/>
                 </aside>
+                <dialog id="theatre-navigation-drawer" class="theatre-navigation-drawer" node_ref=drawer aria-labelledby="theatre-drawer-heading">
+                    <header class="theatre-drawer-header">
+                        <div id="theatre-drawer-heading"><LiveBrand/></div>
+                        <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
+                    </header>
+                    <PrimaryNavigation route=nav.route locale/>
+                </dialog>
+                <div class="theatre-navigation-fit" aria-hidden="true">
+                    {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
+                        <span data-navigation-fit="compact">{move || messages::text(key, locale.get())}</span>
+                        <span data-navigation-fit="expanded">{move || messages::text(key, locale.get())}</span>
+                    }).collect_view()}
+                </div>
                 <div class="theatre-content">
                     <super::LiveContainer>
 
@@ -1014,8 +1057,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
                                     on_refresh on_logout
                                     on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
-                                Route::Account => view! { <LiveAccount state=state.read_only() locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
-                                Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
+                                Route::Account | Route::Settings => view! { <LiveAccount state=state.read_only() locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart, focus)| {
                                         if preview || !network_allowed.get_untracked() { return; }
@@ -1024,7 +1066,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                         #[cfg(not(target_arch = "wasm32"))]
                                         let _ = (section, restart, focus);
                                     })/>
-                                    <LibraryAccountEntry state=state.read_only() locale on_account=Callback::new(move |_|nav.open_account())/>
+                                    <LibraryAccess state=state.read_only() locale on_login on_register on_refresh on_logout/>
                                 }.into_any(),
                                 Route::Membership(member) => view! {
                                     <LiveMembership state=state.read_only() locale member
@@ -1055,53 +1097,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                         })>{move || messages::text(Key::ErrorStorageRecovery, locale.get())}</Button>
                     </div>
                 </Show>
+                <crate::features::account_menu::LogoutConfirmation state=state.read_only() locale open=logout_open on_logout=confirm_logout/>
                 <LiveMiniPlayer live route=nav.route/>
                 <crate::features::error_dialog::ErrorWindow center=errors locale on_action=on_error_action/>
             </div>
             </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>
-    }
-}
-
-#[component]
-fn TopbarLocale(
-    id: &'static str,
-    locale: RwSignal<Locale>,
-    on_locale: Callback<String>,
-) -> impl IntoView {
-    view! {
-        <Select id class="theatre-locale-field"
-            density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-            label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-            value=Signal::derive(move || locale.get().lang().to_owned())
-            short_label=Callback::new(|tag: String| tag.split('-').next().map(str::to_owned))
-            options=crate::localization::locale_options()
-            on_input=on_locale/>
-    }
-}
-
-/// The header's utility row, in one fixed order: Locale, Theme, Avatar. `theme` is the same signal
-/// Account and Settings consume, so the three controls never hold separate mode state.
-#[component]
-fn LiveTopbarActions(
-    state: ReadSignal<AccountViewState>,
-    locale: RwSignal<Locale>,
-    theme: RwSignal<Theme>,
-    route: RwSignal<Route>,
-    on_locale: Callback<String>,
-    on_logout: Callback<()>,
-) -> impl IntoView {
-    view! {
-        <div class="theatre-topbar-actions cui-topbar-actions">
-            <TopbarLocale id="theatre-live-locale" locale on_locale/>
-            <ThemeCycleButton
-                id="theatre-topbar-theme"
-                theme=theme
-                variant=ButtonVariant::Tonal
-                labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))
-            />
-            <crate::features::account_menu::AccountEntry state locale route on_logout/>
-        </div>
     }
 }
 
@@ -1119,22 +1120,27 @@ pub(crate) fn LiveRecovery(locale: RwSignal<Locale>, heading: Key, help: Key) ->
     }
 }
 
+/// Library retains its own purpose and auth origin; pending/failure cleanup never becomes Guest.
 #[component]
-fn LibraryAccountEntry(
-    #[prop(optional)] on_account: Option<Callback<()>>,
+fn LibraryAccess(
     state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
+    on_login: Callback<()>,
+    on_register: Callback<()>,
+    on_refresh: Callback<()>,
+    on_logout: Callback<()>,
 ) -> impl IntoView {
-    let phase = Memo::new(move |_| state.with(AccountViewState::phase));
     view! {
-        <Show when=move || phase.get() != SessionPhase::SignedIn>
-            <a id="theatre-library-account" class="theatre-action theatre-action-tonal" href="#account" on:click=move |event|{if let Some(callback)=on_account{event.prevent_default();callback.run(());}}>
-                {move || crate::features::auth_copy::text(crate::features::auth_copy::CopyKey::OpenAccount, locale.get())}
-            </a>
-        </Show>
+        <div class="theatre-library-access">
+            <Show when=move || state.with(AccountViewState::can_authenticate)>
+                <crate::features::auth::AuthActions state locale scope="theatre-library" on_login on_register/>
+            </Show>
+            <crate::features::auth::SessionRecovery state locale scope="theatre-library" on_refresh on_logout/>
+        </div>
     }
 }
 
+#[cfg(feature = "preview")]
 #[component]
 pub(crate) fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) -> impl IntoView {
     view! {
@@ -1142,7 +1148,7 @@ pub(crate) fn LivePreferences(locale: RwSignal<Locale>, theme: RwSignal<Theme>) 
             <h1 id="theatre-preferences-heading">{move || messages::text(Key::Settings, locale.get())}</h1>
             <div class="theatre-account-theme">
                 <label for="theatre-settings-theme">{move || messages::text(Key::Theme, locale.get())}</label>
-                <ThemeCycleButton
+                <cantos_ui::ThemeCycleButton
                     id="theatre-settings-theme"
                     theme=theme
                     labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))
@@ -1275,23 +1281,6 @@ mod tests {
     }
 
     #[test]
-    fn compact_locale_keeps_every_registry_autonym_and_canonical_value() {
-        Owner::new().with(|| {
-            for selected in Locale::supported() {
-                let locale = RwSignal::new(selected);
-                let html = view! {
-                    <TopbarLocale id="locale-probe" locale on_locale=Callback::new(|_: String| ()) />
-                }.to_html();
-                let short = selected.lang().split('-').next().unwrap();
-                assert!(html.contains(&format!(">{short}</span>")), "{html}");
-                assert!(html.contains(selected.autonym()), "{html}");
-                assert!(html.contains(&format!("lang=\"{}\"", selected.lang())), "{html}");
-                assert!(!html.contains("cui-select-leading"), "no invented language icon: {html}");
-            }
-        });
-    }
-
-    #[test]
     fn live_brand_has_one_named_link_with_original_decorative_symbols_and_wordmark() {
         Owner::new().with(|| {
             let html = view! { <LiveBrand/> }.to_html();
@@ -1385,33 +1374,6 @@ mod tests {
     }
 
     #[test]
-    fn guest_library_entry_opens_account_before_any_login_and_hides_for_signed_in_listener() {
-        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
-
-        Owner::new().with(|| {
-            let state = RwSignal::new(AccountViewState::default());
-            guest(state).unwrap();
-            for (language, copy) in [
-                (Locale::Vietnamese, "Mở Tài khoản"),
-                (Locale::English, "Open Account"),
-            ] {
-                let locale = RwSignal::new(language);
-                let html =
-                    view! { <LibraryAccountEntry state=state.read_only() locale/> }.to_html();
-                assert!(html.contains("href=\"#account\""));
-                assert!(html.contains(copy));
-                for absent in ["<button", "#login", "Đăng nhập", "Sign in"] {
-                    assert!(!html.contains(absent), "{absent}");
-                }
-            }
-            signed_in(state, PreviewActor::A).unwrap();
-            let locale = RwSignal::new(Locale::English);
-            let html = view! { <LibraryAccountEntry state=state.read_only() locale/> }.to_html();
-            assert!(!html.contains("theatre-library-account"));
-        });
-    }
-
-    #[test]
     fn unknown_and_unwired_routes_say_so_and_offer_the_way_back_without_sample_content() {
         Owner::new().with(|| {
             for (locale, not_found, unavailable, back) in [
@@ -1455,114 +1417,35 @@ mod tests {
     }
 
     #[test]
-    fn membership_back_names_the_actual_internal_context() {
-        use crate::application::auth_navigation::NavigationTarget;
-        use crate::features::auth_copy::text;
-        for (member, target, vi, en) in [
-            (
-                MembershipReturn::Home,
-                NavigationTarget::Home,
-                "Về Trang chủ",
-                "Back to Home",
-            ),
-            (
-                MembershipReturn::Account,
-                NavigationTarget::Account,
-                "Về Tài khoản",
-                "Back to Account",
-            ),
-        ] {
-            assert_eq!(member.back(), target);
-            assert_eq!(text(membership_back_key(member), Locale::Vietnamese), vi);
-            assert_eq!(text(membership_back_key(member), Locale::English), en);
-        }
-    }
-
-    fn topbar_html(theme: Theme, language: Locale, signed: bool) -> (String, RwSignal<Theme>) {
-        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
-        let state = RwSignal::new(AccountViewState::default());
-        guest(state).unwrap();
-        if signed {
-            signed_in(state, PreviewActor::A).unwrap();
-        }
-        let locale = RwSignal::new(language);
-        let theme = RwSignal::new(theme);
-        let route = RwSignal::new(Route::Discover);
-        let html = view! {
-            <LiveTopbarActions state=state.read_only() locale theme route
-                on_locale=Callback::new(|_| ()) on_logout=Callback::new(|()| ())/>
-        }
-        .to_html();
-        (html, theme)
-    }
-
-    /// The control that went missing from the production header: Locale, then Theme, then Avatar.
-    #[test]
-    fn topbar_actions_render_locale_then_theme_then_avatar_with_one_theme_control() {
+    fn navigation_exposes_exactly_three_localized_native_links_and_one_current_family() {
         Owner::new().with(|| {
-            for signed in [false, true] {
-                for language in Locale::supported() {
-                    let (html, _) = topbar_html(Theme::Dark, language, signed);
-                    let at = |needle: &str| html.find(needle).unwrap_or_else(|| panic!("{needle}"));
-                    let locale = at("id=\"theatre-live-locale\"");
-                    let theme = at("id=\"theatre-topbar-theme\"");
-                    let avatar = at("theatre-avatar");
-                    assert!(locale < theme && theme < avatar, "{html}");
-                    assert_eq!(html.matches("cui-theme-cycle-button").count(), 1);
-                    assert_eq!(
-                        html.matches("id=\"theatre-topbar-theme-tooltip\"").count(),
-                        1
-                    );
-                    assert!(!html.contains("id=\"theatre-settings-theme\""));
-                    assert!(!html.contains("id=\"theatre-account-theme\""));
-                    assert!(html.contains("type=\"button\""));
+            for language in Locale::supported() {
+                for (route, selected) in [(Route::Explore, "#discover"), (Route::History, "#library"), (Route::Settings, "#account"), (Route::Membership(MembershipReturn::Account), "#account")] {
+                    let html = view! { <PrimaryNavigation route=RwSignal::new(route) locale=RwSignal::new(language)/> }.to_html();
+                    assert_eq!(html.matches("<a ").count(), 3);
+                    assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
+                    assert!(html.contains(&format!("href=\"{selected}\" aria-current=\"page\"")), "{html}");
+                    assert!(html.contains(messages::text(Key::Library, language)) && html.contains(">Me</span>"));
                 }
             }
         });
     }
 
     #[test]
-    fn topbar_theme_names_the_current_mode_and_next_action_per_locale() {
+    fn library_auth_is_direct_and_only_the_admitted_guest_can_start_it() {
+        use crate::features::auth_preview::{guest, logout_pending, signed_in, PreviewActor};
         Owner::new().with(|| {
-            for (theme, vi, en) in [
-                (
-                    Theme::Dark,
-                    "Tối · Chuyển sang Sáng",
-                    "Dark · Switch to Light",
-                ),
-                (
-                    Theme::Light,
-                    "Sáng · Chuyển sang Hệ thống",
-                    "Light · Switch to System",
-                ),
-                (
-                    Theme::System,
-                    "Hệ thống · Chuyển sang Tối",
-                    "System · Switch to Dark",
-                ),
-            ] {
-                let (html, _) = topbar_html(theme, Locale::Vietnamese, false);
-                assert!(html.contains(&format!("data-theme=\"{}\"", theme.as_str())));
-                assert!(html.contains(vi), "{vi}: {html}");
-                let (html, _) = topbar_html(theme, Locale::English, false);
-                assert!(html.contains(en), "{en}: {html}");
-            }
-        });
-    }
-
-    #[test]
-    fn topbar_theme_shares_the_signal_that_account_and_settings_read() {
-        Owner::new().with(|| {
-            let locale = RwSignal::new(Locale::Vietnamese);
-            let (_, theme) = topbar_html(Theme::System, Locale::Vietnamese, false);
-            // Account/Settings consumers take the same `RwSignal<Theme>`; one writer cycles all three.
-            assert_eq!(theme.get_untracked().cycle(), Theme::Dark);
-            theme.set(Theme::Dark);
-            let settings = view! { <LivePreferences locale theme/> }.to_html();
-            assert!(settings.contains("data-theme=\"dark\""));
-            theme.set(theme.get_untracked().cycle());
-            let settings = view! { <LivePreferences locale theme/> }.to_html();
-            assert!(settings.contains("data-theme=\"light\""));
+            let state = RwSignal::new(AccountViewState::default());
+            let render = || view! { <LibraryAccess state=state.read_only() locale=RwSignal::new(Locale::English) on_login=Callback::new(|_|()) on_register=Callback::new(|_|()) on_refresh=Callback::new(|_|()) on_logout=Callback::new(|_|())/> }.to_html();
+            assert!(!render().contains("theatre-library-login"));
+            guest(state).unwrap();
+            let guest_html = render();
+            assert!(guest_html.contains("theatre-library-login") && guest_html.contains("theatre-library-register"));
+            assert!(!guest_html.contains("href=\"#account\"") && !guest_html.contains("theatre-account-preferences"));
+            signed_in(state, PreviewActor::A).unwrap();
+            assert!(!render().contains("theatre-library-login"));
+            logout_pending(state).unwrap();
+            assert!(!render().contains("theatre-library-login"));
         });
     }
 

@@ -112,25 +112,22 @@ impl Route {
         match target {
             NavigationTarget::Home => Self::Discover,
             NavigationTarget::Account => Self::Account,
+            NavigationTarget::Library => Self::Library,
             NavigationTarget::Auth(auth) => Self::Auth(auth),
             NavigationTarget::Membership(member) => Self::Membership(member),
         }
     }
 
-    /// Detail and history routes belong to one of the two main navigation destinations.
+    /// Nested routes retain their root destination without rewriting browser history.
     pub fn primary_navigation(self) -> Option<Self> {
         match self {
             Self::Discover | Self::Explore | Self::Work(_) | Self::PublicWork(_) => {
                 Some(Self::Discover)
             }
             Self::Library | Self::History => Some(Self::Library),
-            Self::Player
-            | Self::Queue
-            | Self::Settings
-            | Self::Account
-            | Self::Auth(_)
-            | Self::Membership(_)
-            | Self::NotFound => None,
+            Self::Settings | Self::Account | Self::Membership(_) => Some(Self::Account),
+            Self::Auth(auth) => Self::from_target(auth.origin.target()).primary_navigation(),
+            Self::Player | Self::Queue | Self::NotFound => None,
         }
     }
 }
@@ -241,7 +238,28 @@ mod tests {
             );
         }
         assert_eq!(Route::History.primary_navigation(), Some(Route::Library));
-        assert_eq!(Route::Account.primary_navigation(), None);
+        for route in [
+            Route::Account,
+            Route::Settings,
+            Route::Membership(MembershipReturn::Account),
+            Route::Membership(MembershipReturn::Home),
+        ] {
+            assert_eq!(route.primary_navigation(), Some(Route::Account));
+        }
+        use crate::application::auth_navigation::ReturnDestination;
+        for (origin, family) in [
+            (ReturnDestination::Home, Route::Discover),
+            (ReturnDestination::Library, Route::Library),
+            (ReturnDestination::Account, Route::Account),
+            (ReturnDestination::Membership, Route::Account),
+            (ReturnDestination::MembershipFromAccount, Route::Account),
+        ] {
+            for auth in [AuthRoute::login(origin), AuthRoute::register(origin)] {
+                assert_eq!(Route::Auth(auth).primary_navigation(), Some(family));
+            }
+        }
+        assert_eq!(Route::from_live_hash("#settings"), Route::Settings);
+        assert_eq!(Route::from_live_hash("#saved"), Route::NotFound);
     }
 
     #[test]

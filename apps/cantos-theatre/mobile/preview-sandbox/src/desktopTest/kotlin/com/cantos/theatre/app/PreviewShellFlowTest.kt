@@ -161,22 +161,27 @@ class PreviewShellFlowTest {
     }
 
     @Test
-    fun header_theme_control_changes_the_existing_preference_without_changing_query_or_route() = run { owners ->
+    fun me_theme_choice_changes_the_existing_owner_and_keeps_query_and_discovery_origin() = run { owners ->
         untilTag("work-$sonHa")
         onNodeWithTag("search").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
         onNodeWithTag("search").performScrollTo().performClick()
         onNodeWithTag("search-input").performTextReplacement("Đèn")
-        // Fullscreen Search has no shared header; the control is on the route Back returns to.
         onNodeWithTag("back").performClick()
-        onNodeWithTag("theme-toggle").performClick()
+        onNodeWithTag("theme-toggle").assertDoesNotExist()
+        onNodeWithTag("account").performClick()
+        onNodeWithTag("setting-Theme").performScrollTo().performClick()
+        onNodeWithTag("theme-System").performClick()
         waitForIdle()
         assertEquals(PreferenceTheme.System, owners.shell.preferences.state.value.theme)
-        onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Hệ thống · Chuyển sang giao diện tối").performClick()
+        onNodeWithTag("setting-Theme").performScrollTo().performClick()
+        onNodeWithTag("theme-System").assertIsSelected()
+        onNodeWithTag("theme-Dark").performClick()
         waitForIdle()
         assertEquals(ShellTheme.Dark, owners.projection().theme)
         assertEquals("Đèn", owners.projection().query)
+        assertEquals(TheatreRoute.Account, owners.shell.navigation.value.route)
+        onNodeWithTag("back").performClick()
         assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
-        onNodeWithTag("theme-toggle").assertContentDescriptionEquals("Mực tím · Tối · Chuyển sang giao diện sáng")
     }
 
     @Test
@@ -294,7 +299,6 @@ class PreviewShellFlowTest {
             waitUntil(timeoutMillis = 5_000) { owners.runtime.listening.playback.state.value.status == PlaybackStatus.Paused }
             onNodeWithTag("back").performClick()
             onNodeWithTag("account").performClick()
-            onNodeWithTag("settings").performScrollTo().performClick()
             val player = owners.runtime.listening.playback.state.value
             val library = owners.shell.library.value
             val account = owners.account.state.value

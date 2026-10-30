@@ -52,18 +52,18 @@ class ShellLayoutTest {
                         ShellCatalogView(sampleWorks), { events += it })
                 }
             }
-            onNodeWithTag("theme-Dark").assertDoesNotExist()
-            onNodeWithTag("setting-Theme").performScrollTo()
+            onNodeWithTag("speed-125").assertDoesNotExist()
+            onNodeWithTag("setting-Speed").performScrollTo()
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)).performClick()
             onNodeWithTag("preference-dialog").assertIsDisplayed()
-            onNodeWithTag("theme-Light").assertIsFocused()
-            onNodeWithTag("theme-Dark").performClick()
-            assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetThemeMode(ShellThemeMode.Dark)), events)
+            onNodeWithTag("speed-100").assertIsFocused()
+            onNodeWithTag("speed-125").performClick()
+            assertEquals<List<ShellEvent>>(listOf(ShellEvent.SetSpeed(125)), events)
             onNodeWithTag("preference-dialog").assertDoesNotExist()
-            onNodeWithTag("setting-Theme").assertIsFocused().performClick()
-            onNodeWithTag("theme-Light").performKeyInput { pressKey(Key.Escape) }
+            onNodeWithTag("setting-Speed").assertIsFocused().performClick()
+            onNodeWithTag("speed-100").performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag("preference-dialog").assertDoesNotExist()
-            onNodeWithTag("setting-Theme").assertIsFocused()
+            onNodeWithTag("setting-Speed").assertIsFocused()
             onNodeWithTag("screen").assertExists()
             assertEquals(1, events.size)
         }

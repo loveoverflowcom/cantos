@@ -6,12 +6,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Design v4.2b guest CTA pair: scope, geometry and contrast of the roles it reads. */
+/** Guest CTA scope, shared geometry and the retained legacy outlined variant. */
 class GuestCtaPairContractTest {
     @Test
-    fun only_the_two_stacked_guest_actions_join_the_container_pair_and_only_inside_the_profile_scope() {
+    fun only_auth_actions_join_the_container_pair_and_only_inside_the_profile_scope() {
         val joined = ButtonVariant.entries.filter { it.joinsContainerPair(AuthActionScope.OnPrimaryContainer) }
-        assertEquals(setOf(ButtonVariant.AuthPrimary, ButtonVariant.AuthOutlined), joined.toSet())
+        assertEquals(setOf(ButtonVariant.AuthPrimary, ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined), joined.toSet())
         assertTrue(ButtonVariant.entries.none { it.joinsContainerPair(AuthActionScope.Default) })
     }
 

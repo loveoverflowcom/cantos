@@ -197,9 +197,20 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertNotIn("must-not-appear", text)
             self.assertEqual(manifest["artifacts"][0]["sha256"], hashlib.sha256(b"release bytes").hexdigest())
 
-    def test_android_version_comes_from_production_host(self):
+    def test_android_version_comes_from_the_declared_android_host(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            host = root / release.MOBILE / "androidApp/build.gradle.kts"
+            host.parent.mkdir(parents=True)
+            host.write_text('android { defaultConfig {\n versionCode = 18\n versionName = "0.7.3"\n} }\n')
+            self.assertEqual(release.android_version(root), {"name": "0.7.3", "code": 18})
+
+    def test_dynamic_production_version_is_refused_instead_of_guessed(self):
+        # The real host now binds versionCode/sourceRevision through Gradle providers. This
+        # source-only reader must fail closed; it cannot establish built APK metadata.
         root = Path(__file__).resolve().parents[1]
-        self.assertEqual(release.android_version(root), {"name": "0.1.0", "code": 1})
+        with self.assertRaisesRegex(ValueError, "cannot establish Android version"):
+            release.android_version(root)
 
     @patch.object(release, "run")
     def test_dry_run_writes_nothing_and_executes_nothing(self, run):

@@ -34,10 +34,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.cantos.theatre.application.identity.AccountView
 import com.cantos.theatre.presentation.model.ShellLocale
-import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
+import com.cantos.ui.CantosTheme
+import com.cantos.ui.CantosExpression
+import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.CantosTypography
 import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.Space
@@ -59,60 +61,61 @@ import com.cantos.ui.rememberCantosIconVector
 @Composable
 fun AccountContent(
     locale: ShellLocale,
-    theme: ShellTheme,
     account: AccountView,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
     loginAttempt: LoginAttempt = LoginAttempt.None,
+    preferences: @Composable () -> Unit = {},
     backOverlay: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     val copy = AuthCopy(locale)
-    if (account == AccountView.SignedIn) SignedInAccount(copy, theme, onIntent, backOverlay)
-    else GuestAccount(copy, theme, account, loginAttempt, onIntent, loginFocus)
+    if (account == AccountView.SignedIn) SignedInAccount(copy, onIntent, preferences, backOverlay)
+    else GuestAccount(copy, account, loginAttempt, onIntent, loginFocus, preferences)
 }
 
 @Composable
 private fun GuestAccount(
     copy: AuthCopy,
-    theme: ShellTheme,
     account: AccountView,
     loginAttempt: LoginAttempt,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
+    preferences: @Composable () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth().testTag("account-profile"), tone = SurfaceTone.PrimaryContainer,
-        variant = SurfaceVariant.Profile, inset = Space.Lg) {
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                AccountAvatar()
-                Badge(copy.text(AuthText.GuestBadge), tone = StatusTone.Neutral)
+    // The guest card uses the admitted Theatre profile action pair; adjacent account groups and
+    // signed-in identity retain their existing expression, state and composition owners.
+    CantosTheme(LocalUiPreferences.current.copy(expression = CantosExpression.Theatre)) {
+        Surface(Modifier.fillMaxWidth().testTag("account-profile"), tone = SurfaceTone.PrimaryContainer,
+            variant = SurfaceVariant.Profile, inset = Space.Lg) {
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                AccountAvatar(guest = true)
+                Text(copy.text(AuthText.GuestHeading),
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+                    modifier = Modifier.semantics { heading() })
+                Text(copy.text(AuthText.GuestHelp), style = MaterialTheme.typography.bodyMedium)
+                // A failed attempt's message stays on Login; recovery, pending and other failures stay here.
+                if (!loginAttempt.owns(account)) AccountStatus(account, copy)
+                Button(
+                    copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
+                    variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
+                    icon = authActionIcon(AuthIntent.OpenLogin),
+                    controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
+                )
+                if (account.offersRegistration()) Button(
+                    copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
+                    variant = ButtonVariant.AuthSecondary,
+                    icon = authActionIcon(AuthIntent.OpenRegister),
+                    controlModifier = Modifier.fillMaxWidth().testTag("create-account"),
+                )
+                if (account == AccountView.CleanupRequired) Button(
+                    copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
+                    icon = authActionIcon(AuthIntent.RetryCleanup),
+                    variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
+                )
             }
-            Text(copy.text(AuthText.GuestHeading),
-                style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
-                modifier = Modifier.semantics { heading() })
-            Text(copy.text(AuthText.GuestHelp), style = MaterialTheme.typography.bodyMedium)
-            // A failed attempt's message stays on Login; recovery, pending and other failures stay here.
-            if (!loginAttempt.owns(account)) AccountStatus(account, copy)
-            Button(
-                copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
-                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
-                icon = authActionIcon(AuthIntent.OpenLogin),
-                controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
-            )
-            if (account.offersRegistration()) Button(
-                copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
-                variant = ButtonVariant.AuthOutlined,
-                icon = authActionIcon(AuthIntent.OpenRegister),
-                controlModifier = Modifier.fillMaxWidth().testTag("create-account"),
-            )
-            if (account == AccountView.CleanupRequired) Button(
-                copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                icon = authActionIcon(AuthIntent.RetryCleanup),
-                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
-            )
         }
     }
+    preferences()
     Surface(Modifier.fillMaxWidth().testTag("account-membership"), tone = SurfaceTone.Container,
         variant = SurfaceVariant.Membership, inset = Space.Lg) {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
@@ -130,7 +133,6 @@ private fun GuestAccount(
     Surface(Modifier.fillMaxWidth().testTag("account-settings-group"), tone = SurfaceTone.Surface,
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
-            AppearanceRow(copy, theme, onIntent)
             AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
         }
@@ -143,7 +145,12 @@ private fun GuestAccount(
  * fallback (page 4) and nothing here invents a person, a plan or a support address.
  */
 @Composable
-private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIntent) -> Unit, backOverlay: @Composable (onBack: () -> Unit) -> Unit) {
+private fun SignedInAccount(
+    copy: AuthCopy,
+    onIntent: (AuthIntent) -> Unit,
+    preferences: @Composable () -> Unit,
+    backOverlay: @Composable (onBack: () -> Unit) -> Unit,
+) {
     var confirming by remember { mutableStateOf(false) }
     var submitted by remember { mutableStateOf(false) }
     var returnFocus by remember { mutableStateOf(false) }
@@ -170,6 +177,7 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
             }
         }
     }
+    preferences()
     Surface(Modifier.fillMaxWidth().testTag("account-nav-group"), tone = SurfaceTone.Container,
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
@@ -178,7 +186,6 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
             AccountRow(rememberCantosIconVector("menu_book"), copy.text(AuthText.LibraryAndHistory), null, "open-library") {
                 onIntent(AuthIntent.OpenLibrary)
             }
-            AppearanceRow(copy, theme, onIntent)
             AccountRow(rememberCantosIconVector("settings"), copy.text(AuthText.ListeningSettings),
                 copy.text(AuthText.ListeningSettingsHint), "settings") { onIntent(AuthIntent.OpenSettings) }
             // No verified support destination exists, so this is information, never a control.
@@ -216,24 +223,14 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
     )
 }
 
-/** Decorative: the heading and status beside it carry the meaning; the lavender container needs the primary pair. */
+/** Decorative; the heading and real account status carry the meaning. Signed-in geometry and pair stay unchanged. */
 @Composable
-private fun AccountAvatar() {
+private fun AccountAvatar(guest: Boolean = false) {
     Box(
-        Modifier.size(tokenDp("size.avatarLarge")).clip(CircleShape)
-            .background(tokenColor("color.primary")).testTag("account-avatar"),
+        Modifier.size(tokenDp(if (guest) "size.avatarMedium" else "size.avatarLarge")).clip(CircleShape)
+            .background(tokenColor(if (guest) "color.surfaceContainerHigh" else "color.primary")).testTag("account-avatar"),
         contentAlignment = Alignment.Center,
-    ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor("color.onPrimary")) }
-}
-
-@Composable
-private fun AppearanceRow(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIntent) -> Unit) {
-    AccountRow(
-        if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-        copy.text(AuthText.Appearance),
-        copy.text(if (theme == ShellTheme.Dark) AuthText.AppearanceDark else AuthText.AppearanceLight),
-        "theme-toggle",
-    ) { onIntent(AuthIntent.ToggleTheme) }
+    ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor(if (guest) "color.onSurface" else "color.onPrimary")) }
 }
 
 @Composable
