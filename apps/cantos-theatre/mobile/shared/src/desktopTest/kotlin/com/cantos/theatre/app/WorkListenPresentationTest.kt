@@ -117,21 +117,22 @@ class WorkListenPresentationTest {
     fun save_states_keep_accessible_action_and_target_in_work_detail() {
         val output = File("build/reports/save-665").apply { mkdirs() }
         val empty = ShellCatalogView(works = listOf(work.copy(episodes = emptyList())))
-        for (theme in ShellTheme.entries) for (saved in listOf(false, true)) {
-            runDesktopComposeUiTest(width = 390, height = 844) {
+        for (theme in ShellTheme.entries) for (saved in listOf(false, true)) for ((width, scale) in listOf(390 to 1f, 320 to 2f)) {
+            runDesktopComposeUiTest(width = width, height = 844) {
                 val supplied = state(theme = theme).copy(savedWorks = if (saved) setOf(id) else emptySet())
                 setContent {
-                    Box(Modifier.requiredSize(390.dp, 844.dp).testTag("capture")) {
-                        CantosPresentation(supplied, empty, {})
+                    Box(Modifier.requiredSize(width.dp, 844.dp).testTag("capture")) {
+                        CantosPresentation(supplied, empty, {}, textScale = scale)
                     }
                 }
                 val action = onNodeWithTag("save-work").performScrollTo().assertIsEnabled()
                 action.assert(hasContentDescription(if (saved) "Bỏ lưu tác phẩm Người gom tiếng chuông" else "Lưu tác phẩm Người gom tiếng chuông"))
                 val bounds = action.fetchSemanticsNode().boundsInRoot
                 kotlin.test.assertTrue(bounds.height >= 48f, "Save needs a 48dp touch target")
+                kotlin.test.assertTrue(bounds.left >= 0 && bounds.right <= width, "Save remains within the viewport")
                 val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("capture").captureToImage().asSkiaBitmap())
                     .encodeToData(EncodedImageFormat.PNG)).bytes
-                File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-390.png").writeBytes(bytes)
+                File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-$width-text${scale.toInt()}.png").writeBytes(bytes)
             }
         }
     }
