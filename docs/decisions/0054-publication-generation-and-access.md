@@ -2,8 +2,11 @@
 
 - Status: **accepted (owner, 30 October 2026, #647 decision review)** for D01–D08 as recorded
   in the ledger. Two values remain to be proposed and accepted: the S11 performance budgets
-  (D08a) and the S12 RPO/RTO/retention values (D08d). **Not implemented.** Until each slice
-  lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
+  (D08a) and the S12 RPO/RTO/retention values (D08d). **Implementation in progress:** S02
+  ([#648](https://github.com/loveoverflowcom/cantos/issues/648)) implements the Server
+  generation core, `server.db` v31, owner commands/state and an unrouted public read facade
+  ([metadata publication v1](../../services/cantos-server/contracts/studio/metadata-publication/v1/README.md));
+  no listener route reads generations yet. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
   [0032](0032-theatre-origin-playback-delivery.md), [0035](0035-theatre-catalog-unit-availability.md)
   and [0051](0051-metadata-only-public-discovery.md) describe actual behavior; ADRs
   [0028](0028-work-scoped-delegation.md), [0033](0033-release-pinned-public-cover.md) and

@@ -64,6 +64,8 @@ production catalog fields or audio acceptance. `--sample-serve` serves this test
 router on loopback after verification; it starts no Identity and does not qualify the standalone
 binary or Web/CMP login. Ordinary public discovery requires an accepted release; the exact six
 fictional Works have a separate, source-bound [metadata disclosure](../../docs/decisions/0051-metadata-only-public-discovery.md).
+Owner-settled [metadata publication generations](contracts/studio/metadata-publication/v1/README.md)
+(`server.db` v31, ADR 0054) are not read by any Theatre route until S05 adopts them.
 That grants no image permission, and
 [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)'s public cover additionally
 needs a newer eligible release pinning the image and the owner's explicit

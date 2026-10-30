@@ -4,8 +4,9 @@ use crate::contract::{
     codec::WireFormat,
     studio::{
         ApiError, ArchiveContentUnitRequest, ArchiveWorkRequest, CreateContentUnitRequest,
-        CreateWorkRequest, ErrorCode, FieldIssue, PatchContentUnitRequest, PatchWorkRequest,
-        ReorderContentUnitsRequest, SampleMetadataDisclosureRequest, SampleMetadataRightsRequest,
+        CreateWorkRequest, ErrorCode, FieldIssue, MetadataPublicationRequest,
+        PatchContentUnitRequest, PatchWorkRequest, ReorderContentUnitsRequest,
+        SampleMetadataDisclosureRequest, SampleMetadataRightsRequest,
     },
 };
 use axum::{
@@ -20,7 +21,8 @@ use serde::{de::DeserializeOwned, Deserialize};
 
 use super::super::{errors::error_response, studio::admission::cookie_token, wire, AppState};
 use crate::contexts::catalog::{
-    domain::CatalogError, wire as input, CatalogCommand, CatalogCursor, CatalogStoreError,
+    domain::{metadata_publication::PublicationError, CatalogError},
+    wire as input, CatalogCommand, CatalogCursor, CatalogStoreError,
 };
 
 const BODY_LIMIT: usize = 128 * 1024;
@@ -38,6 +40,10 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .route("/works/{work_id}/content-units/reorder", post(reorder))
         .route("/works/{work_id}/history", get(history))
+        .route(
+            "/works/{work_id}/metadata-publication",
+            get(publication_state).post(publication_command),
+        )
         .route("/sample-metadata-rights", post(record_sample_rights))
         .route(
             "/works/{work_id}/sample-metadata-disclosures",
@@ -177,6 +183,41 @@ async fn create_work(
         StatusCode::CREATED,
     )
     .await
+}
+
+async fn publication_state(
+    State(state): State<AppState>,
+    CatalogId(work): CatalogId,
+    headers: HeaderMap,
+) -> Response {
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state.store.metadata_publication_state(&token, &work).await {
+        Ok(result) => (StatusCode::OK, Json(result)).into_response(),
+        Err(error) => catalog_error(error),
+    }
+}
+
+async fn publication_command(
+    State(state): State<AppState>,
+    CatalogId(work): CatalogId,
+    headers: HeaderMap,
+    CatalogBody(body): CatalogBody<MetadataPublicationRequest>,
+) -> Response {
+    let token = match cookie_token(&headers, &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state
+        .store
+        .metadata_publication_execute(&token, &work, body)
+        .await
+    {
+        Ok(result) => (StatusCode::OK, Json(result)).into_response(),
+        Err(error) => catalog_error(error),
+    }
 }
 
 async fn sample_decision(
@@ -606,7 +647,105 @@ pub(super) fn catalog_error(error: CatalogStoreError) -> Response {
             vec![],
         ),
         CatalogStoreError::Domain(error) => domain_error(error),
+        CatalogStoreError::Publication(error) => publication_error(error),
     }
+}
+
+/// Publication refusals reuse the Studio error codes; `stale_revision` carries the current
+/// pointer version in `current_revision` on this route.
+fn publication_error(error: PublicationError) -> Response {
+    use PublicationError::*;
+    let (status, code, path, rule) = match error {
+        StaleVersion { current } => {
+            return failure(
+                StatusCode::CONFLICT,
+                ErrorCode::StaleRevision,
+                Some(current),
+                vec![],
+            )
+        }
+        NotActive => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "lifecycle",
+            "not_active",
+        ),
+        UnitNotPublished { .. } => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "unit_id",
+            "not_published",
+        ),
+        Unchanged => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "publication",
+            "unchanged",
+        ),
+        WorkArchived | UnitArchived { .. } => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "lifecycle",
+            "archived",
+        ),
+        VersionLimit => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "version",
+            "version_limit",
+        ),
+        TooManyUnits => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "units",
+            "limit_exceeded",
+        ),
+        DuplicateUnit { .. } => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "units",
+            "duplicate_unit",
+        ),
+        InvalidPosition => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "position",
+            "out_of_range",
+        ),
+        WrongWork { .. } => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "units",
+            "wrong_work",
+        ),
+        UnknownRevision => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "work_revision",
+            "unknown_revision",
+        ),
+        UnknownUnit { .. } => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "units",
+            "unknown_unit",
+        ),
+        RightsUnavailable => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::EvidenceUnavailable,
+            "details.rights_refs",
+            "unavailable",
+        ),
+        InvalidDigest | InvalidVersion | InvalidTimestamp | Corrupt => {
+            return failure(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+                None,
+                vec![],
+            )
+        }
+    };
+    failure(status, code, None, vec![issue(path, rule)])
 }
 fn domain_error(error: CatalogError) -> Response {
     use CatalogError::*;

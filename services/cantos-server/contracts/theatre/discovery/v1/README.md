@@ -189,8 +189,10 @@ units order by their disclosed position or their release's existing anchor, then
 ranks and eligibility are evaluated on each request and may change between cursor pages.
 The opaque cursor is bound to this presentation and query. Existing representations do not
 include metadata-only Works or units. [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md)
-(accepted, not implemented) replaces default, `presentation=1`, `2` and `3` with one generation
-representation, in the same delivery that updates every current consumer.
+(accepted) replaces default, `presentation=1`, `2` and `3` with one generation representation,
+in the same delivery that updates every current consumer (S05). The Server already settles
+owner [metadata publication generations](../../../studio/metadata-publication/v1/README.md)
+(S02), but no route in this contract reads them yet, so every shape here is unchanged.
 
 | Opt-in DTO | Added field | Meaning |
 | --- | --- | --- |

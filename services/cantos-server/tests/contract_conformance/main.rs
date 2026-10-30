@@ -14,6 +14,7 @@ mod delegation_wire;
 mod identity_auth_wire;
 mod import_wire;
 mod listener_library_wire;
+mod metadata_publication_wire;
 mod msgpack_wire;
 mod production_wire;
 mod protobuf_wire;

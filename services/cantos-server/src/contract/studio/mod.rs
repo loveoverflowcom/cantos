@@ -25,6 +25,8 @@ mod cover_disclosure;
 pub use cover_disclosure::*;
 mod sample_metadata_disclosure;
 pub use sample_metadata_disclosure::*;
+mod metadata_publication;
+pub use metadata_publication::*;
 pub mod protobuf;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

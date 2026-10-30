@@ -238,3 +238,33 @@ acceptance.
 | S10 [#656](https://github.com/loveoverflowcom/cantos/issues/656) | D02, D05a | — | S06–S09 | Add LOCK/Unlisted |
 | S11 [#657](https://github.com/loveoverflowcom/cantos/issues/657) | D08a | Budgets (S11 proposes) | S10 | Claim O(1) or unmeasured latency |
 | S12 [#658](https://github.com/loveoverflowcom/cantos/issues/658) | D07, D08d | RPO/RTO/retention (S12 proposes) | S11 | Tick epic AC from partial PRs; deploy without a separate task |
+
+### S02 delivered contract (#648)
+
+S02 implements the Server generation authority without changing any Theatre wire shape: the
+[Studio metadata publication v1](../../services/cantos-server/contracts/studio/metadata-publication/v1/README.md)
+routes, the pure core [`metadata_publication.rs`](../../services/cantos-server/src/contexts/catalog/domain/metadata_publication.rs),
+`server.db` v31 [`catalog_metadata_publications.sql`](../../services/cantos-server/src/platform/turso/catalog_metadata_publications.sql)
+and an unrouted public read facade. Choices this boundary left to S02:
+
+| Question | S02 answer |
+| --- | --- |
+| Catalog `visibility` | Kept as editorial Studio metadata and never read by the generation lane (D05b). Removing the field changes Catalog v1 and Studio Web, so it belongs with the S05 Studio workflow |
+| Discovery switch | Kept unchanged: no current client can read a generation representation yet, so S05 replaces the shapes together with Theatre Web and CMP. The leftover-`presentation` question moves to S05 |
+| Rights at publish | At least one rights reference on the pinned Work revision, each resolving to the owner's rights evidence (the audio-release precedent), plus the owner's explicit `confirm_metadata_rights`. Withdrawal never needs rights |
+| Per-Unit commands | `publish_unit` (add or replace at an explicit one-based position) and `withdraw_unit`; each writes generation N+1 copying every other entry. A result equal to the active generation is refused as `unchanged` |
+| State read | Current owner only, like every mutating action (D01a); member preview is S04 (D01b) |
+
+Seam for S03: inside one write unit, `turso::metadata_publication::state` reads the pointer,
+`metadata_publication::decide` settles the change and `insert_generation` + `settle` write the
+generation, its sealing event (receipt) and the pointer. Audio association needs a new registry
+version keyed by `(work_id, generation, unit_id)` and a change that copies the active generation
+with the association; generations, entries and events are append-only and an entry cannot be
+added once its generation is sealed. Still open for S03: the sample-only disclosure lane and
+`presentation=3` remain live; the release listener index is unchanged.
+
+Fail-closed evidence (real files): a Work with an eligible audio release and a public-visibility
+Work without a generation are absent from the generation reader; publishing shows exactly the
+selected entries, order and pinned text; withdrawal hides the Work again; pointers, receipts and
+withdrawals persist across reopen. "Every Theatre path" applies when S05 routes Theatre through
+this reader.

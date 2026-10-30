@@ -129,3 +129,15 @@ pub(crate) async fn active_actors(
 /// the listener.
 pub(crate) const RELEASE_OWNER_ACTIVE_FILTER: &str =
     "EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=rel.owner_id AND owner_actor.active=1)";
+
+/// The same owner gate for a Catalog Work row aliased `w`, for the metadata publication
+/// projection (ADR 0054): a disabled owner hides every generation of their Works.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "S05 composes the public projection into Discovery"
+    )
+)]
+pub(crate) const WORK_OWNER_ACTIVE_FILTER: &str =
+    "EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=w.owner_id AND owner_actor.active=1)";

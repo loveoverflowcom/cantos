@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/metadata-publication/v1",
+  "title": "Cantos Studio metadata publication v1",
+  "description": "Owner commands and state for Work/Unit metadata publication generations (ADR 0054). JSON only. Ownership, exact-revision existence, rights, archive state, compare-and-set, replay and the published positions are decided by the service, not by this schema. No audio, cover, rights reference, provenance or storage fact is part of these messages.",
+  "$defs": {
+    "CanonicalId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "Version": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "SnapshotDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "UnixMillis": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "Position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "MetadataPublicationUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id", "revision"],
+      "properties": {
+        "unit_id": {"$ref": "#/$defs/CanonicalId"},
+        "revision": {"$ref": "#/$defs/Revision"}
+      }
+    },
+    "MetadataPublicationRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "operation_id", "expected_version", "work_revision", "units", "confirm_metadata_rights"],
+          "properties": {
+            "action": {"const": "publish"},
+            "operation_id": {"$ref": "#/$defs/CanonicalId"},
+            "expected_version": {"$ref": "#/$defs/Version"},
+            "work_revision": {"$ref": "#/$defs/Revision"},
+            "units": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/MetadataPublicationUnit"}},
+            "confirm_metadata_rights": {"const": true}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "operation_id", "expected_version", "unit_id", "revision", "position", "confirm_metadata_rights"],
+          "properties": {
+            "action": {"const": "publish_unit"},
+            "operation_id": {"$ref": "#/$defs/CanonicalId"},
+            "expected_version": {"$ref": "#/$defs/Version"},
+            "unit_id": {"$ref": "#/$defs/CanonicalId"},
+            "revision": {"$ref": "#/$defs/Revision"},
+            "position": {"$ref": "#/$defs/Position"},
+            "confirm_metadata_rights": {"const": true}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "operation_id", "expected_version", "unit_id"],
+          "properties": {
+            "action": {"const": "withdraw_unit"},
+            "operation_id": {"$ref": "#/$defs/CanonicalId"},
+            "expected_version": {"$ref": "#/$defs/Version"},
+            "unit_id": {"$ref": "#/$defs/CanonicalId"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "operation_id", "expected_version"],
+          "properties": {
+            "action": {"const": "withdraw"},
+            "operation_id": {"$ref": "#/$defs/CanonicalId"},
+            "expected_version": {"$ref": "#/$defs/Version"}
+          }
+        }
+      ]
+    },
+    "MetadataGenerationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "unit_id", "revision", "digest"],
+      "properties": {
+        "position": {"$ref": "#/$defs/Position"},
+        "unit_id": {"$ref": "#/$defs/CanonicalId"},
+        "revision": {"$ref": "#/$defs/Revision"},
+        "digest": {"$ref": "#/$defs/SnapshotDigest"}
+      }
+    },
+    "MetadataGeneration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "parent", "work_revision", "work_digest", "recorded_at_ms", "entries"],
+      "properties": {
+        "number": {"$ref": "#/$defs/Revision"},
+        "parent": {"anyOf": [{"$ref": "#/$defs/Revision"}, {"type": "null"}]},
+        "work_revision": {"$ref": "#/$defs/Revision"},
+        "work_digest": {"$ref": "#/$defs/SnapshotDigest"},
+        "recorded_at_ms": {"$ref": "#/$defs/UnixMillis"},
+        "entries": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/MetadataGenerationEntry"}}
+      }
+    },
+    "MetadataPublicationState": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["work_id", "lifecycle", "version", "first_visible_at_ms", "generation"],
+          "properties": {
+            "work_id": {"$ref": "#/$defs/CanonicalId"},
+            "lifecycle": {"const": "never_published"},
+            "version": {"const": 0},
+            "first_visible_at_ms": {"type": "null"},
+            "generation": {"type": "null"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["work_id", "lifecycle", "version", "first_visible_at_ms", "generation"],
+          "properties": {
+            "work_id": {"$ref": "#/$defs/CanonicalId"},
+            "lifecycle": {"enum": ["active", "withdrawn"]},
+            "version": {"$ref": "#/$defs/Revision"},
+            "first_visible_at_ms": {"$ref": "#/$defs/UnixMillis"},
+            "generation": {"$ref": "#/$defs/MetadataGeneration"}
+          }
+        }
+      ]
+    }
+  }
+}

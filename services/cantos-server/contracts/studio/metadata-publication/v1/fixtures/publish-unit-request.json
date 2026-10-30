@@ -1,0 +1,9 @@
+{
+  "action": "publish_unit",
+  "operation_id": "70000000-0000-4000-8000-000000000002",
+  "expected_version": 1,
+  "unit_id": "72000000-0000-4000-8000-00000000000b",
+  "revision": 4,
+  "position": 2,
+  "confirm_metadata_rights": true
+}

@@ -847,7 +847,9 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
         # The HTTP shell may map typed errors, but cannot invoke a domain transition or SQL.
         catalog_wire = path[:3] == ("contexts", "catalog", "wire")
         catalog_error = path[:3] == ("contexts", "catalog", "CatalogStoreError") or path[:4] == (
-            "contexts", "catalog", "domain", "CatalogError")
+            "contexts", "catalog", "domain", "CatalogError") or path[:5] == (
+            # ADR 0054 metadata publication refusals, mapped to Studio errors only.
+            "contexts", "catalog", "domain", "metadata_publication", "PublicationError")
         catalog_input_type = path in {
             ("contexts", "catalog", "CatalogCommand"),
             ("contexts", "catalog", "CatalogCursor"),

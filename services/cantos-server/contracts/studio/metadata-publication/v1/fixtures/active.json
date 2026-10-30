@@ -1,0 +1,18 @@
+{
+  "work_id": "71000000-0000-4000-8000-000000000001",
+  "lifecycle": "active",
+  "version": 2,
+  "first_visible_at_ms": 1900000000000,
+  "generation": {
+    "number": 2,
+    "parent": 1,
+    "work_revision": 3,
+    "work_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recorded_at_ms": 1900000060000,
+    "entries": [
+      {"position": 1, "unit_id": "72000000-0000-4000-8000-00000000000c", "revision": 1, "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+      {"position": 2, "unit_id": "72000000-0000-4000-8000-00000000000b", "revision": 4, "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+      {"position": 3, "unit_id": "72000000-0000-4000-8000-00000000000a", "revision": 2, "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+    ]
+  }
+}

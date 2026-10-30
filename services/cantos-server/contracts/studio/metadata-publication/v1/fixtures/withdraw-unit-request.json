@@ -1,0 +1,6 @@
+{
+  "action": "withdraw_unit",
+  "operation_id": "70000000-0000-4000-8000-000000000003",
+  "expected_version": 2,
+  "unit_id": "72000000-0000-4000-8000-00000000000a"
+}

@@ -11,6 +11,9 @@ Studio Web catalog UX has a separate acceptance boundary.
 Catalog visibility is metadata. `private`, `unlisted` and `public` all remain authenticated
 Studio data; none publishes an audio release or grants anonymous access. Publication, external
 audio handoff, producer scopes, Theatre routes and Studio Mobile are outside this contract.
+Saving any Catalog revision never publishes it: an owner pins exact saved revisions into a
+metadata generation through [metadata publication v1](../../metadata-publication/v1/README.md),
+whose public gate is that generation, not `visibility` (ADR 0054 D05b).
 See [ADR 0015](../../../../../../docs/decisions/0015-api-surface-boundaries.md) and
 [ADR 0018](../../../../../../docs/decisions/0018-external-audio-production.md).
 

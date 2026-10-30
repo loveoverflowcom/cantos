@@ -12,6 +12,15 @@ use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, StoreError, Tx};
 
+mod metadata_publication;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "S05 composes the public projection into Discovery"
+    )
+)]
+pub(crate) mod metadata_publication_read;
 mod sample_metadata;
 pub(super) mod sample_metadata_read;
 mod sample_metadata_rights;
@@ -29,6 +38,7 @@ pub enum CatalogStoreError {
     OperationReused,
     InvalidCursor,
     Limit,
+    Publication(super::domain::metadata_publication::PublicationError),
 }
 impl From<StoreError> for CatalogStoreError {
     fn from(error: StoreError) -> Self {
