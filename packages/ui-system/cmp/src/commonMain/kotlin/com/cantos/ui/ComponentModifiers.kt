@@ -30,10 +30,13 @@ import androidx.compose.ui.unit.Dp
  * Theatre shell uses [cantosInsetPerimeter] instead and never leaves its bounds.
  */
 internal fun Modifier.cantosFocus(shapeRole: String = "shape.control"): Modifier = composed {
+    cantosFocus(tokenDp(shapeRole))
+}
+
+internal fun Modifier.cantosFocus(radius: Dp): Modifier = composed {
     var focused by remember { mutableStateOf(false) }
     val width = tokenDp("size.focusWidth")
     val offset = tokenDp("size.focusOffset")
-    val radius = tokenDp(shapeRole)
     val color = tokenColor("color.focus")
     onFocusChanged { focused = it.isFocused }
         .drawWithContent {

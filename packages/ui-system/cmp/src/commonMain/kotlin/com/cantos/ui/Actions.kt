@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip as MaterialFilterChip
@@ -434,7 +435,10 @@ fun FilterChip(
         fade.toColorAnimationSpec(),
         label = "chip-container",
     )
-    val shape = CantosShapes.full
+    // A proportional capsule clips the first and last lines when a chip wraps at large text sizes.
+    // Keep the normal control's pill radius while allowing taller chips to grow around their label.
+    val radius = tokenDp("size.control") / 2
+    val shape = RoundedCornerShape(radius)
     Column(modifier) {
         MaterialFilterChip(
             selected = selected,
@@ -457,7 +461,7 @@ fun FilterChip(
             ),
             border = null,
             modifier = controlModifier.heightIn(min = tokenDp("size.control"))
-                .then(if (theatre) Modifier.cantosInsetPerimeter(shape) else Modifier.cantosFocus("shape.pill"))
+                .then(if (theatre) Modifier.cantosInsetPerimeter(shape) else Modifier.cantosFocus(radius))
                 .actionState(state),
         )
         state.reason()?.let { FieldHelp(it) }
