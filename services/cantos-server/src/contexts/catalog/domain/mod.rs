@@ -6,6 +6,7 @@ mod error;
 mod ids;
 mod metadata;
 pub mod metadata_disclosure;
+pub mod metadata_publication;
 mod patch;
 mod reorder;
 mod revision;

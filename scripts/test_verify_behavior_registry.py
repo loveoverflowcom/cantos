@@ -543,6 +543,8 @@ class ImpactIndex(unittest.TestCase):
         index = registry.impact_index(*behavior.load_registry(behavior.ROOT))
         self.assertEqual(index["schemaVersion"], 2)
         self.assertEqual(index["obligations"], {
+            "services/cantos-server/src/contexts/catalog/domain/metadata_publication.rs":
+                ["cantos.publishing.metadata-generation"],
             "services/cantos-server/src/contexts/listening/domain/reconcile.rs": ["cantos.listening.progress"],
             "services/cantos-server/src/contexts/media/domain/publication.rs": ["cantos.publishing.lifecycle"]})
         self.assertEqual(index["unmodeled"]["cantos.listening.progress"]["lifecycle"], "needs-decision")

@@ -37,6 +37,18 @@
       "reason": "Existing core is implemented; complete release/delivery observation boundary deferred to its owner."
     },
     {
+      "id": "cantos.publishing.metadata-generation",
+      "lifecycle": "draft",
+      "owner": "services/cantos-server/src/contexts/catalog/domain/metadata_publication.rs",
+      "sourceRefs": [
+        "services/cantos-server/contracts/studio/metadata-publication/v1/README.md",
+        "docs/decisions/0054-publication-generation-and-access.md"
+      ],
+      "model": null,
+      "inventory": "specs/behavior/inventory.md",
+      "reason": "S02 (#648) implements the generation/CAS core with pure and file-backed Turso tests; a model waits for an exact observation scope that includes S03 audio association and S06 audiences."
+    },
+    {
       "id": "cantos.listening.progress",
       "lifecycle": "needs-decision",
       "owner": "services/cantos-server/src/contexts/listening/domain/reconcile.rs",

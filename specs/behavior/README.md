@@ -130,8 +130,8 @@ of a pointer lives in a module-owned JSON manifest:
 [authority inventory](inventory.md#module-owned-inventories)) sit together in the `behavior/`
 directory of the boundary that owns the behavior: `services/<name>/behavior/`,
 `apps/<name>/behavior/` or `xtask/behavior/`. The Server groups by context (`media/`,
-`identity/`). A model therefore lives in the same boundary as its `owner`. Three records stay
-inline: the two unmodeled capabilities and the deprecated `cantos.identity.theatre-registration`,
+`identity/`). A model therefore lives in the same boundary as its `owner`. Four records stay
+inline: the three unmodeled capabilities and the deprecated `cantos.identity.theatre-registration`,
 whose retained historical `.qnt` files remain under `specs/behavior/identity/`. The observation
 protocol stays here: it is the contract of the shared verifier adapters, not of one module.
 Changed-only preflight recognizes a `behavior/` directory by location, so a new, renamed-away

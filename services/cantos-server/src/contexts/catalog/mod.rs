@@ -7,6 +7,16 @@ mod turso;
 
 pub use application::content;
 pub use application::delegation;
+#[cfg_attr(
+    not(test),
+    expect(
+        unused_imports,
+        reason = "S05 composes the public projection into Discovery"
+    )
+)]
+pub(crate) use application::metadata_publication_read::{
+    public_units, public_work, public_works, PublicReadError, PublicWorksQuery,
+};
 pub(crate) use application::owner_work::{
     advance_owner_work, owner_work, owner_work_now, owner_work_revision, recheck_owner_work,
     OwnerWork,

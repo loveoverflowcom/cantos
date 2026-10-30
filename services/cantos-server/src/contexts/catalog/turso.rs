@@ -10,6 +10,15 @@ use super::storage;
 pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
+pub(super) mod metadata_publication;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "S05 composes the public projection into Discovery"
+    )
+)]
+pub(super) mod public_metadata;
 pub(super) mod sample_metadata;
 pub(super) mod sample_seed;
 
