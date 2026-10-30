@@ -8,6 +8,9 @@
   [#120](https://github.com/loveoverflowcom/cantos/issues/120), prerequisites #10/#11
 - Supersedes / superseded by: N/A; selects one row of [ADR 0038](0038-publication-streaming-evidence-gates.md)'s
   "Authorized delivery" track. ADR 0028's evidence gates still apply to deployment acceptance.
+  [ADR 0054](0054-publication-generation-and-access.md) (accepted 2026-10-30, not implemented)
+  adds restricted grants bound to subject, session and policy (D08); this public-only permit is
+  unchanged until that slice lands
 
 ## Context
 

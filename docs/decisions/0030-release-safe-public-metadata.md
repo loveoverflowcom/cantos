@@ -9,7 +9,10 @@
   owners still to be named when each slice is selected
 - Related issue or PR: [#177](https://github.com/loveoverflowcom/cantos/issues/177),
   prerequisite [#157](https://github.com/loveoverflowcom/cantos/issues/157)
-- Supersedes / superseded by: N/A; existing Discovery v1 remains authoritative
+- Supersedes / superseded by: N/A; existing Discovery v1 remains authoritative.
+  [ADR 0054](0054-publication-generation-and-access.md) (accepted 2026-10-30, not implemented)
+  makes metadata authority generation-pinned for every Work (D02/D06); option B describes current
+  behavior until that slice lands
 
 ## Context
 

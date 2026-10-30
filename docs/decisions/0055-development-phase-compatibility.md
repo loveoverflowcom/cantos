@@ -7,7 +7,7 @@
 - Decision owner: Cantos product owner
 - Related issue or PR: epic [#634](https://github.com/loveoverflowcom/cantos/issues/634), S01
   [#647](https://github.com/loveoverflowcom/cantos/issues/647); the epic-scoped wording is
-  ADR 0054 "Owner direction for this epic" ([PR #661](https://github.com/loveoverflowcom/cantos/pull/661))
+  [ADR 0054 "Owner direction for this epic"](0054-publication-generation-and-access.md#owner-direction-for-this-epic-breaking-changes-during-development)
 - Supersedes / superseded by: replaces the general requirements to keep older clients or older
   data working that skills, templates and the contract index stated (listed under Consequences).
   Superseded when the owner ends the development phase (see revisit conditions)
