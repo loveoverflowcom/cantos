@@ -90,7 +90,13 @@ class AuthCaptureTest {
     fun account_is_captured_as_guest_and_signed_in() {
         capture("account-guest-light-390x844", 390, 844, account)
         capture("account-guest-dark-390x844", 390, 844, account.themed(ShellTheme.Dark))
+        val english = account.copy(state = account.state.copy(locale = ShellLocale.English))
+        capture("account-guest-light-en-390x844", 390, 844, english)
+        capture("account-guest-dark-en-768x1024", 768, 1024, english.themed(ShellTheme.Dark))
+        capture("account-guest-dark-en-text2-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f)
+        capture("account-guest-dark-en-text2-actions-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f, scrollToTag = "create-account")
         capture("account-guest-light-text2-320x800", 320, 800, account, textScale = 2f)
+        capture("account-guest-light-text2-actions-320x800", 320, 800, account, textScale = 2f, scrollToTag = "create-account")
         capture("account-guest-light-text2-settings-320x800", 320, 800, account, textScale = 2f, scrollToTag = "settings")
         capture("account-guest-light-768x1024", 768, 1024, account)
         capture("account-signed-light-390x844", 390, 844, account) { it.completeLogin() }

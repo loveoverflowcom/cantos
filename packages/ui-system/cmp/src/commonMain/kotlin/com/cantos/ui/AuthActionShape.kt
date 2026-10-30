@@ -48,7 +48,9 @@ internal fun ButtonVariant.isAuth(): Boolean = when (this) {
 /**
  * Where an auth action sits decides its colour pair. [OnPrimaryContainer] is the profile card (the
  * guest sign-in / create-account pair, design v4.2b): the primary action is filled with the card's
- * own foreground and the outlined one is transparent with the same foreground as ink and outline.
+ * own foreground; AuthSecondary is the filled inverse pair and the legacy AuthOutlined remains
+ * transparent with the same foreground as ink and outline. Theatre AuthPrimary uses its scoped
+ * profile action roles, matching Leptos.
  * [Surface] provides it for that card only; nothing global changes and callbacks, eligibility and
  * the disabled state stay with the button.
  */
@@ -68,7 +70,7 @@ internal fun AuthActionScope.isTonal(): Boolean = this == AuthActionScope.Tonal
  */
 fun tonalAuthActions(): ProvidedValue<*> = LocalAuthActionScope provides AuthActionScope.Tonal
 
-/** Both pair members share one pill height and one outline weight so the stacked pair is equal. */
+/** Profile actions share one minimum pill height; each variant retains its own fill and stroke policy. */
 internal fun ButtonVariant.joinsContainerPair(scope: AuthActionScope): Boolean =
     scope == AuthActionScope.OnPrimaryContainer &&
-        (this == ButtonVariant.AuthPrimary || this == ButtonVariant.AuthOutlined)
+        (this == ButtonVariant.AuthPrimary || this == ButtonVariant.AuthOutlined || this == ButtonVariant.AuthSecondary)

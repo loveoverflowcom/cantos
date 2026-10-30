@@ -106,6 +106,13 @@ class AuthAccountUiTest {
         assertTrue(signIn.bottom <= create.top)
         assertEquals(signIn.width, create.width)
         assertTrue(profile.left <= signIn.left && create.right <= profile.right)
+        assertEquals(signIn.height, create.height, "Both active actions form one equal-height pill pair")
+        val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
+        assertEquals(40f, avatar.width, "The decorative guest avatar is compact, not a control")
+        assertEquals(avatar.width, avatar.height)
+        onNodeWithText("Người nghe khách").assertDoesNotExist()
+        onNodeWithText("Đăng nhập để mở thư viện của bạn.").assertExists()
+        onNodeWithText("Về chế độ nghe không đăng nhập").assertDoesNotExist()
         onNodeWithTag("account-membership").assertExists()
         onNodeWithTag("settings").assertExists()
         // Nothing here is an invented name, total, conflict or Membership entitlement.

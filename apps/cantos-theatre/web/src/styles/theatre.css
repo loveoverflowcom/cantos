@@ -26,7 +26,7 @@ body { margin: 0; }
 }
 /* A painted shell (button, chip, destination, avatar, row, card) shows one focus perimeter that
    touches its own edge: zero gap, no halo. Hover and press never draw this stroke. */
-.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-guest-info-trigger, .theatre-account-menu-row, .theatre-action-row, .theatre-auth-brand, .theatre-skip):focus-visible {
+.theatre-app :is(.cui-button, .cui-nav-item, .cui-filter-chip, .theatre-action, .theatre-chip, .theatre-text-link, .theatre-back, .theatre-nav-link, .theatre-brand, .theatre-avatar, .theatre-account-menu-row, .theatre-action-row, .theatre-auth-brand, .theatre-skip):focus-visible {
   outline-offset: 0;
 }
 /* Route changes move focus to <main> for assistive technology; the landmark itself is not a control. */
@@ -739,7 +739,7 @@ body { margin: 0; }
 .theatre-library-section > .theatre-actions:empty { display: none; }
 
 /* The admitted Avatar supplies the Theatre accent circle; the app overlays a neutral person
-   until authorized profile facts exist. Help remains in flow below the account actions. */
+   until authorized profile facts exist. */
 .theatre-app .theatre-profile-avatar {
   position: relative;
   inline-size: var(--cantos-size-avatar-medium);
@@ -754,41 +754,11 @@ body { margin: 0; }
 .theatre-app .theatre-profile-avatar[data-navigation-avatar] { inline-size: var(--cantos-size-avatar-small); min-block-size: var(--cantos-size-avatar-small); }
 .theatre-account-profile .theatre-avatar[data-profile] { margin-block-end: var(--cantos-space-md); }
 .theatre-account-profile .theatre-avatar[data-profile] svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
-.theatre-guest-info { margin-block-start: var(--cantos-space-xs); }
-.theatre-guest-info-trigger {
-  display: inline-flex; align-items: center; gap: var(--cantos-space-xs);
-  box-sizing: border-box; max-inline-size: 100%;
-  min-block-size: var(--cantos-size-control);
-  padding: 0 var(--cantos-space-sm); margin-inline-start: calc(var(--cantos-space-sm) * -1);
-  border: 0; border-radius: var(--cantos-shape-pill);
-  background: transparent; color: inherit; cursor: pointer;
-  font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui);
-  text-align: start;
-}
-.theatre-guest-info-label { min-inline-size: 0; overflow-wrap: anywhere; }
-/* The row chevron points inline-end; the disclosure points down, and up while open. */
-.theatre-guest-info-trigger .theatre-chevron { flex: none; inline-size: var(--cantos-size-icon-compact); block-size: var(--cantos-size-icon-compact); transform: rotate(90deg); }
-.theatre-guest-info-trigger[aria-expanded="true"] .theatre-chevron { transform: rotate(-90deg); }
-@media (hover: hover) {
-  .theatre-guest-info-trigger:hover { background: color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent); }
-}
-.theatre-guest-info-trigger:focus-visible { outline: var(--cantos-size-focus-width) solid currentColor; }
-.theatre-guest-info-panel {
-  margin: var(--cantos-space-xs) 0 0;
-  padding: var(--cantos-space-md);
-  border-radius: var(--cantos-web-shape-control);
-  background: var(--cantos-color-surface-container);
-  color: var(--cantos-color-on-surface);
-  font-size: var(--cantos-type-label-size);
-  line-height: var(--cantos-type-body-line-height);
-  overflow-wrap: anywhere;
-}
-.theatre-guest-info-panel[hidden] { display: none; }
 .theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }
 /* Guest CTA pair (v4.3, #526/#527): colors, equal full-width anatomy and the absence of a default
    border come from the shared profile-card recipe. Only the equal row height of a wrapped label is
    app layout. */
-.theatre-account-profile .theatre-auth-actions { grid-auto-rows: 1fr; }
+.theatre-account-profile .theatre-auth-actions { grid-auto-rows: 1fr; margin-block-end: 0; }
 
 /* Your space (v4.3): two compact preference tiles (label and value beside their control) and
    destinations as action rows with a leading icon, one label and a trailing chevron over the
@@ -830,7 +800,6 @@ body { margin: 0; }
 .theatre-account { container-type: inline-size; }
 @container (max-width: 12rem) {
   .theatre-account :is(.theatre-account-preferences, .theatre-account-profile).cui-surface { padding-inline: var(--cantos-space-sm); }
-  .theatre-guest-info-trigger { margin-inline-start: 0; }
   .theatre-action-rows > li { min-inline-size: 0; }
   .theatre-action-row { gap: var(--cantos-space-sm); padding-inline: var(--cantos-space-sm); }
 }

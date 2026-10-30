@@ -5828,30 +5828,6 @@
         }
       }
     },
-    "theatre.auth.guest_info_label": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Về chế độ nghe không đăng nhập"
-        },
-        "en": {
-          "text": "About listening without signing in"
-        }
-      }
-    },
-    "theatre.auth.guest_info": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập."
-        },
-        "en": {
-          "text": "You can still explore and listen to public content without signing in."
-        }
-      }
-    },
     "theatre.auth.signed_heading": {
       "args": {},
       "exposure": "production",
@@ -23385,18 +23361,6 @@
         }
       }
     },
-    "theatre.cmp_auth.guest_badge": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Người nghe khách"
-        },
-        "en": {
-          "text": "Guest listener"
-        }
-      }
-    },
     "theatre.cmp_auth.guest_heading": {
       "args": {},
       "exposure": "production",
@@ -23414,10 +23378,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình."
+          "text": "Đăng nhập để mở thư viện của bạn."
         },
         "en": {
-          "text": "You can still explore and play public stories. Sign in when you want to open your own library."
+          "text": "Sign in to open your library."
         }
       }
     },

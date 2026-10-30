@@ -38,6 +38,9 @@ import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
+import com.cantos.ui.CantosTheme
+import com.cantos.ui.CantosExpression
+import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.CantosTypography
 import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.Space
@@ -80,37 +83,37 @@ private fun GuestAccount(
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
 ) {
-    Surface(Modifier.fillMaxWidth().testTag("account-profile"), tone = SurfaceTone.PrimaryContainer,
-        variant = SurfaceVariant.Profile, inset = Space.Lg) {
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                AccountAvatar()
-                Badge(copy.text(AuthText.GuestBadge), tone = StatusTone.Neutral)
+    // The guest card uses the admitted Theatre profile action pair; adjacent account groups and
+    // signed-in identity retain their existing expression, state and composition owners.
+    CantosTheme(LocalUiPreferences.current.copy(expression = CantosExpression.Theatre)) {
+        Surface(Modifier.fillMaxWidth().testTag("account-profile"), tone = SurfaceTone.PrimaryContainer,
+            variant = SurfaceVariant.Profile, inset = Space.Lg) {
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                AccountAvatar(guest = true)
+                Text(copy.text(AuthText.GuestHeading),
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+                    modifier = Modifier.semantics { heading() })
+                Text(copy.text(AuthText.GuestHelp), style = MaterialTheme.typography.bodyMedium)
+                // A failed attempt's message stays on Login; recovery, pending and other failures stay here.
+                if (!loginAttempt.owns(account)) AccountStatus(account, copy)
+                Button(
+                    copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
+                    variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
+                    icon = authActionIcon(AuthIntent.OpenLogin),
+                    controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
+                )
+                if (account.offersRegistration()) Button(
+                    copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
+                    variant = ButtonVariant.AuthSecondary,
+                    icon = authActionIcon(AuthIntent.OpenRegister),
+                    controlModifier = Modifier.fillMaxWidth().testTag("create-account"),
+                )
+                if (account == AccountView.CleanupRequired) Button(
+                    copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
+                    icon = authActionIcon(AuthIntent.RetryCleanup),
+                    variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
+                )
             }
-            Text(copy.text(AuthText.GuestHeading),
-                style = MaterialTheme.typography.headlineSmall.copy(fontFamily = LocalEditorialFontFamily.current),
-                modifier = Modifier.semantics { heading() })
-            Text(copy.text(AuthText.GuestHelp), style = MaterialTheme.typography.bodyMedium)
-            // A failed attempt's message stays on Login; recovery, pending and other failures stay here.
-            if (!loginAttempt.owns(account)) AccountStatus(account, copy)
-            Button(
-                copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
-                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
-                icon = authActionIcon(AuthIntent.OpenLogin),
-                controlModifier = Modifier.fillMaxWidth().focusRequester(loginFocus).testTag("sign-in"),
-            )
-            if (account.offersRegistration()) Button(
-                copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
-                variant = ButtonVariant.AuthOutlined,
-                icon = authActionIcon(AuthIntent.OpenRegister),
-                controlModifier = Modifier.fillMaxWidth().testTag("create-account"),
-            )
-            if (account == AccountView.CleanupRequired) Button(
-                copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
-                icon = authActionIcon(AuthIntent.RetryCleanup),
-                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
-            )
         }
     }
     Surface(Modifier.fillMaxWidth().testTag("account-membership"), tone = SurfaceTone.Container,
@@ -216,14 +219,14 @@ private fun SignedInAccount(copy: AuthCopy, theme: ShellTheme, onIntent: (AuthIn
     )
 }
 
-/** Decorative: the heading and status beside it carry the meaning; the lavender container needs the primary pair. */
+/** Decorative; the heading and real account status carry the meaning. Signed-in geometry and pair stay unchanged. */
 @Composable
-private fun AccountAvatar() {
+private fun AccountAvatar(guest: Boolean = false) {
     Box(
-        Modifier.size(tokenDp("size.avatarLarge")).clip(CircleShape)
-            .background(tokenColor("color.primary")).testTag("account-avatar"),
+        Modifier.size(tokenDp(if (guest) "size.avatarMedium" else "size.avatarLarge")).clip(CircleShape)
+            .background(tokenColor(if (guest) "color.surfaceContainerHigh" else "color.primary")).testTag("account-avatar"),
         contentAlignment = Alignment.Center,
-    ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor("color.onPrimary")) }
+    ) { Icon(rememberCantosIconVector("person"), null, tint = tokenColor(if (guest) "color.onSurface" else "color.onPrimary")) }
 }
 
 @Composable

@@ -51,7 +51,7 @@ class GuestCtaPairPixelTest {
     }
 
     @Test
-    fun the_guest_pair_is_a_deep_filled_and_a_transparent_outlined_pill_of_one_size_in_both_themes() {
+    fun the_guest_pair_is_borderless_pink_and_filled_tonal_with_equal_geometry_in_both_themes() {
         Theme.entries.forEach { theme ->
             runDesktopComposeUiTest(width = 390, height = 360) {
                 setContent {
@@ -62,7 +62,7 @@ class GuestCtaPairPixelTest {
                                 Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(tokenDp("space.md"))) {
                                     Button(signIn, {}, variant = ButtonVariant.AuthPrimary, icon = "arrow_forward",
                                         controlModifier = Modifier.fillMaxWidth().testTag("sign-in"))
-                                    Button(create, {}, variant = ButtonVariant.AuthOutlined, icon = "person_add",
+                                    Button(create, {}, variant = ButtonVariant.AuthSecondary, icon = "person_add",
                                         controlModifier = Modifier.fillMaxWidth().testTag("create"))
                                 }
                             }
@@ -71,31 +71,35 @@ class GuestCtaPairPixelTest {
                 }
                 waitForIdle()
                 val filled = onNodeWithTag("sign-in").fetchSemanticsNode().boundsInRoot
-                val outlined = onNodeWithTag("create").fetchSemanticsNode().boundsInRoot
-                assertEquals(filled.width, outlined.width, "$theme width")
-                assertEquals(filled.height, outlined.height, "$theme height")
+                val secondary = onNodeWithTag("create").fetchSemanticsNode().boundsInRoot
+                assertEquals(filled.width, secondary.width, "$theme width")
+                assertEquals(filled.height, secondary.height, "$theme height")
                 assertTrue(filled.height >= 60f, "$theme height")
 
                 val ink = role("color.onPrimaryContainer", theme)
                 val card = role("color.primaryContainer", theme)
-                assertTrue(labelColor(signIn).isNear(card), "$theme sign-in text reads the card colour")
-                assertTrue(labelColor(create).isNear(ink), "$theme create text reads the card foreground")
+                val actionFill = role("color.theatreProfileAction", theme)
+                val actionInk = role("color.theatreOnProfileAction", theme)
+                assertTrue(labelColor(signIn).isNear(actionInk), "$theme sign-in text reads its scoped action role")
+                assertTrue(labelColor(create).isNear(card), "$theme create text reads the inverse pair")
 
                 val image = onNodeWithTag("scene").captureToImage()
                 // Opened by a reviewer, never asserted: the production pair at 1 px per dp.
                 File(System.getenv("CANTOS_UI_PREVIEW_CAPTURE_DIR") ?: "build/reports/cantos-preview").let { output ->
                     check(output.isDirectory || output.mkdirs())
-                    File(output, "cmp-guest-cta-pair-v42b-${theme.tokenName}.png").writeBytes(
+                    File(output, "cmp-guest-cta-pair-tonal-${theme.tokenName}.png").writeBytes(
                         requireNotNull(Image.makeFromBitmap(image.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)).bytes)
                 }
                 val pixels = image.toPixelMap()
                 val scene = onNodeWithTag("scene").fetchSemanticsNode().boundsInRoot
                 fun at(rect: androidx.compose.ui.geometry.Rect, dx: Int) =
                     pixels[(rect.left - scene.left).toInt() + dx, (rect.center.y - scene.top).toInt()]
-                // Past the 1.5 dp stroke, well left of the glyph: fill versus the card showing through.
-                assertTrue(at(filled, 12).isNear(ink), "$theme filled pill is the card foreground: ${at(filled, 12)}")
-                assertTrue(at(outlined, 12).isNear(card), "$theme outlined pill is transparent over the card: ${at(outlined, 12)}")
-                assertTrue(at(outlined, 0).isNear(ink) || at(outlined, 1).isNear(ink), "$theme outline is solid foreground")
+                // Inside the edge and before the glyph: both are opaque pills, no inset decorative stroke.
+                assertTrue(at(filled, 12).isNear(actionFill), "$theme sign-in fill")
+                assertTrue(at(filled, 2).isNear(actionFill), "$theme sign-in has no idle outline")
+                assertTrue(at(secondary, 12).isNear(ink), "$theme secondary is filled, not transparent")
+                assertTrue(at(secondary, 2).isNear(ink), "$theme secondary fill reaches the edge")
+
             }
         }
     }

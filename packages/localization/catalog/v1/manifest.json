@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "cbb433fa18bfbf0efa64411e02cde50f74d2d46d780d8056955bcef9385144c6",
+  "catalogSha256": "8498302b31bdc9450afc4c71545b145f888779d287c0fc8a7b1b76d9b3e826cd",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1255,8 +1255,6 @@
     "theatre.auth.brand_help": {},
     "theatre.auth.guest_heading": {},
     "theatre.auth.guest_help": {},
-    "theatre.auth.guest_info": {},
-    "theatre.auth.guest_info_label": {},
     "theatre.auth.login_email": {},
     "theatre.auth.login_eyebrow": {},
     "theatre.auth.login_heading": {},
@@ -1343,7 +1341,6 @@
     "theatre.cmp_auth.failure_expired": {},
     "theatre.cmp_auth.failure_protocol": {},
     "theatre.cmp_auth.failure_storage": {},
-    "theatre.cmp_auth.guest_badge": {},
     "theatre.cmp_auth.guest_heading": {},
     "theatre.cmp_auth.guest_help": {},
     "theatre.cmp_auth.hide_password": {},

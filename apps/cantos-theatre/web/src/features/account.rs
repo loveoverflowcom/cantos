@@ -4,7 +4,7 @@ use super::{
     account_ui::{account_ui, session_tone, AccountUi},
     auth::{label, AuthActions, SessionRecovery},
     auth_copy::CopyKey,
-    guest_identity::{GuestInfo, ProfileAvatar},
+    guest_identity::ProfileAvatar,
 };
 #[cfg(feature = "preview")]
 use crate::app::context::TheatreContext;
@@ -151,11 +151,6 @@ fn profile_status(
     move || messages::text(live_status_key(&ui.get()), locale.get())
 }
 
-/// A settled guest has no failure or cleanup to recover.
-const fn is_healthy_guest(phase: SessionPhase) -> bool {
-    matches!(phase, SessionPhase::Guest)
-}
-
 /// Only a guest needs the sign-in explanation; healthy signed-in copy adds no actionable fact.
 /// Pending and failed phases carry their own visible status instead.
 const fn profile_help(phase: SessionPhase) -> Option<CopyKey> {
@@ -242,10 +237,6 @@ pub(crate) fn LiveAccount(
                     })}
                     <Show when=move || ui.get().can_authenticate>
                         <AuthActions state locale scope="theatre-account" on_login on_register/>
-                    </Show>
-                    // Optional, so it follows the actions it explains instead of leading the card.
-                    <Show when=move || is_healthy_guest(ui.get().phase)>
-                        <GuestInfo locale/>
                     </Show>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
                         <ul class="theatre-action-rows theatre-me-shortcuts">
@@ -478,18 +469,16 @@ mod tests {
         for needle in [
             ".theatre-account :is(.theatre-account-preferences, .theatre-account-profile).cui-surface",
             ".theatre-action-rows > li { min-inline-size: 0; }",
-            ".theatre-guest-info-trigger { margin-inline-start: 0; }",
         ] {
             assert!(narrow.contains(needle), "{needle}");
         }
         // Wrapping rows keep their controls whole: the preference tiles stack below a readable
-        // width and wrap their copy beside the control, the disclosure label wraps, and the
+        // width and wrap their copy beside the control, the
         // equal-size CTA pair keeps one height when a label wraps.
         assert!(
             rule(".theatre-pref-row").contains("repeat(auto-fit, minmax(min(100%, 12rem), 1fr))")
         );
         assert!(rule(".theatre-pref-tile").contains("flex-wrap: wrap"));
-        assert!(rule(".theatre-guest-info-label").contains("overflow-wrap: anywhere"));
         assert!(
             rule(".theatre-account-profile .theatre-auth-actions").contains("grid-auto-rows: 1fr")
         );
@@ -735,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    fn healthy_guest_card_greets_the_listener_with_two_actions_and_a_named_closed_disclosure() {
+    fn healthy_guest_card_greets_the_listener_with_two_actions_and_no_guest_info() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
             for (language, greeting, line, info, name, create) in [
@@ -771,39 +760,17 @@ mod tests {
                     assert!(!html.contains(removed), "{removed}");
                 }
                 let text = visible_text(&html);
-                for shown in [
-                    messages::text(Key::Me, language),
-                    greeting,
-                    line,
-                    create,
-                    name,
-                ] {
+                for shown in [messages::text(Key::Me, language), greeting, line, create] {
                     assert!(text.contains(shown), "{shown}");
                 }
                 assert!(!html.contains(super::super::auth_copy::text(
                     CopyKey::AccountEyebrow,
                     language
                 )));
-                // The disclosure is named by its own visible text, starts closed and says what it opens.
-                assert!(html.contains("aria-expanded=\"false\""));
-                assert!(html.contains("aria-controls=\"theatre-guest-info-panel\""));
-                let trigger = html
-                    .split("id=\"theatre-guest-info\"")
-                    .nth(1)
-                    .and_then(|rest| rest.split('>').next())
-                    .expect("disclosure trigger");
-                assert!(!trigger.contains("aria-label"), "{trigger}");
-                let panel = html
-                    .split("id=\"theatre-guest-info-panel\"")
-                    .nth(1)
-                    .unwrap();
-                assert!(panel.split('>').next().unwrap().contains("hidden"));
-                assert!(panel.contains(info));
-                // It follows the actions it explains instead of leading the card.
-                assert!(
-                    html.find("id=\"theatre-account-register\"").unwrap()
-                        < html.find("id=\"theatre-guest-info\"").unwrap()
-                );
+                // Removed from the rendered tree, not a hidden panel or a replacement action.
+                for removed in ["theatre-guest-info", info, name] {
+                    assert!(!html.contains(removed), "{removed}");
+                }
                 // The admitted shared circle has no fabricated initial; its neutral person stays outlined.
                 let marker = html.find("theatre-profile-avatar").expect("profile avatar");
                 let start = html[..marker].rfind("<span").expect("avatar wrapper");

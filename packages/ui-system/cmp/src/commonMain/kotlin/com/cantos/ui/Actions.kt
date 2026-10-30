@@ -126,10 +126,11 @@ internal fun ButtonControl(
     val minimumHeight = tokenDp(minimumHeightRole ?: when (variant) {
         ButtonVariant.AuthPrimary -> "size.authPrimary"
         ButtonVariant.AuthOutlined -> if (pair) "size.authPrimary" else "size.authSecondary"
-        ButtonVariant.AuthSecondary -> "size.authSecondary"
+        ButtonVariant.AuthSecondary -> if (pair) "size.authPrimary" else "size.authSecondary"
         ButtonVariant.ListenHero -> "size.listenHero"
         else -> "size.control"
     })
+    val filledProfile = pair && (variant == ButtonVariant.AuthSecondary || theatreProfileAction(variant))
     val background = containerColor ?: buttonContainerColor(variant)
     val foreground = buttonContentColor(variant)
     val tonal = LocalAuthActionScope.current.isTonal()
@@ -149,7 +150,7 @@ internal fun ButtonControl(
             .semantics { name?.let { contentDescription = it.text }; if (!state.canPress()) disabled() },
         shape = resolvedShape,
         interactionSource = interactions,
-        border = if (tonal) null else if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
+        border = if (tonal || filledProfile) null else if (pair) BorderStroke(tokenDp("size.authOutline"), tokenColor("color.onPrimaryContainer"))
             else if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
                 tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
             ) else null,
@@ -208,13 +209,27 @@ private fun theatreTonal(variant: ButtonVariant): Boolean =
     LocalUiPreferences.current.expression == CantosExpression.Theatre &&
         (variant == ButtonVariant.Tonal || variant == ButtonVariant.AuthSecondary)
 
+/** The same scoped guest action roles as Leptos; a nested non-profile surface resets the pair. */
+@Composable
+private fun theatreProfileAction(variant: ButtonVariant): Boolean =
+    variant == ButtonVariant.AuthPrimary &&
+        LocalUiPreferences.current.expression == CantosExpression.Theatre &&
+        variant.joinsContainerPair(LocalAuthActionScope.current)
+
 @Composable
 internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant) {
-    ButtonVariant.AuthPrimary -> tokenColor(
-        if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
+    ButtonVariant.AuthPrimary -> tokenColor(when {
+        theatreProfileAction(variant) -> "color.theatreProfileAction"
+        variant.joinsContainerPair(LocalAuthActionScope.current) -> "color.onPrimaryContainer"
+        else -> "color.primary"
+    })
     ButtonVariant.Primary, ButtonVariant.ListenHero -> tokenColor("color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
-        tokenColor(if (theatreTonal(variant)) "color.surfaceContainerHigh" else "color.primaryContainer")
+        tokenColor(when {
+            variant.joinsContainerPair(LocalAuthActionScope.current) -> "color.onPrimaryContainer"
+            theatreTonal(variant) -> "color.surfaceContainerHigh"
+            else -> "color.primaryContainer"
+        })
     ButtonVariant.Danger -> tokenColor("color.errorContainer")
     // The outlined auth action has no outline in the tonal recipe: it is the quiet tonal container.
     ButtonVariant.AuthOutlined ->
@@ -224,13 +239,20 @@ internal fun buttonContainerColor(variant: ButtonVariant): Color = when (variant
 
 @Composable
 internal fun buttonContentColor(variant: ButtonVariant): Color = when (variant) {
-    ButtonVariant.AuthPrimary -> tokenColor(
-        if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.primaryContainer" else "color.onPrimary")
+    ButtonVariant.AuthPrimary -> tokenColor(when {
+        theatreProfileAction(variant) -> "color.theatreOnProfileAction"
+        variant.joinsContainerPair(LocalAuthActionScope.current) -> "color.primaryContainer"
+        else -> "color.onPrimary"
+    })
     ButtonVariant.Primary, ButtonVariant.ListenHero -> tokenColor("color.onPrimary")
     ButtonVariant.AuthOutlined -> tokenColor(
         if (variant.joinsContainerPair(LocalAuthActionScope.current)) "color.onPrimaryContainer" else "color.primary")
     ButtonVariant.Tonal, ButtonVariant.AuthSecondary ->
-        tokenColor(if (theatreTonal(variant)) "color.onSurface" else "color.onPrimaryContainer")
+        tokenColor(when {
+            variant.joinsContainerPair(LocalAuthActionScope.current) -> "color.primaryContainer"
+            theatreTonal(variant) -> "color.onSurface"
+            else -> "color.onPrimaryContainer"
+        })
     ButtonVariant.Danger -> tokenColor("color.error")
     ButtonVariant.Secondary, ButtonVariant.Text -> tokenColor("color.primary")
 }

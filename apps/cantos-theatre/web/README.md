@@ -159,6 +159,13 @@ Authorized name/photo facts remain absent under #481, so no initials are derived
 email buffer or fixture. The admitted canonical three-spine Library vector is generated for both
 renderers under #613. No new profile endpoint or fabricated membership capability is used.
 
+The guest profile is a compact borderless tonal card with a decorative 40-unit avatar and the
+existing filled Login/Register pair. The optional guest-info row/panel and its interaction state
+are removed, including unused copy; public listening remains available. The corresponding CMP
+guest card uses the same scoped Theatre profile roles and leaves signed-in identity unchanged.
+The [guest-card checkpoint](../../../docs/evidence/theatre-guest-tonal-646.md) records current
+paired qualification, actual Web/JVM captures and the separate zoom/device/profile-data gaps.
+
 The live Account/Login surface offers email/password sign-in to every guest behind an
 acknowledged session-cleanup barrier; there is no provider capability to read first, so an API
 without Identity answers the attempt with a clear `404`-based message instead of a gate. The

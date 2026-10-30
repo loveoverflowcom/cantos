@@ -1577,6 +1577,8 @@
 :where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"]) {
   inline-size: 100%;
   min-block-size: var(--cantos-size-auth-primary);
+  /* Keep the icon and a whole short action label together at 320px / 200% root text. */
+  padding-inline: var(--cantos-space-xs);
 }
 :where(.cantos-ui)[data-expression="theatre"] .cui-surface[data-tone="primary-container"][data-variant="profile"] .cui-button[data-variant="auth-primary"]:not(:disabled) {
   background-color: var(--cantos-color-theatre-profile-action);

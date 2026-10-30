@@ -1,0 +1,31 @@
+{
+  "component_id": "dialog",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-10-30; one automated reviewer, bounded Chromium/JVM delta checkpoint",
+  "reference": "Current scoped profile/FilterChip review plus attributable unchanged coverage from the earlier #646 shared review. See docs/evidence/theatre-guest-tonal-646.md for actual observations, inherited scope and remaining acceptance.",
+  "tokens_sha256": "95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7",
+  "source_sha256": "295d2617045070c26d94c04832bd412423b4775fcd8081701831d8eedc000e05",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; actual renderer tests/lint/build as applicable",
+      "artifact": "docs/evidence/theatre-guest-tonal-646.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify; actual JVM composable/input/clock tests; no OS-window claim",
+      "artifact": "docs/evidence/theatre-guest-tonal-646.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Compose semantics/input assertions in actual JVM tests; no device/AT claim",
+      "artifact": "docs/evidence/theatre-guest-tonal-646.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened current affected profile/FilterChip captures; unchanged component observations reused only within the source-attributable scope detailed in the report; no pixel-match/device claim",
+      "artifact": "docs/evidence/theatre-guest-tonal-646.md"
+    }
+  }
+}

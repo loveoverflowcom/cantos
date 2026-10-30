@@ -11,7 +11,7 @@ use crate::{
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Dialog, DialogCloseReason, DisabledReason, IconName,
 };
-use leptos::{ev, html, prelude::*};
+use leptos::prelude::*;
 
 /// What the confirmation shows. It is derived from the account owner, never stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,12 +55,7 @@ fn needs_focus_fallback(active_tag: Option<&str>) -> bool {
 #[cfg(target_arch = "wasm32")]
 mod browser {
     use super::{needs_focus_fallback, outside_box};
-    use leptos::{
-        ev, html,
-        prelude::*,
-        wasm_bindgen::JsCast,
-        web_sys::{HtmlElement, Node},
-    };
+    use leptos::{ev, wasm_bindgen::JsCast, web_sys::HtmlElement};
 
     pub(super) fn focus_by_id(id: &str) -> Option<HtmlElement> {
         let element = leptos::web_sys::window()?
@@ -80,18 +75,6 @@ mod browser {
         if needs_focus_fallback(active_tag.as_deref()) {
             let _ = focus_by_id("theatre-main");
         }
-    }
-
-    /// Only a focus move to a real element outside the disclosure closes it; a click on
-    /// non-focusable padding reports no related target and must not.
-    pub(super) fn focus_left(event: &ev::FocusEvent, wrapper: NodeRef<html::Div>) -> bool {
-        let (Some(wrapper), Some(related)) = (wrapper.get_untracked(), event.related_target())
-        else {
-            return false;
-        };
-        related
-            .dyn_ref::<Node>()
-            .is_some_and(|node| !wrapper.contains(Some(node)))
     }
 
     pub(super) fn backdrop_hit(event: &ev::MouseEvent) -> bool {
@@ -118,23 +101,15 @@ mod browser {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod browser {
-    use leptos::{ev, html, prelude::*};
+    use leptos::ev;
 
     pub(super) fn focus_by_id(_: &str) -> Option<leptos::web_sys::HtmlElement> {
         None
     }
     pub(super) fn focus_main_if_lost() {}
-    pub(super) fn focus_left(_: &ev::FocusEvent, _: NodeRef<html::Div>) -> bool {
-        false
-    }
     pub(super) fn backdrop_hit(_: &ev::MouseEvent) -> bool {
         false
     }
-}
-
-/// Close an optional-help disclosure only when focus reaches a real element outside it.
-pub(super) fn focus_left(event: &ev::FocusEvent, wrapper: NodeRef<html::Div>) -> bool {
-    browser::focus_left(event, wrapper)
 }
 
 const CANCEL_ID: &str = "theatre-logout-cancel";
