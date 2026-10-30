@@ -6,6 +6,9 @@
   ([#648](https://github.com/loveoverflowcom/cantos/issues/648)) implements the Server
   generation core, `server.db` v31, owner commands/state and an unrouted public read facade
   ([metadata publication v1](../../services/cantos-server/contracts/studio/metadata-publication/v1/README.md));
+  S03 ([#649](https://github.com/loveoverflowcom/cantos/issues/649)) implements D06a–c (exact
+  and owner-confirmed display-only association, same-transaction association on audio
+  activation, `server.db` v32) and the live Media playback gate for associated releases;
   no listener route reads generations yet. Until each slice lands, the current runtime and ADRs [0030](0030-release-safe-public-metadata.md),
   [0032](0032-theatre-origin-playback-delivery.md), [0035](0035-theatre-catalog-unit-availability.md)
   and [0051](0051-metadata-only-public-discovery.md) describe actual behavior; ADRs

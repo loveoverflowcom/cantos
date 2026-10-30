@@ -30,11 +30,12 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/contexts/media/domain/publication.rs",
       "sourceRefs": [
-        "services/cantos-server/contracts/studio/publication/v1/README.md"
+        "services/cantos-server/contracts/studio/publication/v1/README.md",
+        "docs/decisions/0054-publication-generation-and-access.md"
       ],
       "model": null,
       "inventory": "specs/behavior/inventory.md",
-      "reason": "Existing core is implemented; complete release/delivery observation boundary deferred to its owner."
+      "reason": "Existing core is implemented; S03 (#649) adds the D06 association scope (same-transaction association on activation, live gate of an associated release). Complete release/delivery observation boundary deferred to its owner."
     },
     {
       "id": "cantos.publishing.metadata-generation",
@@ -46,7 +47,7 @@
       ],
       "model": null,
       "inventory": "specs/behavior/inventory.md",
-      "reason": "S02 (#648) implements the generation/CAS core with pure and file-backed Turso tests; a model waits for an exact observation scope that includes S03 audio association and S06 audiences."
+      "reason": "S02 (#648) implements the generation/CAS core and S03 (#649) exact audio association (D06), with pure and file-backed Turso tests; a model waits for an exact observation scope that includes S06 audiences."
     },
     {
       "id": "cantos.listening.progress",

@@ -7,6 +7,10 @@ mod turso;
 
 pub use application::content;
 pub use application::delegation;
+pub(crate) use application::metadata_publication::activate_audio;
+#[cfg(test)]
+pub(crate) use application::metadata_publication::ActivationAssociation;
+pub(crate) use application::metadata_publication::{ActiveAudioRelease, AudioReleaseFuture};
 #[cfg_attr(
     not(test),
     expect(

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cantos.example/contracts/metadata-publication/v1",
   "title": "Cantos Studio metadata publication v1",
-  "description": "Owner commands and state for Work/Unit metadata publication generations (ADR 0054). JSON only. Ownership, exact-revision existence, rights, archive state, compare-and-set, replay and the published positions are decided by the service, not by this schema. No audio, cover, rights reference, provenance or storage fact is part of these messages.",
+  "description": "Owner commands and state for Work/Unit metadata publication generations (ADR 0054). JSON only. Ownership, exact-revision existence, rights, archive state, compare-and-set, replay, the published positions and audio compatibility are decided by the service, not by this schema. An entry's audio association names one exact settled release; it is a fact, never a playback state or right. No cover, rights reference, provenance or storage fact is part of these messages.",
   "$defs": {
     "CanonicalId": {
       "type": "string",
@@ -90,18 +90,42 @@
             "operation_id": {"$ref": "#/$defs/CanonicalId"},
             "expected_version": {"$ref": "#/$defs/Version"}
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "operation_id", "expected_version", "unit_id", "release_id", "confirm_display_only_drift"],
+          "properties": {
+            "action": {"const": "associate_audio"},
+            "operation_id": {"$ref": "#/$defs/CanonicalId"},
+            "expected_version": {"$ref": "#/$defs/Version"},
+            "unit_id": {"$ref": "#/$defs/CanonicalId"},
+            "release_id": {"$ref": "#/$defs/CanonicalId"},
+            "confirm_display_only_drift": {"type": "boolean"}
+          }
         }
       ]
+    },
+    "MetadataGenerationAudio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_id", "release_digest", "basis"],
+      "properties": {
+        "release_id": {"$ref": "#/$defs/CanonicalId"},
+        "release_digest": {"type": "string", "pattern": "^rl-r1:sha256:[a-f0-9]{64}$"},
+        "basis": {"enum": ["exact", "display_only"]}
+      }
     },
     "MetadataGenerationEntry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["position", "unit_id", "revision", "digest"],
+      "required": ["position", "unit_id", "revision", "digest", "audio"],
       "properties": {
         "position": {"$ref": "#/$defs/Position"},
         "unit_id": {"$ref": "#/$defs/CanonicalId"},
         "revision": {"$ref": "#/$defs/Revision"},
-        "digest": {"$ref": "#/$defs/SnapshotDigest"}
+        "digest": {"$ref": "#/$defs/SnapshotDigest"},
+        "audio": {"anyOf": [{"$ref": "#/$defs/MetadataGenerationAudio"}, {"type": "null"}]}
       }
     },
     "MetadataGeneration": {

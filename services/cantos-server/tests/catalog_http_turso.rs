@@ -107,6 +107,10 @@ fn schema(definition: &str, body: &Value) {
             "AppendContentResponse" | "ContentRevisionResponse" | "ContentHistoryResponse"
         ) {
             include_str!("../contracts/studio/content/v1/content.schema.json")
+        } else if definition == "MetadataPublicationState" {
+            include_str!(
+                "../contracts/studio/metadata-publication/v1/metadata-publication.schema.json"
+            )
         } else {
             include_str!("../contracts/studio/catalog/v1/catalog.schema.json")
         },
@@ -162,6 +166,8 @@ async fn request(
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     let definition = if !status.is_success() {
         "ApiError"
+    } else if path.ends_with("/metadata-publication") {
+        "MetadataPublicationState"
     } else if body.get("withdrawn_release_id").is_some() {
         "AudioReleaseWithdrawalResponse"
     } else if body.get("pointer_version").is_some() {

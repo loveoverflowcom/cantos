@@ -703,6 +703,93 @@ fn duplicate_reviews_and_future_reviews_preserve_publish_restore_consistency() {
     );
 }
 
+/// The generation lane's live gate (ADR 0054 D06): each fact is a separate negative control
+/// against one passing witness, so no gate can be vacuous.
+#[test]
+fn associated_release_plays_only_while_every_live_gate_holds() {
+    use crate::contexts::media::domain::listening::{
+        associated_release_playable, AssociatedReleaseFacts,
+    };
+    let f = fixture();
+    let release = AudioRelease::publish(
+        ReleaseId::parse(UNIT).unwrap(),
+        &f.actor,
+        5000,
+        None,
+        decide(&f.facts()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        AudioRelease::restore_settled(release.document().clone()).unwrap(),
+        release
+    );
+    let mut forged = release.document().clone();
+    forged.manifest.unit_title = "Tựa giả".into();
+    assert_eq!(
+        AudioRelease::restore_settled(forged),
+        Err(PublicationError::InvalidDigest)
+    );
+    let d = release.document();
+    let m = &d.manifest;
+    let base = AssociatedReleaseFacts {
+        release: &release,
+        pinned_digest: &d.digest,
+        active: true,
+        withdrawn: false,
+        submission_revoked: false,
+        latest_clearance: Some(&m.distribution_clearance.digest),
+        latest_approval: Some(&m.publication_approval.digest),
+        now: 5000,
+    };
+    assert!(associated_release_playable(&base));
+    let other = format!("rl-r1:sha256:{}", "f".repeat(64));
+    let newer = format!("dc-r1:sha256:{}", "e".repeat(64));
+    let denied = [
+        AssociatedReleaseFacts {
+            pinned_digest: &other,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            active: false,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            withdrawn: true,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            submission_revoked: true,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            latest_clearance: None,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            latest_clearance: Some(&newer),
+            ..base
+        },
+        AssociatedReleaseFacts {
+            latest_approval: None,
+            ..base
+        },
+        AssociatedReleaseFacts {
+            latest_approval: Some(&newer),
+            ..base
+        },
+        // Rights end at 10000 (half-open); nothing plays before publication.
+        AssociatedReleaseFacts { now: 10000, ..base },
+        AssociatedReleaseFacts { now: 4999, ..base },
+    ];
+    for facts in &denied {
+        assert!(!associated_release_playable(facts));
+    }
+    assert!(associated_release_playable(&AssociatedReleaseFacts {
+        now: 9999,
+        ..base
+    }));
+}
+
 #[test]
 fn retained_release_obeys_exact_expiry_revocation_withdrawal_and_approval() {
     let f = fixture();

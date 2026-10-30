@@ -268,3 +268,35 @@ Work without a generation are absent from the generation reader; publishing show
 selected entries, order and pinned text; withdrawal hides the Work again; pointers, receipts and
 withdrawals persist across reopen. "Every Theatre path" applies when S05 routes Theatre through
 this reader.
+
+### S03 delivered contract (#649)
+
+S03 implements D06a–c on the generation lane without changing any Theatre or Studio Web wire
+shape: `server.db` v32 [`catalog_metadata_audio_associations.sql`](../../services/cantos-server/src/platform/turso/catalog_metadata_audio_associations.sql),
+the pure compatibility matrix and association in [`metadata_publication.rs`](../../services/cantos-server/src/contexts/catalog/domain/metadata_publication.rs),
+Media's [`generation_audio.rs`](../../services/cantos-server/src/contexts/media/generation_audio.rs)
+and the additive `associate_audio` action and entry `audio` field of
+[Studio metadata publication v1](../../services/cantos-server/contracts/studio/metadata-publication/v1/README.md#audio-association),
+which no current client reads yet. Choices this boundary left to S03:
+
+| Question | S03 answer |
+| --- | --- |
+| Where association lives | A pin `(release_id, release_digest, basis)` per generation entry, written before the sealing event; changing it writes generation N+1 (`associate_audio` or `activate_audio`). The event table is rebuilt in v32 only to admit these two actions; every existing row is copied |
+| Catalog/Media boundary | Catalog owns the rows and the compatibility decision and never reads Media tables; Media answers the `ActiveAudioRelease` port (the release the Unit's audio pointer names now) and owns the live playback gate. D06c runs inside Media's activation write unit through `catalog::activate_audio` |
+| Exact rule (D06) | Same Unit revision. As a fail-closed tightening the Work's kind, language (case-insensitive) and rights references (as a set) must also be unchanged; Work title/synopsis may differ |
+| Catalog `visibility` | Not compared: it is editorial metadata and never a listener gate (D05b). Recorded here for owner review together with its removal in S05 |
+| Display-only drift (D06a/b) | Unit title/description (and Work title/synopsis) only, with an unchanged Unit kind, source, Script IR and content digest; associated only by the owner's `associate_audio` with `confirm_display_only_drift` |
+| Metadata changes after association | Same Unit pin under the same Work pin keeps the association; a new Unit or Work pin keeps nothing (an `exact` release is re-offered at publish, a `display_only` one needs the owner again); republication after `withdrawn` revives no owner decision |
+| Withdrawal, revocation, expiry, supersession | Live gate at every read (pointer still names the release, no tombstone or revocation, latest clearance/approval still the manifest's, access window); the generation keeps the historical pin and no cleanup write is needed |
+| Sample-only lane (D07c) | Removed, not migrated: the sample principal gets no generic publishing path. `presentation=3` and the sample disclosure tables are retired in S05 together with the Discovery switch and every current client, because Theatre Web still reads `presentation=3` today |
+| Data (D07b) | No backfill. Existing releases associate when their owner publishes a generation (exact) or associates explicitly |
+
+Seam for S04/S05: `PublicUnit::audio` from the catalog read facade plus
+`media::playable_releases(tx, …)` in the same read snapshot give each visible Unit `None`
+(metadata-only, `playback: null`) or the exact `AudioRelease` to project; S05 maps that to the one
+Discovery representation and deletes the sample lane. Studio reads "audio ready, not associated"
+from the metadata publication state. Evidence: pure matrix/association/live-gate tests,
+file-backed Turso tests (exact offer, display-only confirmation, incompatibility, no substitute,
+withdrawal/supersession/revocation, replay, concurrent associations, reopen, schema barriers), a
+real-file v31→v32 upgrade preserving publish/withdraw/republish history and its guards, and the
+real Studio HTTP activation journey.

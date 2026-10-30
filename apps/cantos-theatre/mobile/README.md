@@ -443,7 +443,7 @@ device gaps](../../../docs/evidence/listen-hero-595.md).
   a compact profile, one grouped list (membership, library and history, appearance, listening
   settings, support information) and a separate Sign out entry that opens a modal bottom sheet:
   only its confirm action asks the account owner to sign out, and Back closes the sheet before the
-  route. With no typed name/email projection the profile reads **Người nghe Cantos · Đã đăng nhập**;
+  route. With no typed name/email projection the profile reads **Người nghe Cantos** with no status caption;
   support is information until a verified destination exists.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs, for the verified
   account that owns the Library; a guest is asked to sign in. History has a secondary full list and

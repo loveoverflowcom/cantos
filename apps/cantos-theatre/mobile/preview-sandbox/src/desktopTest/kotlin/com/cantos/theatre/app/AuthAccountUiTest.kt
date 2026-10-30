@@ -259,7 +259,8 @@ class AuthAccountUiTest {
         waitForIdle()
         onNodeWithTag("sign-in").assertDoesNotExist()
         onNodeWithTag("open-library").performScrollTo().assertIsDisplayed()
-        onNodeWithText("Đã đăng nhập").assertExists()
+        onNodeWithTag("account-name").assertExists()
+        onNodeWithText("Đã đăng nhập").assertDoesNotExist()
         onNodeWithTag("logout").performScrollTo().assertIsDisplayed()
         // No actor, session or credential, and no invented name, total or conflict.
         onAllNodes(hasText(PreviewAccount.Linh.actor, substring = true)).assertCountEquals(0)

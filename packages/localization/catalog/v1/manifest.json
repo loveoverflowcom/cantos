@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "2733cdaae8b5b85de5e8dce60f97bb882e752f2eb083b3766efa672fd5f58663",
+  "catalogSha256": "4563a91855633def9905194d9ab27eb6aa3d5d496183fd1c650d00a6e4637914",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1395,7 +1395,6 @@
     "theatre.cmp_auth.session_changed": {},
     "theatre.cmp_auth.show_password": {},
     "theatre.cmp_auth.sign_in": {},
-    "theatre.cmp_auth.signed_badge": {},
     "theatre.cmp_auth.signed_profile_name": {},
     "theatre.cmp_auth.signup_unavailable": {},
     "theatre.cmp_auth.support_pending": {},

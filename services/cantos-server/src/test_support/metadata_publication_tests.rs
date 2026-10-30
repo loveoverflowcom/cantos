@@ -12,6 +12,7 @@ use crate::contexts::catalog::{
     public_units, public_work, public_works, CatalogCommand, CatalogStoreError, MemberRole,
     PublicReadError, PublicWorksQuery,
 };
+use crate::contexts::media::ActiveAudio;
 use crate::contract::studio::{
     ApiError, ErrorCode, MetadataPublicationLifecycle as Lifecycle,
     MetadataPublicationRequest as Request, MetadataPublicationState as State,
@@ -159,7 +160,7 @@ fn withdraw(expected: u64) -> Request {
 async fn execute(fixture: &ServerFixture, request: Request) -> Result<State, CatalogStoreError> {
     fixture
         .store()
-        .metadata_publication_execute(ALICE, WORK, request)
+        .metadata_publication_execute(ALICE, WORK, request, &ActiveAudio)
         .await
 }
 
@@ -488,7 +489,7 @@ async fn replay_changed_payload_stale_version_and_concurrent_publishers_settle_o
     assert!(matches!(
         fixture
             .store()
-            .metadata_publication_execute(ALICE, OTHER_WORK, elsewhere)
+            .metadata_publication_execute(ALICE, OTHER_WORK, elsewhere, &ActiveAudio)
             .await,
         Err(CatalogStoreError::OperationReused)
     ));
@@ -532,7 +533,7 @@ async fn a_lost_acknowledgement_is_reconciled_by_the_operation_and_survives_reop
     let mut lost = fixture.store().clone();
     lost.acknowledgement = Acknowledgement::LostAfterCommit;
     assert!(matches!(
-        lost.metadata_publication_execute(ALICE, WORK, request.clone())
+        lost.metadata_publication_execute(ALICE, WORK, request.clone(), &ActiveAudio)
             .await,
         Err(CatalogStoreError::Storage(StoreError::Unavailable))
     ));
@@ -550,7 +551,7 @@ async fn a_lost_acknowledgement_is_reconciled_by_the_operation_and_survives_reop
     let withdrawal = withdraw(1);
     assert!(matches!(
         rolled_back
-            .metadata_publication_execute(ALICE, WORK, withdrawal.clone())
+            .metadata_publication_execute(ALICE, WORK, withdrawal.clone(), &ActiveAudio)
             .await,
         Err(CatalogStoreError::Storage(StoreError::Unavailable))
     ));
@@ -728,7 +729,7 @@ async fn only_the_current_owner_publishes_or_reads_the_state() {
     for token in [BOB, "unknown-token"] {
         let refused = fixture
             .store()
-            .metadata_publication_execute(token, WORK, publish(0, w, &[(A, a)]))
+            .metadata_publication_execute(token, WORK, publish(0, w, &[(A, a)]), &ActiveAudio)
             .await;
         assert!(matches!(
             refused,
@@ -749,7 +750,7 @@ async fn only_the_current_owner_publishes_or_reads_the_state() {
     assert!(matches!(
         fixture
             .store()
-            .metadata_publication_execute(BOB, WORK, publish(0, w, &[(A, a)]))
+            .metadata_publication_execute(BOB, WORK, publish(0, w, &[(A, a)]), &ActiveAudio)
             .await,
         Err(CatalogStoreError::Storage(StoreError::NotFound))
     ));
@@ -884,7 +885,7 @@ async fn public_list_filters_before_the_keyset_and_unit_walks_bind_the_generatio
     let other = work_revision(&fixture, OTHER_WORK).await;
     fixture
         .store()
-        .metadata_publication_execute(ALICE, OTHER_WORK, publish(0, other, &[]))
+        .metadata_publication_execute(ALICE, OTHER_WORK, publish(0, other, &[]), &ActiveAudio)
         .await
         .unwrap();
     // Search reads the pinned revision, not a later draft title.

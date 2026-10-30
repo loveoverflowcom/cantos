@@ -76,6 +76,13 @@ receipt under the owning Work/clock fence. Pointer identity is fixed, version in
 forward-only and active pointers reference the same unit/owner. Settled rows reject update,
 delete and replacement/upsert attempts. Uncommitted failure leaves no new release, pointer/event or receipt.
 
+The same write unit also applies [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md)
+D06c: when the Unit's Work has an ACTIVE [metadata publication generation](../../metadata-publication/v1/README.md#audio-association)
+whose entry pins exactly the revision this release pins, it writes generation N+1 associating the
+release. Otherwise it writes nothing there and the generation state shows the entry
+metadata-only ("audio ready, not associated"). This response's shape is unchanged; the outcome is
+read from the metadata publication state. A replayed publish writes no second generation.
+
 Republish creates a new UUID and immutable record with `supersedes`; it never edits the old
 manifest. The explicit policy `retain_until_rights_expiry_or_withdrawal` retains old snapshots
 and bytes without an implicit fallback switch. Later QC/content/metadata changes can block a
