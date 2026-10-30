@@ -12,7 +12,10 @@
   [#427](https://github.com/loveoverflowcom/cantos/issues/427) (sample catalog)
 - Supersedes / superseded by: N/A. Would amend [ADR 0030](0030-release-safe-public-metadata.md)
   (release-pinned metadata authority) and [ADR 0035](0035-theatre-catalog-unit-availability.md)
-  (anonymous unit list means "listenable now") if accepted
+  (anonymous unit list means "listenable now") if accepted.
+  [ADR 0054](0054-publication-generation-and-access.md) proposes, without acceptance, the generic
+  publication that would generalize this sample decision (D02/D05/D07) and amend decision item 2
+  (D06); the sample-only scope here is unchanged
 
 ## Context
 

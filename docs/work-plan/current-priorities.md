@@ -48,6 +48,11 @@ remains Tier B until real inventory and owner confirmation establish otherwise.
   and browser/device coverage beyond the executed local signup/login/reload/logout journey. Local acceptance alone does not close #242/#334/#335. This is
   verification-only; provider login, PG and Kanidm remain retired.
 
+- [#634](https://github.com/loveoverflowcom/cantos/issues/634): publication lifecycle and
+  Work/Unit access run sequentially #647 → #658. [ADR 0054](../decisions/0054-publication-generation-and-access.md)
+  is proposed; each slice starts only after the decision rows its
+  [handoff](publication-access-handoff.md#successor-handoff) lists are accepted (S02/#648 needs
+  D01a, D02, D05 and D07a–b). Preserve #539's acceptance and the sample-only scope of ADR 0051.
 - [#203](https://github.com/loveoverflowcom/cantos/issues/203): trusted Forge invocation and
   provider/Drive/Functions execution; reuse the finite worker and attempt/recovery cores.
 - [#427](https://github.com/loveoverflowcom/cantos/issues/427): use the isolated
