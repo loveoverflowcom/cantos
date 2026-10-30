@@ -22,7 +22,57 @@ pub async fn session() -> Result<AccountScope, Failure> {
         .access(Some(&view.session))
         .await
         .map_err(auth_error)?;
-    scope(view)
+    let scope = scope(view)?;
+    // A display outage never logs the listener out. Session authority still belongs to the
+    // existing auth owner; its lease refuses a cookie change before this answer is published.
+    match presentation(scope.session()).await {
+        Ok(presentation) => Ok(scope.with_presentation(presentation)),
+        Err(Failure::SignedOut | Failure::SessionChanged) => Err(Failure::SessionChanged),
+        Err(_) => Ok(scope),
+    }
+}
+
+async fn presentation(
+    expected: &str,
+) -> Result<crate::contract::account_presentation::AccountPresentation, Failure> {
+    use gloo_net::http::Request;
+    let credential = crate::api_endpoint::auth()
+        .map_err(auth_error)?
+        .access(Some(expected))
+        .await
+        .map_err(auth_error)?;
+    let controller = web_sys::AbortController::new().map_err(|_| Failure::Unavailable)?;
+    let deadline = super::browser::deadline(controller).map_err(|_| Failure::Unavailable)?;
+    let url = crate::api_endpoint::endpoint("/api/v1/theatre/account/presentation")
+        .map_err(|_| Failure::Unavailable)?;
+    let response = credential
+        .apply(Request::get(&url))
+        .header("Accept", "application/json")
+        .abort_signal(Some(&deadline.controller.signal()))
+        .send()
+        .await
+        .map_err(|_| Failure::Unavailable)?;
+    credential.receive(&response).map_err(auth_error)?;
+    super::library::check_response(
+        response.status(),
+        response.headers().get("content-type").as_deref(),
+        response
+            .headers()
+            .get("x-cantos-theatre-session")
+            .as_deref(),
+        expected,
+    )?;
+    let bytes = response.binary().await.map_err(|_| Failure::Unavailable)?;
+    credential.check().map_err(auth_error)?;
+    if bytes.len() > 4096 {
+        return Err(Failure::Protocol);
+    }
+    let view: crate::contract::account_presentation::AccountPresentation =
+        serde_json::from_slice(&bytes).map_err(|_| Failure::Protocol)?;
+    if !view.valid() {
+        return Err(Failure::Protocol);
+    }
+    Ok(view)
 }
 
 /// One email/password attempt. The reply is confirmed by an authoritative read, so a browser that

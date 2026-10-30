@@ -201,6 +201,7 @@ fun CantosPresentation(
     // Appearance is resolved by the host; the controls retain the actual chosen mode.
     themeMode: ShellThemeMode = state.theme.mode(),
     accountSignedIn: Boolean = false,
+    accountPresentation: com.cantos.theatre.domain.identity.AccountPresentation? = null,
 ) {
     var surfaceBounds by remember { mutableStateOf(Rect.Zero) }
     val copy = ShellCopy(state.locale, LocalShellLiveCopy.current)
@@ -253,7 +254,7 @@ fun CantosPresentation(
                     }
                 }
                 // Search is a fullscreen task with its own Back and input; no shared header repeats above it.
-                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn)
+                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn, accountPresentation)
                 state.listeningFailure?.let { failure ->
                     Column(
                         Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
@@ -375,6 +376,7 @@ private fun ShellHeader(
     dispatch: (ShellEvent) -> Unit,
     accountFocus: FocusRequester,
     accountSignedIn: Boolean,
+    accountPresentation: com.cantos.theatre.domain.identity.AccountPresentation?,
 ) {
     val branded = topBarShowsBrandMark(state.route)
     BoxWithConstraints(
@@ -419,6 +421,7 @@ private fun ShellHeader(
             TopBarAccountButton(
                 label = copy.text(CopyKey.Account),
                 signedIn = accountSignedIn,
+                presentation = accountPresentation,
                 onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
                 modifier = Modifier.focusRequester(accountFocus).testTag("account"),
             )

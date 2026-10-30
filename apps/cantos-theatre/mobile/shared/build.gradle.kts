@@ -198,6 +198,25 @@ val generateMembershipVectors = tasks.register("generateMembershipVectors") {
     }
 }
 
+val generatedAccountPresentationDirectory = layout.buildDirectory.dir("generated/accountPresentationVectors/commonTest/kotlin")
+val generateAccountPresentationVectors = tasks.register("generateAccountPresentationVectors") {
+    val fixture = rootProject.file("../../../services/cantos-server/contracts/theatre/account-presentation/v1/fixtures/vectors.json")
+    inputs.file(fixture)
+    outputs.dir(generatedAccountPresentationDirectory)
+    doLast {
+        val json = fixture.readText(Charsets.UTF_8)
+        val quoted = json.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+        val output = generatedAccountPresentationDirectory.get().asFile.resolve(
+            "com/cantos/theatre/domain/identity/AccountPresentationVectors.kt",
+        )
+        output.parentFile.mkdirs()
+        output.writeText("// Generated from the Server-owned account presentation golden corpus. Do not edit.\n" +
+            "package com.cantos.theatre.domain.identity\n" +
+            "internal const val accountPresentationVectorJson: String = \"$quoted\"\n", Charsets.UTF_8)
+    }
+}
+
 val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVectors") {
     val fixture = rootProject.file("../../../apps/cantos-theatre/conformance/client-boundary/v1/probe-cases.json")
     val nativeSessionFixture = rootProject.file("../../../services/cantos-server/contracts/theatre/identity/v1/fixtures/native-session.json")
@@ -391,6 +410,7 @@ kotlin {
             kotlin.srcDir(generateLibraryWire.map { generatedLibraryTests.get() })
             kotlin.srcDir(generatePlaybackVectors)
             kotlin.srcDir(generateMembershipVectors)
+            kotlin.srcDir(generateAccountPresentationVectors)
             kotlin.srcDir(generateClientBoundaryVectors)
             kotlin.srcDir(generateProtobufVectors)
             kotlin.srcDir(generateArtworkVectors)

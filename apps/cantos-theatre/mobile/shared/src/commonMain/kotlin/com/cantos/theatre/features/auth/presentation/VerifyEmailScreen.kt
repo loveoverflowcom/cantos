@@ -68,7 +68,7 @@ fun VerifyEmailScreen(
 ) {
     val copy = AuthCopy(locale)
     val phase = state.phase
-    val signedIn = account == AccountView.SignedIn
+    val signedIn = account is AccountView.SignedIn
     AuthTonalScope {
     Column(Modifier.fillMaxWidth().testTag("verify-email"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         Text(copy.text(verificationHeading(phase)), style = CantosTypography.authHeading,

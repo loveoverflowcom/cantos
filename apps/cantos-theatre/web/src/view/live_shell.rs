@@ -53,14 +53,18 @@ pub(crate) fn LiveBrand() -> impl IntoView {
 }
 
 /// One route projection reused in the wide rail and the browser-native modal drawer.
-/// The shared neutral avatar is retained until authorized display-name/photo facts exist.
+/// Me and navigation borrow the same session-bound generated identity.
 #[component]
-fn PrimaryNavigation(route: RwSignal<Route>, locale: RwSignal<Locale>) -> impl IntoView {
+fn PrimaryNavigation(
+    route: RwSignal<Route>,
+    locale: RwSignal<Locale>,
+    state: ReadSignal<AccountViewState>,
+) -> impl IntoView {
     view! {
         <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
             <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
             <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true/><span class="theatre-nav-label">{move || messages::text(Key::Me, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/><span class="theatre-nav-label">{move || state.with(|s| s.presentation().map(|p| p.alias.clone())).unwrap_or_else(|| messages::text(Key::Me, locale.get()).to_owned())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
         </nav>
     }
 }
@@ -1028,14 +1032,14 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                             <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
                         </button>
                     </div>
-                    <PrimaryNavigation route=nav.route locale/>
+                    <PrimaryNavigation route=nav.route locale state=state.read_only()/>
                 </aside>
                 <dialog id="theatre-navigation-drawer" class="theatre-navigation-drawer" node_ref=drawer aria-labelledby="theatre-drawer-heading">
                     <header class="theatre-drawer-header">
                         <div id="theatre-drawer-heading"><LiveBrand/></div>
                         <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
                     </header>
-                    <PrimaryNavigation route=nav.route locale/>
+                    <PrimaryNavigation route=nav.route locale state=state.read_only()/>
                 </dialog>
                 <div class="theatre-navigation-fit" aria-hidden="true">
                     {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
@@ -1421,7 +1425,7 @@ mod tests {
         Owner::new().with(|| {
             for language in Locale::supported() {
                 for (route, selected) in [(Route::Explore, "#discover"), (Route::History, "#library"), (Route::Settings, "#account"), (Route::Membership(MembershipReturn::Account), "#account")] {
-                    let html = view! { <PrimaryNavigation route=RwSignal::new(route) locale=RwSignal::new(language)/> }.to_html();
+                    let html = view! { <PrimaryNavigation route=RwSignal::new(route) locale=RwSignal::new(language) state=RwSignal::new(AccountViewState::default()).read_only()/> }.to_html();
                     assert_eq!(html.matches("<a ").count(), 3);
                     assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
                     assert!(html.contains(&format!("href=\"{selected}\" aria-current=\"page\"")), "{html}");

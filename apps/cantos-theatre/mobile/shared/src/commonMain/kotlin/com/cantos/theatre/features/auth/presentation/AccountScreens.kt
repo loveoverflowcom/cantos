@@ -69,7 +69,7 @@ fun AccountContent(
     backOverlay: @Composable (onBack: () -> Unit) -> Unit,
 ) {
     val copy = AuthCopy(locale)
-    if (account == AccountView.SignedIn) SignedInAccount(copy, onIntent, preferences, backOverlay)
+    if (account is AccountView.SignedIn) SignedInAccount(copy, onIntent, preferences, backOverlay, account.presentation)
     else GuestAccount(copy, account, loginAttempt, onIntent, loginFocus, preferences)
 }
 
@@ -141,9 +141,9 @@ private fun GuestAccount(
 
 /**
  * The signed-in Account (design v4.1, page 3): identity first, one grouped list second, the sign-out
- * entry last. The owner projects no name, email or entitlement, so the profile is the honest
- * fallback (page 4) and nothing here invents a person, a plan or a support address. The fallback
- * is the name alone; a status caption would only restate the signed-in state.
+ * entry last. The owner supplies an optional Server-generated pseudonym, never a verified real
+ * name or entitlement. A display outage retains the existing unknown-name fallback. Neither
+ * state adds a healthy status caption.
  */
 @Composable
 private fun SignedInAccount(
@@ -151,6 +151,7 @@ private fun SignedInAccount(
     onIntent: (AuthIntent) -> Unit,
     preferences: @Composable () -> Unit,
     backOverlay: @Composable (onBack: () -> Unit) -> Unit,
+    presentation: com.cantos.theatre.domain.identity.AccountPresentation?,
 ) {
     var confirming by remember { mutableStateOf(false) }
     var submitted by remember { mutableStateOf(false) }
@@ -169,10 +170,14 @@ private fun SignedInAccount(
         variant = SurfaceVariant.Profile, inset = Space.Lg) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-            AccountAvatar()
+            if (presentation != null) com.cantos.ui.Avatar(
+                displayName = presentation.alias, stableId = presentation.avatarSeed,
+                size = com.cantos.ui.AvatarSize.Large, initials = com.cantos.ui.AvatarInitials.Pair,
+                tone = com.cantos.ui.AvatarTone.Lavender, modifier = Modifier.testTag("account-avatar"),
+            ) else AccountAvatar()
             // A healthy signed-in account needs no status caption: the sign-out entry and the missing
             // sign-in actions already say it, and real failures are shown by their own state.
-            Text(copy.text(AuthText.SignedProfileName),
+            Text(presentation?.alias ?: copy.text(AuthText.SignedProfileName),
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
                 modifier = Modifier.weight(1f).semantics { heading() }.testTag("account-name"))
         }

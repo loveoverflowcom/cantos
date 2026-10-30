@@ -12,7 +12,7 @@ class LoginAttemptTest {
     private val refused = AccountView.Failed(NativeAccountFailure.Api, AccountLoginFailure.InvalidCredentials)
     private val limited = AccountView.Failed(NativeAccountFailure.Api, AccountLoginFailure.RateLimited(17))
     private val expired = AccountView.Failed(NativeAccountFailure.Expired)
-    private val resting = listOf(AccountView.SignedOut, AccountView.SignedIn, AccountView.CleanupRequired, AccountView.Unavailable)
+    private val resting = listOf(AccountView.SignedOut, AccountView.SignedIn(), AccountView.CleanupRequired, AccountView.Unavailable)
 
     private fun fold(start: LoginAttempt, vararg views: AccountView) = views.fold(start) { attempt, view -> attempt.after(view) }
 

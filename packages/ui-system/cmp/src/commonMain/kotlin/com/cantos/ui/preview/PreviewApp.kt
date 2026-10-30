@@ -777,6 +777,17 @@ private fun AvatarExample(state: String, modifier: Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
         verticalAlignment = Alignment.CenterVertically) {
         when (state) {
+            "generated-alias" -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                for ((label, tone) in listOf("A · Lavender Monogram" to com.cantos.ui.AvatarTone.Lavender,
+                    "B · Golden Editorial" to com.cantos.ui.AvatarTone.Gold, "C · Personal Tonal" to null)) {
+                    FieldLabel(label)
+                    Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically) {
+                        for (size in listOf(AvatarSize.Large, AvatarSize.Control)) Avatar("Mây Lam",
+                            stableId = "6e45675a6ee0e0dd5a16f55c6fcaafd1f8737a27c0572ffc39a2a1bd22100ecb",
+                            initials = AvatarInitials.Pair, size = size, tone = tone)
+                    }
+                }
+            }
             "initials-pair" -> Avatar("Người dẫn chuyện", initials = AvatarInitials.Pair)
             "no-initial" -> Avatar("😀")
             "image" -> Avatar("Đỗ Văn An", image = image)

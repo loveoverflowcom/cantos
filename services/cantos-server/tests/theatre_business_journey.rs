@@ -802,6 +802,61 @@ async fn catalog_to_playback_to_library_over_the_production_composition_with_a_r
         .unwrap()
         .to_owned();
     let cookie_secret = cookie.split_once('=').unwrap().1.to_owned();
+
+    // The display projection reuses production cookie/Bearer admission without changing Session.
+    let display_cookie = send(
+        &host.router,
+        "GET",
+        &theatre("/account/presentation"),
+        &[("cookie", cookie.clone())],
+        None,
+    )
+    .await;
+    let display_native = send(
+        &host.router,
+        "GET",
+        &theatre("/account/presentation"),
+        &[bearer(&alice.access)],
+        None,
+    )
+    .await;
+    assert_eq!(display_cookie.status, StatusCode::OK);
+    assert_eq!(display_native.status, StatusCode::OK);
+    assert_eq!(display_cookie.json(), display_native.json());
+    assert_eq!(display_cookie.header("cache-control"), Some("no-store"));
+    assert_eq!(
+        display_native.header("x-cantos-theatre-session"),
+        Some(alice.session.as_str())
+    );
+    assert_eq!(display_native.json()["version"], "generated-alias-v1");
+    assert!(!String::from_utf8_lossy(&display_native.body).contains(&alice.actor));
+    let schema: Value = serde_json::from_str(include_str!("../../../services/cantos-server/contracts/theatre/account-presentation/v1/account-presentation.schema.json")).unwrap();
+    assert!(jsonschema::validator_for(&schema)
+        .unwrap()
+        .is_valid(&display_native.json()));
+    for headers in [
+        vec![],
+        vec![("cookie", cookie.clone()), bearer(&alice.access)],
+        vec![
+            ("cookie", cookie.clone()),
+            ("x-cantos-theatre-session", bob.session.clone()),
+        ],
+    ] {
+        let refused = send(
+            &host.router,
+            "GET",
+            &theatre("/account/presentation"),
+            &headers,
+            None,
+        )
+        .await;
+        assert!(matches!(
+            refused.status,
+            StatusCode::UNAUTHORIZED | StatusCode::CONFLICT
+        ));
+        assert!(!String::from_utf8_lossy(&refused.body).contains("generated-alias-v1"));
+    }
+
     let by_cookie = send(
         &host.router,
         "GET",

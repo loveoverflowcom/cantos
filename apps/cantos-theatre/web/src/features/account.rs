@@ -222,8 +222,9 @@ pub(crate) fn LiveAccount(
             </header>
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <ProfileAvatar/>
-                    <h2>{profile_heading(ui, locale)}</h2>
+                    <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                    <h2>{move || state.with(|s| s.presentation().map(|p| p.alias.clone()))
+                        .unwrap_or_else(|| profile_heading(ui, locale)().to_owned())}</h2>
                     // Healthy account state adds no status row; keep every pending/failure reason.
                     <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
                         <p id="theatre-live-account-status" class="theatre-auth-feedback"

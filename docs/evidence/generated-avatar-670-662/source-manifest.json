@@ -1,0 +1,223 @@
+{
+  "base": "0901b20b9a97d3b10780bef91ec93e1c3b43f13c",
+  "scope": "dirty source snapshot associated with this evidence; metadata unrecorded revision is not upgraded to a Git SHA",
+  "files": [
+    {
+      "path": "apps/cantos-theatre/mobile/shared/build.gradle.kts",
+      "sha256": "08a9f50406150c63a02f44c826578dfdd5d53701935d3d44209046f7dceebae1"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/adapters/http/NativeIdentityV1Client.kt",
+      "sha256": "74bf7042dc6f073782d6534be92d49009efc4fe6e768a613f6996b1a9245e21a"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/app/CantosTheatreApp.kt",
+      "sha256": "c1411ec57f2c6f9d03a3429f18ea7bd8043cad7bb1e20c9109ccd736629b1397"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/AccountView.kt",
+      "sha256": "157296548dde9dd7d09bc0c2b4fdbdc33df43b7322657833832766db37c83988"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/identity/NativeAccountController.kt",
+      "sha256": "ac1e1b386055ce6742b4f7b0094a02c3788368921d1a4ef3565a8fd24f0e17f0"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/domain/identity/AccountPresentation.kt",
+      "sha256": "8a8b9fe8e59363fab6551df18473c61eb784898eae5b495c366f8d3db2e64503"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AccountScreens.kt",
+      "sha256": "67fb534f6c0e2d1f43d46a13695b23afb25738339ef6eb6cf6ad32815d2e1238"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AuthScreens.kt",
+      "sha256": "c6855ed2b4f89bb9cb188fb26ff7946f9b2a361302b72cbaedc7a0e5883bab5c"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/LoginAttempt.kt",
+      "sha256": "9c320dfe02976dd067e4c591944ce2b931173a46bf27c4db4ab00c93e1efd0dd"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/VerifyEmailScreen.kt",
+      "sha256": "6758b05589f3f2e5d98be3318dca3dcf5cd4f4d9499568b56a7ec5ecebe0d859"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/shell/presentation/CantosPresentation.kt",
+      "sha256": "32939f43cb95c389ee4a8e63cc10a95100c26e1ddce136c406faed5945a73c68"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/shell/presentation/TopBarActions.kt",
+      "sha256": "90c489d05b9a7aae5c897039652e5c214e5695daab4acf17a18c510dd15a8e39"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/ports/AccountPresentationApi.kt",
+      "sha256": "c74d51cffd3432025b9024156f1c2ea9be267a6183f3f31431628f1cc2ea1115"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/http/NativeIdentityV1ClientTest.kt",
+      "sha256": "8262967909fe9a117469f7e5a0090743a943b7b00121892d2fc8a0160830541b"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/AccountViewTest.kt",
+      "sha256": "f21fa55dbfc74678c85e1095d4ac5d0d2d0ace26b9f08c3505fb6be13395039c"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/identity/NativeIdentityV1LifecycleTest.kt",
+      "sha256": "f2b9869add780fa0e71f53aed62cda5851c15a30c06234c8be24257c78aad9c0"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/domain/identity/AccountPresentationVectorsTest.kt",
+      "sha256": "573cacafc07aabd4f2e840db07a82b19f307271f1c106f545e64284d63d4b530"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/features/auth/presentation/LoginAttemptTest.kt",
+      "sha256": "f4d7ffd6d370eb0a652e2784214e4050a89de70e5b79a0ab591d6a9abe14cae7"
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/com/cantos/theatre/app/AccountLogoutSheetTest.kt",
+      "sha256": "2b03f953f2625044a03fc73a06b1cd00cdfdea127b4e55728a4de1f496d8642f"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/application/account.rs",
+      "sha256": "03d3400dfd94e83ace41082685e394f4b78893eb710acb8f48ebf17405e61b0a"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/application/account_view.rs",
+      "sha256": "3fcfd87660cba94842bfe6012006699657b8ca67343d8fff0fddc41e7849070e"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/contract/account_presentation.rs",
+      "sha256": "0671e6be1e7ee5455d0c364ce82f2f06a9f640ed7fa48ef12a0f8b4563e7a67e"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/contract/mod.rs",
+      "sha256": "0eee56c30ac0268789dcba5db54702e0c74b53c4f411e64dd35e0757dcfae099"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/account.rs",
+      "sha256": "aefbb05cfa0a11d2cbffc4e6fc26e430907a574053c6e64e49ef7c30661ee891"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/guest_identity.rs",
+      "sha256": "b1f05a48af767eba5c8e5cd2219409bea7589519ced345a9f7eb767f5ada1eb7"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/live/account.rs",
+      "sha256": "18e6c26267fa5810ba9ce3df5da4cc46fbfb321a7199a4a7de3d4431aeab5643"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/styles/theatre.css",
+      "sha256": "7aba8f3fb10ca2892e43c53bd4fed57f58b5b0f76d0cca81402d83e63076494f"
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/view/live_shell.rs",
+      "sha256": "82f185be6dbe93442cb752f0ef1f6fdab8d5879cb11887450e3ce2c94432fd40"
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/Avatar.kt",
+      "sha256": "c62a91b47675168f151589e225a5cc979e9b813d063cb59044f9458c37c8b9d9"
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
+      "sha256": "b9a877bbdf60a29d5e5d11b0e10bac40c614bf52cb892f0664b8bdde7959cb64"
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/PreviewCatalog.kt",
+      "sha256": "7da9f4e47c517cb9525b7b870fb954c6dd4614e07ee678d4a66ac9f3e8eb698d"
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewApp.kt",
+      "sha256": "eccfeee79088ec5414a4d46b8a4e8bc1225f5e1158d65b19ab60b7bdd02a1bdd"
+    },
+    {
+      "path": "packages/ui-system/cmp/src/desktopTest/kotlin/com/cantos/ui/GeneratedAliasCaptureTest.kt",
+      "sha256": "07b951c7ada7d94c104a5fdf2db94dfcde0cd040e65334bc97ce6affd461c925"
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "sha256": "c2b3bb636746bd0e4d3b206e10a62bca02591490d53cc2f53e90f288c5e10ac4"
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/messages.rs",
+      "sha256": "24e081ed30d1a454071bba20d5a2a4fefe0441472ca5672806b136a699772f53"
+    },
+    {
+      "path": "packages/ui-system/leptos/src/avatar.rs",
+      "sha256": "0dd93858ec478764bb530ce55b93d5db9a955762d5442eda387b1f8a0258ff93"
+    },
+    {
+      "path": "packages/ui-system/leptos/src/preview_catalog.rs",
+      "sha256": "0a0146ab9dad4f6fbf54869dcb785f7bd9b2fec681651464b42057ddd891ee6a"
+    },
+    {
+      "path": "packages/ui-system/leptos/tests/avatar.rs",
+      "sha256": "25c80cce82546c29fd9d716e132a83b6c2303c9b30883996bad8f91c1994f73d"
+    },
+    {
+      "path": "packages/ui-system/leptos/tests/gallery.rs",
+      "sha256": "1eb00ba22ba13164183f7ba3db79e18c41bcf4992fdd96613f5a95c8ce52fafb"
+    },
+    {
+      "path": "packages/ui-system/shared/README.md",
+      "sha256": "07e9a465315a001a6cd2e2c80a4761ad49a1d65222e88405abcc447ccfda2529"
+    },
+    {
+      "path": "packages/ui-system/shared/preview-catalog.json",
+      "sha256": "42aac6923a6ff47ed95aeab16e6329e5d0c3958524429d4f7c8af091d94254d7"
+    },
+    {
+      "path": "packages/ui-system/shared/tokens.json",
+      "sha256": "3d5dd5a933f3c8bf4fba33b71a914538f9ceccff94a96ec446234b6b69b7d4d4"
+    },
+    {
+      "path": "services/cantos-server/contracts/README.md",
+      "sha256": "4c1a60c8a143426443ff7caa38e4bc0fe592622cd83f234b8e4ab9822300c849"
+    },
+    {
+      "path": "services/cantos-server/contracts/theatre/account-presentation/v1/README.md",
+      "sha256": "aab647ec99a8ba07c0a2426d9973b71c7b85aabd9fe4fac512c683dcae799054"
+    },
+    {
+      "path": "services/cantos-server/contracts/theatre/account-presentation/v1/account-presentation.schema.json",
+      "sha256": "9ac63b659b30a849a534ee0795ce830b04334c9e0848680aa2ff9560ec0e7ce9"
+    },
+    {
+      "path": "services/cantos-server/contracts/theatre/account-presentation/v1/fixtures/vectors.json",
+      "sha256": "a29904c0c6c607d4ec250a6cb847bdeb2dba9b4c32ba40b1707bb66a45405f54"
+    },
+    {
+      "path": "services/cantos-server/src/adapters/inbound/http/identity_auth.rs",
+      "sha256": "66e01722634b24baa1a09cb64f7d235423e7fde02300ebf11e07e97fe54a1384"
+    },
+    {
+      "path": "services/cantos-server/src/adapters/inbound/http/theatre_library.rs",
+      "sha256": "f664388272b0a2cf593f4aa446261e16c1004eb760a8c48286f708ded103621a"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/listening/account_presentation.rs",
+      "sha256": "9a0e16a69714d5bb3295fa1663e9ed4b8ffddc5a083dba6013f58bbe3a63fa53"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/listening/application.rs",
+      "sha256": "e0ae14cf05a67bcd66a89495930ef78f9518f0ead0ff8325398943ec84a2ee88"
+    },
+    {
+      "path": "services/cantos-server/src/contexts/listening/mod.rs",
+      "sha256": "74d7258d5356df7e86c334b4f59e8c841887367505e283228def447d1314eb82"
+    },
+    {
+      "path": "services/cantos-server/src/contract/theatre/account_presentation.rs",
+      "sha256": "92da03ec925379667fa75c7b3d4e24f891b0ba33af4d695eb82c0409d0444df7"
+    },
+    {
+      "path": "services/cantos-server/src/contract/theatre/mod.rs",
+      "sha256": "72ad9e76a3ff07cef4e3011f5c065df35ea2c546cd3d134e6789642dc422f4da"
+    },
+    {
+      "path": "services/cantos-server/tests/theatre_business_journey.rs",
+      "sha256": "de1c194c060dc33d410adf575b87e9c327da82aef0fc0c7a959fbfabf30880e5"
+    }
+  ],
+  "initial_base": "e09bd769c1f1ef196150caf0cff98d3e00f87c9a"
+}

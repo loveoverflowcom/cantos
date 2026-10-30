@@ -1,0 +1,42 @@
+[
+  {
+    "actor_id": "00000000-0000-4000-8000-000000000001",
+    "presentation": {
+      "version": "generated-alias-v1",
+      "alias": "Sương Thanh",
+      "avatar_seed": "6e45675a6ee0e0dd5a16f55c6fcaafd1f8737a27c0572ffc39a2a1bd22100ecb"
+    },
+    "initials": "ST",
+    "tone": "sky"
+  },
+  {
+    "actor_id": "00000000-0000-4000-8000-000000000002",
+    "presentation": {
+      "version": "generated-alias-v1",
+      "alias": "Gió Bạc",
+      "avatar_seed": "994b0cd4f0b568aad40f187849ab32005ccfeb3ff2fc78ad7f26f8031f1953f9"
+    },
+    "initials": "GB",
+    "tone": "sky"
+  },
+  {
+    "actor_id": "listener-vietnamese-d",
+    "presentation": {
+      "version": "generated-alias-v1",
+      "alias": "Gió Bạc",
+      "avatar_seed": "10f9feb3b7748a75ed84e15ac54e8a741d193d94240961e95debcf26f44e3946"
+    },
+    "initials": "GB",
+    "tone": "rose"
+  },
+  {
+    "actor_id": "subject-42",
+    "presentation": {
+      "version": "generated-alias-v1",
+      "alias": "Mây Mai",
+      "avatar_seed": "e3df6c6e6feee152e5cd8d9baeced32e34c90a89ac86a41a0ea8eb41f0c87d07"
+    },
+    "initials": "MM",
+    "tone": "gold"
+  }
+]

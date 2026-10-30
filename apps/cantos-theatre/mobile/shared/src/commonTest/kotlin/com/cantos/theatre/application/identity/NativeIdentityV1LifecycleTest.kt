@@ -98,7 +98,11 @@ class NativeIdentityV1LifecycleTest {
             return null
         }
     }
-    private inner class Api(val events: MutableList<String>) : NativeIdentityV1Api {
+    private inner class Api(val events: MutableList<String>) : NativeIdentityV1Api, com.cantos.theatre.ports.AccountPresentationApi {
+        var displayGate: CompletableDeferred<IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation>>? = null
+        override suspend fun presentation(previous: NativeGrant): IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation> =
+            displayGate?.let { withContext(NonCancellable) { it.await() } } ?: IdentityV1Result.Refused(IdentityV1Failure.ServiceUnavailable)
+
         var remote = pair()
         var loginResult: IdentityV1Result<NativeGrant>? = null
         var loginGate: CompletableDeferred<IdentityV1Result<NativeGrant>>? = null
@@ -145,6 +149,61 @@ class NativeIdentityV1LifecycleTest {
         val owner = recreate()
         fun login() = owner.login(email, password)
         fun stored() = assertIs<NativeJournalRead.Found>(journal.read()).record
+    }
+
+    @Test fun late_presentation_cannot_resurrect_after_logout_or_account_switch() = runTest {
+        val f = Fixture(backgroundScope)
+        val old = CompletableDeferred<IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation>>()
+        f.api.displayGate = old
+        f.login(); runCurrent()
+        assertIs<NativeAccountState.SignedIn>(f.owner.state.value)
+        assertNull(assertIs<NativeAccountState.SignedIn>(f.owner.state.value).presentation)
+        f.owner.logout(); runCurrent()
+        assertEquals(NativeAccountState.SignedOut, f.owner.state.value)
+        f.api.remote = pair('b', actor = "reader-b", session = otherFamily)
+        val newer = CompletableDeferred<IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation>>()
+        f.api.displayGate = newer
+        f.login(); runCurrent()
+        val b = com.cantos.theatre.domain.identity.AccountPresentation("Trăng Non", "b".repeat(64))
+        newer.complete(IdentityV1Result.Accepted(b)); runCurrent()
+        assertEquals(b, assertIs<NativeAccountState.SignedIn>(f.owner.state.value).presentation)
+        old.complete(IdentityV1Result.Accepted(com.cantos.theatre.domain.identity.AccountPresentation("Mây Lam", "a".repeat(64)))); runCurrent()
+        assertEquals("reader-b", assertIs<NativeAccountState.SignedIn>(f.owner.state.value).actor)
+        assertEquals(b, assertIs<NativeAccountState.SignedIn>(f.owner.state.value).presentation)
+        f.owner.restore()
+        assertEquals(NativeAccountState.Pending, f.owner.state.value)
+        assertEquals(AccountView.Pending, f.owner.state.value.toAccountView())
+    }
+
+    @Test fun late_presentation_cannot_replace_confirmed_session_loss_after_revalidation() = runTest {
+        val f = Fixture(backgroundScope)
+        val old = CompletableDeferred<IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation>>()
+        f.api.displayGate = old
+        f.login(); runCurrent()
+        assertIs<NativeAccountState.SignedIn>(f.owner.state.value)
+        f.api.sessionResult = IdentityV1Result.Refused(IdentityV1Failure.Unauthorized)
+        f.owner.revalidate(family)
+        assertEquals(AccountView.Pending, f.owner.state.value.toAccountView())
+        runCurrent()
+        val expired = assertIs<NativeAccountState.Failed>(f.owner.state.value)
+        assertEquals(NativeAccountFailure.Expired, expired.reason)
+        assertNotNull(expired.sessionLoss)
+        old.complete(IdentityV1Result.Accepted(com.cantos.theatre.domain.identity.AccountPresentation("Mây Lam", "a".repeat(64))))
+        runCurrent()
+        assertEquals(expired, f.owner.state.value)
+        assertNull(f.owner.verifiedSession.value)
+        assertEquals(1, f.api.logins)
+        f.owner.close()
+    }
+
+    @Test fun presentation_failure_keeps_the_admitted_account_and_does_not_replay_login() = runTest {
+        val f = Fixture(backgroundScope)
+        f.login(); runCurrent()
+        assertIs<NativeAccountState.SignedIn>(f.owner.state.value)
+        assertNotNull(f.owner.verifiedSession.value)
+        assertNull(assertIs<NativeAccountState.SignedIn>(f.owner.state.value).presentation)
+        assertEquals(1, f.api.logins)
+        assertEquals(0, f.api.revoked.size)
     }
 
     @Test fun login_persists_and_reads_back_pair_then_waits_for_contract_admission() = runTest {

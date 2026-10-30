@@ -718,8 +718,8 @@ body { margin: 0; }
 
 .theatre-library-section > .theatre-actions:empty { display: none; }
 
-/* The admitted Avatar supplies the Theatre accent circle; the app overlays a neutral person
-   until authorized profile facts exist. */
+/* Guests retain their existing silhouette. Admitted generated identities use the shared
+   Lavender recipe at profile/control sizes. */
 .theatre-app .theatre-profile-avatar {
   position: relative;
   inline-size: var(--cantos-size-avatar-medium);
@@ -732,6 +732,8 @@ body { margin: 0; }
 }
 .theatre-profile-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .theatre-app .theatre-profile-avatar[data-navigation-avatar] { inline-size: var(--cantos-size-avatar-small); min-block-size: var(--cantos-size-avatar-small); }
+.theatre-app .theatre-profile-avatar[data-personalized] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
+.theatre-app .theatre-profile-avatar[data-personalized][data-navigation-avatar] { inline-size: var(--cantos-size-avatar-control); min-block-size: var(--cantos-size-avatar-control); }
 .theatre-account-profile .theatre-avatar[data-profile] { margin-block-end: var(--cantos-space-md); }
 .theatre-account-profile .theatre-avatar[data-profile] svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
 .theatre-account-profile .theatre-account-help { margin-block: 0 var(--cantos-space-md); }

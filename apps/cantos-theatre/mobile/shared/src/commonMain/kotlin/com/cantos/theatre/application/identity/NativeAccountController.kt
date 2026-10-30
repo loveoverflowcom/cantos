@@ -24,12 +24,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
+import com.cantos.theatre.domain.identity.AccountPresentation
+import com.cantos.theatre.ports.AccountPresentationApi
 
 enum class NativeAccountFailure { Storage, Expired, Api, Protocol, Exhausted }
 sealed interface NativeAccountState {
     data object SignedOut : NativeAccountState
     data object Pending : NativeAccountState
-    data class SignedIn(val actor: String, val expiresAt: Long) : NativeAccountState
+    data class SignedIn(val actor: String, val expiresAt: Long, val presentation: AccountPresentation? = null) : NativeAccountState
     data class Failed(
         val reason: NativeAccountFailure,
         val identityFailure: IdentityV1Failure? = null,
@@ -103,6 +105,7 @@ class NativeAccountController internal constructor(
     // conflates the intermediate null with an immediate successful session response.
     private var admissionEpoch = 0L
     private var operation: Job? = null
+    private var presentationRead: Job? = null
     private var expiry: Job? = null
     private var rotation: Job? = null
     private var flight: CompletableDeferred<NativeApiResult<NativeVerifiedSession>>? = null
@@ -116,6 +119,7 @@ class NativeAccountController internal constructor(
 
     private fun current(issued: Long): Boolean = !closed && generation == issued
     private fun hide() {
+        presentationRead?.cancel(); presentationRead = null
         mutableVerifiedSession.value = null
         grant = null
         acceptedAccess.clear()
@@ -291,6 +295,17 @@ class NativeAccountController internal constructor(
         acceptedAccess += admitted.accessToken
         mutableVerifiedSession.value = NativeVerifiedSession(admitted.view, admitted.accessToken, admissionEpoch)
         mutableState.value = NativeAccountState.SignedIn(admitted.view.actor, admitted.view.expiresAt)
+        presentationRead?.cancel()
+        val displayApi = api as? AccountPresentationApi
+        if (displayApi != null) presentationRead = scope.launch {
+            val result = displayApi.presentation(admitted)
+            // Cancellation is only an optimization: a late result must still match the exact
+            // account intent and the currently admitted grant after rotation/revalidation.
+            if (current(issued) && grant === admitted && admitted.expiresAt > now() &&
+                mutableState.value is NativeAccountState.SignedIn && result is IdentityV1Result.Accepted) {
+                mutableState.value = NativeAccountState.SignedIn(admitted.view.actor, admitted.view.expiresAt, result.value)
+            }
+        }
         expiry?.cancel()
         // Active apps renew before expiry; the original absolute authority stays fixed.
         expiry = scope.launch {

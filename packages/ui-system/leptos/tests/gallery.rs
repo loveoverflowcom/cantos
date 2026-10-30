@@ -648,7 +648,7 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in web_field_extension {
         assert!(field.states.contains(&state), "text-field omits {state}");
     }
-    // Token v0.7.0 adds Theatre-expression diagnostics to existing registrations only.
+    // Theatre-expression and account diagnostics extend existing registrations only.
     let theatre_extension = [
         ("ui-root", "theatre-expression"),
         ("button", "theatre-group"),
@@ -660,6 +660,7 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
         ("text-field", "theatre-docked-search"),
         ("select", "theatre-utility"),
         ("avatar", "theatre-control"),
+        ("avatar", "generated-alias"), // #670: A/B/C comparisons, not a new API or v3 baseline.
         ("logo", "theatre-header"),
     ];
     for (id, state) in theatre_extension {

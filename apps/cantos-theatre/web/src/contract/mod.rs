@@ -5,6 +5,7 @@
 //! against those fixtures in its own tests. Raw DTOs, never authority or validation witnesses.
 use serde::{Deserialize, Serialize};
 
+pub mod account_presentation;
 pub mod discovery;
 pub mod identity_auth;
 pub mod library;
