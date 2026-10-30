@@ -125,7 +125,7 @@ internal fun projectLibraryRows(records: List<LocalLibraryRecord>, pending: List
             val work = intent.key.substringAfter(':')
             val previous = savedViews[work]?.second
             savedViews[work] = unconfirmed to SavedEntry(work, value.saved, value.base_revision, if (intent.failure == null) LibrarySync.Pending else LibrarySync.Failed,
-                previous?.presentation ?: LibraryPresentation.Unread)
+                previous?.presentation ?: LibraryPresentation.Unread, confirmedSaved = previous?.confirmedSaved ?: false)
         }
     }
     val saved = savedViews.values.sortedWith(compareByDescending<Pair<Long, SavedEntry>> { it.first }.thenBy { it.second.workId }).map { it.second }

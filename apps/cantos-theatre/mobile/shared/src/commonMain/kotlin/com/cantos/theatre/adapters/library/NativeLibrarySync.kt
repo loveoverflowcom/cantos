@@ -119,6 +119,8 @@ internal class NativeLibrarySync(
         if (!Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}").matches(workId)) return
         local {
             val key = "saved:$workId"
+            val lastPending = intents().lastOrNull { it.key == key && it.failure == null }
+            if (lastPending != null && LibraryCodec.decode<SavedWrite>("SavedWrite", lastPending.body)?.saved == saved) return@local
             retireRejected(this, key)
             put(LocalLibraryRecord("conflict", key, "", 0))
             val op = operation(this, key)

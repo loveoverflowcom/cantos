@@ -260,6 +260,29 @@ class SqlLibraryPersistenceTest {
             controller.close()
         } finally { folder.deleteRecursively() }
     }
+    @Test fun repeatedSaveKeepsOnePendingIntentAndOnlyReceiptConfirmsIt() = runTest {
+        val folder = Files.createTempDirectory("cantos-saved-confirmation").toFile()
+        try {
+            val api = Api()
+            val store = desktopLibraryStore(folder.resolve("db.sqlite").absolutePath)
+            val controller = nativeLibraryController(backgroundScope, api, store, ::id) { 1000 }
+            controller.enter(NativeSession(actor, session, Long.MAX_VALUE), "b".repeat(64)); runCurrent()
+            controller.setSaved(work, true)
+            controller.setSaved(work, true)
+            runCurrent()
+            assertEquals(1, store.transaction(actor) { intents().size })
+            assertFalse(controller.state.value.saved.single().confirmedSaved)
+            val original = api.writes.single()
+            val accepted = SavedRecord(work, true, 1, 1, 1000)
+            api.receiptValue = Receipt(original.operation, "accepted", null, MutationState.Saved(accepted))
+            api.savedResult = SavedPage(listOf(SavedItem(accepted)), null)
+            controller.drain(); runCurrent()
+            assertTrue(controller.state.value.saved.single().confirmedSaved)
+            controller.setSaved(work, false); runCurrent()
+            assertTrue(controller.state.value.saved.single().confirmedSaved, "unconfirmed removal retains last receipt")
+            controller.close()
+        } finally { folder.deleteRecursively() }
+    }
     @Test fun pendingSaveThenUnsaveWaitsForOriginalReceiptAndChainsOnlyOwnAcceptedRevision() = runTest {
         val folder = Files.createTempDirectory("cantos-saved-fifo").toFile()
         try {

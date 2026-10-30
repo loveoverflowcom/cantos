@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7
+// Generated from Cantos UI tokens v0.13.0 sha256:f8f55689c0f42c22303463b4f11c5d12e8018d5c7409b448b1438e9d13daa45e
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.12.0"
+    const val version: String = "0.13.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -33,6 +33,7 @@ object CantosTokens {
         TokenValue("color.onPlayerSurface", "color", "#f7eef9", "#f7eef9", null, null, null),
         TokenValue("color.onPrimary", "color", "#ffffff", "#352044", null, null, null),
         TokenValue("color.onPrimaryContainer", "color", "#332340", "#f0defe", null, null, null),
+        TokenValue("color.onSavedWork", "color", "#281d2b", "#281d2b", null, null, null),
         TokenValue("color.onSurface", "color", "#292331", "#f1e9f2", null, null, null),
         TokenValue("color.onSurfaceVariant", "color", "#6c616f", "#c4b8ca", null, null, null),
         TokenValue("color.outline", "color", "#837587", "#9d8ba4", null, null, null),
@@ -41,6 +42,7 @@ object CantosTokens {
         TokenValue("color.playerSurface", "color", "#34283f", "#34283f", null, null, null),
         TokenValue("color.primary", "color", "#675080", "#d9bdf1", null, null, null),
         TokenValue("color.primaryContainer", "color", "#e6d9f1", "#513b63", null, null, null),
+        TokenValue("color.savedWork", "color", "#b77c17", "#d6a23f", null, null, null),
         TokenValue("color.success", "color", "#375e4b", "#b7d6ba", null, null, null),
         TokenValue("color.successContainer", "color", "#dfeadf", "#293f33", null, null, null),
         TokenValue("color.surface", "color", "#fffcf7", "#2c2631", null, null, null),
@@ -127,6 +129,7 @@ object CantosTokens {
         TokenValue("size.loadingArcCompact", "dimension", "16", "16", null, null, null),
         TokenValue("size.loadingArcStroke", "dimension", "2", "2", null, null, null),
         TokenValue("size.loadingEdge", "dimension", "2", "2", null, null, null),
+        TokenValue("size.savedWork", "dimension", "120", "120", null, null, null),
         TokenValue("size.searchAction", "dimension", "52", "52", null, null, null),
         TokenValue("size.searchHeader", "dimension", "72", "72", null, null, null),
         TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),

@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "aed7c97ced1bc577e575edfebdb7f8bf633d3b271dabbbbad01733ed307ad703",
+  "catalogSha256": "3f066f0a4f8fec6700aaa186da34e059c25990e520711a835eeb96f5d2878177",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1667,6 +1667,7 @@
     "theatre.cmp_shell.save_name": {
       "title": "text"
     },
+    "theatre.cmp_shell.save_pending": {},
     "theatre.cmp_shell.saved": {},
     "theatre.cmp_shell.saved_empty_summary": {},
     "theatre.cmp_shell.saved_only_here": {},
@@ -1721,7 +1722,6 @@
     "theatre.cmp_shell.welcome": {},
     "theatre.cmp_shell.work": {},
     "theatre.cmp_shell.work_listen": {},
-    "theatre.cmp_shell.work_listen_help_label": {},
     "theatre.cmp_shell.work_listen_list_failed": {},
     "theatre.cmp_shell.work_listen_loading": {},
     "theatre.cmp_shell.work_listen_name": {
@@ -1729,10 +1729,8 @@
       "title": "text"
     },
     "theatre.cmp_shell.work_listen_no_target": {},
-    "theatre.cmp_shell.work_listen_no_target_help": {},
     "theatre.cmp_shell.work_listen_resume": {},
     "theatre.cmp_shell.work_listen_unavailable": {},
-    "theatre.cmp_shell.work_listen_unavailable_help": {},
     "theatre.cmp_shell.work_not_found": {},
     "theatre.cmp_shell.work_not_found_note": {},
     "theatre.membership.about": {},
@@ -2347,13 +2345,10 @@
     "theatre.shell.view_all": {},
     "theatre.shell.view_all_history": {},
     "theatre.shell.work_listen": {},
-    "theatre.shell.work_listen_help_label": {},
     "theatre.shell.work_listen_loading": {},
     "theatre.shell.work_listen_no_target": {},
-    "theatre.shell.work_listen_no_target_help": {},
     "theatre.shell.work_listen_resume": {},
-    "theatre.shell.work_listen_unavailable": {},
-    "theatre.shell.work_listen_unavailable_help": {}
+    "theatre.shell.work_listen_unavailable": {}
   },
   "schemaVersion": 1
 }

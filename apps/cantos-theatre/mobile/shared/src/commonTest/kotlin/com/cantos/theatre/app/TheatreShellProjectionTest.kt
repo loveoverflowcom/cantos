@@ -225,6 +225,8 @@ class TheatreShellProjectionTest {
         val view = projectTheatreShell(inputs(library = library))
         assertEquals(setOf(ShellWorkId(work(1).id.value), ShellWorkId(work(9).id.value)), view.state.savedWorks,
             "an unsaved row is not saved")
+        assertEquals(setOf(ShellWorkId(work(1).id.value)), view.state.confirmedSavedWorks)
+        assertEquals(setOf(ShellWorkId(work(9).id.value)), view.state.pendingSavedWorks)
         // The browsing list never grows by what Library merely references.
         assertEquals(listOf(work(1).id.value), view.catalog.works.map { it.id.value })
         assertEquals(setOf(work(1).id.value, work(9).id.value), view.catalog.knownWorks.map { it.id.value }.toSet())

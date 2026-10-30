@@ -127,6 +127,8 @@ class ShellState(
     val positionSeconds: Int = 0,
     simulating: Boolean = false,
     savedWorks: Set<ShellWorkId> = emptySet(),
+    confirmedSavedWorks: Set<ShellWorkId> = savedWorks,
+    pendingSavedWorks: Set<ShellWorkId> = emptySet(),
     bookmarks: List<ShellBookmark> = emptyList(),
     val libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
     val query: String = "",
@@ -146,12 +148,16 @@ class ShellState(
 ) {
     private val stackSnapshot: List<ShellRoute> = stack.toList()
     private val savedWorksSnapshot: Set<ShellWorkId> = savedWorks.toSet()
+    private val confirmedSavedWorksSnapshot = confirmedSavedWorks.toSet()
+    private val pendingSavedWorksSnapshot = pendingSavedWorks.toSet()
     private val bookmarksSnapshot: List<ShellBookmark> = bookmarks.toList()
     private val progressSnapshot = progress.toList()
     private val historySnapshot = history.toList()
 
     val stack: List<ShellRoute> get() = stackSnapshot.toList()
     val savedWorks: Set<ShellWorkId> get() = savedWorksSnapshot.toSet()
+    val confirmedSavedWorks: Set<ShellWorkId> get() = confirmedSavedWorksSnapshot.toSet()
+    val pendingSavedWorks: Set<ShellWorkId> get() = pendingSavedWorksSnapshot.toSet()
     val bookmarks: List<ShellBookmark> get() = bookmarksSnapshot.toList()
     val progress: List<ShellProgress> get() = progressSnapshot.toList()
     val history: List<ShellProgress> get() = historySnapshot.toList()
@@ -176,6 +182,8 @@ class ShellState(
         selectedEpisode: ShellEpisodeId = this.selectedEpisode,
         positionSeconds: Int = this.positionSeconds,
         savedWorks: Set<ShellWorkId> = this.savedWorks,
+        confirmedSavedWorks: Set<ShellWorkId> = if (savedWorks == this.savedWorks) this.confirmedSavedWorks else savedWorks,
+        pendingSavedWorks: Set<ShellWorkId> = this.pendingSavedWorks,
         bookmarks: List<ShellBookmark> = this.bookmarks,
         libraryTab: ShellLibraryTab = this.libraryTab,
         query: String = this.query,
@@ -197,6 +205,8 @@ class ShellState(
         selectedEpisode = selectedEpisode,
         positionSeconds = positionSeconds,
         savedWorks = savedWorks,
+        confirmedSavedWorks = confirmedSavedWorks,
+        pendingSavedWorks = pendingSavedWorks,
         bookmarks = bookmarks,
         libraryTab = libraryTab,
         query = query,
@@ -221,6 +231,8 @@ class ShellState(
         positionSeconds == other.positionSeconds &&
         positionMs == other.positionMs &&
         savedWorksSnapshot == other.savedWorksSnapshot &&
+        confirmedSavedWorksSnapshot == other.confirmedSavedWorksSnapshot &&
+        pendingSavedWorksSnapshot == other.pendingSavedWorksSnapshot &&
         bookmarksSnapshot == other.bookmarksSnapshot &&
         progressSnapshot == other.progressSnapshot &&
         historySnapshot == other.historySnapshot &&
@@ -243,6 +255,8 @@ class ShellState(
         result = 31 * result + positionSeconds
         result = 31 * result + positionMs.hashCode()
         result = 31 * result + savedWorksSnapshot.hashCode()
+        result = 31 * result + confirmedSavedWorksSnapshot.hashCode()
+        result = 31 * result + pendingSavedWorksSnapshot.hashCode()
         result = 31 * result + bookmarksSnapshot.hashCode()
         result = 31 * result + progressSnapshot.hashCode()
         result = 31 * result + historySnapshot.hashCode()

@@ -164,6 +164,8 @@ fun projectTheatreShell(i: TheatreShellInputs): ShellProjection {
         positionSeconds = (positionMs / 1000L).toInt(),
         positionMs = positionMs,
         savedWorks = saved.map(::ShellWorkId).toSet(),
+        confirmedSavedWorks = i.library.saved.filter { it.confirmedSaved }.map { ShellWorkId(it.workId) }.toSet(),
+        pendingSavedWorks = i.library.saved.filter { it.sync == com.cantos.theatre.domain.library.LibrarySync.Pending }.map { ShellWorkId(it.workId) }.toSet(),
         libraryTab = i.libraryTab,
         query = i.query,
         searchKind = i.searchKind,
