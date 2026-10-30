@@ -752,6 +752,14 @@ mod tests {
         drop(listener);
         // The inode survives the listener, but nothing answers on it any more.
         assert!(path.exists());
+        // Darwin can publish close asynchronously even after the accepted connection drained.
+        // Observe the real endpoint with a deadline; keep the final refusal assertion.
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        while probe_endpoint(&endpoint, &Readiness::Tcp) == Probe::Ready
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert_eq!(
             probe_endpoint(&endpoint, &Readiness::Tcp),
             Probe::Unavailable
@@ -765,6 +773,11 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         assert!(!port_is_free(addr));
         drop(listener);
+        // Closing a socket does not promise that the kernel releases its bind synchronously.
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        while !port_is_free(addr) && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert!(port_is_free(addr));
         let accepting = serve_once("HTTP/1.1 204 No Content\r\n\r\n");
         assert_eq!(probe(accepting, &Readiness::Tcp), Probe::Ready);

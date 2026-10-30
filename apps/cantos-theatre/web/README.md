@@ -127,11 +127,16 @@ migration needs the existing qualification process; source registration is not r
 
 The default entrypoint opens public Home without a login wall. It reads actual published work
 summaries anonymously, independently of session availability. The live Web shell follows
-[#641 v9.1](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**.
-At 840 CSS px and above it retains a 216px labelled rail with horizontal rows and a selected
-pill/check. Below 840px a Menu button opens the same destinations in a native modal drawer;
-Web has no bottom bar. Escape, Close, backdrop, selection, route/history changes and wide
-resize close the drawer and release body scrolling. The current destination gets initial focus.
+[#641 v9.2](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**.
+At 1200 CSS px and above it defaults to a 216px labelled rail; the local toggle collapses it to
+96px without a route/history change. At 600–1199px the default is a 96px icon/caption rail;
+Menu opens the same destinations in a modal drawer without shifting content. Below 600px only
+the header Menu remains. Actual localized text measurements fall back to the drawer when labels
+cannot fit. The drawer is `min(320px, viewport − 32px)` wide; Web has no bottom bar.
+Escape, Close, backdrop, selection and route/history changes close the drawer and release body
+scrolling. Crossing presentation modes also closes it and restores a visible navigation target;
+same-mode resizes preserve it. The current destination gets initial focus. Selected items use
+a filled indicator, bold label and check; keyboard focus has one flush perimeter with no gap.
 
 Me (`#account`) contains the single locale and explicit Light/Dark/System selectors, account
 recovery/logout and truthful Cantos Premium information. The header has no locale/theme/avatar
@@ -148,11 +153,11 @@ The same shell-owned player, account and preference signals survive navigation a
 Healthy signed-in copy is absent from Me. The isolated mock retains its earlier two-destination
 layout and remains outside live acceptance.
 
-The current person outline is a neutral fallback, not a personalized avatar. Authorized
-name/photo facts and shared Avatar admission remain open under #481. The canonical three-spine
-Library vector also requires shared registration and actual two-renderer qualification under
-#613; the existing bundled icon remains until that work is accepted. No fixture initials,
-new profile endpoint or fabricated membership capability is used.
+The shared Avatar now supplies the same neutral person fallback in Me and navigation, following
+[the two-renderer checkpoint](../../../docs/evidence/theatre-navigation-646-shared-qa.md).
+Authorized name/photo facts remain absent under #481, so no initials are derived from an actor ID,
+email buffer or fixture. The admitted canonical three-spine Library vector is generated for both
+renderers under #613. No new profile endpoint or fabricated membership capability is used.
 
 The live Account/Login surface offers email/password sign-in to every guest behind an
 acknowledged session-cleanup barrier; there is no provider capability to read first, so an API

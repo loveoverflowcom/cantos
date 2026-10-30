@@ -1,7 +1,6 @@
-//! Account card identity (v4.3): a compact outlined avatar and, for a healthy guest, one optional
-//! explanation behind a named disclosure below the actions. App-private composition; the shared
-//! `Avatar` and `Tooltip` are not used because neither offers a click/tap-pinned explanation (see
-//! the preview catalog gate). The help is non-modal: a click or tap anywhere outside the group
+//! Account identity and, for a healthy guest, one optional explanation below the actions.
+//! The admitted shared Avatar supplies the neutral circle; no account name/photo is fabricated.
+//! The app-owned help is non-modal: a click or tap anywhere outside the group
 //! closes it after it reached its target, so a pinned panel never swallows the first press on a
 //! sign-in or create-account action.
 use super::{
@@ -10,6 +9,7 @@ use super::{
     common::{ChevronGlyph, PersonOutlineGlyph},
 };
 use crate::messages::Locale;
+use cantos_ui::{Avatar, AvatarSize};
 use leptos::{ev, html, prelude::*};
 
 const INFO_ID: &str = "theatre-guest-info";
@@ -111,11 +111,19 @@ mod browser {
     pub(super) fn dismiss_on_outside_press(_: NodeRef<html::Div>, _: RwSignal<InfoOpen>) {}
 }
 
-/// Decorative identity mark: the listener has no portrait, so the card's heading carries the name.
+/// Shared decorative fallback until the account projection supplies authorized profile facts.
 #[component]
-pub(crate) fn ProfileAvatar() -> impl IntoView {
+pub(crate) fn ProfileAvatar(#[prop(optional)] navigation: bool) -> impl IntoView {
+    let size = if navigation {
+        AvatarSize::Small
+    } else {
+        AvatarSize::Medium
+    };
     view! {
-        <span class="theatre-avatar" data-profile="true" aria-hidden="true"><PersonOutlineGlyph/></span>
+        <span class="theatre-avatar theatre-profile-avatar" data-profile="true" data-navigation-avatar=navigation.then_some("true") aria-hidden="true">
+            <Avatar display_name="" size accent=true/>
+            <span class="theatre-profile-glyph"><PersonOutlineGlyph/></span>
+        </span>
     }
 }
 

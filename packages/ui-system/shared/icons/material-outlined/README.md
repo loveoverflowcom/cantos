@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These 42 unmodified SVG files (plus one Cantos-authored glyph, below) come from
+These 42 unmodified SVG files (plus two Cantos-authored glyphs, below) come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -69,3 +69,10 @@ The existing `icon`, `button`/AuthPrimary and `icon-button` previews exercise th
 The [23 October delta](../../../../../docs/evidence/ui-parity-402.md) records the bounded
 Button/Select admission, optional option icons and actual preference/auth consumers.
 Browser/device and remaining #221/#228/#229 acceptance retain their own boundaries.
+
+`library_spines` (#641/#613) is Cantos-authored navigation artwork: two upright spines and one
+slightly tilted. Its filled contours are the 1.5px outline of the owner-supplied v9.1 SVG,
+including rounded corners and spine bands. This preserves identical 24px geometry in the
+existing Leptos SVG and CMP filled-path adapters without a global stroke or scale override.
+The [owner source](https://drive.google.com/file/d/13kHSMHjhWiGa35BFZmz-MzCqc_OWnKxu/view)
+is design provenance, not a Google upstream icon or a personal-profile fact.

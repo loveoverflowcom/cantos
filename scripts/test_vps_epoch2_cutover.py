@@ -218,7 +218,11 @@ fi
 
     def test_journal_metadata_must_also_bind_the_exact_attempt(self):
         result, events, state = self.shell('''
-sed -i 's/^attempt=.*/attempt=22222222222222222222222222222222/' "$STATE/epoch2-cutovers/$JOURNAL/meta"
+python3 - "$STATE/epoch2-cutovers/$JOURNAL/meta" <<'PY'
+import pathlib,re,sys
+path=pathlib.Path(sys.argv[1])
+path.write_text(re.sub(r"(?m)^attempt=.*$", "attempt=22222222222222222222222222222222", path.read_text()))
+PY
 epoch2_recover "$TARGET" "$ROOT/incoming/$TARGET/$ATTEMPT/tree" "$ATTEMPT"
 ''')
         self.assertEqual(result.returncode, 65, result.stderr)

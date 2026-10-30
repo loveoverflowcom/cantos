@@ -186,11 +186,16 @@ mod tests {
                 .unwrap();
         let mail = std::fs::read_to_string(workspace.path("services/cantos-identity/src/mail.rs"))
             .unwrap();
+        // Firebase verification now owns its provider configuration in the separate mail adapter.
+        let firebase =
+            std::fs::read_to_string(workspace.path("services/cantos-identity/src/firebase.rs"))
+                .unwrap();
         for name in &manifest().service("cantos-identity").unwrap().environment {
             let smtp = name.starts_with("CANTOS_IDENTITY_SMTP_");
             let suffix = name.trim_start_matches("CANTOS_IDENTITY_SMTP_");
             assert!(
                 config.contains(&format!("\"{name}\""))
+                    || firebase.contains(&format!("\"{name}\""))
                     || (smtp && mail.contains(&format!("\"{name}\"")))
                     || (smtp && mail.contains(&format!("\"{suffix}\""))),
                 "{name} is not read by the Identity executable"

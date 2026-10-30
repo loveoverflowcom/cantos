@@ -25531,6 +25531,30 @@
           "text": "Back to Library"
         }
       }
+    },
+    "theatre.shell.collapse_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu gọn điều hướng"
+        },
+        "en": {
+          "text": "Collapse navigation"
+        }
+      }
+    },
+    "theatre.shell.expand_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mở rộng điều hướng"
+        },
+        "en": {
+          "text": "Expand navigation"
+        }
+      }
     }
   }
 }

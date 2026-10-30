@@ -129,8 +129,8 @@ class PreviewModelTest {
     }
 
     @Test
-    fun every_official_icon_has_visible_vector_paths() {
-        val names = listOf("account_circle", "add", "archive", "arrow_back", "arrow_downward", "arrow_forward", "arrow_upward", "check", "close", "cloud_sync", "content_copy", "dark_mode", "delete_outline", "edit", "expand_more", "fast_forward", "fast_rewind", "home", "keyboard_arrow_right", "light_mode", "login", "logout", "mail", "menu_book", "mic", "pause", "person", "person_add", "play_arrow", "queue_music", "refresh", "save", "search", "settings", "speed", "star", "theme_system", "timer", "transform", "upload", "visibility", "visibility_off", "warning_amber")
+    fun every_registered_icon_has_visible_vector_paths() {
+        val names = listOf("account_circle", "add", "archive", "arrow_back", "arrow_downward", "arrow_forward", "arrow_upward", "check", "close", "cloud_sync", "content_copy", "dark_mode", "delete_outline", "edit", "expand_more", "fast_forward", "fast_rewind", "home", "keyboard_arrow_right", "library_spines", "light_mode", "login", "logout", "mail", "menu_book", "mic", "pause", "person", "person_add", "play_arrow", "queue_music", "refresh", "save", "search", "settings", "speed", "star", "theme_system", "timer", "transform", "upload", "visibility", "visibility_off", "warning_amber")
         assertEquals(names, CantosIcons.icons.map { it.name })
         CantosIcons.icons.forEach { icon ->
             assertEquals("0 0 24 24", icon.viewBox)

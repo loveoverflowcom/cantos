@@ -30,13 +30,13 @@ use crate::{
     platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonVariant, IconName, Logo, LogoTone, LogoVariant, Theme,
+    AccessibleName, BackButton, Button, ButtonVariant, Icon, IconName, Logo, LogoTone, LogoVariant,
+    Theme,
 };
 use leptos::prelude::*;
 
-// Registered outline icons (assets/icons) of the two primary destinations.
+// The existing app Home glyph and the admitted canonical Library outline.
 const NAV_ICON_DISCOVER: &str = "home";
-const NAV_ICON_LIBRARY: &str = "library_books";
 
 const CANTOS_BRAND: &str = "Cantos";
 
@@ -53,14 +53,14 @@ pub(crate) fn LiveBrand() -> impl IntoView {
 }
 
 /// One route projection reused in the wide rail and the browser-native modal drawer.
-/// The neutral account glyph is retained until authorized display facts/Avatar admission exist.
+/// The shared neutral avatar is retained until authorized display-name/photo facts exist.
 #[component]
 fn PrimaryNavigation(route: RwSignal<Route>, locale: RwSignal<Locale>) -> impl IntoView {
     view! {
         <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
-            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span>{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")>{icon(NAV_ICON_LIBRARY)}<span>{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><span class="theatre-avatar theatre-navigation-avatar" aria-hidden="true"><crate::features::common::PersonOutlineGlyph/></span><span>{move || messages::text(Key::Me, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true/><span class="theatre-nav-label">{move || messages::text(Key::Me, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
         </nav>
     }
 }
@@ -989,12 +989,21 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let drawer = NodeRef::<leptos::html::Dialog>::new();
     let menu_button = NodeRef::<leptos::html::Button>::new();
     let drawer_close = NodeRef::<leptos::html::Button>::new();
-    platform::navigation_drawer::bind(drawer, menu_button, drawer_close, nav.route.read_only());
+    let shell = NodeRef::<leptos::html::Div>::new();
+    let rail_toggle = NodeRef::<leptos::html::Button>::new();
+    platform::navigation_drawer::bind(
+        drawer,
+        menu_button,
+        rail_toggle,
+        drawer_close,
+        shell,
+        nav.route.read_only(),
+    );
     view! {
         <super::LiveFrame theme>
             <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
             <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
-            <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
+            <div class="theatre-app theatre-live-app" node_ref=shell data-navigation="drawer" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <div class="theatre-header">
                     <super::LiveContainer>
@@ -1008,17 +1017,32 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     </header>
                     </super::LiveContainer>
                 </div>
-                <aside class="theatre-rail">
-                    <LiveBrand/>
+                <aside id="theatre-navigation-rail" class="theatre-rail">
+                    <div class="theatre-rail-header">
+                        <LiveBrand/>
+                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-tonal" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
+                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
+                            <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
+                            <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
+                            <span data-toggle-label="collapse">{move || messages::text(Key::CollapseNavigation, locale.get())}</span>
+                            <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
+                        </button>
+                    </div>
                     <PrimaryNavigation route=nav.route locale/>
                 </aside>
                 <dialog id="theatre-navigation-drawer" class="theatre-navigation-drawer" node_ref=drawer aria-labelledby="theatre-drawer-heading">
                     <header class="theatre-drawer-header">
-                        <h2 id="theatre-drawer-heading">{move || messages::text(Key::MainNavigation, locale.get())}</h2>
+                        <div id="theatre-drawer-heading"><LiveBrand/></div>
                         <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
                     </header>
                     <PrimaryNavigation route=nav.route locale/>
                 </dialog>
+                <div class="theatre-navigation-fit" aria-hidden="true">
+                    {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
+                        <span data-navigation-fit="compact">{move || messages::text(key, locale.get())}</span>
+                        <span data-navigation-fit="expanded">{move || messages::text(key, locale.get())}</span>
+                    }).collect_view()}
+                </div>
                 <div class="theatre-content">
                     <super::LiveContainer>
 

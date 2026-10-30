@@ -234,7 +234,10 @@ mod tests {
             checked >= 4,
             "expected the shell focus rules, found {checked}"
         );
-        assert!(css.contains(".theatre-avatar[aria-current=\"page\"]:not(:focus-visible) {"));
+        assert!(
+            !css.contains(".theatre-avatar[aria-current=\"page\"]:not(:focus-visible) {"),
+            "a selected destination must not gain a pointer-only border"
+        );
     }
 
     #[test]

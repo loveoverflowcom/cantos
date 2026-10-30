@@ -804,13 +804,20 @@ mod tests {
                     html.find("id=\"theatre-account-register\"").unwrap()
                         < html.find("id=\"theatre-guest-info\"").unwrap()
                 );
-                // The avatar is a compact outline, never the solid large silhouette or an info circle.
-                let avatar = html
-                    .split("<span")
-                    .find(|part| part.contains("theatre-avatar"))
-                    .and_then(|part| part.split("</span>").next())
-                    .expect("profile avatar");
-                assert!(avatar.contains("data-profile=\"true\"") && !avatar.contains("data-size"));
+                // The admitted shared circle has no fabricated initial; its neutral person stays outlined.
+                let marker = html.find("theatre-profile-avatar").expect("profile avatar");
+                let start = html[..marker].rfind("<span").expect("avatar wrapper");
+                let avatar = html[start..].split("</svg>").next().unwrap();
+                assert!(avatar.contains("data-profile=\"true\""));
+                assert!(avatar.contains("cui-avatar") && avatar.contains("data-size=\"medium\""));
+                assert!(
+                    avatar.contains("data-tone=\"accent\"")
+                        && avatar.contains("aria-hidden=\"true\"")
+                );
+                assert!(
+                    !avatar.contains(">C</span>"),
+                    "no fixture or brand initial for a listener"
+                );
                 assert!(
                     avatar.contains("fill=\"none\"") && !avatar.contains("fill=\"currentColor\"")
                 );

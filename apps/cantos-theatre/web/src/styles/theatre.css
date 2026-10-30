@@ -157,8 +157,6 @@ body { margin: 0; }
 .theatre-avatar[data-account="signed-in"] { background: var(--cantos-color-theatre-pink); color: var(--cantos-color-theatre-on-pink); }
 .theatre-avatar[data-size="large"] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
 .theatre-avatar[data-size="large"] svg { inline-size: calc(var(--cantos-size-icon) * 1.5); block-size: calc(var(--cantos-size-icon) * 1.5); }
-/* The current-page ring yields to the focus perimeter, so a focused current avatar shows one ring. */
-.theatre-avatar[aria-current="page"]:not(:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: calc(var(--cantos-size-focus-offset) * -1); }
 .theatre-cover[data-art] { padding: 0; background: var(--cantos-color-surface-container); }
 .theatre-cover-art { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
 /* Small covers: artwork only; the typographic fallback keeps just its title. */
@@ -526,36 +524,18 @@ body { margin: 0; }
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-select-value { flex: 0 1 auto; }
 .theatre-live-app .theatre-locale-field .cui-select-short { text-transform: capitalize; font-weight: var(--cantos-type-label-weight); }
 .theatre-topbar-context { flex: 1 1 6rem; margin: 0; font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
-/* Theatre-owned adaptive shell: one visible navigation at the 839/840 CSS-pixel boundary.
-   Dialog is a product composition; the native modal supplies background inertness. */
+/* Native modal effects and responsive geometry are owned by the Theatre shell. */
 .theatre-menu { display: none; }
-.theatre-navigation-avatar { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); min-inline-size: var(--cantos-size-icon); min-block-size: var(--cantos-size-icon); padding: 0; border: 0; background: transparent; color: inherit; }
-.theatre-menu-glyph { display: inline-block; position: relative; inline-size: 1.25rem; block-size: .875rem; border-block: 2px solid currentColor; flex-shrink: 0; }
+.theatre-menu-glyph { display: inline-block; position: relative; inline-size: 20px; block-size: 14px; border-block: 2px solid currentColor; flex-shrink: 0; }
 .theatre-menu-glyph::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: calc(50% - 1px); border-block-start: 2px solid currentColor; }
-.theatre-navigation-drawer { position: fixed; inset: 0 auto 0 0; margin: 0; inline-size: min(22rem, calc(100vw - var(--cantos-space-xl))); max-inline-size: 100%; max-block-size: 100dvh; block-size: 100dvh; padding: var(--cantos-space-lg); border: 0; border-radius: 0 var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0; background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); overflow-y: auto; }
-.theatre-navigation-drawer::backdrop { background: color-mix(in srgb, var(--cantos-color-on-surface) 60%, transparent); }
+.theatre-navigation-drawer { position: fixed; inset-block: 0; inset-inline-start: 0; inset-inline-end: auto; margin: 0; inline-size: min(320px, calc(100vw - 32px)); max-inline-size: 100%; max-block-size: 100dvh; block-size: 100dvh; padding: var(--cantos-space-md); border: 0; border-radius: 0; border-start-end-radius: var(--cantos-web-shape-overlay); border-end-end-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); overflow-y: auto; }
+.theatre-navigation-drawer::backdrop { background: color-mix(in srgb, var(--cantos-color-primary) 32%, transparent); }
 .theatre-drawer-header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--cantos-space-sm); }
-.theatre-drawer-header h2 { flex: 1 1 8rem; margin: 0; font-size: var(--cantos-type-body-size); }
-.theatre-navigation-drawer .theatre-nav { display: grid; margin-block: var(--cantos-space-xl); }
+.theatre-drawer-header > div { flex: 1 1 8rem; }
+.theatre-drawer-header .theatre-brand { padding: 0; }
+.theatre-navigation-drawer[open] { display: flex; flex-direction: column; }
+.theatre-navigation-drawer .theatre-nav { display: flex; flex: 1; flex-direction: column; margin-block: var(--cantos-space-xl); }
 .theatre-library-access { display: grid; gap: var(--cantos-space-md); max-inline-size: 36rem; }
-@media (max-width: 839px) {
-  .theatre-live-app:not([data-auth="true"]) { display: flex; flex-direction: column; padding-inline: var(--cantos-space-md); }
-  .theatre-live-app > .theatre-header { order: 0; }
-  .theatre-live-app > .theatre-content { order: 2; }
-  .theatre-live-app:not([data-auth="true"]) > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
-  .theatre-live-app[data-auth="true"] > .theatre-content > .cui-container {
-    padding-inline-start: max(var(--cantos-space-md), env(safe-area-inset-left));
-    padding-inline-end: max(var(--cantos-space-md), env(safe-area-inset-right));
-  }
-  .theatre-auth-copy { padding-inline: 0; }
-  .theatre-auth-top { gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
-  .theatre-live-app > .theatre-rail, .theatre-live-app .theatre-topbar-context { display: none; }
-  .theatre-live-app .theatre-topbar { flex-wrap: nowrap; gap: var(--cantos-space-sm); }
-  .theatre-live-app .theatre-mobile-brand { display: block; flex: 1 1 auto; min-inline-size: 0; }
-  .theatre-live-app .theatre-mobile-brand .theatre-live-brand { padding: 0; }
-  .theatre-live-app .theatre-menu { display: inline-flex; flex-shrink: 0; }
-  .theatre-live-app .theatre-main { min-inline-size: 0; }
-}
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
 .theatre-discover-intro-copy { flex: 1 1 24rem; min-inline-size: 0; }
@@ -758,19 +738,21 @@ body { margin: 0; }
 
 .theatre-library-section > .theatre-actions:empty { display: none; }
 
-/* Account card identity (v4.3). The person outline sits in a compact circle drawn with the card's
-   own text role (transparent fill, currentColor ring), so Dark and Light contrast follow the card
-   instead of a second palette. The optional help is a quiet named disclosure below the actions;
-   its panel is in flow so it never covers the heading or the actions. */
-.theatre-account-profile .theatre-avatar[data-profile] {
+/* The admitted Avatar supplies the Theatre accent circle; the app overlays a neutral person
+   until authorized profile facts exist. Help remains in flow below the account actions. */
+.theatre-app .theatre-profile-avatar {
+  position: relative;
   inline-size: var(--cantos-size-avatar-medium);
   min-block-size: var(--cantos-size-avatar-medium);
   box-sizing: border-box;
   background: transparent;
-  color: inherit;
-  border: var(--cantos-size-auth-outline) solid currentColor;
-  margin-block-end: var(--cantos-space-md);
+  color: var(--cantos-color-theatre-on-pink);
+  border: 0;
+  flex-shrink: 0;
 }
+.theatre-profile-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.theatre-app .theatre-profile-avatar[data-navigation-avatar] { inline-size: var(--cantos-size-avatar-small); min-block-size: var(--cantos-size-avatar-small); }
+.theatre-account-profile .theatre-avatar[data-profile] { margin-block-end: var(--cantos-space-md); }
 .theatre-account-profile .theatre-avatar[data-profile] svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
 .theatre-guest-info { margin-block-start: var(--cantos-space-xs); }
 .theatre-guest-info-trigger {
@@ -903,16 +885,61 @@ body { margin: 0; }
 .theatre-cover[data-cover="shown"] > .theatre-cover-art { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .theatre-cover-art { transition: none; } }
 
-/* Me is the stable personal destination at the foot of both navigation presentations. */
-.theatre-live-app > .theatre-rail { display: flex; flex-direction: column; block-size: 100dvh; overflow-y: auto; }
+/* v9.2: fixed CSS rail widths; real localized font measurements can select drawer mode. */
+.theatre-live-app:not([data-auth="true"]) { display: grid; grid-template-columns: var(--theatre-rail-size) minmax(0, 1fr); }
+.theatre-live-app[data-navigation="expanded"] { --theatre-rail-size: 216px; }
+.theatre-live-app[data-navigation="compact"] { --theatre-rail-size: 96px; }
+.theatre-live-app[data-navigation="drawer"] { --theatre-rail-size: 0px; }
+.theatre-live-app:not([data-auth="true"]) > .theatre-rail { display: flex; position: sticky; inset-block-start: 0; flex-direction: column; block-size: 100dvh; min-block-size: 100dvh; overflow-y: auto; }
 .theatre-live-app > .theatre-rail .theatre-nav { display: flex; flex-direction: column; flex: 1; }
-.theatre-live-app .theatre-nav-link:last-child { margin-block-start: auto; }
-.theatre-navigation-drawer[open] { display: flex; flex-direction: column; }
-.theatre-navigation-drawer .theatre-nav { flex: 1; display: flex; flex-direction: column; }
-@media (max-width: 839px) { .theatre-live-app > .theatre-rail { display: none; } }
-
-@media (min-width: 840px) { .theatre-live-app { --theatre-rail-size: 13.5rem; } }
-
 .theatre-live-app .theatre-nav-link { flex: 0 0 auto; }
+.theatre-live-app .theatre-nav-link:last-child { margin-block-start: auto; }
+.theatre-rail-header { display: flex; align-items: center; gap: var(--cantos-space-sm); }
+.theatre-rail-header .theatre-brand { flex: 1; padding: 0; gap: var(--cantos-space-sm); }
+.theatre-rail-header .theatre-live-brand-name { font-size: var(--cantos-type-title-size); }
+#theatre-rail-toggle { inline-size: 48px; min-inline-size: 48px; block-size: 48px; padding: 0; flex: 0 0 48px; }
+#theatre-rail-toggle [data-toggle-label] { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#theatre-rail-toggle [hidden] { display: none; }
+#theatre-rail-toggle[data-action="menu"] .theatre-toggle-arrow, #theatre-rail-toggle:not([data-action="menu"]) .theatre-menu-glyph { display: none; }
+#theatre-rail-toggle[data-action="expand"] .theatre-toggle-arrow { transform: rotate(180deg); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail { padding: var(--cantos-space-md) 8px; }
+.theatre-live-app[data-navigation="compact"] .theatre-rail-header { flex-direction: column; }
+.theatre-live-app[data-navigation="compact"] .theatre-rail-header .theatre-live-brand-name { display: none; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link { position: relative; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px; padding: 14px 0 8px; min-block-size: 76px; background: transparent; color: var(--cantos-color-on-surface) !important; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link::before { content: ""; position: absolute; inset-block-start: 8px; inset-inline-start: calc(50% - 32px); inline-size: 64px; block-size: 36px; border-radius: var(--cantos-web-shape-control); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link:last-child { padding-block-start: 10px; gap: 4px; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link[aria-current="page"]::before { background: var(--cantos-color-primary-container); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link > :is(.theatre-icon, .cui-icon, .theatre-profile-avatar) { position: relative; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link[aria-current="page"] > :is(.theatre-icon, .cui-icon), .theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-selected { color: var(--cantos-color-on-primary-container); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-selected { position: absolute; inset-block-start: 10px; inset-inline-end: 12px; margin: 0; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-selected .theatre-icon { inline-size: 12px; block-size: 12px; }
+.theatre-live-app[data-navigation="drawer"] { padding-inline: 16px; }
+.theatre-mobile-brand .theatre-live-brand, .theatre-drawer-header .theatre-live-brand { gap: 8px; }
+.theatre-mobile-brand .cui-logo, .theatre-drawer-header .cui-logo { inline-size: 44px; block-size: 44px; }
+@media (max-width: 599px) {
+  .theatre-live-app .theatre-topbar { gap: 12px; }
+  .theatre-menu { inline-size: 48px; min-inline-size: 48px; block-size: 48px; min-block-size: 48px; padding: 12px; }
+  .theatre-menu > span:last-child { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-label, .theatre-navigation-fit [data-navigation-fit="compact"] { font-size: var(--cantos-type-metadata-size); line-height: var(--cantos-type-label-line-height); white-space: nowrap; overflow-wrap: normal; }
+.theatre-live-app[data-navigation="drawer"]:not([data-auth="true"]) { display: flex; flex-direction: column; padding-inline: var(--cantos-space-md); }
+.theatre-live-app[data-navigation="drawer"]:not([data-auth="true"]) > .theatre-rail { display: none; }
+.theatre-live-app[data-navigation="drawer"] .theatre-topbar-context { display: none; }
+.theatre-live-app[data-navigation="drawer"] .theatre-mobile-brand { display: block; flex: 1 1 auto; min-inline-size: 0; }
+.theatre-live-app[data-navigation="drawer"] .theatre-mobile-brand .theatre-brand { padding: 0; }
+.theatre-live-app[data-navigation="drawer"] .theatre-menu { display: inline-flex; flex-shrink: 0; }
+.theatre-live-app[data-navigation="drawer"] .theatre-topbar { flex-wrap: nowrap; }
+.theatre-live-app[data-navigation="drawer"]:not([data-auth="true"]) > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
+.theatre-navigation-fit { position: absolute; inline-size: 0; block-size: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.theatre-navigation-fit span { display: block; inline-size: max(0px, calc(216px - 4 * var(--cantos-space-md) - var(--cantos-size-icon) - var(--cantos-size-icon-compact) - 2 * var(--cantos-space-inset))); white-space: nowrap; font-weight: var(--cantos-type-label-weight); font-size: var(--cantos-type-body-size); }
+.theatre-navigation-fit [data-navigation-fit="compact"] { inline-size: 80px; }
+.theatre-navigation-drawer .theatre-nav-label { white-space: normal; min-inline-size: 0; }
+/* Keep navigation chrome bounded while text grows; the drawer preserves whole words at 200%. */
+.theatre-navigation-drawer { padding: 16px; }
+.theatre-navigation-drawer .theatre-nav-link { padding: 12px 16px; gap: 12px; min-block-size: 56px; }
+.theatre-live-app .theatre-nav-link > :is(.theatre-icon, .cui-icon) { inline-size: 24px; block-size: 24px; flex-shrink: 0; }
+.theatre-live-app .theatre-nav-selected .theatre-icon { inline-size: 20px; block-size: 20px; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-selected .theatre-icon { inline-size: 12px; block-size: 12px; }
+@media (max-width: 960px) { .theatre-live-app #account .theatre-account { grid-template-columns: minmax(0, 1fr); } }
 
-.theatre-live-app .theatre-navigation-avatar { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); min-inline-size: var(--cantos-size-icon); min-block-size: var(--cantos-size-icon); }
+.theatre-live-app:not([data-navigation="drawer"]) .theatre-mini-player { inset-inline-start: calc(var(--theatre-rail-size) + var(--cantos-space-lg)); inset-inline-end: var(--cantos-space-lg); }

@@ -1036,9 +1036,11 @@ mod tests {
                 .chain(behavior.iter().copied())
                 .chain([
                     "rust-format",
-                    "rust-lint (cantos-identity)",
-                    "rust-tests (cantos-identity)",
+                    "rust-lint (cantos-identity, cantos-server)",
+                    "rust-tests (cantos-identity, cantos-server)",
                     "turso",
+                    "wav-reference",
+                    "audio-inspection",
                 ])
                 .collect();
             assert_eq!(names(&selection), expected, "{path}");
@@ -1056,18 +1058,9 @@ mod tests {
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
-            // Identity's own binding is Identity code; the shared proto and goldens reach both.
-            let server = !path.starts_with("services/cantos-identity/src/");
-            assert_eq!(
-                selection.affected.contains("cantos-server"),
-                server,
-                "{path}"
-            );
-            assert_eq!(
-                selection.gates.contains(&Gate::WavReference),
-                server,
-                "{path}"
-            );
+            // Identity source also reaches the Server's native auth test dependency.
+            assert!(selection.affected.contains("cantos-server"), "{path}");
+            assert!(selection.gates.contains(&Gate::WavReference), "{path}");
             if !path.starts_with("services/cantos-server/") {
                 assert!(selection.affected.contains("cantos-identity"), "{path}");
                 assert!(selection.gates.contains(&Gate::Turso), "{path}");
@@ -1502,7 +1495,10 @@ mod tests {
     #[test]
     fn local_identity_and_turso_changes_keep_graph_consumers_and_report_feature_gaps() {
         for (path, packages) in [
-            ("services/cantos-identity/src/lib.rs", "cantos-identity"),
+            (
+                "services/cantos-identity/src/lib.rs",
+                "cantos-identity, cantos-server",
+            ),
             (
                 "packages/store-turso/src/lib.rs",
                 "cantos-identity, cantos-server, cantos-store-turso",
