@@ -1,0 +1,39 @@
+/* Me owns these app-level rows; shared controls retain their admitted tokens and states. */
+.theatre-live-app #account .theatre-pref-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cantos-space-md);
+  margin-block-end: 0;
+}
+.theatre-live-app #account .theatre-pref-tile {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select-field {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-field-label {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-label-size);
+  font-weight: 400;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select-trigger {
+  justify-content: flex-start;
+  padding-inline-start: var(--cantos-space-md);
+  background: var(--cantos-color-surface-container);
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select-value {
+  flex: 1 1 auto;
+  text-align: start;
+}
+.theatre-live-app #account .theatre-me-shortcuts {
+  margin-block: var(--cantos-space-md);
+}
+.theatre-live-app #account .theatre-me-shortcuts .theatre-action-row {
+  padding-inline: 0;
+}
+.theatre-live-app #account .theatre-account-membership .cui-button {
+  max-inline-size: 100%;
+}

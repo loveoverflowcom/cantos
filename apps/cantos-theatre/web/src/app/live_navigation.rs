@@ -230,13 +230,7 @@ impl LiveNavigation {
     }
 
     pub fn open_auth(self, auth: AuthRoute) {
-        if !matches!(self.route.get_untracked(), Route::Auth(_))
-            && !(self.route.get_untracked() == Route::Account
-                && self
-                    .returned
-                    .get_value()
-                    .is_some_and(|(route, _)| matches!(route, Route::Library | Route::History)))
-        {
+        if !matches!(self.route.get_untracked(), Route::Auth(_)) {
             self.returned.set_value(Some((
                 self.route.get_untracked(),
                 browser::capture_return(),
@@ -339,7 +333,8 @@ impl LiveNavigation {
     }
     pub fn origin(self) -> ReturnDestination {
         match self.route.get_untracked() {
-            Route::Account => ReturnDestination::Account,
+            Route::Account | Route::Settings => ReturnDestination::Account,
+            Route::Library | Route::History => ReturnDestination::Library,
             Route::Membership(crate::application::auth_navigation::MembershipReturn::Account) => {
                 ReturnDestination::MembershipFromAccount
             }
@@ -480,6 +475,121 @@ mod tests {
     }
     fn login(nav: LiveNavigation, state: RwSignal<AccountViewState>) {
         nav.login(state, EMAIL.to_owned(), PASSWORD.to_owned());
+    }
+
+    #[test]
+    fn library_and_history_auth_keep_their_source_through_back_and_login() {
+        for source in [Route::Library, Route::History] {
+            Owner::new().with(|| {
+                let state = RwSignal::new(AccountViewState::default());
+                crate::features::auth_preview::guest(state).unwrap();
+                let nav = LiveNavigation::new(state, NodeRef::new(), true);
+                nav.route.set(source);
+                assert_eq!(nav.origin(), ReturnDestination::Library);
+
+                nav.open_auth(AuthRoute::login(nav.origin()));
+                assert_eq!(
+                    nav.route.get_untracked(),
+                    Route::Auth(AuthRoute::login(ReturnDestination::Library))
+                );
+                nav.open_auth(AuthRoute::register(nav.origin()));
+                assert_eq!(nav.origin(), ReturnDestination::Library);
+                nav.back();
+                assert_eq!(nav.route.get_untracked(), source);
+
+                nav.open_auth(AuthRoute::login(nav.origin()));
+                login(nav, state);
+                let lookup = state.write().begin_refresh().unwrap();
+                let scope = AccountScope::from_session(
+                    "listener-a".into(),
+                    uuid::Uuid::from_u128(1).to_string(),
+                )
+                .unwrap();
+                assert!(matches!(
+                    state.write().finish_session(lookup, Ok(scope), || {
+                        uuid::Uuid::from_u128(100).to_string()
+                    }),
+                    Ok(SessionCompletion::Authenticated(_))
+                ));
+                nav.observe_session(state.get_untracked().phase());
+                assert_eq!(nav.route.get_untracked(), source);
+                assert_eq!(nav.pending.get_untracked(), None);
+            });
+        }
+    }
+
+    #[test]
+    fn library_auth_deep_links_restore_the_internal_destination_without_a_snapshot() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            crate::features::auth_preview::guest(state).unwrap();
+            let nav = LiveNavigation::new(state, NodeRef::new(), true);
+            nav.route
+                .set(Route::Auth(AuthRoute::register(ReturnDestination::Library)));
+            assert!(nav.returned.get_value().is_none());
+            nav.back();
+            assert_eq!(
+                nav.route.get_untracked(),
+                Route::Auth(AuthRoute::login(ReturnDestination::Library))
+            );
+            nav.back();
+            assert_eq!(nav.route.get_untracked(), Route::Library);
+
+            nav.route
+                .set(Route::Auth(AuthRoute::login(ReturnDestination::Library)));
+            login(nav, state);
+            let lookup = state.write().begin_refresh().unwrap();
+            let scope = AccountScope::from_session(
+                "listener-a".into(),
+                uuid::Uuid::from_u128(1).to_string(),
+            )
+            .unwrap();
+            assert!(matches!(
+                state.write().finish_session(lookup, Ok(scope), || {
+                    uuid::Uuid::from_u128(100).to_string()
+                }),
+                Ok(SessionCompletion::Authenticated(_))
+            ));
+            nav.observe_session(state.get_untracked().phase());
+            assert_eq!(nav.route.get_untracked(), Route::Library);
+        });
+    }
+
+    #[test]
+    fn me_auth_uses_account_instead_of_an_earlier_library_entry() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            crate::features::auth_preview::guest(state).unwrap();
+            let nav = LiveNavigation::new(state, NodeRef::new(), true);
+            nav.route.set(Route::Library);
+            nav.open_account();
+            assert_eq!(nav.origin(), ReturnDestination::Account);
+            nav.open_auth(AuthRoute::login(nav.origin()));
+            nav.back();
+            assert_eq!(nav.route.get_untracked(), Route::Account);
+        });
+    }
+
+    #[test]
+    fn legacy_settings_auth_deep_link_retains_me_after_reload() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            crate::features::auth_preview::guest(state).unwrap();
+            let nav = LiveNavigation::new(state, NodeRef::new(), true);
+            nav.route.set(Route::Settings);
+            assert_eq!(nav.origin(), ReturnDestination::Account);
+            for auth in [
+                AuthRoute::login(nav.origin()),
+                AuthRoute::register(nav.origin()),
+            ] {
+                let restored = AuthRoute::from_hash(&auth.hash()).unwrap();
+                assert_eq!(
+                    restored.origin.target(),
+                    crate::application::auth_navigation::NavigationTarget::Account
+                );
+                assert_eq!(Route::from_target(restored.origin.target()), Route::Account);
+            }
+        });
     }
 
     #[test]

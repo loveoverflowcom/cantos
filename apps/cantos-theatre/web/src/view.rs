@@ -347,17 +347,32 @@ mod tests {
         });
     }
     #[test]
-    fn live_shell_has_one_wordmark_a_context_topbar_and_icons_on_both_destinations() {
+    fn live_shell_has_three_destinations_and_no_header_preference_or_avatar_entries() {
         Owner::new().with(|| {
             let html = view! { <LiveBoundary/> }.to_html();
             // The rail logo is the wordmark; the topbar names the place instead of repeating it.
             assert!(!html.contains("theatre-brand-name"), "{html}");
             assert!(html.contains("theatre-topbar-context"));
-            assert_eq!(html.matches("theatre-nav-link").count(), 2);
+            assert!(
+                html.find("id=\"theatre-navigation-menu\"").unwrap()
+                    < html.find("class=\"theatre-mobile-brand\"").unwrap()
+            );
+            assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 6);
             // Each destination retains its leading glyph and a decorative selected check.
-            assert_eq!(html.matches("class=\"theatre-icon\"").count(), 4, "{html}");
-            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 2);
-            assert!(html.contains("href=\"#account\"") && html.contains("theatre-avatar"));
+            assert!(
+                html.contains("id=\"theatre-navigation-menu\"")
+                    && html.contains("id=\"theatre-navigation-drawer\"")
+            );
+            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 6);
+            assert!(html.contains("href=\"#account\"") && html.contains(">Me</span>"));
+            for absent in [
+                "theatre-topbar-theme",
+                "theatre-live-locale",
+                "theatre-account-entry",
+                "theatre-mobile-locale",
+            ] {
+                assert!(!html.contains(absent), "{absent}");
+            }
         });
     }
     #[test]

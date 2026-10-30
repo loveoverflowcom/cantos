@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "b50222469fde7fae56444a88b7db690e111d77c89c59b75afdfa2fda7657bddc",
+  "catalogSha256": "691c38ff2d791aaaca5cc64b87e981458336ac4dfada4895f0a186a821b241d5",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1283,6 +1283,7 @@
     "theatre.auth.register_help": {},
     "theatre.auth.return_account": {},
     "theatre.auth.return_home": {},
+    "theatre.auth.return_library": {},
     "theatre.auth.return_login": {},
     "theatre.auth.return_membership": {},
     "theatre.auth.settings_help": {},
@@ -1858,6 +1859,7 @@
     "theatre.shell.clear_library": {},
     "theatre.shell.clear_search": {},
     "theatre.shell.close_error": {},
+    "theatre.shell.close_navigation": {},
     "theatre.shell.close_queue": {},
     "theatre.shell.confirm_clear_history": {},
     "theatre.shell.content_language": {},
@@ -2107,6 +2109,7 @@
     "theatre.shell.logout_title": {},
     "theatre.shell.logout_unconfirmed": {},
     "theatre.shell.main_navigation": {},
+    "theatre.shell.me": {},
     "theatre.shell.membership_heading": {},
     "theatre.shell.membership_intro": {},
     "theatre.shell.membership_preview": {},
@@ -2116,6 +2119,7 @@
     "theatre.shell.membership_unavailable_badge": {},
     "theatre.shell.membership_unavailable_title": {},
     "theatre.shell.memory": {},
+    "theatre.shell.menu": {},
     "theatre.shell.mini_player": {},
     "theatre.shell.minute_count": {
       "count": "count"

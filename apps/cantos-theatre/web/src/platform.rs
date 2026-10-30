@@ -351,3 +351,5 @@ pub(crate) use search_dock::{
 
 mod loading_presence;
 pub(crate) use loading_presence::{bind_loading_presence, loading_presence};
+
+pub(crate) mod navigation_drawer;

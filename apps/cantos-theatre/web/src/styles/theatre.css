@@ -526,31 +526,35 @@ body { margin: 0; }
 .theatre-live-app .theatre-locale-field.cui-select-field .cui-select-value { flex: 0 1 auto; }
 .theatre-live-app .theatre-locale-field .cui-select-short { text-transform: capitalize; font-weight: var(--cantos-type-label-weight); }
 .theatre-topbar-context { flex: 1 1 6rem; margin: 0; font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
-/* Mobile keeps brand, theme and anonymous/real account on one row. Locale stays beside the
-   existing navigation, with the very same preference owner and a unique disclosure id. */
-@media (max-width: 43.75rem) {
+/* Theatre-owned adaptive shell: one visible navigation at the 839/840 CSS-pixel boundary.
+   Dialog is a product composition; the native modal supplies background inertness. */
+.theatre-menu { display: none; }
+.theatre-navigation-avatar { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); min-inline-size: var(--cantos-size-icon); min-block-size: var(--cantos-size-icon); padding: 0; border: 0; background: transparent; color: inherit; }
+.theatre-menu-glyph { display: inline-block; position: relative; inline-size: 1.25rem; block-size: .875rem; border-block: 2px solid currentColor; flex-shrink: 0; }
+.theatre-menu-glyph::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: calc(50% - 1px); border-block-start: 2px solid currentColor; }
+.theatre-navigation-drawer { position: fixed; inset: 0 auto 0 0; margin: 0; inline-size: min(22rem, calc(100vw - var(--cantos-space-xl))); max-inline-size: 100%; max-block-size: 100dvh; block-size: 100dvh; padding: var(--cantos-space-lg); border: 0; border-radius: 0 var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0; background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); overflow-y: auto; }
+.theatre-navigation-drawer::backdrop { background: color-mix(in srgb, var(--cantos-color-on-surface) 60%, transparent); }
+.theatre-drawer-header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.theatre-drawer-header h2 { flex: 1 1 8rem; margin: 0; font-size: var(--cantos-type-body-size); }
+.theatre-navigation-drawer .theatre-nav { display: grid; margin-block: var(--cantos-space-xl); }
+.theatre-library-access { display: grid; gap: var(--cantos-space-md); max-inline-size: 36rem; }
+@media (max-width: 839px) {
   .theatre-live-app:not([data-auth="true"]) { display: flex; flex-direction: column; padding-inline: var(--cantos-space-md); }
   .theatre-live-app > .theatre-header { order: 0; }
   .theatre-live-app > .theatre-content { order: 2; }
   .theatre-live-app:not([data-auth="true"]) > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
-  /* Auth owns one inset on its container, shared by its header and every phase. */
   .theatre-live-app[data-auth="true"] > .theatre-content > .cui-container {
     padding-inline-start: max(var(--cantos-space-md), env(safe-area-inset-left));
     padding-inline-end: max(var(--cantos-space-md), env(safe-area-inset-right));
   }
   .theatre-auth-copy { padding-inline: 0; }
   .theatre-auth-top { gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
-  .theatre-live-app .theatre-rail { order: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); padding: 0; margin-block-end: var(--cantos-space-md); }
-  .theatre-live-app .theatre-rail > .theatre-live-brand, .theatre-live-app .theatre-topbar-context { display: none; }
-  .theatre-live-app .theatre-nav { flex: 1 1 12rem; margin: 0; }
-  .theatre-live-app .theatre-nav-link { flex-basis: auto; }
-  .theatre-live-app .theatre-topbar { order: 0; gap: var(--cantos-space-sm); }
-  .theatre-live-app .theatre-topbar-actions { gap: var(--cantos-space-sm); }
-  .theatre-live-app .theatre-topbar-actions > .theatre-locale-field { display: none; }
-  .theatre-live-app .theatre-mobile-brand { display: block; flex: 1 1 8rem; min-inline-size: 0; }
-  .theatre-live-app .theatre-mobile-brand .theatre-live-brand { padding: 0; flex-wrap: wrap; }
-  .theatre-live-app .theatre-mobile-language { display: block; margin-inline-start: auto; }
-  .theatre-live-app .theatre-main { order: 2; min-inline-size: 0; }
+  .theatre-live-app > .theatre-rail, .theatre-live-app .theatre-topbar-context { display: none; }
+  .theatre-live-app .theatre-topbar { flex-wrap: nowrap; gap: var(--cantos-space-sm); }
+  .theatre-live-app .theatre-mobile-brand { display: block; flex: 1 1 auto; min-inline-size: 0; }
+  .theatre-live-app .theatre-mobile-brand .theatre-live-brand { padding: 0; }
+  .theatre-live-app .theatre-menu { display: inline-flex; flex-shrink: 0; }
+  .theatre-live-app .theatre-main { min-inline-size: 0; }
 }
 .theatre-nav-link .theatre-icon { color: inherit; }
 .theatre-discover-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--cantos-space-md) var(--cantos-space-lg); margin-block: var(--cantos-space-md) var(--cantos-space-lg); }
@@ -898,3 +902,17 @@ body { margin: 0; }
 .theatre-cover-art { opacity: 0; transition: opacity var(--cantos-motion-loading-reveal-duration); }
 .theatre-cover[data-cover="shown"] > .theatre-cover-art { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .theatre-cover-art { transition: none; } }
+
+/* Me is the stable personal destination at the foot of both navigation presentations. */
+.theatre-live-app > .theatre-rail { display: flex; flex-direction: column; block-size: 100dvh; overflow-y: auto; }
+.theatre-live-app > .theatre-rail .theatre-nav { display: flex; flex-direction: column; flex: 1; }
+.theatre-live-app .theatre-nav-link:last-child { margin-block-start: auto; }
+.theatre-navigation-drawer[open] { display: flex; flex-direction: column; }
+.theatre-navigation-drawer .theatre-nav { flex: 1; display: flex; flex-direction: column; }
+@media (max-width: 839px) { .theatre-live-app > .theatre-rail { display: none; } }
+
+@media (min-width: 840px) { .theatre-live-app { --theatre-rail-size: 13.5rem; } }
+
+.theatre-live-app .theatre-nav-link { flex: 0 0 auto; }
+
+.theatre-live-app .theatre-navigation-avatar { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); min-inline-size: var(--cantos-size-icon); min-block-size: var(--cantos-size-icon); }

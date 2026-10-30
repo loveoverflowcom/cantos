@@ -1933,10 +1933,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Của tôi"
+          "text": "Thư viện"
         },
         "en": {
-          "text": "My library"
+          "text": "Library"
         }
       }
     },
@@ -5893,10 +5893,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Cantos Membership"
+          "text": "Cantos Premium"
         },
         "en": {
-          "text": "Cantos Membership"
+          "text": "Cantos Premium"
         }
       }
     },
@@ -5953,10 +5953,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tìm hiểu Membership"
+          "text": "Tìm hiểu Premium"
         },
         "en": {
-          "text": "Explore Membership"
+          "text": "Explore Premium"
         }
       }
     },
@@ -5965,10 +5965,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Theo cách bạn muốn nghe"
+          "text": "Tùy chọn"
         },
         "en": {
-          "text": "The way you like to listen"
+          "text": "Preferences"
         }
       }
     },
@@ -25481,6 +25481,54 @@
         },
         "en": {
           "text": "No audio yet"
+        }
+      }
+    },
+    "theatre.shell.me": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Me"
+        },
+        "en": {
+          "text": "Me"
+        }
+      }
+    },
+    "theatre.shell.menu": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Menu"
+        },
+        "en": {
+          "text": "Menu"
+        }
+      }
+    },
+    "theatre.shell.close_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng menu"
+        },
+        "en": {
+          "text": "Close menu"
+        }
+      }
+    },
+    "theatre.auth.return_library": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về Thư viện"
+        },
+        "en": {
+          "text": "Back to Library"
         }
       }
     }

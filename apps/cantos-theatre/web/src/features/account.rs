@@ -15,7 +15,7 @@ use crate::{
 };
 use cantos_ui::{
     Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
-    SurfaceTone, SurfaceVariant, Theme, ThemeCycleButton,
+    SurfaceTone, SurfaceVariant, Theme,
 };
 use leptos::prelude::*;
 
@@ -151,29 +151,39 @@ fn profile_status(
     move || messages::text(live_status_key(&ui.get()), locale.get())
 }
 
-/// The session settled as a guest with nothing to recover: the only phase whose status line and
-/// second help sentence are redundant. Checking, Failed and logout phases are not.
+/// A settled guest has no failure or cleanup to recover.
 const fn is_healthy_guest(phase: SessionPhase) -> bool {
     matches!(phase, SessionPhase::Guest)
 }
 
-/// One supportive line: what signing in unlocks for a guest, the welcome for a signed-in listener.
-/// Other phases carry their own visible status instead.
+/// Only a guest needs the sign-in explanation; healthy signed-in copy adds no actionable fact.
+/// Pending and failed phases carry their own visible status instead.
 const fn profile_help(phase: SessionPhase) -> Option<CopyKey> {
     match phase {
         SessionPhase::Guest => Some(CopyKey::GuestHelp),
-        SessionPhase::SignedIn => Some(CopyKey::SignedHelp),
         _ => None,
     }
 }
 
-/// The short, always-visible name of the active theme mode beside the icon-only cycle control.
+/// Localized labels for the root owner's three supported appearance choices.
 const fn theme_value_key(theme: Theme) -> Key {
     match theme {
         Theme::Dark => Key::Dark,
         Theme::Light => Key::Light,
         Theme::System => Key::System,
     }
+}
+
+fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
+    [Theme::Light, Theme::Dark, Theme::System]
+        .into_iter()
+        .map(|theme| {
+            cantos_ui::SelectOption::new(
+                theme.as_str(),
+                messages::text(theme_value_key(theme), locale),
+            )
+        })
+        .collect()
 }
 
 /// A navigation row: leading icon, one label, trailing chevron. The whole row is the target and
@@ -213,16 +223,14 @@ pub(crate) fn LiveAccount(
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
-                <p class="theatre-eyebrow">{label(locale, CopyKey::AccountEyebrow)}</p>
-                <h1 id="theatre-live-account-heading">{label(locale, CopyKey::AccountHeading)}</h1>
+                <h1 id="theatre-live-account-heading">{move || messages::text(Key::Me, locale.get())}</h1>
             </header>
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
                     <ProfileAvatar/>
                     <h2>{profile_heading(ui, locale)}</h2>
-                    // A healthy guest has nothing to report: the heading and one line say it.
-                    // Every other phase keeps its live status, failure and recovery visible.
-                    <Show when=move || !is_healthy_guest(ui.get().phase)>
+                    // Healthy account state adds no status row; keep every pending/failure reason.
+                    <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
                         <p id="theatre-live-account-status" class="theatre-auth-feedback"
                             data-tone=move || session_tone(ui.get().phase).as_str()
                             role="status" aria-live="polite" aria-atomic="true">
@@ -240,7 +248,14 @@ pub(crate) fn LiveAccount(
                         <GuestInfo locale/>
                     </Show>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                        <a class="theatre-action theatre-account-library-link" href="#library">{label(locale, CopyKey::OpenLibrary)}</a>
+                        <ul class="theatre-action-rows theatre-me-shortcuts">
+                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved/>
+                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History/>
+                        </ul>
+                        <Button id="theatre-account-logout" icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
+                            on_press=Callback::new(move |_| on_logout.run(()))>
+                            {move || messages::text(Key::SignOut, locale.get())}
+                        </Button>
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
@@ -250,12 +265,14 @@ pub(crate) fn LiveAccount(
                             <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
                             <div class="theatre-pref-row">
                                 <div class="theatre-pref-tile theatre-pref-theme">
-                                    <span class="theatre-pref-copy">
-                                        <span id="theatre-account-theme-label" class="theatre-pref-label">{move || messages::text(Key::Theme, locale.get())}</span>
-                                        <span class="theatre-pref-value" aria-hidden="true">{move || messages::text(theme_value_key(theme.get()), locale.get())}</span>
-                                    </span>
-                                    <ThemeCycleButton id="theatre-account-theme" theme=theme
-                                        labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))/>
+                                    <Select id="theatre-account-theme" class="theatre-pref-select"
+                                        density=SelectDensity::Compact label_placement=SelectLabelPlacement::Above
+                                        label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
+                                        value=Signal::derive(move || theme.get().as_str().to_owned())
+                                        options=Signal::derive(move || theme_options(locale.get()))
+                                        on_input=Callback::new(move |value: String| {
+                                            if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
+                                        })/>
                                 </div>
                                 <div class="theatre-pref-tile theatre-pref-language">
                                     <Select id="theatre-account-locale" class="theatre-pref-locale"
@@ -266,16 +283,6 @@ pub(crate) fn LiveAccount(
                                         on_input=on_locale/>
                                 </div>
                             </div>
-                            <ul class="theatre-action-rows">
-                                <ActionRow id="theatre-account-open-library" route=Route::Library asset="library_books" locale label=Key::AccountLibraryLink/>
-                                <ActionRow id="theatre-account-open-settings" route=Route::Settings asset="settings" locale label=Key::Settings/>
-                            </ul>
-                            <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                                <Button id="theatre-account-logout" icon=IconName::Logout variant=ButtonVariant::Text
-                                    on_press=Callback::new(move |_| on_logout.run(()))>
-                                    {move || messages::text(Key::SignOut, locale.get())}
-                                </Button>
-                            </Show>
                         </section>
                     </Surface>
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
@@ -302,6 +309,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn me_keeps_recovery_but_omits_healthy_signed_in_status_and_duplicate_settings() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                let locale = RwSignal::new(language);
+                guest(state).unwrap();
+                let guest = render_live(state.read_only(), locale);
+                assert!(!guest.contains("theatre-account-open-settings"));
+                assert!(!guest.contains("theatre-account-open-saved"));
+                signed_in(state, PreviewActor::A).unwrap();
+                let signed = render_live(state.read_only(), locale);
+                assert!(!signed.contains("theatre-live-account-status"));
+                assert!(!signed.contains(messages::text(Key::SignedInListener, language)));
+                for (id, hash, label) in [
+                    ("theatre-account-open-saved", "#library", Key::Saved),
+                    ("theatre-account-open-history", "#history", Key::History),
+                ] {
+                    let anchor = signed.split(&format!("id=\"{id}\"")).nth(1).expect(id);
+                    let anchor = anchor.split("</a>").next().unwrap();
+                    assert!(anchor.contains(&format!("href=\"{hash}\"")), "{anchor}");
+                    assert!(anchor.contains(messages::text(label, language)), "{anchor}");
+                }
+                assert!(signed.contains("theatre-account-logout"));
+                assert!(!signed.contains("theatre-account-open-settings"));
+            }
+        });
+    }
+
+    #[test]
     fn healthy_accounts_have_no_manual_refresh_or_empty_recovery() {
         use crate::features::auth_preview::{guest, signed_in, PreviewActor};
         Owner::new().with(|| {
@@ -325,12 +362,11 @@ mod tests {
     fn preferences_precede_membership_and_form_two_tiles_that_name_their_value() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
-            for (language, theme_value, autonym) in [
-                (Locale::Vietnamese, "Hệ thống", "Tiếng Việt"),
-                (Locale::English, "System", "English"),
-            ] {
+            for language in [Locale::Vietnamese, Locale::English] {
                 let theme_label = messages::text(Key::Theme, language);
+                let theme_value = messages::text(Key::System, language);
                 let locale_label = messages::text(Key::Locale, language);
+                let autonym = language.autonym();
                 let state = RwSignal::new(AccountViewState::default());
                 let locale = RwSignal::new(language);
                 guest(state).unwrap();
@@ -358,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn preferences_use_one_theme_cycle_and_locale_in_one_row_with_icon_action_rows() {
+    fn me_has_one_explicit_theme_choice_and_one_full_autonym_locale_choice() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
             for language in [Locale::Vietnamese, Locale::English] {
@@ -366,38 +402,24 @@ mod tests {
                 let locale = RwSignal::new(language);
                 guest(state).unwrap();
                 let html = render_live(state.read_only(), locale);
-                // One cycle control, no theme Select, no repeated retention sentence.
-                assert_eq!(html.matches("cui-theme-cycle-button").count(), 1, "{html}");
-                assert!(!html.contains("id=\"theatre-account-theme-help\""));
-                assert!(
-                    !html.contains(messages::text(Key::Theme, language))
-                        || html.contains("theatre-pref-label")
-                );
-                // Theme and locale share one row; the locale options come from the l10n owner.
-                let row = html
-                    .split("theatre-pref-row")
-                    .nth(1)
-                    .expect("preference row");
-                let row = row.split("theatre-action-rows").next().unwrap();
-                assert!(
-                    row.contains("theatre-account-theme") && row.contains("theatre-account-locale")
-                );
+                assert!(!html.contains("cui-theme-cycle-button"));
+                for id in ["theatre-account-theme", "theatre-account-locale"] {
+                    assert_eq!(html.matches(&format!("id=\"{id}\"")).count(), 1);
+                }
                 for option in Locale::supported() {
-                    assert!(row.contains(option.autonym()), "{}", option.autonym());
+                    assert!(html.contains(option.autonym()), "{}", option.autonym());
                 }
-                // Library and Settings are real route links with icon, label and chevron.
-                for (id, hash) in [
-                    ("theatre-account-open-library", Route::Library.hash()),
-                    ("theatre-account-open-settings", Route::Settings.hash()),
-                ] {
-                    let anchor = html.split(&format!("id=\"{id}\"")).nth(1).expect(id);
-                    let anchor = anchor.split("</a>").next().unwrap();
-                    assert!(anchor.contains(&format!("href=\"{hash}\"")), "{anchor}");
-                    assert!(anchor.contains("cui-icon") || anchor.contains("<svg"));
-                    assert!(anchor.contains("theatre-chevron"));
+                for theme in [Theme::Light, Theme::Dark, Theme::System] {
+                    assert!(html.contains(messages::text(theme_value_key(theme), language)));
+                    assert_eq!(Theme::from_attribute(theme.as_str()), Some(theme));
                 }
+                assert!(!html.contains("theatre-account-open-settings"));
+                assert!(!html.contains("theatre-account-open-library"));
             }
         });
+        for invalid in ["", "automatic", "LIGHT", "dark?theme=system"] {
+            assert_eq!(Theme::from_attribute(invalid), None);
+        }
     }
 
     #[test]
@@ -643,7 +665,10 @@ mod tests {
             for href in ["href=\"#settings\"", "href=\"#library\""] {
                 assert!(html.contains(href), "{href}");
             }
-            assert!(html.contains("Cài đặt nghe") && html.contains("Của tôi"));
+            assert!(
+                html.contains("Cài đặt nghe")
+                    && html.contains(messages::text(Key::Library, Locale::Vietnamese))
+            );
             // No control pretends to work, and no progress-conflict choice exists in this domain.
             assert!(!html.contains("<button") && !html.contains("disabled"));
             for conflict in ["xung đột", "Giữ bản", "conflict"] {
@@ -713,11 +738,9 @@ mod tests {
     fn healthy_guest_card_greets_the_listener_with_two_actions_and_a_named_closed_disclosure() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
-            for (language, eyebrow, page, greeting, line, info, name, create) in [
+            for (language, greeting, line, info, name, create) in [
                 (
                     Locale::Vietnamese,
-                    "MỘT GÓC NGHE CỦA RIÊNG BẠN",
-                    "Góc của bạn.",
                     "Chào người nghe.",
                     "Đăng nhập để mở thư viện của bạn.",
                     "Bạn vẫn có thể khám phá và nghe nội dung công khai mà không cần đăng nhập.",
@@ -726,8 +749,6 @@ mod tests {
                 ),
                 (
                     Locale::English,
-                    "A LISTENING SPACE OF YOUR OWN",
-                    "Your space.",
                     "Welcome, listener.",
                     "Sign in to open your library.",
                     "You can still explore and listen to public content without signing in.",
@@ -739,8 +760,7 @@ mod tests {
                 guest(state).unwrap();
                 let html = render_live(state.read_only(), RwSignal::new(language));
                 assert_eq!(html.matches("<h1").count(), 1);
-                // The page keeps its eyebrow and heading; the status line and the second help
-                // sentence stay redundant for a healthy guest.
+                // Me names the destination; healthy status and a second help sentence add no fact.
                 for removed in [
                     "theatre-live-account-status",
                     "Chưa đăng nhập vào Cantos",
@@ -751,10 +771,19 @@ mod tests {
                     assert!(!html.contains(removed), "{removed}");
                 }
                 let text = visible_text(&html);
-                for shown in [eyebrow, page, greeting, line, create, name] {
+                for shown in [
+                    messages::text(Key::Me, language),
+                    greeting,
+                    line,
+                    create,
+                    name,
+                ] {
                     assert!(text.contains(shown), "{shown}");
                 }
-                assert!(html.contains("theatre-eyebrow"));
+                assert!(!html.contains(super::super::auth_copy::text(
+                    CopyKey::AccountEyebrow,
+                    language
+                )));
                 // The disclosure is named by its own visible text, starts closed and says what it opens.
                 assert!(html.contains("aria-expanded=\"false\""));
                 assert!(html.contains("aria-controls=\"theatre-guest-info-panel\""));
@@ -808,7 +837,7 @@ mod tests {
             assert!(checking.contains("role=\"status\""));
             assert!(checking.contains(messages::text(Key::AccountChecking, Locale::Vietnamese)));
             assert!(!checking.contains("theatre-guest-info"));
-            assert!(checking.contains("theatre-eyebrow"));
+            assert!(checking.contains(messages::text(Key::Me, Locale::Vietnamese)));
             // Failed: the failure text is visible with its retry control.
             let issued = state.write().begin_refresh().unwrap();
             state
@@ -846,8 +875,8 @@ mod tests {
             let html = render_live(state.read_only(), locale);
             for required in [
                 "Welcome back",
-                "Signed-in listener",
-                "Open my library",
+                "Saved",
+                "History",
                 "Sign out",
                 "No information yet",
                 "theatre-account-theme",
@@ -856,6 +885,8 @@ mod tests {
             }
             for forbidden in [
                 actor,
+                "Signed-in listener",
+                "Return to the stories you saved and the passages that stay with you.",
                 "Account ID:",
                 "Minh An",
                 "active membership",
