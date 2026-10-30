@@ -119,7 +119,11 @@ internal class NativeLibrarySync(
         if (!Regex("[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}").matches(workId)) return
         local {
             val key = "saved:$workId"
-            retireRejected(this, key)
+            // A later unsent desire may already match, but an older definitive rejection still
+            // blocks it. Retire that rejection before deduplicating the later desired value.
+            if (retireRejected(this, key)) put(LocalLibraryRecord("conflict", key, "", 0))
+            val lastPending = intents().lastOrNull { it.key == key && it.failure == null }
+            if (lastPending != null && LibraryCodec.decode<SavedWrite>("SavedWrite", lastPending.body)?.saved == saved) return@local
             put(LocalLibraryRecord("conflict", key, "", 0))
             val op = operation(this, key)
             val body = json.encodeToString(SavedWrite(op, reconciled(this, key), saved))
@@ -520,9 +524,10 @@ internal class NativeLibrarySync(
         tx.put(LocalLibraryRecord("intent_archive", intent.operation, intent.body, 0))
         tx.resolve(intent.operation)
     }
-    private fun retireRejected(tx: LibraryTransaction, key: String) {
-        val terminal = setOf("listener_chooses", "invalid_request", "invalid_position", "idempotency_key_reused", "stale_device_sequence", "revision_exhausted", "corrupt_state", "not_found", "unauthenticated", "denied")
-        tx.intents().filter { it.key == key && it.failure in terminal }.forEach { retire(tx, it) }
+    private fun retireRejected(tx: LibraryTransaction, key: String): Boolean {
+        val rejected = tx.intents().filter { it.key == key && canRetireRejected(it.failure) }
+        rejected.forEach { retire(tx, it) }
+        return rejected.isNotEmpty()
     }
     /** Explicit conflict choice creates a new intent; never seeks or starts the engine itself. */
     override fun resolveProgress(publicationId: String, useLocal: Boolean) {

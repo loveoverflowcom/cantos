@@ -11,6 +11,8 @@ import com.cantos.theatre.ports.PlaybackAccessFailure
 
 /** What went wrong, in the terms a listener can act on. */
 enum class ErrorKind {
+    /** Confirmed loss from the native account owner, scoped to its nonsecret process epoch. */
+    SessionExpired,
     /** No response: DNS, TLS, connection or an unreachable API. */
     Network,
     Timeout,
@@ -35,6 +37,7 @@ enum class ErrorScope { Host, Section, Action }
 
 /** Closed localization key for the standard error window; never raw server or exception text. */
 enum class ErrorMessageKey {
+    SessionExpired,
     Network,
     Timeout,
     Unauthenticated,
@@ -56,7 +59,7 @@ enum class ErrorAction { Retry, SignIn, Close }
 enum class ErrorPresentation { Inline, Modal }
 
 /** Two notices with the same key are one failure, however many requests report it. */
-data class ErrorKey(val kind: ErrorKind, val operation: ErrorOperation)
+data class ErrorKey(val kind: ErrorKind, val operation: ErrorOperation, val epoch: Long? = null)
 
 /**
  * A mapped failure. [retryable] is the adapter's knowledge (for example `Unavailable(retryable)`);
@@ -68,8 +71,9 @@ class ErrorNotice(
     val operation: ErrorOperation,
     val retryable: Boolean = true,
     parameters: Map<String, String> = emptyMap(),
+    epoch: Long? = null,
 ) {
-    val key: ErrorKey = ErrorKey(kind, operation)
+    val key: ErrorKey = ErrorKey(kind, operation, epoch)
     val parameters: Map<String, String> = parameters.toMap()
 
     val scope: ErrorScope = when {
@@ -79,6 +83,7 @@ class ErrorNotice(
     }
 
     val messageKey: ErrorMessageKey = when (kind) {
+        ErrorKind.SessionExpired -> ErrorMessageKey.SessionExpired
         ErrorKind.Network -> ErrorMessageKey.Network
         ErrorKind.Timeout -> ErrorMessageKey.Timeout
         ErrorKind.Unauthenticated -> ErrorMessageKey.Unauthenticated
@@ -92,7 +97,7 @@ class ErrorNotice(
 
     /** Primary first; always ends with [ErrorAction.Close]. */
     val actions: List<ErrorAction> = when (kind) {
-        ErrorKind.Unauthenticated -> listOf(ErrorAction.SignIn, ErrorAction.Close)
+        ErrorKind.SessionExpired, ErrorKind.Unauthenticated -> listOf(ErrorAction.SignIn, ErrorAction.Close)
         ErrorKind.Forbidden, ErrorKind.ContentUnavailable, ErrorKind.Configuration -> listOf(ErrorAction.Close)
         ErrorKind.Network, ErrorKind.Timeout, ErrorKind.Storage, ErrorKind.Protocol, ErrorKind.ServiceUnavailable ->
             if (retryable && operation != ErrorOperation.UpdateLibrary && kind != ErrorKind.Storage) listOf(ErrorAction.Retry, ErrorAction.Close) else listOf(ErrorAction.Close)
@@ -106,7 +111,7 @@ class ErrorNotice(
      * Withdrawn content has its own not-found state.
      */
     fun presentation(hasContent: Boolean): ErrorPresentation = when {
-        kind == ErrorKind.Configuration || kind == ErrorKind.Unauthenticated || kind == ErrorKind.Forbidden -> ErrorPresentation.Modal
+        kind == ErrorKind.SessionExpired || kind == ErrorKind.Configuration || kind == ErrorKind.Unauthenticated || kind == ErrorKind.Forbidden -> ErrorPresentation.Modal
         hasContent || kind == ErrorKind.ContentUnavailable -> ErrorPresentation.Inline
         else -> ErrorPresentation.Modal
     }

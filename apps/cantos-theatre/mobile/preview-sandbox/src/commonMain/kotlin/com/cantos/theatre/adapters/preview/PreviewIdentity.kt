@@ -37,6 +37,8 @@ class PreviewIdentity(
     var mode = PreviewLoginMode.Approve
     var loginFailure: com.cantos.theatre.ports.IdentityV1Failure? = null
     var refreshRefused = false
+    var refreshFailure: com.cantos.theatre.ports.IdentityV1Failure? = null
+    var sessionFailure: com.cantos.theatre.ports.IdentityV1Failure? = null
     var loginRequests = 0
         private set
     var admissions = 0
@@ -83,7 +85,8 @@ class PreviewIdentity(
             else com.cantos.theatre.ports.IdentityV1Result.Accepted(issue(nextAccount, null))
         }
         override suspend fun refresh(previous: NativeGrant): com.cantos.theatre.ports.IdentityV1Result<NativeGrant> =
-            if (refreshRefused) com.cantos.theatre.ports.IdentityV1Result.Refused(com.cantos.theatre.ports.IdentityV1Failure.Unauthorized)
+            if (refreshFailure != null) com.cantos.theatre.ports.IdentityV1Result.Refused(checkNotNull(refreshFailure))
+            else if (refreshRefused) com.cantos.theatre.ports.IdentityV1Result.Refused(com.cantos.theatre.ports.IdentityV1Failure.Unauthorized)
             else com.cantos.theatre.ports.IdentityV1Result.Accepted(issue(PreviewAccount.entries.first { it.session == previous.view.session }, previous))
         override suspend fun revokeFamily(previous: NativeGrant): com.cantos.theatre.ports.IdentityV1Result<Unit> {
             grants.values.removeAll { it.view.session == previous.view.session }
@@ -91,6 +94,7 @@ class PreviewIdentity(
         }
         override suspend fun session(previous: NativeGrant): com.cantos.theatre.ports.IdentityV1Result<NativeSession> {
             admissions += 1
+            sessionFailure?.let { return com.cantos.theatre.ports.IdentityV1Result.Refused(it) }
             return grants[previous.accessToken]?.let { com.cantos.theatre.ports.IdentityV1Result.Accepted(it.view) }
                 ?: com.cantos.theatre.ports.IdentityV1Result.Refused(com.cantos.theatre.ports.IdentityV1Failure.Unauthorized)
         }

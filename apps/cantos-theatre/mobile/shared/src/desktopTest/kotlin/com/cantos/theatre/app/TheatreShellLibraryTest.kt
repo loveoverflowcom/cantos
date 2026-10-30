@@ -98,6 +98,7 @@ class TheatreShellLibraryTest {
         val outsidePresentation = AudioPresentation(WorkPresentation(outsideAudio.workId, outsideAudio.publicationId, "Chuyện ngoài danh mục", "story", "vi-VN"),
             outsideAudio.unitId, "Tập chưa từng được tải")
         val calls = mutableListOf<String>()
+        var writes = 0
         var continueAnswer: (String?) -> LibraryResult<PresentedContinuePage> = { LibraryResult.Value(ContinuePage(
             listOf(ContinueItem(ProgressRecord(wireAudio, 40_000, Completion.in_progress, 3, 5, 5, "70000000-0000-4000-8000-000000000001", ProgressKind.checkpoint), resume)), null).presented()) }
         var savedAnswer: (String?) -> LibraryResult<PresentedSavedPage> = { LibraryResult.Value(SavedPage(
@@ -111,7 +112,10 @@ class TheatreShellLibraryTest {
             override suspend fun bookmarkPage(auth: LibraryAuthorization, cursor: String?) = LibraryResult.Value(com.cantos.theatre.adapters.library.wire.BookmarkPage(emptyList(), null))
             override suspend fun saved(auth: LibraryAuthorization, work: String) = LibraryResult.Value(SavedRecord(work, false, 0, 0, 0))
             override suspend fun progress(auth: LibraryAuthorization, publication: String) = LibraryResult.Value(MutationState.Progress(null))
-            override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> = LibraryResult.Failed("unavailable", true, true)
+            override suspend fun mutate(auth: LibraryAuthorization, intent: LocalLibraryIntent): LibraryResult<Receipt> {
+                writes += 1
+                return LibraryResult.Failed("unavailable", true, true)
+            }
             override suspend fun receipt(auth: LibraryAuthorization, operation: String): LibraryResult<Receipt> = LibraryResult.Failed("not_found", false)
         }
 
@@ -200,6 +204,23 @@ class TheatreShellLibraryTest {
         f.runtime.listening.playback.state.value, f.runtime.listening.selection.value, f.shell.requested.value, false, f.shell.library.value,
         com.cantos.theatre.presentation.model.ShellTheme.Light, com.cantos.theatre.presentation.model.ShellLocale.Vietnamese,
         "", com.cantos.theatre.presentation.model.ShellLibraryTab.Continuing, com.cantos.theatre.presentation.model.ShellTimer.Off))
+
+    @Test
+    fun retry_saved_is_fenced_to_the_projected_account_and_current_desire() = runTest {
+        val f = Fixture(backgroundScope, ResumeStatus.exact_available)
+        try {
+            runCurrent(); advanceUntilIdle()
+            val id = ShellWorkId(f.work.id.value)
+            f.shell.dispatch(ShellEvent.SetSaved(id, false)); runCurrent()
+            val before = f.writes
+            assertTrue(before > 0)
+            f.shell.dispatch(ShellEvent.RetrySaved(id, "other-account", false, true)); runCurrent()
+            f.shell.dispatch(ShellEvent.RetrySaved(id, f.actor, true, true)); runCurrent()
+            assertEquals(before, f.writes, "stale account or desired value cannot retry")
+            f.shell.dispatch(ShellEvent.RetrySaved(id, f.actor, false, true)); runCurrent()
+            assertEquals(before + 1, f.writes, "the current account may retry its pending operation")
+        } finally { f.close() }
+    }
 
     @Test
     fun a_section_footer_event_reads_only_its_own_section_and_retry_repeats_the_failed_page() = runTest {

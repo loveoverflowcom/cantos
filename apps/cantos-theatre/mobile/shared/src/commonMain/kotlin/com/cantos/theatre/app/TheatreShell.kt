@@ -10,12 +10,17 @@ import com.cantos.theatre.application.errors.ErrorEffect
 import com.cantos.theatre.application.errors.ErrorEvent
 import com.cantos.theatre.application.errors.ErrorKey
 import com.cantos.theatre.application.errors.ErrorKind
+import com.cantos.theatre.application.errors.ErrorNotice
 import com.cantos.theatre.application.errors.ErrorOperation
 import com.cantos.theatre.application.errors.reduceErrors
 import com.cantos.theatre.application.errors.toErrorNotice
 import com.cantos.theatre.application.identity.EmailVerificationController
 import com.cantos.theatre.application.identity.LinkReceipt
+import com.cantos.theatre.application.identity.ConfirmedSessionLoss
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.library.NativeLibraryController
+import com.cantos.theatre.ports.NativeApiFailure
+import com.cantos.theatre.ports.NativeApiResult
 import com.cantos.theatre.application.identity.RegistrationController
 import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.preferences.PreferenceLocale
@@ -107,6 +112,7 @@ class TheatreShell(
     val errors: StateFlow<ErrorCenterState> = mutableErrors.asStateFlow()
     private var timerJob: Job? = null
     private var closed = false
+    private var privateLoss: ConfirmedSessionLoss? = null
 
     /** The Library only for the verified account that owns it; a guest or stale actor sees none. */
     val library: StateFlow<LibraryState> = combine(
@@ -174,6 +180,8 @@ class TheatreShell(
         }
         runtime.account?.let { owner ->
             scope.launch { owner.state.collect {
+                if (closed) return@collect
+                observeSessionLoss()
                 if (it is NativeAccountState.SignedIn) {
                     ErrorKind.entries.forEach { kind ->
                         onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, ErrorOperation.SignIn)))
@@ -198,7 +206,7 @@ class TheatreShell(
                 ErrorOperation.SignIn -> openLogin()
                 ErrorOperation.LoadCatalog, ErrorOperation.LoadWork, ErrorOperation.LoadUnits -> retry()
             }
-            ErrorEffect.OpenSignIn -> requireAccount()
+            ErrorEffect.OpenSignIn -> if (!openLogin()) navigate(NavigationEvent.Navigate(TheatreRoute.Account))
         }
     }
 
@@ -217,6 +225,10 @@ class TheatreShell(
                         membership(MembershipEvent.OpenIntro)
                     }
                     navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
+                    if (event.route == ShellRoute.Library || event.route == ShellRoute.History) {
+                        if (runtime.account?.verifiedSession?.value != null) withPrivateLibrary { }
+                        else promptExpiredPrivateAccess()
+                    }
                 }
             }
             ShellEvent.Back -> back()
@@ -226,12 +238,13 @@ class TheatreShell(
             is ShellEvent.ResumeEpisode -> resume(event.id, fromHistory = false)
             is ShellEvent.ResumeHistoryEpisode -> resume(event.id, fromHistory = true)
             is ShellEvent.SetSaved -> setSaved(event.id.value, event.saved)
+            is ShellEvent.RetrySaved -> retrySaved(event)
             is ShellEvent.SaveWork -> setSaved(event.id.value, saved = event.id.value !in savedIds())
-            ShellEvent.ClearHistory -> activeLibrary()?.clearHistory()
+            ShellEvent.ClearHistory -> withPrivateLibrary { it.clearHistory() }
             ShellEvent.RetryListening -> mutableRequested.value?.let(::start)
             ShellEvent.Bookmark -> addBookmark()
             is ShellEvent.OpenBookmark -> openBookmark(event.bookmark.id)
-            is ShellEvent.DeleteBookmark -> activeLibrary()?.deleteBookmark(event.id)
+            is ShellEvent.DeleteBookmark -> withPrivateLibrary { it.deleteBookmark(event.id) }
             ShellEvent.ToggleSimulation -> runtime.listening.playback.toggleIntent()
             is ShellEvent.Seek -> runtime.listening.playback.dispatch(PlaybackEvent.SkipRequested(
                 (event.deltaSeconds.toLong() * 1000L).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
@@ -365,7 +378,65 @@ class TheatreShell(
 
     /** A saved work needs an account: a guest is taken to sign in, or to the Account explanation. */
     private fun requireAccount() {
+        if (promptExpiredPrivateAccess()) return
         if (!openLogin()) navigate(NavigationEvent.Navigate(TheatreRoute.Account))
+    }
+
+    private fun observeSessionLoss() {
+        val loss = (runtime.account?.state?.value as? NativeAccountState.Failed)?.sessionLoss
+        onErrorEvent(ErrorEvent.SessionObserved(loss))
+        if (loss != null && privateLoss == loss && !mutableNavigation.value.route.isAuth) {
+            onErrorEvent(ErrorEvent.PrivateAccessRequested)
+        }
+        if (runtime.account?.confirmedLoss == null) privateLoss = null
+    }
+
+    /** A private intent can request a prompt; a passive observation alone never does. */
+    private fun promptExpiredPrivateAccess(): Boolean {
+        val loss = runtime.account?.confirmedLoss
+        if (loss != null) {
+            // Cleanup can still be in flight: remember the requesting intent, but only the
+            // eventual cleaned Failed state may promote it into an expiration dialog.
+            privateLoss = loss
+            observeSessionLoss()
+            return true
+        }
+        if (runtime.account?.state?.value == NativeAccountState.CleanupRequired) {
+            navigate(NavigationEvent.Navigate(TheatreRoute.Account))
+            return true
+        }
+        return false
+    }
+
+    /** One authorization attempt before a new private intent; never replay a queued/uncertain write. */
+    private fun withPrivateLibrary(action: (NativeLibraryController) -> Unit) {
+        val account = runtime.account
+        val lease = account?.verifiedSession?.value
+        val library = activeLibrary()
+        if (account == null || lease == null || library == null) { requireAccount(); return }
+        val epoch = account.epoch
+        scope.launch {
+            val result = account.authorization(lease.session.session)
+            if (closed) return@launch
+            when (result) {
+                is NativeApiResult.Accepted -> if (account.accepts(result.value) &&
+                    result.value.intent == lease.intent && activeLibrary() === library) action(library)
+                is NativeApiResult.Refused -> {
+                    // An old A waiter cannot prompt or navigate B, even if B has since failed too.
+                    if (account.confirmedLoss?.epoch == epoch) promptExpiredPrivateAccess()
+                    else if (account.epoch == epoch && result.reason != NativeApiFailure.SessionChanged) {
+                        val kind = when (result.reason) {
+                            NativeApiFailure.Unavailable, NativeApiFailure.UnknownOutcome -> ErrorKind.ServiceUnavailable
+                            NativeApiFailure.Protocol -> ErrorKind.Protocol
+                            NativeApiFailure.Denied -> ErrorKind.Forbidden
+                            NativeApiFailure.Unauthorized -> ErrorKind.Unauthenticated
+                            NativeApiFailure.SessionChanged -> return@launch
+                        }
+                        onErrorEvent(ErrorEvent.Reported(ErrorNotice(kind, ErrorOperation.UpdateLibrary, retryable = false), hasContent = false))
+                    }
+                }
+            }
+        }
     }
 
     // --- catalog --------------------------------------------------------------------------------
@@ -436,8 +507,16 @@ class TheatreShell(
     private fun savedIds(): Set<String> = library.value.saved.filter { it.saved }.map { it.workId }.toSet()
 
     private fun setSaved(workId: String, saved: Boolean) {
-        val owner = activeLibrary()
-        if (owner == null) requireAccount() else owner.setSaved(workId, saved)
+        withPrivateLibrary { it.setSaved(workId, saved) }
+    }
+
+    private fun retrySaved(event: ShellEvent.RetrySaved) {
+        val current = library.value
+        if (current.account != event.account) return
+        val row = current.saved.firstOrNull { it.workId == event.id.value && it.saved == event.desired } ?: return
+        val owner = activeLibrary() ?: return
+        if (event.pending && row.sync == com.cantos.theatre.domain.library.LibrarySync.Pending) owner.drain()
+        else if (!event.pending && row.sync == com.cantos.theatre.domain.library.LibrarySync.Failed && row.retryableFailure) owner.setSaved(event.id.value, event.desired)
     }
 
     /**
@@ -447,13 +526,17 @@ class TheatreShell(
      * owner's own loop, and the account is checked again there: a callback that outlives its account does nothing.
      */
     private fun addBookmark() {
-        if (activeLibrary() == null) { requireAccount(); return }
-        val account = library.value.account
+        val account = runtime.account
+        val lease = account?.verifiedSession?.value
+        val owner = activeLibrary()
+        if (account == null || lease == null || owner == null) { requireAccount(); return }
+        // Queue capture at the press, before a later SourceSelected, without waiting for HTTP.
         runtime.listening.playback.captureBookmarkPoint { snapshot ->
             val audio = snapshot.source.audio ?: return@captureBookmarkPoint
-            val owner = activeLibrary()
-            if (closed || owner == null || library.value.account != account) return@captureBookmarkPoint
-            owner.createBookmark(audio, snapshot.positionMs)
+            if (closed || activeLibrary() !== owner || account.verifiedSession.value?.intent != lease.intent) {
+                return@captureBookmarkPoint
+            }
+            withPrivateLibrary { it.createBookmark(audio, snapshot.positionMs) }
         }
     }
 

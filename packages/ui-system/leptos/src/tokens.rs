@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.12.0 sha256:95b95845cbecab0827fd5d7387045a93f48ae75a18edb4624e84262c6bf6dbc7
+// Generated from Cantos UI tokens v0.13.0 sha256:f8f55689c0f42c22303463b4f11c5d12e8018d5c7409b448b1438e9d13daa45e
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.12.0";
+pub const VERSION: &str = "0.13.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -28,6 +28,7 @@ pub enum Token {
     ColorOnPlayerSurface,
     ColorOnPrimary,
     ColorOnPrimaryContainer,
+    ColorOnSavedWork,
     ColorOnSurface,
     ColorOnSurfaceVariant,
     ColorOutline,
@@ -36,6 +37,7 @@ pub enum Token {
     ColorPlayerSurface,
     ColorPrimary,
     ColorPrimaryContainer,
+    ColorSavedWork,
     ColorSuccess,
     ColorSuccessContainer,
     ColorSurface,
@@ -122,6 +124,7 @@ pub enum Token {
     SizeLoadingArcCompact,
     SizeLoadingArcStroke,
     SizeLoadingEdge,
+    SizeSavedWork,
     SizeSearchAction,
     SizeSearchHeader,
     SizeStatusSymbol,
@@ -201,6 +204,7 @@ pub const ALL: &[Token] = &[
     Token::ColorOnPlayerSurface,
     Token::ColorOnPrimary,
     Token::ColorOnPrimaryContainer,
+    Token::ColorOnSavedWork,
     Token::ColorOnSurface,
     Token::ColorOnSurfaceVariant,
     Token::ColorOutline,
@@ -209,6 +213,7 @@ pub const ALL: &[Token] = &[
     Token::ColorPlayerSurface,
     Token::ColorPrimary,
     Token::ColorPrimaryContainer,
+    Token::ColorSavedWork,
     Token::ColorSuccess,
     Token::ColorSuccessContainer,
     Token::ColorSurface,
@@ -295,6 +300,7 @@ pub const ALL: &[Token] = &[
     Token::SizeLoadingArcCompact,
     Token::SizeLoadingArcStroke,
     Token::SizeLoadingEdge,
+    Token::SizeSavedWork,
     Token::SizeSearchAction,
     Token::SizeSearchHeader,
     Token::SizeStatusSymbol,
@@ -375,6 +381,7 @@ impl Token {
             Self::ColorOnPlayerSurface => "--cantos-color-on-player-surface",
             Self::ColorOnPrimary => "--cantos-color-on-primary",
             Self::ColorOnPrimaryContainer => "--cantos-color-on-primary-container",
+            Self::ColorOnSavedWork => "--cantos-color-on-saved-work",
             Self::ColorOnSurface => "--cantos-color-on-surface",
             Self::ColorOnSurfaceVariant => "--cantos-color-on-surface-variant",
             Self::ColorOutline => "--cantos-color-outline",
@@ -383,6 +390,7 @@ impl Token {
             Self::ColorPlayerSurface => "--cantos-color-player-surface",
             Self::ColorPrimary => "--cantos-color-primary",
             Self::ColorPrimaryContainer => "--cantos-color-primary-container",
+            Self::ColorSavedWork => "--cantos-color-saved-work",
             Self::ColorSuccess => "--cantos-color-success",
             Self::ColorSuccessContainer => "--cantos-color-success-container",
             Self::ColorSurface => "--cantos-color-surface",
@@ -473,6 +481,7 @@ impl Token {
             Self::SizeLoadingArcCompact => "--cantos-size-loading-arc-compact",
             Self::SizeLoadingArcStroke => "--cantos-size-loading-arc-stroke",
             Self::SizeLoadingEdge => "--cantos-size-loading-edge",
+            Self::SizeSavedWork => "--cantos-size-saved-work",
             Self::SizeSearchAction => "--cantos-size-search-action",
             Self::SizeSearchHeader => "--cantos-size-search-header",
             Self::SizeStatusSymbol => "--cantos-size-status-symbol",
@@ -613,6 +622,10 @@ impl Token {
                 crate::Theme::Dark => "#f0defe",
                 crate::Theme::Light | crate::Theme::System => "#332340",
             },
+            Self::ColorOnSavedWork => match theme {
+                crate::Theme::Dark => "#281d2b",
+                crate::Theme::Light | crate::Theme::System => "#281d2b",
+            },
             Self::ColorOnSurface => match theme {
                 crate::Theme::Dark => "#f1e9f2",
                 crate::Theme::Light | crate::Theme::System => "#292331",
@@ -644,6 +657,10 @@ impl Token {
             Self::ColorPrimaryContainer => match theme {
                 crate::Theme::Dark => "#513b63",
                 crate::Theme::Light | crate::Theme::System => "#e6d9f1",
+            },
+            Self::ColorSavedWork => match theme {
+                crate::Theme::Dark => "#d6a23f",
+                crate::Theme::Light | crate::Theme::System => "#b77c17",
             },
             Self::ColorSuccess => match theme {
                 crate::Theme::Dark => "#b7d6ba",
@@ -827,6 +844,7 @@ impl Token {
             Self::SizeLoadingArcCompact => "1rem",
             Self::SizeLoadingArcStroke => "0.125rem",
             Self::SizeLoadingEdge => "0.125rem",
+            Self::SizeSavedWork => "7.5rem",
             Self::SizeSearchAction => "3.25rem",
             Self::SizeSearchHeader => "4.5rem",
             Self::SizeStatusSymbol => "4.5rem",

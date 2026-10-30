@@ -22,7 +22,7 @@ use crate::{
     features::{
         auth_copy::{self, CopyKey},
         common::clock,
-        listen_help::{ListenAbsence, ListenHelp},
+        listen_help::ListenAbsence,
         public_cover::PublicCover,
     },
     messages::{self, text, Key, Locale},
@@ -464,7 +464,8 @@ fn WorkSaveControl(
             } else {
                 let current = saved_state();
                 let is_saved = current.is_saved();
-                let label_key = if is_saved { Key::RemoveSave } else { Key::Save };
+                let label_key = if is_saved { Key::Saved } else { Key::Save };
+                let is_pending = matches!(&current.command, SavedCommandPhase::Pending { .. });
                 let status_key = match &current.command {
                     SavedCommandPhase::UnknownOutcome { .. } => Some((Key::LiveSaveUnknown, true)),
                     SavedCommandPhase::Conflict { .. } => Some((Key::LiveSaveConflict, true)),
@@ -478,7 +479,8 @@ fn WorkSaveControl(
                 let work_id_retry = work_id_for_retry.clone();
                 view! {
                     <div class="theatre-work-save-controls" data-saved=is_saved.to_string()>
-                        <Button id="theatre-public-work-save" variant=ButtonVariant::Tonal state=button_state
+                        <Button id="theatre-public-work-save" class=if is_saved && !is_pending { "theatre-save-pill theatre-save-pill-confirmed" } else { "theatre-save-pill" }
+                            icon=if is_saved { IconName::Bookmark } else { IconName::BookmarkBorder } variant=ButtonVariant::Tonal state=button_state
                             on_press=Callback::new(move |_| {
                                 let presentation = first_publication_id.get_untracked().map(|publication_id| {
                                     WorkPresentation {
@@ -491,8 +493,12 @@ fn WorkSaveControl(
                                 });
                                 controls.on_set_saved.run((work_id_press.clone(), !is_saved, presentation));
                             })>
-                            {move || text(label_key, locale.get())}
-                            <span class="cui-sr-only">" "{title_sr}</span>
+                            <span aria-hidden="true">{move || text(label_key, locale.get())}</span>
+                            <span class="cui-sr-only">{move || messages::message(locale.get(), if is_saved {
+                                crate::localization::generated::Message::TheatreShellRemoveSaveName { arg_title: &title_sr }
+                            } else {
+                                crate::localization::generated::Message::TheatreShellSaveName { arg_title: &title_sr }
+                            })}</span>
                         </Button>
                         {status_key.map(|(msg_key, can_retry)| view! {
                             <p id="theatre-public-work-save-status" class="theatre-muted" role="status">
@@ -590,12 +596,6 @@ fn ReadyWork(
                 .unwrap_or(false),
         )
     };
-    let listen_detail = Signal::derive(move || {
-        hero.get()
-            .is_none()
-            .then(|| listen_absence().detail())
-            .flatten()
-    });
     let listen_state = Signal::derive(move || {
         let reason = match hero.get() {
             Some(HeroListen::Resolving) => Some((true, text(Key::ListenPreparing, locale.get()))),
@@ -660,7 +660,6 @@ fn ReadyWork(
                         {move || text(listen_label(), locale.get())}
                         {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                     </Button>
-                    <ListenHelp locale detail=listen_detail reason_id="theatre-public-work-listen-reason".to_owned()/>
                     {sync_controls.map(|controls| view! {
                         <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
                     })}
@@ -1220,7 +1219,7 @@ mod tests {
     }
 
     #[test]
-    fn absent_audio_keeps_one_short_reason_and_defers_only_the_detail_to_a_named_trigger() {
+    fn absent_audio_keeps_short_reason_without_help_control() {
         for locale in Locale::supported() {
             let (mut complete, first) = opened(fixture_work());
             complete.finish_page(&first, Ok(page(vec![without_audio(1, "Một")], None)));
@@ -1238,18 +1237,8 @@ mod tests {
             assert!(html.contains("aria-describedby=\"theatre-work-listen-feedback theatre-public-work-listen-reason\""));
             // The row repeats only the short phrase, never the long copy.
             assert!(html.contains(text(Key::PublicWorkListenUnavailable, locale)));
-            // The long detail is on demand; its trigger is a named, collapsed button.
-            let trigger = html
-                .split("id=\"theatre-work-listen-help-trigger\"")
-                .nth(1)
-                .expect("a help trigger");
-            let trigger = trigger.split('>').next().unwrap();
-            assert!(trigger.contains("aria-expanded=\"false\""), "{trigger}");
-            assert!(trigger.contains("aria-controls=\"theatre-work-listen-help\""));
-            assert!(trigger.contains("aria-describedby=\"theatre-public-work-listen-reason\""));
-            assert!(html.contains(text(Key::WorkListenHelpLabel, locale)));
-            assert!(!html.contains(text(Key::WorkListenUnavailableHelp, locale)));
-            assert!(!html.contains("id=\"theatre-work-listen-help\""));
+            assert!(!html.contains("theatre-work-listen-help-trigger"));
+            assert!(!html.contains("theatre-work-listen-help"));
         }
     }
 
@@ -1270,7 +1259,7 @@ mod tests {
             reason.contains(text(Key::WorkListenNoTarget, Locale::English)),
             "{reason}"
         );
-        assert!(html.contains("theatre-work-listen-help-trigger"));
+        assert!(!html.contains("theatre-work-listen-help-trigger"));
     }
 
     #[test]
@@ -2105,7 +2094,10 @@ mod tests {
         let signed_html = render_with_sync(signed_in, Locale::Vietnamese);
         assert!(signed_html.contains("id=\"theatre-public-work-save\""));
         assert!(signed_html.contains("data-saved=\"true\""));
-        assert!(signed_html.contains("Bỏ lưu"));
+        assert!(signed_html.contains("theatre-save-pill-confirmed"));
+        assert!(signed_html.contains("Đã lưu"));
+        assert!(signed_html.contains("Bỏ lưu tác phẩm"));
+        assert!(signed_html.contains("M17 3H7"));
         assert!(signed_html.contains("Vị trí 2:05 trên 12:34"));
         assert!(signed_html.contains(&format!(
             "id=\"theatre-public-unit-resume-{}\"",

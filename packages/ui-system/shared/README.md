@@ -1,4 +1,10 @@
-# Shared semantic contract v0.11.0
+# Shared semantic contract v0.13.0
+
+v0.13.0 adds the `color.savedWork` / `color.onSavedWork` pair for a confirmed Saved Work action.
+Light uses amber `#b77c17`, Dark uses `#d6a23f`, both with dark ink `#281d2b`.
+The token generator checks text contrast and the boundary against Theatre surface. `size.savedWork`
+sets a 120-unit minimum to keep Save and Saved widths steady. Pending and unconfirmed changes
+must not use this success fill.
 
 v0.11.0 adds the continuous-loading foundation of [#585](https://github.com/loveoverflowcom/cantos/issues/585)
 for the three primitives of the Pulse · Arc · Line set; the MicroArc sizes and stroke are v0.10.0 below. Nothing existing changes value; the 140 ms

@@ -19,8 +19,8 @@
   "host_density_px_per_dp": 1.0,
   "host_font_scale": 1.0,
   "font_source": "bundled Noto Sans/Serif; PreviewFonts; shared font provenance",
-  "tokens_version": "0.12.0",
-  "tokens_file_sha256": "ebb026f1beb6c8caf1cea86427e7fa12d2d92e6f3670326ae6fea6d1e2977e7f",
+  "tokens_version": "0.13.0",
+  "tokens_file_sha256": "3d5dd5a933f3c8bf4fba33b71a914538f9ceccff94a96ec446234b6b69b7d4d4",
   "source_revision": "unrecorded",
   "png_sha256": "2bbe98a81d65dc31faf38ed0fa1ab4e3b6320e4e38ccbdf6b51560c68abccda7",
   "png_bytes": 32296

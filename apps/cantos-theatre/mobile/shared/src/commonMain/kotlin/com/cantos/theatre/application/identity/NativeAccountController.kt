@@ -32,7 +32,12 @@ sealed interface NativeAccountState {
     data object SignedOut : NativeAccountState
     data object Pending : NativeAccountState
     data class SignedIn(val actor: String, val expiresAt: Long, val presentation: AccountPresentation? = null) : NativeAccountState
-    data class Failed(val reason: NativeAccountFailure, val identityFailure: IdentityV1Failure? = null) : NativeAccountState
+    data class Failed(
+        val reason: NativeAccountFailure,
+        val identityFailure: IdentityV1Failure? = null,
+        val sessionLoss: ConfirmedSessionLoss? = null,
+        val credentialAttempt: Boolean = false,
+    ) : NativeAccountState
     data object CleanupRequired : NativeAccountState
 }
 
@@ -91,7 +96,12 @@ class NativeAccountController internal constructor(
     private val mutableVerifiedSession = MutableStateFlow<NativeVerifiedSession?>(null)
     val verifiedSession: StateFlow<NativeVerifiedSession?> = mutableVerifiedSession.asStateFlow()
     private var generation = 0L
-    // Separate from IO generation: revalidation breaks playback continuity even if StateFlow
+    internal val epoch: Long get() = generation
+    internal var change: AccountChange = AccountChange.Explicit
+        private set
+    internal var confirmedLoss: ConfirmedSessionLoss? = null
+        private set
+    // Separate from IO generation: revalidation fences private admission even if StateFlow
     // conflates the intermediate null with an immediate successful session response.
     private var admissionEpoch = 0L
     private var operation: Job? = null
@@ -115,7 +125,9 @@ class NativeAccountController internal constructor(
         acceptedAccess.clear()
         expiry?.cancel(); expiry = null
     }
-    private fun advance(): Long? {
+    private fun advance(change: AccountChange = AccountChange.Explicit): Long? {
+        this.change = change
+        confirmedLoss = null
         hide()
         if (closed || generation == Long.MAX_VALUE || admissionEpoch == Long.MAX_VALUE) {
             mutableState.value = NativeAccountState.Failed(NativeAccountFailure.Exhausted)
@@ -128,9 +140,14 @@ class NativeAccountController internal constructor(
         flight?.complete(NativeApiResult.Refused(NativeApiFailure.SessionChanged)); flight = null
         return generation
     }
-    private fun fail(reason: NativeAccountFailure, identityFailure: IdentityV1Failure? = null) {
+    private fun fail(reason: NativeAccountFailure, identityFailure: IdentityV1Failure? = null, credentialAttempt: Boolean = false) {
         hide()
-        mutableState.value = NativeAccountState.Failed(reason, identityFailure)
+        mutableState.value = NativeAccountState.Failed(reason, identityFailure, confirmedLoss, credentialAttempt)
+    }
+    private fun recordLoss(reason: NativeAccountFailure, source: SessionLossReason, sourceEpoch: Long = generation) {
+        if (reason == NativeAccountFailure.Expired && confirmedLoss == null) {
+            confirmedLoss = ConfirmedSessionLoss(sourceEpoch, source)
+        }
     }
     private fun cleanupRequired() {
         hide()
@@ -188,7 +205,7 @@ class NativeAccountController internal constructor(
             when (val result = api.login(email, password)) {
                 is IdentityV1Result.Refused -> if (current(issued)) {
                     // No pair means no family identity to revoke. Never invent one or replay a password.
-                    if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Api, result.reason)
+                    if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Api, result.reason, credentialAttempt = true)
                 }
                 is IdentityV1Result.Accepted -> {
                     val value = result.value
@@ -242,8 +259,13 @@ class NativeAccountController internal constructor(
             retireKnown(value, issued, NativeAccountFailure.Protocol)
             return
         }
-        if (value.admit(now()) == null || value.expiresAt <= now() || barrier.clear() != null) {
-            retireKnown(value, issued, NativeAccountFailure.Expired)
+        if (value.admit(now()) == null || value.expiresAt <= now()) {
+            // A pair that expired before admission never represented an established user session.
+            retireKnown(value, issued, NativeAccountFailure.Protocol)
+            return
+        }
+        if (barrier.clear() != null) {
+            retireKnown(value, issued, NativeAccountFailure.Storage)
             return
         }
         establish(value, issued)
@@ -262,7 +284,13 @@ class NativeAccountController internal constructor(
     private fun establish(value: NativeGrant, issued: Long) {
         if (!current(issued)) return
         val admitted = value.admit(now())
-        if (admitted == null || admitted.view.expiresAt <= now()) { fail(NativeAccountFailure.Expired); return }
+        if (admitted == null || admitted.view.expiresAt <= now()) {
+            val reason = value.deadlineFailure(now())
+            recordLoss(reason, SessionLossReason.Deadline)
+            fail(reason)
+            return
+        }
+        confirmedLoss = null
         grant = admitted
         acceptedAccess += admitted.accessToken
         mutableVerifiedSession.value = NativeVerifiedSession(admitted.view, admitted.accessToken, admissionEpoch)
@@ -308,14 +336,18 @@ class NativeAccountController internal constructor(
             }
             val candidate = record.grant.admit(now())
             if (candidate == null) {
-                if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Expired)
+                val reason = record.grant.deadlineFailure(now())
+                recordLoss(reason, SessionLossReason.Deadline)
+                if (cleanup(issued) && current(issued)) fail(reason)
             } else if (needsRotation(candidate)) {
                 rotate(candidate, issued)
             } else when (val result = session(candidate)) {
                 is NativeApiResult.Refused -> if (current(issued)) {
-                    if (result.reason == NativeApiFailure.Unauthorized || result.reason == NativeApiFailure.Protocol) {
-                        if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Expired)
-                    } else fail(NativeAccountFailure.Api, result.identityFailure)
+                    val reason = result.reason.accountFailure()
+                    if (reason == NativeAccountFailure.Expired || reason == NativeAccountFailure.Protocol) {
+                        recordLoss(reason, SessionLossReason.SessionRejected)
+                        if (cleanup(issued) && current(issued)) fail(reason)
+                    } else fail(reason, result.identityFailure)
                 }
                 is NativeApiResult.Accepted -> if (current(issued)) {
                     if (!matches(candidate, result.value)) {
@@ -347,10 +379,13 @@ class NativeAccountController internal constructor(
         if (expectedSession != null && expectedSession != value.view.session) return NativeApiResult.Refused(NativeApiFailure.SessionChanged)
         val lease = mutableVerifiedSession.value ?: return NativeApiResult.Refused(NativeApiFailure.Unauthorized)
         if (value.admit(now()) == null) {
-            val issued = advance() ?: return NativeApiResult.Refused(NativeApiFailure.Unauthorized)
+            val reason = value.deadlineFailure(now())
+            val sourceEpoch = generation
+            val issued = advance(AccountChange.Passive) ?: return NativeApiResult.Refused(NativeApiFailure.Unauthorized)
+            recordLoss(reason, SessionLossReason.Deadline, sourceEpoch)
             cleanupRequired()
-            if (mark()) operation = scope.launch { if (cleanup(issued) && current(issued)) fail(NativeAccountFailure.Expired) }
-            return NativeApiResult.Refused(NativeApiFailure.Unauthorized)
+            if (mark()) operation = scope.launch { if (cleanup(issued) && current(issued)) fail(reason) }
+            return NativeApiResult.Refused(if (reason == NativeAccountFailure.Expired) NativeApiFailure.Unauthorized else NativeApiFailure.Protocol)
         }
         if (!needsRotation(value) && accepts(lease)) return NativeApiResult.Accepted(lease)
         flight?.let { return it.await() }
@@ -389,10 +424,16 @@ class NativeAccountController internal constructor(
             }
         }
         // This path also covers unknown commit and failed atomic replacement. Never retry refresh.
+        val reason = when (result) {
+            is NativeApiResult.Accepted -> NativeAccountFailure.Protocol
+            is NativeApiResult.Refused -> result.reason.accountFailure()
+        }
+        change = AccountChange.Passive
+        recordLoss(reason, SessionLossReason.SessionRejected)
         cleanupRequired()
         val cleaned = cleanup(issued)
         if (!cleaned && current(issued)) withContext(NonCancellable) { revokeFamily(previous) }
-        if (cleaned && current(issued)) fail(if (result is NativeApiResult.Accepted) NativeAccountFailure.Protocol else NativeAccountFailure.Expired, (result as? NativeApiResult.Refused)?.identityFailure)
+        if (cleaned && current(issued)) fail(reason, (result as? NativeApiResult.Refused)?.identityFailure.takeUnless { reason == NativeAccountFailure.Expired })
         return if (result is NativeApiResult.Refused) result else NativeApiResult.Refused(NativeApiFailure.Protocol)
     }
 
@@ -405,6 +446,7 @@ class NativeAccountController internal constructor(
         val pendingRotation = flight
         if (admissionEpoch == Long.MAX_VALUE) { advance(); return }
         admissionEpoch += 1
+        change = AccountChange.Passive
         mutableVerifiedSession.value = null
         mutableState.value = NativeAccountState.Pending
         expiry?.cancel(); expiry = null
@@ -428,9 +470,14 @@ class NativeAccountController internal constructor(
                     if (response.reason == NativeApiFailure.Unavailable || response.reason == NativeApiFailure.UnknownOutcome) {
                         fail(NativeAccountFailure.Api, response.identityFailure)
                     } else {
-                        val next = advance() ?: return@launch
+                        val reason = response.reason.accountFailure()
+                        val next = advance(AccountChange.Passive) ?: return@launch
+                        recordLoss(reason, SessionLossReason.SessionRejected, issued)
                         cleanupRequired()
-                        if (mark()) operation = scope.launch { if (cleanup(next) && current(next)) fail(NativeAccountFailure.Expired) }
+                        if (mark()) operation = scope.launch {
+                            if (cleanup(next) && current(next)) fail(reason,
+                                response.identityFailure.takeUnless { reason == NativeAccountFailure.Expired })
+                        }
                     }
                 }
                 is NativeApiResult.Accepted -> if (current(issued) && grant === candidate) {

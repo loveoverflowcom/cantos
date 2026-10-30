@@ -175,6 +175,27 @@ class NativeIdentityV1LifecycleTest {
         assertEquals(AccountView.Pending, f.owner.state.value.toAccountView())
     }
 
+    @Test fun late_presentation_cannot_replace_confirmed_session_loss_after_revalidation() = runTest {
+        val f = Fixture(backgroundScope)
+        val old = CompletableDeferred<IdentityV1Result<com.cantos.theatre.domain.identity.AccountPresentation>>()
+        f.api.displayGate = old
+        f.login(); runCurrent()
+        assertIs<NativeAccountState.SignedIn>(f.owner.state.value)
+        f.api.sessionResult = IdentityV1Result.Refused(IdentityV1Failure.Unauthorized)
+        f.owner.revalidate(family)
+        assertEquals(AccountView.Pending, f.owner.state.value.toAccountView())
+        runCurrent()
+        val expired = assertIs<NativeAccountState.Failed>(f.owner.state.value)
+        assertEquals(NativeAccountFailure.Expired, expired.reason)
+        assertNotNull(expired.sessionLoss)
+        old.complete(IdentityV1Result.Accepted(com.cantos.theatre.domain.identity.AccountPresentation("Mây Lam", "a".repeat(64))))
+        runCurrent()
+        assertEquals(expired, f.owner.state.value)
+        assertNull(f.owner.verifiedSession.value)
+        assertEquals(1, f.api.logins)
+        f.owner.close()
+    }
+
     @Test fun presentation_failure_keeps_the_admitted_account_and_does_not_replay_login() = runTest {
         val f = Fixture(backgroundScope)
         f.login(); runCurrent()
@@ -282,17 +303,58 @@ class NativeIdentityV1LifecycleTest {
 
     @Test fun all_refresh_failures_revoke_known_family_and_never_replay_a_spent_secret() = runTest {
         for (failure in listOf(IdentityV1Failure.UnknownOutcome, IdentityV1Failure.ServiceUnavailable,
-            IdentityV1Failure.RateLimited(5), IdentityV1Failure.Unauthorized)) {
+            IdentityV1Failure.RateLimited(5), IdentityV1Failure.Transport, IdentityV1Failure.SessionChanged,
+            IdentityV1Failure.Denied, IdentityV1Failure.Protocol, IdentityV1Failure.Unauthorized)) {
             val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
             f.owner.restore(); runCurrent(); f.now = 210
             f.api.refreshResult = IdentityV1Result.Refused(failure)
             val waiter = async { f.owner.authorization(family) }; runCurrent()
             assertEquals(failure, assertIs<NativeApiResult.Refused>(waiter.await()).identityFailure)
             assertNull(f.owner.verifiedSession.value); assertEquals(1, f.api.refreshes)
+            assertEquals(when (failure) {
+                IdentityV1Failure.Unauthorized -> NativeAccountFailure.Expired
+                IdentityV1Failure.Protocol -> NativeAccountFailure.Protocol
+                else -> NativeAccountFailure.Api
+            }, assertIs<NativeAccountState.Failed>(f.owner.state.value).reason, "wrong refresh reason for $failure")
             assertEquals(listOf(family), f.api.revoked.map { it.view.session })
             assertIs<NativeApiResult.Refused>(f.owner.authorization(family)); assertEquals(1, f.api.refreshes)
             f.owner.close()
         }
+    }
+
+    @Test fun restore_and_revalidation_report_expiry_only_for_confirmed_authority_loss() = runTest {
+        for (failure in listOf(IdentityV1Failure.Unauthorized, IdentityV1Failure.Protocol,
+            IdentityV1Failure.SessionChanged, IdentityV1Failure.Transport, IdentityV1Failure.ServiceUnavailable,
+            IdentityV1Failure.UnknownOutcome, IdentityV1Failure.Denied, IdentityV1Failure.RateLimited(5))) {
+            for (restoring in listOf(true, false)) {
+                val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
+                if (!restoring) { f.owner.restore(); runCurrent() }
+                f.api.sessionResult = IdentityV1Result.Refused(failure)
+                if (restoring) f.owner.restore() else f.owner.revalidate(family)
+                runCurrent()
+                val state = assertIs<NativeAccountState.Failed>(f.owner.state.value)
+                assertEquals(when (failure) {
+                    IdentityV1Failure.Unauthorized -> NativeAccountFailure.Expired
+                    IdentityV1Failure.Protocol -> NativeAccountFailure.Protocol
+                    else -> NativeAccountFailure.Api
+                }, state.reason, "$failure restoring=$restoring")
+                assertEquals(failure == IdentityV1Failure.Unauthorized, state.sessionLoss != null)
+                assertNull(f.owner.verifiedSession.value)
+                f.owner.close()
+            }
+        }
+    }
+
+    @Test fun a_clock_anomaly_during_restore_is_protocol_not_expiration() = runTest {
+        val f = Fixture(backgroundScope, NativeCredentialRecord.Active(pair()))
+        f.now = 1
+        // Use a fresh origin, so the wall/elapsed floor starts at the anomalous clock.
+        val owner = f.recreate()
+        owner.restore(); runCurrent()
+        val state = assertIs<NativeAccountState.Failed>(owner.state.value)
+        assertEquals(NativeAccountFailure.Protocol, state.reason)
+        assertNull(state.sessionLoss)
+        owner.close(); f.owner.close()
     }
 
     @Test fun refreshing_write_failure_stops_before_effect_and_replacement_failure_revokes() = runTest {

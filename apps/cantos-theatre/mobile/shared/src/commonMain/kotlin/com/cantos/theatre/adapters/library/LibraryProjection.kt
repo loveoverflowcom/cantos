@@ -104,6 +104,12 @@ private fun unitPresentationOf(record: LocalLibraryRecord?, audio: WireAudio): L
 
 private class HistoryRow(val audio: WireAudio, val startedAtMs: Long, val resume: ResumeStatus, val order: Long)
 
+/** Only definitive rejections that the owner knows how to retire can be resubmitted. */
+internal fun canRetireRejected(reason: String?): Boolean = reason in setOf(
+    "listener_chooses", "invalid_request", "invalid_position", "idempotency_key_reused", "stale_device_sequence",
+    "revision_exhausted", "corrupt_state", "not_found", "unauthenticated", "denied",
+)
+
 /**
  * Pure projection. Server rows keep the API's newest-first order (descending accepted listener
  * order); a local change not yet confirmed has no server order and is newest. Metadata follows
@@ -124,8 +130,13 @@ internal fun projectLibraryRows(records: List<LocalLibraryRecord>, pending: List
         LibraryCodec.decode<SavedWrite>("SavedWrite", intent.body)?.let { value ->
             val work = intent.key.substringAfter(':')
             val previous = savedViews[work]?.second
-            savedViews[work] = unconfirmed to SavedEntry(work, value.saved, value.base_revision, if (intent.failure == null) LibrarySync.Pending else LibrarySync.Failed,
-                previous?.presentation ?: LibraryPresentation.Unread)
+            val blockedEarlier = previous?.sync == LibrarySync.Failed
+            val failedNow = intent.failure != null
+            val retryable = (blockedEarlier || failedNow) && (!blockedEarlier || previous?.retryableFailure == true) &&
+                (!failedNow || canRetireRejected(intent.failure))
+            savedViews[work] = unconfirmed to SavedEntry(work, value.saved, value.base_revision, if (blockedEarlier || failedNow) LibrarySync.Failed else LibrarySync.Pending,
+                previous?.presentation ?: LibraryPresentation.Unread, confirmedSaved = previous?.confirmedSaved ?: false,
+                retryableFailure = retryable)
         }
     }
     val saved = savedViews.values.sortedWith(compareByDescending<Pair<Long, SavedEntry>> { it.first }.thenBy { it.second.workId }).map { it.second }

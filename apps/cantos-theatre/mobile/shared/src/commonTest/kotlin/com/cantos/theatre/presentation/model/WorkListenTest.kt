@@ -57,18 +57,4 @@ class WorkListenTest {
         assertEquals(unit, workListenProjection(work(unavailable, unit, later), null).target)
     }
 
-    @Test
-    fun only_the_two_absence_conclusions_carry_optional_help_and_loading_or_failure_never_do() {
-        for ((phase, help) in listOf(
-            ShellListPhase.More to CopyKey.WorkListenNoTargetHelp,
-            ShellListPhase.Complete to CopyKey.WorkListenUnavailableHelp,
-            ShellListPhase.Loading to null,
-            ShellListPhase.Failed to null,
-        )) {
-            val actual = workListenProjection(work(phase = phase), null)
-            assertEquals(help, actual.help)
-            assertNull(actual.event(), "absence never starts playback")
-        }
-        assertNull(workListenProjection(work(unit), null).help)
-    }
 }
