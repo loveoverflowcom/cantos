@@ -37,6 +37,9 @@ class BehaviorContracts(unittest.TestCase):
         # The inline form of the real registry: mutation tests edit capability fields directly,
         # while pointer resolution is covered by the registry contracts.
         catalog = real_catalog()
+        # Malformed-model cases below mutate the named live capability, even when a retired
+        # capability remains first in the real registry for historical identity.
+        catalog["capabilities"].sort(key=lambda cap: cap["id"] != self.cap["id"])
         # Every registered Quint file, wherever a module keeps it, historical scenarios included.
         paths = sorted(registry.discover_qnt(behavior.ROOT)) + [row["path"] for row in catalog.get("sharedHelpers", [])]
         for cap in catalog["capabilities"]:
@@ -121,7 +124,6 @@ class BehaviorContracts(unittest.TestCase):
         selected = behavior.load_catalog(behavior.ROOT)
         # Explicit capability counts pin the reviewed selection and each sensitivity control set.
         expected = {
-            "cantos.media.sample-metadata": (5, 7, 5),
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
             "cantos.media.public-cover-projection": (17, 6, 12),
@@ -155,7 +157,7 @@ class BehaviorContracts(unittest.TestCase):
             self.assertEqual(report[key], inline[key], key)
 
     def test_unknown_or_unmodeled_selection_fails(self):
-        for selection in ("cantos.unknown", "cantos.publishing.lifecycle", "cantos.identity.theatre-registration"):
+        for selection in ("cantos.unknown", "cantos.publishing.lifecycle", "cantos.identity.theatre-registration", "cantos.media.sample-metadata"):
             with self.subTest(selection=selection), self.assertRaises(behavior.BehaviorError):
                 behavior.load_catalog(behavior.ROOT, selection)
 

@@ -7,7 +7,8 @@ native device, real identity journey, deployed service, rights claim or human-li
 
 - Base: `origin/develop@0901b20b9a97d3b10780bef91ec93e1c3b43f13c`; branch `codex/651-studio-publish` in a new worktree.
 - Implementation patch SHA-256: `7543b7b4690755a0a50c5ee7bcac6785ad7ed1054308aa7e6b6b6cf7b02c1c83`, from
-  `git diff --cached --binary -- apps packages services specs` before packaging this record.
+  `git diff --binary origin/develop HEAD -- apps packages services specs`; verification-only
+  follow-up changes are identified by the PR head.
 - Linux, Rust 1.98.1, locked Cargo dependencies; behavior uses Node 24.19.0, npm 11.9.0 and
   Quint 0.33.0. JVM checks use the existing Theatre Desktop target and repository Gradle inputs.
 - In-app browser, default desktop viewport and an explicitly measured 390 CSS px viewport;
@@ -116,6 +117,14 @@ were also isolated under ignored `target/verification/`.
 
 ## Failures, deferred acceptance and residual risk
 
+- The behavior registry contract suite passes 114 tests after fixture mutations were pinned to
+  the live audio-admission capability and the retired sample was explicitly excluded from the
+  executable index. Its historical scenario import remains registered.
+- The initial Python discovery campaign exposed stale registry test assumptions (repaired), plus
+  native sidecar-fixture mode errors and a localization fixture that assumed a default branch
+  other than `develop`. Both latter classes reproduce on the clean baseline. The independent
+  controlled campaign uses a process-local `umask 077` and `init.defaultBranch=main`, preserving
+  the user's global Git configuration and native security guards; its result is recorded in the PR.
 - Repository verification has 60 UI qualification findings on both this branch and the pinned
   clean `develop` baseline, with no branch-only finding after the focused fixes. Their hashes
   were not rewritten to manufacture qualification.
