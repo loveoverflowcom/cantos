@@ -24,6 +24,7 @@ use crate::contexts::catalog::{
     domain::{metadata_publication::PublicationError, CatalogError},
     wire as input, CatalogCommand, CatalogCursor, CatalogStoreError,
 };
+use crate::contexts::media::MetadataPublicationService;
 
 const BODY_LIMIT: usize = 128 * 1024;
 
@@ -210,9 +211,8 @@ async fn publication_command(
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
-    match state
-        .store
-        .metadata_publication_execute(&token, &work, body)
+    match MetadataPublicationService::new(state.store.clone())
+        .settle(&token, &work, body)
         .await
     {
         Ok(result) => (StatusCode::OK, Json(result)).into_response(),
@@ -656,6 +656,24 @@ pub(super) fn catalog_error(error: CatalogStoreError) -> Response {
 fn publication_error(error: PublicationError) -> Response {
     use PublicationError::*;
     let (status, code, path, rule) = match error {
+        ReleaseNotActive => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "release_id",
+            "not_active_release",
+        ),
+        AudioIncompatible => (
+            StatusCode::CONFLICT,
+            ErrorCode::CatalogConflict,
+            "release_id",
+            "audio_incompatible",
+        ),
+        AudioConfirmationRequired => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::InvalidCatalog,
+            "confirm_display_only_drift",
+            "required",
+        ),
         StaleVersion { current } => {
             return failure(
                 StatusCode::CONFLICT,
@@ -736,7 +754,7 @@ fn publication_error(error: PublicationError) -> Response {
             "details.rights_refs",
             "unavailable",
         ),
-        InvalidDigest | InvalidVersion | InvalidTimestamp | Corrupt => {
+        InvalidDigest | InvalidVersion | InvalidTimestamp | InvalidAudioRef | Corrupt => {
             return failure(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorCode::CorruptRevision,

@@ -681,6 +681,12 @@ impl AudioRelease {
         }
         Self::restore_intrinsic(raw)
     }
+    /// A settled release row read on its own: the same intrinsic manifest and release digests,
+    /// bindings and bounds, without the candidate/rendition/content rows. Cross-row authority
+    /// (latest rights and approval, withdrawal, revocation, pointer) is the caller's live gate.
+    pub fn restore_settled(raw: dto::AudioReleaseDocument) -> Result<Self, PublicationError> {
+        Self::restore_intrinsic(raw)
+    }
     fn restore_intrinsic(raw: dto::AudioReleaseDocument) -> Result<Self, PublicationError> {
         ReleaseId::parse(&raw.id)?;
         OwnerId::parse(&raw.published_by).map_err(|_| PublicationError::InvalidId)?;

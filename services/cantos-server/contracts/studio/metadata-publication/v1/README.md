@@ -4,7 +4,8 @@ Implemented Server core, routes and file-backed Turso persistence (`server.db` v
 [#648](https://github.com/loveoverflowcom/cantos/issues/648) (S02 of
 [#634](https://github.com/loveoverflowcom/cantos/issues/634)), applying the accepted
 [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md) rows D01a,
-D02a–c, D05a–b and D07a–b. **No Theatre route reads generations yet**: Discovery keeps its current
+D02a–c, D05a–b and D07a–b, and exact audio association (`server.db` v32, D06a–c) for
+[#649](https://github.com/loveoverflowcom/cantos/issues/649) (S03). **No Theatre route reads generations yet**: Discovery keeps its current
 release-driven shapes until S05 replaces them together with every current client (the
 [synchronized-delivery rule](../../../../../../docs/work-plan/publication-access-handoff.md#wire-and-data-transition-d07)).
 No Studio Web client calls these routes yet (S05). Browser, device and deployed acceptance are
@@ -57,11 +58,13 @@ the caller read (`0` before the first publication).
 | `publish_unit` | Generation N+1 that adds or replaces one Unit at one-based `position` (1 … entries+1 after removing that Unit) and copies every other entry and the Work pin | ACTIVE pointer; `confirm_metadata_rights: true`; the active Work pin still passes the archive and rights gates; the Unit rules above |
 | `withdraw_unit` | Generation N+1 without that Unit; the Work stays visible, possibly with zero Units | ACTIVE pointer; the Unit is published |
 | `withdraw` | Pointer turns `withdrawn`; no generation is written | ACTIVE pointer; possible even when the Work is archived |
+| `associate_audio` | Generation N+1 that associates one published Unit with `release_id` and copies every other entry and the Work pin (D06b) | ACTIVE pointer; the Unit is published; `release_id` is the release the Unit's audio pointer names now; the [compatibility matrix](#audio-association) is `exact`, or `display_only` with `confirm_display_only_drift: true` |
 
 `confirm_metadata_rights` is the owner's explicit claim that this metadata may be shown publicly.
 It is not legal clearance, and metadata publication never grants audio, cover or transcript
 rights (ADR 0054 principle 5). A `publish`/`publish_unit` whose result equals the active
-generation is refused as `unchanged` instead of minting a version.
+generation is refused as `unchanged` instead of minting a version (also an association that
+already holds).
 
 The settling write unit authenticates the owner, then, under the single writer: looks up the
 operation; compares `expected_version`; resolves and admits every selected exact revision; writes
@@ -77,6 +80,41 @@ or object I/O runs inside it.
 | `expected_version` ≠ current | `409 stale_revision`; `current_revision` carries the current **pointer version** on this route; no selected revision is read |
 | Two publishers read the same version | One settles; the other receives `409 stale_revision` with the new version |
 
+## Audio association
+
+An entry's `audio` is `null` (metadata-only) or the exact settled release it is associated with:
+`release_id`, `release_digest` (the release document digest, `rl-r1:sha256:…`) and `basis`.
+Association never rewrites a manifest, digest, approval or timing; it is a pin written with its
+generation and as immutable as the entry. It is **not** a playback state: a withdrawn,
+superseded, revoked, expired or no-longer-approved release keeps its association here, while the
+listener read's live Media gate stops playback at once (see the projection below). Nothing
+searches for a "latest" release: the only release considered is the one the Unit's audio pointer
+names now (Studio publication v1).
+
+The compatibility matrix compares the snapshots at the Work/Unit revisions the release manifest
+pins with the generation's Work pin and the entry's Unit pin:
+
+| Difference | `basis` | How it is associated |
+| --- | --- | --- |
+| Same Unit revision; the Work differs at most in title, synopsis or editorial `visibility` | `exact` | Automatically, see below |
+| Different Unit revision; only Unit title/description (and the Work's title, synopsis or `visibility`) differ | `display_only` | Only by the owner's `associate_audio` with `confirm_display_only_drift: true` (D06a/b) |
+| Unit kind, source, Script IR or content digest; Work kind, language (case-insensitive tag) or rights references (as a set) | — | Never; `associate_audio` is refused as `audio_incompatible` and the entry stays metadata-only |
+
+Work `visibility` is editorial metadata and never a listener gate (D05b), so it takes no part.
+The language and rights comparison of the Work is a fail-closed tightening of D06's exact rule.
+
+When associations are written:
+
+- **Audio activation (D06c).** Studio publication v1's publish writes, in the same write unit as
+  the release and the audio pointer, generation N+1 (action `activate_audio`) when the ACTIVE
+  generation's entry for that Unit is `exact`. Otherwise nothing is written and this state shows
+  the entry metadata-only ("audio ready, not associated"); a replayed activation writes nothing.
+- **`publish` / `publish_unit`.** A newly pinned entry is associated `exact` with the Unit's active
+  release when the matrix says so. An entry keeps its previous association only with the same Unit
+  pin under the same Work pin; a changed Work pin re-offers `exact` and drops `display_only`.
+  Publication from `never_published` or `withdrawn` revives no earlier owner decision.
+- **`withdraw_unit`.** Every other entry keeps its association.
+
 ## Errors
 
 The existing Studio `ApiError` shape and codes; `issues` name the path and rule.
@@ -87,8 +125,8 @@ The existing Studio `ApiError` shape and codes; `issues` name the path and rule.
 | 404 | `not_found` | Unknown Work, not the current owner |
 | 409 | `stale_revision` | — (`current_revision` = current pointer version) |
 | 409 | `operation_reused` | — |
-| 409 | `catalog_conflict` | `lifecycle`/`not_active`, `lifecycle`/`archived`, `unit_id`/`not_published`, `publication`/`unchanged`, `version`/`version_limit` |
-| 422 | `invalid_catalog` | `units`/`limit_exceeded`, `units`/`duplicate_unit`, `units`/`unknown_unit` (also a Unit of any other Work), `work_revision`/`unknown_revision`, `position`/`out_of_range` |
+| 409 | `catalog_conflict` | `lifecycle`/`not_active`, `lifecycle`/`archived`, `unit_id`/`not_published`, `publication`/`unchanged`, `version`/`version_limit`, `release_id`/`not_active_release`, `release_id`/`audio_incompatible` |
+| 422 | `invalid_catalog` | `units`/`limit_exceeded`, `units`/`duplicate_unit`, `units`/`unknown_unit` (also a Unit of any other Work), `work_revision`/`unknown_revision`, `position`/`out_of_range`, `confirm_display_only_drift`/`required` |
 | 422 | `evidence_unavailable` | `details.rights_refs`/`unavailable` |
 | 500 | `corrupt_revision` | A stored generation, pin or pointer contradicts its invariants |
 
@@ -110,12 +148,19 @@ Eligibility filters before count, ordinal and pagination:
   generation restarts the walk.
 
 Every row is rechecked against its pinned snapshot bytes. Works with audio releases, the prepared
-sample's disclosures and public-visibility Works without a generation are absent from it. Exact
-audio association (`playback`) is S03; RESTRICTED audiences are S06.
+sample's disclosures and public-visibility Works without a generation are absent from it. Each
+visible Unit carries its entry's association. Media's `playable_releases`
+(`contexts/media/generation_audio.rs`) applies CanPlay's release half in the same snapshot:
+the pinned digest, the Unit's audio pointer still naming the release, no withdrawal or submission
+revocation, the candidate's latest clearance and approval still being the manifest's, and the
+release's access window. A Unit that fails it is metadata-only for that read. RESTRICTED
+audiences are S06.
 
 ## Not covered
 
-Theatre Discovery adoption and removal of the default/`presentation=1–3` shapes (S05), the
-Studio Web publish workflow (S05), audio association on activation (S03), preview (S04),
-RESTRICTED audiences, grants and groups (S06–S10), the retirement of the sample-only disclosure
-lane (S03) and performance budgets (S11). Production migration and activation are separate tasks.
+Theatre Discovery adoption, the generation `playback` representation and removal of the
+default/`presentation=1–3` shapes together with the sample-only disclosure lane (S05, see the
+[S03 handoff](../../../../../../docs/work-plan/publication-access-handoff.md#s03-delivered-contract-649)),
+the Studio Web publish and association workflow (S05), preview (S04), RESTRICTED audiences,
+grants and groups (S06–S10) and performance budgets (S11). Production migration and activation
+are separate tasks.

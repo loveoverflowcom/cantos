@@ -10,9 +10,9 @@
     "work_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "recorded_at_ms": 1900000060000,
     "entries": [
-      {"position": 1, "unit_id": "72000000-0000-4000-8000-00000000000c", "revision": 1, "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-      {"position": 2, "unit_id": "72000000-0000-4000-8000-00000000000b", "revision": 4, "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
-      {"position": 3, "unit_id": "72000000-0000-4000-8000-00000000000a", "revision": 2, "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+      {"position": 1, "unit_id": "72000000-0000-4000-8000-00000000000c", "revision": 1, "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "audio": {"release_id": "73000000-0000-4000-8000-000000000001", "release_digest": "rl-r1:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "basis": "exact"}},
+      {"position": 2, "unit_id": "72000000-0000-4000-8000-00000000000b", "revision": 4, "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "audio": {"release_id": "73000000-0000-4000-8000-000000000002", "release_digest": "rl-r1:sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "basis": "display_only"}},
+      {"position": 3, "unit_id": "72000000-0000-4000-8000-00000000000a", "revision": 2, "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "audio": null}
     ]
   }
 }

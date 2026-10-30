@@ -899,6 +899,10 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False, applicat
             # ADR 0033 owner cover disclosure: one application use case, mounted with artwork.
             ("contexts", "media", "CoverDisclosureService"),
             ("contexts", "media", "CoverDisclosureService", "new"),
+            # ADR 0054 D06: Catalog's metadata publication command composed with Media's audio
+            # facts; one application use case for the Studio metadata publication route.
+            ("contexts", "media", "MetadataPublicationService"),
+            ("contexts", "media", "MetadataPublicationService", "new"),
         }
         artwork_error = path[:3] in {
             ("contexts", "media", "ArtworkApplicationError"),

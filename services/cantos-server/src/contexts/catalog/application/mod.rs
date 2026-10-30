@@ -12,7 +12,7 @@ use crate::contexts::editorial::{self, permits, Access, Action};
 use crate::contexts::ingestion;
 use crate::platform::store::{authenticate, StoreError, Tx};
 
-mod metadata_publication;
+pub(crate) mod metadata_publication;
 #[cfg_attr(
     not(test),
     expect(

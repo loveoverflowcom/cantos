@@ -192,7 +192,8 @@ include metadata-only Works or units. [ADR 0054](../../../../../../docs/decision
 (accepted) replaces default, `presentation=1`, `2` and `3` with one generation representation,
 in the same delivery that updates every current consumer (S05). The Server already settles
 owner [metadata publication generations](../../../studio/metadata-publication/v1/README.md)
-(S02), but no route in this contract reads them yet, so every shape here is unchanged.
+(S02) with exact audio association and a live Media playback gate (S03), but no route in this
+contract reads them yet, so every shape here is unchanged.
 
 | Opt-in DTO | Added field | Meaning |
 | --- | --- | --- |

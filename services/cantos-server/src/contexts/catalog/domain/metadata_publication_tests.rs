@@ -2,8 +2,8 @@ use proptest::prelude::*;
 
 use super::*;
 use crate::contexts::catalog::domain::{
-    ContentUnitKind, NewContentUnit, NewWork, OwnerId, UnitDetails, Visibility, WorkDetails,
-    WorkKind,
+    ContentUnitKind, NewContentUnit, NewWork, OwnerId, ScriptRef, SourceRef, UnitDetails,
+    Visibility, WorkDetails, WorkKind,
 };
 
 const WORK: &str = "10000000-0000-4000-8000-00000000000a";
@@ -25,6 +25,7 @@ fn entry(id: &str, revision: u64) -> PublishedEntry {
     PublishedEntry {
         unit: unit_id(id),
         pin: pin(revision, revision as u8),
+        audio: None,
     }
 }
 fn work(id: &str, rights: &[&str]) -> Work {
@@ -304,6 +305,7 @@ fn selections_are_bounded_and_duplicate_free() {
     );
     let many: Vec<_> = (0..=MAX_PUBLISHED_UNITS)
         .map(|n| PublishedEntry {
+            audio: None,
             unit: unit_id(&format!("30000000-0000-4000-8000-{n:012x}")),
             pin: pin(1, 1),
         })
@@ -401,7 +403,7 @@ fn admission_refuses_archived_foreign_and_unsubstantiated_revisions() {
 #[test]
 fn restore_rejects_stored_contradictions() {
     let number = GenerationNumber::new(2).unwrap();
-    let duplicated = vec![(unit_id(A), pin(1, 1)), (unit_id(A), pin(2, 2))];
+    let duplicated = vec![(unit_id(A), pin(1, 1), None), (unit_id(A), pin(2, 2), None)];
     assert_eq!(
         Generation::restore(number, pin(1, 1), duplicated),
         Err(PublicationError::Corrupt)
@@ -458,6 +460,315 @@ fn search_text_uses_the_discovery_nfc_lowercase_rule() {
     assert_eq!(public_search_text("MÙA Trăng"), "mùa trăng");
     assert_eq!(public_search_text("A\u{0301}nh"), "ánh");
     assert_eq!(public_search_text("Ánh"), public_search_text("A\u{0301}nh"));
+}
+
+fn release(seed: u8) -> AudioRef {
+    AudioRef::new(
+        &format!("70000000-0000-4000-8000-0000000000{seed:02x}"),
+        &format!("rl-r1:sha256:{}", digest(seed)),
+    )
+    .unwrap()
+}
+fn exact(seed: u8) -> AudioAssociation {
+    AudioAssociation::admit(release(seed), AudioCompatibility::Exact, false).unwrap()
+}
+fn associate(unit: &str, audio: AudioAssociation) -> PublicationChange {
+    PublicationChange::AssociateAudio {
+        unit: unit_id(unit),
+        audio,
+    }
+}
+fn audio_of(state: &PublicationState, unit: &str) -> Option<AudioAssociation> {
+    match state {
+        PublicationState::Published(published) => published
+            .generation()
+            .entry(&unit_id(unit))
+            .and_then(|entry| entry.audio().cloned()),
+        PublicationState::NeverPublished => None,
+    }
+}
+fn edited_work(base: &Work, change: impl FnOnce(&mut WorkDetails)) -> Work {
+    let mut details = base.details().clone();
+    change(&mut details);
+    base.edit(base.revision(), details, 2_000).unwrap()
+}
+fn edited_unit(
+    parent: &Work,
+    base: &ContentUnit,
+    change: impl FnOnce(&mut UnitDetails),
+) -> ContentUnit {
+    let mut details = base.details().clone();
+    change(&mut details);
+    base.edit(parent, base.revision(), details, 2_000).unwrap()
+}
+
+#[test]
+fn audio_refs_admit_only_canonical_release_ids_and_release_digests() {
+    let digest = format!("rl-r1:sha256:{}", "a".repeat(64));
+    assert!(AudioRef::new("70000000-0000-4000-8000-000000000001", &digest).is_ok());
+    for (id, digest) in [
+        ("70000000-0000-4000-8000-00000000000A", digest.as_str()),
+        ("not-a-release", digest.as_str()),
+        (
+            "70000000-0000-4000-8000-000000000001",
+            "a".repeat(64).as_str(),
+        ),
+        ("70000000-0000-4000-8000-000000000001", "rm-r1:sha256:aaaa"),
+        (
+            "70000000-0000-4000-8000-000000000001",
+            &format!("rl-r1:sha256:{}", "A".repeat(64)),
+        ),
+    ] {
+        assert_eq!(
+            AudioRef::new(id, digest),
+            Err(PublicationError::InvalidAudioRef)
+        );
+    }
+}
+
+/// The D06 truth table over real Catalog snapshots: which drift keeps audio, which asks the
+/// owner, which leaves the entry metadata-only.
+#[test]
+fn compatibility_matrix_separates_display_only_from_content_language_kind_and_rights() {
+    let released_work = work(WORK, &["r1"]);
+    let released_unit = unit(&released_work, A);
+    let compat =
+        |w: &Work, u: &ContentUnit| audio_compatibility(&released_work, &released_unit, w, u);
+    // Same Unit revision: exact, also when only the Work's display text or visibility moved.
+    assert_eq!(
+        compat(&released_work, &released_unit),
+        AudioCompatibility::Exact
+    );
+    let retitled = edited_work(&released_work, |d| {
+        d.title = "Mùa trăng mới".into();
+        d.synopsis = "Lời giới thiệu khác".into();
+        d.visibility = Visibility::Public;
+    });
+    assert_eq!(compat(&retitled, &released_unit), AudioCompatibility::Exact);
+    // Unit display text only: explicit owner association.
+    let renamed = edited_unit(&released_work, &released_unit, |d| {
+        d.title = "Chương một (bản sửa)".into();
+        d.description = "Mô tả mới".into();
+    });
+    assert_eq!(
+        compat(&released_work, &renamed),
+        AudioCompatibility::DisplayOnly
+    );
+    assert_eq!(compat(&retitled, &renamed), AudioCompatibility::DisplayOnly);
+    // A new revision with no visible change is still not the exact pin.
+    let resaved = edited_unit(&released_work, &released_unit, |_| {});
+    assert_eq!(
+        compat(&released_work, &resaved),
+        AudioCompatibility::DisplayOnly
+    );
+    // Content, language and rights drift: incompatible, whatever else is equal.
+    let content = edited_unit(&released_work, &released_unit, |d| {
+        d.content_digest = Some(format!("sir-c1:sha256:{}", "c".repeat(64)));
+    });
+    let source = edited_unit(&released_work, &released_unit, |d| {
+        d.source = Some(SourceRef::new("source-1".into(), "d".repeat(64)).unwrap());
+    });
+    let script = edited_unit(&released_work, &released_unit, |d| {
+        d.script = Some(
+            ScriptRef::new(
+                "50000000-0000-4000-8000-000000000001".into(),
+                2,
+                format!("sir-e1:sha256:{}", "e".repeat(64)),
+            )
+            .unwrap(),
+        );
+    });
+    for drifted in [&content, &source, &script] {
+        assert_eq!(
+            compat(&released_work, drifted),
+            AudioCompatibility::Incompatible
+        );
+    }
+    let english = edited_work(&released_work, |d| d.language = "en".into());
+    let more_rights = edited_work(&released_work, |d| d.rights_refs.push("r2".into()));
+    let other_rights = edited_work(&released_work, |d| d.rights_refs = vec!["r2".into()]);
+    for drifted in [&english, &more_rights, &other_rights] {
+        assert_eq!(
+            compat(drifted, &released_unit),
+            AudioCompatibility::Incompatible
+        );
+        assert_eq!(compat(drifted, &renamed), AudioCompatibility::Incompatible);
+    }
+    // Tag case and rights order are not drift.
+    let recased = edited_work(&released_work, |d| d.language = "VI-vn".into());
+    assert_eq!(compat(&recased, &released_unit), AudioCompatibility::Exact);
+    let two = work(WORK, &["r1", "r2"]);
+    let swapped = edited_work(&two, |d| d.rights_refs = vec!["r2".into(), "r1".into()]);
+    assert_eq!(
+        audio_compatibility(&two, &unit(&two, A), &swapped, &unit(&two, A)),
+        AudioCompatibility::Exact
+    );
+    // Another Unit or Work is never compatible.
+    assert_eq!(
+        compat(&released_work, &unit(&released_work, B)),
+        AudioCompatibility::Incompatible
+    );
+    let other = work(OTHER, &["r1"]);
+    assert_eq!(
+        compat(&other, &unit(&other, A)),
+        AudioCompatibility::Incompatible
+    );
+}
+
+#[test]
+fn association_admission_needs_confirmation_for_display_drift_and_refuses_incompatibility() {
+    assert_eq!(exact(1).basis(), AudioBasis::Exact);
+    // Confirming an exact pin records it as exact, not as an owner override.
+    assert_eq!(
+        AudioAssociation::admit(release(1), AudioCompatibility::Exact, true).unwrap(),
+        exact(1)
+    );
+    assert_eq!(
+        AudioAssociation::admit(release(1), AudioCompatibility::DisplayOnly, false),
+        Err(PublicationError::AudioConfirmationRequired)
+    );
+    let confirmed =
+        AudioAssociation::admit(release(1), AudioCompatibility::DisplayOnly, true).unwrap();
+    assert_eq!(confirmed.basis(), AudioBasis::DisplayOnly);
+    for confirm in [false, true] {
+        assert_eq!(
+            AudioAssociation::admit(release(1), AudioCompatibility::Incompatible, confirm),
+            Err(PublicationError::AudioIncompatible)
+        );
+    }
+    assert_eq!(AudioBasis::parse("exact"), Ok(AudioBasis::Exact));
+    assert_eq!(
+        AudioBasis::parse("display_only"),
+        Ok(AudioBasis::DisplayOnly)
+    );
+    assert_eq!(AudioBasis::parse("latest"), Err(PublicationError::Corrupt));
+}
+
+#[test]
+fn associating_writes_a_new_generation_that_copies_every_other_entry() {
+    let active = first(vec![entry(A, 1), entry(B, 2)]);
+    let settled = decide(&active, 1, associate(B, exact(7)), 20).unwrap();
+    assert!(settled.created);
+    let next = state(settled);
+    let PublicationState::Published(published) = &next else {
+        unreachable!()
+    };
+    assert_eq!(published.version().get(), 2);
+    assert_eq!(published.generation().number().get(), 2);
+    assert_eq!(published.first_visible_at(), 10);
+    assert_eq!(ids(published.generation()), [A, B]);
+    assert_eq!(published.generation().work(), &pin(3, 9));
+    assert_eq!(audio_of(&next, A), None);
+    assert_eq!(audio_of(&next, B), Some(exact(7)));
+    // The same association again mints nothing; a different release does.
+    assert_eq!(
+        decide(&next, 2, associate(B, exact(7)), 30),
+        Err(PublicationError::Unchanged)
+    );
+    let replaced = state(decide(&next, 2, associate(B, exact(8)), 30).unwrap());
+    assert_eq!(audio_of(&replaced, B), Some(exact(8)));
+    // Only an ACTIVE generation's published Unit can be associated.
+    assert_eq!(
+        decide(&next, 2, associate(C, exact(7)), 30),
+        Err(PublicationError::UnitNotPublished { unit: unit_id(C) })
+    );
+    let withdrawn = state(decide(&next, 2, PublicationChange::Withdraw, 30).unwrap());
+    assert_eq!(
+        decide(&withdrawn, 3, associate(B, exact(7)), 40),
+        Err(PublicationError::NotActive)
+    );
+    assert_eq!(
+        decide(
+            &PublicationState::NeverPublished,
+            0,
+            associate(B, exact(7)),
+            40
+        ),
+        Err(PublicationError::NotActive)
+    );
+    assert_eq!(
+        decide(&next, 1, associate(B, exact(8)), 30),
+        Err(PublicationError::StaleVersion { current: 2 })
+    );
+}
+
+#[test]
+fn metadata_changes_keep_audio_only_on_the_same_pin_and_never_rebind_implicitly() {
+    let display =
+        AudioAssociation::admit(release(5), AudioCompatibility::DisplayOnly, true).unwrap();
+    let active = first(vec![entry(A, 1), entry(B, 2)]);
+    let active = state(decide(&active, 1, associate(A, display.clone()), 20).unwrap());
+    let active = state(decide(&active, 2, associate(B, exact(6)), 21).unwrap());
+    // Republishing the same pins in a new order keeps both associations.
+    let reordered = state(
+        decide(
+            &active,
+            3,
+            publish(pin(3, 9), vec![entry(B, 2), entry(A, 1)]),
+            30,
+        )
+        .unwrap(),
+    );
+    assert_eq!(audio_of(&reordered, A), Some(display.clone()));
+    assert_eq!(audio_of(&reordered, B), Some(exact(6)));
+    // A new Work pin carries nothing: its language or rights may differ, so the shell re-offers
+    // exact associations and the owner re-confirms display-only ones.
+    let rewritten = state(
+        decide(
+            &reordered,
+            4,
+            publish(pin(4, 8), vec![entry(B, 2), entry(A, 1)]),
+            35,
+        )
+        .unwrap(),
+    );
+    assert_eq!(audio_of(&rewritten, A), None);
+    assert_eq!(audio_of(&rewritten, B), None);
+    // A new Unit revision is metadata-only: no association follows a changed pin.
+    let edited = state(
+        decide(
+            &reordered,
+            4,
+            PublicationChange::PublishUnit {
+                entry: entry(A, 3),
+                position: 2,
+            },
+            40,
+        )
+        .unwrap(),
+    );
+    assert_eq!(audio_of(&edited, A), None);
+    assert_eq!(audio_of(&edited, B), Some(exact(6)));
+    // Unless the shell offers an exact association for the new pin.
+    let offered = state(
+        decide(
+            &edited,
+            5,
+            PublicationChange::PublishUnit {
+                entry: entry(A, 4).with_audio(Some(exact(9))),
+                position: 2,
+            },
+            50,
+        )
+        .unwrap(),
+    );
+    assert_eq!(audio_of(&offered, A), Some(exact(9)));
+    // Withdrawing a Unit copies the others with their audio.
+    let without_a = state(
+        decide(
+            &offered,
+            6,
+            PublicationChange::WithdrawUnit { unit: unit_id(A) },
+            60,
+        )
+        .unwrap(),
+    );
+    assert_eq!(audio_of(&without_a, B), Some(exact(6)));
+    // A republication after WITHDRAWN revives no earlier association.
+    let withdrawn = state(decide(&without_a, 7, PublicationChange::Withdraw, 70).unwrap());
+    let republished =
+        state(decide(&withdrawn, 8, publish(pin(3, 9), vec![entry(B, 2)]), 80).unwrap());
+    assert_eq!(audio_of(&republished, B), None);
 }
 
 fn unit_pool() -> Vec<String> {

@@ -5,7 +5,9 @@
 //! Discovery representation with it together with every current client (ADR 0054 D07a).
 use crate::contexts::catalog::{
     domain::{
-        metadata_publication::{public_search_text, visible_entries, GenerationNumber},
+        metadata_publication::{
+            public_search_text, visible_entries, AudioAssociation, GenerationNumber,
+        },
         ContentUnit, Work, WorkId, WorkKind,
     },
     turso::{metadata_publication, public_metadata as store},
@@ -22,13 +24,15 @@ pub(crate) struct PublicWork {
     pub unit_count: u32,
 }
 
-/// One visible Unit: its pinned metadata revision, consecutive public rank and published
-/// position (the keyset). Playback stays absent until S03 adds exact audio association.
+/// One visible Unit: its pinned metadata revision, consecutive public rank, published position
+/// (the keyset) and its exact audio association, if any. The association is a pin, not a
+/// right: Media's live gate (`media::playable_releases`) decides playback at each read.
 #[derive(Clone, Debug)]
 pub(crate) struct PublicUnit {
     pub unit: ContentUnit,
     pub ordinal: u32,
     pub position: u32,
+    pub audio: Option<AudioAssociation>,
 }
 
 #[derive(Clone, Debug)]
@@ -145,6 +149,7 @@ pub(crate) async fn public_units(
             unit,
             ordinal: visible.ordinal,
             position: visible.position,
+            audio: visible.entry.audio().cloned(),
         })
         .collect();
     Ok(Some(PublicUnitPage {
