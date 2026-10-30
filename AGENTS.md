@@ -80,6 +80,7 @@ for scope versus implementation status.
 - Do not invoke AI during listener playback. Preserve immutable publication manifests and cached renditions.
 - Keep private drafts, voice assets and previews inaccessible to public delivery. Enforce permissions in the backend.
 - Mobile uses CMP with platform-native audio adapters; no WebView audio player.
+- During development a breaking wire/API or data change keeps no compatibility lane, alias or data conversion when every current client is updated and tested in the same delivery; security, immutability and migration-registry invariants still hold ([ADR 0055](docs/decisions/0055-development-phase-compatibility.md)).
 
 ## Correctness rules
 

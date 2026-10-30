@@ -212,7 +212,16 @@ The unit-change row is the one that ships bugs: `0.57 * 100.0` is `56.9999999999
 so an `as u8` conversion yields `56`. Parse the decimal literal textually, or convert with
 explicit rounding, and test every representable old value.
 
+Where an action names a converter, § 6 states when a development delivery may instead stop
+reading the old version.
+
 ## 6. Converters
+
+During development a converter or an old-version reader is optional
+([ADR 0055](../../../../docs/decisions/0055-development-phase-compatibility.md)). A delivery may
+stop reading an old version when every current consumer changes with it; stored
+revisions of that version are then rejected with the actionable unsupported-version error, never
+misread and never rewritten. The rules below apply whenever a converter exists.
 
 ```rust
 // Illustrative and proposed: one pure step per version.
@@ -249,7 +258,8 @@ services/cantos-server/contracts/studio/script-ir/<version>/fixtures
   unsupported/0.9.0-from-future.json                 + .expected (VersionError)
 ```
 
-- Every readable version keeps its fixtures forever. Adding a version adds a directory; it never
+- Every readable version keeps its fixtures; a version that stops being readable keeps an
+  `unsupported/` rejection fixture instead. Adding a version adds a directory; it never
   edits an older one.
 - Each reject fixture contains exactly one fault and expects the exact ordered diagnostics; one
   multi-fault fixture proves collection. Single-fault fixtures make an exact assertion possible.

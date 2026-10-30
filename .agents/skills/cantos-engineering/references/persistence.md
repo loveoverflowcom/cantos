@@ -108,6 +108,10 @@ do not claim that a service user with file access has an equivalent table-level 
   rewrites a nonempty incompatible database. Define explicit migration ownership and exclusion.
 - Preserve PostgreSQL epoch/checksum history and source-bound evidence. A new engine's fresh
   schema is not a license to reinterpret or drop legacy data.
+- During development a new registry version need not read, convert or backfill existing rows and
+  may drop or replace obsolete tables ([ADR 0055](../../../../docs/decisions/0055-development-phase-compatibility.md)).
+  It still appends without editing registered SQL, never reinterprets a kept row, and leaves
+  production data conversion and activation to a separate operator-authorized task.
 - Import versioned logical records through current domain validation; compare IDs, references,
   counts, immutable hashes, receipts, revisions and authorization state. Include partial/import
   retry/cancellation and unknown outcomes, not just an empty-database happy path.

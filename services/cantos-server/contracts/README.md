@@ -31,8 +31,10 @@ owned by [Theatre](../../../apps/cantos-theatre/conformance/README.md).
 `cargo run --locked --manifest-path tools/proto-codegen/Cargo.toml -- --check` (inside
 `cargo xtask verify contracts`) compares every checked-in Protobuf binding with a fresh
 generation from its owner's `.proto`. Run it without `--check` after a reviewed `.proto` change.
-Compatibility: field numbers and names are frozen; a removed number and name are reserved; new
-JSON fields, enum values or units need a new version or the module's documented additive rule.
+Compatibility: Protobuf field numbers and names are never reused; a removed number and name are
+reserved. During development a breaking change replaces the current shape in the same delivery
+that updates and tests every current consumer, with no version lane or alias kept for older
+builds ([ADR 0055](../../../docs/decisions/0055-development-phase-compatibility.md)).
 
 
 ## Current runtime and persistence

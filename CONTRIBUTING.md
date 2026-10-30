@@ -43,6 +43,8 @@ Keep the initial architecture modular without introducing microservices prematur
 
 Treat the versioned Script IR as the boundary for exchanging narrative data with Narrative Forge. Reuse concepts and documented contracts rather than importing another project's internal modules. Record schema compatibility, migration behavior, and stable identities for works, episodes, scenes, and dialogue segments before changing persisted data.
 
+While Cantos is in development, a breaking contract or data change is allowed when every current client (Theatre Web, Theatre CMP Android/iOS, Studio Web) is updated and tested in the same pull request or integration merge; keep no alias, version lane or data conversion only for older builds or data. [ADR 0055](docs/decisions/0055-development-phase-compatibility.md) owns this policy and the invariants it keeps.
+
 Every consumer owns its own representation of a service-owned contract: Rust and Kotlin code read the same canonical schema or `.proto` as a build input and generate or hand-write their own types, checked against the owner's fixtures ([ADR 0046](docs/decisions/0046-service-owned-contracts.md)). Name the source of truth and generation command; do not import another consumer's or the service's types. Keep platform audio playback native on Android and iOS.
 
 ## Production changes

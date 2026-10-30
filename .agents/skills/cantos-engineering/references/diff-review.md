@@ -81,9 +81,13 @@ own new text as compliance.
 
 **B. Compatibility.** Separate breaking a rule from breaking a contract. Follow contracts
 outward: Script IR schema versions, canonical digests and fingerprints, HTTP DTOs and error
-codes, generated clients, migrations and persisted rows, object keys, manifests. An intentional
-break shipped with a version bump, migration and updated consumers is not automatically a defect.
-A round trip through the new code never proves old data still reads.
+codes, generated clients, migrations and persisted rows, object keys, manifests. During
+development an intentional break shipped with every current consumer updated and tested in the
+same delivery is not a defect and needs no version bump, alias or data conversion
+([ADR 0055](../../../../docs/decisions/0055-development-phase-compatibility.md)). Review that no
+current consumer was missed, that old requests and rows fail closed instead of being
+reinterpreted, and that the invariants ADR 0055 keeps still hold. A round trip through the new
+code never proves old data is rejected rather than misread.
 
 **C. Logic, concurrency and data safety.** Invalid state reachable through a constructor, serde
 or rows; side effects before commit; rejected operations that already mutated state; swallowed

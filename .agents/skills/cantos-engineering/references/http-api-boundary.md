@@ -151,11 +151,15 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
   name their source and generation command.
 - Identifiers are opaque stable IDs, never titles or storage paths.
 - Pagination, ordering, server timestamps and revisions are explicit fields.
-- Compatibility: additive changes are safe only when consumers ignore unknown fields
-  deliberately; removing or retyping a field is a version change with a migration window.
-- A contract test asserts the handler's real response against the schema and fixtures, and a
-  client test decodes the same fixtures. A round trip through new code alone proves nothing about
-  old clients.
+- Compatibility: during development a breaking change (removal, retype, rename, closed-enum
+  value) replaces the current shape in the same delivery that updates and tests every current
+  consumer, with no version lane, alias or migration window
+  ([ADR 0055](../../../../docs/decisions/0055-development-phase-compatibility.md)). Strict
+  readers reject what they do not understand; a meaning or unit change makes the old form fail
+  instead of being reinterpreted.
+- A contract test asserts the handler's real response against the schema and fixtures, and each
+  current client's test decodes the same fixtures. A round trip through new code alone proves
+  nothing about a consumer.
 
 ## Evidence
 

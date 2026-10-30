@@ -60,6 +60,7 @@ unreachable or behind existing fail-closed gates in the production-impact sectio
 ## Compatibility and production impact
 
 Describe migrations, Script IR/API compatibility, affected cache entries and audio revisions, provider costs, rights/approval changes, and rollout or recovery steps. Write `N/A` when irrelevant.
+For a breaking wire or data change, name every current client updated and tested in this delivery and how old requests or rows fail closed; no compatibility lane is needed during development ([ADR 0055](../docs/decisions/0055-development-phase-compatibility.md)).
 
 ## Review checklist
 
