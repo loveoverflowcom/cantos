@@ -71,9 +71,10 @@ and screenshots stay in the ignored `artifacts/agent-runs/676/`.
 | Theatre library | PASS: 589 tests with `--features preview` (585 existing plus 4 new) |
 | Shared UI library | PASS: 175 tests in `cantos-ui`, including the new Button case |
 | Python fixture | PASS with host `flock`: 10 of 10 run. Without `flock`: 8 PASS, 2 skipped, 0 FAIL |
+| Full Python suite | FAIL as on base: 1,337 tests, 1 failure, 24 errors, 18 skipped. All 25 (`test_release_native_forward` 9 and `test_release_native_v27_live` 15 data-inventory errors, one `test_localization` no-diff-base failure) reproduce identically on a clean base checkout; none touch this change |
 | Actual browser renderer | PASS for the panic claim: 0 panics in 6 post-fix runs (3 cases × 2) against the real host. Synthetic 60 s mono Ogg/Opus, sha256 `4b919974de2c2a067c5c3acc91ef988e576e6876b4d9e327f0afa8b172c71510`. Local TLS on `https://localhost:654{2,3}` used a self-signed certificate that Chrome was told to ignore |
-| Web gate | `cargo xtask verify web`: see the PR verification section |
-| Handoff preflight | `cargo xtask preflight --changed-only --base origin/develop`: see the PR verification section |
+| Handoff preflight | `cargo xtask preflight --changed-only --base origin/develop`: **FAIL** at repository with 66 UI qualification findings, identical line-for-line to a clean base checkout; later gates NOT_RUN. No assurance obligation derived |
+| Remaining selected gates | Same command with `--skip repository`: PASS rust-format, rust-lint and rust-tests (`cantos-server`, `cantos-studio`, `cantos-theatre`, `cantos-ui`), wav-reference, audio-inspection, web-lint, both web-builds and ui-preview; repository NOT_RUN. An unrelated untracked `services/cantos-server/schema/table-ownership.json`, read by no code, broadened the selection to the Server lanes |
 
 This is real local process/cookie/HTTP/byte and headless-browser evidence. It is not trusted
 HTTPS, deployed, Android/iOS, screen-reader or production evidence.
