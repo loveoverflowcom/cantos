@@ -40,6 +40,9 @@ fn loaded(
     restore: bool,
 ) -> Transition {
     let source = snapshot.source();
+    if restore && matches!(source.track(), super::TrackId::Public(track) if track.is_shared()) {
+        return rejected(state, Rejection::InvalidSource);
+    }
     let position_ms = snapshot.position_ms();
     let interruption = if restore {
         Interruption::None
@@ -153,6 +156,16 @@ fn callback_over_failure(
 #[must_use]
 pub fn reduce(state: PlayerState, event: Event) -> Transition {
     match event {
+        Event::AccessCleared => {
+            let mut next = state;
+            next.session = None;
+            // At MAX no future source may be selected; clearing still removes authority.
+            next.generation = next.generation.saturating_add(1);
+            Transition {
+                state: next,
+                effects: vec![Effect::ReleaseEngine],
+            }
+        }
         Event::SourceSelected {
             source,
             position_ms,

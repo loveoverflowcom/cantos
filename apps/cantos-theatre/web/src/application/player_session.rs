@@ -199,6 +199,10 @@ impl PlayerSession {
             &event,
             Event::SeekRequested { .. } | Event::SkipRequested { .. }
         );
+        if matches!(event, Event::AccessCleared) {
+            self.observation_writer.set(None);
+            self.seek_writer.set(None);
+        }
         let ended =
             matches!(&event, Event::EngineEnded { identity } if before_state.accepts(*identity));
         // Requested position is optimistic reducer state, never an engine acknowledgement.
@@ -351,7 +355,8 @@ impl PlayerSession {
                     resume_offered: None,
                     rejection: Some(*reason),
                 }),
-                Effect::PrepareEngine(_)
+                Effect::ReleaseEngine
+                | Effect::PrepareEngine(_)
                 | Effect::StartEngine(_)
                 | Effect::PauseEngine(_)
                 | Effect::SeekEngine(_)
@@ -373,6 +378,7 @@ impl PlayerSession {
         self.state
             .get_untracked()
             .session()
+            .filter(|session| !matches!(session.source().track(), crate::core::playback::TrackId::Public(track) if track.is_shared()))
             .map(|session| session.validated_snapshot())
     }
     /// Restore always advances generation; Reset never reuses callback identities.

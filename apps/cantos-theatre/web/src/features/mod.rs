@@ -30,3 +30,4 @@ pub(crate) mod error_dialog;
 pub(crate) mod guest_identity;
 
 pub(crate) mod loading;
+pub(crate) mod shared_access;

@@ -3,8 +3,7 @@
 ADR 0054 D05/D08; task #653. This is a separate authenticated Theatre module.
 Public Discovery keeps its current representation. Shared metadata reuses the strict
 `MetadataWorkPage`, `MetadataWorkSummary`, `MetadataUnitPage`, `PublicationManifest` and
-`PlaybackAuthorization` shapes owned by Discovery v1 and its schema/fixtures. No current
-client is silently switched to these routes; Web and CMP adopt them in #654/#655.
+`PlaybackAuthorization` shapes owned by Discovery v1 and its schema/fixtures. Theatre Web (#654) consumes these routes explicitly through its Shared Library and `#shared/{work}` locator; public Discovery remains anonymous. CMP adoption belongs to #655.
 
 ## Routes
 
@@ -68,3 +67,34 @@ in to `ListenerService::with_restricted_serving()` for each process, after polic
 default assembly and every restart remain disabled. No persisted flag automatically re-enables
 a restored database. The explicit API-only restricted router is the composition seam; production
 activation, restore confirmation and browser/device qualification remain separate operations.
+
+## Web consumer boundary (#654)
+
+The Web Library places Shared after Continue and scopes every cursor, response and claim receipt
+in RAM to the current account/session generation. An internal login return contains only a
+canonical Work ID, never a title, cover or token. Each shared request uses the Theatre lease,
+exact session fence and current response check. A changed account/route aborts pending private
+reads and suppresses late successes and failures. A claim retry after an unknown acknowledgement
+reuses the same operation; the receipt is history, so a fresh catalog read is explicit.
+
+Restricted Web listen controls and their imperative selection entrypoint remain unavailable.
+A real local browser campaign found a teardown panic when an active private source lost its
+session; metadata navigation is handled separately, and full cookie/HTTPS/seek and source
+teardown acceptance is still owed in #654/#676. There is no runtime activation override.
+
+The retained player adapter source uses one audio element. Shared manifest and authorization requests
+never fall back to public routes; admitted URLs must use the configured API origin and exact
+shared-media path. The element selects `crossorigin="use-credentials"` before attaching a private
+source. Public sources retain the existing element transport. Private source identity includes its Theatre
+session; losing the account clears the element, timers, requests and display facts. Private
+sources cannot enter the public Library/progress journal or restore path, and those controls
+remain unavailable. A current media/manifest denial also removes private detail facts.
+
+Source and native core/DOM checks do not qualify browser cookie/media transport. The ordinary
+executable still starts with restricted serving disabled. The explicit ignored test fixture in
+`tests/support/web_sharing_fixture.rs` owns only disposable synthetic accounts/content and two
+real native files, a real Identity process and loopback HTTP. Its optional supplied 60-second
+mono Opus bytes are independently inspected by the caller; seeded rights/QC/publication facts
+are synthetic. The HTTP metadata mode deliberately does not replace the HTTPS media-origin
+invariant. Full browser playback/seek requires a separately trusted local HTTPS terminator and
+HTTPS-origin build; no browser certificate validation or production setting is weakened here.

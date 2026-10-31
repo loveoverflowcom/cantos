@@ -22,7 +22,10 @@ impl MediaPort for FakeMedia {
                 identity: command.identity,
                 position_ms: command.position_ms,
             }],
-            Effect::SetSpeed(_) | Effect::OfferResume { .. } | Effect::Rejected(_) => Vec::new(),
+            Effect::ReleaseEngine
+            | Effect::SetSpeed(_)
+            | Effect::OfferResume { .. }
+            | Effect::Rejected(_) => Vec::new(),
         }
     }
 }

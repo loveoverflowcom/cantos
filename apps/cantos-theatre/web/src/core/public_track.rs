@@ -91,11 +91,18 @@ impl fmt::Debug for ManifestDigest {
 }
 
 /// What a listener asked to hear: one unit's exact release inside the Work being browsed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DeliveryScope {
+    Public,
+    Shared(Uuid),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReleaseRequest {
     work: PublicWorkId,
     unit: Uuid,
     publication: Uuid,
+    delivery: DeliveryScope,
 }
 
 impl ReleaseRequest {
@@ -105,7 +112,15 @@ impl ReleaseRequest {
             work,
             unit: canonical_uuid(unit_id)?,
             publication: canonical_uuid(publication_id)?,
+            delivery: DeliveryScope::Public,
         })
+    }
+    pub fn shared(mut self, session: &str) -> Option<Self> {
+        self.delivery = DeliveryScope::Shared(canonical_uuid(session).filter(|id| !id.is_nil())?);
+        Some(self)
+    }
+    pub const fn delivery(self) -> DeliveryScope {
+        self.delivery
     }
     pub const fn work(self) -> PublicWorkId {
         self.work
@@ -128,9 +143,16 @@ pub struct PublicTrack {
     rendition: Uuid,
     manifest_digest: ManifestDigest,
     sha256: Sha256,
+    delivery: DeliveryScope,
 }
 
 impl PublicTrack {
+    pub const fn delivery(&self) -> DeliveryScope {
+        self.delivery
+    }
+    pub const fn is_shared(&self) -> bool {
+        matches!(self.delivery, DeliveryScope::Shared(_))
+    }
     pub const fn work(&self) -> PublicWorkId {
         self.work
     }
@@ -214,6 +236,7 @@ impl PinnedRelease {
                 rendition,
                 manifest_digest,
                 sha256,
+                delivery: requested.delivery,
             },
             duration_ms,
         })
@@ -638,5 +661,70 @@ mod tests {
             AdmittedGrant::admit(&track, &issued, server_now + GRANT_TTL_MS),
             Err(GrantRejection::Protocol)
         );
+    }
+}
+
+#[cfg(test)]
+mod shared_consumer_tests {
+    use super::*;
+    use crate::core::playback::{
+        self, Effect, Event, PlayerState, Rejection, ResumeSnapshot, Source,
+    };
+    #[test]
+    fn shared_source_identity_includes_session_and_cannot_restore_or_enter_public_library() {
+        let manifest: PublicationManifest = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json")).unwrap();
+        let request = ReleaseRequest::parse(
+            PublicWorkId::parse(&manifest.work_id).unwrap(),
+            &manifest.unit_id,
+            &manifest.publication_id,
+        )
+        .unwrap();
+        let a = Uuid::from_u128(1).to_string();
+        let b = Uuid::from_u128(2).to_string();
+        let shared = PinnedRelease::admit(&manifest, request.shared(&a).unwrap()).unwrap();
+        let other = PinnedRelease::admit(&manifest, request.shared(&b).unwrap()).unwrap();
+        assert_ne!(shared.track(), other.track());
+        let source = Source::public(shared.track(), shared.duration_ms()).unwrap();
+        assert!(crate::application::library_sync::audio_identity_from_source(source).is_none());
+        let restored = playback::reduce(
+            PlayerState::default(),
+            Event::RestoreRequested {
+                snapshot: ResumeSnapshot {
+                    source,
+                    position_ms: 0,
+                    speed_permille: 1000,
+                },
+            },
+        );
+        assert_eq!(restored.state, PlayerState::default());
+        assert_eq!(
+            restored.effects,
+            vec![Effect::Rejected(Rejection::InvalidSource)]
+        );
+        let selected = playback::reduce(
+            PlayerState::default(),
+            Event::SourceSelected {
+                source,
+                position_ms: 0,
+            },
+        );
+        let old = selected.state.identity().unwrap();
+        let cleared = playback::reduce(selected.state, Event::AccessCleared);
+        assert!(cleared.state.session().is_none());
+        assert_eq!(cleared.effects, vec![Effect::ReleaseEngine]);
+        let late = playback::reduce(
+            cleared.state.clone(),
+            Event::EngineStarted { identity: old },
+        );
+        assert_eq!(late.state, cleared.state);
+        assert!(late.effects.is_empty());
+        let again = playback::reduce(
+            cleared.state,
+            Event::SourceSelected {
+                source,
+                position_ms: 0,
+            },
+        );
+        assert_ne!(again.state.identity(), Some(old));
     }
 }

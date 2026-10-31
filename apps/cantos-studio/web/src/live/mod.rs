@@ -53,3 +53,7 @@ pub mod preview;
 mod preview_panel;
 
 pub mod ancillary;
+
+pub mod viewer_access;
+#[cfg(any(target_arch = "wasm32", test))]
+mod viewer_panel;

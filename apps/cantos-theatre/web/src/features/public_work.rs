@@ -361,12 +361,13 @@ pub(crate) fn PublicWorkDetail(
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
     #[prop(optional)] sync_controls: Option<WorkSyncControls>,
+    #[prop(optional)] shared: bool,
 ) -> impl IntoView {
     let current = Memo::new(move |_| state.with(shape));
     view! {
         <section class="theatre-public-work-detail" aria-labelledby=HEADING_ID
             aria-busy=move || (current.get() == Shape::Loading).then_some("true")>
-            {move || AccessibleName::new(auth_copy::text(CopyKey::ReturnHome, locale.get())).ok().map(|name| view! {
+            {move || AccessibleName::new(if shared {text(Key::SharedBack,locale.get())} else {auth_copy::text(CopyKey::ReturnHome, locale.get())}).ok().map(|name| view! {
                 <BackButton id="theatre-public-work-back" name on_back=Callback::new(move |_| on_back.run(()))/>
             })}
             {move || match current.get() {
@@ -378,8 +379,8 @@ pub(crate) fn PublicWorkDetail(
                 }.into_any(),
                 Shape::NotFound => view! {
                     <div class="theatre-public-state theatre-panel">
-                        <h1 id=HEADING_ID tabindex="-1">{move || text(Key::PublicWorkNotFound, locale.get())}</h1>
-                        <p>{move || text(Key::PublicWorkNotFoundHelp, locale.get())} </p>
+                        <h1 id=HEADING_ID tabindex="-1">{move || text(if shared {Key::SharedGeneric}else{Key::PublicWorkNotFound}, locale.get())}</h1>
+                        <p>{move || text(if shared {Key::SharedDenied}else{Key::PublicWorkNotFoundHelp}, locale.get())} </p>
                         <a class="theatre-text-link" href="#discover">{move || auth_copy::text(CopyKey::ReturnHome, locale.get())}</a>
                     </div>
                 }.into_any(),
@@ -405,7 +406,7 @@ pub(crate) fn PublicWorkDetail(
                         WorkDetailPhase::Ready { work, .. } => Some((**work).clone()),
                         _ => None,
                     })
-                    .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more sync_controls/> }.into_any())
+                    .map(|work| view! { <ReadyWork state locale listen work on_retry on_load_more sync_controls shared/> }.into_any())
                     .unwrap_or_else(|| ().into_any()),
             }}
         </section>
@@ -531,6 +532,7 @@ fn ReadyWork(
     on_retry: Callback<()>,
     on_load_more: Callback<()>,
     sync_controls: Option<WorkSyncControls>,
+    shared: bool,
 ) -> impl IntoView {
     let kind = work.kind;
     let lang = work.language.clone();
@@ -654,12 +656,14 @@ fn ReadyWork(
                     {move || messages::public_unit_count(kind, locale.get(), unit_count)}
                 </p>
                 <div class="theatre-actions">
+                    <Show when=move ||!shared fallback=move ||view!{<p role="status">{move ||text(Key::SharedPlaybackPending,locale.get())}</p>}>
                     <Button id="theatre-public-work-listen" variant=ButtonVariant::ListenHero icon_signal=listen_icon state=listen_state
                         described_by="theatre-work-listen-feedback"
                         on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press_hero(&row); } })>
                         {move || text(listen_label(), locale.get())}
                         {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                     </Button>
+                    </Show>
                     {sync_controls.map(|controls| view! {
                         <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
                     })}
@@ -674,7 +678,7 @@ fn ReadyWork(
             <h2 id="theatre-public-units-heading" class="theatre-section-heading">{move || text(list_heading, locale.get())}</h2>
             <ol class="theatre-episode-list theatre-public-unit-list">
                 <For each=move || membership.get() key=|id| id.clone()
-                    children=move |unit_id| view! { <UnitRow state=state.read_only() unit_id work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls/> }/>
+                    children=move |unit_id| view! { <UnitRow state=state.read_only() unit_id work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls shared/> }/>
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
@@ -749,12 +753,14 @@ fn UnitRow(
     locale: RwSignal<Locale>,
     listen: ListenControls,
     sync_controls: Option<WorkSyncControls>,
+    shared: bool,
 ) -> impl IntoView {
     let id = StoredValue::new(unit_id.clone());
     let row = Memo::new(move |_| state.with(|s| unit_row_ui(s, &unit_id)));
     let heading = NodeRef::<leptos::html::H3>::new();
     let actions = NodeRef::<leptos::html::Div>::new();
-    let offered = Memo::new(move |_| row.with(|r| r.as_ref().is_some_and(|r| !r.unavailable)));
+    let offered =
+        Memo::new(move |_| !shared && row.with(|r| r.as_ref().is_some_and(|r| !r.unavailable)));
     let row_state = move || {
         row.with(|r| {
             r.as_ref()
@@ -1044,6 +1050,37 @@ mod tests {
             }
             .to_html()
         })
+    }
+    #[test]
+    fn shared_published_units_remain_read_only_until_private_browser_playback_is_qualified() {
+        for locale in Locale::supported() {
+            Owner::new().with(|| {
+                let mut work = fixture_work();
+                work.cover = None;
+                let (mut state, first) = opened(work);
+                state.finish_page(&first, Ok(page(vec![unit(1, "Chương được chia sẻ")], None)));
+                let html = view! {
+                    <PublicWorkDetail state=RwSignal::new(state) locale=RwSignal::new(locale)
+                        listen=controls() shared=true on_back=Callback::new(|_|{})
+                        on_retry=Callback::new(|_|{}) on_load_more=Callback::new(|_|{})/>
+                }
+                .to_html();
+                assert!(html.contains("Chương được chia sẻ"), "{html}");
+                assert!(
+                    html.contains(text(Key::SharedPlaybackPending, locale)),
+                    "{html}"
+                );
+                assert!(
+                    !html.contains("id=\"theatre-public-work-listen\""),
+                    "{html}"
+                );
+                assert!(!html.contains("id=\"theatre-public-unit-listen-"), "{html}");
+                assert!(
+                    !html.contains("<audio") && !html.contains("<video"),
+                    "{html}"
+                );
+            });
+        }
     }
     /// Only the Server-authorized cover may be an image; nothing else is borrowed or invented.
     fn assert_no_fabrication(html: &str) {

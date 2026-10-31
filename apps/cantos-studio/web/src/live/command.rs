@@ -166,6 +166,18 @@ fn cursor_query(cursor: &Option<String>) -> Result<String, ClientError> {
 /// Secrets intentionally have no Debug/Serialize representation at this shell boundary.
 #[derive(Clone)]
 pub enum Command {
+    ViewerState {
+        work: String,
+    },
+    ViewerChange {
+        work: String,
+        request: ViewerAccessRequest,
+    },
+    ViewerGroups,
+    ViewerGroupChange {
+        group: String,
+        request: ViewerGroupRequest,
+    },
     MetadataState {
         work: String,
     },
@@ -345,6 +357,10 @@ pub enum Command {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reply {
+    ViewerState(ViewerAccessState),
+    ViewerReceipt(ViewerAccessReceipt),
+    ViewerGroups(ViewerGroups),
+    ViewerGroupReceipt(ViewerGroupReceipt),
     MetadataState(MetadataPublicationState),
     Works(CatalogPage<CatalogWork>),
     Work(CatalogWork),
@@ -388,6 +404,13 @@ impl Command {
             ))
         };
         Ok(match self {
+            Self::ViewerState { work } | Self::ViewerChange { work, .. } => {
+                format!("{}/works/{}/viewer-access", routes::STUDIO_BASE, id(work)?)
+            }
+            Self::ViewerGroups => format!("{}/viewer-groups", routes::STUDIO_BASE),
+            Self::ViewerGroupChange { group, .. } => {
+                format!("{}/viewer-groups/{}", routes::STUDIO_BASE, id(group)?)
+            }
             Self::MetadataState { work } | Self::MetadataCommand { work, .. } => {
                 format!("{base}/works/{}/metadata-publication", id(work)?)
             }
@@ -573,7 +596,9 @@ impl Command {
             | Self::Revoke { .. }
             | Self::RevokeDelegation { .. } => "DELETE",
             Self::Upload { .. } | Self::UploadImage { .. } => "PUT",
-            Self::MetadataCommand { .. }
+            Self::ViewerChange { .. }
+            | Self::ViewerGroupChange { .. }
+            | Self::MetadataCommand { .. }
             | Self::CreateWork(_)
             | Self::CreateUnit { .. }
             | Self::Reorder { .. }
@@ -621,6 +646,8 @@ impl Command {
                 .map_err(|_| ClientError::InvalidInput)
         }
         match self {
+            Self::ViewerChange { request, .. } => encode(request),
+            Self::ViewerGroupChange { request, .. } => encode(request),
             Self::MetadataCommand { request, .. } => encode(request),
             Self::CreateWork(v) => encode(v),
             Self::PatchWork { request, .. } => encode(request),
@@ -653,7 +680,11 @@ impl Command {
             Self::Readiness { .. } | Self::ActiveRelease { .. } | Self::Withdraw { .. } => {
                 Some(200)
             }
-            Self::MetadataState { .. }
+            Self::ViewerState { .. }
+            | Self::ViewerChange { .. }
+            | Self::ViewerGroups
+            | Self::ViewerGroupChange { .. }
+            | Self::MetadataState { .. }
             | Self::MetadataCommand { .. }
             | Self::Artwork { .. }
             | Self::MetadataArtwork { .. }
@@ -674,12 +705,28 @@ impl Command {
             };
         }
         if !(200..300).contains(&status) {
-            return Err(ClientError::http(status, body));
+            return Err(
+                if matches!(
+                    self,
+                    Self::ViewerState { .. }
+                        | Self::ViewerChange { .. }
+                        | Self::ViewerGroups
+                        | Self::ViewerGroupChange { .. }
+                ) {
+                    super::viewer_access::http_error(status, body)
+                } else {
+                    ClientError::http(status, body)
+                },
+            );
         }
         fn parse<T: DeserializeOwned>(body: &[u8], status: u16) -> Result<T, ClientError> {
             serde_json::from_slice(body).map_err(|_| ClientError::Protocol { status })
         }
         let reply = match self {
+            Self::ViewerState { .. } => Reply::ViewerState(parse(body, status)?),
+            Self::ViewerChange { .. } => Reply::ViewerReceipt(parse(body, status)?),
+            Self::ViewerGroups => Reply::ViewerGroups(parse(body, status)?),
+            Self::ViewerGroupChange { .. } => Reply::ViewerGroupReceipt(parse(body, status)?),
             Self::MetadataState { .. } | Self::MetadataCommand { .. } => {
                 Reply::MetadataState(parse(body, status)?)
             }
@@ -743,6 +790,18 @@ impl Command {
     /// Correlate a raw DTO to the question asked, without deciding access or admission.
     pub fn check_reply(&self, reply: &Reply) -> Result<(), ClientError> {
         let matches = match self {
+            Self::ViewerState { work } => {
+                matches!(reply, Reply::ViewerState(state) if state.work_id == *work && state.grants.len() <= 1000 && state.pending.len() <= 100)
+            }
+            Self::ViewerChange { work, request } => {
+                matches!(reply, Reply::ViewerReceipt(receipt) if receipt.work_id == *work && receipt.operation_id == request.operation_id && request.expected_version.checked_add(1) == Some(receipt.version))
+            }
+            Self::ViewerGroups => {
+                matches!(reply, Reply::ViewerGroups(groups) if groups.items.len() <= 100 && groups.items.iter().all(|g| g.members.len() <= 1000))
+            }
+            Self::ViewerGroupChange { group, request } => {
+                matches!(reply, Reply::ViewerGroupReceipt(receipt) if receipt.group_id == *group && receipt.operation_id == request.operation_id && request.expected_version.checked_add(1) == Some(receipt.version))
+            }
             Self::MetadataState { work } => {
                 matches!(reply, Reply::MetadataState(state) if state.work_id == *work && super::metadata_publication::valid_state(state))
             }

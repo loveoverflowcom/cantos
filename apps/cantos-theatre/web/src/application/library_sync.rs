@@ -48,6 +48,9 @@ pub fn audio_identity_from_source(source: Source) -> Option<AudioIdentity> {
     let TrackId::Public(track) = source.track() else {
         return None;
     };
+    if track.is_shared() {
+        return None;
+    }
     Some(AudioIdentity {
         work_id: track.work().to_string(),
         unit_id: track.unit().to_string(),

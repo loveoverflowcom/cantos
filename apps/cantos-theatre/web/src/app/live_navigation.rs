@@ -333,6 +333,7 @@ impl LiveNavigation {
     }
     pub fn origin(self) -> ReturnDestination {
         match self.route.get_untracked() {
+            Route::SharedWork(id) => ReturnDestination::SharedWork(id),
             Route::Account | Route::Settings => ReturnDestination::Account,
             Route::Library | Route::History => ReturnDestination::Library,
             Route::Membership(crate::application::auth_navigation::MembershipReturn::Account) => {

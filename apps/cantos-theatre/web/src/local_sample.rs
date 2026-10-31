@@ -1008,7 +1008,7 @@ pub fn LocalSampleApp() -> impl IntoView {
                 }
                 _ => None,
             }),
-            Route::NotFound | Route::Work(_) => Some(messages::message(
+            Route::SharedWork(_) | Route::NotFound | Route::Work(_) => Some(messages::message(
                 locale.get(),
                 crate::localization::generated::Message::TheatreShellPageTitle {
                     arg_page: messages::text(Key::LiveNotFound, locale.get()),
@@ -1124,7 +1124,7 @@ pub fn LocalSampleApp() -> impl IntoView {
                                 | Route::Queue => view! {
                                     <LiveRecovery locale heading=Key::LiveRouteUnavailable help=Key::LiveRouteUnavailableHelp/>
                                 }.into_any(),
-                                Route::NotFound | Route::Work(_) => view! {
+                                Route::SharedWork(_) | Route::NotFound | Route::Work(_) => view! {
                                     <LiveRecovery locale heading=Key::LiveNotFound help=Key::LiveNotFoundHelp/>
                                 }.into_any(),
                             }}

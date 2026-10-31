@@ -366,6 +366,15 @@ impl PublicDiscoveryState {
         true
     }
 
+    /// Private cache invalidation purges facts even when no new ticket can be issued.
+    pub fn clear_shared(&mut self) {
+        let generation = self.generation.saturating_add(1);
+        *self = Self {
+            generation,
+            ..Self::default()
+        };
+    }
+
     pub fn finish(
         &mut self,
         ticket: &DiscoveryTicket,

@@ -8,6 +8,7 @@ use crate::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
+    SharedWork(PublicWorkId),
     Discover,
     Explore,
     /// Isolated mock fixture detail; only the `?mode=mock` shell renders it.
@@ -33,6 +34,11 @@ impl Route {
             return Self::Membership(member);
         }
         let value = hash.trim_start_matches('#');
+        if let Some(id) = value.strip_prefix("shared/") {
+            return PublicWorkId::parse(id)
+                .map(Self::SharedWork)
+                .unwrap_or(Self::NotFound);
+        }
         // Only the two discovery screens carry a search in their link.
         if let Some((path, _)) = value.split_once('?') {
             return match path {
@@ -69,12 +75,13 @@ impl Route {
     /// The isolated mock shell has no live catalog: a public ID is an unknown route there.
     pub fn from_mock_hash(hash: &str) -> Self {
         match Self::from_hash(hash) {
-            Self::PublicWork(_) => Self::NotFound,
+            Self::PublicWork(_) | Self::SharedWork(_) => Self::NotFound,
             route => route,
         }
     }
     pub fn hash(self) -> String {
         match self {
+            Self::SharedWork(id) => format!("#shared/{id}"),
             Self::Discover => "#discover".into(),
             Self::Explore => "#explore".into(),
             Self::Work(id) => format!("#work/{}", id.slug()),
@@ -110,6 +117,7 @@ impl Route {
 
     pub fn from_target(target: NavigationTarget) -> Self {
         match target {
+            NavigationTarget::SharedWork(id) => Self::SharedWork(id),
             NavigationTarget::Home => Self::Discover,
             NavigationTarget::Account => Self::Account,
             NavigationTarget::Library => Self::Library,
@@ -124,7 +132,7 @@ impl Route {
             Self::Discover | Self::Explore | Self::Work(_) | Self::PublicWork(_) => {
                 Some(Self::Discover)
             }
-            Self::Library | Self::History => Some(Self::Library),
+            Self::SharedWork(_) | Self::Library | Self::History => Some(Self::Library),
             Self::Settings | Self::Account | Self::Membership(_) => Some(Self::Account),
             Self::Auth(auth) => Self::from_target(auth.origin.target()).primary_navigation(),
             Self::Player | Self::Queue | Self::NotFound => None,
@@ -398,5 +406,35 @@ mod tests {
             let route = Route::from_live_hash(hash);
             assert_eq!(retired_language_rewrite(route, hash), None, "{hash}");
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_routes_tests {
+    use super::*;
+    use crate::application::auth_navigation::ReturnDestination;
+    #[test]
+    fn shared_locator_auth_return_contains_only_canonical_id_and_cannot_redirect_offsite() {
+        let id = PublicWorkId::parse("10000000-0000-4000-8000-000000000001").unwrap();
+        let route = Route::SharedWork(id);
+        assert_eq!(Route::from_live_hash(&route.hash()), route);
+        let login = AuthRoute::login(ReturnDestination::SharedWork(id));
+        assert_eq!(AuthRoute::from_hash(&login.hash()), Some(login));
+        assert_eq!(Route::from_target(login.origin.target()), route);
+        for link in [
+            "#login?from=https://evil.invalid",
+            "#login?from=shared/private-title",
+            "#login?from=shared/10000000-0000-4000-8000-000000000001&title=secret",
+        ] {
+            assert_eq!(
+                AuthRoute::from_hash(link).unwrap().origin,
+                ReturnDestination::Home
+            );
+        }
+        assert_eq!(
+            Route::from_live_hash("#shared/private-title"),
+            Route::NotFound
+        );
+        assert_eq!(Route::from_mock_hash(&route.hash()), Route::NotFound);
     }
 }

@@ -16,6 +16,7 @@ use crate::{
     core::playback::{Effect, Event},
     live::public_media,
 };
+use leptos::prelude::{GetUntracked, WithUntracked};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -83,6 +84,7 @@ struct Resources {
 
 struct Shell {
     session: PlayerSession,
+    account: leptos::prelude::RwSignal<crate::application::account_view::AccountViewState>,
     driver: RefCell<MediaDriver>,
     element: RefCell<Option<HtmlAudioElement>>,
     resources: RefCell<Resources>,
@@ -93,10 +95,14 @@ pub struct BrowserAudio {
 }
 
 impl BrowserAudio {
-    pub fn new(session: PlayerSession) -> Self {
+    pub fn new(
+        session: PlayerSession,
+        account: leptos::prelude::RwSignal<crate::application::account_view::AccountViewState>,
+    ) -> Self {
         Self {
             shell: Rc::new(Shell {
                 session,
+                account,
                 driver: RefCell::new(MediaDriver::new()),
                 element: RefCell::new(None),
                 resources: RefCell::new(Resources::default()),
@@ -259,9 +265,45 @@ impl Shell {
             .borrow_mut()
             .requests
             .push((ticket, controller.clone()));
+        let delivery =
+            self.session
+                .source
+                .get_untracked()
+                .and_then(|source| match source.track() {
+                    crate::core::playback::TrackId::Public(track)
+                        if track.publication() == publication =>
+                    {
+                        Some(track.delivery())
+                    }
+                    _ => None,
+                });
+        let fence = self.account.with_untracked(|a| a.fence());
         let weak = Rc::downgrade(self);
         leptos::task::spawn_local(async move {
-            let result = public_media::authorize(publication, controller).await;
+            let result = match delivery {
+                Some(crate::core::public_track::DeliveryScope::Public) => {
+                    public_media::authorize(publication, controller).await
+                }
+                Some(crate::core::public_track::DeliveryScope::Shared(session)) => {
+                    let Some(shell) = weak.upgrade() else {
+                        return;
+                    };
+                    let Some(fence) = fence.as_ref().filter(|f| {
+                        f.session() == session.to_string()
+                            && shell.account.with_untracked(|a| a.accepts(f))
+                    }) else {
+                        return;
+                    };
+                    let result =
+                        crate::live::shared::browser::authorize(publication, fence, controller)
+                            .await;
+                    if !shell.account.with_untracked(|a| a.accepts(fence)) {
+                        return;
+                    }
+                    result
+                }
+                None => Err(crate::application::media_driver::AuthorizationError::Protocol),
+            };
             let Some(shell) = weak.upgrade() else {
                 return;
             };
@@ -371,6 +413,9 @@ impl Shell {
             return;
         }
         let rate = f64::from(speed_permille) / 1000.0;
+        let shared=self.session.source.get_untracked().is_some_and(|source|matches!(source.track(),crate::core::playback::TrackId::Public(track) if track.is_shared()));
+        element.set_cross_origin(shared.then_some("use-credentials"));
+        let _ = element.set_attribute("referrerpolicy", "no-referrer");
         element.set_src(url);
         element.set_default_playback_rate(rate);
         element.set_playback_rate(rate);

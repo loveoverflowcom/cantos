@@ -85,6 +85,9 @@ pub struct ListenTicket {
 }
 
 impl ListenTicket {
+    pub fn delivery(&self) -> crate::core::public_track::DeliveryScope {
+        self.request.delivery()
+    }
     pub fn publication(&self) -> Uuid {
         self.request.publication()
     }

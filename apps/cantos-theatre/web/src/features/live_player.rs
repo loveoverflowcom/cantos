@@ -110,7 +110,13 @@ impl LivePlayer {
 
     fn work_hash(self) -> String {
         self.facts()
-            .map(|facts| Route::PublicWork(facts.track().work()).hash())
+            .map(|facts| {
+                if facts.track().is_shared() {
+                    Route::SharedWork(facts.track().work()).hash()
+                } else {
+                    Route::PublicWork(facts.track().work()).hash()
+                }
+            })
             .unwrap_or_else(|| Route::Discover.hash())
     }
 }
@@ -252,7 +258,15 @@ fn clock_ms(locale: Locale, ms: u64) -> String {
 
 #[component]
 fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoView {
-    let signed_in = move || controls.account.with(|a| a.phase()) == SessionPhase::SignedIn;
+    let signed_in = move || {
+        controls.account.with(|a| a.phase()) == SessionPhase::SignedIn
+            && live
+                .player
+                .source
+                .get()
+                .and_then(audio_identity_from_source)
+                .is_some()
+    };
     let publication = move || {
         live.player
             .source
