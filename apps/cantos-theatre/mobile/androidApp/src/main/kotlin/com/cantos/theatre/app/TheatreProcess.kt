@@ -83,6 +83,7 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
         access = PlaybackAccessHttp(origin, http) { System.currentTimeMillis() },
         account = account,
         library = library, newUuid = { UUID.randomUUID().toString() }, nowMs = { System.currentTimeMillis() },
+        shared = nativeSharedCatalog(scope, origin, account, authorizedHttp),
         onAccountChanged = { actor ->
             if (actor != accountScope) {
                 accountScope = actor

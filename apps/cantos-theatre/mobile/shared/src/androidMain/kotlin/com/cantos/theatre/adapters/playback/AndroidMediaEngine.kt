@@ -127,6 +127,20 @@ class AndroidMediaEngine(
         positionPending = true
         scheduleSample()
         val epoch = ++loadEpoch
+        if (!location.supportedByUrlOnlyDecoder) {
+            // Refuse before decoder I/O or Now Playing publication, including a transient title.
+            wantsPlay = false
+            releasePlayer()
+            emit(PlaybackEvent.EngineFailed(command.identity, PlaybackFailure.Unavailable))
+            mediaSession.setMetadata(null)
+            mediaSession.setPlaybackState(null)
+            mediaSession.isActive = false
+            foreground?.clear()
+            foreground = null
+            startingService = false
+            current = null
+            return@withContext
+        }
         val native = MediaPlayer()
         player = native
         native.setAudioAttributes(attributes)

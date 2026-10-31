@@ -88,11 +88,13 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     private var bytes = Data()
     private var response: HTTPURLResponse?
     private var protocolFailure = false
+    private var maxBodyBytes = 65536
     private var cancelled = false
     private let lock = NSLock()
     private let completion: (NativeHttpResponse) -> KotlinUnit
     init(request: NativeHttpRequest, apiOrigin: String, completion: @escaping (NativeHttpResponse) -> KotlinUnit) {
         self.completion = completion
+        self.maxBodyBytes = min(max(Int(request.maxBodyBytes), 1), 4 * 1024 * 1024)
         super.init()
         guard let url = URL(string: request.url), let origin = URL(string: apiOrigin),
               url.scheme == "https", url.host == origin.host, url.port == origin.port,
@@ -121,11 +123,11 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         self.response = response as? HTTPURLResponse
-        guard response.expectedContentLength <= 65536 else { protocolFailure = true; completionHandler(.cancel); return }
+        guard response.expectedContentLength <= Int64(maxBodyBytes) else { protocolFailure = true; completionHandler(.cancel); return }
         completionHandler(.allow)
     }
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        if bytes.count + data.count > 65536 { protocolFailure = true; dataTask.cancel(); return }
+        if bytes.count + data.count > maxBodyBytes { protocolFailure = true; dataTask.cancel(); return }
         bytes.append(data)
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {

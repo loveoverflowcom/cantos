@@ -49,6 +49,15 @@ class IosMediaEngine(
 
     override suspend fun load(command: PlaybackEngineCommand, location: PlaybackLocation) = withContext(Dispatchers.Main.immediate) {
         if (closed || (current?.identity?.generation ?: -1) > command.identity.generation) return@withContext
+        if (!location.supportedByUrlOnlyDecoder) {
+            // Clear with the old driver's item token before advancing the callback fence.
+            current?.let { previous -> driver.update(token, previous.copy(clearSession = true), IosMediaOperation.Pause) }
+            current = null
+            check(token < Long.MAX_VALUE) { "Native media item token exhausted" }
+            token += 1
+            observations.trySend(PlaybackEvent.EngineFailed(command.identity, PlaybackFailure.Unavailable))
+            return@withContext
+        }
         current = command
         check(token < Long.MAX_VALUE) { "Native media item token exhausted" }
         token += 1

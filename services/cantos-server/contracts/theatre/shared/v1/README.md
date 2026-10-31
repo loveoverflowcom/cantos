@@ -3,7 +3,7 @@
 ADR 0054 D05/D08; task #653. This is a separate authenticated Theatre module.
 Public Discovery keeps its current representation. Shared metadata reuses the strict
 `MetadataWorkPage`, `MetadataWorkSummary`, `MetadataUnitPage`, `PublicationManifest` and
-`PlaybackAuthorization` shapes owned by Discovery v1 and its schema/fixtures. Theatre Web (#654) consumes these routes explicitly through its Shared Library and `#shared/{work}` locator; public Discovery remains anonymous. CMP adoption belongs to #655.
+`PlaybackAuthorization` shapes owned by Discovery v1 and its schema/fixtures. Theatre Web (#654) consumes these routes explicitly through its Shared Library and `#shared/{work}` locator; public Discovery remains anonymous. CMP (#655) consumes shared Work/Units metadata with its native Bearer/session coordinator and RAM-only route owner; restricted native playback remains unavailable pending safe per-request media transports and Android/iOS qualification.
 
 ## Routes
 

@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "21cd9c88bc12833a82ce2bb46ad75f512e2ee9fa65eb143f22a19a4c92f7623e",
+  "catalogSha256": "0e1992d02799fa95ec496d30f5689799841c4ac5404ac13a3d919eed44256a16",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1813,6 +1813,19 @@
     "theatre.cmp_shell.session_expired_later": {},
     "theatre.cmp_shell.session_expired_title": {},
     "theatre.cmp_shell.settings": {},
+    "theatre.cmp_shell.shared_back": {},
+    "theatre.cmp_shell.shared_badge": {},
+    "theatre.cmp_shell.shared_denied": {},
+    "theatre.cmp_shell.shared_empty": {},
+    "theatre.cmp_shell.shared_generic": {},
+    "theatre.cmp_shell.shared_loading": {},
+    "theatre.cmp_shell.shared_login": {},
+    "theatre.cmp_shell.shared_native_unavailable": {},
+    "theatre.cmp_shell.shared_refresh": {},
+    "theatre.cmp_shell.shared_restart": {},
+    "theatre.cmp_shell.shared_restore_unavailable": {},
+    "theatre.cmp_shell.shared_title": {},
+    "theatre.cmp_shell.shared_unavailable": {},
     "theatre.cmp_shell.sign_in": {},
     "theatre.cmp_shell.speed": {},
     "theatre.cmp_shell.speed_caption": {

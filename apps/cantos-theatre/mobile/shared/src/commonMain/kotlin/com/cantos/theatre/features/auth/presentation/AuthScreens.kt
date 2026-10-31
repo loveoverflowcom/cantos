@@ -116,6 +116,7 @@ fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
     return when (origin) {
         ShellRoute.Account -> AuthReturn.Account
         ShellRoute.MembershipPreview -> AuthReturn.Membership
+        is ShellRoute.SharedWork -> AuthReturn.Previous
         else -> AuthReturn.Home
     }
 }

@@ -98,7 +98,7 @@ class AndroidNativeHttp(private val scope: CoroutineScope, private val origin: A
                             coroutineContext.ensureActive()
                             val count = stream.read(buffer)
                             if (count == -1) break
-                            if (count == 0 || output.size() + count > 65536) throw IOException("Native response limit")
+                            if (count == 0 || output.size() + count > request.maxBodyBytes.coerceIn(1, 4 * 1024 * 1024)) throw IOException("Native response limit")
                             output.write(buffer, 0, count)
                         }
                         output.toByteArray()

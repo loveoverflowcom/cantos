@@ -16,7 +16,10 @@ interface MediaEngine {
 }
 
 /** Ephemeral transport credential, never a checkpoint or a durable identity. */
-class PlaybackLocation(val url: String) {
+class PlaybackLocation(val url: String, val requiresSession: Boolean = false) {
+    /** URL-only platform decoders have no credential/redirect proof for restricted media. */
+    val supportedByUrlOnlyDecoder: Boolean get() = !requiresSession &&
+        !url.substringAfter("://", "").substringAfter('/', "").startsWith("api/v1/theatre/shared/")
     override fun toString(): String = "PlaybackLocation([redacted])"
 }
 

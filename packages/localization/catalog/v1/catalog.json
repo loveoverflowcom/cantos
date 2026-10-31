@@ -27223,6 +27223,162 @@
           "text": "This content cannot be played on Web yet. You can still view its episodes."
         }
       }
+    },
+    "theatre.cmp_shell.shared_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Được chia sẻ với tôi"
+        },
+        "en": {
+          "text": "Shared with me"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có tác phẩm được chia sẻ trong lần đọc này."
+        },
+        "en": {
+          "text": "No shared works were returned in this read."
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang đọc nội dung được chia sẻ…"
+        },
+        "en": {
+          "text": "Loading shared content…"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc được nội dung được chia sẻ."
+        },
+        "en": {
+          "text": "Shared content could not be loaded."
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Được chia sẻ"
+        },
+        "en": {
+          "text": "Shared"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_login": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập để kiểm tra quyền truy cập"
+        },
+        "en": {
+          "text": "Sign in to check access"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_generic": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể mở nội dung"
+        },
+        "en": {
+          "text": "Content unavailable"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_denied": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nội dung không khả dụng hoặc tài khoản này chưa có quyền truy cập."
+        },
+        "en": {
+          "text": "The content is unavailable or this account has no access."
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_restore_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nội dung giới hạn chưa hỗ trợ Lưu, lịch sử, dấu trang hoặc khôi phục phiên."
+        },
+        "en": {
+          "text": "Restricted content does not yet support Saved, history, bookmarks or session restore."
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về thư viện"
+        },
+        "en": {
+          "text": "Return to Library"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_refresh": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc lại nội dung được chia sẻ"
+        },
+        "en": {
+          "text": "Reload shared content"
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_native_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa thể nghe nội dung giới hạn trên thiết bị này. Bạn vẫn có thể xem các tập."
+        },
+        "en": {
+          "text": "Restricted playback is not available on this device yet. You can still view its episodes."
+        }
+      }
+    },
+    "theatre.cmp_shell.shared_restart": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách đã thay đổi. Đọc lại từ đầu để kiểm tra quyền hiện tại."
+        },
+        "en": {
+          "text": "The list has changed. Reload from the beginning to check current access."
+        }
+      }
     }
   }
 }

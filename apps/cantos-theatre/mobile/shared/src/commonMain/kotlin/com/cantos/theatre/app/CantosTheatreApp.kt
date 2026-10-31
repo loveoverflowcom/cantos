@@ -48,6 +48,10 @@ import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.LocalCoverImages
 import com.cantos.theatre.features.shell.presentation.LocalShellCapabilities
+import com.cantos.theatre.features.shared.presentation.SharedCatalogContent
+import com.cantos.theatre.features.shell.presentation.LocalShellSharedLibrary
+import com.cantos.theatre.features.shell.presentation.LocalShellSharedLibraryHasItems
+import com.cantos.theatre.features.shell.presentation.LocalShellSharedDetail
 import com.cantos.theatre.features.shell.presentation.LocalShellLibraryHeader
 import com.cantos.theatre.features.shell.presentation.LocalShellLiveCopy
 import com.cantos.theatre.features.shell.presentation.LocalShellNotice
@@ -88,6 +92,9 @@ fun CantosTheatreApp(
 ) {
     val navigation by shell.navigation.collectAsState()
     val catalog by shell.catalog.state.collectAsState()
+    val sharedState = shell.runtime.shared?.state?.collectAsState()?.value
+    val sharedSession = shell.runtime.account?.verifiedSession?.collectAsState()?.value
+    val shared = remember(sharedState, sharedSession) { shell.runtime.shared?.visibleState() }
     val known by shell.known.collectAsState()
     val playback by shell.runtime.listening.playback.state.collectAsState()
     val selection by shell.runtime.listening.selection.collectAsState()
@@ -160,6 +167,15 @@ fun CantosTheatreApp(
                 onSignIn = { shell.onErrorEvent(ErrorEvent.SessionSignInChosen) },
                 onDismiss = { shell.onErrorEvent(ErrorEvent.SessionBannerDismissed) })
             CatalogNotice(cacheStatus, copy, dispatch)
+        },
+        LocalShellSharedLibraryHasItems provides (shared?.works?.isNotEmpty() == true),
+        LocalShellSharedLibrary provides {
+            if (shared != null) SharedCatalogContent(shared, ShellCopy(locale, live = true), shell::openShared,
+                shell::openLogin, { shell.runtime.shared?.refresh() }, { shell.runtime.shared?.more() })
+        },
+        LocalShellSharedDetail provides {
+            if (shared != null) SharedCatalogContent(shared, ShellCopy(locale, live = true), shell::openShared,
+                shell::openLogin, { shell.runtime.shared?.refresh() }, { shell.runtime.shared?.more() }, detail = true)
         },
         LocalShellLibraryHeader provides {
             LibraryHeader(library, accountView, shell.runtime.library != null, ShellCopy(locale, live = true), shell, dispatch)

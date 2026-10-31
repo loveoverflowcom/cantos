@@ -349,6 +349,10 @@ class TheatreWorkbenchControllerTest {
         assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, oversizedStack)))
         val privateQuery = seed.copy(query = "private arbitrary secret")
         assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, privateQuery)))
+        val sharedRoute = privateQuery.copy(query = "", stack = listOf(ShellRoute.Library,
+            ShellRoute.SharedWork(ShellWorkId("10000000-0000-4000-8000-000000000001"))))
+        assertEquals(TheatreSnapshotExport.UnsupportedState("Private shared routes are never preview snapshots"),
+            encodeTheatreSnapshot(TheatreSnapshot(recipe, sharedRoute)))
         val transient = seed.copy(playbackStatus = com.cantos.theatre.presentation.model.PlaybackUiStatus.Buffering)
         assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, transient)))
     }

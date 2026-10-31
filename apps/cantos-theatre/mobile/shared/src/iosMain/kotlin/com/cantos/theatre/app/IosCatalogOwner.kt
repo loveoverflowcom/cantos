@@ -101,7 +101,8 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
         NativeSessionRuntime(scope, { onControl -> IosMediaEngine(mediaDriver, onControl) },
             PlaybackAccessHttp(origin, identityPlatform) { (NSDate().timeIntervalSince1970 * 1000).toLong() },
             identity.controller, library, { NSUUID().UUIDString.lowercase() },
-            { (NSDate().timeIntervalSince1970 * 1000).toLong() }, onAccountChanged = { actor ->
+            { (NSDate().timeIntervalSince1970 * 1000).toLong() }, shared = nativeSharedCatalog(scope, origin, identity.controller, authorizedHttp),
+            onAccountChanged = { actor ->
                 if (actor != accountScope) {
                     accountScope = actor
                     reloadCatalogForAccount()

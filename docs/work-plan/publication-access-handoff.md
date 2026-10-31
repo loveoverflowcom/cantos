@@ -461,3 +461,27 @@ qualify Bearer on each Android/iOS open/seek/refresh separately and preserve exa
 no public fallback, session purge and the unavailable private restore boundary. S10 still owns
 persisted Unit overrides and S12 owns restore/activation. No shared component API, global Studio
 navigation, migration or production activation is selected by S08.
+
+### S09 CMP consumer boundary (#655)
+
+Android and iOS composition roots supply a separate shared metadata reader through their
+existing native Identity coordinator. Library places its app-owned Shared composition after
+Continue; a neutral typed Work locator retains the optional login return. Authenticated
+20-row pages and Work/Unit detail reuse the providing service's strict generation shape,
+without implementing the public cache port. Private data/cursors stay in the visible route's
+RAM, bounded to 1,000 retained rows. Session incarnation/route/request fences, cancellation and
+a synchronous root admission check discard old account data and late replies. A current denial
+or invalid cursor discards the whole walk; private cover and durable Library/restore stay
+unavailable. No OS share App Link or native pending-share claim is introduced.
+
+The native media transports remain a delivery gap: Android currently hands a URL to
+`MediaPlayer`, and iOS hands a URL to AVPlayer. They do not yet establish Bearer on every
+open/seek/refresh and redirect refusal. Private Play therefore has a visible reason and no
+dispatch path; actual Android/Kotlin iOS/Swift decoder edges also refuse shared-media and
+session-required locations and clear their prior source/display facts. No public fallback,
+bearer-URL substitute, second player or activation override is added. S09 acceptance remains
+incomplete until safe media sources and named Android/iOS/runtime/accessibility evidence exist.
+JVM semantics and APK compilation do not qualify those native behaviors. S10 may consume the
+unchanged service contract and must preserve the private native Play boundary; S12 still owns
+restore/activation. The source-bound [S09 record](../evidence/cmp-shared-catalog-655.md) and single
+review ledger #676 keep those gaps distinct from merged implementation progress.

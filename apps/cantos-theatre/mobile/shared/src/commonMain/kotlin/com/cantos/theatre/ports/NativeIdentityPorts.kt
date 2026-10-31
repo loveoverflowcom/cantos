@@ -34,7 +34,7 @@ object NativeHttpFailure {
 }
 
 /** Platform HTTP boundary. Requests and responses never stringify bearer/body values. */
-class NativeHttpRequest internal constructor(val method: String, val url: String, val body: String?, val bearer: String?, val expectedSession: String? = null) {
+class NativeHttpRequest internal constructor(val method: String, val url: String, val body: String?, val bearer: String?, val expectedSession: String? = null, val maxBodyBytes: Int = 65_536) {
     /** Closed header set: native requests cannot acquire browser credentials or metadata here. */
     val headers: Map<String, String> get() = buildMap {
         put("Accept", "application/json")

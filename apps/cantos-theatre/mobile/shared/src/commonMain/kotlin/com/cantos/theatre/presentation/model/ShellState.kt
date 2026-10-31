@@ -16,6 +16,7 @@ sealed interface ShellRoute {
     data object Queue : ShellRoute
     data object Player : ShellRoute
     data object Unavailable : ShellRoute
+    data class SharedWork(val id: ShellWorkId) : ShellRoute
     data class Work(val id: ShellWorkId) : ShellRoute
 }
 
