@@ -12,6 +12,7 @@ mod state;
 mod studio;
 mod theatre;
 mod theatre_library;
+mod viewer_access;
 mod wire;
 
 #[cfg(test)]

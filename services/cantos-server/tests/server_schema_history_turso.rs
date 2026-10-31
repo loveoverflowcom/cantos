@@ -65,6 +65,17 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         "catalog_metadata_publication_events".into(),
         "catalog_metadata_publication_pointers".into(),
         "catalog_metadata_generation_audio".into(),
+        "catalog_viewer_policies".into(),
+        "catalog_viewer_groups".into(),
+        "catalog_viewer_members".into(),
+        "catalog_viewer_grants".into(),
+        "catalog_viewer_grant_revocations".into(),
+        "catalog_viewer_pending".into(),
+        "catalog_viewer_pending_revocations".into(),
+        "catalog_viewer_claims".into(),
+        "catalog_viewer_events".into(),
+        "catalog_viewer_group_events".into(),
+        "catalog_viewer_operations".into(),
     ]);
     assert_eq!(actual, expected);
     let history=f.rows("SELECT version,name,hex(checksum),applied_at FROM cantos_schema_history ORDER BY version",&[]).await.unwrap().iter().map(|r|(r.try_get::<_,i64>(0).unwrap(),r.try_get::<_,String>(1).unwrap(),r.try_get::<_,String>(2).unwrap(),r.try_get::<_,i64>(3).unwrap())).collect::<Vec<_>>();

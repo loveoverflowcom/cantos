@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ClaimViewerSharesRequest": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      },
+      "required": [
+        "operation_id"
+      ],
+      "additionalProperties": false
+    },
+    "ClaimedViewerShare": {
+      "type": "object",
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "grant_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      },
+      "required": [
+        "work_id",
+        "grant_id"
+      ],
+      "additionalProperties": false
+    },
+    "ClaimViewerSharesReceipt": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "grants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ClaimedViewerShare"
+          },
+          "maxItems": 100
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation_id",
+        "grants",
+        "replayed"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

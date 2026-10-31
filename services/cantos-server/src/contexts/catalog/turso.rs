@@ -14,6 +14,7 @@ pub(super) mod metadata_publication;
 pub(super) mod public_metadata;
 pub(super) mod sample_metadata;
 pub(super) mod sample_seed;
+pub(super) mod viewer_access;
 
 const WORK_COLUMNS: &str =
     "w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest";

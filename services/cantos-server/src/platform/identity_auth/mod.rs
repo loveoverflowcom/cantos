@@ -211,6 +211,35 @@ impl IdentityAuth {
     /// Live session plus a **fresh** Identity read. Any change in subject, account state,
     /// instance epoch or security version revokes the whole family durably; Identity being
     /// unreachable fails closed *without* revoking (an outage is not a security change).
+    pub(crate) async fn canonical_mailbox(
+        &self,
+        operation: [u8; 16],
+        email: &str,
+    ) -> Result<String, AuthFailure> {
+        self.client
+            .canonical_mailbox(operation, email)
+            .await
+            .map_err(rpc)
+    }
+    pub(crate) async fn claim_mailbox(
+        &self,
+        store: &Store,
+        token: &str,
+        channel: Channel,
+        operation: [u8; 16],
+    ) -> Result<(SessionRecord, client::ValidatedMailbox), AuthFailure> {
+        if channel.surface() != Surface::Theatre {
+            return Err(AuthFailure::Unauthenticated);
+        }
+        let record = self.authenticate(store, token, channel).await?;
+        let fact = self
+            .client
+            .verified_mailbox(operation, &record.observed)
+            .await
+            .map_err(rpc)?;
+        Ok((record, fact))
+    }
+
     pub async fn authenticate<S: SessionStore>(
         &self,
         store: &S,

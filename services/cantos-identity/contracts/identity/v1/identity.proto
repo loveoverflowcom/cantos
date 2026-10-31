@@ -22,6 +22,13 @@ service Identity {
 
   // Reads current security state so a Server can check freshness before it issues a session.
   rpc GetSecurityState(GetSecurityStateRequest) returns (GetSecurityStateResponse);
+
+  // Syntax only, with no account lookup or existence result (ADR 0054 D04).
+  rpc CanonicalizeMailbox(CanonicalizeMailboxRequest) returns (CanonicalizeMailboxResponse);
+  // Only the subject of the caller's admitted Theatre session may be supplied. Returns that
+  // subject's current verified mailbox, never a lookup of an owner-entered recipient address.
+  // The Server binds every echoed field and re-admits its session before settling a claim.
+  rpc GetVerifiedMailbox(GetVerifiedMailboxRequest) returns (VerifiedMailboxFact);
 }
 
 enum Purpose {
@@ -129,4 +136,29 @@ message GetSecurityStateResponse {
   AccountState state = 2;
   uint64 security_version = 3;
   bytes instance_epoch = 4;
+}
+
+message CanonicalizeMailboxRequest {
+  bytes operation_id = 1;
+  string email = 2;
+}
+message CanonicalizeMailboxResponse {
+  bytes operation_id = 1;
+  string canonical_email = 2;
+}
+message GetVerifiedMailboxRequest {
+  bytes operation_id = 1;
+  bytes subject_id = 2;
+  uint64 security_version = 3;
+  bytes instance_epoch = 4;
+}
+// Fact only: grants no session, Studio action, group membership or resource access.
+// Unknown, unverified, disabled and mismatched security state all have the same denial.
+message VerifiedMailboxFact {
+  bytes operation_id = 1;
+  bytes subject_id = 2;
+  uint64 security_version = 3;
+  bytes instance_epoch = 4;
+  string canonical_email = 5;
+  int64 observed_at_unix_micros = 6;
 }

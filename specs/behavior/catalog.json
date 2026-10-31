@@ -256,6 +256,12 @@
       "lifecycle": "draft",
       "owner": "services/cantos-server/src/platform/identity_auth/decision.rs",
       "manifestPath": "services/cantos-server/behavior/identity/native_session_admission.manifest.json"
+    },
+    {
+      "id": "cantos.catalog.viewer-access",
+      "owner": "services/cantos-server/src/contexts/catalog/domain/viewer_access.rs",
+      "lifecycle": "draft",
+      "manifestPath": "services/cantos-server/behavior/catalog/viewer_access.manifest.json"
     }
   ]
 }

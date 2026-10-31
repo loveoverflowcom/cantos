@@ -133,7 +133,7 @@ async fn work_pin(
 }
 
 /// Republication of the active Work pin still passes today's archive and rights gates.
-async fn recheck_work_pin(
+pub(super) async fn recheck_work_pin(
     tx: &Tx<'_>,
     owner: &OwnerWork,
     pin: &Pin,

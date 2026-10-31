@@ -25,6 +25,7 @@ pub(crate) use application::production_content::{
 #[cfg(test)]
 pub(crate) use application::sample_metadata_read::{sample_disclosed_work, SampleDisclosedWork};
 pub use application::seed_sample;
+pub use application::viewer_access::ViewerAccessError;
 pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,
@@ -51,3 +52,6 @@ pub(crate) fn decode_unit_snapshot(
 ) -> Result<domain::ContentUnit, crate::platform::store::StoreError> {
     storage::decode_unit(bytes, parent)
 }
+
+#[cfg(test)]
+pub(crate) use turso::viewer_access::claim as claim_viewer_shares_fixture;

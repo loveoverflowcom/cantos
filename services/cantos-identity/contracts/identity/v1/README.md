@@ -157,3 +157,20 @@ cargo run --locked -- --check # fail if any binding differs from a fresh generat
 written from the protobuf encoding specification, not by prost. Identity's
 [`tests/rpc_wire.rs`](../../../tests/rpc_wire.rs) and the Server's client tests both encode and
 decode them with their own bindings.
+
+
+## Verified mailbox facts (S06, ADR 0054 D04)
+
+`CanonicalizeMailbox` validates only syntax and echoes its operation ID with canonical text;
+it performs no account lookup. `GetVerifiedMailbox` accepts the Server session's exact subject,
+instance epoch, security version and nonzero operation ID. One authoritative statement joins
+current ACTIVE security state to the immutable proof-created `identity_emails` row. Unknown,
+unverified, disabled or mismatched state returns the same fixed permission denial. Caller UDS
+peer authentication and existing payload/deadline bounds apply to both methods. Mailbox-bearing
+messages redact Debug; neither response grants a session or any resource/Studio/group action.
+
+No Identity migration is necessary: v3 already stores immutable verified subject/mailbox
+bindings. Server owns pending shares/claim receipts and never opens `identity.db`. The Server
+must check all echoes and freshness, derive subject only from its Theatre session, and re-admit
+that session inside settlement. The cross-file freshness bound is one request, at most 15 s;
+no cross-file atomic transaction or instant disable during an admitted request is claimed.

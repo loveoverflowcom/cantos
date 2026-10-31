@@ -365,3 +365,32 @@ S06 receives unchanged publication command/CAS/receipt semantics and the generic
 composition. It must keep restricted access unavailable until every required route and bytes
 path enforces the new audience rules. No global Studio navigation, shared UI primitive,
 provider, deployment or production migration is introduced by S05.
+
+
+### S06 access control-plane contract (#652)
+
+S06 provides [Studio viewer access v1](../../services/cantos-server/contracts/studio/viewer-access/v1/README.md),
+[Theatre claim v1](../../services/cantos-server/contracts/theatre/viewer-access/v1/README.md),
+private Identity `CanonicalizeMailbox` / `GetVerifiedMailbox`, Server registry v33 and the
+[Work/Unit core](../../services/cantos-server/src/contexts/catalog/domain/viewer_access.rs).
+The existing Identity v3 verified-mailbox rows suffice without a new Identity migration.
+
+A share expires after 14 days and at most 100 live unclaimed rows exist per Work. Claim reads
+only the current session subject, with operation/epoch/version/time binding outside the writer,
+then re-admits the same session and settles actor grants and immutable claim receipts atomically.
+A receipt is historical; replay after revoke or reopen never writes another grant. Reuse of a
+mailbox cannot move an already claimed share. An already-granted actor is deduplicated against
+its existing grant, including that grant's expiry. Group membership and grant expiry use trusted
+microseconds; group membership changes have a separate group version. Policy changes never
+move the metadata generation or editing head; public widening rechecks published-pin rights.
+
+S07 must compose the pure Work AND Unit evaluator with fresh session/security, current owner,
+rights, membership, policy and publication inputs at every metadata and bytes admission. It
+must include policy and group versions in its invalidation/fetch design and preserve the
+post-restore fence. S06 immediately hides restricted Work policies from public readers and
+supplies no restricted serving path. Unit override persistence/activation/UI remain S10; the
+pure core already prevents a child grant from bypassing its Work or publishing an absent Unit.
+The [draft model inventory](../../services/cantos-server/behavior/catalog/viewer_access.md)
+states its finite assumptions and separate native evidence. Browser/native and production
+acceptance, along with the existing formal auth/restore gaps, remain separate obligations.
+Queue: no reorder; S07 still consumes this boundary after it is integrated.

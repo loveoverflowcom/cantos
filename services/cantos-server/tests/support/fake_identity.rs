@@ -83,6 +83,18 @@ fn now_micros() -> i64 {
 
 #[tonic::async_trait]
 impl Identity for Fake {
+    async fn canonicalize_mailbox(
+        &self,
+        _: Request<identity_rpc_peer::CanonicalizeMailboxRequest>,
+    ) -> Result<Response<identity_rpc_peer::CanonicalizeMailboxResponse>, Status> {
+        Err(Status::unimplemented("scripted"))
+    }
+    async fn get_verified_mailbox(
+        &self,
+        _: Request<identity_rpc_peer::GetVerifiedMailboxRequest>,
+    ) -> Result<Response<identity_rpc_peer::VerifiedMailboxFact>, Status> {
+        Err(Status::unimplemented("scripted"))
+    }
     async fn start_theatre_signup(
         &self,
         _: Request<StartTheatreSignupRequest>,

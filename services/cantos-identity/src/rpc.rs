@@ -70,6 +70,8 @@ pub enum Method {
     CompleteTheatreSignup,
     AuthenticatePassword,
     GetSecurityState,
+    CanonicalizeMailbox,
+    GetVerifiedMailbox,
 }
 
 /// Which OS users may call which methods. The only role in this build is the Theatre Server;
@@ -337,5 +339,64 @@ impl Identity for IdentityRpc {
             security_version: state.version.get(),
             instance_epoch: state.epoch.to_bytes().to_vec(),
         }))
+    }
+    async fn canonicalize_mailbox(
+        &self,
+        request: Request<generated::CanonicalizeMailboxRequest>,
+    ) -> Result<Response<generated::CanonicalizeMailboxResponse>, Status> {
+        self.policy
+            .authorize(&request, Method::CanonicalizeMailbox)?;
+        let body = request.into_inner();
+        operation(&body.operation_id)?;
+        let email = crate::domain::email::EmailAddress::parse(&body.email)
+            .map_err(|_| Status::invalid_argument("invalid request"))?;
+        Ok(Response::new(generated::CanonicalizeMailboxResponse {
+            operation_id: body.operation_id,
+            canonical_email: email.as_str().to_owned(),
+        }))
+    }
+    async fn get_verified_mailbox(
+        &self,
+        request: Request<generated::GetVerifiedMailboxRequest>,
+    ) -> Result<Response<generated::VerifiedMailboxFact>, Status> {
+        self.policy
+            .authorize(&request, Method::GetVerifiedMailbox)?;
+        let body = request.into_inner();
+        operation(&body.operation_id)?;
+        let subject = SubjectId::from_bytes(id16(&body.subject_id)?)
+            .map_err(|_| Status::invalid_argument("invalid request"))?;
+        let epoch = crate::domain::ids::InstanceEpoch::from_bytes(id16(&body.instance_epoch)?)
+            .map_err(|_| Status::invalid_argument("invalid request"))?;
+        let version = crate::domain::security_version::SecurityVersion::new(body.security_version)
+            .map_err(|_| Status::invalid_argument("invalid request"))?;
+        let (email, observed_at_unix_micros) = self
+            .service
+            .verified_mailbox(subject, version, epoch)
+            .await
+            .map_err(|error| status(error, Code::PermissionDenied))?;
+        Ok(Response::new(generated::VerifiedMailboxFact {
+            operation_id: body.operation_id,
+            subject_id: body.subject_id,
+            instance_epoch: body.instance_epoch,
+            security_version: body.security_version,
+            canonical_email: email.as_str().to_owned(),
+            observed_at_unix_micros,
+        }))
+    }
+}
+
+impl std::fmt::Debug for generated::CanonicalizeMailboxRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CanonicalizeMailboxRequest([REDACTED])")
+    }
+}
+impl std::fmt::Debug for generated::CanonicalizeMailboxResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CanonicalizeMailboxResponse([REDACTED])")
+    }
+}
+impl std::fmt::Debug for generated::VerifiedMailboxFact {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("VerifiedMailboxFact([REDACTED])")
     }
 }

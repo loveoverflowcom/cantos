@@ -13,6 +13,18 @@
       "message": "AuthenticationFact",
       "value": "subject_id=[2;16], purpose=THEATRE, assurance=PASSWORD, authenticated_at_unix_micros=1700000000123456, security_version=3, instance_epoch=[3;16], operation_id=[4;16]",
       "protobuf_hex": "0a10020202020202020202020202020202021001180120c0c480c1c1c4820328033210030303030303030303030303030303033a1004040404040404040404040404040404"
+    },
+    {
+      "name": "canonicalize_mailbox_request",
+      "message": "CanonicalizeMailboxRequest",
+      "value": "operation_id=[4;16], email=A+tag@EXAMPLE.COM",
+      "protobuf_hex": "0a10040404040404040404040404040404041211412b746167404558414d504c452e434f4d"
+    },
+    {
+      "name": "verified_mailbox_fact",
+      "message": "VerifiedMailboxFact",
+      "value": "operation_id=[4;16], subject_id=[2;16], security_version=3, instance_epoch=[3;16], canonical_email=A+tag@example.com, observed_at_unix_micros=1700000000123456",
+      "protobuf_hex": "0a100404040404040404040404040404040412100202020202020202020202020202020218032210030303030303030303030303030303032a11412b746167406578616d706c652e636f6d30c0c480c1c1c48203"
     }
   ]
 }

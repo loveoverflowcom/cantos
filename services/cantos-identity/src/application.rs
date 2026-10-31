@@ -809,6 +809,22 @@ impl IdentityService {
         }
     }
 
+    /// A fresh read of the proven subject's mailbox. No recipient email is an input.
+    pub async fn verified_mailbox(
+        &self,
+        subject: SubjectId,
+        version: crate::domain::security_version::SecurityVersion,
+        epoch: InstanceEpoch,
+    ) -> Result<(crate::domain::email::EmailAddress, i64), ServiceError> {
+        let email = self
+            .store
+            .verified_mailbox(subject, version, epoch)
+            .await
+            .map_err(|_| ServiceError::Unavailable)?
+            .ok_or(ServiceError::Denied)?;
+        Ok((email, self.now_micros()?))
+    }
+
     // ---- security state --------------------------------------------------------------------
 
     pub async fn security_state(&self, subject: SubjectId) -> Result<SecurityState, ServiceError> {

@@ -93,6 +93,7 @@ pub(super) fn routes_with_artwork(
                 Router::new()
             })
             .merge(catalog::routes())
+            .merge(super::viewer_access::studio_routes())
             // New Catalog/intake routes have no deprecated aliases.
             .merge(audio_intake::routes())
             .merge(audio_reads::routes())

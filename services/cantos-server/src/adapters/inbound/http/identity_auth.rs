@@ -830,7 +830,8 @@ pub(super) async fn bff_identity(
     next: axum::middleware::Next,
 ) -> Response {
     let path = request.uri().path();
-    let account = path == "/account/presentation"
+    let account = path == "/shared/claim"
+        || path == "/account/presentation"
         || path.starts_with("/library/")
         || path.starts_with("/progress/")
         || path.starts_with("/operations/");

@@ -428,7 +428,8 @@ pub(super) fn bearer_mutation(method: &axum::http::Method, path: &str) -> bool {
     if method == axum::http::Method::POST {
         return matches!(
             path,
-            "/api/v1/theatre/library/history/clear"
+            "/api/v1/theatre/shared/claim"
+                | "/api/v1/theatre/library/history/clear"
                 | "/api/v1/theatre/library/history/playback-starts"
         ) || path
             .strip_prefix("/api/v1/theatre/library/bookmarks/")

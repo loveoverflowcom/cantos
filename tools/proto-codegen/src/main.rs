@@ -35,6 +35,9 @@ const IDENTITY_SECRETS: &[&str] = &[
     "cantos.identity.v1.StartTheatreSignupRequest",
     "cantos.identity.v1.CompleteTheatreSignupRequest",
     "cantos.identity.v1.AuthenticatePasswordRequest",
+    "cantos.identity.v1.CanonicalizeMailboxRequest",
+    "cantos.identity.v1.CanonicalizeMailboxResponse",
+    "cantos.identity.v1.VerifiedMailboxFact",
 ];
 
 const JOBS: &[Job] = &[

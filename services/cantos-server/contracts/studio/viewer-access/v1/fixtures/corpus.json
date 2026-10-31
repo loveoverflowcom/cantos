@@ -1,0 +1,151 @@
+[
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "set_audience",
+        "audience": "restricted",
+        "confirm_metadata_rights": false
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "grant_actor",
+        "grant_id": "06520000-0000-4000-8000-000000000002",
+        "actor_id": "reader",
+        "expires_at_us": null
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "grant_group",
+        "grant_id": "06520000-0000-4000-8000-000000000002",
+        "group_id": "06520000-0000-4000-8000-000000000003",
+        "expires_at_us": null
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "revoke_grant",
+        "grant_id": "06520000-0000-4000-8000-000000000002"
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "share_mailbox",
+        "share_id": "06520000-0000-4000-8000-000000000004",
+        "email": "A+tag@EXAMPLE.COM"
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "revoke_share",
+        "share_id": "06520000-0000-4000-8000-000000000004"
+      }
+    }
+  },
+  {
+    "type": "ViewerGroupRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "create",
+        "name": "Readers"
+      }
+    }
+  },
+  {
+    "type": "ViewerGroupRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "add_member",
+        "actor_id": "reader",
+        "expires_at_us": null
+      }
+    }
+  },
+  {
+    "type": "ViewerGroupRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "remove_member",
+        "actor_id": "reader"
+      }
+    }
+  },
+  {
+    "type": "ViewerGroupRequest",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "expected_version": 0,
+      "change": {
+        "action": "revoke"
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessReceipt",
+    "value": {
+      "operation_id": "06520000-0000-4000-8000-000000000001",
+      "work_id": "06520000-0000-4000-8000-000000000002",
+      "version": 1,
+      "replayed": false
+    }
+  },
+  {
+    "type": "ViewerAccessState",
+    "value": {
+      "work_id": "06520000-0000-4000-8000-000000000002",
+      "version": 0,
+      "audience": "public",
+      "grants": [],
+      "pending": []
+    }
+  },
+  {
+    "type": "ViewerGroups",
+    "value": {
+      "items": [
+        {
+          "group_id": "06520000-0000-4000-8000-000000000003",
+          "name": "Readers",
+          "version": 1,
+          "revoked": false,
+          "members": []
+        }
+      ]
+    }
+  }
+]

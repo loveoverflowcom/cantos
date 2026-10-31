@@ -114,6 +114,48 @@ pub struct GetSecurityStateResponse {
     #[prost(bytes = "vec", tag = "4")]
     pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CanonicalizeMailboxRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub email: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CanonicalizeMailboxResponse {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "2")]
+    pub canonical_email: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetVerifiedMailboxRequest {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub subject_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub security_version: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
+}
+/// Fact only: grants no session, Studio action, group membership or resource access.
+/// Unknown, unverified, disabled and mismatched security state all have the same denial.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VerifiedMailboxFact {
+    #[prost(bytes = "vec", tag = "1")]
+    pub operation_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub subject_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag = "3")]
+    pub security_version: u64,
+    #[prost(bytes = "vec", tag = "4")]
+    pub instance_epoch: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag = "5")]
+    pub canonical_email: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub observed_at_unix_micros: i64,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum Purpose {
@@ -278,6 +320,24 @@ pub mod identity_server {
             request: tonic::Request<super::GetSecurityStateRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetSecurityStateResponse>,
+            tonic::Status,
+        >;
+        /// Syntax only, with no account lookup or existence result (ADR 0054 D04).
+        async fn canonicalize_mailbox(
+            &self,
+            request: tonic::Request<super::CanonicalizeMailboxRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CanonicalizeMailboxResponse>,
+            tonic::Status,
+        >;
+        /// Only the subject of the caller's admitted Theatre session may be supplied. Returns that
+        /// subject's current verified mailbox, never a lookup of an owner-entered recipient address.
+        /// The Server binds every echoed field and re-admits its session before settling a claim.
+        async fn get_verified_mailbox(
+            &self,
+            request: tonic::Request<super::GetVerifiedMailboxRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::VerifiedMailboxFact>,
             tonic::Status,
         >;
     }
@@ -524,6 +584,96 @@ pub mod identity_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetSecurityStateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/cantos.identity.v1.Identity/CanonicalizeMailbox" => {
+                    #[allow(non_camel_case_types)]
+                    struct CanonicalizeMailboxSvc<T: Identity>(pub Arc<T>);
+                    impl<
+                        T: Identity,
+                    > tonic::server::UnaryService<super::CanonicalizeMailboxRequest>
+                    for CanonicalizeMailboxSvc<T> {
+                        type Response = super::CanonicalizeMailboxResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CanonicalizeMailboxRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Identity>::canonicalize_mailbox(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CanonicalizeMailboxSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/cantos.identity.v1.Identity/GetVerifiedMailbox" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetVerifiedMailboxSvc<T: Identity>(pub Arc<T>);
+                    impl<
+                        T: Identity,
+                    > tonic::server::UnaryService<super::GetVerifiedMailboxRequest>
+                    for GetVerifiedMailboxSvc<T> {
+                        type Response = super::VerifiedMailboxFact;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetVerifiedMailboxRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Identity>::get_verified_mailbox(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetVerifiedMailboxSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
