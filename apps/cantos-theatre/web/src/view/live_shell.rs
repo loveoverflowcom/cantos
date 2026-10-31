@@ -585,7 +585,18 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     Effect::new(move |_| {
         let media_denied=matches!(player.status.get(),crate::core::playback::Status::Failed(crate::core::playback::Failure::Unavailable|crate::core::playback::Failure::Unauthenticated|crate::core::playback::Failure::Forbidden)) && player.source.get().is_some_and(|source|matches!(source.track(),crate::core::playback::TrackId::Public(track) if track.is_shared()));
         let manifest_denied=listen.with(|s|matches!(s.phase(),crate::application::public_listen::ListenPhase::Failed(request,crate::application::public_listen::ListenFailure::NotFound) if matches!(request.delivery(),crate::core::public_track::DeliveryScope::Shared(_))));
-        if media_denied || manifest_denied {
+        let shared_work = match nav.route.get() {
+            Route::SharedWork(id) => Some(id),
+            _ => None,
+        };
+        let read_refused = work_detail.with(|detail| {
+            crate::application::shared_access::refusal_stops_source(
+                shared_work,
+                detail,
+                player.source.get(),
+            )
+        });
+        if media_denied || manifest_denied || read_refused {
             player.dispatch(PlayerEvent::AccessCleared);
             now_playing.set(None);
             listen.update(ListenState::clear);

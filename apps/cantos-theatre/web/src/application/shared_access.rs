@@ -105,6 +105,25 @@ impl SharedAccess {
     }
 }
 
+/// ADR 0056: a current Shared Work or Unit `NotFound` for the open `shared_work` stops the active
+/// source only when it is a shared-delivery track of that same Work. Public tracks, another
+/// Work's shared track and every other read failure never stop playback.
+pub fn refusal_stops_source(
+    shared_work: Option<crate::core::public_ids::PublicWorkId>,
+    detail: &super::public_work::WorkDetailState,
+    source: Option<crate::core::playback::Source>,
+) -> bool {
+    use crate::core::playback::TrackId;
+    let Some(work) = shared_work else {
+        return false;
+    };
+    detail.work_id() == Some(work)
+        && matches!(detail.phase(), super::public_work::WorkDetailPhase::NotFound)
+        && source.is_some_and(|source| {
+            matches!(source.track(), TrackId::Public(track) if track.is_shared() && track.work() == work)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,5 +225,125 @@ mod projection_tests {
             ),
             crate::application::public_discovery::Step::Ignored
         );
+    }
+}
+
+#[cfg(test)]
+mod refusal_tests {
+    use super::*;
+    use crate::application::public_work::{CatalogReadError, Step, WorkDetailState};
+    use crate::contract::discovery::{MetadataWorkPage, PublicationManifest};
+    use crate::core::{
+        playback::Source,
+        public_ids::PublicWorkId,
+        public_track::{PinnedRelease, ReleaseRequest},
+    };
+    const WORK: &str = "10000000-0000-4000-8000-000000000001";
+    const OTHER: &str = "10000000-0000-4000-8000-000000000002";
+    fn work(id: &str) -> PublicWorkId {
+        PublicWorkId::parse(id).unwrap()
+    }
+    /// The contract fixture release, re-addressed to `work_id`, as a public or shared source.
+    fn source(work_id: &str, shared: bool) -> Option<Source> {
+        let mut manifest: PublicationManifest = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/manifest.json"
+        ))
+        .unwrap();
+        manifest.work_id = work_id.into();
+        let mut request =
+            ReleaseRequest::parse(work(work_id), &manifest.unit_id, &manifest.publication_id)
+                .unwrap();
+        if shared {
+            request = request
+                .shared(&uuid::Uuid::from_u128(7).to_string())
+                .unwrap();
+        }
+        let pinned = PinnedRelease::admit(&manifest, request).unwrap();
+        Source::public(pinned.track(), pinned.duration_ms())
+    }
+    fn summary() -> crate::contract::discovery::MetadataWorkSummary {
+        let page: MetadataWorkPage = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        ))
+        .unwrap();
+        page.items.into_iter().next().unwrap()
+    }
+    /// The Shared Work read settled with `result`; `Ok` uses the fixture summary.
+    fn detail(id: &str, result: Result<(), CatalogReadError>) -> WorkDetailState {
+        let mut state = WorkDetailState::default();
+        let ticket = state.open(work(id)).unwrap();
+        state.finish_work(&ticket, result.map(|()| summary()));
+        state
+    }
+    /// A Unit page refused after the Work summary was admitted.
+    fn page_refused() -> WorkDetailState {
+        let mut state = WorkDetailState::default();
+        let ticket = state.open(work(WORK)).unwrap();
+        let Step::Continue(page) = state.finish_work(&ticket, Ok(summary())) else {
+            panic!("a ready work requests its first page")
+        };
+        state.finish_page(&page, Err(CatalogReadError::NotFound));
+        state
+    }
+
+    #[test]
+    fn a_refused_shared_read_stops_only_the_shared_source_of_that_work() {
+        let refused = detail(WORK, Err(CatalogReadError::NotFound));
+        let shared = source(WORK, true);
+        assert!(refusal_stops_source(Some(work(WORK)), &refused, shared));
+        assert!(refusal_stops_source(
+            Some(work(WORK)),
+            &page_refused(),
+            shared
+        ));
+        // A public track of the same Work, or no source, is never stopped.
+        assert!(!refusal_stops_source(
+            Some(work(WORK)),
+            &refused,
+            source(WORK, false)
+        ));
+        assert!(!refusal_stops_source(Some(work(WORK)), &refused, None));
+        // Another Work's shared track keeps playing when this Work is refused.
+        assert!(!refusal_stops_source(
+            Some(work(WORK)),
+            &refused,
+            source(OTHER, true)
+        ));
+        let other_refused = detail(OTHER, Err(CatalogReadError::NotFound));
+        assert!(!refusal_stops_source(
+            Some(work(OTHER)),
+            &other_refused,
+            shared
+        ));
+    }
+
+    #[test]
+    fn only_a_current_shared_not_found_stops_playback() {
+        let shared = source(WORK, true);
+        // Transient and malformed answers never stop playback.
+        for error in [
+            CatalogReadError::Unavailable,
+            CatalogReadError::Protocol,
+            CatalogReadError::InvalidCursor,
+        ] {
+            assert!(!refusal_stops_source(
+                Some(work(WORK)),
+                &detail(WORK, Err(error)),
+                shared
+            ));
+        }
+        assert!(!refusal_stops_source(
+            Some(work(WORK)),
+            &detail(WORK, Ok(())),
+            shared
+        ));
+        // The anonymous public route's refusal and a left detail are not Shared refusals.
+        let refused = detail(WORK, Err(CatalogReadError::NotFound));
+        assert!(!refusal_stops_source(None, &refused, shared));
+        let mut left = refused.clone();
+        left.leave();
+        assert!(!refusal_stops_source(Some(work(WORK)), &left, shared));
+        // The refusal must be for the Work the route names.
+        assert!(!refusal_stops_source(Some(work(OTHER)), &refused, shared));
     }
 }
