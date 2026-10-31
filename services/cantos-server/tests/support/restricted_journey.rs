@@ -905,6 +905,17 @@ async fn restricted_unpublished_grant_expiry_generation_logout_and_reopen_stay_c
         .await
         .unwrap();
     refused_fetch(&host, &fresh, &a.access).await;
+    let hidden_owner = send(
+        &host.router,
+        "GET",
+        &theatre("/shared/works"),
+        &[bearer(&a.access)],
+        None,
+    )
+    .await;
+    assert_eq!(hidden_owner.status, StatusCode::OK);
+    assert!(hidden_owner.json()["items"].as_array().unwrap().is_empty());
+    assert!(hidden_owner.json()["next_cursor"].is_null());
     fixture
         .exec("UPDATE actors SET active=1 WHERE id='alice'", &[])
         .await
