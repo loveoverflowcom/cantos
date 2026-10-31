@@ -17,6 +17,7 @@ pub(crate) struct SharedWork {
     pub row: PublicWork,
     pub entries: super::super::domain::metadata_publication::Generation,
     pub deadline_us: Option<i64>,
+    hidden: std::collections::BTreeSet<String>,
 }
 
 pub(crate) async fn shared_work(
@@ -62,22 +63,32 @@ pub(crate) async fn shared_work(
     if !can_view_work(facts, viewer, tx.now_micros()) {
         return Ok(None);
     }
-    let archived =
+    let mut hidden =
         public_metadata::archived_units(tx, id.as_str(), published.generation().number()).await?;
-    // Persisted v33 has only INHERIT. All consumers pass the same Work AND Unit kernel;
-    // S10 adds stored overrides at this seam before any override can become reachable.
-    let unit_count = visible_entries(published.generation(), |unit| {
-        !can_view_unit(
+    let rules =
+        super::super::turso::viewer_access::units::rules(tx, id.as_str(), work.owner_id()).await?;
+    for entry in published.generation().entries() {
+        let unit = entry.unit();
+        if !can_view_unit(
             facts,
             true,
-            archived.contains(unit.as_str()),
+            hidden.contains(unit.as_str()),
             true,
-            UnitAudience::Inherit,
+            rules.audience(unit.as_str(), work.owner_id()),
             viewer,
             tx.now_micros(),
-        )
+        ) {
+            hidden.insert(unit.as_str().into());
+        }
+    }
+    let unit_count = visible_entries(published.generation(), |unit| {
+        hidden.contains(unit.as_str())
     })
     .len();
+    let deadline_us = [access.deadline_us, rules.deadline_us]
+        .into_iter()
+        .flatten()
+        .min();
     Ok(Some(SharedWork {
         row: PublicWork {
             work,
@@ -86,7 +97,8 @@ pub(crate) async fn shared_work(
             unit_count: u32::try_from(unit_count).map_err(|_| StoreError::CorruptRevision)?,
         },
         entries: published.generation().clone(),
-        deadline_us: access.deadline_us,
+        deadline_us,
+        hidden,
     }))
 }
 
@@ -97,12 +109,12 @@ pub(crate) async fn shared_units(
     limit: u8,
 ) -> Result<(Vec<PublicUnit>, Option<u32>), StoreError> {
     let id = work.row.work.id().as_str();
-    let archived = public_metadata::archived_units(tx, id, work.row.generation).await?;
-    let mut rows: Vec<_> = visible_entries(&work.entries, |unit| archived.contains(unit.as_str()))
-        .into_iter()
-        .filter(|row| row.position > after)
-        .take(usize::from(limit) + 1)
-        .collect();
+    let mut rows: Vec<_> =
+        visible_entries(&work.entries, |unit| work.hidden.contains(unit.as_str()))
+            .into_iter()
+            .filter(|row| row.position > after)
+            .take(usize::from(limit) + 1)
+            .collect();
     let next = if rows.len() > usize::from(limit) {
         rows.pop();
         rows.last().map(|row| row.position)
@@ -136,8 +148,7 @@ pub(crate) async fn shared_unit(
     unit: &super::super::domain::ContentUnitId,
 ) -> Result<Option<PublicUnit>, StoreError> {
     let id = work.row.work.id().as_str();
-    let archived = public_metadata::archived_units(tx, id, work.row.generation).await?;
-    let Some(row) = visible_entries(&work.entries, |unit| archived.contains(unit.as_str()))
+    let Some(row) = visible_entries(&work.entries, |unit| work.hidden.contains(unit.as_str()))
         .into_iter()
         .find(|row| row.entry.unit() == unit)
     else {

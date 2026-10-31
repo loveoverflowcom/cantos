@@ -64,8 +64,18 @@ impl ListenerService {
         cursor: Option<&str>,
     ) -> Result<dto::MetadataWorkPage, ListenerError> {
         let query = DiscoveryQuery::new(search, kind, language, limit)?;
+        let store = self
+            .metadata_store
+            .as_ref()
+            .ok_or(ListenerError::Unavailable)?;
+        let connection = store.connection().await?;
+        let tx = connection.read().await?;
+        let scope = catalog::shared_scope(&tx).await?;
         let after = cursor
-            .map(|token| self.metadata_cursors.read(token, &query, clock()?))
+            .map(|token| {
+                self.metadata_cursors
+                    .read_scoped(token, &query, &scope, clock()?)
+            })
             .transpose()?;
         let after = match after {
             None => None,
@@ -79,12 +89,6 @@ impl ListenerService {
             .map(WorkKind::parse)
             .transpose()
             .map_err(|_| ListenerError::InvalidRequest)?;
-        let store = self
-            .metadata_store
-            .as_ref()
-            .ok_or(ListenerError::Unavailable)?;
-        let connection = store.connection().await?;
-        let tx = connection.read().await?;
         let rows = catalog::public_works(
             &tx,
             catalog::PublicWorksQuery {
@@ -124,13 +128,15 @@ impl ListenerService {
                 if more.is_empty() {
                     None
                 } else {
-                    Some(self.metadata_cursors.issue(
+                    Some(self.metadata_cursors.issue_scoped(
                         &query,
                         Keyset::Works {
                             time: last.first_visible_at,
                             id: last.work.id().as_str().into(),
                         },
+                        &scope,
                         clock()?,
+                        i64::MAX,
                     )?)
                 }
             } else {
@@ -174,8 +180,18 @@ impl ListenerService {
     ) -> Result<dto::MetadataUnitPage, ListenerError> {
         let work = id(raw)?;
         let query = DiscoveryQuery::new("", None, None, limit)?;
+        let store = self
+            .metadata_store
+            .as_ref()
+            .ok_or(ListenerError::Unavailable)?;
+        let connection = store.connection().await?;
+        let tx = connection.read().await?;
+        let scope = catalog::shared_scope(&tx).await?;
         let after = cursor
-            .map(|token| self.metadata_cursors.read(token, &query, clock()?))
+            .map(|token| {
+                self.metadata_cursors
+                    .read_scoped(token, &query, &scope, clock()?)
+            })
             .transpose()?;
         // This vault belongs solely to generations; `id` is the generation number, never a Unit head.
         let walk = match after {
@@ -192,12 +208,6 @@ impl ListenerService {
             _ => return Err(ListenerError::InvalidCursor),
         };
         let work_id = WorkId::parse(&work).map_err(|_| ListenerError::InvalidRequest)?;
-        let store = self
-            .metadata_store
-            .as_ref()
-            .ok_or(ListenerError::Unavailable)?;
-        let connection = store.connection().await?;
-        let tx = connection.read().await?;
         let page = catalog::public_units(&tx, &work_id, walk, limit as u8)
             .await
             .map_err(|error| match error {
@@ -226,7 +236,7 @@ impl ListenerService {
                 dto::MetadataUnitSummary {
                     unit_id: unit.id().as_str().into(),
                     kind: unit_kind(unit.kind()),
-                    position: row.position,
+                    position: row.ordinal,
                     title: unit.details().title.clone(),
                     description: unit.details().description.clone(),
                     ordinal: u64::from(row.ordinal),
@@ -253,14 +263,16 @@ impl ListenerService {
         let next_cursor = page
             .next_after
             .map(|position| {
-                self.metadata_cursors.issue(
+                self.metadata_cursors.issue_scoped(
                     &query,
                     Keyset::Units {
                         work: work.clone(),
                         position,
                         id: page.generation.get().to_string(),
                     },
+                    &scope,
                     clock()?,
+                    i64::MAX,
                 )
             })
             .transpose()?;

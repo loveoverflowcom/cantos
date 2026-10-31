@@ -18,6 +18,228 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 const CONTROL: &str = "d653d653d653d653d653d653d653d653d653d653d653d653d653d653d653d653";
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn unit_policy_hide_and_every_fetch_never_bypass_parent_or_restore_old_public_access() {
+    use cantos_server::contract::studio::{UnitViewerGrant, UnitViewerPolicy, ViewerPrincipal};
+    let _ = supplied_identity();
+    let run = RunDir::new();
+    let sink = SmtpSink::start().await;
+    let env = IdentityEnv::new(&run, sink.port);
+    env.migrate().await;
+    let _identity = env.serve().await;
+    let fixture = ServerFixture::new().await;
+    let storage =
+        Arc::new(FilesystemPublicationStorage::new(&fixture.dir().join("publication")).unwrap());
+    let work = fixture
+        .seed_published_work(
+            Some(&storage),
+            &WorkSeed::podcast(
+                0x6564,
+                "Public Work",
+                &["One", "HIDDEN_UNIT_SENTINEL", "Three"],
+            ),
+        )
+        .await;
+    fixture.studio_caller("alice", CONTROL).await;
+    let public = compose(&fixture, &env);
+    let a = enroll(&public, &sink, OWNER, 1).await;
+    let b = enroll(&public, &sink, SECOND, 2).await;
+    let hidden = &work.units[1];
+    let release = hidden.chain.release_id.as_ref().unwrap();
+    let old = send(
+        &public.router,
+        "POST",
+        &theatre(&format!("/publications/{release}/playback-authorizations")),
+        &[],
+        Some(b"{}".to_vec()),
+    )
+    .await;
+    assert_eq!(old.status, StatusCode::OK);
+    let old_path = old.json()["url"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("https://api.example")
+        .unwrap()
+        .to_owned();
+    let first = send(
+        &public.router,
+        "GET",
+        &theatre(&format!("/works/{}/units?limit=1", work.work_id)),
+        &[],
+        None,
+    )
+    .await;
+    assert_eq!(first.status, StatusCode::OK);
+    let cursor = first.json()["next_cursor"].as_str().unwrap().to_owned();
+    let replacement = |grants| Change::SetUnitPolicy {
+        unit_id: hidden.unit_id.clone(),
+        policy: UnitViewerPolicy::Restricted { grants },
+        confirm_metadata_rights: false,
+    };
+    change(
+        &fixture,
+        &work.work_id,
+        replacement(vec![UnitViewerGrant {
+            principal: ViewerPrincipal::Actor {
+                actor_id: a.actor.clone(),
+            },
+            expires_at_us: None,
+        }]),
+    )
+    .await;
+    let host = restricted_host(&fixture, &env, storage);
+    for method in ["GET", "HEAD"] {
+        assert_eq!(
+            send(&public.router, method, &old_path, &[], None)
+                .await
+                .status,
+            StatusCode::NOT_FOUND
+        );
+    }
+    let page = send(
+        &public.router,
+        "GET",
+        &theatre(&format!("/works/{}/units?limit=50", work.work_id)),
+        &[],
+        None,
+    )
+    .await;
+    assert_eq!(page.status, StatusCode::OK);
+    let page = page.json();
+    let rows = page["items"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(
+        (rows[0]["ordinal"].clone(), rows[0]["position"].clone()),
+        (json!(1), json!(1))
+    );
+    assert_eq!(
+        (rows[1]["ordinal"].clone(), rows[1]["position"].clone()),
+        (json!(2), json!(2))
+    );
+    assert!(!page.to_string().contains("HIDDEN_UNIT_SENTINEL"));
+    let stale = send(
+        &public.router,
+        "GET",
+        &theatre(&format!(
+            "/works/{}/units?limit=1&cursor={cursor}",
+            work.work_id
+        )),
+        &[],
+        None,
+    )
+    .await;
+    assert_eq!(stale.status, StatusCode::BAD_REQUEST);
+    let shared = send(
+        &host.router,
+        "GET",
+        &theatre("/shared/works"),
+        &[bearer(&a.access)],
+        None,
+    )
+    .await;
+    assert_eq!(shared.status, StatusCode::OK);
+    assert_eq!(shared.json()["items"][0]["work_id"], work.work_id);
+    assert_eq!(shared.json()["items"][0]["unit_count"], 3);
+    for (token, count) in [(&a.access, 3), (&b.access, 2)] {
+        let response = send(
+            &host.router,
+            "GET",
+            &theatre(&format!("/shared/works/{}/units?limit=50", work.work_id)),
+            &[bearer(token)],
+            None,
+        )
+        .await;
+        assert_eq!(response.status, StatusCode::OK);
+        assert_eq!(response.json()["items"].as_array().unwrap().len(), count);
+        if count == 2 {
+            assert!(!response.json().to_string().contains("HIDDEN_UNIT_SENTINEL"));
+        }
+    }
+    let path = private_grant(&host, &a.access, release).await;
+    let seek = send(
+        &host.router,
+        "GET",
+        &path,
+        &[bearer(&a.access), ("range", "bytes=0-9".into())],
+        None,
+    )
+    .await;
+    assert_eq!(seek.status, StatusCode::PARTIAL_CONTENT);
+    assert_eq!(seek.body, hidden.chain.bytes[..10]);
+    refused_fetch(&host, &path, &b.access).await;
+    change(&fixture, &work.work_id, replacement(vec![])).await;
+    refused_fetch(&host, &path, &a.access).await;
+    // A child grant does not broaden a now-restricted Work, even for the same authenticated actor.
+    change(
+        &fixture,
+        &work.work_id,
+        replacement(vec![UnitViewerGrant {
+            principal: ViewerPrincipal::Actor {
+                actor_id: a.actor.clone(),
+            },
+            expires_at_us: None,
+        }]),
+    )
+    .await;
+    change(
+        &fixture,
+        &work.work_id,
+        Change::SetAudience {
+            audience: ViewerAudience::Restricted,
+            confirm_metadata_rights: false,
+        },
+    )
+    .await;
+    let denied = send(
+        &host.router,
+        "GET",
+        &theatre(&format!("/shared/works/{}", work.work_id)),
+        &[bearer(&a.access)],
+        None,
+    )
+    .await;
+    assert_eq!(denied.status, StatusCode::NOT_FOUND);
+    actor_grant(&fixture, &work.work_id, &a.actor).await;
+    let path = private_grant(&host, &a.access, release).await;
+    use cantos_server::{
+        contexts::media::MetadataPublicationService, contract::studio::MetadataPublicationRequest,
+    };
+    MetadataPublicationService::new(fixture.store().clone())
+        .settle(
+            CONTROL,
+            &work.work_id,
+            MetadataPublicationRequest::WithdrawUnit {
+                operation_id: Uuid::new_v4().to_string(),
+                expected_version: 1,
+                unit_id: hidden.unit_id.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    refused_fetch(&host, &path, &a.access).await;
+    change(
+        &fixture,
+        &work.work_id,
+        Change::SetUnitPolicy {
+            unit_id: hidden.unit_id.clone(),
+            policy: UnitViewerPolicy::Inherit,
+            confirm_metadata_rights: true,
+        },
+    )
+    .await;
+    let response = send(
+        &host.router,
+        "GET",
+        &theatre(&format!("/shared/works/{}/units?limit=50", work.work_id)),
+        &[bearer(&a.access)],
+        None,
+    )
+    .await;
+    assert_eq!(response.status, StatusCode::OK);
+    assert_eq!(response.json()["items"].as_array().unwrap().len(), 2);
+    assert!(!response.json().to_string().contains("HIDDEN_UNIT_SENTINEL"));
+}
+
 async fn change(f: &ServerFixture, work: &str, change: Change) {
     let state = f.store().viewer_access_state(CONTROL, work).await.unwrap();
     f.store()

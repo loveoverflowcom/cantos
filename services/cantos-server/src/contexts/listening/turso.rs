@@ -809,25 +809,32 @@ async fn page(
     presentation: bool,
 ) -> Result<PageSnapshot, LibraryError> {
     let (order, history) = account(tx, listener).await?;
-    if anchor
-        .as_ref()
-        .is_some_and(|a| a.history_epoch != history.raw().epoch && kind == PageKind::History)
-    {
+    let visibility_scope = crate::contexts::catalog::shared_scope(tx)
+        .await
+        .map_err(storage)?;
+    if anchor.as_ref().is_some_and(|a| {
+        a.visibility_scope != visibility_scope
+            || (a.history_epoch != history.raw().epoch && kind == PageKind::History)
+    }) {
         return Err(LibraryError::InvalidCursor);
     }
     let upper = anchor.as_ref().map_or(order.value(), |a| a.upper_order);
     let after = anchor.as_ref().map(|a| number(a.after_order)).transpose()?;
     let after_work = anchor.as_ref().map(|a| a.after_work.as_str());
     let count = (limit + 1) as i64;
+    // Continue chooses the latest account record first. HIDE then precedes keyset/LIMIT;
+    // filtering must never fall back to an older chapter of that Work. Private Library
+    // restoration remains unsupported even for a currently authorized shared viewer.
+    let visible = crate::contexts::catalog::library_visibility(kind != PageKind::Saved);
     let query=match kind{
-        PageKind::Continue=>"SELECT * FROM (SELECT *,row_number() OVER (PARTITION BY work_id ORDER BY listener_order DESC,publication_id) AS pick FROM listener_progress WHERE listener_id=?1) latest WHERE pick=1 AND completion='in_progress' AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
-        PageKind::Saved=>"SELECT * FROM listener_saved WHERE listener_id=?1 AND saved=1 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
-        PageKind::Bookmarks=>"SELECT * FROM listener_bookmarks WHERE listener_id=?1 AND deleted=0 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND bookmark_id>?4)) ORDER BY listener_order DESC,bookmark_id LIMIT ?5",
-        PageKind::History=>"SELECT * FROM listener_history WHERE listener_id=?1 AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5",
+        PageKind::Continue=>format!("SELECT * FROM (SELECT *,row_number() OVER (PARTITION BY work_id ORDER BY listener_order DESC,publication_id) AS pick FROM listener_progress WHERE listener_id=?1) x WHERE pick=1 AND completion='in_progress' AND {visible} AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5"),
+        PageKind::Saved=>format!("SELECT * FROM listener_saved x WHERE listener_id=?1 AND saved=1 AND {visible} AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5"),
+        PageKind::Bookmarks=>format!("SELECT * FROM listener_bookmarks x WHERE listener_id=?1 AND deleted=0 AND {visible} AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND bookmark_id>?4)) ORDER BY listener_order DESC,bookmark_id LIMIT ?5"),
+        PageKind::History=>format!("SELECT * FROM listener_history x WHERE listener_id=?1 AND {visible} AND listener_order<=?2 AND (?3 IS NULL OR listener_order<?3 OR (listener_order=?3 AND work_id>?4)) ORDER BY listener_order DESC,work_id LIMIT ?5"),
     };
     let mut rows = tx
         .query(
-            query,
+            &query,
             &[
                 &listener.as_str(),
                 &number(upper)?,
@@ -854,6 +861,7 @@ async fn page(
                 },
             )?,
             history_epoch: history.raw().epoch,
+            visibility_scope,
         })
     } else {
         None

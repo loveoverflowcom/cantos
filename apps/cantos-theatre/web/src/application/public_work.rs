@@ -243,15 +243,6 @@ impl UnitList {
             self.restarted_walk = false;
         }
     }
-
-    fn restart(&mut self) {
-        self.walk_seen.clear();
-        self.walk_started = false;
-        self.cursor = None;
-        self.merge_at = 0;
-        self.notice = Some(ListNotice::Restarted);
-        self.restarted_walk = true;
-    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -403,10 +394,11 @@ impl WorkDetailState {
                 false
             }
             Err(CatalogReadError::InvalidCursor) if ticket.cursor.is_some() => {
-                units.restart();
-                // Without budget, the listener restarts explicitly from page one.
-                units.status = PageStatus::Failed(ReadFailure::Unavailable);
-                true
+                // The access/generation fence changed. Discard the entire projection, including
+                // its old count and labels; Retry must re-admit the Work before reading Units.
+                self.generation = self.generation.saturating_add(1);
+                self.phase = WorkDetailPhase::Failed(ReadFailure::Unavailable);
+                return Step::Settled;
             }
             Err(CatalogReadError::NotFound) => {
                 // The Work is no longer public; keeping its rows would imply otherwise.
@@ -745,142 +737,37 @@ mod tests {
     }
 
     #[test]
-    fn invalid_cursor_restarts_from_page_one_and_deduplicates_by_unit_id() {
+    fn a_rejected_cursor_discards_old_count_and_rows_until_work_readmission() {
         let (mut state, first) = ready();
         state.finish_page(
             &first,
-            Ok(page(vec![unit(1, 0), unit(2, 1)], Some("lc1_p2"))),
+            Ok(page(vec![unit(1, 0), unit(2, 1)], Some("lc1_old"))),
         );
-        let second = state.load_more().unwrap();
-        let Step::Continue(restart) =
-            state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
-        else {
-            panic!("invalid_cursor restarts from page one")
-        };
-        assert_eq!(restart.cursor(), None);
-        assert_eq!(units(&state).notice(), Some(ListNotice::Restarted));
+        let more = state.load_more().unwrap();
         assert_eq!(
-            units(&state).rows().len(),
-            2,
-            "rows stay visible during restart"
-        );
-
-        let mut republished = unit(2, 1);
-        republished.playback.as_mut().unwrap().publication_id =
-            uuid::Uuid::from_u128(99).to_string();
-        let Step::Settled = state.finish_page(
-            &restart,
-            Ok(page(
-                vec![unit(1, 0), republished.clone()],
-                Some("lc1_fresh"),
-            )),
-        ) else {
-            panic!("a full page settles")
-        };
-        assert_eq!(ids(&state), vec![unit(1, 0).unit_id, unit(2, 1).unit_id]);
-        assert_eq!(units(&state).rows()[1].playback, republished.playback);
-        let third = state.load_more().unwrap();
-        assert_eq!(third.cursor(), Some("lc1_fresh"));
-        state.finish_page(&third, Ok(page(vec![unit(3, 2)], None)));
-        assert_eq!(ids(&state).len(), 3);
-        assert!(units(&state).is_complete());
-    }
-
-    #[test]
-    fn restarted_walk_merges_in_server_order_and_marks_unlisted_rows_unavailable() {
-        let (mut state, first) = ready();
-        state.finish_page(
-            &first,
-            Ok(page(vec![unit(1, 0), unit(3, 2)], Some("lc1_p2"))),
-        );
-        let second = state.load_more().unwrap();
-        let Step::Continue(restart) =
-            state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
-        else {
-            panic!("restart")
-        };
-        // Unit 3 is withdrawn; unit 2 is newly visible between 1 and 4.
-        state.finish_page(
-            &restart,
-            Ok(page(vec![unit(1, 0), unit(2, 1), unit(4, 3)], None)),
-        );
-        assert_eq!(
-            ids(&state),
-            vec![
-                unit(1, 0).unit_id,
-                unit(2, 1).unit_id,
-                unit(4, 3).unit_id,
-                unit(3, 2).unit_id
-            ]
-        );
-        let list = units(&state);
-        assert!(list.is_unavailable(&unit(3, 2).unit_id));
-        assert!(!list.is_unavailable(&unit(1, 0).unit_id));
-    }
-
-    #[test]
-    fn a_multi_page_restarted_walk_marks_unlisted_rows_after_load_more_or_retry() {
-        for retry_first_page in [false, true] {
-            let (mut state, first) = ready();
-            state.finish_page(
-                &first,
-                Ok(page(vec![unit(1, 0), unit(2, 1)], Some("lc1_p2"))),
-            );
-            let second = state.load_more().unwrap();
-            let Step::Continue(mut restart) =
-                state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
-            else {
-                panic!("restart")
-            };
-            if retry_first_page {
-                state.finish_page(&restart, Err(CatalogReadError::Unavailable));
-                let Some(Request::Page(again)) = state.retry() else {
-                    panic!("a failed restart page retries")
-                };
-                assert_eq!(again.cursor(), None);
-                restart = again;
-            }
-            // Unit 2 was withdrawn; the restarted walk needs a second listener-requested page.
-            state.finish_page(&restart, Ok(page(vec![unit(1, 0)], Some("lc1_fresh"))));
-            let more = state.load_more().unwrap();
-            assert_eq!(more.cursor(), Some("lc1_fresh"));
-            state.finish_page(&more, Ok(page(vec![unit(3, 2)], None)));
-            let list = units(&state);
-            assert!(list.is_complete(), "retry={retry_first_page}");
-            assert!(
-                list.is_unavailable(&unit(2, 1).unit_id),
-                "retry={retry_first_page}"
-            );
-            assert!(!list.is_unavailable(&unit(1, 0).unit_id));
-            assert!(!list.is_unavailable(&unit(3, 2).unit_id));
-        }
-    }
-
-    #[test]
-    fn republished_fixture_after_restart_replaces_the_version_without_a_second_row() {
-        let (mut state, first) = ready();
-        let original = units_fixture();
-        state.finish_page(&first, Ok(page(original.items.clone(), Some("lc1_p2"))));
-        let second = state.load_more().unwrap();
-        let Step::Continue(restart) =
-            state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
-        else {
-            panic!("restart")
-        };
-        let republished: MetadataUnitPage = fixture(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/units_republished.json"
-        ));
-        assert_eq!(
-            state.finish_page(&restart, Ok(republished.clone())),
+            state.finish_page(&more, Err(CatalogReadError::InvalidCursor)),
             Step::Settled
         );
-        let list = units(&state);
-        assert_eq!(list.rows().len(), 1);
-        assert_eq!(list.rows()[0].unit_id, original.items[0].unit_id);
-        assert_eq!(list.rows()[0].position, original.items[0].position);
-        assert_ne!(list.rows()[0].playback, original.items[0].playback);
-        assert_eq!(list.rows()[0], republished.items[0]);
-        assert!(list.is_complete() && !list.is_unavailable(&original.items[0].unit_id));
+        assert_eq!(
+            state.phase(),
+            &WorkDetailPhase::Failed(ReadFailure::Unavailable)
+        );
+        assert_eq!(
+            state.finish_page(&more, Ok(page(vec![unit(2, 1)], None))),
+            Step::Ignored
+        );
+        let Some(Request::Work(retry)) = state.retry() else {
+            panic!("re-admit Work and count")
+        };
+        let mut work = work_summary();
+        work.unit_count = 1;
+        let Step::Continue(fresh) = state.finish_work(&retry, Ok(work)) else {
+            panic!("fresh first page")
+        };
+        assert!(units(&state).rows().is_empty());
+        state.finish_page(&fresh, Ok(page(vec![unit(1, 0)], None)));
+        assert_eq!(ids(&state), vec![unit(1, 0).unit_id]);
+        assert!(units(&state).is_complete());
     }
 
     #[test]

@@ -39,7 +39,7 @@ class AccountCatalogCacheTest {
             second.close()
         } finally { folder.deleteRecursively() }
     }
-    @Test fun validatedHttpCatalogReadsCacheWithoutNetworkAndExplicitRefreshCanFailHonestly() = runTest {
+    @Test fun validatedHttpCatalogAlwaysReAdmitsAndOfflineNeverRestoresOldAuthority() = runTest {
         val folder = Files.createTempDirectory("cantos-catalog-http").toFile()
         try {
             val store = desktopLibraryStore(folder.resolve("catalog.sqlite").absolutePath)
@@ -55,12 +55,13 @@ class AccountCatalogCacheTest {
             assertIs<PublicCatalogRead.Ready<*>>(api.works(null, PublicCatalogQuery.All))
             assertEquals(1, requests)
             val cached = assertIs<PublicCatalogRead.Ready<com.cantos.theatre.domain.catalog.PublicWorkPage>>(api.works(null, PublicCatalogQuery.All))
-            assertEquals(1, requests)
+            assertEquals(2, requests)
             assertNull(cached.value.next, "expired opaque cursors never persist")
-            assertEquals(CatalogCacheStatus.Cached, cache.status.value)
+            assertEquals(CatalogCacheStatus.Network, cache.status.value)
             cache.invalidate(); fail = true
             assertEquals(PublicCatalogRead.Transport, api.works(null, PublicCatalogQuery.All))
-            assertEquals(2, requests)
+            assertEquals(3, requests)
+            assertTrue(store.transaction("A") { records().none { it.resource == "catalog" } })
             store.close()
         } finally { folder.deleteRecursively() }
     }
@@ -81,9 +82,9 @@ class AccountCatalogCacheTest {
             val page = assertIs<PublicCatalogRead.Ready<com.cantos.theatre.domain.catalog.PublicWorkPage>>(api.works(null, PublicCatalogQuery.All))
             assertEquals(1, requests, "the stale-shaped entry is refused and the network is read")
             assertEquals("Một lời hẹn", page.value.items.single().title)
-            // The replacement was validated before caching; the next read needs no network.
+            // A prior successful read still cannot establish present access.
             api.works(null, PublicCatalogQuery.All)
-            assertEquals(1, requests, "the refreshed metadata entry now serves from cache")
+            assertEquals(2, requests, "every read re-admits through the server")
             store.close()
         } finally { folder.deleteRecursively() }
     }

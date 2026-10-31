@@ -20,6 +20,8 @@ use crate::{
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
+pub(crate) mod units;
+
 fn get<T: FromColumn>(row: &Row, name: &str) -> Result<T> {
     row.try_get(name)
         .map_err(|_| StoreError::CorruptRevision.into())
@@ -71,7 +73,7 @@ async fn record<T: Serialize>(
     tx.execute("INSERT INTO catalog_viewer_operations(actor_id,operation_id,kind,resource_id,fingerprint,response,recorded_at_us) VALUES(?1,?2,?3,?4,?5,?6,?7)",&[&actor,&op,&kind,&resource,&hash,&json(response)?,&tx.now_micros()]).await?;
     Ok(())
 }
-async fn policy(tx: &Tx<'_>, work: &str) -> Result<(u64, ViewerAudience)> {
+pub(crate) async fn policy(tx: &Tx<'_>, work: &str) -> Result<(u64, ViewerAudience)> {
     let Some(row) = tx
         .query_opt(
             "SELECT version,audience FROM catalog_viewer_policies WHERE work_id=?1",
@@ -261,6 +263,17 @@ pub(crate) async fn policy_command(
         return Err(AccessError::Rights.into());
     }
     match &request.change {
+        ViewerAccessChange::SetUnitPolicy {
+            unit_id,
+            policy,
+            confirm_metadata_rights,
+        } => {
+            if matches!(policy, UnitViewerPolicy::Inherit) && (!rights || !confirm_metadata_rights)
+            {
+                return Err(AccessError::Rights.into());
+            }
+            units::replace(tx, owner, unit_id, policy).await?;
+        }
         ViewerAccessChange::SetAudience {
             audience: new,
             confirm_metadata_rights,

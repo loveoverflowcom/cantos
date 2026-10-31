@@ -124,7 +124,9 @@ pub(crate) async fn public_units(
     let stored = metadata_publication::generation(tx, id.as_str(), work.generation)
         .await?
         .ok_or(StoreError::CorruptRevision)?;
-    let archived = store::archived_units(tx, id.as_str(), work.generation).await?;
+    let mut archived = store::archived_units(tx, id.as_str(), work.generation).await?;
+    archived
+        .extend(super::super::turso::viewer_access::units::public_hidden(tx, id.as_str()).await?);
     let after = walk.map_or(0, |(_, after)| after);
     let mut page: Vec<_> = visible_entries(&stored, |unit| archived.contains(unit.as_str()))
         .into_iter()
@@ -171,7 +173,9 @@ pub(crate) async fn public_unit(
     let stored = metadata_publication::generation(tx, id.as_str(), work.generation)
         .await?
         .ok_or(StoreError::CorruptRevision)?;
-    let archived = store::archived_units(tx, id.as_str(), work.generation).await?;
+    let mut archived = store::archived_units(tx, id.as_str(), work.generation).await?;
+    archived
+        .extend(super::super::turso::viewer_access::units::public_hidden(tx, id.as_str()).await?);
     let visible = visible_entries(&stored, |unit| archived.contains(unit.as_str()));
     let Some(entry) = visible.into_iter().find(|entry| entry.entry.unit() == unit) else {
         return Ok(None);

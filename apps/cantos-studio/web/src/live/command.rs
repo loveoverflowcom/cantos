@@ -166,6 +166,10 @@ fn cursor_query(cursor: &Option<String>) -> Result<String, ClientError> {
 /// Secrets intentionally have no Debug/Serialize representation at this shell boundary.
 #[derive(Clone)]
 pub enum Command {
+    ChapterMatrix {
+        work: String,
+        cursor: Option<String>,
+    },
     ViewerState {
         work: String,
     },
@@ -357,6 +361,7 @@ pub enum Command {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reply {
+    ChapterMatrix(ChapterMatrixPage),
     ViewerState(ViewerAccessState),
     ViewerReceipt(ViewerAccessReceipt),
     ViewerGroups(ViewerGroups),
@@ -404,6 +409,11 @@ impl Command {
             ))
         };
         Ok(match self {
+            Self::ChapterMatrix { work, cursor } => format!(
+                "{base}/works/{}/chapter-matrix{}",
+                id(work)?,
+                cursor_query(cursor)?
+            ),
             Self::ViewerState { work } | Self::ViewerChange { work, .. } => {
                 format!("{}/works/{}/viewer-access", routes::STUDIO_BASE, id(work)?)
             }
@@ -680,7 +690,8 @@ impl Command {
             Self::Readiness { .. } | Self::ActiveRelease { .. } | Self::Withdraw { .. } => {
                 Some(200)
             }
-            Self::ViewerState { .. }
+            Self::ChapterMatrix { .. }
+            | Self::ViewerState { .. }
             | Self::ViewerChange { .. }
             | Self::ViewerGroups
             | Self::ViewerGroupChange { .. }
@@ -708,7 +719,8 @@ impl Command {
             return Err(
                 if matches!(
                     self,
-                    Self::ViewerState { .. }
+                    Self::ChapterMatrix { .. }
+                        | Self::ViewerState { .. }
                         | Self::ViewerChange { .. }
                         | Self::ViewerGroups
                         | Self::ViewerGroupChange { .. }
@@ -723,6 +735,7 @@ impl Command {
             serde_json::from_slice(body).map_err(|_| ClientError::Protocol { status })
         }
         let reply = match self {
+            Self::ChapterMatrix { .. } => Reply::ChapterMatrix(parse(body, status)?),
             Self::ViewerState { .. } => Reply::ViewerState(parse(body, status)?),
             Self::ViewerChange { .. } => Reply::ViewerReceipt(parse(body, status)?),
             Self::ViewerGroups => Reply::ViewerGroups(parse(body, status)?),
@@ -790,6 +803,9 @@ impl Command {
     /// Correlate a raw DTO to the question asked, without deciding access or admission.
     pub fn check_reply(&self, reply: &Reply) -> Result<(), ClientError> {
         let matches = match self {
+            Self::ChapterMatrix { work, .. } => {
+                matches!(reply, Reply::ChapterMatrix(page) if super::chapter_matrix::valid_page(work, page))
+            }
             Self::ViewerState { work } => {
                 matches!(reply, Reply::ViewerState(state) if state.work_id == *work && state.grants.len() <= 1000 && state.pending.len() <= 100)
             }

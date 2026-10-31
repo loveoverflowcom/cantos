@@ -66,6 +66,114 @@ fn auth_error(e: crate::platform::identity_auth::AuthFailure) -> ViewerAccessErr
     }
 }
 impl Store {
+    pub async fn chapter_matrix(
+        &self,
+        token: &str,
+        work: &str,
+        limit: u64,
+        cursor: Option<&str>,
+    ) -> Result<ChapterMatrixPage> {
+        use super::super::domain::metadata_publication::{AudioBasis, Live, PublicationState};
+        let work = WorkId::parse(work).map_err(|_| AccessError::Invalid)?;
+        let limit = super::page_limit(limit)?;
+        let cursor = cursor.map(super::CatalogCursor::decode).transpose()?;
+        self.authenticate(token).await?;
+        let conn = self.connection().await?;
+        let tx = conn.read().await?;
+        let owner = owner_work(&tx, token, &work).await?;
+        let (policy_version, work_audience) = db::policy(&tx, work.as_str()).await?;
+        let publication =
+            super::super::turso::metadata_publication::state(&tx, work.as_str()).await?;
+        let epoch = super::super::turso::lock_clock(&tx).await?;
+        let scope = format!(
+            "chapter-matrix:{}:{}:{}:{}",
+            owner.actor.as_str(),
+            work.as_str(),
+            policy_version,
+            publication.version()
+        );
+        let page =
+            super::queries::units_page(&tx, &work, &scope, epoch, limit, false, cursor.as_ref())
+                .await
+                .map_err(|e| match e {
+                    super::CatalogStoreError::InvalidCursor
+                    | super::CatalogStoreError::StaleCursor => AccessError::Stale {
+                        current: policy_version,
+                    }
+                    .into(),
+                    e => ViewerAccessError::from(e),
+                })?;
+        let rules = db::units::rules(&tx, work.as_str(), &owner.actor).await?;
+        let entries = match &publication {
+            PublicationState::Published(p) if p.lifecycle() == Live::Active => Some(p.generation()),
+            _ => None,
+        };
+        let items = page
+            .items
+            .into_iter()
+            .map(|u| {
+                let entry = entries.and_then(|g| g.entry(u.id()));
+                ChapterMatrixRow {
+                    unit_id: u.id().as_str().into(),
+                    title: u.details().title.clone(),
+                    draft_revision: u.revision(),
+                    published_revision: entry.map(|e| e.pin().revision().get()),
+                    published_position: entries
+                        .and_then(|g| g.entries().iter().position(|e| e.unit() == u.id()))
+                        .map(|n| n as u32 + 1),
+                    audio: entry
+                        .and_then(|e| e.audio())
+                        .map(|a| MetadataGenerationAudio {
+                            release_id: a.release().release().into(),
+                            release_digest: a.release().digest().into(),
+                            basis: match a.basis() {
+                                AudioBasis::Exact => MetadataAudioBasis::Exact,
+                                AudioBasis::DisplayOnly => MetadataAudioBasis::DisplayOnly,
+                            },
+                        }),
+                    policy: rules.policy(u.id().as_str()),
+                }
+            })
+            .collect();
+        let result = ChapterMatrixPage {
+            publication_lifecycle: match &publication {
+                PublicationState::NeverPublished => MetadataPublicationLifecycle::NeverPublished,
+                PublicationState::Published(p) => {
+                    if p.lifecycle() == Live::Active {
+                        MetadataPublicationLifecycle::Active
+                    } else {
+                        MetadataPublicationLifecycle::Withdrawn
+                    }
+                }
+            },
+            work_id: work.as_str().into(),
+            work_revision: owner.work.revision(),
+            publication_version: publication.version(),
+            policy_version,
+            work_audience,
+            items,
+            next_cursor: page.next.map(|c| c.encode()).transpose()?,
+        };
+        recheck_owner_work(&tx, token, &owner).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+    pub async fn unit_viewer_access_state(
+        &self,
+        token: &str,
+        work: &str,
+        unit: &str,
+    ) -> Result<UnitViewerAccessState> {
+        let work = WorkId::parse(work).map_err(|_| AccessError::Invalid)?;
+        self.authenticate(token).await?;
+        let conn = self.connection().await?;
+        let tx = conn.read().await?;
+        let owner = owner_work(&tx, token, &work).await?;
+        let state = db::units::state(&tx, work.as_str(), unit).await?;
+        recheck_owner_work(&tx, token, &owner).await?;
+        tx.commit().await?;
+        Ok(state)
+    }
     pub async fn viewer_access_state(&self, token: &str, work: &str) -> Result<ViewerAccessState> {
         let work = WorkId::parse(work).map_err(|_| AccessError::Invalid)?;
         self.authenticate(token).await?;
@@ -103,6 +211,9 @@ impl Store {
             request.change,
             ViewerAccessChange::SetAudience {
                 audience: ViewerAudience::Public,
+                ..
+            } | ViewerAccessChange::SetUnitPolicy {
+                policy: UnitViewerPolicy::Inherit,
                 ..
             }
         ) {

@@ -10,6 +10,7 @@ use super::storage;
 pub(super) use super::storage::{decode_unit, decode_work, digest};
 pub(super) mod content;
 pub(super) mod delegation;
+pub(super) mod library_visibility;
 pub(super) mod metadata_publication;
 pub(super) mod public_metadata;
 pub(super) mod sample_metadata;

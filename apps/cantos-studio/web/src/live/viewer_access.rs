@@ -6,6 +6,7 @@ use crate::contract::{
 
 #[derive(Clone, Default)]
 pub struct ViewerFacts {
+    pub matrix: Option<crate::contract::ChapterMatrixPage>,
     pub current: Option<ViewerAccessState>,
     pub receipt: Option<ViewerAccessReceipt>,
     pub groups: Option<ViewerGroups>,
@@ -143,6 +144,14 @@ mod tests {
                 }
                 "ViewerAccessState" => {
                     serde_json::from_value::<ViewerAccessState>(value).unwrap();
+                }
+                "ChapterMatrixPage" => {
+                    let _: crate::contract::ChapterMatrixPage =
+                        serde_json::from_value(value).unwrap();
+                }
+                "UnitViewerAccessState" => {
+                    let _: crate::contract::UnitViewerAccessState =
+                        serde_json::from_value(value).unwrap();
                 }
                 "ViewerGroups" => {
                     serde_json::from_value::<ViewerGroups>(value).unwrap();

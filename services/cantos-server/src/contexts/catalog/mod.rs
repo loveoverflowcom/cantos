@@ -33,6 +33,7 @@ pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,
 };
+pub(crate) use turso::library_visibility::library_visibility;
 
 pub(crate) use turso::{
     listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_ACTIVE_FILTER,

@@ -239,6 +239,7 @@ impl LibraryRepository for MemoryRepository {
                             after_order: *order,
                             after_work: work.clone(),
                             history_epoch: epoch,
+                            visibility_scope: String::new(),
                         })
                     } else {
                         None

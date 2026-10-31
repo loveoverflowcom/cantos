@@ -80,6 +80,44 @@ class TheatreShellProjectionTest {
     private fun token(): Long = catalog.issued
 
     @Test
+    fun a_rejected_unit_scope_evicts_known_titles_and_next_previous_queue_candidates() {
+        val story=work(1)
+        send(PublicCatalogIntent.Start)
+        send(WorksResolved(token(),PublicCatalogRead.Ready(worksPage(listOf(story)))))
+        send(PublicCatalogIntent.OpenWork(story))
+        send(WorkResolved(token(),PublicCatalogRead.Ready(story)))
+        send(UnitsResolved(token(),PublicCatalogRead.Ready(unitsPage(story,listOf(unit(1),unit(2)),cursor(1)))))
+        val known=KnownCatalog().merge(catalog)
+        assertEquals(2,known.unitsOf(story.id.value).size)
+        send(PublicCatalogIntent.LoadMoreUnits)
+        send(UnitsResolved(token(),PublicCatalogRead.InvalidCursor))
+        val hidden=known.merge(catalog)
+        assertNull(hidden.work(story.id.value))
+        assertNull(hidden.unit(unit(1).id.value))
+        assertTrue(hidden.unitsOf(story.id.value).isEmpty(),"no retained next/previous candidate after the fence changed")
+        send(PublicCatalogIntent.Back)
+        assertTrue(hidden.merge(catalog).unitsOf(story.id.value).isEmpty())
+    }
+
+    @Test
+    fun a_fresh_detail_walk_cannot_merge_old_hidden_chapters_back_into_the_known_queue() {
+        val story = work(1)
+        send(PublicCatalogIntent.OpenWork(story))
+        send(WorkResolved(token(), PublicCatalogRead.Ready(story)))
+        send(UnitsResolved(token(), PublicCatalogRead.Ready(unitsPage(story, listOf(unit(1), unit(2))))))
+        val known = KnownCatalog().merge(catalog)
+        assertEquals(2, known.unitsOf(story.id.value).size)
+        send(PublicCatalogIntent.RefreshWork)
+        val loading = known.merge(catalog)
+        assertTrue(loading.unitsOf(story.id.value).isEmpty())
+        send(WorkResolved(token(), PublicCatalogRead.Ready(story)))
+        send(UnitsResolved(token(), PublicCatalogRead.Ready(unitsPage(story, listOf(unit(2))))))
+        val current = known.merge(catalog)
+        assertEquals(listOf(unit(2).id), current.unitsOf(story.id.value).map { it.id })
+        assertNull(current.unit(unit(1).id.value))
+    }
+
+    @Test
     fun disclosed_unit_without_audio_is_shown_as_unavailable() {
         val story = work(1, kind = PublicWorkKind.Story)
         val template = unit(1)

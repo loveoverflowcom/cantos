@@ -93,6 +93,23 @@ async fn presented_library_hides_titles_after_current_audience_or_submission_rev
             .presented_continue_listening(&alice, 1, None)
             .await
             .unwrap();
+        if !revoke {
+            // ADR 0054 D05 HIDE supersedes retaining a restricted Work as an unavailable tile.
+            assert!(continued.items.is_empty());
+            assert!(service
+                .presented_saved_works(&alice, 1, None)
+                .await
+                .unwrap()
+                .items
+                .is_empty());
+            assert!(service
+                .presented_history(&alice, 1, None)
+                .await
+                .unwrap()
+                .items
+                .is_empty());
+            continue;
+        }
         assert_eq!(continued.items[0].progress.audio, w.audio);
         assert_eq!(
             continued.items[0].resume,

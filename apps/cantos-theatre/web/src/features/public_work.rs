@@ -1106,9 +1106,15 @@ mod tests {
 
     fn replace_walk(state: &mut WorkDetailState, items: Vec<MetadataUnitSummary>) {
         let more = state.load_more().unwrap();
-        let Step::Continue(first) = state.finish_page(&more, Err(CatalogReadError::InvalidCursor))
-        else {
-            panic!("restart")
+        assert_eq!(
+            state.finish_page(&more, Err(CatalogReadError::InvalidCursor)),
+            Step::Settled
+        );
+        let Some(crate::application::public_work::Request::Work(ticket)) = state.retry() else {
+            panic!("readmit Work")
+        };
+        let Step::Continue(first) = state.finish_work(&ticket, Ok(fixture_work())) else {
+            panic!("fresh Units")
         };
         assert_eq!(
             state.finish_page(&first, Ok(page(items, Some("lc1_next")))),
@@ -1315,7 +1321,7 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_unit_keeps_identity_but_retained_action_is_inert() {
+    fn hidden_unit_is_removed_and_its_retained_action_is_inert() {
         use std::sync::{
             atomic::{AtomicUsize, Ordering},
             Arc,
@@ -1337,22 +1343,14 @@ mod tests {
                 .try_update(WorkDetailState::load_more)
                 .unwrap()
                 .unwrap();
-            let Step::Continue(first) = state
-                .try_update(|s| s.finish_page(&more, Err(CatalogReadError::InvalidCursor)))
-                .unwrap()
-            else {
-                panic!("restart")
-            };
-            state.update(|s| {
-                s.finish_page(&first, Ok(page(Vec::new(), None)));
-            });
-            assert_eq!(state.with(unit_membership), vec![original.unit_id.clone()]);
-            assert!(
+            assert_eq!(
                 state
-                    .with(|s| unit_row_ui(s, &original.unit_id))
-                    .unwrap()
-                    .unavailable
+                    .try_update(|s| s.finish_page(&more, Err(CatalogReadError::InvalidCursor)))
+                    .unwrap(),
+                Step::Settled
             );
+            assert!(state.with(unit_membership).is_empty());
+            assert!(state.with(|s| unit_row_ui(s, &original.unit_id)).is_none());
             press_current_unit(state.read_only(), &original.unit_id, listen);
             assert_eq!(calls.load(Ordering::SeqCst), 0);
         });
@@ -1880,30 +1878,29 @@ mod tests {
     }
 
     #[test]
-    fn restart_notice_podcast_episodes_and_unknown_duration_render_honestly() {
+    fn rejected_cursor_scrubs_episode_labels_before_explicit_readmission() {
         let mut podcast = fixture_work();
         podcast.kind = WorkKind::Podcast;
-        let (mut state, first) = opened(podcast);
+        let (mut state, first) = opened(podcast.clone());
         let mut episode = unit(3, "Trò chuyện bên hiên nhà");
         episode.kind = UnitKind::Episode;
         episode.playback = None;
         state.finish_page(&first, Ok(page(vec![episode.clone()], Some("lc1_old"))));
         let second = state.load_more().unwrap();
-        let Step::Continue(restart) =
-            state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
-        else {
-            panic!("restart")
-        };
+        state.finish_page(&second, Err(CatalogReadError::InvalidCursor));
         let html = render(state.clone(), Locale::Vietnamese);
-        assert!(html.contains("Phiên duyệt danh sách đã hết hạn"));
-        assert!(html.contains("Đang tải lại danh sách từ đầu…"));
-        state.finish_page(&restart, Ok(page(vec![episode], Some("lc1_new"))));
-        let html = render(state.clone(), Locale::English);
-        assert!(html.contains("Episodes") && html.contains("Load more episodes"));
-        assert!(html.contains("Episode · Position ") && html.contains(">Podcast<"));
-        assert!(html.contains("Duration not known yet") && !html.contains("0:00"));
+        assert!(!html.contains("Trò chuyện bên hiên nhà"));
+        assert_eq!(html.matches("data-unit-id=").count(), 0);
+        let Some(crate::application::public_work::Request::Work(ticket)) = state.retry() else {
+            panic!("readmit Work")
+        };
+        let Step::Continue(fresh) = state.finish_work(&ticket, Ok(podcast)) else {
+            panic!("fresh Units")
+        };
+        state.finish_page(&fresh, Ok(page(vec![episode], None)));
+        let html = render(state, Locale::English);
+        assert!(html.contains("Episodes") && html.contains("Duration not known yet"));
         assert_eq!(html.matches("data-unit-id=").count(), 1);
-        assert!(!html.contains("Episode 1"));
     }
 
     #[test]

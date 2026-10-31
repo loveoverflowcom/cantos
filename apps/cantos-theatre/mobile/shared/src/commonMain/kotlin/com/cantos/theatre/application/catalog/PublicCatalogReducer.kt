@@ -17,8 +17,8 @@ import com.cantos.theatre.ports.PublicCatalogRead
  * - A cursor is not consumed by a read: a failed page keeps its rows and retries the same cursor.
  * - An empty intermediate page (or one that adds no new id) is not the end; the walk follows
  *   `next_cursor` automatically, at most [MaxAutoFollows] times per user action.
- * - `invalid_cursor` drops the cursor and restarts from page one, merging by id (no duplicate
- *   rows); a repeat within the same action stops with [CatalogFailure.CursorRejected].
+ * - `invalid_cursor` discards the old access scope. A detail retry first re-admits the Work
+ *   and its count; no removed chapter survives as an unavailable tile (ADR 0054 D05).
  * - The same id with changed data (for a unit, a changed `publication_id`: a new release)
  *   replaces its row in place. No total count is ever inferred from a partial walk.
  * - Every request carries a fresh token; a result whose token is not awaited is stale and dropped.
@@ -210,9 +210,11 @@ private fun PublicCatalogState.requestWorks(cursor: CatalogCursor?, replace: Boo
 private fun resolveWorks(state: PublicCatalogState, event: WorksResolved): PublicCatalogTransition {
     if (state.works.awaiting != event.token) return PublicCatalogTransition(state)
     // A refusal ends permission to retain this snapshot, including any cover it disclosed.
-    if (event.outcome is PublicCatalogRead.AccessFailure) {
-        val failure = CatalogFailure.Access(event.outcome.fault)
-        return PublicCatalogTransition(state.copy(works = PageWalk(phase = WalkPhase.Failed(failure)), appliedQuery = null))
+    if (event.outcome is PublicCatalogRead.AccessFailure || event.outcome == PublicCatalogRead.InvalidCursor) {
+        val failure = (event.outcome as? PublicCatalogRead.AccessFailure)?.let { CatalogFailure.Access(it.fault) }
+            ?: if (state.works.requested == null) CatalogFailure.Protocol else CatalogFailure.CursorRejected
+        return PublicCatalogTransition(state.copy(works = PageWalk(phase = WalkPhase.Failed(failure)), appliedQuery = null,
+            detail = state.detail?.copy(summary = null, phase = DetailPhase.Failed(failure), units = null, awaiting = null)))
     }
     val step = state.works.resolve(event.outcome.toWalkOutcome { it.items to it.next }) { it.id }
     val applied = if (event.outcome is PublicCatalogRead.Ready) state.query else state.appliedQuery
@@ -254,8 +256,13 @@ private fun resolveWork(state: PublicCatalogState, event: WorkResolved): PublicC
     }
 }
 
-private fun PublicCatalogState.failDetail(detail: WorkDetailState, failure: CatalogFailure) =
-    PublicCatalogTransition(copy(detail = detail.copy(phase = DetailPhase.Failed(failure), awaiting = null)))
+private fun PublicCatalogState.failDetail(detail: WorkDetailState, failure: CatalogFailure): PublicCatalogTransition {
+    val denied = failure is CatalogFailure.Access || failure == CatalogFailure.NotFound || failure == CatalogFailure.CursorRejected
+    return PublicCatalogTransition(copy(
+        works = if (denied) works.copy(items = works.items.filterNot { it.id == detail.id }) else works,
+        detail = detail.copy(summary = if (denied) null else detail.summary, phase = DetailPhase.Failed(failure), units = null, awaiting = null),
+    ))
+}
 
 private fun PublicCatalogState.withUnits(decide: (PageWalk<PublicUnit>) -> Follow): PublicCatalogTransition {
     val detail = detail ?: return PublicCatalogTransition(this)
@@ -283,6 +290,12 @@ private fun resolveUnits(state: PublicCatalogState, event: UnitsResolved): Publi
         if (read is PublicCatalogRead.Ready && read.value.work != work.id) {
             PublicCatalogRead.Protocol(CatalogProtocolFault.Invalid)
         } else read
+    }
+    when (outcome) {
+        PublicCatalogRead.InvalidCursor -> return state.failDetail(detail, if (units.requested == null) CatalogFailure.Protocol else CatalogFailure.CursorRejected)
+        PublicCatalogRead.NotFound -> return state.failDetail(detail, CatalogFailure.NotFound)
+        is PublicCatalogRead.AccessFailure -> return state.failDetail(detail, CatalogFailure.Access(outcome.fault))
+        else -> Unit
     }
     val step = units.resolve(outcome.toWalkOutcome { it.items to it.next }) { it.id }
     return when (val follow = step.follow) {
@@ -350,18 +363,10 @@ private fun <T, K> PageWalk<T>.resolve(outcome: WalkOutcome<T>, key: (T) -> K): 
             else -> WalkStep(accepted.copy(phase = WalkPhase.More, autoFollows = 0), Follow.None)
         }
     }
-    WalkOutcome.InvalidCursor -> when {
-        // No cursor was sent, so the server cannot have rejected one.
-        requested == null -> WalkStep(copy(phase = WalkPhase.Failed(CatalogFailure.Protocol), awaiting = null), Follow.None)
-        restarts < MaxCursorRestarts -> WalkStep(
-            copy(next = null, awaiting = null, restarts = restarts + 1, autoFollows = 0),
-            Follow.Request(null, replace = false),
-        )
-        else -> WalkStep(
-            copy(phase = WalkPhase.Failed(CatalogFailure.CursorRejected), next = null, requested = null, awaiting = null),
-            Follow.None,
-        )
-    }
+    WalkOutcome.InvalidCursor -> WalkStep(
+        copy(items = emptyList(), received = false, phase = WalkPhase.Failed(if (requested == null) CatalogFailure.Protocol else CatalogFailure.CursorRejected), next = null, requested = null, awaiting = null),
+        Follow.None,
+    )
     is WalkOutcome.Failure -> WalkStep(copy(phase = WalkPhase.Failed(outcome.failure), awaiting = null), Follow.None)
 }
 

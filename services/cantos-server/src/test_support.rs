@@ -276,4 +276,6 @@ mod sample_metadata_application_tests;
 mod sample_seed_operator_tests;
 
 #[cfg(test)]
+mod unit_viewer_access_tests;
+#[cfg(test)]
 mod viewer_access_tests;
