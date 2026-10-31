@@ -289,3 +289,12 @@ closed across restart/restore. No production activation is performed by that con
 Library's public projections now require the current generation association, closing its old
 release-only fallback. Restricted covers and old Library restore stay unavailable; Web/CMP
 adoption, browser/device qualification and the restore/rollout campaign remain separate.
+
+S10 (#656) adds normalized Unit restrictions in appended `server.db` v35. They share the Work
+policy CAS/event/receipt and the existing Work-generation publisher. The owner-only
+[chapter matrix and Unit policy contract](contracts/studio/viewer-access/v1/README.md) supplies
+bounded saved/published pins. Public/shared metadata and every-fetch admission apply Work AND
+Unit before count/order/page hydration; public-only Library omits denied rows before paging.
+The synchronous actor/archive clock invalidates old cursors/permits. Ordinary restricted serving
+remains closed. Query costs and separate model/browser/native acceptance are documented in the
+[S10 evidence](../../docs/evidence/unit-policy-hide-656.md); output bounds are not performance results.

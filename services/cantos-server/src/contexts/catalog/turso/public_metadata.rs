@@ -68,7 +68,8 @@ pub(crate) struct PublicWorkRow {
 /// `metadata_publication::work_visible`; visible Units mirror `visible_entries`.
 const PUBLIC_WORKS: &str = "SELECT p.work_id,p.generation,p.first_visible_at_ms,g.work_revision,g.work_digest,r.snapshot,r.snapshot_digest,\
  (SELECT count(*) FROM catalog_metadata_generation_entries e JOIN catalog_units u ON u.id=e.unit_id AND u.work_id=e.work_id \
-  WHERE e.work_id=p.work_id AND e.generation=p.generation AND u.lifecycle<>'archived') AS unit_count \
+  WHERE e.work_id=p.work_id AND e.generation=p.generation AND u.lifecycle<>'archived' \
+  AND NOT EXISTS(SELECT 1 FROM catalog_unit_viewer_policies uv WHERE uv.unit_id=e.unit_id AND uv.mode<>'inherit')) AS unit_count \
  FROM catalog_metadata_publication_pointers p \
  JOIN catalog_works w ON w.id=p.work_id \
  JOIN catalog_metadata_generations g ON g.work_id=p.work_id AND g.generation=p.generation \

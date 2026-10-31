@@ -10,6 +10,7 @@ pub(super) struct PageAnchor {
     pub after_order: u64,
     pub after_work: String,
     pub history_epoch: u64,
+    pub visibility_scope: String,
 }
 struct Entry {
     listener: ListenerId,
@@ -92,6 +93,7 @@ mod tests {
             after_order: 9,
             after_work: "00000000-0000-4000-8000-000000000001".into(),
             history_epoch: 0,
+            visibility_scope: String::new(),
         };
         let key = vault
             .issue(a.listener(), PageKind::History, 20, anchor.clone(), 1000)

@@ -36,6 +36,8 @@ fn viewer_access_fixtures_are_closed_and_round_trip() {
             "ViewerAccessReceipt" => round::<ViewerAccessReceipt>(v),
             "ViewerAccessState" => round::<ViewerAccessState>(v),
             "ViewerGroups" => round::<ViewerGroups>(v),
+            "ChapterMatrixPage" => round::<ChapterMatrixPage>(v),
+            "UnitViewerAccessState" => round::<UnitViewerAccessState>(v),
             _ => panic!("unknown fixture"),
         }
     }

@@ -654,9 +654,14 @@ pub fn ContentWorkspace(
                     Err(_) => {
                         if matches!(
                             command,
-                            Command::ViewerState { .. } | Command::ViewerChange { .. }
+                            Command::ChapterMatrix { .. }
+                                | Command::ViewerState { .. }
+                                | Command::ViewerChange { .. }
                         ) {
-                            let _ = facts.try_update(|f| f.viewer.current = None);
+                            let _ = facts.try_update(|f| {
+                                f.viewer.current = None;
+                                f.viewer.matrix = None;
+                            });
                         }
                         if matches!(
                             command,

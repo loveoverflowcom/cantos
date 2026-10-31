@@ -312,11 +312,8 @@ class PublicCatalogHttpAdapter(
         serializer: KSerializer<W>,
         map: (W) -> T?,
     ): PublicCatalogRead<T> {
-        val cacheOwner = cache?.account()
-        if (!sentCursor) cache?.read(url, cacheOwner)?.let { raw ->
-            val cached = classifyCatalogResponse(CatalogHttpResponse(200, "application/json", raw.encodeToByteArray()), false, serializer, map)
-            if (cached is PublicCatalogRead.Ready) return cached
-        }
+        // Metadata that was public can now be HIDE. A persisted response cannot establish
+        // the current Work/Unit policy; every projection goes through the Server again.
         cache?.network()
         val response = try {
             transport.get(CatalogHttpRequest(url, CatalogBodyLimitBytes))
@@ -330,13 +327,6 @@ class PublicCatalogHttpAdapter(
             return PublicCatalogRead.Transport
         }
         val classified = classifyCatalogResponse(response, sentCursor, serializer, map)
-        if (!sentCursor && classified is PublicCatalogRead.Ready) {
-            // A nonterminal first page needs a live cursor. Persisting a truncated page would
-            // falsely present it as the complete collection after restart, so cache only terminal
-            // pages and individual Work detail. Grants and cursor references never enter SQLite.
-            val parsed = catalogJson.parseToJsonElement(response.body.decodeToString()) as JsonObject
-            if (parsed["next_cursor"] == null || parsed["next_cursor"] == JsonNull) cache?.put(url, parsed.toString(), cacheOwner)
-        }
         return classified
     }
 }

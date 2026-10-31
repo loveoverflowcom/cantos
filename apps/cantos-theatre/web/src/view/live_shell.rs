@@ -468,10 +468,13 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     if preview {
         seed_preview(state, discovery);
     }
-    // The discovery link owns the search: the walk follows it, and a state that already answers
-    // this search (back from a Work) is kept with its rows and cursor.
+    // The discovery link owns the search. Leaving it purges the displayed access snapshot;
+    // returning from Work detail rereads current counts instead of restoring old rows.
     Effect::new(move |_| {
         if !matches!(nav.route.get(), Route::Discover | Route::Explore) {
+            if !preview {
+                discovery.update_untracked(PublicDiscoveryState::discard_snapshot);
+            }
             return;
         }
         let query = nav.query.get();

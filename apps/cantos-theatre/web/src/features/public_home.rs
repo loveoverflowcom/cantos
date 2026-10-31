@@ -1085,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_later_page_and_an_expired_cursor_keep_the_rows_and_name_the_recovery() {
+    fn transport_failure_keeps_rows_but_a_rejected_scope_hides_them_and_names_recovery() {
         let mut state = answered(
             DiscoveryQuery::default(),
             Ok(page(vec![work("A")], Some("c1"))),
@@ -1099,7 +1099,7 @@ mod tests {
         let retry = state.retry().unwrap();
         state.finish(&retry, Err(DiscoveryReadError::InvalidCursor));
         let html = render(state, Locale::Vietnamese);
-        assert!(html.contains("data-work-id=\"00000000-0000-0000-0000-000000000001\""));
+        assert!(!html.contains("data-work-id=\"00000000-0000-0000-0000-000000000001\""));
         assert!(html.contains("Phiên duyệt danh mục đã hết hạn"));
         assert!(html.contains("Tải lại từ đầu"));
     }

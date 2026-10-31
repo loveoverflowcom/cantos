@@ -27379,6 +27379,354 @@
           "text": "The list has changed. Reload from the beginning to check current access."
         }
       }
+    },
+    "studio.live.chapter_matrix": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách quyền từng chương"
+        },
+        "en": {
+          "text": "Chapter access matrix"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_load": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tải danh sách chương"
+        },
+        "en": {
+          "text": "Load chapter list"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_unread": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc danh sách quyền chương."
+        },
+        "en": {
+          "text": "Chapter access has not been read."
+        }
+      }
+    },
+    "studio.live.chapter_matrix_next": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Trang chương tiếp theo"
+        },
+        "en": {
+          "text": "Next chapter page"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_edit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sửa quyền chương này"
+        },
+        "en": {
+          "text": "Edit this chapter’s access"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_draft": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản nháp đã lưu"
+        },
+        "en": {
+          "text": "Saved draft"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_published": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đang công bố"
+        },
+        "en": {
+          "text": "Published revision"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_unpublished": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa công bố"
+        },
+        "en": {
+          "text": "Unpublished"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_associated": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã liên kết audio; cần kiểm tra quyền nghe hiện tại"
+        },
+        "en": {
+          "text": "Audio associated; current playback rights still apply"
+        }
+      }
+    },
+    "studio.live.chapter_matrix_no_audio": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa liên kết bản nghe"
+        },
+        "en": {
+          "text": "No audio associated"
+        }
+      }
+    },
+    "studio.live.chapter_policy_mode": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quyền của chương"
+        },
+        "en": {
+          "text": "Chapter audience"
+        }
+      }
+    },
+    "studio.live.chapter_policy_inherit": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Theo tác phẩm"
+        },
+        "en": {
+          "text": "Follow work"
+        }
+      }
+    },
+    "studio.live.chapter_policy_restricted": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giới hạn thêm trong tác phẩm"
+        },
+        "en": {
+          "text": "Further restrict within work"
+        }
+      }
+    },
+    "studio.live.chapter_policy_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ người được phép ở cả tác phẩm và chương mới xem được. Đổi quyền không công bố bản nháp."
+        },
+        "en": {
+          "text": "Both the work and chapter must allow the viewer. Changing access never publishes a draft."
+        }
+      }
+    },
+    "studio.live.chapter_policy_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không ai được cấp quyền ở chương này. Chương sẽ ẩn với người nghe."
+        },
+        "en": {
+          "text": "No chapter grants. This chapter will be hidden from listeners."
+        }
+      }
+    },
+    "studio.live.chapter_policy_add_actor": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thêm người xem vào chương"
+        },
+        "en": {
+          "text": "Add chapter viewer"
+        }
+      }
+    },
+    "studio.live.chapter_policy_add_group": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thêm nhóm vào chương"
+        },
+        "en": {
+          "text": "Add chapter group"
+        }
+      }
+    },
+    "studio.live.chapter_policy_remove": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ quyền tại chương"
+        },
+        "en": {
+          "text": "Remove chapter grant"
+        }
+      }
+    },
+    "studio.live.chapter_policy_confirm": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tôi xác nhận thay thế quyền của đúng chương này và quyền hiển thị metadata."
+        },
+        "en": {
+          "text": "I confirm replacing this chapter’s access and its metadata display rights."
+        }
+      }
+    },
+    "studio.live.chapter_policy_apply": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Áp dụng quyền chương"
+        },
+        "en": {
+          "text": "Apply chapter access"
+        }
+      }
+    },
+    "studio.live.chapter_policy_compare": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "So sánh và dùng phiên bản vừa đọc"
+        },
+        "en": {
+          "text": "Compare and use the latest read"
+        }
+      }
+    },
+    "studio.live.chapter_policy_discard": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bỏ thay đổi quyền chương"
+        },
+        "en": {
+          "text": "Discard chapter access changes"
+        }
+      }
+    },
+    "studio.live.chapter_policy_conflict": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản đã đổi hoặc chưa đọc lại. Giữ nguyên lựa chọn; tải lại rồi so sánh trước khi áp dụng."
+        },
+        "en": {
+          "text": "The version changed or needs a fresh read. Your selection is retained; reload and compare before applying."
+        }
+      }
+    },
+    "studio.live.chapter_policy_invalid": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Người xem, nhóm hoặc thời hạn chưa hợp lệ, bị trùng hoặc vượt giới hạn."
+        },
+        "en": {
+          "text": "The viewer, group or expiry is invalid, duplicated or exceeds the limit."
+        }
+      }
+    },
+    "studio.live.chapter_publish_saved": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Công bố bản đã lưu của chương"
+        },
+        "en": {
+          "text": "Publish this saved chapter"
+        }
+      }
+    },
+    "studio.live.chapter_withdraw": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Rút công bố chương này"
+        },
+        "en": {
+          "text": "Withdraw this chapter"
+        }
+      }
+    },
+    "studio.live.chapter_publish_position": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Vị trí công bố (từ 1)"
+        },
+        "en": {
+          "text": "Publication position (from 1)"
+        }
+      }
+    },
+    "studio.live.chapter_publication_confirm": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tôi xác nhận đúng chương, bản đã lưu và thứ tự công bố; quyền hiển thị metadata đã được xem xét."
+        },
+        "en": {
+          "text": "I confirm this chapter, saved revision and publication order; its metadata display rights have been reviewed."
+        }
+      }
+    },
+    "studio.live.chapter_work_active_required": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cần tác phẩm đang công bố để thay đổi từng chương."
+        },
+        "en": {
+          "text": "The work must be actively published before changing individual chapters."
+        }
+      }
     }
   }
 }

@@ -243,6 +243,15 @@ fn cursor_is_well_formed(cursor: &str) -> bool {
 }
 
 impl PublicDiscoveryState {
+    /// Leaving the visible route drops this access snapshot without resetting its ticket fence.
+    /// Returning must read current counts again; a previous request cannot repopulate it.
+    pub fn discard_snapshot(&mut self) {
+        *self = Self {
+            generation: self.generation.saturating_add(1),
+            ..Self::default()
+        };
+    }
+
     pub fn generation(&self) -> u64 {
         self.generation
     }
@@ -386,7 +395,11 @@ impl PublicDiscoveryState {
         let page = match result {
             Ok(page) => page,
             Err(DiscoveryReadError::InvalidCursor) if ticket.cursor.is_some() => {
-                // The old walk is unusable; its kept rows stay visible but are never continued.
+                // A rejected access/generation fence ends permission to retain this snapshot.
+                self.rows.clear();
+                self.seen.clear();
+                self.first_new = None;
+                self.applied_query = None;
                 self.cursor = None;
                 self.status = Status::CursorExpired;
                 return Step::Settled;
@@ -722,12 +735,26 @@ mod tests {
     }
 
     #[test]
-    fn an_invalid_cursor_keeps_the_rows_and_only_a_fresh_walk_continues() {
+    fn leaving_a_route_discards_old_counts_and_fences_a_late_answer_after_same_query_return() {
+        let (mut state, first) = started("đèn");
+        state.finish(&first, Ok(page(vec![work(1, "A")], Some("c1"))));
+        let old = state.load_more().unwrap();
+        state.discard_snapshot();
+        assert!(state.rows().is_empty());
+        let fresh = state.open(old.query().clone()).unwrap();
+        state.finish(&old, Ok(page(vec![work(2, "HIDDEN_OLD")], None)));
+        assert!(state.rows().is_empty());
+        state.finish(&fresh, Ok(page(vec![work(3, "Current")], None)));
+        assert_eq!(titles(&state), ["Current"]);
+    }
+
+    #[test]
+    fn an_invalid_cursor_discards_the_rows_and_only_a_fresh_walk_continues() {
         let (mut state, first) = started("đèn");
         state.finish(&first, Ok(page(vec![work(1, "A")], Some("c1"))));
         let more = state.load_more().unwrap();
         state.finish(&more, Err(DiscoveryReadError::InvalidCursor));
-        assert_eq!(titles(&state), ["A"]);
+        assert!(titles(&state).is_empty());
         assert_eq!(state.tail(), Tail::Expired);
         assert_eq!(state.load_more(), None, "an expired cursor is never reused");
         assert_eq!(state.retry(), None);
@@ -735,8 +762,8 @@ mod tests {
         assert_eq!(fresh.cursor(), None);
         assert_eq!(
             titles(&state),
-            ["A"],
-            "the old snapshot stays until success"
+            Vec::<String>::new(),
+            "the old access scope cannot be shown while reloading"
         );
         state.finish(&fresh, Ok(page(vec![work(2, "B")], None)));
         assert_eq!(titles(&state), ["B"]);

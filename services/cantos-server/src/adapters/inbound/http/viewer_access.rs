@@ -12,7 +12,7 @@ use crate::{
     platform::store::StoreError,
 };
 use axum::{
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -24,9 +24,11 @@ use serde_json::json;
 pub(super) fn studio_routes() -> Router<AppState> {
     Router::new()
         .route("/works/{work}/viewer-access", get(state).post(command))
+        .route("/works/{work}/units/{unit}/viewer-access", get(unit_state))
+        .route("/works/{work}/chapter-matrix", get(matrix))
         .route("/viewer-groups", get(groups))
         .route("/viewer-groups/{group}", post(group_command))
-        .layer(DefaultBodyLimit::max(4096))
+        .layer(DefaultBodyLimit::max(256 * 1024))
 }
 pub(super) fn theatre_routes() -> Router<AppState> {
     Router::new()
@@ -88,6 +90,54 @@ async fn state(
         Err(e) => return error(e.into()),
     };
     match s.store.viewer_access_state(&token, &work).await {
+        Ok(v) => private(Json(v).into_response()),
+        Err(e) => error(e),
+    }
+}
+async fn unit_state(
+    State(s): State<AppState>,
+    Path((work, unit)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Response {
+    let token = match cookie_token(&headers, &s.store) {
+        Ok(t) => t,
+        Err(e) => return error(e.into()),
+    };
+    match s.store.unit_viewer_access_state(&token, &work, &unit).await {
+        Ok(v) => private(Json(v).into_response()),
+        Err(e) => error(e),
+    }
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MatrixQuery {
+    limit: Option<u64>,
+    cursor: Option<String>,
+}
+async fn matrix(
+    State(s): State<AppState>,
+    Path(work): Path<String>,
+    headers: HeaderMap,
+    query: Result<Query<MatrixQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+    let token = match cookie_token(&headers, &s.store) {
+        Ok(t) => t,
+        Err(e) => return error(e.into()),
+    };
+    let query = match query {
+        Ok(Query(q)) => q,
+        Err(_) => return error(AccessError::Invalid.into()),
+    };
+    match s
+        .store
+        .chapter_matrix(
+            &token,
+            &work,
+            query.limit.unwrap_or(20),
+            query.cursor.as_deref(),
+        )
+        .await
+    {
         Ok(v) => private(Json(v).into_response()),
         Err(e) => error(e),
     }

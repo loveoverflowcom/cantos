@@ -485,3 +485,30 @@ JVM semantics and APK compilation do not qualify those native behaviors. S10 may
 unchanged service contract and must preserve the private native Play boundary; S12 still owns
 restore/activation. The source-bound [S09 record](../evidence/cmp-shared-catalog-655.md) and single
 review ledger #676 keep those gaps distinct from merged implementation progress.
+
+
+### S10 Unit policy, chapter matrix and HIDE (#656)
+
+The Work policy command now replaces an exact Unit's INHERIT/restricted policy using the same
+Work CAS/event/receipt. Independent Work and Unit grants/groups intersect; child authority never
+publishes or bypasses its parent. A new append-only migration registers normalized current Unit
+projections and a synchronous actor/archive visibility clock. All common public/shared metadata,
+count/ordinal/page and every-fetch seams include current Unit admission. Public-only Library
+filters denied rows before pagination, retains account records, and issues scope-bound cursors.
+Outward Unit positions are consecutive visible ordinals, not published gaps.
+
+Studio Work Details adds a paged 20-row chapter matrix with exact saved/published pins, current
+parent gate and Unit policy. Audio association is labeled separately from live readiness.
+Only an explicitly loaded row can be selected; policy replacement preserves dirty input and
+requires explicit reload/compare after conflict. Per-Unit publish/withdraw keeps existing Work
+metadata and other entries through the existing generation CAS. Web/CMP cursor rejection clears
+old rows/count/queue candidates; fresh Unit loading starts with fresh Work detail. CMP public
+persisted metadata is no longer accepted as present authority.
+
+No private Web/native Play, restricted Library restoration, private cover or production serving
+is activated. The source-bound [S10 evidence](../evidence/unit-policy-hide-656.md) separates
+core/model/Turso/HTTP/Studio/Web/CMP evidence and unresolved browser/device/formal acceptance.
+S11 receives the principal-lane/two-bounded-Unit-query/Library predicate/scope query inventory;
+it must measure actual Turso costs rather than infer performance from bounded output. S12
+still owns paired restore/activation acceptance. The single #676 ledger retains inherited and
+S10 residuals; merged source alone does not establish all #656 acceptance criteria.

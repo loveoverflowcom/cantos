@@ -618,3 +618,13 @@ The Work Details Access panel consumes [viewer access v1](../../../services/cant
 It retains draft/publication owners, confirms policy versions, distinguishes pending email from
 mail delivery and reloads current state after historical receipts. The current API supplies no
 share lifecycle history or complete global group impact; those UI actions remain unavailable.
+
+The Work Details Access panel includes a bounded chapter matrix (#656), using the Server-owned
+viewer-access v1 schema and 20-row continuation. Rows distinguish saved/published revisions,
+current Work gate, INHERIT/restricted Unit mode and an audio association (not live readiness).
+Only one explicitly loaded row is selected. Dirty policy input survives a stale response;
+reload/compare rebases only after an explicit action. Unit publish/withdraw uses the existing
+Work-generation CAS with exact saved revision and explicit order, preserving other entries and
+Work metadata. A historical operation receipt does not replace the current matrix read.
+See the [provider contract](../../../services/cantos-server/contracts/studio/viewer-access/v1/README.md)
+and [evidence limits](../../../docs/evidence/unit-policy-hide-656.md).

@@ -147,5 +147,96 @@
         }
       ]
     }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06560000-0000-4000-8000-000000000001",
+      "expected_version": 2,
+      "change": {
+        "action": "set_unit_policy",
+        "unit_id": "06560000-0000-4000-8000-000000000002",
+        "policy": {
+          "mode": "inherit"
+        },
+        "confirm_metadata_rights": true
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06560000-0000-4000-8000-000000000001",
+      "expected_version": 2,
+      "change": {
+        "action": "set_unit_policy",
+        "unit_id": "06560000-0000-4000-8000-000000000002",
+        "policy": {
+          "mode": "restricted",
+          "grants": [
+            {
+              "principal": {
+                "kind": "actor",
+                "actor_id": "reader"
+              },
+              "expires_at_us": null
+            }
+          ]
+        },
+        "confirm_metadata_rights": false
+      }
+    }
+  },
+  {
+    "type": "ViewerAccessRequest",
+    "value": {
+      "operation_id": "06560000-0000-4000-8000-000000000001",
+      "expected_version": 2,
+      "change": {
+        "action": "set_unit_policy",
+        "unit_id": "06560000-0000-4000-8000-000000000002",
+        "policy": {
+          "mode": "restricted",
+          "grants": []
+        },
+        "confirm_metadata_rights": false
+      }
+    }
+  },
+  {
+    "type": "UnitViewerAccessState",
+    "value": {
+      "work_id": "06560000-0000-4000-8000-000000000003",
+      "unit_id": "06560000-0000-4000-8000-000000000002",
+      "version": 3,
+      "policy": {
+        "mode": "inherit"
+      }
+    }
+  },
+  {
+    "type": "ChapterMatrixPage",
+    "value": {
+      "work_id": "06560000-0000-4000-8000-000000000003",
+      "work_revision": 4,
+      "publication_version": 2,
+      "policy_version": 3,
+      "work_audience": "restricted",
+      "items": [
+        {
+          "unit_id": "06560000-0000-4000-8000-000000000002",
+          "title": "Ngày mai, mình có diễn tiếp không?",
+          "draft_revision": 4,
+          "published_revision": 3,
+          "published_position": 1,
+          "audio": null,
+          "policy": {
+            "mode": "inherit"
+          }
+        }
+      ],
+      "next_cursor": null,
+      "publication_lifecycle": "active"
+    }
   }
 ]

@@ -11,6 +11,11 @@ pub enum ViewerAudience {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ViewerAccessChange {
+    SetUnitPolicy {
+        unit_id: String,
+        policy: UnitViewerPolicy,
+        confirm_metadata_rights: bool,
+    },
     SetAudience {
         audience: ViewerAudience,
         confirm_metadata_rights: bool,
@@ -37,6 +42,56 @@ pub enum ViewerAccessChange {
     RevokeShare {
         share_id: String,
     },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum UnitViewerPolicy {
+    Inherit,
+    Restricted { grants: Vec<UnitViewerGrant> },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UnitViewerGrant {
+    pub principal: ViewerPrincipal,
+    #[serde(deserialize_with = "nullable_expiry")]
+    pub expires_at_us: Option<i64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UnitViewerAccessState {
+    pub work_id: String,
+    pub unit_id: String,
+    /// The same Work policy CAS/fence used by every audience/grant change.
+    pub version: u64,
+    pub policy: UnitViewerPolicy,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ChapterMatrixRow {
+    pub unit_id: String,
+    pub title: String,
+    pub draft_revision: u64,
+    pub published_revision: Option<u64>,
+    pub published_position: Option<u32>,
+    /// Exact generation association, not a claim that live audio rights/readiness passed.
+    pub audio: Option<crate::contract::MetadataGenerationAudio>,
+    pub policy: UnitViewerPolicy,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ChapterMatrixPage {
+    pub publication_lifecycle: crate::contract::MetadataPublicationLifecycle,
+    pub work_id: String,
+    pub work_revision: u64,
+    pub publication_version: u64,
+    pub policy_version: u64,
+    pub work_audience: ViewerAudience,
+    pub items: Vec<ChapterMatrixRow>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

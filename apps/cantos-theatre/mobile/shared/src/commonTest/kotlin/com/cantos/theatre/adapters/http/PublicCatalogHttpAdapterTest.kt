@@ -37,6 +37,30 @@ class PublicCatalogHttpAdapterTest {
         CatalogHttpResponse(status, type, body.encodeToByteArray())
 
     @Test
+    fun persisted_public_metadata_never_supplies_current_work_or_unit_authority() = runTest {
+        var reads = 0
+        var writes = 0
+        val cache = object : com.cantos.theatre.ports.CatalogCachePort {
+            override val status = kotlinx.coroutines.flow.MutableStateFlow(com.cantos.theatre.ports.CatalogCacheStatus.Idle)
+            override fun account(): String? = "old_account"
+            override fun read(key: String, owner: String?): String? { reads++; return detail }
+            override fun put(key: String, validatedJson: String, owner: String?) { writes++ }
+            override fun network() { status.value = com.cantos.theatre.ports.CatalogCacheStatus.Network }
+            override fun invalidate() = Unit
+        }
+        val transport = Scripted { json(404,corpus.getValue("not_found.json")) }
+        val adapter = PublicCatalogHttpAdapter(origin,transport,cache)
+        assertEquals(PublicCatalogRead.NotFound,adapter.work(workId(3)))
+        assertEquals(1,transport.urls.size)
+        assertEquals(0,reads)
+        assertEquals(0,writes)
+        transport.respond = { json(200,works) }
+        assertIs<PublicCatalogRead.Ready<*>>(adapter.works(null))
+        assertEquals(2,transport.urls.size)
+        assertEquals(0,writes,"metadata snapshots cannot become a later access decision")
+    }
+
+    @Test
     fun requests_only_anonymous_theatre_routes_with_explicit_limit_and_opaque_cursor() = runTest {
         val transport = Scripted { json(200, works) }
         val adapter = PublicCatalogHttpAdapter(origin, transport)

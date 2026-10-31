@@ -11,7 +11,7 @@ use crate::{
 use cantos_ui::{Button, ButtonVariant, Dialog, FieldDensity, TextField, TextFieldVariant};
 use leptos::prelude::*;
 
-fn operation() -> Option<String> {
+pub(super) fn operation() -> Option<String> {
     #[cfg(target_arch = "wasm32")]
     {
         super::workspace::uuid().ok()
@@ -21,7 +21,7 @@ fn operation() -> Option<String> {
         None
     }
 }
-fn expiry(value: &str) -> Result<Option<i64>, ()> {
+pub(super) fn expiry(value: &str) -> Result<Option<i64>, ()> {
     if value.is_empty() {
         return Ok(None);
     }
@@ -69,6 +69,7 @@ pub(super) fn ViewerPanel(
     on_retry: Callback<()>,
 ) -> impl IntoView {
     let open = RwSignal::new(false);
+    let chapter_dirty = RwSignal::new(false);
     let email = RwSignal::new(String::new());
     let actor = RwSignal::new(String::new());
     let until = RwSignal::new(String::new());
@@ -110,7 +111,8 @@ pub(super) fn ViewerPanel(
             [email.get(), actor.get(), until.get(), group_name.get()]
                 .iter()
                 .any(|s| !s.is_empty())
-                || dialog_open.get(),
+                || dialog_open.get()
+                || chapter_dirty.get(),
         )
     });
     Effect::new(move |_| {
@@ -308,7 +310,7 @@ pub(super) fn ViewerPanel(
             <p>{move ||text(Key::MetadataVersion,locale.get())}" "{move ||review.with(|r|r.as_ref().map(|r|r.publication_version))}</p>
             <p>{move ||text(Key::MetadataHistory,locale.get())}" "{move ||review.with(|r|r.as_ref().map(|r|r.published_revision.map(super::copy::revision_label).unwrap_or_else(||text(Key::AccessNoPublication,locale.get()).into())))}</p>
           </div>
-          <p class="cw-access-exact">{move || confirmation.with(|c| c.as_ref().and_then(|c| match c { Command::ViewerChange {request,..} => Some(match &request.change { ViewerAccessChange::ShareMailbox { email,.. }=>email.clone(), ViewerAccessChange::GrantActor {actor_id,..}=>actor_id.clone(),ViewerAccessChange::GrantGroup {group_id,..}=>group_id.clone(),ViewerAccessChange::RevokeGrant {grant_id}=>grant_id.clone(),ViewerAccessChange::RevokeShare {share_id}=>share_id.clone(),ViewerAccessChange::SetAudience {audience,..}=>text(if *audience==ViewerAudience::Public {Key::AccessPublic}else{Key::AccessRestricted},locale.get()).into()}),Command::ViewerGroupChange {group,..}=>Some(group.clone()),_=>None }))}</p>
+          <p class="cw-access-exact">{move || confirmation.with(|c| c.as_ref().and_then(|c| match c { Command::ViewerChange {request,..} => Some(match &request.change { ViewerAccessChange::ShareMailbox { email,.. }=>email.clone(), ViewerAccessChange::GrantActor {actor_id,..}=>actor_id.clone(),ViewerAccessChange::GrantGroup {group_id,..}=>group_id.clone(),ViewerAccessChange::RevokeGrant {grant_id}=>grant_id.clone(),ViewerAccessChange::RevokeShare {share_id}=>share_id.clone(),ViewerAccessChange::SetUnitPolicy {unit_id,..}=>unit_id.clone(),ViewerAccessChange::SetAudience {audience,..}=>text(if *audience==ViewerAudience::Public {Key::AccessPublic}else{Key::AccessRestricted},locale.get()).into()}),Command::ViewerGroupChange {group,..}=>Some(group.clone()),_=>None }))}</p>
           <p>{move || confirmation.with(|c| c.as_ref().map(|command| text(match command {
             Command::ViewerChange { request: ViewerAccessRequest { change: ViewerAccessChange::ShareMailbox { .. }, .. }, .. } => Key::AccessNoMail,
             Command::ViewerChange { request: ViewerAccessRequest { change: ViewerAccessChange::RevokeGrant { .. } | ViewerAccessChange::RevokeShare { .. } | ViewerAccessChange::SetAudience { audience: ViewerAudience::Restricted, .. }, .. }, .. } => Key::AccessRevokeHelp,
@@ -317,6 +319,7 @@ pub(super) fn ViewerPanel(
           <ReviewCheckbox id="viewer-confirm-checkbox" locale label=Signal::derive(move ||text(if review.with(|r|r.as_ref().is_some_and(|r|r.audience==ViewerAudience::Public)){Key::AccessConfirmRights}else{Key::AccessConfirm},locale.get()).to_owned()) checked=Signal::derive(move ||confirmed.get()) on_change=Callback::new(move |v|confirmed.set(v))/>
           <ActionButton id="viewer-confirm-apply" locale blocked=Signal::derive(move ||blocked.get() || !confirmed.get()) on_press=submit>{move ||text(Key::AccessApply,locale.get())}</ActionButton>
         </Dialog>
+        <super::chapter_panel::ChapterPanel facts state locale blocked dirty=chapter_dirty on_send on_retry/>
       </section>
     }
 }

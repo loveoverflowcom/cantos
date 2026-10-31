@@ -84,6 +84,7 @@ impl Facts {
                 next.metadata.current = Some(state);
             } else {
                 next.metadata.receipt = Some(state);
+                next.viewer.matrix = None;
                 next.metadata.current = None;
             }
         }
@@ -288,9 +289,11 @@ impl Facts {
                 next.publication.readiness = None;
                 next.publication.active = None;
             }
+            Reply::ChapterMatrix(page) => next.viewer.matrix = Some(page),
             Reply::ViewerState(state) => next.viewer.current = Some(state),
             Reply::ViewerReceipt(receipt) => {
                 next.viewer.receipt = Some(receipt);
+                next.viewer.matrix = None;
                 next.viewer.current = None;
             }
             Reply::ViewerGroups(groups) => next.viewer.groups = Some(groups),

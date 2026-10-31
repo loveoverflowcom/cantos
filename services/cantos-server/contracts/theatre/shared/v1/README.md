@@ -10,14 +10,14 @@ Public Discovery keeps its current representation. Shared metadata reuses the st
 All paths are below `/api/v1/theatre/shared`:
 
 - `GET /works` and `/search`: `q`, `kind`, `language`, `limit` (1–50), `cursor`.
-  Lists only RESTRICTED Works with current actor/group candidates. Candidates are deduplicated,
+  Lists RESTRICTED Works and PUBLIC Works having restricted Units with current Work/Unit actor/group candidates. Candidates are deduplicated,
   hydrated in bounded pages and admitted through Catalog's Work AND Unit evaluator before
   metadata, counts, ordering or search results are returned. Only admitted matches determine
   page boundaries and cursors. An exhausted bounded lookahead returns unavailable rather than a
   cursor over denied rows or a false terminal page.
 - `GET /works/{work}` and `/works/{work}/units`: the current generation, with the same gates.
-  Unit lists accept `limit` and `cursor`. The current persisted Unit mode is INHERIT;
-  #656 owns persisted overrides and must extend the common read admission before enabling them.
+  Unit lists accept `limit` and `cursor`. S10 persists INHERIT or restriction within the Work. The common evaluator filters Units
+  before count, ordinal, page selection, direct lookup and every media admission.
 - `GET /publications/{publication}` and
   `POST /publications/{publication}/playback-authorizations`: exact generation association only.
   The POST accepts an empty body or `{}`. No old release or editorial head is a fallback.
@@ -57,7 +57,7 @@ Shared metadata currently returns `cover: null`; no restricted cover credential 
 activated. The existing public cover route rechecks PUBLIC generation eligibility before any
 conditional response and after open. There is no Theatre transcript/download route. Existing
 Library/Continue/Saved/History/bookmark restore remains public-only and re-admits releases;
-restricted items stay unavailable there until an authenticated Library projection is supplied.
+restricted Work/Unit rows are omitted before Library pagination until an authenticated Library projection is supplied. Owned progress records and historical receipts are retained; they confer no current metadata or playback authority.
 No static private-object route, legacy presentation selector or old publication route grants
 restricted authority.
 
@@ -98,3 +98,20 @@ mono Opus bytes are independently inspected by the caller; seeded rights/QC/publ
 are synthetic. The HTTP metadata mode deliberately does not replace the HTTPS media-origin
 invariant. Full browser playback/seek requires a separately trusted local HTTPS terminator and
 HTTPS-origin build; no browser certificate validation or production setting is weakened here.
+
+## Unit HIDE and cursor fences (#656)
+
+Effective admission is current Work AND Unit, including independent owner-scoped groups. A Unit
+grant never bypasses a denied Work or publishes an absent Unit. Shared candidates use four
+indexable actor/group lanes; candidates alone grant nothing. Unit policy/grants are loaded in two
+bounded statements per Work, then filtered before count/order/page hydration. Both outward
+`ordinal` and `position` are consecutive in the visible sequence; published positions stay
+internal cursor keys. No hidden title, count gap or queue candidate is projected.
+
+Public/shared/Library cursor scopes include publication, Work policy, group versions, timed
+Work/Unit grant/member expiry and a transactional lifecycle/actor clock. Archive or owner
+liveness changes invalidate outstanding walks and permits even after re-enabling. Draft edits
+alone do not invalidate a published pin. A refused client cursor discards old rows/counts;
+Work detail must be read again before its Unit list. CMP public disk cache is no longer treated
+as present access authority; public metadata comes from a fresh server read. This supplies no
+push-revocation/offline entitlement, browser decoder or native runtime qualification.

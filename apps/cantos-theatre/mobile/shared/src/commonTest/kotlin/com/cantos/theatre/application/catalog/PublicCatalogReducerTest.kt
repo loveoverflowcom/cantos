@@ -81,51 +81,18 @@ class PublicCatalogReducerTest {
     }
 
     @Test
-    fun invalid_cursor_restarts_from_page_one_and_deduplicates_by_id() {
+    fun a_rejected_cursor_discards_old_work_rows_and_requires_an_explicit_fresh_read() {
         send(PublicCatalogIntent.Start)
         send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1), work(2)), cursor(1)))))
         send(PublicCatalogIntent.LoadMoreWorks)
-        // Drop the cursor and restart from page one, keeping the rows on screen.
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(3, null)), send(WorksResolved(2, PublicCatalogRead.InvalidCursor)))
-        assertEquals(listOf(work(1), work(2)), state.works.items)
-        val renamed = work(1, title = "Ánh đèn cuối sân khấu — bản mới")
-        // Page one adds no new id, so the walk continues to the fresh page-two cursor.
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(4, cursor(5))),
-            send(WorksResolved(3, PublicCatalogRead.Ready(worksPage(listOf(renamed, work(2)), cursor(5))))))
-        send(WorksResolved(4, PublicCatalogRead.Ready(worksPage(listOf(work(2), work(3)), null))))
-        assertEquals(listOf(renamed, work(2), work(3)), state.works.items, "replaced in place, no duplicate rows")
-        assertEquals(WalkPhase.Complete, state.works.phase)
-    }
-
-    @Test
-    fun a_restarted_walk_keeps_server_order_for_ids_it_had_not_shown() {
-        send(PublicCatalogIntent.Start)
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1), work(2)), cursor(1)))))
-        send(PublicCatalogIntent.LoadMoreWorks)
-        send(WorksResolved(2, PublicCatalogRead.Ready(worksPage(listOf(work(3)), cursor(2)))))
-        send(PublicCatalogIntent.LoadMoreWorks)
-        send(WorksResolved(3, PublicCatalogRead.InvalidCursor))
-        // Work 9 was first published during the walk, so the server now lists it first.
-        send(WorksResolved(4, PublicCatalogRead.Ready(worksPage(listOf(work(9), work(1), work(2)), cursor(5)))))
-        assertEquals(listOf(work(9), work(1), work(2), work(3)), state.works.items)
-        send(PublicCatalogIntent.LoadMoreWorks)
-        // A continuation inserts after the last row it placed: 8 sits between 2 and 3.
-        send(WorksResolved(5, PublicCatalogRead.Ready(worksPage(listOf(work(8), work(3)), null))))
-        assertEquals(listOf(work(9), work(1), work(2), work(8), work(3)), state.works.items)
-        assertEquals(WalkPhase.Complete, state.works.phase)
-    }
-
-    @Test
-    fun repeated_invalid_cursor_in_one_action_stops_and_retry_restarts() {
-        send(PublicCatalogIntent.Start)
-        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)), cursor(1)))))
-        send(PublicCatalogIntent.LoadMoreWorks)
-        send(WorksResolved(2, PublicCatalogRead.InvalidCursor))
-        send(WorksResolved(3, PublicCatalogRead.Ready(worksPage(listOf(work(1)), cursor(2)))))
-        assertEquals(emptyList(), send(WorksResolved(4, PublicCatalogRead.InvalidCursor)))
+        assertEquals(emptyList(), send(WorksResolved(2, PublicCatalogRead.InvalidCursor)))
+        assertEquals(emptyList(), state.works.items)
         assertEquals(WalkPhase.Failed(CatalogFailure.CursorRejected), state.works.phase)
+        assertEquals(listOf(PublicCatalogEffect.FetchWorks(3, null)), send(PublicCatalogIntent.RetryWorks))
+        send(WorksResolved(2, PublicCatalogRead.Ready(worksPage(listOf(work(2)), null))))
+        assertEquals(emptyList(), state.works.items, "late old rows cannot resurrect access")
+        send(WorksResolved(3, PublicCatalogRead.Ready(worksPage(listOf(work(1)), null))))
         assertEquals(listOf(work(1)), state.works.items)
-        assertEquals(listOf(PublicCatalogEffect.FetchWorks(5, null)), send(PublicCatalogIntent.RetryWorks))
     }
 
     @Test
@@ -195,14 +162,22 @@ class PublicCatalogReducerTest {
     }
 
     @Test
-    fun unit_invalid_cursor_restarts_that_work_from_page_one() {
-        val story = work(1)
+    fun unit_cursor_rejection_scrubs_count_and_rows_until_work_readmission() {
+        val story=work(1)
         openReady(story)
-        send(UnitsResolved(lastUnits().token, PublicCatalogRead.Ready(unitsPage(story, listOf(unit(1)), cursor(1)))))
+        send(UnitsResolved(lastUnits().token, PublicCatalogRead.Ready(unitsPage(story,listOf(unit(1)),cursor(1)))))
         send(PublicCatalogIntent.LoadMoreUnits)
-        send(UnitsResolved(lastUnits().token, PublicCatalogRead.InvalidCursor))
-        assertEquals(null, lastUnits().cursor)
-        assertEquals(story, lastUnits().work)
+        val old=lastUnits().token
+        send(UnitsResolved(old,PublicCatalogRead.InvalidCursor))
+        assertEquals(DetailPhase.Failed(CatalogFailure.CursorRejected),state.detail!!.phase)
+        assertNull(state.detail!!.summary)
+        assertNull(state.detail!!.units)
+        send(UnitsResolved(old,PublicCatalogRead.Ready(unitsPage(story,listOf(unit(1)),null))))
+        assertNull(state.detail!!.units)
+        val retry=send(PublicCatalogIntent.RetryWork).single() as PublicCatalogEffect.FetchWork
+        send(WorkResolved(retry.token,PublicCatalogRead.Ready(story)))
+        assertEquals(null,lastUnits().cursor)
+        assertTrue(state.detail!!.units!!.items.isEmpty())
     }
 
     @Test
@@ -272,12 +247,13 @@ class PublicCatalogReducerTest {
     }
 
     @Test
-    fun units_not_found_after_detail_keeps_the_detail_and_reports_the_list() {
+    fun units_not_found_after_detail_purges_the_old_work_count_title_and_rows() {
         val story = work(1)
         openReady(story)
         send(UnitsResolved(lastUnits().token, PublicCatalogRead.NotFound))
-        assertIs<DetailPhase.Ready>(state.detail!!.phase)
-        assertEquals(WalkPhase.Failed(CatalogFailure.NotFound), state.detail!!.units!!.phase)
+        assertEquals(DetailPhase.Failed(CatalogFailure.NotFound), state.detail!!.phase)
+        assertNull(state.detail!!.summary)
+        assertNull(state.detail!!.units)
     }
     @Test
     fun library_work_id_opens_without_a_fabricated_summary_and_refuses_a_foreign_work() {

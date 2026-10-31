@@ -22,7 +22,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 34] = [
+pub(crate) const MIGRATIONS: [Migration; 35] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -195,6 +195,11 @@ pub(crate) const MIGRATIONS: [Migration; 34] = [
         version: 34,
         name: "server_catalog_viewer_read_indexes",
         sql: include_str!("catalog_viewer_read_indexes.sql"),
+    },
+    Migration {
+        version: 35,
+        name: "server_catalog_unit_viewer_access",
+        sql: include_str!("catalog_unit_viewer_access.sql"),
     },
 ];
 

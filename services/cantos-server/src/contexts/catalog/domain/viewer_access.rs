@@ -98,6 +98,26 @@ pub enum UnitAudience<'a> {
     OverrideWithinParent(Gate<'a>),
 }
 
+/// A replacement restriction is finite, explicit and contains only live, distinct principals.
+/// An empty restriction deliberately hides the Unit from everyone; INHERIT is a separate intent.
+pub fn validate_unit_grants(grants: &[Grant], now: i64) -> Result<(), AccessError> {
+    if grants.len() > MAX_GRANTS_PER_WORK {
+        return Err(AccessError::Bound);
+    }
+    for (index, grant) in grants.iter().enumerate() {
+        if grant.revoked || !live(grant.expires_at_us, now) {
+            return Err(AccessError::Invalid);
+        }
+        if grants[..index]
+            .iter()
+            .any(|old| old.principal == grant.principal)
+        {
+            return Err(AccessError::Duplicate);
+        }
+    }
+    Ok(())
+}
+
 fn live(expires: Option<i64>, now: i64) -> bool {
     now >= 0 && expires.is_none_or(|expiry| expiry > now)
 }
@@ -193,6 +213,115 @@ mod tests {
     }
     fn owner(id: &str) -> OwnerId {
         OwnerId::parse(id).unwrap()
+    }
+    #[test]
+    fn alpha_work_and_beta_unit_require_both_current_memberships() {
+        let owner = owner("owner");
+        let actor = actor("viewer");
+        let alpha = GroupId::parse("00000000-0000-4000-8000-000000000001").unwrap();
+        let beta = GroupId::parse("00000000-0000-4000-8000-000000000002").unwrap();
+        let grant = |id| Grant {
+            principal: Principal::Group {
+                owner: owner.clone(),
+                id,
+            },
+            expires_at_us: None,
+            revoked: false,
+        };
+        let work_grants = [grant(alpha.clone())];
+        let unit_grants = [grant(beta.clone())];
+        for work_public in [false, true] {
+            for inherit in [false, true] {
+                for in_alpha in [false, true] {
+                    for in_beta in [false, true] {
+                        for published in [false, true] {
+                            let members: Vec<_> =
+                                [(alpha.clone(), in_alpha), (beta.clone(), in_beta)]
+                                    .into_iter()
+                                    .filter(|(_, included)| *included)
+                                    .map(|(group, _)| Membership {
+                                        owner: owner.clone(),
+                                        group,
+                                        actor: actor.clone(),
+                                        expires_at_us: Some(11),
+                                        removed: false,
+                                        group_revoked: false,
+                                    })
+                                    .collect();
+                            let work = WorkFacts {
+                                published: true,
+                                owner_active: true,
+                                archived: false,
+                                rights: true,
+                                gate: Gate {
+                                    owner: &owner,
+                                    audience: if work_public {
+                                        Audience::Public
+                                    } else {
+                                        Audience::Restricted
+                                    },
+                                    grants: &work_grants,
+                                },
+                            };
+                            let unit = if inherit {
+                                UnitAudience::Inherit
+                            } else {
+                                UnitAudience::OverrideWithinParent(Gate {
+                                    owner: &owner,
+                                    audience: Audience::Restricted,
+                                    grants: &unit_grants,
+                                })
+                            };
+                            let viewer = Some(Viewer {
+                                actor: &actor,
+                                active: true,
+                                memberships: &members,
+                            });
+                            assert_eq!(
+                                can_view_unit(work, published, false, true, unit, viewer, 10),
+                                published && (work_public || in_alpha) && (inherit || in_beta)
+                            );
+                            assert_eq!(
+                                can_view_unit(work, published, false, true, unit, None, 10),
+                                published && work_public && inherit
+                            );
+                            assert_eq!(
+                                can_view_unit(work, published, false, true, unit, viewer, 11),
+                                published && work_public && inherit
+                            );
+                            assert!(!can_view_unit(
+                                work, published, false, false, unit, viewer, 10
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn replacement_restriction_rejects_duplicate_expired_and_excess_grants() {
+        let grant = Grant {
+            principal: Principal::Actor(actor("viewer")),
+            expires_at_us: Some(11),
+            revoked: false,
+        };
+        assert_eq!(validate_unit_grants(&[], 10), Ok(()));
+        assert_eq!(
+            validate_unit_grants(std::slice::from_ref(&grant), 10),
+            Ok(())
+        );
+        assert_eq!(
+            validate_unit_grants(std::slice::from_ref(&grant), 11),
+            Err(AccessError::Invalid)
+        );
+        assert_eq!(
+            validate_unit_grants(&[grant.clone(), grant.clone()], 10),
+            Err(AccessError::Duplicate)
+        );
+        assert_eq!(
+            validate_unit_grants(&vec![grant; MAX_GRANTS_PER_WORK + 1], 10),
+            Err(AccessError::Bound)
+        );
     }
     #[test]
     fn work_and_unit_never_allow_a_child_bypass_or_unpublished_unit() {

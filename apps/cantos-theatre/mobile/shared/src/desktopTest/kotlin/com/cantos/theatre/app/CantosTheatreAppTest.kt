@@ -280,7 +280,7 @@ class CantosTheatreAppTest {
     }
 
     @Test
-    fun an_unreadable_work_says_so_and_a_cached_catalog_offers_refresh() {
+    fun an_unreadable_work_says_so_and_back_cannot_restore_its_old_list_row() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             val (works, units) = single()
             lateinit var fixture: Fixture
@@ -298,7 +298,7 @@ class CantosTheatreAppTest {
             onNodeWithText("Tác phẩm này hiện không mở được").assertExists()
             onNodeWithTag("episode-${fixture.unit.id.value}").assertDoesNotExist()
             onNodeWithTag("back").performClick()
-            onNodeWithTag("work-${fixture.work.id.value}").assertExists()
+            onNodeWithTag("work-${fixture.work.id.value}").assertDoesNotExist()
             fixture.preferences.setLocale(PreferenceLocale.English)
             waitForIdle()
             onNodeWithText("A world to listen to").assertExists()

@@ -106,10 +106,13 @@
     "services/cantos-server/src/contexts/catalog/turso/viewer_access.rs",
     "services/cantos-server/src/contexts/catalog/application/shared_metadata.rs",
     "services/cantos-server/src/contexts/catalog/turso/viewer_reads.rs",
-    "services/cantos-server/src/contexts/catalog/turso/listener.rs"
+    "services/cantos-server/src/contexts/catalog/turso/listener.rs",
+    "services/cantos-server/src/contexts/catalog/turso/viewer_access/units.rs",
+    "services/cantos-server/src/contexts/catalog/turso/library_visibility.rs"
   ],
   "implementationTests": [
     "services/cantos-server/src/test_support/viewer_access_tests.rs",
-    "services/cantos-server/tests/support/restricted_journey.rs"
+    "services/cantos-server/tests/support/restricted_journey.rs",
+    "services/cantos-server/src/test_support/unit_viewer_access_tests.rs"
   ]
 }

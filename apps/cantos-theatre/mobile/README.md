@@ -910,15 +910,17 @@ work list → work detail → chapter/episode list, keyed only by the server's U
 - `application/catalog/PublicCatalogReducer.kt` + `PublicCatalogController.kt`: a pure reducer and
   one sequential `StateFlow` owner with token fencing. A failed page keeps its rows and retries the
   same cursor; an empty intermediate page (or one adding no new id) is followed automatically up
-  to 5 times per action; `invalid_cursor` restarts from page one and merges by id (a repeat in the
-  same action stops with a retryable "list changed"); a changed `publication_id` replaces its row.
+  to 5 times per action. `invalid_cursor` drops the refused rows and reports a retryable
+  "list changed" state; explicit retry starts a fresh walk. A refused Unit cursor drops the whole
+  detail (including count/title) and its known queue candidates; retry first rereads the Work.
+  A changed `publication_id` replaces its row.
   Validated query/kind changes discard rows and cursors, start `/search?q=...&kind=...` or
   `/works?kind=...` on the server and fence the old response. Pagination and retries retain the
   exact query; refresh rereads page one. Detail refresh rereads the Work and then restarts units,
   so a withdrawn Work cannot keep its old playable-unit projection.
 - Catalog intents reach the presentation through `app/TheatreShell.kt`; the retired simplified
   `PublicCatalogScreen`/`NativeCatalogScreen` surface no longer exists. Search, Load more, Retry and
-  refresh, empty/not-found/unavailable states and the cached-catalog notice are states of the
+  refresh and empty/not-found/unavailable states are states of the
   familiar Discover, Search and Work screens (see below).
 
 Origin policy: `androidApp` main declares INTERNET and the explicit
@@ -1047,7 +1049,7 @@ projections; identities are the API's lower-case UUIDs, never a sample key.
 
 | Screen / control | Real owner |
 | --- | --- |
-| Discover, Search | `PublicCatalogController` (server `works`/`search`, cursors, cached offline page) |
+| Discover, Search | `PublicCatalogController` (server `works`/`search`, cursors, fresh admission; no persisted authority) |
 | Work, chapters/episodes | `PublicCatalogController` detail + units walk; a count appears only when the walk is complete |
 | Player, mini-player, Queue, speed | `NativeListeningController`/`PlaybackController` over `AndroidMediaEngine`/`IosMediaEngine` with API-authorized grants |
 | Continue, History, Saved | `NativeLibraryController` (SQLDelight local SSOT, outbox, server sync); guests are asked to sign in |
@@ -1084,3 +1086,10 @@ its strict metadata DTOs; Server schemas and fixtures are drift-checked in `Publ
 Metadata-only rows remain readable and cannot request a manifest or start playback. Audio
 transitions keep the exact associated publication identity; there is no latest-release fallback.
 JVM adapter/controller tests, Android/iOS builds and device observations remain separate evidence.
+
+S10 public HIDE boundary (#656): `PublicCatalogHttp` always re-admits metadata through the
+server. It neither restores nor writes catalog JSON as current access authority through the
+public cache port. Previously stored metadata is not erased by this change. Current refusal or
+cursor rejection evicts matching known Work/Unit labels and next/previous queue candidates;
+transport failure remains distinct from a policy denial. JVM tests are semantic evidence only;
+Android/iOS decoder, restore and assistive-technology acceptance remain independent.

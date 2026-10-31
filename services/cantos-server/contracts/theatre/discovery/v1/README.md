@@ -60,3 +60,11 @@ checks, real private bytes, browser, Android/iOS and deployed delivery remain se
 RESTRICTED audiences never enter these public reads, manifests or grants, even when a cookie
 is present. The separate [shared module](../../shared/v1/README.md) owns authenticated
 subject/session media admission; Web/CMP adoption remains in S08/S09.
+
+S10 (#656) additionally hides every restricted Unit from anonymous reads before count, ordinal,
+page selection and direct lookup. Both outward `position` and `ordinal` describe the consecutive
+visible sequence, with no hidden-position gaps. Cursor scopes include current policy/group,
+expiry and transactional archive/actor changes, alongside publication versions. Consumers must
+discard a refused walk and re-read Work details/counts before fetching its Units; cached public
+metadata cannot establish present access. Saved/Continue/History/bookmark projections omit
+currently denied rows before page selection, while retaining account-owned records/receipts.

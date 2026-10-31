@@ -332,7 +332,7 @@ declarations do not establish browser or native acceptance.
 | `Trunk.toml` `post_build` hook | Copies the processed `index.html` to `verify-email.html`, the signup email action page Pages serves at `/verify-email` ([ADR 0048](https://github.com/loveoverflowcom/cantos/pull/428)); `deploy` refuses a copy that differs. The capture still requires `continueUrl` to name the current origin and path |
 | `src/application/signup.rs` | RAM-only mailbox-proof link (`ProofLink`, strict `#operation&proof&secret` parser, scrub predicate), chosen password, explicit confirmation, immutable retained request snapshot, same-request retry with Retry-After hold, a signup-start 429 hold that survives `clear`, and epoch-fenced results; redacted `Debug` |
 | `src/application/public_discovery.rs` | Pure Work-list walk: normalized `DiscoveryQuery` (q/kind/language), ticket-fenced requests, opaque cursor bound to its query, bounded follow-up of empty pages, same-cursor retry, `invalid_cursor` → fresh walk (never merged), one-time row identity |
-| `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
+| `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` discards detail/counts and requires fresh Work admission, terminal empty list |
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Cookie-session account lookup/sign-in/logout and Library transport (`Lease::apply`: `credentials: include` plus the session fence), bounded actual Library reads, point reads, idempotent mutations, receipt lookup recovery and mounted browser lifecycle; no mock fallback |
 | `src/live/mounted.rs` | Pure decision for the mounted listeners/timer given the live network gate and the owner's 429 hold |
 | `src/live/failure.rs`, `transport.rs` | Pure projection of the shared owner's failures onto account failures (401 signed out, 409 session change, 429 bounded wait, 503 unknown, 404 clear fault) and the per-request-class credential policy with source-level regression guards |
@@ -573,8 +573,7 @@ search input receives it after rendering. A disposed search or focus moved elsew
 changing the search drops it. **Tải thêm tác phẩm** keeps the rows when a later page fails and
 retries the same cursor; a repeated identity is kept once; an empty page that still has a cursor
 is followed automatically within a small budget and, if the budget runs out, shows "keep
-searching" rather than "no results"; `invalid_cursor` keeps the rows shown but offers a fresh walk
-instead of mixing snapshots. The list ends only at `next_cursor: null`.
+searching" rather than "no results"; `invalid_cursor` discards the refused snapshot and offers a fresh walk. The list ends only at `next_cursor: null`.
 
 **Routes.** `#explore` renders the same screen. An unknown route (including a mock fixture slug
 such as `#work/son-ha-ky`) shows a recovery view with a way back, and `#queue`, which has no live
@@ -586,7 +585,7 @@ credentials omitted, the shared deadline and bounded bodies. It distinguishes lo
 `not_found` answer (no reason is guessed), retryable unavailable and protocol failures, a terminal
 empty list and a partial list with Load more. An empty page with a cursor is followed
 automatically within a small budget; a failed page keeps its rows and retries the same cursor;
-`invalid_cursor` restarts from page one without duplicating rows. The Work list, search and
+`invalid_cursor` drops the whole detail, including old title/count; Retry rereads Work details before Units. The Work list, search and
 detail reads send `presentation=2` and strictly decode `CoveredWorkPage`/`CoveredWorkSummary`; the
 unit reads send `presentation=1`. The Work shows the server's public `unit_count` ("Chương đã công
 bố: N") and each row its `ordinal` as "Vị trí N" — the current rank in the public list, never an
@@ -811,3 +810,7 @@ the configured API origin and requires follow-up qualification.
 Private Library journal/restore and cover remain unavailable; source/core/DOM qualification is
 separate from actual browser cookies/GET/Range playback and production activation. The ordinary
 Server executable keeps restricted serving disabled after startup/restore.
+
+S10 drops the public discovery snapshot on route departure and fences its outstanding tickets.
+Returning from Work details rereads the list and current counts; browser Back does not restore
+an earlier page's count after a Unit visibility change. The applied query remains in navigation.
