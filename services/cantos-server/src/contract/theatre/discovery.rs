@@ -240,7 +240,7 @@ pub struct PublicationManifest {
     pub language: String,
     pub published_at_ms: i64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct PlaybackAuthorization {
     pub publication_id: String,
@@ -250,6 +250,19 @@ pub struct PlaybackAuthorization {
     pub expires_at_ms: i64,
     pub content_type: String,
     pub byte_range_supported: bool,
+}
+impl std::fmt::Debug for PlaybackAuthorization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PlaybackAuthorization")
+            .field("publication_id", &self.publication_id)
+            .field("rendition_id", &self.rendition_id)
+            .field("sha256", &self.sha256)
+            .field("url", &"[redacted]")
+            .field("expires_at_ms", &self.expires_at_ms)
+            .field("content_type", &self.content_type)
+            .field("byte_range_supported", &self.byte_range_supported)
+            .finish()
+    }
 }
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -265,4 +278,37 @@ pub enum ListenerErrorCode {
 pub struct ListenerError {
     pub code: ListenerErrorCode,
     pub retryable: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn playback_authorization_debug_redacts_grants_without_changing_wire() {
+        for lane in ["media", "shared/media"] {
+            let url = format!(
+                "https://api.example.test/api/v1/theatre/{lane}/pg1_SYNTHETIC_ONLY_NOT_A_GRANT"
+            );
+            let authorization = PlaybackAuthorization {
+                publication_id: "publication-fixture".into(),
+                rendition_id: "rendition-fixture".into(),
+                sha256: "a".repeat(64),
+                url: url.clone(),
+                expires_at_ms: 1234,
+                content_type: "audio/ogg".into(),
+                byte_range_supported: true,
+            };
+            let debug = format!("{authorization:?}");
+            assert!(!debug.contains("SYNTHETIC_ONLY"));
+            assert!(!debug.contains("https://"));
+            assert!(debug.contains("[redacted]"));
+            let wire = serde_json::to_value(&authorization).unwrap();
+            assert_eq!(wire["url"], url);
+            assert_eq!(
+                serde_json::from_value::<PlaybackAuthorization>(wire).unwrap(),
+                authorization
+            );
+        }
+    }
 }
