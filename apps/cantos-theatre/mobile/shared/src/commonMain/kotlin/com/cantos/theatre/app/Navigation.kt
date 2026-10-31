@@ -14,6 +14,8 @@ sealed interface TheatreRoute {
     data object Player : TheatreRoute
     data object Unavailable : TheatreRoute
     data class Work(val key: WorkKey) : TheatreRoute
+    /** Neutral locator only: no title, credential, cursor or cached private metadata. */
+    data class SharedWork(val id: com.cantos.theatre.domain.catalog.PublicWorkId) : TheatreRoute
 
     /** Optional account intents. A route confers no identity; see [NavigationState]. */
     data object Login : TheatreRoute
@@ -126,7 +128,7 @@ private fun navigate(state: NavigationState, route: TheatreRoute): NavigationSta
     TheatreRoute.Discovery, TheatreRoute.Library -> NavigationState(listOf(route))
     TheatreRoute.Search -> NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Search))
     TheatreRoute.History -> NavigationState(listOf(TheatreRoute.Library, TheatreRoute.History))
-    TheatreRoute.Account, TheatreRoute.MembershipPreview, TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work -> {
+    TheatreRoute.Account, TheatreRoute.MembershipPreview, TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work, is TheatreRoute.SharedWork -> {
         // Leaving auth closes it first, so no destination is ever stacked above a Login intent.
         val base = state.withoutAuth()
         val existingIndex = base.stack.indexOf(route)

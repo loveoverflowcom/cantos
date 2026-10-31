@@ -143,7 +143,14 @@ class TheatreShell(
             }
         } }
         // The open work follows the navigation stack: the nearest Work route at or below the top.
-        scope.launch { navigation.collect { syncDetail(it) } }
+        scope.launch { navigation.collect { nav ->
+            syncDetail(nav)
+            when (val route = nav.route) {
+                TheatreRoute.Library -> runtime.shared?.show()
+                is TheatreRoute.SharedWork -> runtime.shared?.show(route.id)
+                else -> runtime.shared?.leave()
+            }
+        } }
         scope.launch {
             var seenSubmits = 0
             combine(navigation, ui, searchSubmits) { nav, inputs, submits -> DesiredSearch(desiredQuery(nav, inputs.query, inputs.searchKind), submits) }
@@ -626,6 +633,9 @@ class TheatreShell(
         } else navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
     }
 
+    /** Internal shared locator; the authenticated reader supplies all display facts. */
+    fun openShared(id: PublicWorkId) { navigate(NavigationEvent.Navigate(TheatreRoute.SharedWork(id))) }
+
     private fun setTimer(timer: ShellTimer) {
         timerJob?.cancel()
         timerJob = null
@@ -678,4 +688,8 @@ private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
     ShellRoute.Player -> TheatreRoute.Player
     ShellRoute.Unavailable -> TheatreRoute.Unavailable
     is ShellRoute.Work -> TheatreRoute.Work(WorkKey(id.value))
+    is ShellRoute.SharedWork -> when (val parsed = PublicWorkId.parse(id.value)) {
+        is CatalogCheck.Valid -> TheatreRoute.SharedWork(parsed.value)
+        is CatalogCheck.Invalid -> TheatreRoute.Unavailable
+    }
 }

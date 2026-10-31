@@ -843,6 +843,47 @@ playback-quality or production-acceptance evidence.
 
 ## Live public catalog
 
+### Authenticated shared catalog (#655)
+
+Library mounts Shared after Continue through the same native shell. Android's process owner
+and `IosCatalogOwner` compose `SharedCatalogController` with the existing Identity coordinator
+and `NativeAuthorizedHttpPort`. `SharedCatalogHttp` consumes the service-owned
+[shared v1](../../../services/cantos-server/contracts/theatre/shared/v1/README.md) metadata
+shapes on `/api/v1/theatre/shared/works` and Work/Units only. Each read carries the native
+Bearer and expected session family; strict decoding and the response family fence precede
+display. It never implements the anonymous public-catalog/cache port, uses a Studio credential,
+follows a redirect or retries through a public route.
+
+The neutral `SharedWork(PublicWorkId)` route survives an optional Login suffix. It stores no
+title, token, cover or cursor and confers no access; a successful sign-in reads the Work again.
+This is internal native navigation, not a new OS App Link registration. The shared controller
+owns one visible route's RAM, 20-row page requests and a 1,000-row local retention ceiling.
+Crossing that ceiling returns unavailable and clears the walk; it is not a server count or
+eligibility limit. Session incarnation, route and request generations reject late success and
+failure, including A→B→A. Account loss and route departure cancel reads and purge rows/cursors;
+the root also checks current authority synchronously before displaying a projection. A denial,
+invalid cursor or protocol failure purges earlier pages instead of restoring cached metadata.
+
+**Restricted native playback remains unavailable.** A nullable metadata audio association is
+not a qualified native transport. Metadata-only Play explains the absent audio; associated
+audio explains the native transport gap. Neither dispatches a manifest, public selection or
+player action. The actual Android `MediaPlayer` URL edge, Kotlin iOS edge and Swift AVPlayer
+driver refuse session-required/shared-media locations and clear the prior decoder/display
+state. Existing public playback retains its one process media-session owner.
+
+The URL-only players at this boundary do not implement Bearer on every open/seek/refresh with
+redirect refusal. A safe native media data source/resource loader and each platform's runtime
+qualification are still required before enabling private Play; no bearer-URL or runtime flag
+is added. Private cover, Saved, History, Continue, bookmarks and playback restore stay
+unavailable under the current service contract. No shared metadata enters `KnownCatalog`,
+SQLite, the public cache, journal or checkpoint. Pending-share claim remains with the existing
+Web/service flow; there is no native claim control in this slice.
+
+Common/JVM HTTP/controller/Compose results are separate from Android APK compilation,
+iOS framework compilation, device playback, TalkBack/VoiceOver and production activation.
+The source-bound [#655 evidence](../../../docs/evidence/cmp-shared-catalog-655.md) records these
+independent results and remaining prerequisites. Ordinary restricted serving remains default OFF.
+
 Production-safe code in `:shared` reads the anonymous Theatre Discovery v1 catalog
 ([contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
 work list → work detail → chapter/episode list, keyed only by the server's UUIDs.

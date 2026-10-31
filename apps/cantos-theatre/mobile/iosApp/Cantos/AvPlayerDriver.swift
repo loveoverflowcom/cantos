@@ -65,6 +65,14 @@ final class AvPlayerDriver: NSObject, IosMediaDriver {
         ready = false
         positionPending = true
         lastStatus = nil
+        guard location.supportedByUrlOnlyDecoder else {
+            player.replaceCurrentItem(with: nil)
+            report(.unavailable)
+            self.command = nil
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            deactivateAudio()
+            return
+        }
         guard let url = URL(string: location.url), ["https", "http"].contains(url.scheme?.lowercased() ?? "") else {
             fail(.unavailable); return
         }

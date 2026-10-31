@@ -102,6 +102,9 @@ private data class StateWire(
 fun encodeTheatreSnapshot(snapshot: TheatreSnapshot): TheatreSnapshotExport {
     val recipe = snapshot.recipe
     val state = snapshot.state
+    if (state.stack.any { it is ShellRoute.SharedWork }) {
+        return TheatreSnapshotExport.UnsupportedState("Private shared routes are never preview snapshots")
+    }
     val settings = recipe.settings
     val queryId = syntheticQueries.entries.firstOrNull { it.value == state.query }?.key
         ?: return TheatreSnapshotExport.UnsupportedState("Export supports declared synthetic queries only; clear the search first")
@@ -226,6 +229,7 @@ private fun routeId(route: ShellRoute): String = when (route) {
     ShellRoute.Player -> "Player"
     ShellRoute.Unavailable -> "Unavailable"
     is ShellRoute.Work -> "Work.${route.id.value}"
+    is ShellRoute.SharedWork -> error("Shared routes are rejected before snapshot encoding")
 }
 
 private fun decodeRoute(id: String): ShellRoute = when (id) {

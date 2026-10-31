@@ -86,6 +86,31 @@ class NativeAuthorizedHttpPortTest {
     }
 
     @Test
+    fun shared_metadata_uses_the_existing_rotation_owner_and_preserves_its_body_bound() = runTest {
+        val f = Fixture(backgroundScope)
+        try {
+            runCurrent()
+            f.now = 221
+            val request = NativeHttpRequest("GET", "https://api.invalid/api/v1/theatre/shared/works?limit=20",
+                null, f.initialBearer, f.family, 4 * 1024 * 1024)
+            f.http.send(request) {}
+            runCurrent()
+            assertEquals(1, f.refreshes)
+            assertEquals(1, f.requests.size)
+            assertEquals(f.remote.accessToken, f.requests.single().request.bearer)
+            assertEquals(f.family, f.requests.single().request.expectedSession)
+            assertEquals(4 * 1024 * 1024, f.requests.single().request.maxBodyBytes)
+            var refused: NativeHttpResponse? = null
+            f.http.send(f.request(route = "/shared/claim")) { refused = it }
+            runCurrent()
+            assertEquals("protocol", refused?.failure)
+            assertEquals(1, f.requests.size)
+            f.reply()
+            runCurrent()
+        } finally { f.close() }
+    }
+
+    @Test
     fun hostApprovedDebugLoopbackUsesTheProductionAuthorizedBoundary() = runTest {
         for (text in listOf("http://127.0.0.1:8080", "http://localhost:8081")) {
             val selected = selectCatalogOrigin(text, allowLoopbackHttp = true) as CatalogOriginSelection.Configured

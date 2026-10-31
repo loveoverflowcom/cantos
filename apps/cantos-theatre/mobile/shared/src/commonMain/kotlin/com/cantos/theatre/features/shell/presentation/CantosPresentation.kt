@@ -164,6 +164,10 @@ val LocalShellDiagnostics = staticCompositionLocalOf<ShellDiagnosticsSlot?> { nu
 val LocalShellCapabilities = staticCompositionLocalOf { ShellCapabilities() }
 
 /** Optional host content at the head of Library: sign-in prompt, sync status, conflicts, paging. */
+val LocalShellSharedLibraryHasItems = staticCompositionLocalOf { false }
+val LocalShellSharedLibrary = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
+val LocalShellSharedDetail = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
+
 val LocalShellLibraryHeader = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
 
 /** The same controlled presentation is mounted by Android, iOS and the JVM diagnostic host.
@@ -292,6 +296,7 @@ fun CantosPresentation(
                             ShellRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
                             ShellRoute.Search -> Unit // Fullscreen: rendered above, outside the scrolling column.
                             ShellRoute.Library -> LibraryScreen(state, catalog, copy, dispatch)
+                            is ShellRoute.SharedWork -> LocalShellSharedDetail.current?.invoke() ?: SelectionUnavailable(copy, dispatch)
                             is ShellRoute.Work -> {
                                 val work = catalog.work(route.id)
                                 if (work == null) SelectionUnavailable(copy, dispatch) else WorkScreen(work, state, copy, dispatch)
@@ -348,6 +353,7 @@ private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
         ShellRoute.Search -> CopyKey.Search
         ShellRoute.Library -> CopyKey.Library
         is ShellRoute.Work -> CopyKey.Work
+        is ShellRoute.SharedWork -> CopyKey.SharedTitle
         ShellRoute.Player -> CopyKey.Player
         ShellRoute.Queue -> CopyKey.Queue
         ShellRoute.Account -> CopyKey.Account
@@ -364,7 +370,7 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
     ShellRoute.Player -> CopyKey.Player
     ShellRoute.Account -> CopyKey.Account
     ShellRoute.MembershipPreview -> CopyKey.Brand
-    ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, ShellRoute.Queue,
+    ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, is ShellRoute.SharedWork, ShellRoute.Queue,
     ShellRoute.History, ShellRoute.Settings, ShellRoute.Unavailable, ShellRoute.Login, ShellRoute.Register,
     ShellRoute.VerifyEmail -> CopyKey.Brand
 }

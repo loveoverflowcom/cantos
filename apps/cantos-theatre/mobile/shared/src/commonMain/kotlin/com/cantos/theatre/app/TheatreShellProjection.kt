@@ -254,6 +254,7 @@ private fun TheatreRoute.toShellRoute(): ShellRoute = when (this) {
     TheatreRoute.Player -> ShellRoute.Player
     TheatreRoute.Unavailable -> ShellRoute.Unavailable
     is TheatreRoute.Work -> ShellRoute.Work(ShellWorkId(key.value))
+    is TheatreRoute.SharedWork -> ShellRoute.SharedWork(ShellWorkId(id.value))
 }
 
 private fun WalkPhase.toListPhase(): ShellListPhase = when (this) {

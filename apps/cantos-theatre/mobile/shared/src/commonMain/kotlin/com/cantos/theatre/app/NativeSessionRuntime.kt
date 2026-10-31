@@ -1,5 +1,6 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.application.catalog.SharedCatalogController
 import com.cantos.theatre.application.identity.AccountChange
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.NativeVerifiedSession
@@ -28,6 +29,7 @@ class NativeSessionRuntime(
     newUuid: () -> String,
     nowMs: () -> Long,
     private val onAccountChanged: (String?) -> Unit = {},
+    val shared: SharedCatalogController? = null,
 ) {
     val listening: NativeListeningController
     private var started = false
@@ -70,6 +72,7 @@ class NativeSessionRuntime(
         accountJob = account?.let { identity -> scope.launch {
             var previous: NativeVerifiedSession? = null
             identity.verifiedSession.collect { verified ->
+                shared?.sessionChanged()
                 val sameFamily = verified != null && previous?.let {
                     it.intent == verified.intent && it.session.actor == verified.session.actor &&
                         it.session.session == verified.session.session
@@ -145,6 +148,7 @@ class NativeSessionRuntime(
         accountJob?.cancel()
         listening.close()
         library?.close()
+        shared?.close()
         account?.close()
     }
 }

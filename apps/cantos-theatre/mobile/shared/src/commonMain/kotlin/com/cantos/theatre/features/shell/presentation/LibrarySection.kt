@@ -56,7 +56,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     LocalShellLibraryHeader.current?.invoke()
     val capabilities = LocalShellCapabilities.current
     val empty = emptyLibrarySections(state, catalog.library, capabilities)
-    val allEmpty = isLibraryCompletelyEmpty(state, catalog.library, capabilities)
+    val allEmpty = isLibraryCompletelyEmpty(state, catalog.library, capabilities) && !LocalShellSharedLibraryHasItems.current
     val discoverSection = if (allEmpty) null else listOf(ShellLibrarySection.Continue, ShellLibrarySection.Saved,
         ShellLibrarySection.Bookmarks, ShellLibrarySection.History).firstOrNull { it in empty }
     if (allEmpty) LibraryEmpty(LibraryEmptyKind.Library, copy, dispatch, state.theme, Modifier.testTag("library-empty-hero"), discover = true)
@@ -72,6 +72,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         points.forEach { point -> key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "resume-${point.episodeId}") } }
         LibraryFooter(phase, ShellLibrarySection.Continue, "library-continue", copy, dispatch)
     }
+    LocalShellSharedLibrary.current?.invoke()
     Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         if (!allEmpty) SectionHeading(CopyKey.SavedTab, copy)
         // The API's order (newest save first), not the browsing catalog's.

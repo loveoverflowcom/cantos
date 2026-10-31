@@ -67,7 +67,7 @@ class NativeAuthorizedHttpPort(
             }
             val response = suspendCancellableCoroutine { continuation ->
                 val handle = transport.send(NativeHttpRequest(request.method, request.url, request.body,
-                    lease.bearer, family)) { reply ->
+                    lease.bearer, family, request.maxBodyBytes)) { reply ->
                     if (continuation.isActive) continuation.resume(reply)
                 }
                 continuation.invokeOnCancellation { handle.cancel() }
@@ -93,7 +93,7 @@ class NativeAuthorizedHttpPort(
         val id = "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
         return when (request.method) {
             // Pages are only ever read with the closed `presentation=1` opt-in (Library v1.1); the default shape has no consumer.
-            "GET" -> route.matches(Regex("/library/(continue|saved|history)\\?limit=(20|100)&presentation=1(&cursor=[0-9a-f]{64})?")) ||
+            "GET" -> sharedCatalogReadPath(route) || route.matches(Regex("/library/(continue|saved|history)\\?limit=(20|100)&presentation=1(&cursor=[0-9a-f]{64})?")) ||
                 // Bookmark pages always carry metadata: the server refuses the opt-in query, so it has its own shape.
                 route.matches(Regex("/library/bookmarks\\?limit=20(&cursor=[0-9a-f]{64})?")) ||
                 route.matches(Regex("/library/saved/$id")) ||

@@ -237,4 +237,6 @@ private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
     ShellRoute.Player -> TheatreRoute.Player
     ShellRoute.Unavailable -> TheatreRoute.Unavailable
     is ShellRoute.Work -> TheatreRoute.Work(WorkKey(id.value))
+    // The diagnostic corpus supplies no authenticated shared metadata or transport.
+    is ShellRoute.SharedWork -> TheatreRoute.Unavailable
 }
