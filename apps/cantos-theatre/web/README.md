@@ -804,9 +804,10 @@ Saved draft edits cannot change a published pin, and a republish invalidates an 
 
 Shared Library and `#shared/{canonical-work-id}` use [authenticated shared v1](../../../services/cantos-server/contracts/theatre/shared/v1/README.md),
 with an internal ID-only login return, current Theatre cookies and session-scoped transient
-metadata/cursors. Restricted Web listen controls and their handler are held unavailable after a
-browser source-teardown failure; retained adapter source targets credentialed shared media on
-the configured API origin and requires follow-up qualification.
+metadata/cursors. Restricted Web listen controls and their handler remain unavailable. The
+browser source-teardown panic is repaired ([evidence](../../../docs/evidence/private-web-teardown-676.md));
+retained adapter source targets credentialed shared media on the configured API origin and still
+requires HTTPS cookie/GET/Range/seek/revoke qualification before it is enabled.
 Private Library journal/restore and cover remain unavailable; source/core/DOM qualification is
 separate from actual browser cookies/GET/Range playback and production activation. The ordinary
 Server executable keeps restricted serving disabled after startup/restore.
