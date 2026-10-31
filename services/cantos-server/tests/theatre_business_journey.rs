@@ -120,7 +120,10 @@ fn conforms(schema: &str, definition: &str, value: &Value) {
         &json!({"$schema":root["$schema"],"$defs":root["$defs"],"$ref":format!("#/$defs/{definition}")}),
     )
     .unwrap();
-    assert!(validator.is_valid(value), "{definition}: {value}");
+    assert!(
+        validator.is_valid(value),
+        "contract mismatch: {definition}; response omitted to redact credentials"
+    );
 }
 
 const DISCOVERY: &str = include_str!(
@@ -1265,3 +1268,6 @@ async fn cmp_live_desktop_preview_against_real_identity_and_http() {
         (0, 0)
     );
 }
+
+#[path = "support/restricted_journey.rs"]
+mod restricted;

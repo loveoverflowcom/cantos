@@ -73,6 +73,7 @@ pub(super) fn routes(
             .merge(identity_auth::theatre_routes())
             .merge(theatre_library::routes())
             .merge(super::viewer_access::theatre_routes())
+            .merge(super::theatre_shared::routes())
             .layer(middleware::from_fn_with_state(
                 theatre_state.clone(),
                 identity_auth::bff_identity,

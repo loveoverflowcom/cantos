@@ -2,12 +2,15 @@
   "schemaVersion": 1,
   "capabilityId": "cantos.media.public-playback-delivery",
   "sourceRefs": [
-    "services/cantos-server/contracts/theatre/discovery/v1/README.md#origin-mode-media-proposed-adr-0032",
+    "services/cantos-server/contracts/theatre/discovery/v1/README.md#exact-audio-and-byte-delivery",
     "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
     "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
     "services/cantos-server/src/contexts/media/listener_media.rs",
     "services/cantos-server/src/contexts/media/listener_application.rs",
-    "services/cantos-server/src/contexts/media/domain/listening.rs"
+    "services/cantos-server/src/contexts/media/domain/listening.rs",
+    "docs/decisions/0054-publication-generation-and-access.md",
+    "services/cantos-server/contracts/theatre/shared/v1/README.md",
+    "services/cantos-server/src/contexts/media/listener_shared.rs"
   ],
   "model": "services/cantos-server/behavior/media/public_playback_delivery.qnt",
   "module": "public_playback_delivery",
@@ -169,5 +172,17 @@
       "to": "Served(state.representative) else denial(recheck)"
     }
   ],
-  "aliases": []
+  "aliases": [],
+  "ownedSources": [
+    "services/cantos-server/src/contexts/media/domain/playback_grant.rs",
+    "services/cantos-server/src/contexts/media/listener_delivery.rs",
+    "services/cantos-server/src/contexts/media/listener_media.rs",
+    "services/cantos-server/src/contexts/media/listener_shared.rs",
+    "services/cantos-server/src/contexts/media/listener_cursor.rs",
+    "services/cantos-server/src/adapters/inbound/http/theatre_shared.rs"
+  ],
+  "implementationTests": [
+    "services/cantos-server/tests/support/restricted_journey.rs",
+    "services/cantos-server/src/contexts/media/domain/playback_grant_tests.rs"
+  ]
 }

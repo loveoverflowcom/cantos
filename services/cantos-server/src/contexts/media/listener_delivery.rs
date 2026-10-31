@@ -9,7 +9,7 @@ use super::{
 };
 use crate::contract::routes::THEATRE_BASE;
 use std::{fmt, future::Future, pin::Pin, sync::Arc};
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PlaybackPermit {
     pub(super) publication_id: String,
     pub(super) rendition_id: String,
@@ -18,6 +18,17 @@ pub struct PlaybackPermit {
     pub(super) object_id: String,
     pub(super) byte_length: u64,
     pub(super) valid_until: i64,
+    pub(super) access_scope: Option<String>,
+}
+impl fmt::Debug for PlaybackPermit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PlaybackPermit")
+            .field("publication_id", &self.publication_id)
+            .field("valid_until", &self.valid_until)
+            .field("object_id", &"[redacted]")
+            .field("access_scope", &"[redacted]")
+            .finish()
+    }
 }
 impl PlaybackPermit {
     pub fn publication_id(&self) -> &str {
@@ -49,10 +60,11 @@ impl PlaybackPermit {
             sha256: &self.sha256,
             object_id: &self.object_id,
             byte_length: self.byte_length,
+            access_scope: self.access_scope.as_deref(),
         }
     }
 }
-/// Only trusted delivery adapters create grants after verifying the intended public object's
+/// Only trusted delivery adapters create grants after verifying the intended publication object's
 /// identity/bytes and range endpoint. URL Debug is deliberately redacted.
 pub struct MediaGrant {
     pub(super) permit: PlaybackPermit,
@@ -70,7 +82,7 @@ impl std::fmt::Debug for MediaGrant {
 }
 impl MediaGrant {
     /// Bind the result to the exact sealed publication permit, including its manifest version.
-    /// This validates adapter output, not the storage bytes or current public eligibility.
+    /// This validates adapter output, not the storage bytes or current serving eligibility.
     pub fn verified_for(
         permit: &PlaybackPermit,
         url: String,
@@ -138,8 +150,9 @@ impl PublicMediaOrigin {
         }
         Ok(Self(origin))
     }
-    fn media_url(&self, token: &str) -> String {
-        format!("{}{THEATRE_BASE}/media/{token}", self.0)
+    fn media_url(&self, token: &str, restricted: bool) -> String {
+        let lane = if restricted { "shared/media" } else { "media" };
+        format!("{}{THEATRE_BASE}/{lane}/{token}", self.0)
     }
     /// The accepted Discovery v1.2 cover URL; clients use it exactly as given (ADR 0033).
     pub(super) fn cover_url(&self, work_id: &str, sha256: &str) -> String {
@@ -235,7 +248,12 @@ impl PlaybackDelivery for OriginPlayback {
         let grant = seal(&self.key, &permit.subject(), expires)
             .map_err(|_| ListenerError::RenditionUnavailable)
             .and_then(|token| {
-                MediaGrant::verified_for(&permit, self.origin.media_url(&token), expires, true)
+                MediaGrant::verified_for(
+                    &permit,
+                    self.origin.media_url(&token, permit.access_scope.is_some()),
+                    expires,
+                    true,
+                )
             });
         Box::pin(async move { grant })
     }
@@ -254,6 +272,7 @@ mod tests {
             object_id: "publication-fixture".into(),
             byte_length: 100,
             valid_until: 10000,
+            access_scope: None,
         }
     }
 

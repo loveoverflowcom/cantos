@@ -15,8 +15,8 @@ use tokio::sync::OwnedSemaphorePermit;
 /// A grant admitted for one fetch at one instant. It is not reusable authority: opening bytes
 /// re-admits the same token and requires the identical permit.
 pub struct AuthorizedMedia {
-    token: String,
-    permit: PlaybackPermit,
+    pub(super) token: String,
+    pub(super) permit: PlaybackPermit,
 }
 impl AuthorizedMedia {
     pub fn sha256(&self) -> &str {
@@ -74,6 +74,9 @@ impl ListenerService {
         authorized: &AuthorizedMedia,
         range: Option<NormalizedByteRange>,
     ) -> Result<StorageRead, ListenerError> {
+        if authorized.permit.access_scope.is_some() {
+            return Err(ListenerError::NotFound);
+        }
         let origin = self.media.as_ref().ok_or(ListenerError::NotFound)?;
         let read = origin
             .objects()
@@ -90,7 +93,7 @@ impl ListenerService {
 
 /// An eligible release whose promoted object cannot be read is a retryable delivery failure;
 /// bytes that contradict the sealed identity are corruption, never a substitute rendition.
-fn storage_error(error: StorageError) -> ListenerError {
+pub(super) fn storage_error(error: StorageError) -> ListenerError {
     match error {
         StorageError::NotFound | StorageError::UnsupportedCapability(_) => {
             ListenerError::RenditionUnavailable

@@ -14,3 +14,12 @@ control. Model results are sampled expectations, not implementation conformance 
 The existing native mailbox proof capability remains unchanged: S06 reads proof-created email
 rows and introduces no new proof-consumption transition. The new RPC fact validator has ordinary
 binding/freshness tests; no formal whole-auth or I/O claim is made.
+
+
+S07 shared discovery supplies current actor/group facts to this same Work AND Unit evaluator
+before projection and byte admission. Persisted Units currently have INHERIT semantics; S10
+must extend the common serving seam before enabling overrides. The principal-first candidate
+indexes are not authority. Opaque cursors and permits also carry the process/session and current
+publication/policy/group version fence; native integration tests exercise these boundaries.
+No new domain transition, claim rule or lifecycle is selected, so this model remains unchanged.
+No model or synthetic-shell result establishes production HTTP or database conformance.

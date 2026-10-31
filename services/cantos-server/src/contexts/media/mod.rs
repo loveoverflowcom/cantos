@@ -63,6 +63,7 @@ mod listener_media;
 mod listener_metadata;
 mod listener_metadata_cover;
 mod listener_projection;
+mod listener_shared;
 #[cfg(test)]
 pub(crate) use listener_application::PlaybackFixtureEligibility;
 pub use listener_application::{ListenerError, ListenerService, PresentationLevel};

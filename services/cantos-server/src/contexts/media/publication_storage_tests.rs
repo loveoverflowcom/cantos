@@ -36,6 +36,7 @@ fn object(bytes: &[u8]) -> PublicationObjectRef {
         object_id: format!("publication-{RENDITION}-{}", hash(bytes)),
         byte_length: bytes.len() as u64,
         valid_until: 10_000,
+        access_scope: None,
     })
 }
 async fn body(mut read: StorageRead) -> Vec<u8> {
@@ -108,6 +109,7 @@ async fn exact_bytes_ranges_and_integrity_survive_restart_without_private_author
         object_id: wrong.object_id().into(),
         byte_length: 255,
         valid_until: 1000,
+        access_scope: None,
     };
     wrong = PublicationObjectRef::for_permit(&permit);
     assert!(matches!(

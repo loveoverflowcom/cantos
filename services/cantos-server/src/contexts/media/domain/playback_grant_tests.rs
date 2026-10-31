@@ -17,6 +17,7 @@ fn subject() -> GrantSubject<'static> {
         sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         object_id: "publication-object-never-public",
         byte_length: 100,
+        access_scope: None,
     }
 }
 
@@ -327,4 +328,34 @@ proptest! {
             Err(error) => prop_assert_eq!(error, GrantError::Malformed),
         }
     }
+}
+
+#[test]
+fn restricted_grants_cannot_cross_session_policy_purpose_or_public_lane() {
+    let public = subject();
+    let private = GrantSubject {
+        access_scope: Some("actor-a/session-a/media/policy-1"),
+        ..public
+    };
+    let token = seal(&key(7), &private, 9000).unwrap();
+    let claims = GrantClaims::parse(&token).unwrap();
+    assert!(claims.authenticates(&key(7), &private));
+    assert!(!claims.authenticates(&key(7), &public));
+    for scope in [
+        "actor-b/session-b/media/policy-1",
+        "actor-a/session-b/media/policy-1",
+        "actor-a/session-a/artwork/policy-1",
+        "actor-a/session-a/media/policy-2",
+    ] {
+        assert!(!claims.authenticates(
+            &key(7),
+            &GrantSubject {
+                access_scope: Some(scope),
+                ..public
+            }
+        ));
+    }
+    assert!(!GrantClaims::parse(&seal(&key(7), &public, 9000).unwrap())
+        .unwrap()
+        .authenticates(&key(7), &private));
 }

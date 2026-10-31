@@ -261,3 +261,11 @@ credential syntax, DTOs and gates are unit/example-tested; the journeys are
 `integration-tested` against the real Identity executable, real Turso file, real Argon2id, a
 run-owned SMTP sink and a disposable PostgreSQL database; the fact-boundary suite uses a scripted
 Identity and is `mock-integration-tested` only.
+
+
+Authenticated [shared discovery/media](../../../theatre/shared/v1/README.md) accepts this same
+Theatre cookie/native Bearer family. The session is re-admitted in the serving snapshot and
+again, with fresh Identity security state, after object-open I/O. Shared playback POSTs have
+no anonymous-public exemption: cookies still require the exact Theatre Origin. Media URLs
+carry a session/policy-bound grant and still require the matching credential. Current player
+transport qualification is separate from router-level cookie/CORS evidence.

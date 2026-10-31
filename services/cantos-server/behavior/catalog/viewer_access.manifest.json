@@ -103,9 +103,13 @@
   "ownedSources": [
     "services/cantos-server/src/contexts/catalog/domain/viewer_access.rs",
     "services/cantos-server/src/contexts/catalog/application/viewer_access.rs",
-    "services/cantos-server/src/contexts/catalog/turso/viewer_access.rs"
+    "services/cantos-server/src/contexts/catalog/turso/viewer_access.rs",
+    "services/cantos-server/src/contexts/catalog/application/shared_metadata.rs",
+    "services/cantos-server/src/contexts/catalog/turso/viewer_reads.rs",
+    "services/cantos-server/src/contexts/catalog/turso/listener.rs"
   ],
   "implementationTests": [
-    "services/cantos-server/src/test_support/viewer_access_tests.rs"
+    "services/cantos-server/src/test_support/viewer_access_tests.rs",
+    "services/cantos-server/tests/support/restricted_journey.rs"
   ]
 }
