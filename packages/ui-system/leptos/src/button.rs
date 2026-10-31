@@ -172,9 +172,69 @@ pub fn Button(
     #[prop(optional)]
     focus_on_press: bool,
 ) -> impl IntoView {
-    let icon = icon_signal.or_else(|| icon.map(Signal::stored));
+    // Queued renders can outlive the caller's owner cleanup (a row removed while a session
+    // ends). The view owns these projections until its readers are dropped; a caller's
+    // arena-local derived signal would already be disposed.
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
+    let icon: Option<ArcSignal<IconName>> = icon_signal
+        .or_else(|| icon.map(Signal::stored))
+        .map(ArcSignal::from);
+    let state: ArcSignal<ButtonState> = state.into();
+    let class: ArcSignal<String> = class.into();
+    let described_by: ArcSignal<String> = described_by.into();
+    let aria_expanded: Option<ArcSignal<bool>> = aria_expanded.map(ArcSignal::from);
+    let data_state = {
+        let state = state.clone();
+        move || state.get().as_str()
+    };
+    let disabled = {
+        let state = state.clone();
+        move || {
+            let state = state.get();
+            matches!(state, ButtonState::Disabled(_))
+                || (variant != ButtonVariant::ListenHero && state.is_busy())
+        }
+    };
+    let aria_disabled = {
+        let state = state.clone();
+        move || (!state.get().can_press()).then_some("true")
+    };
+    let aria_busy = {
+        let state = state.clone();
+        move || state.get().is_busy().then_some("true")
+    };
+    let aria_describedby = {
+        let state = state.clone();
+        move || {
+            description_ids(
+                &described_by.get(),
+                state
+                    .get()
+                    .reason()
+                    .map(|_| reason_id_for_description.as_str()),
+            )
+        }
+    };
+    let pressable = state.clone();
+    let glyph = {
+        let state = state.clone();
+        move || {
+            if state.get().is_busy() {
+                Some(view! { <span class="cui-button-icon" aria-hidden="true"><LoadingIndicator/></span> }.into_any())
+            } else {
+                icon.clone().map(|name| view! { <span class="cui-button-icon" aria-hidden="true">{move || view! { <Icon name=name.get()/> }}</span> }.into_any())
+            }
+        }
+    };
+    let reason_hidden = {
+        let state = state.clone();
+        move || state.get().can_press()
+    };
+    let reason_role = {
+        let state = state.clone();
+        move || state.get().is_busy().then_some("status")
+    };
     let button_ref = NodeRef::<leptos::html::Button>::new();
     #[cfg(target_arch = "wasm32")]
     if matches!(
@@ -186,18 +246,16 @@ pub fn Button(
     view! {
         <div class="cui-button-field">
             <button id=id node_ref=button_ref type="button" class=move || component_class("cui-button", &class.get())
-                data-variant=variant.as_str() data-state=move || state.get().as_str()
-                disabled=move || matches!(state.get(), ButtonState::Disabled(_)) || (variant != ButtonVariant::ListenHero && state.get().is_busy())
-                aria-disabled=move || (!state.get().can_press()).then_some("true")
-                aria-busy=move || state.get().is_busy().then_some("true")
+                data-variant=variant.as_str() data-state=data_state
+                disabled=disabled
+                aria-disabled=aria_disabled
+                aria-busy=aria_busy
                 aria-controls=aria_controls
-                aria-expanded=move || aria_expanded.map(|expanded| expanded.get().to_string())
-                aria-describedby=move || {
-                    description_ids(&described_by.get(), state.get().reason().map(|_| reason_id_for_description.as_str()))
-                }
+                aria-expanded=move || aria_expanded.as_ref().map(|expanded| expanded.get().to_string())
+                aria-describedby=aria_describedby
                 on:click=move |event| {
                     // Guard synthetic events as well as the native disabled interaction.
-                    if state.get_untracked().can_press() {
+                    if pressable.get_untracked().can_press() {
                         #[cfg(target_arch = "wasm32")]
                         if focus_on_press {
                             use leptos::wasm_bindgen::JsCast;
@@ -210,15 +268,10 @@ pub fn Button(
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>
-                {move || if state.get().is_busy() {
-                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><LoadingIndicator/></span> }.into_any())
-                } else {
-                    icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true">{move || view! { <Icon name=name.get()/> }}</span> }.into_any())
-                }}
+                {glyph}
                 <span class="cui-control-label">{children()}</span>
             </button>
-            <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()
-                role=move || state.get().is_busy().then_some("status")>
+            <span id=reason_id class="cui-button-reason" hidden=reason_hidden role=reason_role>
                 {move || state.get().reason().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
             </span>
         </div>

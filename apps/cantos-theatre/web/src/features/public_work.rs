@@ -363,10 +363,12 @@ pub(crate) fn PublicWorkDetail(
     #[prop(optional)] sync_controls: Option<WorkSyncControls>,
     #[prop(optional)] shared: bool,
 ) -> impl IntoView {
-    let current = Memo::new(move |_| state.with(shape));
+    // Like each row, the detail owns the projection its queued renders read after cleanup.
+    let current = ArcMemo::new(move |_| state.with(shape));
+    let busy = current.clone();
     view! {
         <section class="theatre-public-work-detail" aria-labelledby=HEADING_ID
-            aria-busy=move || (current.get() == Shape::Loading).then_some("true")>
+            aria-busy=move || (busy.get() == Shape::Loading).then_some("true")>
             {move || AccessibleName::new(if shared {text(Key::SharedBack,locale.get())} else {auth_copy::text(CopyKey::ReturnHome, locale.get())}).ok().map(|name| view! {
                 <BackButton id="theatre-public-work-back" name on_back=Callback::new(move |_| on_back.run(()))/>
             })}
@@ -421,34 +423,37 @@ fn WorkSaveControl(
     controls: WorkSyncControls,
 ) -> impl IntoView {
     let work_id = work.work_id.clone();
-    let work_id_for_state = StoredValue::new(work.work_id.clone());
+    let work_id_for_state = work.work_id.clone();
     let work_id_for_retry = work.work_id.clone();
     let title = work.title.clone();
     let title_for_guest = work.title.clone();
     let kind = work.kind;
     let language = work.language.clone();
+    // The account changes on session loss while this control's Work view is torn down; the
+    // control owns what its queued renders read, never an arena value of its owner.
     let saved_state = move || {
         controls.account.with(|a| {
-            work_id_for_state.with_value(|wid| {
-                a.sync()
-                    .and_then(|s| s.saved_work(wid))
-                    .cloned()
-                    .unwrap_or_default()
-            })
+            a.sync()
+                .and_then(|s| s.saved_work(&work_id_for_state))
+                .cloned()
+                .unwrap_or_default()
         })
     };
-    let button_state = Signal::derive(move || match saved_state().command {
-        SavedCommandPhase::Pending { desired, .. } => {
-            let reason_key = if desired {
-                Key::LiveSaveSaving
-            } else {
-                Key::LiveSaveRemoving
-            };
-            DisabledReason::new(text(reason_key, locale.get()))
-                .map(ButtonState::Loading)
-                .unwrap_or_default()
+    let button_state = ArcSignal::derive({
+        let saved_state = saved_state.clone();
+        move || match saved_state().command {
+            SavedCommandPhase::Pending { desired, .. } => {
+                let reason_key = if desired {
+                    Key::LiveSaveSaving
+                } else {
+                    Key::LiveSaveRemoving
+                };
+                DisabledReason::new(text(reason_key, locale.get()))
+                    .map(ButtonState::Loading)
+                    .unwrap_or_default()
+            }
+            _ => ButtonState::Enabled,
         }
-        _ => ButtonState::Enabled,
     });
     view! {
         {move || {
@@ -481,7 +486,7 @@ fn WorkSaveControl(
                 view! {
                     <div class="theatre-work-save-controls" data-saved=is_saved.to_string()>
                         <Button id="theatre-public-work-save" class=if is_saved && !is_pending { "theatre-save-pill theatre-save-pill-confirmed" } else { "theatre-save-pill" }
-                            icon=if is_saved { IconName::Bookmark } else { IconName::BookmarkBorder } variant=ButtonVariant::Tonal state=button_state
+                            icon=if is_saved { IconName::Bookmark } else { IconName::BookmarkBorder } variant=ButtonVariant::Tonal state=button_state.clone()
                             on_press=Callback::new(move |_| {
                                 let presentation = first_publication_id.get_untracked().map(|publication_id| {
                                     WorkPresentation {
@@ -536,13 +541,14 @@ fn ReadyWork(
 ) -> impl IntoView {
     let kind = work.kind;
     let lang = work.language.clone();
-    let row_lang = StoredValue::new(work.language.clone());
-    let work_summary = StoredValue::new(work.clone());
+    let row_lang = work.language.clone();
+    let work_summary = work.clone();
     let (list_heading, more_label) = match kind {
         WorkKind::Podcast => (Key::PublicWorkEpisodes, Key::PublicWorkMoreEpisodes),
         WorkKind::Novel | WorkKind::Story => (Key::PublicWorkChapters, Key::PublicWorkMoreChapters),
     };
-    let membership = Memo::new(move |_| state.with(unit_membership));
+    // Session and access teardown can notify these readers after the route owner is cleaned.
+    let membership = ArcMemo::new(move |_| state.with(unit_membership));
     let status = move || state.with(|s| with_units(s, |units| units.status().clone()));
     let first_page_failure = move || {
         state
@@ -589,7 +595,7 @@ fn ReadyWork(
     };
     let first_pub =
         Signal::derive(move || first().and_then(|row| row.playback.map(|p| p.publication_id)));
-    let hero = Memo::new(move |_| first().map(|row| listen.hero_of(&row)));
+    let hero = ArcMemo::new(move |_| first().map(|row| listen.hero_of(&row)));
     let listen_absence = move || {
         ListenAbsence::of(
             status().as_ref(),
@@ -598,42 +604,53 @@ fn ReadyWork(
                 .unwrap_or(false),
         )
     };
-    let listen_state = Signal::derive(move || {
-        let reason = match hero.get() {
-            Some(HeroListen::Resolving) => Some((true, text(Key::ListenPreparing, locale.get()))),
-            Some(HeroListen::Unavailable(failure)) => {
-                Some((false, text(resolve_failure_key(failure), locale.get())))
-            }
-            None => {
-                let absence = listen_absence();
-                Some((absence.is_busy(), text(absence.reason(), locale.get())))
-            }
-            _ => None,
-        };
-        reason
-            .map(|(busy, reason)| {
-                let reason = DisabledReason::new(reason).expect("localized listen explanation");
-                if busy {
-                    ButtonState::Loading(reason)
+    let listen_state = ArcSignal::derive({
+        let hero = hero.clone();
+        move || {
+            let reason = match hero.get() {
+                Some(HeroListen::Resolving) => {
+                    Some((true, text(Key::ListenPreparing, locale.get())))
+                }
+                Some(HeroListen::Unavailable(failure)) => {
+                    Some((false, text(resolve_failure_key(failure), locale.get())))
+                }
+                None => {
+                    let absence = listen_absence();
+                    Some((absence.is_busy(), text(absence.reason(), locale.get())))
+                }
+                _ => None,
+            };
+            reason
+                .map(|(busy, reason)| {
+                    let reason = DisabledReason::new(reason).expect("localized listen explanation");
+                    if busy {
+                        ButtonState::Loading(reason)
+                    } else {
+                        ButtonState::Disabled(reason)
+                    }
+                })
+                .unwrap_or_default()
+        }
+    });
+    let listen_icon = ArcSignal::derive({
+        let hero = hero.clone();
+        move || {
+            hero.get()
+                .map(HeroListen::icon)
+                .unwrap_or(IconName::PlayArrow)
+        }
+    });
+    let listen_label = {
+        let hero = hero.clone();
+        move || {
+            hero.get().map(HeroListen::label).unwrap_or_else(|| {
+                if matches!(status(), Some(PageStatus::Loading)) {
+                    Key::WorkListenLoading
                 } else {
-                    ButtonState::Disabled(reason)
+                    Key::WorkListen
                 }
             })
-            .unwrap_or_default()
-    });
-    let listen_icon = Signal::derive(move || {
-        hero.get()
-            .map(HeroListen::icon)
-            .unwrap_or(IconName::PlayArrow)
-    });
-    let listen_label = move || {
-        hero.get().map(HeroListen::label).unwrap_or_else(|| {
-            if matches!(status(), Some(PageStatus::Loading)) {
-                Key::WorkListenLoading
-            } else {
-                Key::WorkListen
-            }
-        })
+        }
     };
     let hero_feedback = move || match hero.get() {
         Some(HeroListen::Pause(status)) => Some(messages::listening_status_key(status)),
@@ -657,12 +674,14 @@ fn ReadyWork(
                 </p>
                 <div class="theatre-actions">
                     <Show when=move ||!shared fallback=move ||view!{<p role="status">{move ||text(Key::SharedPlaybackPending,locale.get())}</p>}>
-                    <Button id="theatre-public-work-listen" variant=ButtonVariant::ListenHero icon_signal=listen_icon state=listen_state
+                    {let listen_label = listen_label.clone(); view! {
+                    <Button id="theatre-public-work-listen" variant=ButtonVariant::ListenHero icon_signal=listen_icon.clone() state=listen_state.clone()
                         described_by="theatre-work-listen-feedback"
                         on_press=Callback::new(move |_| { if let Some(row) = first() { listen.press_hero(&row); } })>
                         {move || text(listen_label(), locale.get())}
                         {move || first().map(|row| view! { <span class="cui-sr-only">" "{row.title}</span> })}
                     </Button>
+                    }}
                     </Show>
                     {sync_controls.map(|controls| view! {
                         <WorkSaveControl work=work.clone() first_publication_id=first_pub locale controls/>
@@ -678,7 +697,7 @@ fn ReadyWork(
             <h2 id="theatre-public-units-heading" class="theatre-section-heading">{move || text(list_heading, locale.get())}</h2>
             <ol class="theatre-episode-list theatre-public-unit-list">
                 <For each=move || membership.get() key=|id| id.clone()
-                    children=move |unit_id| view! { <UnitRow state=state.read_only() unit_id work=work_summary.get_value() lang=row_lang.get_value() locale listen sync_controls shared/> }/>
+                    children=move |unit_id| view! { <UnitRow state=state.read_only() unit_id work=work_summary.clone() lang=row_lang.clone() locale listen sync_controls shared/> }/>
             </ol>
             {move || first_page_failure().map(|failure| {
                 let help = match failure {
@@ -755,206 +774,341 @@ fn UnitRow(
     sync_controls: Option<WorkSyncControls>,
     shared: bool,
 ) -> impl IntoView {
-    let id = StoredValue::new(unit_id.clone());
-    let row = Memo::new(move |_| state.with(|s| unit_row_ui(s, &unit_id)));
+    // A session or access change can remove this row while a queued render still holds it, as
+    // with EdgeProgress. The row owns its projections until those readers are dropped; arena
+    // values of the row owner would already be disposed.
+    let id = unit_id.clone();
+    let row = ArcMemo::new(move |_| state.with(|s| unit_row_ui(s, &unit_id)));
     let heading = NodeRef::<leptos::html::H3>::new();
     let actions = NodeRef::<leptos::html::Div>::new();
-    let offered =
-        Memo::new(move |_| !shared && row.with(|r| r.as_ref().is_some_and(|r| !r.unavailable)));
-    let row_state = move || {
-        row.with(|r| {
-            r.as_ref()
-                .map(|r| listen.state_of(&r.row))
-                .unwrap_or(RowListen::Ready)
-        })
+    let offered = {
+        let row = row.clone();
+        ArcMemo::new(move |_| !shared && row.with(|r| r.as_ref().is_some_and(|r| !r.unavailable)))
     };
-    let button_state = Signal::derive(move || {
-        if row.with(|r| r.as_ref().is_some_and(|r| r.row.playback.is_none())) {
-            DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
-                .map(ButtonState::Disabled)
-                .unwrap_or_default()
-        } else {
-            match row_state() {
-                RowListen::Preparing => row
-                    .with(|r| {
-                        r.as_ref().and_then(|r| {
-                            DisabledReason::new(messages::message(
-                        locale.get(),
-                        crate::localization::generated::Message::TheatreShellListenUnitPreparing {
-                            arg_title: &(r.row.title.clone()),
-                        },
-                    ))
-                    .ok()
-                        })
-                    })
-                    .map(ButtonState::Loading)
-                    .unwrap_or_default(),
-                _ => ButtonState::Enabled,
-            }
+    let row_state = {
+        let row = row.clone();
+        move || {
+            row.with(|r| {
+                r.as_ref()
+                    .map(|r| listen.state_of(&r.row))
+                    .unwrap_or(RowListen::Ready)
+            })
         }
-    });
-    let verb = move || match row_state() {
-        RowListen::Playing => Key::ListenPause,
-        RowListen::Failed(_) => Key::PublicRetry,
-        RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
     };
-    let verb_icon = Signal::derive(move || row_state().icon());
-    let unit_progress = move || {
-        let controls = sync_controls?;
-        row.with(|r| {
-            let r = r.as_ref()?;
-            let publication_id = &r.row.playback.as_ref()?.publication_id;
-            controls.account.with(|a| {
-                a.sync()
-                    .and_then(|s| s.progress_for(publication_id))
-                    .and_then(|p| p.record.clone())
-            })
-        })
-    };
-    let unit_progress_text = move || {
-        let rec = unit_progress()?;
-        let pos_sec = u32::try_from(rec.position_ms / 1000).unwrap_or(u32::MAX);
-        let total_sec = u32::try_from(rec.audio.duration_ms / 1000).unwrap_or(u32::MAX);
-        let line = messages::message(
-            locale.get(),
-            crate::localization::generated::Message::TheatreShellLivePosition {
-                arg_position: &(clock(locale.get(), pos_sec)),
-                arg_total: &(clock(locale.get(), total_sec)),
-            },
-        );
-        Some(if rec.completion == Completion::Completed {
-            format!("{line} · {}", text(Key::LiveResumeCompleted, locale.get()))
-        } else {
-            line
-        })
-    };
-    let unit_resume_feedback = move || {
-        let controls = sync_controls?;
-        row.with(|r| {
-            let r = r.as_ref()?;
-            controls.account.with(|a| match a.sync()?.resume_attempt() {
-                ResumeAttemptState::Restored {
-                    publication_id,
-                    position_ms,
-                } if r
-                    .row
-                    .playback
-                    .as_ref()
-                    .is_some_and(|p| publication_id == &p.publication_id) =>
-                {
-                    Some(messages::message(
-                        locale.get(),
-                        crate::localization::generated::Message::TheatreShellLiveResumeRestored {
-                            arg_time: &(clock(locale.get(), position_ms / 1000)),
-                        },
-                    ))
-                }
-                ResumeAttemptState::Refused {
-                    publication_id,
-                    reason,
-                } if r
-                    .row
-                    .playback
-                    .as_ref()
-                    .is_some_and(|p| publication_id == &p.publication_id) =>
-                {
-                    Some(
-                        text(
-                            match reason {
-                                ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
-                                ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
-                                ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
-                                    Key::LiveResumeLoadFailed
-                                }
-                            },
+    let button_state = {
+        let row = row.clone();
+        let row_state = row_state.clone();
+        ArcSignal::derive(move || {
+            if row.with(|r| r.as_ref().is_some_and(|r| r.row.playback.is_none())) {
+                DisabledReason::new(text(Key::PublicWorkListenUnavailable, locale.get()))
+                    .map(ButtonState::Disabled)
+                    .unwrap_or_default()
+            } else {
+                match row_state() {
+                    RowListen::Preparing => row
+                        .with(|r| {
+                            r.as_ref().and_then(|r| {
+                                DisabledReason::new(messages::message(
                             locale.get(),
-                        )
-                        .to_owned(),
-                    )
+                            crate::localization::generated::Message::TheatreShellListenUnitPreparing {
+                                arg_title: &(r.row.title.clone()),
+                            },
+                        ))
+                        .ok()
+                            })
+                        })
+                        .map(ButtonState::Loading)
+                        .unwrap_or_default(),
+                    _ => ButtonState::Enabled,
                 }
-                _ => None,
-            })
+            }
         })
     };
-    let resume_visible =
-        Memo::new(move |_| offered.get() && unit_progress().is_some_and(|r| r.position_ms > 0));
-    let seconds = move || {
-        row.with(|r| {
-            r.as_ref()
-                .and_then(|r| {
-                    r.row
+    let verb = {
+        let row_state = row_state.clone();
+        move || match row_state() {
+            RowListen::Playing => Key::ListenPause,
+            RowListen::Failed(_) => Key::PublicRetry,
+            RowListen::Ready | RowListen::Preparing => Key::PublicWorkListen,
+        }
+    };
+    let verb_icon = {
+        let row_state = row_state.clone();
+        ArcSignal::derive(move || row_state().icon())
+    };
+    let unit_progress = {
+        let row = row.clone();
+        move || {
+            let controls = sync_controls?;
+            row.with(|r| {
+                let r = r.as_ref()?;
+                let publication_id = &r.row.playback.as_ref()?.publication_id;
+                controls.account.with(|a| {
+                    a.sync()
+                        .and_then(|s| s.progress_for(publication_id))
+                        .and_then(|p| p.record.clone())
+                })
+            })
+        }
+    };
+    let unit_progress_text = {
+        let unit_progress = unit_progress.clone();
+        move || {
+            let rec = unit_progress()?;
+            let pos_sec = u32::try_from(rec.position_ms / 1000).unwrap_or(u32::MAX);
+            let total_sec = u32::try_from(rec.audio.duration_ms / 1000).unwrap_or(u32::MAX);
+            let line = messages::message(
+                locale.get(),
+                crate::localization::generated::Message::TheatreShellLivePosition {
+                    arg_position: &(clock(locale.get(), pos_sec)),
+                    arg_total: &(clock(locale.get(), total_sec)),
+                },
+            );
+            Some(if rec.completion == Completion::Completed {
+                format!("{line} · {}", text(Key::LiveResumeCompleted, locale.get()))
+            } else {
+                line
+            })
+        }
+    };
+    let unit_resume_feedback = {
+        let row = row.clone();
+        move || {
+            let controls = sync_controls?;
+            row.with(|r| {
+                let r = r.as_ref()?;
+                controls.account.with(|a| match a.sync()?.resume_attempt() {
+                    ResumeAttemptState::Restored {
+                        publication_id,
+                        position_ms,
+                    } if r
+                        .row
                         .playback
                         .as_ref()
-                        .map(|p| u32::try_from(p.duration_ms / 1000).unwrap_or(u32::MAX))
+                        .is_some_and(|p| publication_id == &p.publication_id) =>
+                    {
+                        Some(messages::message(
+                            locale.get(),
+                            crate::localization::generated::Message::TheatreShellLiveResumeRestored {
+                                arg_time: &(clock(locale.get(), position_ms / 1000)),
+                            },
+                        ))
+                    }
+                    ResumeAttemptState::Refused {
+                        publication_id,
+                        reason,
+                    } if r
+                        .row
+                        .playback
+                        .as_ref()
+                        .is_some_and(|p| publication_id == &p.publication_id) =>
+                    {
+                        Some(
+                            text(
+                                match reason {
+                                    ResumeRefusal::ReleaseReplaced => Key::LiveResumeReplaced,
+                                    ResumeRefusal::AccessUnavailable => Key::LiveResumeUnavailable,
+                                    ResumeRefusal::LoadFailed | ResumeRefusal::Protocol => {
+                                        Key::LiveResumeLoadFailed
+                                    }
+                                },
+                                locale.get(),
+                            )
+                            .to_owned(),
+                        )
+                    }
+                    _ => None,
                 })
-                .unwrap_or_default()
-        })
+            })
+        }
     };
-    let row_lang = StoredValue::new(lang);
-    let work = StoredValue::new(work);
+    let resume_visible = {
+        let offered = offered.clone();
+        let unit_progress = unit_progress.clone();
+        ArcMemo::new(move |_| offered.get() && unit_progress().is_some_and(|r| r.position_ms > 0))
+    };
+    let seconds = {
+        let row = row.clone();
+        move || {
+            row.with(|r| {
+                r.as_ref()
+                    .and_then(|r| {
+                        r.row
+                            .playback
+                            .as_ref()
+                            .map(|p| u32::try_from(p.duration_ms / 1000).unwrap_or(u32::MAX))
+                    })
+                    .unwrap_or_default()
+            })
+        }
+    };
+    let row_text = {
+        let row = row.clone();
+        move |project: fn(&UnitRowUi) -> String| {
+            let row = row.clone();
+            move || row.with(|r| r.as_ref().map(project).unwrap_or_default())
+        }
+    };
+    let row_is = {
+        let row = row.clone();
+        move |check: fn(&UnitRowUi) -> bool| {
+            let row = row.clone();
+            move || row.with(|r| r.as_ref().is_some_and(check))
+        }
+    };
+    let listed = row_is(|_| true);
+    let title = row_text(|r| r.row.title.clone());
+    let unavailable = row_is(|r| r.unavailable);
+    let data_listen = {
+        let row_state = row_state.clone();
+        move || match row_state() {
+            RowListen::Ready => "ready",
+            RowListen::Preparing => "preparing",
+            RowListen::Playing => "playing",
+            RowListen::Failed(_) => "failed",
+        }
+    };
+    let failure = {
+        let row_state = row_state.clone();
+        move || match row_state() {
+            RowListen::Failed(failure) => Some(
+                view! { <p class="theatre-muted theatre-public-unit-failure" role="status">{text(resolve_failure_key(failure), locale.get())}</p> },
+            ),
+            _ => None,
+        }
+    };
+    let label = {
+        let row = row.clone();
+        move || {
+            row.with(|r| {
+                r.as_ref().map(|r| {
+                    messages::message(
+                        locale.get(),
+                        crate::localization::generated::Message::TheatreShellPublicWorkUnitLabel {
+                            arg_kind: text(unit_label(r.row.kind), locale.get()),
+                            arg_ordinal: r.row.ordinal,
+                        },
+                    )
+                })
+            })
+        }
+    };
+    let duration = {
+        let seconds = seconds.clone();
+        move || clock(locale.get(), seconds())
+    };
+    let spoken_duration = move || {
+        messages::message(
+            locale.get(),
+            crate::localization::generated::Message::TheatreShellPublicWorkDurationDescription {
+                arg_duration: &(messages::spoken_time(locale.get(), seconds())),
+            },
+        )
+    };
+    let actions_offered = move || {
+        let offered = offered.get();
+        // Run before Show removes the focused subtree; an effect afterward would
+        // see body. Other focus is left alone, including during background walks.
+        if !offered {
+            crate::platform::focus_before_unit_actions_removed(actions, heading);
+        }
+        offered
+    };
+    let description = row_text(|r| r.row.description.clone());
+    let heading_id = unit_heading_id(&id);
+    let unit_key = id.clone();
+    let action_title = title.clone();
+    let unit_actions = move || {
+        let id = id.clone();
+        view! {
+            <div node_ref=actions class="theatre-episode-actions">
+                <UnitActions id title=action_title.clone() work=work.clone() state locale listen sync_controls
+                    verb=ArcSignal::derive(verb.clone()) verb_icon=verb_icon.clone()
+                    button_state=button_state.clone() resume_visible=resume_visible.clone()/>
+            </div>
+        }
+    };
     view! {
-        <Show when=move || row.with(Option::is_some)>
-            <li class="theatre-episode-row theatre-public-unit" data-unit-id=id.get_value()
-                data-listen=move || match row_state() {
-                    RowListen::Ready => "ready", RowListen::Preparing => "preparing", RowListen::Playing => "playing", RowListen::Failed(_) => "failed",
-                }
-                data-unavailable=move || row.with(|r| r.as_ref().is_some_and(|r| r.unavailable)).then_some("true")>
+        <Show when=listed>
+            <li class="theatre-episode-row theatre-public-unit" data-unit-id=unit_key.clone()
+                data-listen=data_listen.clone()
+                data-unavailable={let unavailable = unavailable.clone(); move || unavailable().then_some("true")}>
                 <div class="theatre-episode-copy">
-                    <p class="theatre-eyebrow" data-ordinal=move || row.with(|r| r.as_ref().map(|r| r.row.ordinal.to_string()))>
-                        {move || row.with(|r| r.as_ref().map(|r| messages::message(locale.get(), crate::localization::generated::Message::TheatreShellPublicWorkUnitLabel { arg_kind: text(unit_label(r.row.kind), locale.get()), arg_ordinal: r.row.ordinal })))}
+                    <p class="theatre-eyebrow" data-ordinal=row_text(|r| r.row.ordinal.to_string())>
+                        {label.clone()}
                     </p>
-                    <h3 node_ref=heading id=unit_heading_id(&id.get_value()) tabindex="-1" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</h3>
-                    <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| !r.row.description.trim().is_empty()))>
-                        <p class="theatre-muted" lang=row_lang.get_value()>{move || row.with(|r| r.as_ref().map(|r| r.row.description.clone()).unwrap_or_default())}</p>
-                    </Show>
-                    <p class="theatre-muted theatre-public-unit-duration">
-                        <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.row.playback.as_ref().is_some_and(|p| p.duration_ms > 0))) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
-                            <span aria-hidden="true">{move || clock(locale.get(), seconds())}</span>
-                            <span class="cui-sr-only">{move || messages::message(locale.get(), crate::localization::generated::Message::TheatreShellPublicWorkDurationDescription { arg_duration: &(messages::spoken_time(locale.get(), seconds())) })}</span>
+                    <h3 node_ref=heading id=heading_id.clone() tabindex="-1" lang=lang.clone()>{title.clone()}</h3>
+                    {let (lang, description) = (lang.clone(), description.clone()); view! {
+                        <Show when=row_is(|r| !r.row.description.trim().is_empty())>
+                            <p class="theatre-muted" lang=lang.clone()>{description.clone()}</p>
                         </Show>
+                    }}
+                    <p class="theatre-muted theatre-public-unit-duration">
+                        {let (duration, spoken_duration) = (duration.clone(), spoken_duration.clone()); view! {
+                            <Show when=row_is(|r| r.row.playback.as_ref().is_some_and(|p| p.duration_ms > 0)) fallback=move || text(Key::PublicWorkDurationUnknown, locale.get())>
+                                <span aria-hidden="true">{duration.clone()}</span>
+                                <span class="cui-sr-only">{spoken_duration.clone()}</span>
+                            </Show>
+                        }}
                     </p>
-                    {move || unit_progress_text().map(|line| view! { <p class="theatre-muted theatre-public-unit-progress">{line}</p> })}
-                    {move || unit_resume_feedback().map(|feedback| view! { <p class="theatre-muted theatre-public-unit-resume-status" role="status">{feedback}</p> })}
-                    <Show when=move || row.with(|r| r.as_ref().is_some_and(|r| r.unavailable))>
+                    {let unit_progress_text = unit_progress_text.clone(); move || unit_progress_text().map(|line| view! { <p class="theatre-muted theatre-public-unit-progress">{line}</p> })}
+                    {let unit_resume_feedback = unit_resume_feedback.clone(); move || unit_resume_feedback().map(|feedback| view! { <p class="theatre-muted theatre-public-unit-resume-status" role="status">{feedback}</p> })}
+                    <Show when=unavailable.clone()>
                         <p class="theatre-muted">{move || text(Key::PublicWorkRowUnavailable, locale.get())}</p>
                     </Show>
-                    {move || match row_state() {
-                        RowListen::Failed(failure) => Some(view! { <p class="theatre-muted theatre-public-unit-failure" role="status">{text(resolve_failure_key(failure), locale.get())}</p> }),
-                        _ => None,
-                    }}
+                    {failure.clone()}
                 </div>
-                <Show when=move || {
-                    let offered = offered.get();
-                    // Run before Show removes the focused subtree; an effect afterward would
-                    // see body. Other focus is left alone, including during background walks.
-                    if !offered { crate::platform::focus_before_unit_actions_removed(actions, heading); }
-                    offered
-                }>
-                    <div node_ref=actions class="theatre-episode-actions">
-                        <Button id=format!("theatre-public-unit-listen-{}", id.get_value()) variant=ButtonVariant::Tonal icon_signal=verb_icon state=button_state
-                            on_press=Callback::new(move |_| id.with_value(|id| press_current_unit(state, id, listen)))>
-                            {move || text(verb(), locale.get())}
-                            <span class="cui-sr-only">" "{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</span>
-                        </Button>
-                        <Show when=move || resume_visible.get()>
-                            <Button id=format!("theatre-public-unit-resume-{}", id.get_value()) variant=ButtonVariant::Text
-                                on_press=Callback::new(move |_| {
-                                    let Some(controls) = sync_controls else { return; };
-                                    let Some(current) = state.with_untracked(|s| id.with_value(|id| unit_row_ui(s, id))).filter(|r| !r.unavailable) else { return; };
-                                    let Some(publication_id) = current.row.playback.as_ref().map(|p| p.publication_id.as_str()) else { return; };
-                                    let Some(rec) = controls.account.with_untracked(|a| a.sync().and_then(|s| s.progress_for(publication_id)).and_then(|p| p.record.clone())).filter(|r| r.position_ms > 0) else { return; };
-                                    let w = work.get_value();
-                                    let pres = AudioPresentation { work: WorkPresentation { work_id: w.work_id, publication_id: rec.audio.publication_id.clone(), title: w.title, kind: w.kind, language: w.language }, unit_id: current.row.unit_id, unit_title: current.row.title };
-                                    controls.on_resume.run((rec.audio, rec.position_ms, ResumeStatus::ExactAvailable, Some(pres)));
-                                })>
-                                {move || text(Key::LiveResumeOpen, locale.get())}
-                                <span class="cui-sr-only">" "{move || row.with(|r| r.as_ref().map(|r| r.row.title.clone()).unwrap_or_default())}</span>
-                            </Button>
-                        </Show>
-                    </div>
-                </Show>
+                {let unit_actions = unit_actions.clone(); view! {
+                    <Show when=actions_offered.clone()>{unit_actions()}</Show>
+                }}
             </li>
         </Show>
+    }
+}
+
+/// One row's listen and resume actions. Every reactive input is owned by the caller's row.
+#[component]
+fn UnitActions(
+    id: String,
+    title: impl Fn() -> String + Clone + Send + Sync + 'static,
+    work: MetadataWorkSummary,
+    state: ReadSignal<WorkDetailState>,
+    locale: RwSignal<Locale>,
+    listen: ListenControls,
+    sync_controls: Option<WorkSyncControls>,
+    verb: ArcSignal<Key>,
+    verb_icon: ArcSignal<IconName>,
+    button_state: ArcSignal<ButtonState>,
+    resume_visible: ArcMemo<bool>,
+) -> impl IntoView {
+    let resume_id = format!("theatre-public-unit-resume-{id}");
+    let resume_title = title.clone();
+    let resume_unit = id.clone();
+    let resume = move || {
+        let (id, work, title) = (resume_unit.clone(), work.clone(), resume_title.clone());
+        view! {
+            <Button id=resume_id.clone() variant=ButtonVariant::Text
+                on_press=Callback::new(move |_| {
+                    let Some(controls) = sync_controls else { return; };
+                    let Some(current) = state.with_untracked(|s| unit_row_ui(s, &id)).filter(|r| !r.unavailable) else { return; };
+                    let Some(publication_id) = current.row.playback.as_ref().map(|p| p.publication_id.as_str()) else { return; };
+                    let Some(rec) = controls.account.with_untracked(|a| a.sync().and_then(|s| s.progress_for(publication_id)).and_then(|p| p.record.clone())).filter(|r| r.position_ms > 0) else { return; };
+                    let w = work.clone();
+                    let pres = AudioPresentation { work: WorkPresentation { work_id: w.work_id, publication_id: rec.audio.publication_id.clone(), title: w.title, kind: w.kind, language: w.language }, unit_id: current.row.unit_id, unit_title: current.row.title };
+                    controls.on_resume.run((rec.audio, rec.position_ms, ResumeStatus::ExactAvailable, Some(pres)));
+                })>
+                {move || text(Key::LiveResumeOpen, locale.get())}
+                <span class="cui-sr-only">" "{title.clone()}</span>
+            </Button>
+        }
+    };
+    view! {
+        <Button id=format!("theatre-public-unit-listen-{id}") variant=ButtonVariant::Tonal icon_signal=verb_icon state=button_state
+            on_press=Callback::new(move |_| press_current_unit(state, &id, listen))>
+            {move || text(verb.get(), locale.get())}
+            <span class="cui-sr-only">" "{title}</span>
+        </Button>
+        <Show when=move || resume_visible.get()>{resume.clone()()}</Show>
     }
 }
 
@@ -1050,6 +1204,130 @@ mod tests {
             }
             .to_html()
         })
+    }
+    fn signed_in() -> AccountViewState {
+        let mut account = AccountViewState::default();
+        let issued = account.begin_refresh().unwrap();
+        account
+            .finish_session(
+                issued,
+                Ok(crate::application::account::AccountScope::from_session(
+                    "viewer".into(),
+                    uuid::Uuid::from_u128(1).to_string(),
+                )
+                .unwrap()),
+                || uuid::Uuid::from_u128(3).to_string(),
+            )
+            .unwrap();
+        account
+    }
+    fn sign_out(account: &mut AccountViewState) {
+        let issued = account.begin_refresh().unwrap();
+        let _ = account.finish_session(
+            issued,
+            Err(crate::application::account_view::AccountFailure::SignedOut),
+            || uuid::Uuid::from_u128(4).to_string(),
+        );
+    }
+    fn sync_controls(account: RwSignal<AccountViewState>) -> WorkSyncControls {
+        WorkSyncControls {
+            account: account.read_only(),
+            on_set_saved: Callback::new(|_| {}),
+            on_retry_saved: Callback::new(|_| {}),
+            on_login_to_save: Callback::new(|_| {}),
+            on_resume: Callback::new(|_| {}),
+        }
+    }
+    fn ready_state() -> RwSignal<WorkDetailState> {
+        let (mut state, first) = opened(fixture_work());
+        state.finish_page(&first, Ok(page(vec![unit(1, "Chương còn giữ")], None)));
+        RwSignal::new(state)
+    }
+    // A session or access change cleans a view's owner while a queued render still holds the
+    // view (reactive_graph 0.1 render effects outlive it). Each case builds the component in
+    // that owner, cleans it, changes a root input and renders what is still held.
+    #[test]
+    fn work_detail_retains_its_shape_through_route_owner_cleanup() {
+        Owner::new().with(|| {
+            let (state, locale, listen) =
+                (ready_state(), RwSignal::new(Locale::Vietnamese), controls());
+            let page_owner = Owner::new();
+            let view = page_owner.with(|| {
+                view! {
+                    <PublicWorkDetail state locale listen shared=true
+                        on_back=Callback::new(|()| ()) on_retry=Callback::new(|()| ())
+                        on_load_more=Callback::new(|()| ())/>
+                }
+            });
+            page_owner.cleanup();
+            state.update(WorkDetailState::refuse_access);
+            let html = view.to_html();
+            assert!(
+                html.contains(text(Key::SharedDenied, Locale::Vietnamese)),
+                "{html}"
+            );
+        });
+    }
+    #[test]
+    fn unit_row_retains_its_projections_through_owner_cleanup() {
+        for shared in [false, true] {
+            Owner::new().with(|| {
+                let (state, locale, listen) =
+                    (ready_state(), RwSignal::new(Locale::Vietnamese), controls());
+                // Root-owned inputs, as the live shell supplies them.
+                let account = RwSignal::new(signed_in());
+                let (controls, rows) = (sync_controls(account), state.read_only());
+                let row_owner = Owner::new();
+                let unit_id = unit(1, "Chương còn giữ").unit_id;
+                let view = row_owner.with(|| {
+                    view! {
+                        <UnitRow state=rows unit_id work=fixture_work() lang="vi".to_owned()
+                            locale listen sync_controls=Some(controls) shared/>
+                    }
+                });
+                row_owner.cleanup();
+                listen.listen.update(ListenState::clear);
+                account.update(sign_out);
+                let html = view.to_html();
+                assert!(html.contains("Chương còn giữ"), "{html}");
+                assert_eq!(
+                    html.contains("theatre-public-unit-listen-"),
+                    !shared,
+                    "{html}"
+                );
+            });
+        }
+    }
+    #[test]
+    fn save_control_retains_its_projection_when_the_account_changes_during_cleanup() {
+        for end_session in [false, true] {
+            Owner::new().with(|| {
+                let account = RwSignal::new(signed_in());
+                let (locale, controls) =
+                    (RwSignal::new(Locale::Vietnamese), sync_controls(account));
+                let first_publication_id = Signal::stored(None);
+                let control_owner = Owner::new();
+                let view = control_owner.with(|| {
+                    view! {
+                        <WorkSaveControl work=fixture_work() first_publication_id locale controls/>
+                    }
+                });
+                control_owner.cleanup();
+                // A late Saved result keeps the session; a refresh failure ends it.
+                if end_session {
+                    account.update(sign_out);
+                } else {
+                    account.update(|_| {});
+                }
+                let html = view.to_html();
+                let control = if end_session {
+                    "theatre-public-work-save-login"
+                } else {
+                    "id=\"theatre-public-work-save\""
+                };
+                assert!(html.contains(control), "{html}");
+            });
+        }
     }
     #[test]
     fn shared_published_units_remain_read_only_until_private_browser_playback_is_qualified() {

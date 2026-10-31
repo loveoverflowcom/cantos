@@ -33,6 +33,48 @@ fn listen_hero_retains_one_native_action_and_pending_focus_without_claiming_play
 }
 
 #[test]
+fn button_retains_caller_projections_through_owner_cleanup() {
+    Owner::new().with(|| {
+        let listening = ArcRwSignal::new(true);
+        let row = Owner::new();
+        let view = row.with(|| {
+            // A caller's arena-local projections, as in a list row being torn down.
+            let busy = listening.clone();
+            let state = Signal::derive(move || {
+                if busy.get() {
+                    ButtonState::Loading(DisabledReason::new("Đang chuẩn bị chương").unwrap())
+                } else {
+                    ButtonState::Enabled
+                }
+            });
+            let icon_on = listening.clone();
+            let icon = Signal::derive(move || {
+                if icon_on.get() {
+                    IconName::Pause
+                } else {
+                    IconName::PlayArrow
+                }
+            });
+            let class = Signal::derive(|| "retained-row-action".to_owned());
+            let expanded = Signal::derive(|| false);
+            view! {
+                <Button id="retained-row" icon_signal=icon state class aria_expanded=expanded>
+                    "Nghe"
+                </Button>
+            }
+        });
+        // A session change can clean the row owner while a queued render still holds the view.
+        row.cleanup();
+        listening.set(false);
+        let html = view.to_html();
+        assert!(html.contains("data-state=\"enabled\""), "{html}");
+        assert!(html.contains("retained-row-action"), "{html}");
+        assert!(html.contains("aria-expanded=\"false\""), "{html}");
+        assert!(!html.contains("Đang chuẩn bị chương"), "{html}");
+    });
+}
+
+#[test]
 fn pending_actions_replace_decorative_glyphs_with_progress_and_keep_names_and_reasons() {
     let owner = Owner::new();
     owner.with(|| {

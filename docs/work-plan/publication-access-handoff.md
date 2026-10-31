@@ -446,9 +446,11 @@ No private cover is invented. Private metadata/cursors/receipts stay in the curr
 RAM; route/account changes cancel reads and fence late results. Private source identities carry
 the Theatre session, use shared manifest/authorization paths and require the exact configured
 API media origin. The retained audio adapter selects credentialed CORS for shared sources, but Web listen controls
-and their imperative entrypoint are unavailable: the real local campaign found a teardown panic
-with an active private source on admission loss. Fixing it and qualifying HTTPS/cookies/seek is
-remaining #654 acceptance carried to the #676 review ledger. No runtime switch activates it.
+and their imperative entrypoint are unavailable. The teardown panic that the real local campaign
+found with an active private source on admission loss is repaired
+([evidence](../evidence/private-web-teardown-676.md)); qualifying HTTPS/cookies/seek, revoke and
+stopping an active source when a Shared read is refused remain #654 acceptance carried to the
+#676 review ledger. No runtime switch activates it.
 Metadata-only navigation uses immediate fenced state purge without notifying departed controls.
 Logout or a current denial is intended to clear private media/display facts; the active-source
 browser claim is unaccepted. Restricted Saved/History/Continue,

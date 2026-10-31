@@ -21,11 +21,12 @@ pub(crate) fn SharedLibrary(
     on_more: Callback<()>,
     on_claim: Callback<()>,
 ) -> impl IntoView {
-    let admitted = Signal::derive(move || {
-        state.with(|s| s.fence().is_some_and(|f| account.with(|a| a.accepts(f))))
-    });
+    // Session loss and route exit notify these readers while the Library owner is cleaned; the
+    // view reads the root signals directly instead of a disposed arena projection.
+    let admitted =
+        move || state.with(|s| s.fence().is_some_and(|f| account.with(|a| a.accepts(f))));
     view! {
-      <Show when=move ||admitted.get()><section id="theatre-shared-library" class="theatre-panel theatre-shared-library" aria-labelledby="theatre-shared-heading">
+      <Show when=admitted><section id="theatre-shared-library" class="theatre-panel theatre-shared-library" aria-labelledby="theatre-shared-heading">
         <h2 id="theatre-shared-heading">{move ||text(Key::SharedTitle,locale.get())}</h2>
         {move || match state.with(|s|s.catalog.phase()) {
             PublicDiscoveryPhase::Idle | PublicDiscoveryPhase::Loading => view!{<LoadingState>{move ||text(Key::SharedLoading,locale.get())}</LoadingState>}.into_any(),
@@ -61,12 +62,13 @@ pub(crate) fn SharedDetail(
     on_retry: Callback<()>,
     on_more: Callback<()>,
 ) -> impl IntoView {
-    let admitted = Signal::derive(move || {
+    // As in SharedLibrary, the admission check reads root signals, never a disposed projection.
+    let admitted = move || {
         scope.with(|f| f.as_ref().is_some_and(|f| account.with(|a| a.accepts(f))))
             && state.with(|s| s.work_id() == Some(work))
-    });
+    };
     view! {
-      <Show when=move ||admitted.get() fallback=move ||view!{
+      <Show when=admitted fallback=move ||view!{
         <section class="theatre-public-state theatre-panel" aria-labelledby="theatre-shared-generic-title">
           <h1 id="theatre-shared-generic-title" tabindex="-1">{move ||text(Key::SharedGeneric,locale.get())}</h1>
           <p>{move ||text(Key::SharedDenied,locale.get())}</p>
@@ -100,5 +102,66 @@ mod tests {
                 assert!(!html.contains("#work/") && !html.contains("media/"));
             });
         }
+    }
+    fn signed_in() -> AccountViewState {
+        let mut account = AccountViewState::default();
+        let issued = account.begin_refresh().unwrap();
+        account
+            .finish_session(
+                issued,
+                Ok(crate::application::account::AccountScope::from_session(
+                    "viewer".into(),
+                    uuid::Uuid::from_u128(1).to_string(),
+                )
+                .unwrap()),
+                || uuid::Uuid::from_u128(3).to_string(),
+            )
+            .unwrap();
+        account
+    }
+    fn sign_out(account: &mut AccountViewState) {
+        let issued = account.begin_refresh().unwrap();
+        let _ = account.finish_session(
+            issued,
+            Err(crate::application::account_view::AccountFailure::SignedOut),
+            || uuid::Uuid::from_u128(4).to_string(),
+        );
+    }
+    /// Session loss and route exit clean the Shared owners while queued renders still hold their
+    /// views; each must read root state, not a disposed projection of its owner.
+    #[test]
+    fn shared_library_and_detail_retain_admission_through_owner_cleanup() {
+        Owner::new().with(|| {
+            let account = RwSignal::new(signed_in());
+            let mut access = SharedAccess::default();
+            access.observe(account.with_untracked(AccountViewState::fence));
+            // Root-owned inputs, as the live shell supplies them.
+            let (shared, locale) = (RwSignal::new(access), RwSignal::new(Locale::Vietnamese));
+            let (reader, ignore) = (account.read_only(), Callback::new(|_: ()| {}));
+            let library_owner = Owner::new();
+            let library = library_owner.with(|| view! {
+                <SharedLibrary account=reader state=shared locale on_reload=ignore on_more=ignore on_claim=ignore/>
+            });
+            let work = crate::core::public_ids::PublicWorkId::parse("10000000-0000-4000-8000-000000000001").unwrap();
+            let detail_state = RwSignal::new(WorkDetailState::default());
+            let scope = RwSignal::new(account.with_untracked(AccountViewState::fence));
+            let listen = ListenControls {
+                player: crate::application::player_session::PlayerSession::new(crate::infrastructure::inert_media::InertMedia),
+                listen: RwSignal::new(crate::application::public_listen::ListenState::default()),
+                on_listen: Callback::new(|_| ()),
+            };
+            let detail_owner = Owner::new();
+            let detail = detail_owner.with(|| view! {
+                <SharedDetail work account=reader state=detail_state scope locale listen
+                    on_login=ignore on_back=ignore on_retry=ignore on_more=ignore/>
+            });
+            library_owner.cleanup();
+            detail_owner.cleanup();
+            account.update(sign_out);
+            let library = library.to_html();
+            assert!(!library.contains("theatre-shared-library"), "{library}");
+            let detail = detail.to_html();
+            assert!(detail.contains(text(Key::SharedDenied, Locale::Vietnamese)), "{detail}");
+        });
     }
 }
