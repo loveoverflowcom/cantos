@@ -1,7 +1,7 @@
 # ADR 0056: A refused Shared read stops the active private source of that Work
 
-- Status: **proposed**; needs the product owner's decision before any implementation. No
-  runtime behavior changes with this record.
+- Status: **accepted (owner, 31 October 2026)**: option A, chosen in the #676 follow-up
+  session. Implemented for Theatre Web; native private Play is still closed.
 - Date: 2026-10-31
 - Decision owner: Cantos product owner
 - Related issue or PR: review ledger [#676](https://github.com/loveoverflowcom/cantos/issues/676)
@@ -40,7 +40,7 @@ Known facts at `develop@7875453d` plus PR #683:
 
 Why now: #683 records this as a rule that must be settled before Web listen is enabled.
 
-## Decision (proposed)
+## Decision
 
 When a Shared Work read made in the current session settles as `NotFound`, for either the Work
 summary or a Unit page, and the active player source is a shared-delivery track of that same
@@ -65,7 +65,7 @@ Boundaries:
 
 | Option | Benefits | Costs and limitations | Reason selected or rejected |
 | --- | --- | --- | --- |
-| **A. Matching-Work refusal stops that shared source** (proposed) | The page and the audio agree. The rule is deterministic and local, reuses the existing `AccessCleared` path, and needs only a pure-state regression | A Shared reread of the same Work while it plays is required to notice. Revocation of a different Work, or session loss noticed only elsewhere, still relies on the next fetch or account refresh | Smallest rule that closes the observed gap without guessing what an ambiguous `404` means for other Works |
+| **A. Matching-Work refusal stops that shared source** (selected) | The page and the audio agree. The rule is deterministic and local, reuses the existing `AccessCleared` path, and needs only a pure-state regression | A Shared reread of the same Work while it plays is required to notice. Revocation of a different Work, or session loss noticed only elsewhere, still relies on the next fetch or account refresh | Smallest rule that closes the observed gap without guessing what an ambiguous `404` means for other Works |
 | B. Keep today's triggers; rely on D08b tolerance | No change; consistent with "admitted bytes may finish" | The screen says "no access" while private audio continues; it diverges from the handoff intent "a current denial clears private media" | Rejected unless the owner prefers D08b tolerance on the client too |
 | C. On any Shared `404`, re-confirm the session and clear only through the existing account-loss path | Handles a lost session on any Work, and the account state becomes truthful | One extra request per refusal. A revoked grant with a live session keeps playing. Adds a refresh/fence interaction to qualify | Could be combined with A later. Not needed to close the observed case |
 | D. Any Shared `404` stops every shared source | Strongest privacy reaction | A refusal for an unrelated Work (for example a stale link) would stop audio the listener is still entitled to | Rejected: the merged `404` says nothing about other Works |

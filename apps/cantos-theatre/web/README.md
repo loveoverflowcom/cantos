@@ -809,7 +809,11 @@ browser source-teardown failure; retained adapter source targets credentialed sh
 the configured API origin and requires follow-up qualification.
 Private Library journal/restore and cover remain unavailable; source/core/DOM qualification is
 separate from actual browser cookies/GET/Range playback and production activation. The ordinary
-Server executable keeps restricted serving disabled after startup/restore.
+Server executable keeps restricted serving disabled after startup/restore. Beyond account loss and
+a shared media/manifest denial, a Shared Work or Unit `NotFound` for the open `#shared/{work}`
+stops an active shared source of that same Work
+([ADR 0056](../../../docs/decisions/0056-shared-refusal-clears-active-source.md),
+`shared_access::refusal_stops_source`); public tracks and other Works keep playing.
 
 S10 drops the public discovery snapshot on route departure and fences its outstanding tickets.
 Returning from Work details rereads the list and current counts; browser Back does not restore

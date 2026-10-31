@@ -88,7 +88,10 @@ shared-media path. The element selects `crossorigin="use-credentials"` before at
 source. Public sources retain the existing element transport. Private source identity includes its Theatre
 session; losing the account clears the element, timers, requests and display facts. Private
 sources cannot enter the public Library/progress journal or restore path, and those controls
-remain unavailable. A current media/manifest denial also removes private detail facts.
+remain unavailable. A current media/manifest denial also removes private detail facts. A Shared
+Work or Unit `NotFound` for the Work of the active shared source stops that source the same way;
+transient failures, public sources and another Work's source are unaffected
+([ADR 0056](../../../../../../docs/decisions/0056-shared-refusal-clears-active-source.md)).
 
 Source and native core/DOM checks do not qualify browser cookie/media transport. The ordinary
 executable still starts with restricted serving disabled. The explicit ignored test fixture in
