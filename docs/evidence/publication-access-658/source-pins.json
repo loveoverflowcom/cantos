@@ -1,0 +1,24 @@
+{
+  "base": "1c2c867114f181207950e02989dde113da587309",
+  "target": "macOS15.6 arm64 Rust1.98.1; dev/test debug=0 incremental=0 build_jobs=2 TMPDIR=/private/tmp",
+  "identity_binary_sha256": "ffe5720c23042467c0112d297b4806a3cd734055aec3fd35c675e065a6a150f2",
+  "files": {
+    "Cargo.lock": "51b79b158c617823ee8211fae20bc48680c7ff4715228be432763ebca254808b",
+    "services/cantos-server/src/test_support.rs": "5d031c204c04f08c07e85920e8f410ea2ee31f2cbe38d0e134d3399d440aa9d8",
+    "services/cantos-server/tests/support/publication_recovery.rs": "e65b874c2e83bdf3b91127f119fd3283f9b27836b3dcd5485174755c75f8f276",
+    "services/cantos-server/tests/support/restricted_journey.rs": "9e6d359aa3d0b12e9f5520efabba35f2951ef5502a01f7ff1be7737308e2e1ab",
+    "services/cantos-server/tests/server_schema_history_turso.rs": "1ece3653a7bb9c289e45ee945fd422dc3e7f980efa94f34d86908bb6650f3b56",
+    "services/cantos-server/src/contexts/media/listener_shared.rs": "53f6869faf7641cc2497f4a9d4e665df9003039995893e3160b481fdd4c1e4a4",
+    "services/cantos-server/src/contexts/media/listener_media.rs": "f7b2e8d9824b592c2562c33624f20de9c354e3acb11879ce24d2ecf96596d6c7",
+    "services/cantos-server/src/platform/identity_auth/mod.rs": "6c577f621cc64ee4490e0dd883f36a237698f5d22524747077245bf68a91b091",
+    "services/cantos-identity/src/persistence/mod.rs": "8aafa2a8a338d00deb4331435d5618f331526989362a6d1b317335e86b6d09ba",
+    "packages/store-turso/src/database.rs": "1b157c811343a34f334562a5c94ce53cf3f579280b215f4cbda0432cd28a1ce7",
+    "scripts/test_verify_behavior.py": "268213fc03a3201dbbeabc7e79f1e3c8290f79ca3fe63033dca6ca047e153c67",
+    "specs/behavior/inventory.md": "b55e17f9dcafe8cead65a40cf9b42355c99e76e31101ad90927f1a8e087e1d43"
+  },
+  "runtime_changed": false,
+  "new_methods": "test-support only",
+  "evidence_limits": "Three quiesced disposable cuts, production router in process, real independent Identity process/RPC, exact transport bytes. No Server binary/TCP, media decoding, crash/live pair/production/browser/device acceptance.",
+  "journey_binary_sha256": "8edb837faa2d48d3f561755c7ff33ee57b518436ac6cee121f8e84a6d5743baf",
+  "final_test_only_delta": "Canonicalize the owned media parent and reuse the canonical closed host; production storage validation unchanged."
+}

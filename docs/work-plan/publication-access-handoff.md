@@ -519,3 +519,21 @@ The [source-bound measurement report](../evidence/publication-access-performance
 records the opt-in dataset extension, actual plans/costs and pending owner budget/adoption
 decisions. It does not certify populated Library, mixed-write performance or production
 capacity. S12 consumes these observations with the explicit limitations retained.
+
+### S12 integration/recovery boundary (#658)
+
+The [source-bound S12 ledger](../evidence/publication-access-readiness-658.md) maps epic AC01–26
+to actual native/source/browser/device evidence and open criteria. The
+[operator recovery runbook](../deployment/publication-access-recovery.md) records a NO_GO:
+verified quiesced snapshots preserve schema/immutable data, and default restricted delivery stays
+closed after restore, but restoring both files from before logout/disable resurrects the old
+session. Identity restore epoch rotation, Server resync and post-cut policy/revocation authority
+are unsupported; an old pair stays offline. Hashes/startup and default restricted OFF do not
+establish full security recovery. No new security protocol, activation switch, production
+operation or accepted performance/RPO/RTO/retention value is delivered by this slice.
+
+The bounded schema-test repair names the three existing v35 tables omitted by its expected set;
+two existing viewer-access registry index/count omissions are also corrected without changing
+model semantics/lifecycle. Registered SQL/history remain unchanged. Private Web/native playback, cover/Library restore,
+formal/UI qualification and named browser/device gaps remain separate in the single #676
+review ledger. Source merge and a completed readiness dossier do not accept those layers.

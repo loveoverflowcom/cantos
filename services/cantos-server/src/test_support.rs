@@ -83,6 +83,55 @@ impl ServerFixture {
         self.run.path("server.db")
     }
 
+    /// A quiesced test checkpoint through the actual owner's verified snapshot path.
+    /// This is one file's receipt, never an atomic Server/Identity pair or a restore permit.
+    pub async fn backup_to(
+        &self,
+        destination: &std::path::Path,
+    ) -> cantos_store_turso::BackupReceipt {
+        self.store()
+            .database()
+            .owner()
+            .backup_to(destination)
+            .await
+            .expect("the fixture's verified backup completes")
+    }
+
+    /// Copy a closed, verified snapshot into a new disposable owner. No live file is copied
+    /// or overwritten, and opening the copy does not qualify security recovery/activation.
+    pub async fn from_verified_backup(backup: &cantos_store_turso::BackupReceipt) -> Self {
+        use sha2::{Digest, Sha256};
+        use std::io::Write;
+        #[cfg(unix)]
+        use std::os::unix::fs::OpenOptionsExt;
+
+        let bytes = std::fs::read(&backup.path).expect("the closed snapshot is readable");
+        assert_eq!(bytes.len() as u64, backup.bytes);
+        assert_eq!(<[u8; 32]>::from(Sha256::digest(&bytes)), backup.sha256);
+        let run = TestRun::new("server-restore");
+        let path = run.path("server.db");
+        let mut options = std::fs::OpenOptions::new();
+        options.create_new(true).write(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options
+            .open(&path)
+            .expect("only a new private run-owned file is created");
+        file.write_all(&bytes)
+            .expect("the snapshot copy is written");
+        file.sync_all().expect("the closed snapshot copy is synced");
+        drop(file);
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+        let database = ServerDatabase::open(path, Intent::Serve, clock.clone())
+            .await
+            .expect("the verified copy is served without migration");
+        Self {
+            run,
+            clock,
+            store: Some(Store::from_database(database)),
+        }
+    }
+
     /// Release the file so another process (the `cantos-server` binary) may own it. A test then
     /// reads through [`Self::restart`], which serves the file again.
     pub fn close(&mut self) {

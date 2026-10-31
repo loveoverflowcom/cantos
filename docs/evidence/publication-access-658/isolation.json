@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "status": "UNSUPPORTED",
+  "reason": "selected test and tool/credential controls passed; macOS egress isolation is unsupported",
+  "source": {
+    "sha": "1c2c867114f181207950e02989dde113da587309",
+    "dirty": true,
+    "diff_sha256": "8fdca7540eb7424c59d13283c972001cdd2dd0c5ae9316c35d6ae00a34b32b0b",
+    "guard_sha256": "ec9b0ad2e0e4aca577d6c10869198c1d63c724a13bf1e863c06eb7cc644825b6"
+  },
+  "binary_sha256": "8edb837faa2d48d3f561755c7ff33ee57b518436ac6cee121f8e84a6d5743baf",
+  "identity_binary_sha256": "ffe5720c23042467c0112d297b4806a3cd734055aec3fd35c675e065a6a150f2",
+  "test_name": "restricted::recovery::paired_restore_keeps_private_delivery_closed_and_exposes_stale_security_recovery_gap",
+  "timeout_seconds": 60,
+  "tests_passed": 1,
+  "controls": {
+    "executable": "PASS",
+    "credential": "PASS",
+    "network": "UNSUPPORTED"
+  },
+  "network_mode": "macos-best-effort",
+  "limitations": [
+    "PATH removal is not an exec sandbox: absolute executable paths remain accessible",
+    "private HOME and environment removal do not sandbox filesystem reads",
+    "binary digest does not establish a source-to-build provenance chain",
+    "identity child digest proves only which file was supplied and that it stayed unchanged",
+    "guard evidence does not establish production binaries, auth E2E, database or Kani acceptance",
+    "macOS does not enforce egress denial; kernel network negative control was not run"
+  ]
+}

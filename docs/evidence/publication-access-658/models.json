@@ -1,0 +1,28 @@
+{
+  "toolchain": {
+    "node": "24.19.0",
+    "npm": "11.9.0",
+    "quint": "0.33.0"
+  },
+  "reports": {
+    "cantos.catalog.viewer-access-091d2efe2a5d47aba2d3a0c208958198": {
+      "sha256": "64ad7fca73ba2874f190161ecdcb9411955bf47dab5ed398439ffb14cbe20c40",
+      "status": "PASS",
+      "stage_scope": "model-only",
+      "implementation_conformance": "NOT_RUN",
+      "database_http_bytes_clients_devices": "NOT_RUN",
+      "exhaustive_proof": "NOT_RUN"
+    },
+    "cantos.media.public-playback-delivery-8fb1fd9c18b34e54a939602247b539b9": {
+      "sha256": "d806f4785907961c6bec070b1b66fc9b73a9bbb5372eb2b5dfd2e9b9983e2be9",
+      "status": "PASS",
+      "stage_scope": "model-only",
+      "implementation_conformance": "NOT_RUN",
+      "database_http_bytes_clients_devices": "NOT_RUN",
+      "exhaustive_proof": "NOT_RUN"
+    }
+  },
+  "models_changed": false,
+  "lifecycle": "draft; unchanged",
+  "recovery_model": "no actual paired-file observer or complete recovery model supplied"
+}
