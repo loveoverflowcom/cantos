@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -47,7 +48,13 @@ else:attrs['oauth2_strict_redirect_uri']=['true' if action.startswith('enable') 
 '''
 
 
+# Both lock cases need the host's real flock(1): without it the first would pass vacuously
+# (its double still writes the pending marker) and the second fails before any lock exists.
+REAL_LOCK = unittest.skipUnless(shutil.which("flock"), "Linux host flock required for actual lock evidence")
+
+
 class VpsOidcReconcileTests(unittest.TestCase):
+    @REAL_LOCK
     def test_pending_created_between_entry_guard_and_lock_refuses_stale_mutation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -64,6 +71,7 @@ printf unexpected-mutation
             self.assertEqual(result.returncode, 75, result.stderr)
             self.assertNotIn("unexpected-mutation", result.stdout)
 
+    @REAL_LOCK
     def test_nested_operations_reuse_the_same_lock_descriptor(self):
         with tempfile.TemporaryDirectory() as directory:
             lock = Path(directory) / "operation.lock"
