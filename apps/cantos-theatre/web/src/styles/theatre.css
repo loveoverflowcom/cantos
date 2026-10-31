@@ -894,3 +894,9 @@ body { margin: 0; }
 @media (max-width: 960px) { .theatre-live-app #account .theatre-account { grid-template-columns: minmax(0, 1fr); } }
 
 .theatre-live-app:not([data-navigation="drawer"]) .theatre-mini-player { inset-inline-start: calc(var(--theatre-rail-size) + var(--cantos-space-lg)); inset-inline-end: var(--cantos-space-lg); }
+
+.theatre-shared-library { min-inline-size: 0; overflow-wrap: anywhere; }
+.theatre-shared-rows { display: grid; gap: var(--cantos-space-sm); list-style: none; padding: 0; }
+.theatre-shared-rows li { background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); }
+.theatre-shared-rows a { display: grid; gap: var(--cantos-space-xs); }
+.theatre-shared-rows span, .theatre-shared-badge { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }

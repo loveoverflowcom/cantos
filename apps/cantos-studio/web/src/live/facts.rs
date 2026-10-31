@@ -20,6 +20,7 @@ pub struct Facts {
     pub candidate: Option<ReleaseCandidateResponse>,
     pub publication: super::publication::PublicationFacts,
     pub metadata: super::metadata_publication::MetadataFacts,
+    pub viewer: super::viewer_access::ViewerFacts,
     /// The exact saved revision last previewed; dropped when the saved head moves past it.
     pub preview: Option<super::preview::PreviewFacts>,
 }
@@ -190,6 +191,7 @@ impl Facts {
             Reply::Work(work) => {
                 if next.work.as_ref().is_none_or(|old| old.id != work.id) {
                     next.metadata = Default::default();
+                    next.viewer = Default::default();
                 }
                 next.work = Some(work);
                 next.clear_publication();
@@ -285,6 +287,16 @@ impl Facts {
                 next.publication.approval_receipt = Some(receipt);
                 next.publication.readiness = None;
                 next.publication.active = None;
+            }
+            Reply::ViewerState(state) => next.viewer.current = Some(state),
+            Reply::ViewerReceipt(receipt) => {
+                next.viewer.receipt = Some(receipt);
+                next.viewer.current = None;
+            }
+            Reply::ViewerGroups(groups) => next.viewer.groups = Some(groups),
+            Reply::ViewerGroupReceipt(receipt) => {
+                next.viewer.group_receipt = Some(receipt);
+                next.viewer.groups = None;
             }
             Reply::ActiveRelease(_) | Reply::AudioPreview(_) | Reply::MetadataState(_) => {}
             Reply::Withdrawal(receipt) => {

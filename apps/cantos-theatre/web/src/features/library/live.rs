@@ -331,9 +331,11 @@ pub(crate) fn LiveLibrary(
     locale: RwSignal<Locale>,
     on_page: Callback<(Section, bool, bool)>,
     #[prop(optional)] actions: Option<LibraryActions>,
+    #[prop(optional, into)] shared_section: Option<ViewFn>,
 ) -> impl IntoView {
     let phase = Memo::new(move |_| state.with(AccountViewState::phase));
-    let all_empty = Memo::new(move |_| state.with(all_empty));
+    let has_shared = shared_section.is_some();
+    let all_empty = Memo::new(move |_| !has_shared && state.with(all_empty));
     let refreshing = Memo::new(move |_| state.with(library_loading));
     view! {
         <section id="library" aria-labelledby="theatre-live-library-heading">
@@ -380,7 +382,8 @@ pub(crate) fn LiveLibrary(
                     </div>
                 </Show>
                 <div class="theatre-library-sections" data-empty=move || all_empty.get().to_string()>
-                    {Section::ALL.into_iter().map(|section| view! { <LiveSection state locale section on_page actions all_empty/> }).collect_view()}
+                    {Section::ALL.into_iter().map(|section| view! { <LiveSection state locale section on_page actions all_empty/>
+                    {(section == Section::Continue).then(|| shared_section.as_ref().map(ViewFn::run))} }).collect_view()}
                 </div>
             </Show>
         </section>

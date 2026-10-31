@@ -119,14 +119,36 @@ fn run_discovery(state: RwSignal<PublicDiscoveryState>, ticket: DiscoveryTicket,
 /// Issue one public Work request and the automatic page requests it implies. Focus follows only
 /// the listener intent that issued it: a detail retry focuses the heading, a page intent its
 /// first new row, its failure or the list status. Automatic page one never moves focus.
-fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focus: bool) {
+fn run_work_request(
+    state: RwSignal<WorkDetailState>,
+    request: WorkRequest,
+    focus: bool,
+    account: RwSignal<AccountViewState>,
+    fence: Option<crate::application::account::RequestFence>,
+    requests: super::shared_runtime::Requests,
+) {
     #[cfg(target_arch = "wasm32")]
     {
         use crate::application::public_work::Step;
         leptos::task::spawn_local(async move {
             let (mut step, page_focus) = match request {
                 WorkRequest::Work(ticket) => {
-                    let result = crate::live::public_work::load_work(ticket.work()).await;
+                    let result = match &fence {
+                        Some(fence) => match requests.with_value(|r| r.start()) {
+                            Ok(controller) => {
+                                crate::live::shared::browser::work(ticket.work(), fence, controller)
+                                    .await
+                            }
+                            Err(error) => Err(error),
+                        },
+                        None => crate::live::public_work::load_work(ticket.work()).await,
+                    };
+                    if fence
+                        .as_ref()
+                        .is_some_and(|f| !account.with_untracked(|a| a.accepts(f)))
+                    {
+                        return;
+                    }
                     let Some(step) = state.try_update(|s| s.finish_work(&ticket, result)) else {
                         return;
                     };
@@ -138,7 +160,21 @@ fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focu
                 WorkRequest::Page(ticket) => (Step::Continue(ticket), focus),
             };
             while let Step::Continue(ticket) = step {
-                let result = crate::live::public_work::load_units(&ticket).await;
+                let result = match &fence {
+                    Some(fence) => match requests.with_value(|r| r.start()) {
+                        Ok(controller) => {
+                            crate::live::shared::browser::units(&ticket, fence, controller).await
+                        }
+                        Err(error) => Err(error),
+                    },
+                    None => crate::live::public_work::load_units(&ticket).await,
+                };
+                if fence
+                    .as_ref()
+                    .is_some_and(|f| !account.with_untracked(|a| a.accepts(f)))
+                {
+                    return;
+                }
                 let Some(next) = state.try_update(|s| s.finish_page(&ticket, result)) else {
                     return;
                 };
@@ -154,18 +190,21 @@ fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focu
         });
     }
     #[cfg(not(target_arch = "wasm32"))]
-    let _ = (state, request, focus);
+    let _ = (state, request, focus, account, fence, requests);
 }
 
 /// The single player of the live shell. Native builds have no audio element and use an inert
 /// port; the browser build owns one `HTMLAudioElement` for the page's life.
-fn live_player() -> PlayerSession {
+fn live_player(account: RwSignal<AccountViewState>) -> PlayerSession {
     #[cfg(target_arch = "wasm32")]
     {
-        PlayerSession::with_port(crate::platform::audio::BrowserAudio::new)
+        PlayerSession::with_port(move |session| {
+            crate::platform::audio::BrowserAudio::new(session, account)
+        })
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
+        let _ = account;
         PlayerSession::new(crate::infrastructure::inert_media::InertMedia)
     }
 }
@@ -177,15 +216,45 @@ fn run_listen(
     player: PlayerSession,
     now_playing: RwSignal<Option<NowPlaying>>,
     ticket: crate::application::public_listen::ListenTicket,
+    account: RwSignal<AccountViewState>,
+    fence: Option<crate::application::account::RequestFence>,
+    requests: super::shared_runtime::Requests,
 ) {
     #[cfg(target_arch = "wasm32")]
     leptos::task::spawn_local(async move {
         let result = match web_sys::AbortController::new() {
-            Ok(controller) => {
-                crate::live::public_media::load_manifest(ticket.publication(), controller).await
-            }
+            Ok(controller) => match ticket.delivery() {
+                crate::core::public_track::DeliveryScope::Public => {
+                    crate::live::public_media::load_manifest(ticket.publication(), controller).await
+                }
+                crate::core::public_track::DeliveryScope::Shared(session) => {
+                    match fence.as_ref().filter(|f| {
+                        f.session() == session.to_string()
+                            && account.with_untracked(|a| a.accepts(f))
+                    }) {
+                        Some(fence) => match requests.with_value(|r| r.start()) {
+                            Ok(controller) => {
+                                crate::live::shared::browser::manifest(
+                                    ticket.publication(),
+                                    fence,
+                                    controller,
+                                )
+                                .await
+                            }
+                            Err(error) => Err(error),
+                        },
+                        None => return,
+                    }
+                }
+            },
             Err(_) => Err(crate::application::public_work::CatalogReadError::Unavailable),
         };
+        if fence
+            .as_ref()
+            .is_some_and(|f| !account.with_untracked(|a| a.accepts(f)))
+        {
+            return;
+        }
         let Some(outcome) = listen.try_update(|state| state.finish(&ticket, result)) else {
             return;
         };
@@ -205,7 +274,16 @@ fn run_listen(
         }
     });
     #[cfg(not(target_arch = "wasm32"))]
-    let _ = (listen, player, now_playing, ticket, ListenOutcome::Failed);
+    let _ = (
+        listen,
+        player,
+        now_playing,
+        ticket,
+        ListenOutcome::Failed,
+        account,
+        fence,
+        requests,
+    );
 }
 
 /// The diagnostic guest and an empty catalog of the explicit auth preview. It reads no network
@@ -308,10 +386,21 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         Callback::new(move |()| crate::live::signup::cancel(signup, preview)),
     );
     let state = RwSignal::new(AccountViewState::default());
+    // Own this handle at shell lifetime. Creating it inside the Library slot lets the route
+    // render owner dispose it while a shared-row reaction is still queued during navigation.
+    let shared_account = state.read_only();
     let discovery = RwSignal::new(PublicDiscoveryState::default());
     // RAM-only notice for the sign-in page after a finished signup. It is never a session.
     let account_created = RwSignal::new(false);
     let work_detail = RwSignal::new(WorkDetailState::default());
+    let work_scope = RwSignal::new(None::<crate::application::account::RequestFence>);
+    let shared = RwSignal::new(crate::application::shared_access::SharedAccess::default());
+    let shared_requests = StoredValue::new_local(crate::live::shared::Requests::default());
+    let admitted_sync = sync_admission(state.read_only());
+    on_cleanup(move || {
+        #[cfg(target_arch = "wasm32")]
+        shared_requests.with_value(|r| r.abort());
+    });
     let preference = crate::localization::load_preference();
     let locale = RwSignal::new(preference.locale);
     let locale_warning = RwSignal::new(preference.warning);
@@ -328,7 +417,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let main = NodeRef::<leptos::html::Main>::new();
     // One owner for the page: the player, the listener's intent and the display facts of what
     // plays. Routes and Work details only read them and send intents.
-    let player = live_player();
+    let player = live_player(state);
     let listen = RwSignal::new(ListenState::default());
     let now_playing = RwSignal::new(None::<NowPlaying>);
     let live = LivePlayer {
@@ -395,38 +484,120 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             run_discovery(discovery, ticket, false);
         }
     });
-    // The live detail is keyed by the route's server ID; leaving fences every outstanding read.
-    Effect::new(move |_| match nav.route.get() {
-        Route::PublicWork(id) => {
-            let mut issued = None;
-            work_detail.update(|s| issued = s.open(id));
-            match issued {
-                Some(ticket) if !preview && network_allowed.get_untracked() => {
-                    run_work_request(work_detail, WorkRequest::Work(ticket), false)
+    // Route and admission changes cancel outstanding private I/O before publishing another scope.
+    Effect::new(
+        move |previous: Option<(Route, Option<crate::application::account::RequestFence>)>| {
+            let route = nav.route.get();
+            let fence = admitted_sync.get();
+            if previous.as_ref() == Some(&(route, fence.clone())) {
+                return (route, fence);
+            }
+            #[cfg(target_arch = "wasm32")]
+            shared_requests.with_value(|r| r.abort());
+            let account_changed = previous.as_ref().is_some_and(|(_, old)| *old != fence);
+            if account_changed {
+                listen.update_untracked(ListenState::clear);
+                if player.source.get_untracked().is_some_and(|source|matches!(source.track(),crate::core::playback::TrackId::Public(track) if track.is_shared())) {
+                player.dispatch(PlayerEvent::AccessCleared); now_playing.set(None);
+            }
+            } else if previous.as_ref().is_some_and(|(old, _)| *old != route) {
+                listen.update_untracked(ListenState::clear);
+            }
+            shared.update(|s| {
+                s.observe(fence.clone());
+                if !matches!(route, Route::Library | Route::History) {
+                    s.catalog.clear_shared();
+                    if let crate::application::shared_access::ClaimPhase::Pending(op) = &s.claim {
+                        s.claim =
+                            crate::application::shared_access::ClaimPhase::Unknown(op.clone());
+                    }
                 }
-                // Preview mode has no catalog network, and an unsafe link blocks it until cleared:
-                // both settle as the honest unavailable state, which Retry leaves once allowed.
-                Some(ticket) => work_detail.update(|s| {
-                    let _ = s.finish_work(
-                        &ticket,
-                        Err(crate::application::public_work::CatalogReadError::Unavailable),
-                    );
-                }),
-                None => (),
+            });
+            match route {
+                Route::PublicWork(id) | Route::SharedWork(id) => {
+                    let is_shared = matches!(route, Route::SharedWork(_));
+                    if is_shared || work_scope.with_untracked(Option::is_some) {
+                        work_detail.update_untracked(|s| {
+                            s.leave();
+                        });
+                    }
+                    let scope = if is_shared { fence.clone() } else { None };
+                    work_scope.set(scope.clone());
+                    if !is_shared || scope.is_some() {
+                        // The route/scope signal mounts the next view. Do not notify the old
+                        // row controls while their owner is being torn down by that navigation.
+                        if let Some(ticket) =
+                            work_detail.try_update_untracked(|s| s.open(id)).flatten()
+                        {
+                            if !preview && network_allowed.get_untracked() {
+                                run_work_request(
+                                    work_detail,
+                                    WorkRequest::Work(ticket),
+                                    false,
+                                    state,
+                                    scope,
+                                    shared_requests,
+                                );
+                            } else {
+                                work_detail.update(|s|{s.finish_work(&ticket,Err(crate::application::public_work::CatalogReadError::Unavailable));});
+                            }
+                        }
+                    } else {
+                        work_detail.update_untracked(|s| {
+                            s.leave();
+                        });
+                    }
+                }
+                _ => {
+                    // Purge authority immediately without waking controls of the route which
+                    // just unmounted. Late network answers still fail the generation fence.
+                    work_detail.update_untracked(|s| {
+                        s.leave();
+                    });
+                    work_scope.set(None);
+                }
             }
-        }
-        _ => {
-            if work_detail.with_untracked(|s| s.work_id().is_some()) {
-                work_detail.update(|s| {
-                    let _ = s.leave();
-                });
+            if matches!(route, Route::Library | Route::History)
+                && !preview
+                && network_allowed.get_untracked()
+            {
+                if let Some(fence) = fence.clone() {
+                    if let Some(ticket) = shared
+                        .try_update(|s| s.catalog.begin(DiscoveryQuery::default()))
+                        .flatten()
+                    {
+                        super::shared_runtime::run_catalog(
+                            shared,
+                            state,
+                            ticket,
+                            fence,
+                            shared_requests,
+                        );
+                    }
+                }
             }
+            (route, fence)
+        },
+    );
+    Effect::new(move |_| {
+        let media_denied=matches!(player.status.get(),crate::core::playback::Status::Failed(crate::core::playback::Failure::Unavailable|crate::core::playback::Failure::Unauthenticated|crate::core::playback::Failure::Forbidden)) && player.source.get().is_some_and(|source|matches!(source.track(),crate::core::playback::TrackId::Public(track) if track.is_shared()));
+        let manifest_denied=listen.with(|s|matches!(s.phase(),crate::application::public_listen::ListenPhase::Failed(request,crate::application::public_listen::ListenFailure::NotFound) if matches!(request.delivery(),crate::core::public_track::DeliveryScope::Shared(_))));
+        if media_denied || manifest_denied {
+            player.dispatch(PlayerEvent::AccessCleared);
+            now_playing.set(None);
+            listen.update(ListenState::clear);
+            work_detail.update(WorkDetailState::refuse_access);
+            shared.update(|s| {
+                s.catalog.clear_shared();
+            });
         }
     });
     // When signed in on a public Work or with an active player source, load point Saved/Progress
     // registers that have not yet been observed in the current session.
-    let admitted_sync = sync_admission(state.read_only());
     Effect::new(move |_| {
+        if matches!(nav.route.get(), Route::SharedWork(_)) {
+            return;
+        }
         if preview || !network_allowed.get_untracked() {
             return;
         }
@@ -494,9 +665,20 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let _ = (work_info, unit_infos, audio_identity_from_source);
     });
     let on_open_work = Callback::new(move |id| nav.open_work(id, public_home::work_link_id(id)));
-    let on_work_back = Callback::new(move |()| nav.close_work());
+    let on_work_back = Callback::new(move |()| {
+        if matches!(nav.route.get_untracked(), Route::SharedWork(_)) {
+            auth_browser::go(nav.route, Route::Library, false);
+        } else {
+            nav.close_work();
+        }
+    });
     let on_listen = Callback::new(move |target: ListenTarget| {
         if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        // Restricted transport source exists, but real browser teardown with a private source
+        // is not qualified. Keep the control and imperative entrypoint closed until repaired.
+        if matches!(nav.route.get_untracked(), Route::SharedWork(_)) {
             return;
         }
         // The release comes from the open Work and the unit the listener chose, never a slug.
@@ -516,17 +698,30 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }) else {
             return;
         };
-        let Some(request) = ReleaseRequest::parse(work, &target.unit_id, &target.publication_id)
+        let Some(mut request) =
+            ReleaseRequest::parse(work, &target.unit_id, &target.publication_id)
         else {
             return;
         };
+        if matches!(nav.route.get_untracked(), Route::SharedWork(_)) {
+            let Some(fence) = work_scope
+                .get_untracked()
+                .filter(|f| state.with_untracked(|a| a.accepts(f)))
+            else {
+                return;
+            };
+            let Some(scoped) = request.shared(fence.session()) else {
+                return;
+            };
+            request = scoped;
+        }
         let _ = crate::application::account_writer::AccountWriter::new(state)
             .reset_resume()
             .into_value();
         // The same release already in the player resumes; nothing is fetched or replaced.
         let resumes = player.source.get_untracked().is_some_and(|source| {
             matches!(source.track(), crate::core::playback::TrackId::Public(track)
-                if track.publication() == request.publication() && track.unit() == request.unit())
+                if track.publication() == request.publication() && track.unit() == request.unit() && track.delivery()==request.delivery())
         });
         if resumes {
             player.dispatch(PlayerEvent::PlayRequested);
@@ -535,7 +730,15 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let mut issued = None;
         listen.update(|s| issued = s.begin(request, label));
         if let Some(ticket) = issued {
-            run_listen(listen, player, now_playing, ticket);
+            run_listen(
+                listen,
+                player,
+                now_playing,
+                ticket,
+                state,
+                work_scope.get_untracked(),
+                shared_requests,
+            );
         }
     });
     let listen_controls = ListenControls {
@@ -708,7 +911,14 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let mut issued = None;
         work_detail.update(|s| issued = s.retry());
         if let Some(request) = issued {
-            run_work_request(work_detail, request, true);
+            run_work_request(
+                work_detail,
+                request,
+                true,
+                state,
+                work_scope.get_untracked(),
+                shared_requests,
+            );
         }
     });
     let on_work_more = Callback::new(move |()| {
@@ -718,23 +928,40 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let mut issued = None;
         work_detail.update(|s| issued = s.load_more());
         if let Some(ticket) = issued {
-            run_work_request(work_detail, WorkRequest::Page(ticket), true);
+            run_work_request(
+                work_detail,
+                WorkRequest::Page(ticket),
+                true,
+                state,
+                work_scope.get_untracked(),
+                shared_requests,
+            );
         }
     });
     Effect::new(move |_| {
         let route = nav.route.get();
         let title = match route {
-            Route::PublicWork(id) => work_detail.with(|s| match s.phase() {
-                WorkDetailPhase::Ready { work, .. } if s.work_id() == Some(id) => {
-                    Some(messages::message(
-                        locale.get(),
-                        crate::localization::generated::Message::TheatreShellPageTitle {
-                            arg_page: &(work.title.clone()),
-                        },
-                    ))
-                }
-                _ => None,
-            }),
+            Route::PublicWork(id) | Route::SharedWork(id) => {
+                work_detail.with(|s| match s.phase() {
+                    WorkDetailPhase::Ready { work, .. }
+                        if s.work_id() == Some(id)
+                            && work_scope.with(|scope| match route {
+                                Route::SharedWork(_) => {
+                                    scope.as_ref().is_some_and(|f| state.with(|a| a.accepts(f)))
+                                }
+                                _ => scope.is_none(),
+                            }) =>
+                    {
+                        Some(messages::message(
+                            locale.get(),
+                            crate::localization::generated::Message::TheatreShellPageTitle {
+                                arg_page: &(work.title.clone()),
+                            },
+                        ))
+                    }
+                    _ => None,
+                })
+            }
             Route::NotFound | Route::Work(_) => Some(messages::message(
                 locale.get(),
                 crate::localization::generated::Message::TheatreShellPageTitle {
@@ -1063,7 +1290,10 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
                                 Route::Account | Route::Settings => view! { <LiveAccount state=state.read_only() locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state=state.read_only() locale actions=library_actions on_page=Callback::new(move |(section, restart, focus)| {
+                                    <LiveLibrary state=state.read_only() locale actions=library_actions shared_section=ViewFn::from(move ||view!{<crate::features::shared_access::SharedLibrary account=shared_account state=shared locale
+                                        on_reload=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.begin(DiscoveryQuery::default())).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })
+                                        on_more=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.load_more()).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })
+                                        on_claim=Callback::new(move |_|super::shared_runtime::claim(shared,state,shared_requests))/>}) on_page=Callback::new(move |(section, restart, focus)| {
                                         if preview || !network_allowed.get_untracked() { return; }
                                         #[cfg(target_arch = "wasm32")]
                                         crate::live::runtime::load_library(state, section, restart, 1, focus);
@@ -1077,7 +1307,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                         on_back=Callback::new(move |_| nav.back())
                                         on_login on_account=Callback::new(move |_| nav.open_account())/>
                                 }.into_any(),
-                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
+                                Route::SharedWork(id) => view! { <crate::features::shared_access::SharedDetail work=id account=shared_account state=work_detail scope=work_scope locale listen=listen_controls on_login on_back=on_work_back on_retry=on_work_retry on_more=on_work_more/> }.into_any(),
+                                Route::PublicWork(id) => view! { <Show when=move ||work_scope.with(Option::is_none) && work_detail.with(|s|s.work_id()==Some(id)) fallback=move ||view!{<p role="status">{move ||messages::text(Key::PublicWorkLoading,locale.get())}</p>}><PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/></Show> }.into_any(),
                                 Route::Player => view! { <LivePlayerScreen live sync_controls=player_sync_controls/> }.into_any(),
                                 Route::Discover | Route::Explore => view! {
                                     <PublicHome state=discovery account=state.read_only() locale applied=nav.query on_search on_login on_register on_refresh on_logout

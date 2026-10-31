@@ -5,6 +5,7 @@
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ReturnDestination {
+    SharedWork(crate::core::public_ids::PublicWorkId),
     #[default]
     Home,
     Account,
@@ -14,17 +15,21 @@ pub enum ReturnDestination {
 }
 
 impl ReturnDestination {
-    pub fn slug(self) -> &'static str {
+    pub fn slug(self) -> String {
         match self {
-            Self::Home => "home",
-            Self::Account => "account",
-            Self::Library => "library",
-            Self::Membership => "membership",
-            Self::MembershipFromAccount => "membership-account",
+            Self::SharedWork(id) => format!("shared/{id}"),
+            Self::Home => "home".into(),
+            Self::Account => "account".into(),
+            Self::Library => "library".into(),
+            Self::Membership => "membership".into(),
+            Self::MembershipFromAccount => "membership-account".into(),
         }
     }
 
     fn from_slug(value: &str) -> Option<Self> {
+        if let Some(id) = value.strip_prefix("shared/") {
+            return crate::core::public_ids::PublicWorkId::parse(id).map(Self::SharedWork);
+        }
         match value {
             "home" => Some(Self::Home),
             "account" => Some(Self::Account),
@@ -37,6 +42,7 @@ impl ReturnDestination {
 
     pub fn target(self) -> NavigationTarget {
         match self {
+            Self::SharedWork(id) => NavigationTarget::SharedWork(id),
             Self::Home => NavigationTarget::Home,
             Self::Account => NavigationTarget::Account,
             Self::Library => NavigationTarget::Library,
@@ -142,6 +148,7 @@ impl MembershipReturn {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NavigationTarget {
+    SharedWork(crate::core::public_ids::PublicWorkId),
     Home,
     Account,
     Library,

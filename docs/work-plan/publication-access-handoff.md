@@ -426,3 +426,38 @@ fallback in this implementation. Unsupported transports and private Library rest
 unavailable. S12 owns the disposable restore-pair drill and any production activation; no
 production effect follows from the local router/TCP/byte tests. Admitted response bodies retain
 the existing 60-second bound and already buffered bytes cannot be recalled.
+
+
+### S08 Web consumer boundary (#654)
+
+Studio Work Details mounts an app-owned Access panel on the existing workspace/request/draft
+owners. It consumes S06 DTOs/fixtures and keeps reads, historical operation receipts and dirty
+input separate. Audience confirmations name the policy/publication read versions; the Work
+policy applies to current published INHERIT units and never publishes a draft. Public widening
+still requires the Server's settling rights gate. Email text is submitted unchanged to Identity
+canonicalization; pending never means invitation delivery or account lookup. Groups are listed
+and can receive Work grants; creation is supported. Global member removal/revoke stays closed
+without the complete affected-Work impact contract. Claimed/expired/revoked share history is
+unavailable in the current state projection and is explicitly identified as such.
+
+Theatre Web adds Shared after Continue, explicit claim and the generic `#shared/{work}` login
+return/detail locator. It consumes the S07 strict generation shapes and current cookie lease.
+No private cover is invented. Private metadata/cursors/receipts stay in the current session's
+RAM; route/account changes cancel reads and fence late results. Private source identities carry
+the Theatre session, use shared manifest/authorization paths and require the exact configured
+API media origin. The retained audio adapter selects credentialed CORS for shared sources, but Web listen controls
+and their imperative entrypoint are unavailable: the real local campaign found a teardown panic
+with an active private source on admission loss. Fixing it and qualifying HTTPS/cookies/seek is
+remaining #654 acceptance carried to the #676 review ledger. No runtime switch activates it.
+Metadata-only navigation uses immediate fenced state purge without notifying departed controls.
+Logout or a current denial is intended to clear private media/display facts; the active-source
+browser claim is unaccepted. Restricted Saved/History/Continue,
+bookmark and restore remain unavailable rather than projecting cached private metadata through
+a public API. New Web session lifecycle/native DOM observations remain separate from the
+backend's finite draft models, browser media, CMP, native and production acceptance.
+
+S09 consumes the service-owned shared/viewer-access contracts, not this Web runtime. It must
+qualify Bearer on each Android/iOS open/seek/refresh separately and preserve exact release pins,
+no public fallback, session purge and the unavailable private restore boundary. S10 still owns
+persisted Unit overrides and S12 owns restore/activation. No shared component API, global Studio
+navigation, migration or production activation is selected by S08.

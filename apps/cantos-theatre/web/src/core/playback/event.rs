@@ -2,6 +2,8 @@ use super::state::{CallbackIdentity, Failure, PlayerState, ResumeSnapshot, Sourc
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
+    /// Drop account-bound source and buffered media without a checkpoint or resume offer.
+    AccessCleared,
     SourceSelected {
         source: Source,
         position_ms: u32,
@@ -72,6 +74,7 @@ pub enum Rejection {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Effect {
+    ReleaseEngine,
     PrepareEngine(EngineCommand),
     StartEngine(EngineCommand),
     PauseEngine(EngineCommand),

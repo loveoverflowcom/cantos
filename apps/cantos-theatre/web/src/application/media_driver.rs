@@ -220,6 +220,10 @@ impl MediaDriver {
             | Effect::PauseEngine(command)
             | Effect::SeekEngine(command)
             | Effect::SetSpeed(command) => (command, false),
+            Effect::ReleaseEngine => {
+                self.active = None;
+                return vec![Command::Release];
+            }
             Effect::OfferResume { .. } | Effect::Rejected(_) => return Vec::new(),
         };
         let TrackId::Public(track) = command.source.track() else {
@@ -304,7 +308,7 @@ impl MediaDriver {
                     });
                 }
             }
-            Effect::OfferResume { .. } | Effect::Rejected(_) => {}
+            Effect::ReleaseEngine | Effect::OfferResume { .. } | Effect::Rejected(_) => {}
         }
         out
     }

@@ -662,6 +662,7 @@ pub fn handle_playback_observation(
         | PlaybackObservation::SeekConfirmed { source, .. }
         | PlaybackObservation::FlushCheckpoint { source, .. } => Some(source),
     };
+    if source.is_some_and(|source| matches!(source.track(), crate::core::playback::TrackId::Public(track) if track.is_shared())) { return; }
     let presentation = source.and_then(|source| presentation_from_now_playing(source, now_playing));
     let progress_presentation = matches!(observation, PlaybackObservation::EngineStarted { .. })
         .then(|| presentation.clone())

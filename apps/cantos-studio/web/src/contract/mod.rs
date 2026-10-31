@@ -164,3 +164,6 @@ pub use metadata_publication::*;
 
 #[cfg(test)]
 mod conformance_tests;
+
+mod viewer_access;
+pub use viewer_access::*;

@@ -527,3 +527,16 @@ html:has(.cw-context) { scroll-padding-block-start: 5rem; }
 .studio-shell .cw-metadata code, .studio-shell .cw-metadata-pin { overflow-wrap: anywhere; white-space: normal; }
 .studio-shell #metadata-review-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
 .studio-shell .cw-metadata[hidden], .studio-shell .cw-metadata [hidden] { display: none; }
+
+/* Access is an app-owned composition over shared controls; no new token or global role. */
+.studio-shell .cw-access { max-inline-size: 44rem; margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
+.studio-shell .cw-access h5, .studio-shell .cw-access h6 { margin-block: var(--cantos-space-md); font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); }
+.studio-shell .cw-access-audience, .studio-shell .cw-access-form { display: flex; gap: var(--cantos-space-sm); align-items: center; flex-wrap: wrap; margin-block: var(--cantos-space-md); }
+.studio-shell .cw-access-form .cui-field { flex: 1 1 16rem; min-inline-size: 0; }
+.studio-shell .cw-access-recipients { list-style: none; padding: var(--cantos-space-sm); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-access-recipients li { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); flex-wrap: wrap; padding: var(--cantos-space-sm); }
+.studio-shell .cw-access-recipients p { margin-block: var(--cantos-space-xs); }
+.studio-shell .cw-access-group { padding: var(--cantos-space-md); margin-block: var(--cantos-space-sm); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
+.studio-shell .cw-access input[readonly] { inline-size: 100%; box-sizing: border-box; }
+.studio-shell .cw-access-exact { overflow-wrap: anywhere; }
+.studio-shell .cw-access[hidden], .studio-shell .cw-access [hidden] { display: none; }

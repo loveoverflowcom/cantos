@@ -18,3 +18,4 @@ pub use request::*;
 pub mod account;
 #[cfg(target_arch = "wasm32")]
 pub mod runtime;
+pub mod shared;

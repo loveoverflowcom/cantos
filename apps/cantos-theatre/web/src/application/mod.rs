@@ -22,3 +22,4 @@ pub mod signup;
 
 pub(crate) mod error_writer;
 pub mod errors;
+pub mod shared_access;

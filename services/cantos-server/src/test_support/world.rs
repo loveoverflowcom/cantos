@@ -201,6 +201,17 @@ impl ServerFixture {
         storage: Option<&FilesystemPublicationStorage>,
         seed: &WorkSeed,
     ) -> SeededWork {
+        self.seed_work_with_media(storage, seed, None).await
+    }
+
+    /// Test-only explicit bytes for browser decoding. Domain rows remain synthetic fixtures;
+    /// callers independently inspect the supplied 60-second mono Opus file. No provider runs.
+    pub async fn seed_work_with_media(
+        &self,
+        storage: Option<&FilesystemPublicationStorage>,
+        seed: &WorkSeed,
+        media: Option<&[u8]>,
+    ) -> SeededWork {
         self.seed_actors(&[seed.owner.as_str()]).await;
         let now = self.clock_now_micros().div_euclid(1000);
         let t0 = now - 3_600_000;
@@ -260,6 +271,7 @@ impl ServerFixture {
                 storage,
                 &mut ids,
                 ChainFacts {
+                    media,
                     seed,
                     work: &work,
                     unit,
@@ -341,6 +353,7 @@ impl ServerFixture {
             storage,
             &mut ids,
             ChainFacts {
+                media: None,
                 seed: &seed,
                 work: &work_row,
                 unit: &unit_row,
@@ -575,6 +588,7 @@ impl ServerFixture {
 }
 
 struct ChainFacts<'a> {
+    media: Option<&'a [u8]>,
     seed: &'a WorkSeed,
     work: &'a Work,
     unit: &'a ContentUnit,
@@ -802,7 +816,10 @@ async fn publish_chain(
     .expect("the brief row is written");
 
     // The submission, bound to that exact brief.
-    let bytes = media_bytes(f.seed.tag, f.unit_index, f.chain_no);
+    let bytes = f.media.map_or_else(
+        || media_bytes(f.seed.tag, f.unit_index, f.chain_no),
+        <[u8]>::to_vec,
+    );
     let sha256 = hex(&bytes);
     let submission_id = ids.id();
     let submission_operation = ids.id();

@@ -613,3 +613,8 @@ are not current state. The [owner contract](../../../services/cantos-server/cont
 owns authority. Exact selected and earlier cover identities come from the existing owner-only
 artwork revision read. Historical Work field text is not supplied by publication state; the UI
 compares revision identities without substituting a newer head’s text.
+
+The Work Details Access panel consumes [viewer access v1](../../../services/cantos-server/contracts/studio/viewer-access/v1/README.md).
+It retains draft/publication owners, confirms policy versions, distinguishes pending email from
+mail delivery and reloads current state after historical receipts. The current API supplies no
+share lifecycle history or complete global group impact; those UI actions remain unavailable.

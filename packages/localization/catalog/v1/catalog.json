@@ -26419,6 +26419,810 @@
           "text": "This work is archived; its content is not visible on Cantos."
         }
       }
+    },
+    "studio.live.access_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quyền truy cập"
+        },
+        "en": {
+          "text": "Access"
+        }
+      }
+    },
+    "studio.live.access_open": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quản lý chia sẻ"
+        },
+        "en": {
+          "text": "Manage sharing"
+        }
+      }
+    },
+    "studio.live.access_close": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xong"
+        },
+        "en": {
+          "text": "Done"
+        }
+      }
+    },
+    "studio.live.access_load": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc quyền hiện tại"
+        },
+        "en": {
+          "text": "Read current access"
+        }
+      }
+    },
+    "studio.live.access_groups_load": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc nhóm của tôi"
+        },
+        "en": {
+          "text": "Read my groups"
+        }
+      }
+    },
+    "studio.live.access_unread": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc quyền hiện tại."
+        },
+        "en": {
+          "text": "Current access has not been read."
+        }
+      }
+    },
+    "studio.live.access_public": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Công khai"
+        },
+        "en": {
+          "text": "Public"
+        }
+      }
+    },
+    "studio.live.access_restricted": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Giới hạn"
+        },
+        "en": {
+          "text": "Restricted"
+        }
+      }
+    },
+    "studio.live.access_audience": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ai được xem tác phẩm?"
+        },
+        "en": {
+          "text": "Who can view this work?"
+        }
+      }
+    },
+    "studio.live.access_independent": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thay đổi quyền không công bố hoặc sửa bản nháp."
+        },
+        "en": {
+          "text": "Access changes do not publish or edit the draft."
+        }
+      }
+    },
+    "studio.live.access_email": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Email người nhận"
+        },
+        "en": {
+          "text": "Recipient email"
+        }
+      }
+    },
+    "studio.live.access_share": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cấp quyền qua email"
+        },
+        "en": {
+          "text": "Grant access by email"
+        }
+      }
+    },
+    "studio.live.access_no_mail": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không gửi email. Người nhận đăng nhập bằng email đã xác minh rồi nhận quyền. Quyền đang chờ hết hạn sau 14 ngày; tối đa 100 mục."
+        },
+        "en": {
+          "text": "No email is sent. The recipient signs in with their verified email to claim access. Pending shares expire after 14 days; at most 100 are allowed."
+        }
+      }
+    },
+    "studio.live.access_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chờ nhận"
+        },
+        "en": {
+          "text": "Awaiting claim"
+        }
+      }
+    },
+    "studio.live.access_granted": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quyền đang có hiệu lực theo máy chủ"
+        },
+        "en": {
+          "text": "Grant currently returned by the server"
+        }
+      }
+    },
+    "studio.live.access_expiry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hết hạn"
+        },
+        "en": {
+          "text": "Expires"
+        }
+      }
+    },
+    "studio.live.access_no_expiry": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không đặt ngày hết hạn"
+        },
+        "en": {
+          "text": "No expiry set"
+        }
+      }
+    },
+    "studio.live.access_expiry_input": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Hết hạn tùy chọn (ISO 8601, có múi giờ)"
+        },
+        "en": {
+          "text": "Optional expiry (ISO 8601 with timezone)"
+        }
+      }
+    },
+    "studio.live.access_expiry_invalid": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ngày hết hạn cần hợp lệ và có múi giờ."
+        },
+        "en": {
+          "text": "Enter a valid expiry including its timezone."
+        }
+      }
+    },
+    "studio.live.access_actor": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mã người nghe"
+        },
+        "en": {
+          "text": "Listener actor ID"
+        }
+      }
+    },
+    "studio.live.access_actor_grant": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cấp quyền cho người nghe"
+        },
+        "en": {
+          "text": "Grant listener access"
+        }
+      }
+    },
+    "studio.live.access_people": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Người, nhóm và email đang chờ"
+        },
+        "en": {
+          "text": "People, groups and pending email"
+        }
+      }
+    },
+    "studio.live.access_revoke": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thu hồi"
+        },
+        "en": {
+          "text": "Revoke"
+        }
+      }
+    },
+    "studio.live.access_confirm": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Xác nhận thay đổi quyền"
+        },
+        "en": {
+          "text": "Confirm access change"
+        }
+      }
+    },
+    "studio.live.access_apply": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Áp dụng đúng thay đổi này"
+        },
+        "en": {
+          "text": "Apply this exact change"
+        }
+      }
+    },
+    "studio.live.access_confirm_rights": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tôi xác nhận quyền phân phối metadata công khai của bản công bố."
+        },
+        "en": {
+          "text": "I confirm public metadata distribution rights for the published revision."
+        }
+      }
+    },
+    "studio.live.access_scope": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thay đổi áp dụng cho tác phẩm và các mục đã công bố đang theo quyền tác phẩm. Bản nháp vẫn được giữ."
+        },
+        "en": {
+          "text": "The change applies to the work and published units following its access. The draft is retained."
+        }
+      }
+    },
+    "studio.live.access_no_publication": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có bản công bố. Thay đổi quyền không làm nội dung xuất hiện."
+        },
+        "en": {
+          "text": "There is no publication. Changing access does not make content visible."
+        }
+      }
+    },
+    "studio.live.access_revoke_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các yêu cầu mới sẽ bị từ chối. Audio đã được chấp nhận có thể kết thúc trong giới hạn; dữ liệu đã đệm không thể thu hồi."
+        },
+        "en": {
+          "text": "Later requests will be refused. An admitted audio response may finish within its bound; buffered bytes cannot be recalled."
+        }
+      }
+    },
+    "studio.live.access_group_name": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tên nhóm mới"
+        },
+        "en": {
+          "text": "New group name"
+        }
+      }
+    },
+    "studio.live.access_group_create": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tạo nhóm"
+        },
+        "en": {
+          "text": "Create group"
+        }
+      }
+    },
+    "studio.live.access_groups": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhóm người nghe của tôi"
+        },
+        "en": {
+          "text": "My viewer groups"
+        }
+      }
+    },
+    "studio.live.access_group_grant": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cấp quyền cho nhóm"
+        },
+        "en": {
+          "text": "Grant group access"
+        }
+      }
+    },
+    "studio.live.access_group_member": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thêm người nghe vào nhóm"
+        },
+        "en": {
+          "text": "Add listener to group"
+        }
+      }
+    },
+    "studio.live.access_group_impact_missing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa thể xóa thành viên hoặc thu hồi nhóm: máy chủ chưa cung cấp đầy đủ tác phẩm bị ảnh hưởng."
+        },
+        "en": {
+          "text": "Member removal and group revocation are unavailable until the server supplies the complete affected-work scope."
+        }
+      }
+    },
+    "studio.live.access_history_missing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Danh sách chỉ gồm quyền và email đang chờ hiện tại. Lịch sử nhận quyền, hết hạn và thu hồi chưa được API cung cấp."
+        },
+        "en": {
+          "text": "This list contains current grants and pending email only. Claim, expiry and revoke history is not supplied by this API."
+        }
+      }
+    },
+    "studio.live.access_work_version": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản quyền"
+        },
+        "en": {
+          "text": "Access version"
+        }
+      }
+    },
+    "studio.live.access_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang kiểm tra hoặc thay đổi quyền…"
+        },
+        "en": {
+          "text": "Checking or changing access…"
+        }
+      }
+    },
+    "studio.live.access_unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xác định kết quả. Dùng thử lại đúng thao tác gốc; không cấp lại bằng thao tác mới."
+        },
+        "en": {
+          "text": "Outcome unknown. Retry the original operation; do not issue a new grant."
+        }
+      }
+    },
+    "studio.live.access_receipt": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã nhận biên nhận. Đọc lại quyền hiện tại để đối chiếu; biên nhận có thể là lịch sử."
+        },
+        "en": {
+          "text": "Receipt received. Read current access to compare; the receipt may be historical."
+        }
+      }
+    },
+    "studio.live.access_conflict": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản quyền đã đổi. Đọc lại và xác nhận lại; nội dung nhập vẫn được giữ."
+        },
+        "en": {
+          "text": "Access version changed. Reload and confirm again; entered content is retained."
+        }
+      }
+    },
+    "studio.live.access_rights": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đủ quyền phân phối metadata công khai của bản công bố."
+        },
+        "en": {
+          "text": "Public metadata distribution rights for the published revision are unavailable."
+        }
+      }
+    },
+    "studio.live.access_duplicate": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quyền này đã tồn tại. Đọc lại quyền hiện tại."
+        },
+        "en": {
+          "text": "This grant already exists. Read current access."
+        }
+      }
+    },
+    "studio.live.access_bound": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đạt giới hạn quyền hoặc email đang chờ."
+        },
+        "en": {
+          "text": "The grant or pending-share limit has been reached."
+        }
+      }
+    },
+    "studio.live.access_invalid": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Máy chủ từ chối dữ liệu quyền. Kiểm tra email, mã hoặc ngày hết hạn."
+        },
+        "en": {
+          "text": "The server refused the access data. Check the email, ID or expiry."
+        }
+      }
+    },
+    "studio.live.access_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa hoàn tất thao tác quyền. Nội dung nhập được giữ."
+        },
+        "en": {
+          "text": "The access operation did not complete. Entered content is retained."
+        }
+      }
+    },
+    "studio.live.access_readonly": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ chủ sở hữu quản lý quyền tác phẩm."
+        },
+        "en": {
+          "text": "Only the owner manages work access."
+        }
+      }
+    },
+    "studio.live.access_locator": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mã liên kết chỉ định nội dung; liên kết không cấp quyền."
+        },
+        "en": {
+          "text": "The locator identifies content; the link grants no access."
+        }
+      }
+    },
+    "studio.live.access_locator_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đường dẫn mở trong Cantos"
+        },
+        "en": {
+          "text": "Open path in Cantos"
+        }
+      }
+    },
+    "theatre.shell.shared_title": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Được chia sẻ với tôi"
+        },
+        "en": {
+          "text": "Shared with me"
+        }
+      }
+    },
+    "theatre.shell.shared_claim": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhận quyền đang chờ"
+        },
+        "en": {
+          "text": "Claim pending access"
+        }
+      }
+    },
+    "theatre.shell.shared_claim_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chỉ nhận quyền của email đã xác minh thuộc tài khoản này. Không gửi email."
+        },
+        "en": {
+          "text": "Claim only access for this account’s verified email. No email is sent."
+        }
+      }
+    },
+    "theatre.shell.shared_claim_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang nhận quyền…"
+        },
+        "en": {
+          "text": "Claiming access…"
+        }
+      }
+    },
+    "theatre.shell.shared_claim_unknown": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa xác định kết quả. Thử lại sẽ dùng đúng thao tác cũ."
+        },
+        "en": {
+          "text": "Outcome unknown. Retry uses the original operation."
+        }
+      }
+    },
+    "theatre.shell.shared_claim_done": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã nhận biên nhận; tải lại danh sách để kiểm tra quyền hiện tại."
+        },
+        "en": {
+          "text": "Receipt received; reload the list to check current access."
+        }
+      }
+    },
+    "theatre.shell.shared_claim_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa nhận được quyền. Kiểm tra email đã xác minh của tài khoản."
+        },
+        "en": {
+          "text": "Access was not claimed. Check this account’s verified email."
+        }
+      }
+    },
+    "theatre.shell.shared_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có tác phẩm được chia sẻ trong lần đọc này."
+        },
+        "en": {
+          "text": "No shared works were returned in this read."
+        }
+      }
+    },
+    "theatre.shell.shared_loading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang đọc nội dung được chia sẻ…"
+        },
+        "en": {
+          "text": "Loading shared content…"
+        }
+      }
+    },
+    "theatre.shell.shared_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc được nội dung được chia sẻ."
+        },
+        "en": {
+          "text": "Shared content could not be loaded."
+        }
+      }
+    },
+    "theatre.shell.shared_badge": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Được chia sẻ"
+        },
+        "en": {
+          "text": "Shared"
+        }
+      }
+    },
+    "theatre.shell.shared_login": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đăng nhập để kiểm tra quyền truy cập"
+        },
+        "en": {
+          "text": "Sign in to check access"
+        }
+      }
+    },
+    "theatre.shell.shared_generic": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không thể mở nội dung"
+        },
+        "en": {
+          "text": "Content unavailable"
+        }
+      }
+    },
+    "theatre.shell.shared_denied": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nội dung không khả dụng hoặc tài khoản này chưa có quyền truy cập."
+        },
+        "en": {
+          "text": "The content is unavailable or this account has no access."
+        }
+      }
+    },
+    "theatre.shell.shared_restore_unavailable": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nội dung giới hạn chưa hỗ trợ Lưu, lịch sử, dấu trang hoặc khôi phục phiên."
+        },
+        "en": {
+          "text": "Restricted content does not yet support Saved, history, bookmarks or session restore."
+        }
+      }
+    },
+    "theatre.shell.shared_back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về thư viện"
+        },
+        "en": {
+          "text": "Return to Library"
+        }
+      }
+    },
+    "theatre.shell.shared_refresh": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc lại nội dung được chia sẻ"
+        },
+        "en": {
+          "text": "Reload shared content"
+        }
+      }
+    },
+    "theatre.shell.shared_playback_pending": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa thể nghe nội dung này trên Web. Bạn vẫn có thể xem các tập."
+        },
+        "en": {
+          "text": "This content cannot be played on Web yet. You can still view its episodes."
+        }
+      }
     }
   }
 }

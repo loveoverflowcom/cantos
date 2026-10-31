@@ -1271,3 +1271,6 @@ async fn cmp_live_desktop_preview_against_real_identity_and_http() {
 
 #[path = "support/restricted_journey.rs"]
 mod restricted;
+
+#[path = "support/web_sharing_fixture.rs"]
+mod web_sharing_fixture;

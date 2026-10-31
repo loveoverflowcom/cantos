@@ -802,3 +802,12 @@ the [Discovery owner](../../../services/cantos-server/contracts/theatre/discover
 No presentation selector is sent. A null playback capability stays metadata-only; Play and
 manifest lookup require the exact associated publication. Opening metadata never autoplays.
 Saved draft edits cannot change a published pin, and a republish invalidates an older Unit cursor.
+
+Shared Library and `#shared/{canonical-work-id}` use [authenticated shared v1](../../../services/cantos-server/contracts/theatre/shared/v1/README.md),
+with an internal ID-only login return, current Theatre cookies and session-scoped transient
+metadata/cursors. Restricted Web listen controls and their handler are held unavailable after a
+browser source-teardown failure; retained adapter source targets credentialed shared media on
+the configured API origin and requires follow-up qualification.
+Private Library journal/restore and cover remain unavailable; source/core/DOM qualification is
+separate from actual browser cookies/GET/Range playback and production activation. The ordinary
+Server executable keeps restricted serving disabled after startup/restore.

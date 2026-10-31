@@ -30,7 +30,7 @@ fn back_key(route: AuthRoute) -> CopyKey {
         AuthStep::Login => match route.origin {
             ReturnDestination::Home => CopyKey::ReturnHome,
             ReturnDestination::Account => CopyKey::ReturnAccount,
-            ReturnDestination::Library => CopyKey::ReturnLibrary,
+            ReturnDestination::SharedWork(_) | ReturnDestination::Library => CopyKey::ReturnLibrary,
             ReturnDestination::Membership | ReturnDestination::MembershipFromAccount => {
                 CopyKey::ReturnMembership
             }

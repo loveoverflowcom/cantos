@@ -67,7 +67,9 @@ pub fn position_description(locale: Locale, position: u32, duration: u32) -> Str
 
 pub fn page_title(locale: Locale, route: Route) -> String {
     let page = match route {
-        Route::Work(_) | Route::PublicWork(_) => text(Key::AboutWork, locale),
+        Route::SharedWork(_) | Route::Work(_) | Route::PublicWork(_) => {
+            text(Key::AboutWork, locale)
+        }
         route => text(route_key(route), locale),
     };
     message(
@@ -110,7 +112,7 @@ pub fn route_key(route: Route) -> Key {
     match route {
         Route::Discover => Key::Discover,
         Route::Explore => Key::Explore,
-        Route::Work(_) | Route::PublicWork(_) => Key::AboutWork,
+        Route::SharedWork(_) | Route::Work(_) | Route::PublicWork(_) => Key::AboutWork,
         Route::Library => Key::Library,
         Route::History => Key::History,
         Route::Player => Key::Player,

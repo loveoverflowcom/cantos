@@ -717,7 +717,9 @@ fn bounded_event_sequences_are_deterministic_immutable_and_preserve_root_invaria
                         | Effect::PauseEngine(command)
                         | Effect::SeekEngine(command)
                         | Effect::SetSpeed(command) => command,
-                        Effect::OfferResume { .. } | Effect::Rejected(_) => continue,
+                        Effect::ReleaseEngine
+                        | Effect::OfferResume { .. }
+                        | Effect::Rejected(_) => continue,
                     };
                     let session = transition.state.session().unwrap();
                     assert_eq!(Some(command.identity), transition.state.identity());

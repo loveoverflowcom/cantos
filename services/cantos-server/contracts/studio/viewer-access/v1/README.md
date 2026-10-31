@@ -1,7 +1,7 @@
 # Studio viewer access v1 — S06 control plane
 
 Implemented Server-owned JSON control plane for [ADR 0054](../../../../../../docs/decisions/0054-publication-generation-and-access.md) D01/D04/D05. [Schema](viewer-access.schema.json), [fixtures](fixtures/corpus.json).
-No Web/CMP UI consumes these new routes yet. The existing public representation is unchanged.
+Studio Web consumes these routes in its Work Details access panel (#654), with frozen policy versions, separate historical receipts and explicit reload. It keeps Catalog drafts/publication state independent. Destructive global group membership/revoke controls remain unavailable until a complete affected-Work projection exists. The state route supplies only current grants/pending shares, not claimed/expired/revoked share history. The public representation is unchanged.
 
 - `GET/POST /api/v1/studio/works/{work}/viewer-access`: current owner only. POST carries
   `operation_id`, `expected_version` (0 before the first change) and one closed `change`.

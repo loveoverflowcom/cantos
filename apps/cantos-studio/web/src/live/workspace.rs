@@ -371,6 +371,7 @@ pub fn ContentWorkspace(
     let ancillary = RwSignal::new(super::ancillary::AncillaryDrafts::default());
     let artwork_dirty = RwSignal::new(false);
     let delegation_dirty = RwSignal::new(false);
+    let viewer_dirty = RwSignal::new(false);
     let publication_dirty = RwSignal::new(false);
     let catalog_dirty = RwSignal::new(false);
     let preview_after_save = RwSignal::new(None::<super::preview::AfterSave>);
@@ -653,6 +654,18 @@ pub fn ContentWorkspace(
                     Err(_) => {
                         if matches!(
                             command,
+                            Command::ViewerState { .. } | Command::ViewerChange { .. }
+                        ) {
+                            let _ = facts.try_update(|f| f.viewer.current = None);
+                        }
+                        if matches!(
+                            command,
+                            Command::ViewerGroups | Command::ViewerGroupChange { .. }
+                        ) {
+                            let _ = facts.try_update(|f| f.viewer.groups = None);
+                        }
+                        if matches!(
+                            command,
                             Command::MetadataState { .. } | Command::MetadataCommand { .. }
                         ) {
                             let _ = facts.try_update(|f| f.metadata.current = None);
@@ -696,6 +709,7 @@ pub fn ContentWorkspace(
                 ancillary.set(super::ancillary::AncillaryDrafts::default());
                 artwork_dirty.set(false);
                 delegation_dirty.set(false);
+                viewer_dirty.set(false);
                 publication_dirty.set(false);
                 catalog_dirty.set(false);
                 preview_after_save.set(None);
@@ -773,6 +787,7 @@ pub fn ContentWorkspace(
                 || audio_unsaved.get()
                 || artwork_dirty.get()
                 || delegation_dirty.get()
+                || viewer_dirty.get()
                 || publication_dirty.get()
                 || catalog_dirty.get()
                 || drafts.with(super::drafts::AuthoringDrafts::has_unsaved),
@@ -815,7 +830,8 @@ pub fn ContentWorkspace(
             || (work_context
                 && (catalog_dirty.get_untracked()
                     || artwork_dirty.get_untracked()
-                    || delegation_dirty.get_untracked()));
+                    || delegation_dirty.get_untracked()
+                    || viewer_dirty.get_untracked()));
         if !requires_confirmation {
             return true;
         }
@@ -1367,6 +1383,7 @@ pub fn ContentWorkspace(
                                 <section class="cw-block" aria-labelledby="live-work-details-title"><h4 id="live-work-details-title">{move ||text(Key::WorkDetails,locale.get())}</h4>
                                     <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save/>
                                     <super::metadata_panel::MetadataPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get())/>
+                                    <super::viewer_panel::ViewerPanel facts state locale blocked dirty=viewer_dirty on_send=Callback::new(move |command|dispatch.send(command)) on_retry=Callback::new(move |_|dispatch.retry())/>
                                     <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
                                 </section>
                             </Show>

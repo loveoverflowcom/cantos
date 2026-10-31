@@ -302,14 +302,18 @@ impl WorkDetailState {
         if self.work.is_none() && self.phase == WorkDetailPhase::Idle {
             return false;
         }
-        let Some(generation) = self.generation.checked_add(1) else {
-            return false;
-        };
-        self.generation = generation;
+        self.generation = self.generation.saturating_add(1);
         self.work = None;
         self.pending_page = None;
         self.phase = WorkDetailPhase::Idle;
         true
+    }
+
+    /// A shared re-admission refusal removes all metadata and fences every pending page.
+    pub fn refuse_access(&mut self) {
+        self.generation = self.generation.saturating_add(1);
+        self.pending_page = None;
+        self.phase = WorkDetailPhase::NotFound;
     }
 
     /// Retry the failed read only: the whole detail, or the failed page with its same cursor.
