@@ -3,6 +3,7 @@
 use super::{
     checks,
     plan::{self, Plan, ACTORS},
+    publication,
 };
 use crate::{http, sample_files};
 use axum::{http::StatusCode, Router};
@@ -35,6 +36,13 @@ pub fn generator_hash() -> String {
             include_str!("plan.rs"),
             include_str!("runtime.rs"),
             include_str!("checks.rs"),
+            include_str!("publication.rs"),
+            include_str!("../../../src/test_support/publication_performance.rs"),
+            include_str!("../../../src/platform/store/sql.rs"),
+            include_str!("../../../src/contexts/catalog/turso/public_metadata.rs"),
+            include_str!("../../../src/contexts/catalog/turso/viewer_reads.rs"),
+            include_str!("../../../src/contexts/catalog/turso/viewer_access/units.rs"),
+            include_str!("../../../src/contexts/media/turso/listener.rs"),
             include_str!("../../local_dataset_turso.rs"),
             include_str!("../../../../../packages/store-turso/src/search_probe.rs"),
             include_str!("../../fixtures/local-datasets/checks.sql"),
@@ -130,7 +138,7 @@ fn inputs(p: &Plan) -> Vec<(&'static str, Value)> {
     }
     files.push((
         "oracles.json",
-        json!({"counts_by_owner_kind_lifecycle":groups.iter().map(|((owner,kind,lifecycle),count)|json!({"owner":owner,"kind":kind,"lifecycle":lifecycle,"count":count})).collect::<Vec<_>>(),"expected_works":p.works,"request_ids":p.steps.iter().map(|s|s.id.as_str()).collect::<Vec<_>>(),"studio_order":"UUID; units (position,id); history revision","theatre_expected":"no visible records; no audio/release/disclosure","browser":"NOT_RUN"}),
+        json!({"counts_by_owner_kind_lifecycle":groups.iter().map(|((owner,kind,lifecycle),count)|json!({"owner":owner,"kind":kind,"lifecycle":lifecycle,"count":count})).collect::<Vec<_>>(),"expected_works":p.works,"request_ids":p.steps.iter().map(|s|s.id.as_str()).collect::<Vec<_>>(),"studio_order":"UUID; units (position,id); history revision","theatre_expected":if p.profile=="publication-access" {"independent public/shared membership and HIDE in publication measurement/test oracle; no audio"} else {"no visible records; no audio/release/disclosure"},"browser":"NOT_RUN"}),
     ));
     if p.profile == "vector-corpus" {
         files.push((
@@ -311,6 +319,15 @@ pub async fn observation(db: &OwnedDatabase) -> Value {
         ("receipts","SELECT json_object('actor',actor_id,'id',operation_id,'fingerprint',fingerprint,'digest',result_digest,'bytes',hex(result_bytes)) FROM catalog_operations ORDER BY actor_id,operation_id"),
         ("members","SELECT json_object('work',work_id,'actor',actor_id,'role',role) FROM catalog_members ORDER BY work_id,actor_id"),
         ("counts","SELECT json_object('clock',(SELECT revision FROM catalog_clock),'releases',(SELECT count(*) FROM audio_releases),'images',(SELECT count(*) FROM media_image_assets),'sources',(SELECT count(*) FROM source_records))"),
+        ("metadata_pointers","SELECT json_object('work',work_id,'version',version,'generation',generation,'lifecycle',lifecycle,'anchor',first_visible_at_ms) FROM catalog_metadata_publication_pointers ORDER BY work_id"),
+        ("metadata_generations","SELECT json_object('work',work_id,'generation',generation,'revision',work_revision,'digest',work_digest,'count',entry_count,'search',search_text) FROM catalog_metadata_generations ORDER BY work_id,generation"),
+        ("metadata_entries","SELECT json_object('work',work_id,'generation',generation,'position',position,'unit',unit_id,'revision',unit_revision,'digest',unit_digest) FROM catalog_metadata_generation_entries ORDER BY work_id,generation,position"),
+        ("viewer_policies","SELECT json_object('work',work_id,'owner',owner_id,'version',version,'audience',audience) FROM catalog_viewer_policies ORDER BY work_id"),
+        ("viewer_groups","SELECT json_object('id',id,'owner',owner_id,'version',version,'revoked',revoked) FROM catalog_viewer_groups ORDER BY id"),
+        ("viewer_members","SELECT json_object('owner',owner_id,'group',group_id,'actor',actor_id,'expiry',expires_at_us,'removed',removed) FROM catalog_viewer_members ORDER BY group_id,actor_id"),
+        ("viewer_grants","SELECT json_object('id',id,'work',work_id,'actor',actor_id,'group',group_id,'expiry',expires_at_us) FROM catalog_viewer_grants ORDER BY id"),
+        ("unit_policies","SELECT json_object('unit',unit_id,'work',work_id,'mode',mode) FROM catalog_unit_viewer_policies ORDER BY unit_id"),
+        ("unit_grants","SELECT json_object('unit',unit_id,'work',work_id,'principal',principal_key,'expiry',expires_at_us) FROM catalog_unit_viewer_grants ORDER BY unit_id,principal_key"),
     ] {result.insert(name.into(),json!(sql_rows(db,sql).await));}
     Value::Object(result)
 }
@@ -332,7 +349,17 @@ pub async fn complete(root: &Path, p: &Plan, create: bool) -> Value {
     let s = store(root).await;
     let host = http::HttpHost::start(router(&s)).await;
     if create {
+        if p.profile == "publication-access" {
+            cantos_server::test_support::publication_performance::synthetic_rights(&s, ACTORS[0])
+                .await;
+        }
         seed(&s, &host, p, &tokens, None).await;
+        if p.profile == "publication-access" {
+            let measurements = publication::seed(&s, p, &tokens).await;
+            if !root.join("publication-writes.json").exists() {
+                write(root, "publication-writes.json", &measurements);
+            }
+        }
     }
     checks::http(&host, p, &tokens).await;
     host.stop().await;
@@ -374,6 +401,15 @@ pub async fn complete(root: &Path, p: &Plan, create: bool) -> Value {
         "snapshot differs from native runtime DB"
     );
     drop(copied);
+    let publication = if p.profile == "publication-access" {
+        // This remains behind the explicit dataset action, never an ordinary gate/startup.
+        let report = publication::measure(root, p).await;
+        let file = format!("publication-measurements-{}.json", uuid::Uuid::new_v4());
+        write(root, &file, &report);
+        json!({"report":file,"budget":"PENDING","adopted_optimization":"NONE"})
+    } else {
+        Value::Null
+    };
     let capabilities = match p.profile.as_str() {
         "vector-corpus" => {
             let r = cantos_store_turso::search_probe::vectors().await;
@@ -412,11 +448,11 @@ pub async fn complete(root: &Path, p: &Plan, create: bool) -> Value {
         "counts_by_owner_kind_lifecycle": oracles["counts_by_owner_kind_lifecycle"],
         "request_ids": oracles["request_ids"],
         "substring_corpus_query_ids": query_ids,
-        "expected": p.works, "capabilities": capabilities,
+        "expected": p.works, "capabilities": capabilities, "publication_measurements":publication,
         "evidence": {
             "sql_http":"PASS", "integrity":"PASS", "reopen_snapshot":"PASS",
             "browser":"NOT_RUN: #565 authorized Studio provisioning required",
-            "publication":"NOT_RUN: metadata-only private fixtures",
+            "publication": if p.profile=="publication-access" {"production owner metadata/policy commands over synthetic rights/session fixtures; no audio/Identity/production qualification"} else {"NOT_RUN: metadata-only private fixtures"},
             "seed_elapsed_ms":duration_ms,
             "database_bytes":fs::metadata(root.join("server.db")).unwrap().len(),
             "database_wal_bytes":fs::metadata(root.join("server.db-wal")).map_or(0, |m| m.len()),

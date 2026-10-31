@@ -56,6 +56,7 @@ pub struct Work {
     pub synopsis: String,
     pub language: String,
     pub visibility: String,
+    pub rights_refs: Vec<String>,
     pub revision: u64,
     pub archived: bool,
     pub units: Vec<Unit>,
@@ -112,6 +113,11 @@ impl Plan {
                 synopsis: "Dữ liệu tổng hợp riêng tư; chưa có âm thanh.".into(),
                 language: if i % 2 == 0 { "vi-VN" } else { "en" }.into(),
                 visibility: "private".into(),
+                rights_refs: if profile == "publication-access" {
+                    vec!["dataset-synthetic-rights".into()]
+                } else {
+                    vec![]
+                },
                 revision: 1,
                 archived: false,
                 units: vec![],
@@ -129,7 +135,14 @@ impl Plan {
             if profile == "visibility-recovery" {
                 w.visibility = ["private", "unlisted", "public"][i].into();
             }
-            p.push(w.actor,"POST","/works".into(),json!({"id":w.id,"kind":w.kind,"details":{"title":w.title,"synopsis":w.synopsis,"language":w.language,"visibility":w.visibility,"rights_refs":[]}}),201,None);
+            if profile == "publication-access" && i % 4 == 0 {
+                w.title = if i % 8 == 0 {
+                    "Ánh trăng %_".into()
+                } else {
+                    "A\u{301}nh trăng %_".into()
+                };
+            }
+            p.push(w.actor,"POST","/works".into(),json!({"id":w.id,"kind":w.kind,"details":{"title":w.title,"synopsis":w.synopsis,"language":w.language,"visibility":w.visibility,"rights_refs":w.rights_refs}}),201,None);
             let children = match profile {
                 "minimal" => size,
                 "studio-crud" => 2,
@@ -150,13 +163,28 @@ impl Plan {
                         usize::from(i % 10 == 0)
                     }
                 }
+                "publication-access" => {
+                    if i == 0 {
+                        if size == 1000 {
+                            1000
+                        } else {
+                            20
+                        }
+                    } else {
+                        [0, 1, 3, 5][i % 4]
+                    }
+                }
                 "unicode-and-patch" => usize::from(i == 0),
                 _ => 0,
             };
             for j in 0..children {
                 let u = Unit {
                     id: p.id(&format!("work/{i}/unit/{j}")),
-                    title: format!("Chương hoặc tập {j} — Mưa về"),
+                    title: if profile == "publication-access" && i == 0 && j == 0 {
+                        "HIDDEN_SENTINEL".into()
+                    } else {
+                        format!("Chương hoặc tập {j} — Mưa về")
+                    },
                     description: String::new(),
                     position: j,
                     revision: 1,
@@ -300,7 +328,7 @@ mod tests {
     #[test]
     fn every_profile_has_bounded_deterministic_namespaced_requests() {
         let registry: Value = serde_json::from_str(REGISTRY).unwrap();
-        assert_eq!(registry["profiles"].as_array().unwrap().len(), 13);
+        assert_eq!(registry["profiles"].as_array().unwrap().len(), 14);
         for entry in registry["profiles"].as_array().unwrap() {
             let name = entry["name"].as_str().unwrap();
             let p = Plan::build(name, 568, None).unwrap();

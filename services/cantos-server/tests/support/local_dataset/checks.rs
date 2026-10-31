@@ -91,7 +91,7 @@ fn work(actual: &Value, w: &Work) {
     );
     assert_eq!(
         actual["details"],
-        json!({"title":w.title,"synopsis":w.synopsis,"language":w.language,"visibility":w.visibility,"rights_refs":[]})
+        json!({"title":w.title,"synopsis":w.synopsis,"language":w.language,"visibility":w.visibility,"rights_refs":w.rights_refs})
     );
 }
 pub async fn http(host: &HttpHost, p: &Plan, tokens: &[String]) {
@@ -133,7 +133,7 @@ pub async fn http(host: &HttpHost, p: &Plan, tokens: &[String]) {
     for (i, w) in p.works.iter().enumerate() {
         // Scale profiles still compare every row via bounded lists and native SQL; only detail
         // probes are sampled. They are workload inputs, not exhaustive performance campaigns.
-        if p.profile == "scale-local" && i >= 10 {
+        if matches!(p.profile.as_str(), "scale-local" | "publication-access") && i >= 10 {
             continue;
         }
         let token = &tokens[w.actor];
@@ -194,23 +194,27 @@ pub async fn http(host: &HttpHost, p: &Plan, tokens: &[String]) {
         )
         .await
         .error(StatusCode::NOT_FOUND, "not_found");
-        host.json::<Value>(
-            "GET",
-            &format!("/api/v1/theatre/works/{}", w.id),
-            None,
-            None,
-            None,
-        )
-        .await
-        .error(StatusCode::NOT_FOUND, "not_found");
+        if p.profile != "publication-access" {
+            host.json::<Value>(
+                "GET",
+                &format!("/api/v1/theatre/works/{}", w.id),
+                None,
+                None,
+                None,
+            )
+            .await
+            .error(StatusCode::NOT_FOUND, "not_found");
+        }
     }
-    for path in [
-        "/api/v1/theatre/works?limit=1",
-        "/api/v1/theatre/search?q=%C3%A1nh&limit=20",
-    ] {
-        let page = get(host, path, None).await;
-        assert_eq!(page["items"], json!([]));
-        assert!(page["next_cursor"].is_null());
+    if p.profile != "publication-access" {
+        for path in [
+            "/api/v1/theatre/works?limit=1",
+            "/api/v1/theatre/search?q=%C3%A1nh&limit=20",
+        ] {
+            let page = get(host, path, None).await;
+            assert_eq!(page["items"], json!([]));
+            assert!(page["next_cursor"].is_null());
+        }
     }
     for path in [
         "/api/v1/studio/works?limit=0",

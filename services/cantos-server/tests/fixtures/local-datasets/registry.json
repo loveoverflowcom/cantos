@@ -14,6 +14,7 @@
     {"name":"studio-crud","default_size":2,"sizes":[2],"purpose":"Create/patch/reorder/archive with parent/child CAS, immutable history and replay."},
     {"name":"permissions-conflicts","default_size":2,"sizes":[2],"purpose":"Two owners plus editor/reader/stranger; authorization and operation/CAS negatives."},
     {"name":"visibility-recovery","default_size":3,"sizes":[3],"purpose":"Private/unlisted/public metadata without publication; no public discovery/playback authority."},
-    {"name":"scale-local","default_size":20,"sizes":[20,1000,10000],"purpose":"Opt-in skewed Work/child workload; record seed time/bytes, no production SLA."}
+    {"name":"scale-local","default_size":20,"sizes":[20,1000,10000],"purpose":"Opt-in skewed Work/child workload; record seed time/bytes, no production SLA."},
+    {"name":"publication-access","default_size":20,"sizes":[8,20,200,1000],"purpose":"Explicit #657 synthetic publication/actor/group/Unit baseline; no accepted budget, runtime index or cache adoption."}
   ]
 }

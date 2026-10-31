@@ -74,6 +74,17 @@ records and expected identities, not DB file bytes, session IDs or random creden
 | `visibility-recovery` | Private/unlisted/public **metadata**, no releases | All remain absent from anonymous discovery/detail. Recovery is original-operation receipt replay. No generic sample disclosure is added. |
 | `scale-local` | Default 20; explicit 1000 or 10000 Works; 10 children per hundredth Work, one per other tenth | Counts/skew, measured seed+verification elapsed time and DB/snapshot bytes; #384 workload input, no SLA. |
 
+The explicit `publication-access` profile accepts 8/20/200/1000 Works. It adds synthetic
+metadata publication, actor/group/Unit grants, duplicate candidate paths, HIDE, unpublished
+drafts, equal anchors and Vietnamese/literal search to this existing lane. Create/verify
+write new immutable publication-measurements UUID reports (100 serial samples per case),
+never during ordinary gates/startup. Fixed experimental indexes exist only during the
+explicit campaign and are dropped afterward. A failed campaign retains files and never
+publishes a new READY; preserve/archive with matching source rather than editing markers.
+The [measurement boundary](../evidence/publication-access-performance-657.md) distinguishes
+synthetic rights/session facts, pending owner budgets and runtime adoption. No Identity,
+audio, production budget, cache or production index is accepted by this profile.
+
 Sizes above are allowed values, not comma-separated CLI syntax. Large sizes are opt-in; no
 startup/build/preflight/CI path invokes a persistent profile, FTS/vector campaign or scale run.
 Ordinary bounded fixture regressions run in the existing Rust gate; no additional gate exists.

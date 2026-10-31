@@ -1,0 +1,3172 @@
+[
+  {
+    "sql": "SELECT (SELECT coalesce(sum(version),0) FROM catalog_metadata_publication_pointers) AS publication, (SELECT coalesce(sum(version),0) FROM catalog_viewer_policies) AS policy, (SELECT coalesce(sum(version),0) FROM catalog_viewer_groups) AS groups, (SELECT count(*) FROM catalog_viewer_grants WHERE expires_at_us IS NOT NULL AND expires_at_us<=?1) AS expired_grants, (SELECT count(*) FROM catalog_viewer_members WHERE expires_at_us IS NOT NULL AND expires_at_us<=?1) AS expired_members, (SELECT count(*) FROM catalog_unit_viewer_grants WHERE expires_at_us IS NOT NULL AND expires_at_us<=?1) AS expired_unit_grants, (SELECT version FROM catalog_viewer_live_clock WHERE singleton=1) AS live",
+    "sql_sha256": "e6df2c050a1d0a9bc89b47868096afb46e96b32bd41bac1545985b8950bc69bb",
+    "observations": {
+      "20/baseline": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(5)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN catalog_metadata_publication_pointers"
+            ],
+            [
+              "Integer(20)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(24)",
+              "Integer(20)",
+              "Integer(0)",
+              "SCAN catalog_viewer_policies"
+            ],
+            [
+              "Integer(39)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(43)",
+              "Integer(39)",
+              "Integer(0)",
+              "SCAN catalog_viewer_groups"
+            ],
+            [
+              "Integer(58)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 4"
+            ],
+            [
+              "Integer(62)",
+              "Integer(58)",
+              "Integer(0)",
+              "SCAN catalog_viewer_grants USING COVERING INDEX catalog_viewer_grants_target"
+            ],
+            [
+              "Integer(78)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 5"
+            ],
+            [
+              "Integer(82)",
+              "Integer(78)",
+              "Integer(0)",
+              "SCAN catalog_viewer_members"
+            ],
+            [
+              "Integer(98)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 6"
+            ],
+            [
+              "Integer(102)",
+              "Integer(98)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_grants USING COVERING INDEX catalog_unit_viewer_grants_actor"
+            ],
+            [
+              "Integer(118)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 7"
+            ],
+            [
+              "Integer(122)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_live_clock USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              "Integer(131)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN CONSTANT ROW"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(5)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN catalog_metadata_publication_pointers"
+            ],
+            [
+              "Integer(20)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(24)",
+              "Integer(20)",
+              "Integer(0)",
+              "SCAN catalog_viewer_policies"
+            ],
+            [
+              "Integer(39)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(43)",
+              "Integer(39)",
+              "Integer(0)",
+              "SCAN catalog_viewer_groups"
+            ],
+            [
+              "Integer(58)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 4"
+            ],
+            [
+              "Integer(62)",
+              "Integer(58)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_grants USING COVERING INDEX s657_grant_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(81)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 5"
+            ],
+            [
+              "Integer(85)",
+              "Integer(81)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_members USING COVERING INDEX s657_member_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(104)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 6"
+            ],
+            [
+              "Integer(108)",
+              "Integer(104)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING COVERING INDEX s657_unit_grant_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(127)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 7"
+            ],
+            [
+              "Integer(131)",
+              "Integer(127)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_live_clock USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN CONSTANT ROW"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(5)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN catalog_metadata_publication_pointers"
+            ],
+            [
+              "Integer(20)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(24)",
+              "Integer(20)",
+              "Integer(0)",
+              "SCAN catalog_viewer_policies"
+            ],
+            [
+              "Integer(39)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(43)",
+              "Integer(39)",
+              "Integer(0)",
+              "SCAN catalog_viewer_groups"
+            ],
+            [
+              "Integer(58)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 4"
+            ],
+            [
+              "Integer(62)",
+              "Integer(58)",
+              "Integer(0)",
+              "SCAN catalog_viewer_grants USING COVERING INDEX catalog_viewer_grants_target"
+            ],
+            [
+              "Integer(78)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 5"
+            ],
+            [
+              "Integer(82)",
+              "Integer(78)",
+              "Integer(0)",
+              "SCAN catalog_viewer_members"
+            ],
+            [
+              "Integer(98)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 6"
+            ],
+            [
+              "Integer(102)",
+              "Integer(98)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_grants USING COVERING INDEX catalog_unit_viewer_grants_actor"
+            ],
+            [
+              "Integer(118)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 7"
+            ],
+            [
+              "Integer(122)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_live_clock USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              "Integer(131)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN CONSTANT ROW"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(5)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN catalog_metadata_publication_pointers"
+            ],
+            [
+              "Integer(20)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(24)",
+              "Integer(20)",
+              "Integer(0)",
+              "SCAN catalog_viewer_policies"
+            ],
+            [
+              "Integer(39)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(43)",
+              "Integer(39)",
+              "Integer(0)",
+              "SCAN catalog_viewer_groups"
+            ],
+            [
+              "Integer(58)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 4"
+            ],
+            [
+              "Integer(62)",
+              "Integer(58)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_grants USING COVERING INDEX s657_grant_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(81)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 5"
+            ],
+            [
+              "Integer(85)",
+              "Integer(81)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_members USING COVERING INDEX s657_member_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(104)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 6"
+            ],
+            [
+              "Integer(108)",
+              "Integer(104)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING COVERING INDEX s657_unit_grant_expiry (expires_at_us<=?)"
+            ],
+            [
+              "Integer(127)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCALAR SUBQUERY 7"
+            ],
+            [
+              "Integer(131)",
+              "Integer(127)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_live_clock USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN CONSTANT ROW"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT p.work_id,p.generation,p.first_visible_at_ms,g.work_revision,g.work_digest,r.snapshot,r.snapshot_digest,(SELECT count(*) FROM catalog_metadata_generation_entries e JOIN catalog_units u ON u.id=e.unit_id AND u.work_id=e.work_id WHERE e.work_id=p.work_id AND e.generation=p.generation AND u.lifecycle<>'archived' AND NOT EXISTS(SELECT 1 FROM catalog_unit_viewer_policies uv WHERE uv.unit_id=e.unit_id AND uv.mode<>'inherit')) AS unit_count FROM catalog_metadata_publication_pointers p JOIN catalog_works w ON w.id=p.work_id JOIN catalog_metadata_generations g ON g.work_id=p.work_id AND g.generation=p.generation JOIN catalog_work_revisions r ON r.work_id=g.work_id AND r.revision=g.work_revision WHERE p.lifecycle='active' AND w.lifecycle<>'archived' AND NOT EXISTS(SELECT 1 FROM catalog_viewer_policies vp WHERE vp.work_id=p.work_id AND vp.audience<>'public') AND EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=w.owner_id AND owner_actor.active=1) AND (?1 IS NULL OR p.first_visible_at_ms<?1 OR (p.first_visible_at_ms=?1 AND p.work_id>?2)) AND (?3 IS NULL OR g.kind=?3) AND (?4 IS NULL OR g.language=?4) AND (?5='' OR instr(g.search_text,?5)>0) ORDER BY p.first_visible_at_ms DESC,p.work_id ASC LIMIT ?6",
+    "sql_sha256": "8c1cae5650b6bd4d44b57c30d2fe63b2dafea228e611caef59ca85aed3363d2a",
+    "observations": {
+      "20/baseline": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX catalog_metadata_publication_recent (lifecycle=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(3)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=?)"
+            ],
+            [
+              "Integer(4)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(5)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(6)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(33)",
+              "Integer(0)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(36)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(37)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(38)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX catalog_metadata_publication_recent (lifecycle=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(3)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=?)"
+            ],
+            [
+              "Integer(4)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(5)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(6)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(33)",
+              "Integer(0)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(36)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(37)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(38)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX catalog_metadata_publication_recent (lifecycle=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(3)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=?)"
+            ],
+            [
+              "Integer(4)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(5)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(6)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(33)",
+              "Integer(0)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(36)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(37)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(38)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "public",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX catalog_metadata_publication_recent (lifecycle=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(3)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=?)"
+            ],
+            [
+              "Integer(4)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(5)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(6)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(33)",
+              "Integer(0)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              "Integer(36)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(37)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(38)",
+              "Integer(33)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(140)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT DISTINCT p.work_id,p.first_visible_at_ms FROM (SELECT d.work_id FROM catalog_viewer_grants d WHERE d.actor_id=?1 AND (d.expires_at_us IS NULL OR d.expires_at_us>?5) AND NOT EXISTS(SELECT 1 FROM catalog_viewer_grant_revocations r WHERE r.grant_id=d.id) UNION SELECT g.work_id FROM catalog_viewer_members m JOIN catalog_viewer_groups grp ON grp.id=m.group_id AND grp.owner_id=m.owner_id JOIN catalog_viewer_grants g ON g.group_id=m.group_id AND g.owner_id=m.owner_id WHERE m.actor_id=?1 AND m.removed=0 AND grp.revoked=0 AND (m.expires_at_us IS NULL OR m.expires_at_us>?5) AND (g.expires_at_us IS NULL OR g.expires_at_us>?5) AND NOT EXISTS(SELECT 1 FROM catalog_viewer_grant_revocations r WHERE r.grant_id=g.id ) UNION SELECT d.work_id FROM catalog_unit_viewer_grants d WHERE d.actor_id=?1 AND (d.expires_at_us IS NULL OR d.expires_at_us>?5) UNION SELECT g.work_id FROM catalog_viewer_members m JOIN catalog_viewer_groups grp ON grp.id=m.group_id AND grp.owner_id=m.owner_id JOIN catalog_unit_viewer_grants g ON g.group_id=m.group_id AND g.owner_id=m.owner_id WHERE m.actor_id=?1 AND m.removed=0 AND grp.revoked=0 AND (m.expires_at_us IS NULL OR m.expires_at_us>?5) AND (g.expires_at_us IS NULL OR g.expires_at_us>?5)) c JOIN catalog_metadata_publication_pointers p ON p.work_id=c.work_id LEFT JOIN catalog_viewer_policies policy ON policy.work_id=p.work_id JOIN catalog_works w ON w.id=p.work_id JOIN catalog_metadata_generations generation ON generation.work_id=p.work_id AND generation.generation=p.generation WHERE p.lifecycle='active' AND (policy.audience='restricted' OR EXISTS(SELECT 1 FROM catalog_unit_viewer_policies up WHERE up.work_id=p.work_id AND up.mode='restricted')) AND w.lifecycle<>'archived' AND (?6 IS NULL OR generation.kind=?6) AND (?7 IS NULL OR generation.language=?7) AND (?8='' OR instr(generation.search_text,?8)>0) AND (?2 IS NULL OR p.first_visible_at_ms<?2 OR (p.first_visible_at_ms=?2 AND p.work_id>?3)) ORDER BY p.first_visible_at_ms DESC,p.work_id ASC LIMIT ?4",
+    "sql_sha256": "f55829b7aa5c0032adf34c8d226bcced547f184e2170fbdbf91b5114daef4080",
+    "observations": {
+      "20/baseline": {
+        "first_case": "candidates",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN c"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "COMPOUND QUERY"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              "Integer(6)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH d USING INDEX catalog_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(7)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(32)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(33)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(34)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(35)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_group (group_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(36)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(87)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(88)",
+              "Integer(87)",
+              "Integer(0)",
+              "SEARCH d USING COVERING INDEX catalog_unit_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(103)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(104)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(105)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(106)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH g USING COVERING INDEX catalog_unit_viewer_grants_group (group_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(153)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ],
+            [
+              "Integer(154)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(155)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH generation USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(156)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH policy USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?) LEFT-JOIN"
+            ],
+            [
+              "Integer(159)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE HASH TABLE FOR DISTINCT"
+            ],
+            [
+              "Integer(194)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_policies AS up"
+            ],
+            [
+              "Integer(249)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "candidates",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN c"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "COMPOUND QUERY"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              "Integer(6)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH d USING INDEX catalog_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(7)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(32)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(33)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(34)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(35)",
+              "Integer(32)",
+              "Integer(0)",
+              "MULTI-INDEX OR g (s657_grant_expiry, s657_grant_expiry)"
+            ],
+            [
+              "Integer(36)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(102)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(103)",
+              "Integer(102)",
+              "Integer(0)",
+              "SEARCH d USING COVERING INDEX catalog_unit_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(118)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(119)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(120)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(121)",
+              "Integer(118)",
+              "Integer(0)",
+              "MULTI-INDEX OR g (s657_unit_grant_expiry, s657_unit_grant_expiry)"
+            ],
+            [
+              "Integer(185)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ],
+            [
+              "Integer(186)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(187)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH generation USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(188)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH policy USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?) LEFT-JOIN"
+            ],
+            [
+              "Integer(191)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE HASH TABLE FOR DISTINCT"
+            ],
+            [
+              "Integer(226)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH up USING COVERING INDEX s657_unit_policy_work (work_id=? AND mode=?)"
+            ],
+            [
+              "Integer(279)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "candidates",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN c"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "COMPOUND QUERY"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              "Integer(6)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH d USING INDEX catalog_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(7)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(32)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(33)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(34)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(35)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_group (group_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(36)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(87)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(88)",
+              "Integer(87)",
+              "Integer(0)",
+              "SEARCH d USING COVERING INDEX catalog_unit_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(103)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(104)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(105)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(106)",
+              "Integer(103)",
+              "Integer(0)",
+              "SEARCH g USING COVERING INDEX catalog_unit_viewer_grants_group (group_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(153)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ],
+            [
+              "Integer(154)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(155)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH generation USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(156)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH policy USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?) LEFT-JOIN"
+            ],
+            [
+              "Integer(159)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE HASH TABLE FOR DISTINCT"
+            ],
+            [
+              "Integer(194)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_policies AS up"
+            ],
+            [
+              "Integer(249)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "candidates",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN c"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "COMPOUND QUERY"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              "Integer(6)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH d USING INDEX catalog_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(7)",
+              "Integer(5)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(32)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(33)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(34)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(35)",
+              "Integer(32)",
+              "Integer(0)",
+              "MULTI-INDEX OR g (s657_grant_expiry, s657_grant_expiry)"
+            ],
+            [
+              "Integer(36)",
+              "Integer(32)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(102)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(103)",
+              "Integer(102)",
+              "Integer(0)",
+              "SEARCH d USING COVERING INDEX catalog_unit_viewer_grants_actor (actor_id=?)"
+            ],
+            [
+              "Integer(118)",
+              "Integer(3)",
+              "Integer(0)",
+              "UNION USING TEMP B-TREE"
+            ],
+            [
+              "Integer(119)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=?)"
+            ],
+            [
+              "Integer(120)",
+              "Integer(118)",
+              "Integer(0)",
+              "SEARCH grp USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ],
+            [
+              "Integer(121)",
+              "Integer(118)",
+              "Integer(0)",
+              "MULTI-INDEX OR g (s657_unit_grant_expiry, s657_unit_grant_expiry)"
+            ],
+            [
+              "Integer(185)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH p USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ],
+            [
+              "Integer(186)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(187)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH generation USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(188)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH policy USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?) LEFT-JOIN"
+            ],
+            [
+              "Integer(191)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE HASH TABLE FOR DISTINCT"
+            ],
+            [
+              "Integer(226)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH up USING COVERING INDEX s657_unit_policy_work (work_id=? AND mode=?)"
+            ],
+            [
+              "Integer(279)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT version,lifecycle,generation,first_visible_at_ms FROM catalog_metadata_publication_pointers WHERE work_id=?1",
+    "sql_sha256": "1a011e5bfc12db080af7093d5861deec3058fbbcd7f7e93c6436f4f114f21258",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_publication_pointers USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_publication_pointers USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_publication_pointers USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_publication_pointers USING INDEX sqlite_autoindex_catalog_metadata_publication_pointers_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT work_revision,work_digest,entry_count FROM catalog_metadata_generations WHERE work_id=?1 AND generation=?2",
+    "sql_sha256": "e7ec18dc0d67b117d06a34a8ffe18d0c341a5c91d229e084403f35d5a43192c4",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generations USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generations USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generations USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generations USING INDEX sqlite_autoindex_catalog_metadata_generations_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT position,unit_id,unit_revision,unit_digest FROM catalog_metadata_generation_entries WHERE work_id=?1 AND generation=?2 ORDER BY position",
+    "sql_sha256": "b73040bb015d078c5e7d2bae769d094b022de5bf3ddfa52405fad44c94928701",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_entries USING INDEX sqlite_autoindex_catalog_metadata_generation_entries_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_entries USING INDEX sqlite_autoindex_catalog_metadata_generation_entries_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_entries USING INDEX sqlite_autoindex_catalog_metadata_generation_entries_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_entries USING INDEX sqlite_autoindex_catalog_metadata_generation_entries_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT unit_id,release_id,release_digest,basis FROM catalog_metadata_generation_audio WHERE work_id=?1 AND generation=?2",
+    "sql_sha256": "707b76a7c7f21ab3e55afa0310b410e75d608a71a5cd76e645a897eaae8e2c55",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_audio USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_audio USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_audio USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_metadata_generation_audio USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest FROM catalog_works w LEFT JOIN catalog_work_revisions r ON r.work_id=w.id AND r.revision=w.head_revision WHERE w.id=?1",
+    "sql_sha256": "318abb9389cf7c2a2282c118cb1a23d990ddc1d43eb31add5f7a30481abc8ad6",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?) LEFT-JOIN"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?) LEFT-JOIN"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?) LEFT-JOIN"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH w USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?) LEFT-JOIN"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT snapshot,snapshot_digest FROM catalog_work_revisions WHERE work_id=?1 AND revision=?2",
+    "sql_sha256": "01778fbef741a3560e5d1d5dd2b5e220a475615f2844239cdc86fe099f6d1d86",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_work_revisions USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_work_revisions USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_work_revisions USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_work_revisions USING INDEX sqlite_autoindex_catalog_work_revisions_1 (work_id=? AND revision=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT active FROM actors WHERE id=?1",
+    "sql_sha256": "87ead838aa7365fee1a8babc8bdd132c1cb7f73b42d159e3a5b8f1036fb7d544",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH actors USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH actors USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH actors USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH actors USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT id FROM script_evidence WHERE owner_id=?1 AND kind=?2 AND id=?3",
+    "sql_sha256": "2ec8e141a2169c58472fbed85a8998624ddc2723a77e38606dc2676f84b7c576",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH script_evidence USING COVERING INDEX sqlite_autoindex_script_evidence_1 (owner_id=? AND kind=? AND id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH script_evidence USING COVERING INDEX sqlite_autoindex_script_evidence_1 (owner_id=? AND kind=? AND id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH script_evidence USING COVERING INDEX sqlite_autoindex_script_evidence_1 (owner_id=? AND kind=? AND id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH script_evidence USING COVERING INDEX sqlite_autoindex_script_evidence_1 (owner_id=? AND kind=? AND id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT audience,owner_id FROM catalog_viewer_policies WHERE work_id=?1",
+    "sql_sha256": "be3635525e370b55b06e14b27bc18e9e0108f78c2d12a72b14801b0995d6cf14",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_policies USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_policies USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_policies USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_viewer_policies USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT g.actor_id,g.group_id,g.expires_at_us,EXISTS(SELECT 1 FROM catalog_viewer_grant_revocations r WHERE r.grant_id=g.id) AS revoked FROM catalog_viewer_grants g WHERE g.work_id=?1 AND (g.expires_at_us IS NULL OR g.expires_at_us>?2) AND NOT EXISTS(SELECT 1 FROM catalog_viewer_grant_revocations r WHERE r.grant_id=g.id) ORDER BY g.id LIMIT 1001",
+    "sql_sha256": "5629718f9481773cbc41cd4dd0be5c0df099f50fe6e79b447c7082f63780fccf",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_target (work_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(45)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_target (work_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(45)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_target (work_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(45)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX catalog_viewer_grants_target (work_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING COVERING INDEX sqlite_autoindex_catalog_viewer_grant_revocations_1 (grant_id=?)"
+            ],
+            [
+              "Integer(45)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT m.group_id,m.expires_at_us,m.removed,g.revoked FROM catalog_viewer_members m JOIN catalog_viewer_groups g ON g.id=m.group_id AND g.owner_id=m.owner_id WHERE m.actor_id=?1 AND m.owner_id=?2 AND m.removed=0 AND g.revoked=0 AND (m.expires_at_us IS NULL OR m.expires_at_us>?3) ORDER BY m.group_id LIMIT 101",
+    "sql_sha256": "39ec797ceb061d782f3634e38184708f988668ab7de72d95363ba0b24753d54f",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH m USING INDEX catalog_viewer_members_actor (actor_id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH g USING INDEX sqlite_autoindex_catalog_viewer_groups_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT e.unit_id FROM catalog_metadata_generation_entries e JOIN catalog_units u ON u.id=e.unit_id WHERE e.work_id=?1 AND e.generation=?2 AND (u.lifecycle='archived' OR u.work_id<>e.work_id)",
+    "sql_sha256": "10759b0247e9aa63e26385d15df46f60f665d1b334bc421b6b4adc61517a860f",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH e USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=? AND generation=?)"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH u USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT unit_id,owner_id FROM catalog_unit_viewer_policies WHERE work_id=?1 AND mode='restricted' ORDER BY unit_id LIMIT 1001",
+    "sql_sha256": "bb0e9775fe2e4b39e4c8aa8e9a7bdeedd7713254d228feac1b7b00a93f063e0e",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_policies USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_1"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_policies USING COVERING INDEX s657_unit_policy_work (work_id=? AND mode=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN catalog_unit_viewer_policies USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_1"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_policies USING COVERING INDEX s657_unit_policy_work (work_id=? AND mode=?)"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT unit_id,actor_id,group_id,expires_at_us FROM catalog_unit_viewer_grants WHERE work_id=?1 ORDER BY unit_id,principal_key LIMIT 1001",
+    "sql_sha256": "a17956960a55042f0ac35128d002fa3efe93cf9fb4e28422dc2b86e28e414dac",
+    "observations": {
+      "20/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING INDEX catalog_unit_viewer_grants_work (work_id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING INDEX catalog_unit_viewer_grants_work (work_id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING INDEX catalog_unit_viewer_grants_work (work_id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "shared",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH catalog_unit_viewer_grants USING INDEX catalog_unit_viewer_grants_work (work_id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT json_extract(b.value,'$.unit') AS unit_id,r.snapshot,r.snapshot_digest FROM json_each(?1) b JOIN catalog_unit_revisions r ON r.unit_id=json_extract(b.value,'$.unit') AND r.revision=json_extract(b.value,'$.revision') ORDER BY b.key",
+    "sql_sha256": "b5357da44bd91b2c05a038cd859dd25d4adc604de6bb018909a7ca6cd46591b4",
+    "observations": {
+      "20/baseline": {
+        "first_case": "units",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN json_each AS b"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_unit_revisions_1 (unit_id=? AND revision=?)"
+            ],
+            [
+              "Integer(28)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "units",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN json_each AS b"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_unit_revisions_1 (unit_id=? AND revision=?)"
+            ],
+            [
+              "Integer(28)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "units",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN json_each AS b"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_unit_revisions_1 (unit_id=? AND revision=?)"
+            ],
+            [
+              "Integer(28)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "units",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN json_each AS b"
+            ],
+            [
+              "Integer(2)",
+              "Integer(0)",
+              "Integer(0)",
+              "SEARCH r USING INDEX sqlite_autoindex_catalog_unit_revisions_1 (unit_id=? AND revision=?)"
+            ],
+            [
+              "Integer(28)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  },
+  {
+    "sql": "SELECT release_id FROM (SELECT x.release_id,x.work_id,row_number() OVER (PARTITION BY x.work_id ORDER BY x.published_at DESC,x.release_id ASC) AS pick FROM audio_listener_releases x\nJOIN audio_listener_works anchor ON anchor.work_id=x.work_id\nJOIN audio_listener_units ordering ON ordering.unit_id=x.unit_id AND ordering.work_id=x.work_id\nJOIN audio_publication_pointers pointer ON pointer.unit_id=x.unit_id AND pointer.active_release_id=x.release_id\nJOIN audio_releases rel ON rel.id=x.release_id AND rel.unit_id=x.unit_id AND rel.owner_id=pointer.owner_id\nJOIN audio_release_candidates candidate ON candidate.id=rel.candidate_id AND candidate.owner_id=rel.owner_id\nJOIN audio_renditions rendition ON rendition.id=rel.rendition_id AND rendition.id=candidate.rendition_id\nJOIN audio_submissions submission ON submission.id=rendition.submission_id AND submission.owner_id=rel.owner_id AND submission.unit_id=x.unit_id\nJOIN audio_distribution_clearances clearance ON clearance.candidate_id=candidate.id AND clearance.owner_id=rel.owner_id AND clearance.digest=x.rights_digest\n  AND clearance.sequence=(SELECT max(c2.sequence) FROM audio_distribution_clearances c2 WHERE c2.candidate_id=candidate.id AND c2.owner_id=rel.owner_id)\nJOIN audio_publication_approvals approval ON approval.candidate_id=candidate.id AND approval.owner_id=rel.owner_id AND approval.digest=x.approval_digest\n  AND approval.sequence=(SELECT max(a2.sequence) FROM audio_publication_approvals a2 WHERE a2.candidate_id=candidate.id AND a2.owner_id=rel.owner_id)\nWHERE EXISTS(SELECT 1 FROM catalog_metadata_publication_pointers gp JOIN catalog_metadata_generation_entries ge ON ge.work_id=gp.work_id AND ge.generation=gp.generation JOIN catalog_metadata_generation_audio ga ON ga.work_id=ge.work_id AND ga.generation=ge.generation AND ga.unit_id=ge.unit_id JOIN catalog_works gw ON gw.id=gp.work_id JOIN catalog_units gu ON gu.id=ge.unit_id AND gu.work_id=gw.id WHERE gp.work_id=x.work_id AND gp.lifecycle='active' AND gw.lifecycle<>'archived' AND gu.lifecycle<>'archived' AND ge.unit_id=x.unit_id AND ga.release_id=x.release_id AND NOT EXISTS(SELECT 1 FROM catalog_unit_viewer_policies uv WHERE uv.unit_id=ge.unit_id AND uv.mode<>'inherit') AND NOT EXISTS(SELECT 1 FROM catalog_viewer_policies vp WHERE vp.work_id=gp.work_id AND vp.audience<>'public')) AND EXISTS(SELECT 1 FROM actors owner_actor WHERE owner_actor.id=rel.owner_id AND owner_actor.active=1)\nAND x.rights_start<=?1 AND ?1<x.rights_end AND x.published_at<=?1\nAND NOT EXISTS(SELECT 1 FROM audio_release_withdrawals w WHERE w.release_id=rel.id)\nAND NOT EXISTS(SELECT 1 FROM audio_submission_revocations v WHERE v.submission_id=submission.id)\n AND x.work_id IN (SELECT value FROM json_each(?2))) selected WHERE pick=1 ORDER BY work_id",
+    "sql_sha256": "8af3893cb20a77ed2cd868e68fa4eaeb4d489b9ff73f8e3e8ced2a62f8bfabed",
+    "observations": {
+      "20/baseline": {
+        "first_case": "library-empty-audio-control",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN selected"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN window_subquery_0"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LIST SUBQUERY 1"
+            ],
+            [
+              "Integer(8)",
+              "Integer(5)",
+              "Integer(0)",
+              "SCAN json_each"
+            ],
+            [
+              "Integer(15)",
+              "Integer(3)",
+              "Integer(0)",
+              "SCAN audio_listener_releases AS x USING INDEX audio_listener_releases_work"
+            ],
+            [
+              "Integer(16)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rel USING INDEX sqlite_autoindex_audio_releases_1 (id=?)"
+            ],
+            [
+              "Integer(17)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH candidate USING INDEX sqlite_autoindex_audio_release_candidates_1 (id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rendition USING INDEX sqlite_autoindex_audio_renditions_1 (id=?)"
+            ],
+            [
+              "Integer(19)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH clearance USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(20)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH submission USING INDEX sqlite_autoindex_audio_submissions_3 (id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH pointer USING INDEX sqlite_autoindex_audio_publication_pointers_1 (unit_id=?)"
+            ],
+            [
+              "Integer(22)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ordering USING INDEX sqlite_autoindex_audio_listener_units_1 (unit_id=?)"
+            ],
+            [
+              "Integer(23)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH anchor USING COVERING INDEX sqlite_autoindex_audio_listener_works_1 (work_id=?)"
+            ],
+            [
+              "Integer(24)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH approval USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(84)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(87)",
+              "Integer(84)",
+              "Integer(0)",
+              "SEARCH c2 USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(108)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(111)",
+              "Integer(108)",
+              "Integer(0)",
+              "SEARCH a2 USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(195)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ge USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=?)"
+            ],
+            [
+              "Integer(196)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gw USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(197)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ga USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=? AND unit_id=?)"
+            ],
+            [
+              "Integer(198)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gu USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(199)",
+              "Integer(3)",
+              "Integer(0)",
+              "MULTI-INDEX AND gp (sqlite_autoindex_catalog_metadata_publication_pointers_1, catalog_metadata_publication_recent)"
+            ],
+            [
+              "Integer(200)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(201)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(304)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(321)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH w USING COVERING INDEX sqlite_autoindex_audio_release_withdrawals_1 (release_id=?)"
+            ],
+            [
+              "Integer(334)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_audio_submission_revocations_1 (submission_id=?)"
+            ],
+            [
+              "Integer(431)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "20/candidate": {
+        "first_case": "library-empty-audio-control",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN selected"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN window_subquery_0"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LIST SUBQUERY 1"
+            ],
+            [
+              "Integer(8)",
+              "Integer(5)",
+              "Integer(0)",
+              "SCAN json_each"
+            ],
+            [
+              "Integer(15)",
+              "Integer(3)",
+              "Integer(0)",
+              "SCAN audio_listener_releases AS x USING INDEX audio_listener_releases_work"
+            ],
+            [
+              "Integer(16)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rel USING INDEX sqlite_autoindex_audio_releases_1 (id=?)"
+            ],
+            [
+              "Integer(17)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH candidate USING INDEX sqlite_autoindex_audio_release_candidates_1 (id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rendition USING INDEX sqlite_autoindex_audio_renditions_1 (id=?)"
+            ],
+            [
+              "Integer(19)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH clearance USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(20)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH submission USING INDEX sqlite_autoindex_audio_submissions_3 (id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH pointer USING INDEX sqlite_autoindex_audio_publication_pointers_1 (unit_id=?)"
+            ],
+            [
+              "Integer(22)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ordering USING INDEX sqlite_autoindex_audio_listener_units_1 (unit_id=?)"
+            ],
+            [
+              "Integer(23)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH anchor USING COVERING INDEX sqlite_autoindex_audio_listener_works_1 (work_id=?)"
+            ],
+            [
+              "Integer(24)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH approval USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(84)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(87)",
+              "Integer(84)",
+              "Integer(0)",
+              "SEARCH c2 USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(108)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(111)",
+              "Integer(108)",
+              "Integer(0)",
+              "SEARCH a2 USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(195)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ge USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=?)"
+            ],
+            [
+              "Integer(196)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gw USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(197)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ga USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=? AND unit_id=?)"
+            ],
+            [
+              "Integer(198)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gu USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(199)",
+              "Integer(3)",
+              "Integer(0)",
+              "MULTI-INDEX AND gp (sqlite_autoindex_catalog_metadata_publication_pointers_1, catalog_metadata_publication_recent)"
+            ],
+            [
+              "Integer(200)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(201)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(304)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(321)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH w USING COVERING INDEX sqlite_autoindex_audio_release_withdrawals_1 (release_id=?)"
+            ],
+            [
+              "Integer(334)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_audio_submission_revocations_1 (submission_id=?)"
+            ],
+            [
+              "Integer(431)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/baseline": {
+        "first_case": "library-empty-audio-control",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN selected"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN window_subquery_0"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LIST SUBQUERY 1"
+            ],
+            [
+              "Integer(8)",
+              "Integer(5)",
+              "Integer(0)",
+              "SCAN json_each"
+            ],
+            [
+              "Integer(15)",
+              "Integer(3)",
+              "Integer(0)",
+              "SCAN audio_listener_releases AS x USING INDEX audio_listener_releases_work"
+            ],
+            [
+              "Integer(16)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rel USING INDEX sqlite_autoindex_audio_releases_1 (id=?)"
+            ],
+            [
+              "Integer(17)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH candidate USING INDEX sqlite_autoindex_audio_release_candidates_1 (id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rendition USING INDEX sqlite_autoindex_audio_renditions_1 (id=?)"
+            ],
+            [
+              "Integer(19)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH clearance USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(20)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH submission USING INDEX sqlite_autoindex_audio_submissions_3 (id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH pointer USING INDEX sqlite_autoindex_audio_publication_pointers_1 (unit_id=?)"
+            ],
+            [
+              "Integer(22)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ordering USING INDEX sqlite_autoindex_audio_listener_units_1 (unit_id=?)"
+            ],
+            [
+              "Integer(23)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH anchor USING COVERING INDEX sqlite_autoindex_audio_listener_works_1 (work_id=?)"
+            ],
+            [
+              "Integer(24)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH approval USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(84)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(87)",
+              "Integer(84)",
+              "Integer(0)",
+              "SEARCH c2 USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(108)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(111)",
+              "Integer(108)",
+              "Integer(0)",
+              "SEARCH a2 USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(195)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ge USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=?)"
+            ],
+            [
+              "Integer(196)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gw USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(197)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ga USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=? AND unit_id=?)"
+            ],
+            [
+              "Integer(198)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gu USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(199)",
+              "Integer(3)",
+              "Integer(0)",
+              "MULTI-INDEX AND gp (sqlite_autoindex_catalog_metadata_publication_pointers_1, catalog_metadata_publication_recent)"
+            ],
+            [
+              "Integer(200)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(201)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(304)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(321)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH w USING COVERING INDEX sqlite_autoindex_audio_release_withdrawals_1 (release_id=?)"
+            ],
+            [
+              "Integer(334)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_audio_submission_revocations_1 (submission_id=?)"
+            ],
+            [
+              "Integer(431)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      },
+      "200/candidate": {
+        "first_case": "library-empty-audio-control",
+        "plan": {
+          "rows": [
+            [
+              "Integer(1)",
+              "Integer(0)",
+              "Integer(0)",
+              "SCAN selected"
+            ],
+            [
+              "Integer(3)",
+              "Integer(1)",
+              "Integer(0)",
+              "SCAN window_subquery_0"
+            ],
+            [
+              "Integer(5)",
+              "Integer(3)",
+              "Integer(0)",
+              "LIST SUBQUERY 1"
+            ],
+            [
+              "Integer(8)",
+              "Integer(5)",
+              "Integer(0)",
+              "SCAN json_each"
+            ],
+            [
+              "Integer(15)",
+              "Integer(3)",
+              "Integer(0)",
+              "SCAN audio_listener_releases AS x USING INDEX audio_listener_releases_work"
+            ],
+            [
+              "Integer(16)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rel USING INDEX sqlite_autoindex_audio_releases_1 (id=?)"
+            ],
+            [
+              "Integer(17)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH candidate USING INDEX sqlite_autoindex_audio_release_candidates_1 (id=?)"
+            ],
+            [
+              "Integer(18)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH rendition USING INDEX sqlite_autoindex_audio_renditions_1 (id=?)"
+            ],
+            [
+              "Integer(19)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH clearance USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(20)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH submission USING INDEX sqlite_autoindex_audio_submissions_3 (id=? AND owner_id=?)"
+            ],
+            [
+              "Integer(21)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH pointer USING INDEX sqlite_autoindex_audio_publication_pointers_1 (unit_id=?)"
+            ],
+            [
+              "Integer(22)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ordering USING INDEX sqlite_autoindex_audio_listener_units_1 (unit_id=?)"
+            ],
+            [
+              "Integer(23)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH anchor USING COVERING INDEX sqlite_autoindex_audio_listener_works_1 (work_id=?)"
+            ],
+            [
+              "Integer(24)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH approval USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=? AND sequence=?)"
+            ],
+            [
+              "Integer(84)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              "Integer(87)",
+              "Integer(84)",
+              "Integer(0)",
+              "SEARCH c2 USING INDEX sqlite_autoindex_audio_distribution_clearances_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(108)",
+              "Integer(3)",
+              "Integer(0)",
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              "Integer(111)",
+              "Integer(108)",
+              "Integer(0)",
+              "SEARCH a2 USING INDEX sqlite_autoindex_audio_publication_approvals_2 (candidate_id=?)"
+            ],
+            [
+              "Integer(195)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ge USING COVERING INDEX sqlite_autoindex_catalog_metadata_generation_entries_2 (work_id=?)"
+            ],
+            [
+              "Integer(196)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gw USING INDEX sqlite_autoindex_catalog_works_3 (id=?)"
+            ],
+            [
+              "Integer(197)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH ga USING INDEX sqlite_autoindex_catalog_metadata_generation_audio_1 (work_id=? AND generation=? AND unit_id=?)"
+            ],
+            [
+              "Integer(198)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH gu USING INDEX sqlite_autoindex_catalog_units_1 (id=?)"
+            ],
+            [
+              "Integer(199)",
+              "Integer(3)",
+              "Integer(0)",
+              "MULTI-INDEX AND gp (sqlite_autoindex_catalog_metadata_publication_pointers_1, catalog_metadata_publication_recent)"
+            ],
+            [
+              "Integer(200)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH uv USING INDEX sqlite_autoindex_catalog_unit_viewer_policies_2 (unit_id=?)"
+            ],
+            [
+              "Integer(201)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH vp USING INDEX sqlite_autoindex_catalog_viewer_policies_1 (work_id=?)"
+            ],
+            [
+              "Integer(304)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH owner_actor USING INDEX sqlite_autoindex_actors_1 (id=?)"
+            ],
+            [
+              "Integer(321)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH w USING COVERING INDEX sqlite_autoindex_audio_release_withdrawals_1 (release_id=?)"
+            ],
+            [
+              "Integer(334)",
+              "Integer(3)",
+              "Integer(0)",
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_audio_submission_revocations_1 (submission_id=?)"
+            ],
+            [
+              "Integer(431)",
+              "Integer(0)",
+              "Integer(0)",
+              "USE SORTER FOR ORDER BY"
+            ]
+          ],
+          "status": "PASS"
+        }
+      }
+    }
+  }
+]

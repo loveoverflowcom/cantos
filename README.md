@@ -71,6 +71,9 @@ Explicit [localhost dataset profiles](docs/deployment/localhost-datasets.md) pro
 Server Turso files, deterministic Catalog request plans, independent SQL/HTTP oracles and
 snapshot/replay checks through `cargo xtask seed dataset`. They are separate from the fixed
 six-Work sample and do not provision Studio login; FTS/vector and browser evidence stay separate.
+The explicit publication-access profile adds synthetic publication/actor/group/Unit query
+measurements; its [source-bound report](docs/evidence/publication-access-performance-657.md)
+keeps pending budgets, experimental indexes and runtime adoption separate.
 
 ## Development and verification
 

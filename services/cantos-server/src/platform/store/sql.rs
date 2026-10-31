@@ -304,6 +304,19 @@ pub(crate) struct Tx<'a> {
     mode: Mode<'a>,
     now: i64,
     acknowledgement: Acknowledgement,
+    #[cfg(any(test, feature = "test-support"))]
+    measurements: std::sync::Mutex<Option<Vec<QueryMeasurement>>>,
+}
+
+/// Opt-in synthetic dataset observation only. Absent from ordinary runtime builds and never
+/// enabled for authentication: bound values may contain private data.
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) struct QueryMeasurement {
+    pub sql: String,
+    pub params: Vec<Value>,
+    pub elapsed_ns: u128,
+    pub rows: usize,
+    pub decoded_bytes: usize,
 }
 
 async fn collect(mut rows: cantos_store_turso::Rows) -> Result<Vec<Row>, Error> {
@@ -328,6 +341,19 @@ fn bind(params: Params<'_>) -> impl cantos_store_turso::IntoParams {
 }
 
 impl Tx<'_> {
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn measure_queries(&self) {
+        *self.measurements.lock().expect("dataset measurement lock") = Some(Vec::new());
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn take_measurements(&self) -> Vec<QueryMeasurement> {
+        self.measurements
+            .lock()
+            .expect("dataset measurement lock")
+            .take()
+            .unwrap_or_default()
+    }
     /// The trusted time of this unit in microseconds since the Unix epoch. A write unit takes it
     /// after the writer is held, so timestamps follow commit order; SQL never reads the clock.
     pub(crate) fn now_micros(&self) -> i64 {
@@ -353,10 +379,45 @@ impl Tx<'_> {
     }
 
     pub(crate) async fn query(&self, sql: &str, params: Params<'_>) -> Result<Vec<Row>, Error> {
-        match &self.mode {
+        #[cfg(any(test, feature = "test-support"))]
+        let started = self
+            .measurements
+            .lock()
+            .expect("dataset measurement lock")
+            .is_some()
+            .then(std::time::Instant::now);
+        let result = match &self.mode {
             Mode::Write(tx) => collect(tx.query(sql, bind(params)).await?).await,
             Mode::Read(read) => collect(read.query(sql, bind(params)).await?).await,
+        };
+        #[cfg(any(test, feature = "test-support"))]
+        if let (Some(started), Ok(rows)) = (started, &result) {
+            let decoded_bytes = rows
+                .iter()
+                .flat_map(|r| &r.values)
+                .map(|v| match v {
+                    Value::Text(s) => s.len(),
+                    Value::Blob(b) => b.len(),
+                    Value::Integer(_) | Value::Real(_) => 8,
+                    Value::Null => 0,
+                })
+                .sum();
+            if let Some(out) = self
+                .measurements
+                .lock()
+                .expect("dataset measurement lock")
+                .as_mut()
+            {
+                out.push(QueryMeasurement {
+                    sql: sql.into(),
+                    params: params.iter().map(|p| p.to_value()).collect(),
+                    elapsed_ns: started.elapsed().as_nanos(),
+                    rows: rows.len(),
+                    decoded_bytes,
+                });
+            }
         }
+        result
     }
 
     pub(crate) async fn query_opt(
@@ -425,6 +486,8 @@ impl Conn {
             now: tx.now().get(),
             mode: Mode::Write(tx),
             acknowledgement: self.acknowledgement,
+            #[cfg(any(test, feature = "test-support"))]
+            measurements: std::sync::Mutex::new(None),
         })
     }
 
@@ -438,6 +501,8 @@ impl Conn {
             mode: Mode::Read(reader),
             now,
             acknowledgement: self.acknowledgement,
+            #[cfg(any(test, feature = "test-support"))]
+            measurements: std::sync::Mutex::new(None),
         })
     }
 

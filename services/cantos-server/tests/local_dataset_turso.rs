@@ -83,6 +83,78 @@ async fn clean_runs_interrupted_import_replay_and_snapshot_have_identical_logica
     );
     runtime::complete(&first, &p, false).await;
 }
+
+#[tokio::test]
+async fn publication_profile_observes_real_bounded_queries_and_hides_before_count_and_ordinal() {
+    use cantos_server::test_support::publication_performance as probe;
+    let run = TestRun::new("dataset-publication-observation");
+    let p = Plan::build("publication-access", 657, Some(8)).unwrap();
+    let root = run.path("profile");
+    runtime::initialize(&root, &p);
+    let tokens = runtime::bootstrap(&root).await;
+    let s = runtime::store(&root).await;
+    probe::synthetic_rights(&s, plan::ACTORS[0]).await;
+    let host = http::HttpHost::start(runtime::router(&s)).await;
+    runtime::seed(&s, &host, &p, &tokens, None).await;
+    dataset::publication::seed(&s, &p, &tokens).await;
+    let case = json!({"lane":"units","work":p.works[0].id,"actor":plan::ACTORS[3]});
+    let observed = probe::observe(&s, &case, true).await;
+    assert_eq!(observed["result"]["count"], 19);
+    let rows = observed["result"]["units"].as_array().unwrap();
+    assert_eq!(rows.len(), 19);
+    for (index, row) in rows.iter().enumerate() {
+        assert_eq!(row["id"], p.works[0].units[index + 1].id);
+        assert_eq!(row["ordinal"], index + 1);
+    }
+    let queries = observed["queries"].as_array().unwrap();
+    assert_eq!(
+        queries
+            .iter()
+            .filter(|q| q["sql"]
+                .as_str()
+                .unwrap()
+                .contains("FROM catalog_unit_viewer_policies WHERE work_id="))
+            .count(),
+        1
+    );
+    assert_eq!(
+        queries
+            .iter()
+            .filter(|q| q["sql"]
+                .as_str()
+                .unwrap()
+                .contains("FROM catalog_unit_viewer_grants WHERE work_id="))
+            .count(),
+        1
+    );
+    assert!(queries
+        .iter()
+        .any(|q| q["decoded_value_bytes"].as_u64().unwrap() > 0));
+    for q in queries {
+        assert_eq!(q["plan"]["status"], "PASS");
+    }
+    // Public HTTP sees the same HIDE count and no hidden text. This is a synthetic local
+    // owner/session fixture, never a real Identity or restricted playback result.
+    let detail: Value = host
+        .json::<Value>(
+            "GET",
+            &format!("/api/v1/theatre/works/{}", p.works[0].id),
+            None,
+            None,
+            None,
+        )
+        .await
+        .success(axum::http::StatusCode::OK);
+    assert_eq!(detail["unit_count"], 19);
+    assert!(!serde_json::to_string(&detail)
+        .unwrap()
+        .contains("HIDDEN_SENTINEL"));
+    let before = observed["result"].clone();
+    probe::experimental_indexes(&s, true).await;
+    assert_eq!(probe::observe(&s, &case, false).await["result"], before);
+    probe::experimental_indexes(&s, false).await;
+    host.stop().await;
+}
 #[tokio::test]
 async fn empty_mixed_unicode_permission_profiles_match_real_sql_and_http_oracles() {
     let run = TestRun::new("dataset-smoke");
