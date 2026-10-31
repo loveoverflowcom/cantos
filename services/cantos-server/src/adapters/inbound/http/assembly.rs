@@ -188,3 +188,18 @@ pub fn server_router(
     }
     assembly.build()
 }
+
+/// Explicit per-process policy confirmation for authenticated restricted serving. Default hosts,
+/// including a newly started/restored process, do not opt in. This seam mounts no static paths.
+pub fn router_with_restricted_media(
+    state: AppState,
+    origins: &crate::platform::host::SurfaceOrigins,
+    publication: PublicationService,
+    origin: OriginPlayback,
+) -> Result<Router, crate::contexts::media::ListenerError> {
+    let mut assembly = Assembly::new(state, None, Some(publication));
+    assembly.origins = Some(origins);
+    assembly.compose_public_media(origin);
+    assembly.services.listener = assembly.services.listener.with_restricted_serving()?;
+    Ok(assembly.build())
+}

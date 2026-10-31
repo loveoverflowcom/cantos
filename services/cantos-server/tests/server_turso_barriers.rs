@@ -544,6 +544,8 @@ async fn the_audio_release_chain_is_digest_checked_bound_and_immutable_and_the_p
 #[tokio::test]
 async fn library_rows_are_checked_against_their_snapshots_and_only_move_as_their_guards_allow() {
     let (fixture, work) = world().await;
+    // Library admission requires an explicit generation, not this raw audio fixture alone.
+    fixture.publish_work_metadata(&work).await;
     let unit = &work.units[0];
     let a = audio(&work, unit);
     let alice = principal("alice");

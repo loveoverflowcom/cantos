@@ -15,3 +15,17 @@ current metadata generation membership and its exact associated release pass the
 No unassociated/latest release is a fallback. Grant/fetch, time, identity and post-object-open
 rechecks are unchanged. Class: approved requirement change + missing generation-admission
 scenario; no `.qnt` change or observer claim. Real-file and HTTP tests cover that shell separately.
+
+
+S07 (#653) implements the accepted ADR 0054 D08 guard in the separate authenticated
+[shared contract](../../contracts/theatre/shared/v1/README.md). Classification: approved
+requirement addition at the shell and HMAC subject. The existing model's `authentic` input
+abstracts authentication of the complete current subject, now including actor/session/purpose
+and the process/publication/access fence; `eligible` includes current Work AND Unit admission.
+The `forgedGrantTest` and `withdrawDuringOpenTest` already cover false authentication and
+eligibility loss across open. No `.qnt` transition or property is changed: the abstract guard
+and recheck ordering are unchanged. The named native integration tests independently reach
+session mismatch, revoke/member removal/expiry/withdraw, conditional/Range and post-open checks.
+Their real Identity/Turso/filesystem results are separate from this draft model; no registered
+observer proves whole-serving conformance. Cursors, SQL plan cost, HTTP/CORS and browser/native
+player behavior stay outside this model. Capability lifecycle remains draft.

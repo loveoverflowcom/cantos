@@ -394,3 +394,35 @@ The [draft model inventory](../../services/cantos-server/behavior/catalog/viewer
 states its finite assumptions and separate native evidence. Browser/native and production
 acceptance, along with the existing formal auth/restore gaps, remain separate obligations.
 Queue: no reorder; S07 still consumes this boundary after it is integrated.
+
+
+### S07 consumer contract (#653)
+
+The [authenticated shared module](../../services/cantos-server/contracts/theatre/shared/v1/README.md)
+uses the current generation and the S06 Work AND Unit evaluator. The current persisted Unit
+mode is INHERIT; S10 must extend this common admission before exposing overrides. Candidate
+indexes (v34) narrow actor/group Work IDs, dedup before page bounds and never grant access.
+Hydration is bounded per request; its per-Work statement cost and the conservative global
+publication/policy/group cursor fence require S11 measurement before any performance claim.
+No ACL cache, asynchronous projection, FTS or MVCC is introduced.
+
+Shared `/works`, `/search`, Work/Units, manifest, playback authorization and media routes
+reuse Discovery's strict shapes without switching current clients. Cursors bind session, query,
+representation and the current publication/access fence. Grant HMAC subjects additionally bind
+purpose `media`, exact bytes and a new activation epoch for the process. Deadline admission
+is bounded by session/access/rights/grant/member expiry; the clock is read again after SQL.
+Every fetch is re-admitted before conditional/Range planning and after object-open I/O.
+
+The explicit `router_with_restricted_media` trusted composition opts in for one process;
+ordinary executable assembly remains closed on startup and restore, requiring later policy
+confirmation/activation work. Shared cover output is null and no private cover route is
+activated. Public artwork, old manifest/media and Library/restore cannot bypass a restricted
+policy. Library's public projections now require the current generation association rather
+than its former release-only relation.
+
+S08 consumes the cookie contract and qualifies the real browser player; S09 sends Bearer on
+every native fetch/seek/refresh and qualifies Android and iOS separately. There is no URL-only
+fallback in this implementation. Unsupported transports and private Library restoration remain
+unavailable. S12 owns the disposable restore-pair drill and any production activation; no
+production effect follows from the local router/TCP/byte tests. Admitted response bodies retain
+the existing 60-second bound and already buffered bytes cannot be recalled.

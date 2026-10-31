@@ -1,9 +1,9 @@
 //! Origin-delivery playback grants (proposed ADR 0032, mode A). A grant is a short-lived HMAC
-//! capability for one sealed public permit. Its token names only the publication and expiry;
+//! capability for one sealed publication permit, with optional session/access binding. Its token names only the publication and expiry;
 //! the MAC authenticates every immutable identity field, including the private object ID,
 //! without revealing it. Pure: no clock, randomness, key loading, SQL, storage or HTTP.
 //! Possessing a valid token is never eligibility: the application re-resolves the current
-//! public release before and after every object read and decides with `decide_media_fetch`.
+//! authorized release before and after every object read and decides with `decide_media_fetch`.
 use std::fmt;
 
 use hmac::{Hmac, Mac};
@@ -57,6 +57,9 @@ pub struct GrantSubject<'a> {
     pub sha256: &'a str,
     pub object_id: &'a str,
     pub byte_length: u64,
+    /// Hash of the current actor/session, purpose, generation and access policy.
+    /// None is exclusively the anonymous public lane.
+    pub access_scope: Option<&'a str>,
 }
 
 /// Claims parsed from a presented token. Parsing proves nothing; only `authenticates`
@@ -156,6 +159,11 @@ fn authenticator(
     ] {
         mac.update(&(field.len() as u64).to_be_bytes());
         mac.update(field.as_bytes());
+    }
+    if let Some(scope) = subject.access_scope {
+        mac.update(b"cantos/theatre/restricted/v1\n");
+        mac.update(&(scope.len() as u64).to_be_bytes());
+        mac.update(scope.as_bytes());
     }
     mac.update(&subject.byte_length.to_be_bytes());
     mac.update(&expires_at_ms.to_be_bytes());

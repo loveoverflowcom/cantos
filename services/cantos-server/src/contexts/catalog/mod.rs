@@ -25,6 +25,9 @@ pub(crate) use application::production_content::{
 #[cfg(test)]
 pub(crate) use application::sample_metadata_read::{sample_disclosed_work, SampleDisclosedWork};
 pub use application::seed_sample;
+pub(crate) use application::shared_metadata::{
+    shared_candidates, shared_scope, shared_unit, shared_units, shared_work,
+};
 pub use application::viewer_access::ViewerAccessError;
 pub use application::wire;
 pub use application::{
@@ -33,7 +36,7 @@ pub use application::{
 
 pub(crate) use turso::{
     listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_ACTIVE_FILTER,
-    LISTENER_CURRENT_FILTER,
+    LISTENER_CURRENT_FILTER, LISTENER_PUBLIC_GENERATION_FILTER,
 };
 
 /// Test-only reads of a stored snapshot through the production decoders, so a fixture that edits a

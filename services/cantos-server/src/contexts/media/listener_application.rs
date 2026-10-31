@@ -145,8 +145,10 @@ pub struct ListenerService {
     presented_cursors: Arc<CursorVault>,
     covered_cursors: Arc<CursorVault>,
     pub(super) metadata_cursors: Arc<CursorVault>,
+    pub(super) shared_cursors: Arc<CursorVault>,
+    pub(super) restricted_epoch: Option<String>,
     pub(super) metadata_store: Option<Store>,
-    delivery: Arc<dyn PlaybackDelivery>,
+    pub(super) delivery: Arc<dyn PlaybackDelivery>,
     /// Present only when trusted composition enabled origin delivery (proposed ADR 0032).
     pub(super) media: Option<OriginPlayback>,
     pub(super) media_lanes: Arc<Semaphore>,
@@ -208,6 +210,8 @@ impl ListenerService {
             presented_cursors: Arc::new(CursorVault::default()),
             covered_cursors: Arc::new(CursorVault::default()),
             metadata_cursors: Arc::new(CursorVault::default()),
+            shared_cursors: Arc::new(CursorVault::default()),
+            restricted_epoch: None,
             metadata_store: None,
             delivery,
             media: None,
@@ -218,12 +222,14 @@ impl ListenerService {
     /// A grant-only adapter. It enables no Theatre media route.
     pub fn with_playback_delivery(mut self, delivery: Arc<dyn PlaybackDelivery>) -> Self {
         self.delivery = delivery;
+        self.restricted_epoch = None;
         self.media = None;
         self
     }
     /// Proposed ADR 0032 mode A: the same value issues grants and serves the media route.
     pub fn with_origin_playback(mut self, origin: OriginPlayback) -> Self {
         self.delivery = Arc::new(origin.clone());
+        self.restricted_epoch = None;
         self.media = Some(origin);
         self
     }
@@ -637,6 +643,7 @@ pub(super) fn permit_for(publication: &ListenerPublication, valid_until: i64) ->
         object_id: m.delivery_object_id.clone(),
         byte_length: m.media.byte_length,
         valid_until,
+        access_scope: None,
     }
 }
 #[cfg(test)]

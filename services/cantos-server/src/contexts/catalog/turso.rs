@@ -15,6 +15,7 @@ pub(super) mod public_metadata;
 pub(super) mod sample_metadata;
 pub(super) mod sample_seed;
 pub(super) mod viewer_access;
+pub(super) mod viewer_reads;
 
 const WORK_COLUMNS: &str =
     "w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest";
@@ -429,7 +430,7 @@ pub(super) async fn set_member(
 mod listener;
 pub(crate) use listener::{
     listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_ACTIVE_FILTER,
-    LISTENER_CURRENT_FILTER,
+    LISTENER_CURRENT_FILTER, LISTENER_PUBLIC_GENERATION_FILTER,
 };
 
 /// Move every existing position outside the final bounded range before a permutation.

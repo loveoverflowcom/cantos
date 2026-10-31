@@ -33,7 +33,7 @@ impl LibraryWorld {
         let clock = FixedClock::new(T0);
         let fixture = ServerFixture::with_clock(clock.clone()).await;
         let work = fixture
-            .seed_work(
+            .seed_published_work(
                 None,
                 &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Tập có âm thanh riêng tư"]),
             )

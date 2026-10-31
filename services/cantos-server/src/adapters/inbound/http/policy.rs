@@ -36,7 +36,9 @@ pub(super) async fn origin_and_cache(
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let cover_request = read && theatre::cover_path(original_path);
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
-    let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
+    let shared_request = original_path.starts_with("/api/v1/theatre/shared/");
+    let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path)
+        || super::theatre_shared::bearer_mutation(request.method(), original_path);
     let native_mutation = identity_auth::native_mutation(request.method(), original_path);
     let delegated_mutation = studio::delegation::bearer_mutation(request.method(), original_path);
     let mut response = if !read
@@ -59,8 +61,9 @@ pub(super) async fn origin_and_cache(
     // Preserve the transport-owned policy, not a MIME heuristic: 304 has no Content-Type,
     // while conditional rejections and other audio errors carry the surface's JSON body.
     // Unrecognized/missing policies still cannot make a response cacheable.
-    let cache_control = if response.headers().get(header::CACHE_CONTROL)
-        == Some(&audio_transport::PRIVATE_CACHE_CONTROL)
+    let cache_control = if shared_request
+        || response.headers().get(header::CACHE_CONTROL)
+            == Some(&audio_transport::PRIVATE_CACHE_CONTROL)
     {
         audio_transport::PRIVATE_CACHE_CONTROL
     } else if cover_request

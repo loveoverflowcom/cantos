@@ -40,7 +40,7 @@ fn at(a: &dto::AudioIdentity, tenths: u64) -> u64 {
 }
 
 #[tokio::test]
-async fn presented_library_hides_titles_after_current_privacy_or_submission_revocation() {
+async fn presented_library_hides_titles_after_current_audience_or_submission_revocation() {
     for revoke in [false, true] {
         let w = LibraryWorld::new().await;
         let alice = principal("alice");
@@ -49,9 +49,45 @@ async fn presented_library_hides_titles_after_current_privacy_or_submission_revo
         if revoke {
             w.fixture.revoke_submission("alice", &w.work.units[0]).await;
         } else {
+            // ADR 0054 D05b: changing an editorial head never hides its published generation.
             w.fixture
                 .edit_work_visibility(&w.work, Visibility::Private)
                 .await;
+            let draft_only = service
+                .presented_continue_listening(&alice, 1, None)
+                .await
+                .unwrap();
+            assert_eq!(
+                draft_only.items[0].resume,
+                dto::ResumeStatus::ExactAvailable
+            );
+            assert_eq!(
+                draft_only.items[0]
+                    .presentation
+                    .as_ref()
+                    .unwrap()
+                    .work
+                    .title,
+                w.work.title
+            );
+            let token = "6536536536536536536536536536536536536536536536536536536536536536";
+            w.fixture.studio_caller("alice", token).await;
+            w.fixture
+                .store()
+                .viewer_access_execute(
+                    token,
+                    &w.work.work_id,
+                    crate::contract::studio::ViewerAccessRequest {
+                        operation_id: uuid::Uuid::new_v4().to_string(),
+                        expected_version: 0,
+                        change: crate::contract::studio::ViewerAccessChange::SetAudience {
+                            audience: crate::contract::studio::ViewerAudience::Restricted,
+                            confirm_metadata_rights: false,
+                        },
+                    },
+                )
+                .await
+                .unwrap();
         }
         let continued = service
             .presented_continue_listening(&alice, 1, None)
@@ -250,6 +286,13 @@ async fn replacement_and_withdrawal_retain_owned_progress_without_silent_substit
         .fixture
         .publish_replacement(None, &w.work, &w.work.units[0])
         .await;
+    // The raw audio fixture alone is not a generation association.
+    let unassociated = service.continue_listening(&p, 20, None).await.unwrap();
+    assert_eq!(
+        unassociated.items[0].resume,
+        dto::ResumeStatus::AccessUnavailable
+    );
+    w.fixture.publish_work_metadata(&w.work).await;
     let projected = service.continue_listening(&p, 20, None).await.unwrap();
     assert_eq!(
         projected.items[0].resume,
@@ -743,6 +786,13 @@ async fn replaced_and_withdrawn_releases_keep_exact_bookmarks_without_remap_or_n
         .fixture
         .publish_replacement(None, &w.work, &w.work.units[0])
         .await;
+    // The raw audio fixture alone is not a generation association.
+    let unassociated = service.bookmarks(&p, 20, None).await.unwrap();
+    assert_eq!(
+        unassociated.items[0].resume,
+        dto::ResumeStatus::AccessUnavailable
+    );
+    w.fixture.publish_work_metadata(&w.work).await;
     let page = service.bookmarks(&p, 20, None).await.unwrap();
     assert_eq!(page.items[0].resume, dto::ResumeStatus::ReleaseReplaced);
     assert_eq!(
@@ -795,7 +845,7 @@ async fn replaced_and_withdrawn_releases_keep_exact_bookmarks_without_remap_or_n
 async fn saved_is_labelled_by_the_release_work_detail_resolves() {
     let fixture = ServerFixture::new().await;
     let work = fixture
-        .seed_work(
+        .seed_published_work(
             None,
             &WorkSeed::podcast(1, "Ánh đèn cuối sân khấu", &["Một", "Hai", "Ba"]),
         )

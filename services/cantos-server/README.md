@@ -275,5 +275,17 @@ S06 adds the private [viewer access](contracts/studio/viewer-access/v1/README.md
 Identity's private RPC canonicalizes syntax and returns only the current session subject's
 verified mailbox. Grants bind immutable actors, flat groups are owner scoped, mutations carry
 CAS/audit/receipts, and public generation reads exclude restricted policies. The Work/Unit
-pure evaluator is the successor seam; restricted metadata/bytes serving remains gated to S07.
+pure evaluator is shared by the authenticated serving boundary described below.
 No invitation mail, public account lookup or direct Identity-file access is introduced.
+
+
+S07 adds [authenticated shared discovery and media](contracts/theatre/shared/v1/README.md),
+with principal-first candidate indexes in appended `server.db` v34. Shared cursors bind the
+current session and publication/access fence; media grants additionally bind their purpose and
+exact immutable bytes. Identity/session and Work AND Unit admission run on issuance, every
+GET/HEAD/Range and after object open. The explicit API-only `router_with_restricted_media`
+composition requires policy confirmation for each process; ordinary executable assembly stays
+closed across restart/restore. No production activation is performed by that constructor's tests.
+Library's public projections now require the current generation association, closing its old
+release-only fallback. Restricted covers and old Library restore stay unavailable; Web/CMP
+adoption, browser/device qualification and the restore/rollout campaign remain separate.

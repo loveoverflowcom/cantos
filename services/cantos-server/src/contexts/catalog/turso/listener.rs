@@ -137,3 +137,8 @@ AND json_extract(CAST(d_r.snapshot AS TEXT),'$.details.visibility')='public')";
 
 /// Lifecycle-only half for generation admission; editorial visibility never gates that lane.
 pub(crate) const LISTENER_ACTIVE_FILTER: &str = "EXISTS(SELECT 1 FROM catalog_works d_w JOIN catalog_units d_u ON d_u.work_id=d_w.id AND d_u.id=x.unit_id WHERE d_w.id=x.work_id AND d_w.lifecycle<>'archived' AND d_u.lifecycle<>'archived')";
+
+/// Anonymous Library candidate relation over Media's listener alias `x`: generation membership
+/// and an exact association precede representative selection. Media still admits every audio fact.
+/// Catalog owns every metadata/access table named here; no editorial head is authority.
+pub(crate) const LISTENER_PUBLIC_GENERATION_FILTER: &str = "EXISTS(SELECT 1 FROM catalog_metadata_publication_pointers gp JOIN catalog_metadata_generation_entries ge ON ge.work_id=gp.work_id AND ge.generation=gp.generation JOIN catalog_metadata_generation_audio ga ON ga.work_id=ge.work_id AND ga.generation=ge.generation AND ga.unit_id=ge.unit_id JOIN catalog_works gw ON gw.id=gp.work_id JOIN catalog_units gu ON gu.id=ge.unit_id AND gu.work_id=gw.id WHERE gp.work_id=x.work_id AND gp.lifecycle='active' AND gw.lifecycle<>'archived' AND gu.lifecycle<>'archived' AND ge.unit_id=x.unit_id AND ga.release_id=x.release_id AND NOT EXISTS(SELECT 1 FROM catalog_viewer_policies vp WHERE vp.work_id=gp.work_id AND vp.audience<>'public'))";

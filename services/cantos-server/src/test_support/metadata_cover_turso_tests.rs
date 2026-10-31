@@ -330,3 +330,73 @@ async fn metadata_search_browser_fixture() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn a_restricted_policy_closes_cached_public_cover_head_and_conditional_paths() {
+    use crate::contract::studio::{ViewerAccessChange, ViewerAccessRequest, ViewerAudience};
+    let world = MetadataWorld::new().await;
+    let service = world.listener();
+    world.consent(None, true).await;
+    let admitted = service.admit_cover(WORK, AVIF_RGB_SHA256).await.unwrap();
+    let app = metadata_cover_test_router(
+        AppState {
+            store: world.store.clone(),
+            web_origin: STUDIO.into(),
+        },
+        service.clone(),
+    );
+    let path = format!("/api/v1/theatre/works/{WORK}/cover/{AVIF_RGB_SHA256}");
+    let before = app
+        .clone()
+        .oneshot(Request::get(&path).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(before.status(), StatusCode::OK);
+    world
+        .store
+        .viewer_access_execute(
+            super::TOKEN,
+            WORK,
+            ViewerAccessRequest {
+                operation_id: uuid::Uuid::new_v4().to_string(),
+                expected_version: 0,
+                change: ViewerAccessChange::SetAudience {
+                    audience: ViewerAudience::Restricted,
+                    confirm_metadata_rights: false,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    for method in ["GET", "HEAD"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(&path)
+                    .header("if-none-match", format!("\"{AVIF_RGB_SHA256}\""))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert_ne!(
+            response
+                .headers()
+                .get("content-type")
+                .map(|v| v.to_str().unwrap()),
+            Some("image/avif")
+        );
+    }
+    assert!(matches!(
+        service.open_cover(&admitted).await,
+        Err(ListenerError::NotFound)
+    ));
+    assert!(matches!(
+        service.metadata_work(WORK).await,
+        Err(ListenerError::NotFound)
+    ));
+}

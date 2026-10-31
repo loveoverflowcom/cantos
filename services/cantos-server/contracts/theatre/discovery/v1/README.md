@@ -57,4 +57,6 @@ and fixtures are retained as historical strict-rejection oracles, not served rep
 Origin playback keeps the [ADR 0032](../../../../../../docs/decisions/0032-theatre-origin-playback-delivery.md)
 grant, Range and no-store rules; an uncomposed delivery host stays unavailable. Real-file/router
 checks, real private bytes, browser, Android/iOS and deployed delivery remain separate evidence.
-RESTRICTED audiences and subject/session media admission belong to S06–S09, not these public reads.
+RESTRICTED audiences never enter these public reads, manifests or grants, even when a cookie
+is present. The separate [shared module](../../shared/v1/README.md) owns authenticated
+subject/session media admission; Web/CMP adoption remains in S08/S09.

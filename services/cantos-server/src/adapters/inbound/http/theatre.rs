@@ -202,11 +202,24 @@ async fn media_response(
     method: &Method,
     headers: &HeaderMap,
 ) -> Response {
+    media_response_in(service, grant, method, headers, None).await
+}
+pub(super) async fn media_response_in(
+    service: &ListenerService,
+    grant: &str,
+    method: &Method,
+    headers: &HeaderMap,
+    credential: Option<&str>,
+) -> Response {
     let lane = match service.media_lane() {
         Ok(lane) => lane,
         Err(e) => return error(e),
     };
-    let authorized = match service.authorize_media(grant).await {
+    let admission = match credential {
+        Some(token) => service.authorize_shared_media(token, grant).await,
+        None => service.authorize_media(grant).await,
+    };
+    let authorized = match admission {
         Ok(authorized) => authorized,
         Err(e) => return error(e),
     };
@@ -224,7 +237,15 @@ async fn media_response(
         return audio_transport::metadata_response(plan, method, lane, rejection)
             .unwrap_or_else(|e| error(transport_error(e)));
     }
-    let stored = match service.open_media(&authorized, plan.range()).await {
+    let opened = match credential {
+        Some(token) => {
+            service
+                .open_shared_media(token, &authorized, plan.range())
+                .await
+        }
+        None => service.open_media(&authorized, plan.range()).await,
+    };
+    let stored = match opened {
         Ok(stored) => stored,
         Err(e) => return error(e),
     };

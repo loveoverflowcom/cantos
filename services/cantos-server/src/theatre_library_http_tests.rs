@@ -247,6 +247,8 @@ async fn presented_library_never_substitutes_replacement_titles_for_owned_audio(
         .fixture
         .publish_replacement(None, &w.work, &w.work.units[0])
         .await;
+    // Explicit owner publication associates this synthetic replacement; no release-only fallback.
+    w.fixture.publish_work_metadata(&w.work).await;
     let replacement_id = replacement.release_id.clone().unwrap();
     let continued = service
         .presented_continue_listening(&alice, 1, None)
@@ -408,6 +410,8 @@ async fn latest_completed_release_suppresses_older_unfinished_work_without_erasi
         .fixture
         .publish_replacement(None, &w.work, &w.work.units[0])
         .await;
+    // Explicit owner publication associates this synthetic replacement; no release-only fallback.
+    w.fixture.publish_work_metadata(&w.work).await;
     let b = crate::test_support::library::audio_of(&w.work, &w.work.units[0], &next);
     service
         .put_progress(

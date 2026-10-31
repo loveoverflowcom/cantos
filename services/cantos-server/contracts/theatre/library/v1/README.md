@@ -193,3 +193,15 @@ idempotency_key_reused422, stale_device_sequence409, revision_exhausted409,
 unavailable503/retryable, corrupt_state500/non-retryable. Mutation conflicts return409 with
 original operation ID, outcome, current revisioned state and explicit resolution. Successful
 receipts carry accepted/already_current and original outcome; retry replay has identical bytes.
+
+
+## Publication/access admission (ADR 0054, S07)
+
+Current-public eligibility includes ACTIVE metadata generation membership and its exact audio
+association, current Work audience, owner/archive gates and the release's rights/approval gate.
+An audio pointer or old Library record alone grants no visibility. Presentation text comes
+from the generation pins, including owner-confirmed display-only associations. A saved draft
+head cannot relabel a Library row. Withdrawn/unassociated/RESTRICTED resources retain only the
+account's existing register with unavailable/null presentation; no new private progress/start/
+bookmark admission or fallback media follows. Authenticated shared discovery is a separate
+contract; private Library adoption is unavailable until its complete projection is supplied.

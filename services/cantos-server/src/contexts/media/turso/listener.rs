@@ -1,4 +1,4 @@
-//! Authorized Turso listener reads. One bounded joined query, no per-item SQL/N+1. Every read
+//! Authorized Turso listener reads. Candidate joins and generation hydration are bounded. Every read
 //! decides current eligibility at one trusted instant over one pinned snapshot; times here are
 //! the domain's Unix milliseconds, converted once from the transaction's microsecond stamp.
 use super::super::{
@@ -692,7 +692,8 @@ impl ListenerRead for TursoRead {
 }
 
 /// Narrow Media-owned current-public batch for the Library adapter. It returns public manifests,
-/// never private storage or the immutable Studio audit envelope. No per-item SQL round trips.
+/// never private storage or the immutable Studio audit envelope. Generation admission is per
+/// entry in a bounded page; its statement cost needs S11 measurement.
 /// `now` is the caller's unit instant in milliseconds.
 pub(crate) async fn library_publications(
     tx: &Tx<'_>,
@@ -737,18 +738,43 @@ pub(in crate::contexts::media) async fn library_current_items(
     if units.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }
-    let from = relation();
-    let sql = format!("SELECT {COLUMNS} {from} AND x.unit_id IN (SELECT value FROM json_each(?2))");
-    let rows = tx
-        .query(&sql, &[&now, &units])
-        .await
-        .map_err(|_| ListenerError::Unavailable)?;
-    let mut items = batch(tx, rows, 50, false, now).await?.0;
-    items.retain(|r| r.publication.valid_at(now));
+    let from = library_relation();
+    let sql =
+        format!("SELECT x.release_id {from} AND x.unit_id IN (SELECT value FROM json_each(?2))");
+    let rows = tx.query(&sql, &[&now, &units]).await?;
+    library_generation_items(tx, rows, now).await
+}
+
+/// Select only currently public generation associations before representative ranking.
+/// This closes the old release-only Library/restore lane, including draft-head disclosure.
+fn library_relation() -> String {
+    FROM.replace(
+        "{current_filter}",
+        crate::contexts::catalog::LISTENER_PUBLIC_GENERATION_FILTER,
+    )
+    .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER)
+}
+async fn library_generation_items(
+    tx: &Tx<'_>,
+    rows: Vec<Row>,
+    now: i64,
+) -> Result<Vec<ReadItem>, ListenerError> {
+    if rows.len() > 50 {
+        return Err(ListenerError::Corrupt);
+    }
+    let mut items = Vec::new();
+    for row in rows {
+        let release: String = row.try_get("release_id")?;
+        if let Some(item) = super::super::generation_audio::public_release(tx, &release).await? {
+            if item.publication.valid_at(now) {
+                items.push(item);
+            }
+        }
+    }
     Ok(items)
 }
 
-/// One representative per requested Work, selected by the same release order as detail.
+/// One current generation representative per requested Work; no old/private release fallback.
 pub(crate) async fn library_work_presentations(
     tx: &Tx<'_>,
     works: &[String],
@@ -757,15 +783,11 @@ pub(crate) async fn library_work_presentations(
     if works.len() > 50 {
         return Err(ListenerError::InvalidRequest);
     }
-    let from = relation();
-    let sql = format!("SELECT * FROM (SELECT {COLUMNS},{REPRESENTATIVE} {from} AND x.work_id IN (SELECT value FROM json_each(?2))) selected WHERE pick=1 ORDER BY work_id");
-    let rows = tx
-        .query(&sql, &[&now, &works])
-        .await
-        .map_err(|_| ListenerError::Unavailable)?;
-    let mut items = batch(tx, rows, 50, true, now).await?.0;
-    items.retain(|r| r.publication.valid_at(now));
-    Ok(items
+    let from = library_relation();
+    let sql=format!("SELECT release_id FROM (SELECT x.release_id,x.work_id,{REPRESENTATIVE} {from} AND x.work_id IN (SELECT value FROM json_each(?2))) selected WHERE pick=1 ORDER BY work_id");
+    let rows = tx.query(&sql, &[&now, &works]).await?;
+    Ok(library_generation_items(tx, rows, now)
+        .await?
         .into_iter()
         .map(|r| work_presentation(&r.publication))
         .collect())
@@ -773,9 +795,13 @@ pub(crate) async fn library_work_presentations(
 pub(crate) async fn library_public_work(
     tx: &Tx<'_>,
     work_id: &str,
-    now: i64,
+    _now: i64,
 ) -> Result<bool, ListenerError> {
-    Ok(!work(tx, work_id, now).await?.0.is_empty())
+    let id = crate::contexts::catalog::domain::WorkId::parse(work_id)
+        .map_err(|_| ListenerError::InvalidRequest)?;
+    Ok(crate::contexts::catalog::public_work(tx, &id)
+        .await?
+        .is_some())
 }
 
 /// The domain's Unix milliseconds of a transaction's trusted microsecond stamp.
