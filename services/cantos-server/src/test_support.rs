@@ -24,6 +24,7 @@ use crate::{
 
 pub mod editorial;
 pub mod library;
+pub mod publication_performance;
 mod world;
 pub use world::{Chain, Corruption, SeededUnit, SeededWork, Stage, UnitSeed, WorkSeed};
 

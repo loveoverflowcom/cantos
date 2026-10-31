@@ -512,3 +512,10 @@ S11 receives the principal-lane/two-bounded-Unit-query/Library predicate/scope q
 it must measure actual Turso costs rather than infer performance from bounded output. S12
 still owns paired restore/activation acceptance. The single #676 ledger retains inherited and
 S10 residuals; merged source alone does not establish all #656 acceptance criteria.
+
+### S11 publication/access measurement boundary (#657)
+
+The [source-bound measurement report](../evidence/publication-access-performance-657.md)
+records the opt-in dataset extension, actual plans/costs and pending owner budget/adoption
+decisions. It does not certify populated Library, mixed-write performance or production
+capacity. S12 consumes these observations with the explicit limitations retained.

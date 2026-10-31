@@ -1,0 +1,1658 @@
+{
+  "base": "027f9b72d1e70b46886b6c0fa7366c0fbcb4a600",
+  "engine": "turso =0.8.3 default-features=false",
+  "target": "macOS 15.6 Darwin 24.6.0 arm64; rustc 1.98.1; unoptimized/debug0/incremental0/jobs2",
+  "adoption": "NONE; budget pending owner; no runtime migration/SQL/cache change",
+  "datasets": [
+    {
+      "works": 20,
+      "seed": 657,
+      "logical_sha256": "59ca9234c2e549572e2b57271a8588a96231f0a812912e6f354705d5eb8ee8cf",
+      "generator_sha256": "7ae20ea5eb757b7114e16aa0cdd282c93ca1ebfb4f76798a2b5120f7a6fe06cc",
+      "plan_sha256": "bd76273227296d593dc114faab0eb86aac7243947d9353adf1ec7b17ab31e42c",
+      "schema": {
+        "application_id": 1129206867,
+        "epoch": 1,
+        "migrations": [
+          {
+            "name": "server_actor_registry",
+            "sha256": "5b59e260ac5ccbcf34439e9034a51ffe26d528a35bad4a0cb3c651300c64a6b2",
+            "version": 1
+          },
+          {
+            "name": "server_identity_sessions",
+            "sha256": "1d3c06536d55bc13b5969d205322d5d861c2f7a0f702889f6a2af5845207e6fe",
+            "version": 2
+          },
+          {
+            "name": "server_development_sessions",
+            "sha256": "026023de2acac92637a90bdfe01c0942a8a837081264f658004a5fbad7913a8b",
+            "version": 3
+          },
+          {
+            "name": "server_editorial",
+            "sha256": "d0132b8bf2fd3dffb4843d1284541a08b4f96974882db6e38912614e6ba2a736",
+            "version": 4
+          },
+          {
+            "name": "server_catalog",
+            "sha256": "5f3d8714ebf030ac4501db9fc2cf398a51c64b00982dc920c58df0e875cded54",
+            "version": 5
+          },
+          {
+            "name": "server_admin",
+            "sha256": "5235143fb06d723f3c9b643ef3f6cf0369bc535837fbd120e3f5d72544b7f6bb",
+            "version": 6
+          },
+          {
+            "name": "server_adaptation",
+            "sha256": "49f76d6d3c46806eef049f5f3b162a882fc5b71a6042a281df501af6bc452eda",
+            "version": 7
+          },
+          {
+            "name": "server_production",
+            "sha256": "bd51c30614b3d7802fda079d525e2056cc687c1442bfafe3ae4689bf710812a4",
+            "version": 8
+          },
+          {
+            "name": "server_media_artwork",
+            "sha256": "03f57e58b2aa906ab4da2805f8bb86124910b907035fc6cff10b0db02304de23",
+            "version": 9
+          },
+          {
+            "name": "server_media_audio",
+            "sha256": "86798afc7fe07f87e98d409eea2790257faad4f1f40fba7b2bd07dc6a6da66d0",
+            "version": 10
+          },
+          {
+            "name": "server_listening",
+            "sha256": "638b94dcc4c3ec7a77dc1c02adb78318f773f8e88f1b51292c8684e740c9ee92",
+            "version": 11
+          },
+          {
+            "name": "server_catalog_publication_read",
+            "sha256": "1999c895ed8c18eecf71368eb48cf56fa70cb55127fbb65b5ff5ea4ba3767081",
+            "version": 12
+          },
+          {
+            "name": "server_production_briefs",
+            "sha256": "e3af46702f29ca3c2c7c2f8f421e45184d8242f06237eb9a2f1eb8d3a6a3048c",
+            "version": 13
+          },
+          {
+            "name": "server_audio_release_chain",
+            "sha256": "977397256e91359d0e748da07411229a9d46167c8eb2743e585fb19e53759357",
+            "version": 14
+          },
+          {
+            "name": "server_listener_library",
+            "sha256": "d142e11ea7b950396ed98f8aed6fa82a9c742e47d219a0decd0910e7e2919349",
+            "version": 15
+          },
+          {
+            "name": "server_editorial_ingestion",
+            "sha256": "0b93886bb37539e4ab7e90cde5cf99355cff0984c2ff0cb5efd9a0eeabacdfad",
+            "version": 16
+          },
+          {
+            "name": "server_catalog_studio",
+            "sha256": "ff69f612baec73c8eee3e459fdbef08139274bf8c40f8c73f7e1d2128a22eb46",
+            "version": 17
+          },
+          {
+            "name": "server_adaptation_contexts",
+            "sha256": "ebecfb6c726689075779d7418c4fdd5e4c7df517f5b8d4d3fde7aed78362e757",
+            "version": 18
+          },
+          {
+            "name": "server_production_snapshots",
+            "sha256": "c691da49e70048d71e583dd8966a5e26ac75898ea0bfff5e690a57ed343bab7e",
+            "version": 19
+          },
+          {
+            "name": "server_private_media",
+            "sha256": "9d0ff2d321091a811dc5a1a1da6b76a92bf68dcd108c516f6d9ef5592621dd1a",
+            "version": 20
+          },
+          {
+            "name": "server_producer_grants",
+            "sha256": "9551478647580c48eacadc7c01fbee4021dadcbda0a8222270e1bdfd947d6654",
+            "version": 21
+          },
+          {
+            "name": "server_admin_audit",
+            "sha256": "9d84cd9b9bb9a93faddb986b7bce5cc56e61b96cd850f66b35500ab5652817c7",
+            "version": 22
+          },
+          {
+            "name": "server_publication_receipts",
+            "sha256": "e700ce5fda39c757d6376059ce157075ae54f038a4e39144628ce0ca6b64dab1",
+            "version": 23
+          },
+          {
+            "name": "server_media_cover_disclosures",
+            "sha256": "ea8e02950d21cc64c815e5743ce242534c9fb3b4e76fb93ed7b1307290596493",
+            "version": 24
+          },
+          {
+            "name": "server_sample_metadata_disclosures",
+            "sha256": "e9b1030a7c2f1470937f4820cdc889c8fa024ae9fe9b458e97cf946f0f0af093",
+            "version": 25
+          },
+          {
+            "name": "server_sample_seed_principal",
+            "sha256": "e75ebf1bd39c6deb3ffab07bc3d047f4e4446c85a2c433911d2f45bb8c2949fd",
+            "version": 26
+          },
+          {
+            "name": "server_fictional_sample",
+            "sha256": "3e7892b6a0ecb7b76b56371193235b5387fbecc1fc7587bcafd93457611e329c",
+            "version": 27
+          },
+          {
+            "name": "server_media_metadata_cover_bindings",
+            "sha256": "b43ae9270d87764f17cfc727a03a83d79c070922931237e2ae62bcf1b30faba9",
+            "version": 28
+          },
+          {
+            "name": "server_media_avif_cover_support",
+            "sha256": "c47e7fa66f4e104745649fc03c098949d80bfba6745513d6d4ae45355a5ee044",
+            "version": 29
+          },
+          {
+            "name": "server_media_avif_only",
+            "sha256": "cb7f3a9e24db5f631559d6eb148cb72957b8a8f159cfd1771750d8ec99c42540",
+            "version": 30
+          },
+          {
+            "name": "server_catalog_metadata_publications",
+            "sha256": "43266e10af0c61aa28564ecec9bae039a84ad45b85a2da8cdbfc09876b7b4c26",
+            "version": 31
+          },
+          {
+            "name": "server_catalog_metadata_audio_associations",
+            "sha256": "7ecbcb19c3b2c746f6847b36418000200c9a81596461c137bc9db42eda9e7141",
+            "version": 32
+          },
+          {
+            "name": "server_catalog_viewer_access",
+            "sha256": "9724e043a4f57dda1c726d3e296febc57f62f21d065e76c7c6f5edd0204bf61e",
+            "version": 33
+          },
+          {
+            "name": "server_catalog_viewer_read_indexes",
+            "sha256": "9a620efe3829b59b18b16cbf47b6bfaaa45bd6ee32654468b7f9ab016e7354eb",
+            "version": 34
+          },
+          {
+            "name": "server_catalog_unit_viewer_access",
+            "sha256": "3f711aefabf139a810cb7c8b36115e82c7ce77689c48d3a2c17518ba39c5c6e1",
+            "version": 35
+          }
+        ]
+      },
+      "raw_report_sha256": "2c8b0db2ebd0ab06c6492d505f4d1b29964039ad2c0b8f9920a5482c2b2a8c4f",
+      "conditions": {
+        "cpu_scanned_rows_per_index_bytes": "NOT_RUN; no engine scan-counter or dbstat claim",
+        "decoded_value_bytes": "sum of returned Text/Blob bytes, 8 per Integer/Real, zero Null; excludes allocation/column names/wire",
+        "library": "plan/zero-audio negative control only; populated release-backed cost NOT_RUN",
+        "query_count": "successful Tx.query statements only; excludes snapshot/registry/EXPLAIN, RPC and HTTP",
+        "reopened_is_os_cold": false,
+        "reopened_samples": 5,
+        "rss": "whole process including held reports/caches; delta is not isolated index memory",
+        "samples": 100,
+        "sql_ns": "statement facade execute+drain+decode/measurement overhead, not engine-only CPU",
+        "warmup": 5
+      },
+      "rss_kib": {
+        "baseline": "65216",
+        "candidate": "69616"
+      },
+      "storage": {
+        "baseline": {
+          "db_bytes": 1638400,
+          "per_index_bytes": "NOT_RUN: no dbstat attribution; file/WAL growth is not per-index size",
+          "wal_bytes": 49472
+        },
+        "candidate": {
+          "db_bytes": 1638400,
+          "per_index_bytes": "NOT_RUN: no dbstat attribution; file/WAL growth is not per-index size",
+          "wal_bytes": 74192
+        }
+      },
+      "index_build_ns": 11531500,
+      "cases": [
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public",
+            "lane": "public",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 8,
+          "decoded_value_bytes": 4052,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5415542,
+            "p95": 5583959,
+            "p99": 5602916
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5421208,
+            "p95": 5517625,
+            "p99": 5544625
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5769708,
+            "p95": 5977000,
+            "p99": 5977000
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "candidates",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 13,
+          "decoded_value_bytes": 584,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5063084,
+            "p95": 5184084,
+            "p99": 5235834
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5693417,
+            "p95": 5829875,
+            "p99": 5876292
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5297500,
+            "p95": 5450583,
+            "p99": 5450583
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared",
+            "lane": "shared",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 170,
+          "returned_rows": 195,
+          "decoded_value_bytes": 21456,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 26074583,
+            "p95": 26888417,
+            "p99": 26981750
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 27512083,
+            "p95": 28075667,
+            "p99": 28256459
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 26486833,
+            "p95": 26823416,
+            "p99": 26823416
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "units",
+            "lane": "units",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 15,
+          "returned_rows": 52,
+          "decoded_value_bytes": 12111,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 3161500,
+            "p95": 3252375,
+            "p99": 3275500
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 3217584,
+            "p95": 3285292,
+            "p99": 3348417
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 3552334,
+            "p95": 3595208,
+            "p99": 3595208
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "scope",
+            "lane": "scope",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 1,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 463625,
+            "p95": 489125,
+            "p99": 525000
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 471208,
+            "p95": 486084,
+            "p99": 516709
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 551041,
+            "p95": 583000,
+            "p99": 583000
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "library-empty-audio-control",
+            "lane": "library-empty-audio-control",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 1,
+          "returned_rows": 0,
+          "decoded_value_bytes": 0,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 27034167,
+            "p95": 27489833,
+            "p99": 28392208
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 26890000,
+            "p95": 27256000,
+            "p99": 27473125
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 27333041,
+            "p95": 27612416,
+            "p99": 27612416
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_editor",
+            "id": "candidates-dataset_editor",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 2,
+          "decoded_value_bytes": 100,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4498292,
+            "p95": 4605625,
+            "p99": 4630042
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 4992375,
+            "p95": 5156458,
+            "p99": 5240792
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 4868791,
+            "p95": 4889625,
+            "p99": 4889625
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_stranger",
+            "id": "candidates-dataset_stranger",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4373584,
+            "p95": 4462375,
+            "p99": 4488917
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 4876625,
+            "p95": 4967084,
+            "p99": 4987167
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 4708375,
+            "p95": 4881708,
+            "p99": 4881708
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-bến",
+            "lane": "public",
+            "search": "bến",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 5,
+          "decoded_value_bytes": 2354,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5297292,
+            "p95": 5417375,
+            "p99": 5446250
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5341584,
+            "p95": 5441875,
+            "p99": 5467208
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5614708,
+            "p95": 5683750,
+            "p99": 5683750
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-bến",
+            "lane": "shared",
+            "search": "bến",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 142,
+          "returned_rows": 167,
+          "decoded_value_bytes": 18532,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 22566000,
+            "p95": 23132500,
+            "p99": 23263542
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 24033917,
+            "p95": 24664000,
+            "p99": 24986125
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 23660833,
+            "p95": 24300333,
+            "p99": 24300333
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-Ánh",
+            "lane": "public",
+            "search": "Ánh",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 4,
+          "decoded_value_bytes": 1754,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5189042,
+            "p95": 5345125,
+            "p99": 5372042
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5241833,
+            "p95": 5368916,
+            "p99": 5382250
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5512833,
+            "p95": 5605958,
+            "p99": 5605958
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-Ánh",
+            "lane": "shared",
+            "search": "Ánh",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 30,
+          "returned_rows": 29,
+          "decoded_value_bytes": 2980,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 8546542,
+            "p95": 8822125,
+            "p99": 8845125
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 9433458,
+            "p95": 9660083,
+            "p99": 9697458
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 9205209,
+            "p95": 9501792,
+            "p99": 9501792
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-%_",
+            "lane": "public",
+            "search": "%_",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 4,
+          "decoded_value_bytes": 1754,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5214667,
+            "p95": 5348417,
+            "p99": 5369959
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5215708,
+            "p95": 5329833,
+            "p99": 5367167
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5596000,
+            "p95": 5661333,
+            "p99": 5661333
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-%_",
+            "lane": "shared",
+            "search": "%_",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 30,
+          "returned_rows": 29,
+          "decoded_value_bytes": 2980,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 8532250,
+            "p95": 8748917,
+            "p99": 8816083
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 9356292,
+            "p95": 9685458,
+            "p99": 9730625
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 8985167,
+            "p95": 9296250,
+            "p99": 9296250
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-HIDDEN_SENTINEL",
+            "lane": "public",
+            "search": "HIDDEN_SENTINEL",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5042041,
+            "p95": 5179166,
+            "p99": 5615500
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5054959,
+            "p95": 5170834,
+            "p99": 5192084
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5241459,
+            "p95": 5406750,
+            "p99": 5406750
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-HIDDEN_SENTINEL",
+            "lane": "shared",
+            "search": "HIDDEN_SENTINEL",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4930167,
+            "p95": 5046000,
+            "p99": 5070458
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5613250,
+            "p95": 5724542,
+            "p99": 5737792
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5384583,
+            "p95": 5504833,
+            "p99": 5504833
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-no-match",
+            "lane": "public",
+            "search": "no-match",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 5021917,
+            "p95": 5177417,
+            "p99": 5190667
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5085292,
+            "p95": 5179000,
+            "p99": 5192041
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5257667,
+            "p95": 5398708,
+            "p99": 5398708
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-no-match",
+            "lane": "shared",
+            "search": "no-match",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4977792,
+            "p95": 5082584,
+            "p99": 5128708
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5598459,
+            "p95": 5743750,
+            "p99": 5768958
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5401875,
+            "p95": 5563000,
+            "p99": 5563000
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "after": "cdc56a7a-42b8-5637-81d8-9b591adacf3f",
+            "anchor": 1800000000000,
+            "id": "public-deep",
+            "lane": "public",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 4,
+          "decoded_value_bytes": 1768,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 3949083,
+            "p95": 4045416,
+            "p99": 4081084
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 3984500,
+            "p95": 4078709,
+            "p99": 4107625
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 4347250,
+            "p95": 4432459,
+            "p99": 4432459
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "after": "cdc56a7a-42b8-5637-81d8-9b591adacf3f",
+            "anchor": 1800000000000,
+            "id": "shared-deep",
+            "lane": "shared",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 30,
+          "returned_rows": 33,
+          "decoded_value_bytes": 3558,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 8442250,
+            "p95": 8666333,
+            "p99": 8709292
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 9228125,
+            "p95": 9506625,
+            "p99": 9602208
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 8917292,
+            "p95": 9183791,
+            "p99": 9183791
+          }
+        }
+      ],
+      "initial_publish_ns": {
+        "n": 18,
+        "p50": 5188125,
+        "p95": 28829750,
+        "p99": 28829750
+      }
+    },
+    {
+      "works": 200,
+      "seed": 657,
+      "logical_sha256": "1c8d3d6fbb47dacd8687d0f364a8a753eb87f296f6c0858af99f8907f73325c4",
+      "generator_sha256": "7ae20ea5eb757b7114e16aa0cdd282c93ca1ebfb4f76798a2b5120f7a6fe06cc",
+      "plan_sha256": "85e59ff9577df5ffbd8e0b125f7d2824218d0aa3e7ae0dca1b23b11a5f48be84",
+      "schema": {
+        "application_id": 1129206867,
+        "epoch": 1,
+        "migrations": [
+          {
+            "name": "server_actor_registry",
+            "sha256": "5b59e260ac5ccbcf34439e9034a51ffe26d528a35bad4a0cb3c651300c64a6b2",
+            "version": 1
+          },
+          {
+            "name": "server_identity_sessions",
+            "sha256": "1d3c06536d55bc13b5969d205322d5d861c2f7a0f702889f6a2af5845207e6fe",
+            "version": 2
+          },
+          {
+            "name": "server_development_sessions",
+            "sha256": "026023de2acac92637a90bdfe01c0942a8a837081264f658004a5fbad7913a8b",
+            "version": 3
+          },
+          {
+            "name": "server_editorial",
+            "sha256": "d0132b8bf2fd3dffb4843d1284541a08b4f96974882db6e38912614e6ba2a736",
+            "version": 4
+          },
+          {
+            "name": "server_catalog",
+            "sha256": "5f3d8714ebf030ac4501db9fc2cf398a51c64b00982dc920c58df0e875cded54",
+            "version": 5
+          },
+          {
+            "name": "server_admin",
+            "sha256": "5235143fb06d723f3c9b643ef3f6cf0369bc535837fbd120e3f5d72544b7f6bb",
+            "version": 6
+          },
+          {
+            "name": "server_adaptation",
+            "sha256": "49f76d6d3c46806eef049f5f3b162a882fc5b71a6042a281df501af6bc452eda",
+            "version": 7
+          },
+          {
+            "name": "server_production",
+            "sha256": "bd51c30614b3d7802fda079d525e2056cc687c1442bfafe3ae4689bf710812a4",
+            "version": 8
+          },
+          {
+            "name": "server_media_artwork",
+            "sha256": "03f57e58b2aa906ab4da2805f8bb86124910b907035fc6cff10b0db02304de23",
+            "version": 9
+          },
+          {
+            "name": "server_media_audio",
+            "sha256": "86798afc7fe07f87e98d409eea2790257faad4f1f40fba7b2bd07dc6a6da66d0",
+            "version": 10
+          },
+          {
+            "name": "server_listening",
+            "sha256": "638b94dcc4c3ec7a77dc1c02adb78318f773f8e88f1b51292c8684e740c9ee92",
+            "version": 11
+          },
+          {
+            "name": "server_catalog_publication_read",
+            "sha256": "1999c895ed8c18eecf71368eb48cf56fa70cb55127fbb65b5ff5ea4ba3767081",
+            "version": 12
+          },
+          {
+            "name": "server_production_briefs",
+            "sha256": "e3af46702f29ca3c2c7c2f8f421e45184d8242f06237eb9a2f1eb8d3a6a3048c",
+            "version": 13
+          },
+          {
+            "name": "server_audio_release_chain",
+            "sha256": "977397256e91359d0e748da07411229a9d46167c8eb2743e585fb19e53759357",
+            "version": 14
+          },
+          {
+            "name": "server_listener_library",
+            "sha256": "d142e11ea7b950396ed98f8aed6fa82a9c742e47d219a0decd0910e7e2919349",
+            "version": 15
+          },
+          {
+            "name": "server_editorial_ingestion",
+            "sha256": "0b93886bb37539e4ab7e90cde5cf99355cff0984c2ff0cb5efd9a0eeabacdfad",
+            "version": 16
+          },
+          {
+            "name": "server_catalog_studio",
+            "sha256": "ff69f612baec73c8eee3e459fdbef08139274bf8c40f8c73f7e1d2128a22eb46",
+            "version": 17
+          },
+          {
+            "name": "server_adaptation_contexts",
+            "sha256": "ebecfb6c726689075779d7418c4fdd5e4c7df517f5b8d4d3fde7aed78362e757",
+            "version": 18
+          },
+          {
+            "name": "server_production_snapshots",
+            "sha256": "c691da49e70048d71e583dd8966a5e26ac75898ea0bfff5e690a57ed343bab7e",
+            "version": 19
+          },
+          {
+            "name": "server_private_media",
+            "sha256": "9d0ff2d321091a811dc5a1a1da6b76a92bf68dcd108c516f6d9ef5592621dd1a",
+            "version": 20
+          },
+          {
+            "name": "server_producer_grants",
+            "sha256": "9551478647580c48eacadc7c01fbee4021dadcbda0a8222270e1bdfd947d6654",
+            "version": 21
+          },
+          {
+            "name": "server_admin_audit",
+            "sha256": "9d84cd9b9bb9a93faddb986b7bce5cc56e61b96cd850f66b35500ab5652817c7",
+            "version": 22
+          },
+          {
+            "name": "server_publication_receipts",
+            "sha256": "e700ce5fda39c757d6376059ce157075ae54f038a4e39144628ce0ca6b64dab1",
+            "version": 23
+          },
+          {
+            "name": "server_media_cover_disclosures",
+            "sha256": "ea8e02950d21cc64c815e5743ce242534c9fb3b4e76fb93ed7b1307290596493",
+            "version": 24
+          },
+          {
+            "name": "server_sample_metadata_disclosures",
+            "sha256": "e9b1030a7c2f1470937f4820cdc889c8fa024ae9fe9b458e97cf946f0f0af093",
+            "version": 25
+          },
+          {
+            "name": "server_sample_seed_principal",
+            "sha256": "e75ebf1bd39c6deb3ffab07bc3d047f4e4446c85a2c433911d2f45bb8c2949fd",
+            "version": 26
+          },
+          {
+            "name": "server_fictional_sample",
+            "sha256": "3e7892b6a0ecb7b76b56371193235b5387fbecc1fc7587bcafd93457611e329c",
+            "version": 27
+          },
+          {
+            "name": "server_media_metadata_cover_bindings",
+            "sha256": "b43ae9270d87764f17cfc727a03a83d79c070922931237e2ae62bcf1b30faba9",
+            "version": 28
+          },
+          {
+            "name": "server_media_avif_cover_support",
+            "sha256": "c47e7fa66f4e104745649fc03c098949d80bfba6745513d6d4ae45355a5ee044",
+            "version": 29
+          },
+          {
+            "name": "server_media_avif_only",
+            "sha256": "cb7f3a9e24db5f631559d6eb148cb72957b8a8f159cfd1771750d8ec99c42540",
+            "version": 30
+          },
+          {
+            "name": "server_catalog_metadata_publications",
+            "sha256": "43266e10af0c61aa28564ecec9bae039a84ad45b85a2da8cdbfc09876b7b4c26",
+            "version": 31
+          },
+          {
+            "name": "server_catalog_metadata_audio_associations",
+            "sha256": "7ecbcb19c3b2c746f6847b36418000200c9a81596461c137bc9db42eda9e7141",
+            "version": 32
+          },
+          {
+            "name": "server_catalog_viewer_access",
+            "sha256": "9724e043a4f57dda1c726d3e296febc57f62f21d065e76c7c6f5edd0204bf61e",
+            "version": 33
+          },
+          {
+            "name": "server_catalog_viewer_read_indexes",
+            "sha256": "9a620efe3829b59b18b16cbf47b6bfaaa45bd6ee32654468b7f9ab016e7354eb",
+            "version": 34
+          },
+          {
+            "name": "server_catalog_unit_viewer_access",
+            "sha256": "3f711aefabf139a810cb7c8b36115e82c7ce77689c48d3a2c17518ba39c5c6e1",
+            "version": 35
+          }
+        ]
+      },
+      "raw_report_sha256": "fc9b0f56564d05a07db8f98d86c9c09c06aa4ebfb80bd4c19f5989569ed285c9",
+      "conditions": {
+        "cpu_scanned_rows_per_index_bytes": "NOT_RUN; no engine scan-counter or dbstat claim",
+        "decoded_value_bytes": "sum of returned Text/Blob bytes, 8 per Integer/Real, zero Null; excludes allocation/column names/wire",
+        "library": "plan/zero-audio negative control only; populated release-backed cost NOT_RUN",
+        "query_count": "successful Tx.query statements only; excludes snapshot/registry/EXPLAIN, RPC and HTTP",
+        "reopened_is_os_cold": false,
+        "reopened_samples": 5,
+        "rss": "whole process including held reports/caches; delta is not isolated index memory",
+        "samples": 100,
+        "sql_ns": "statement facade execute+drain+decode/measurement overhead, not engine-only CPU",
+        "warmup": 5
+      },
+      "rss_kib": {
+        "baseline": "78368",
+        "candidate": "88784"
+      },
+      "storage": {
+        "baseline": {
+          "db_bytes": 3502080,
+          "per_index_bytes": "NOT_RUN: no dbstat attribution; file/WAL growth is not per-index size",
+          "wal_bytes": 786952
+        },
+        "candidate": {
+          "db_bytes": 3502080,
+          "per_index_bytes": "NOT_RUN: no dbstat attribution; file/WAL growth is not per-index size",
+          "wal_bytes": 819912
+        }
+      },
+      "index_build_ns": 13393000,
+      "cases": [
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public",
+            "lane": "public",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 21,
+          "decoded_value_bytes": 11452,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 20661750,
+            "p95": 21119291,
+            "p99": 23073875
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 20535375,
+            "p95": 20851959,
+            "p99": 20934625
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 20968459,
+            "p95": 21279166,
+            "p99": 21279166
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "candidates",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 22,
+          "decoded_value_bytes": 980,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 13835750,
+            "p95": 14148667,
+            "p99": 14185917
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 13494834,
+            "p95": 13780666,
+            "p99": 13811417
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 14442459,
+            "p95": 14550708,
+            "p99": 14550708
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared",
+            "lane": "shared",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 296,
+          "returned_rows": 328,
+          "decoded_value_bytes": 35693,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 53091292,
+            "p95": 54185041,
+            "p99": 54539459
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 52715583,
+            "p95": 53538750,
+            "p99": 53934958
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 53849833,
+            "p95": 55034666,
+            "p99": 55034666
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "units",
+            "lane": "units",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 15,
+          "returned_rows": 52,
+          "decoded_value_bytes": 12111,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 3449958,
+            "p95": 3569125,
+            "p99": 3579542
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 3467625,
+            "p95": 3572042,
+            "p99": 3586958
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 3856416,
+            "p95": 3885459,
+            "p99": 3885459
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "scope",
+            "lane": "scope",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 1,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 646584,
+            "p95": 676667,
+            "p99": 683625
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 601667,
+            "p95": 627250,
+            "p99": 649625
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 770375,
+            "p95": 785583,
+            "p99": 785583
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "library-empty-audio-control",
+            "lane": "library-empty-audio-control",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 1,
+          "returned_rows": 0,
+          "decoded_value_bytes": 0,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 27012041,
+            "p95": 27341250,
+            "p99": 27430209
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 26990291,
+            "p95": 27277958,
+            "p99": 27357000
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 27560209,
+            "p95": 27889208,
+            "p99": 27889208
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_editor",
+            "id": "candidates-dataset_editor",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 2,
+          "decoded_value_bytes": 100,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4785333,
+            "p95": 4880667,
+            "p99": 4941541
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5195417,
+            "p95": 5331042,
+            "p99": 8294542
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 5111542,
+            "p95": 5213417,
+            "p99": 5213417
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_stranger",
+            "id": "candidates-dataset_stranger",
+            "lane": "candidates",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 4589583,
+            "p95": 4676916,
+            "p99": 4695500
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 5127833,
+            "p95": 5207125,
+            "p99": 5227917
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 4886000,
+            "p95": 5099292,
+            "p99": 5099292
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-bến",
+            "lane": "public",
+            "search": "bến",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 21,
+          "decoded_value_bytes": 11541,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 20354917,
+            "p95": 20811208,
+            "p99": 21389500
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 20271334,
+            "p95": 20659958,
+            "p99": 20870208
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 20758958,
+            "p95": 21104167,
+            "p99": 21104167
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-bến",
+            "lane": "shared",
+            "search": "bến",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 296,
+          "returned_rows": 346,
+          "decoded_value_bytes": 38315,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 54087083,
+            "p95": 55010542,
+            "p99": 67869167
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 53641166,
+            "p95": 54639208,
+            "p99": 54863958
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 54515416,
+            "p95": 55877458,
+            "p99": 55877458
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-Ánh",
+            "lane": "public",
+            "search": "Ánh",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 21,
+          "decoded_value_bytes": 11369,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 19374917,
+            "p95": 19784166,
+            "p99": 19869500
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 19318209,
+            "p95": 19681458,
+            "p99": 19737958
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 19981125,
+            "p95": 20073250,
+            "p99": 20073250
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-Ánh",
+            "lane": "shared",
+            "search": "Ánh",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 296,
+          "returned_rows": 295,
+          "decoded_value_bytes": 30800,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 51998750,
+            "p95": 53133041,
+            "p99": 53394166
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 51790708,
+            "p95": 53201459,
+            "p99": 54121083
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 53361459,
+            "p95": 53749208,
+            "p99": 53749208
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-%_",
+            "lane": "public",
+            "search": "%_",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 21,
+          "decoded_value_bytes": 11369,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 19412583,
+            "p95": 19775291,
+            "p99": 19826708
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 19367041,
+            "p95": 19659292,
+            "p99": 19750125
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 20079041,
+            "p95": 20141125,
+            "p99": 20141125
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-%_",
+            "lane": "shared",
+            "search": "%_",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 296,
+          "returned_rows": 295,
+          "decoded_value_bytes": 30800,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 51962542,
+            "p95": 52835875,
+            "p99": 53388875
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 51618125,
+            "p95": 52668542,
+            "p99": 55389083
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 53155416,
+            "p95": 53317458,
+            "p99": 53317458
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-HIDDEN_SENTINEL",
+            "lane": "public",
+            "search": "HIDDEN_SENTINEL",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 18148500,
+            "p95": 18398167,
+            "p99": 18529375
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 18175334,
+            "p95": 18517500,
+            "p99": 18718750
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 18417792,
+            "p95": 18515500,
+            "p99": 18515500
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-HIDDEN_SENTINEL",
+            "lane": "shared",
+            "search": "HIDDEN_SENTINEL",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 13028167,
+            "p95": 13256666,
+            "p99": 13282416
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 12784334,
+            "p95": 13000542,
+            "p99": 13064959
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 13569250,
+            "p95": 13698750,
+            "p99": 13698750
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "public-search-no-match",
+            "lane": "public",
+            "search": "no-match",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 18105750,
+            "p95": 18386500,
+            "p99": 18515792
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 18115292,
+            "p95": 18344125,
+            "p99": 18442083
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 18452417,
+            "p95": 18750917,
+            "p99": 18750917
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "id": "shared-search-no-match",
+            "lane": "shared",
+            "search": "no-match",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 1,
+          "decoded_value_bytes": 56,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 13018250,
+            "p95": 13284500,
+            "p99": 13508541
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 12717917,
+            "p95": 12994667,
+            "p99": 13242667
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 13344000,
+            "p95": 13823541,
+            "p99": 13823541
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "after": "c1496b28-23ef-517f-a13f-3a5520e4305e",
+            "anchor": 1800000000000,
+            "id": "public-deep",
+            "lane": "public",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 2,
+          "returned_rows": 19,
+          "decoded_value_bytes": 10368,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 8530209,
+            "p95": 8702083,
+            "p99": 8748208
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 8502917,
+            "p95": 8725250,
+            "p99": 9258375
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 8723833,
+            "p95": 8787000,
+            "p99": 8787000
+          }
+        },
+        {
+          "case": {
+            "actor": "dataset_reader",
+            "after": "c1496b28-23ef-517f-a13f-3a5520e4305e",
+            "anchor": 1800000000000,
+            "id": "shared-deep",
+            "lane": "shared",
+            "work": "407cf507-4150-5c0d-b14d-3bbba0843189"
+          },
+          "statement_count": 296,
+          "returned_rows": 337,
+          "decoded_value_bytes": 37008,
+          "baseline_ns": {
+            "n": 100,
+            "p50": 48910959,
+            "p95": 49746833,
+            "p99": 50206125
+          },
+          "candidate_ns": {
+            "n": 100,
+            "p50": 50203708,
+            "p95": 51264791,
+            "p99": 51524500
+          },
+          "reopened_ns": {
+            "n": 5,
+            "p50": 50182750,
+            "p95": 50264459,
+            "p99": 50264459
+          }
+        }
+      ],
+      "initial_publish_ns": {
+        "n": 175,
+        "p50": 5525167,
+        "p95": 10780125,
+        "p99": 17968375
+      }
+    }
+  ],
+  "source_inputs_sha256": {
+    "services/cantos-server/src/platform/store/sql.rs": "e93a0974efa80659acca304ed0b36c5b7ce7d75d4b1430820313b7fe5256e5f2",
+    "services/cantos-server/src/test_support/publication_performance.rs": "1666f2ed60a69b1028eda28a32dbacd54892432c9090dee0e5f1771ae6318458",
+    "services/cantos-server/tests/local_dataset_turso.rs": "742420442e94de1ccb5bfb693d2f583e1185b837beee63b3291b43b4bdf62eae",
+    "services/cantos-server/tests/support/local_dataset/plan.rs": "9e4dbea36b9b84924bf0958bfb50e464a35e77ca0d74141c619d61e2e7aa6f2c",
+    "services/cantos-server/tests/support/local_dataset/runtime.rs": "95f8a3accd0b63490302897b40f41cb77411b4395a282bf38c4197e0c2b98cb6",
+    "services/cantos-server/tests/support/local_dataset/publication.rs": "f09d9af6df5c0ca3c6e3019dd5d70b84783bee3eb131c2a551f5d351067a2671",
+    "services/cantos-server/tests/support/local_dataset/checks.rs": "2ba4d1907d304d1fb7c2c5e9f66032b9401a1695aafbdc8b3cc578bcceabab3b",
+    "services/cantos-server/tests/fixtures/local-datasets/registry.json": "c26039db43acbc60ab6c26eb6b69e9b19096a5ef2c2f6ca2a5212ee83407876d"
+  }
+}
