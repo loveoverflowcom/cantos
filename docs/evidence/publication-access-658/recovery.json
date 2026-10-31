@@ -1,0 +1,126 @@
+{
+  "after": {
+    "identity": {
+      "bytes": 176128,
+      "sha256": "af4d85b5cdd2e82d691cc2d72ad77da1d8aaeb9f30ccfd0a4808517f12ce05de"
+    },
+    "server": {
+      "bytes": 1396736,
+      "sha256": "579c875c52df2a529dc6bad8934eda3b491a251289b192b70979b7ca83928fdd"
+    }
+  },
+  "atomic_pair": false,
+  "before": {
+    "identity": {
+      "bytes": 176128,
+      "sha256": "fb40af0b2b3ff643c24025717ceb49c22dabb433be4b97eb849d81541953dfd7"
+    },
+    "server": {
+      "bytes": 1396736,
+      "sha256": "b61773e41813a9520c2a3fb26417f615507ce2f06119dac77d878a4e20ba6cdd"
+    }
+  },
+  "blocker": "No restore epoch rotation/Server resync or external revocation floor. Default restricted OFF is not full session recovery.",
+  "engine": "turso=0.8.3",
+  "identity_process_rpc": true,
+  "identity_schema": 4,
+  "immutable_publication": {
+    "audio_distribution_clearances": 2,
+    "audio_distribution_clearances_sha256": [
+      "74b89f9b2a442f97969c1d60e9b988149eb3468333f56715e30ec090c5c2d158",
+      "f2b2019d71930c69d21b93008e67e3fc70f93c63a219546ec79352a06fea03ec"
+    ],
+    "audio_publication_approvals": 2,
+    "audio_publication_approvals_sha256": [
+      "8bfbd09ad669dcf67c45cabfa015085b9ca70fa950a132a88c420387c0bfa675",
+      "c1568b0604b194de7cc799f399888d15be1ba924edf20c02f3de4365d6d8df1d"
+    ],
+    "audio_releases": 2,
+    "audio_releases_sha256": [
+      "4bfcade28a34c62652e0e6b38c0910e9044afb691a291aa5209748018d26927b",
+      "635c00af656cac80171b487e476f3907eded1eddc79c4d68ef6228f046cabd4b"
+    ],
+    "catalog_metadata_generation_audio": 2,
+    "catalog_metadata_generation_entries": 2,
+    "catalog_metadata_generations": 1,
+    "metadata_state": {
+      "first_visible_at_ms": 1793432310335,
+      "generation": {
+        "entries": [
+          {
+            "audio": {
+              "basis": "exact",
+              "release_digest": "rl-r1:sha256:4f20c1ebdcd99efce4859024c9a91ce0ee31c95e40a751ed64634108dc6d6168",
+              "release_id": "00000658-0000-4000-8000-000000000012"
+            },
+            "digest": "d61af514c5636210c7e86e4ecc3635f6500c646316b55b95f7b4edd73eca50a5",
+            "position": 1,
+            "revision": 1,
+            "unit_id": "00000658-0000-4000-8000-000000000002"
+          },
+          {
+            "audio": {
+              "basis": "exact",
+              "release_digest": "rl-r1:sha256:f3c62caa178d1219a2d240f4f95ff29ceea71dda35a1cabf9b82c7db1575c499",
+              "release_id": "00000658-0000-4000-8000-000000000021"
+            },
+            "digest": "58a5cb5a90b5445208ee86b564077b7581132d8228a16096ca234e702f99e94f",
+            "position": 2,
+            "revision": 1,
+            "unit_id": "00000658-0000-4000-8000-000000000003"
+          }
+        ],
+        "number": 1,
+        "parent": null,
+        "recorded_at_ms": 1793432310335,
+        "work_digest": "d3d7187414fd001b7927e0e269fd4ed9e35c4afd62735431640d7521794d48ac",
+        "work_revision": 1
+      },
+      "lifecycle": "active",
+      "version": 1,
+      "work_id": "00000658-0000-4000-8000-000000000001"
+    }
+  },
+  "media_decode": false,
+  "method": "quiesced independent verified backup_to; closed snapshots copied only to new private roots",
+  "observations": [
+    {
+      "cut": "current_pair",
+      "grant_revocations": 1,
+      "identity_disabled": true,
+      "identity_epoch": "5e8b74fa30ab9c44fe1102efb5c0df74",
+      "identity_security_version": 2,
+      "private_http": 401,
+      "restricted_activation": false,
+      "security_recovery": "bounded current-revocation denial",
+      "session_http": 401
+    },
+    {
+      "cut": "old_server_current_identity",
+      "grant_revocations": 0,
+      "identity_disabled": true,
+      "identity_epoch": "5e8b74fa30ab9c44fe1102efb5c0df74",
+      "identity_security_version": 2,
+      "private_http": 401,
+      "restricted_activation": false,
+      "security_recovery": "bounded current-revocation denial",
+      "session_http": 401
+    },
+    {
+      "cut": "stale_pair_UNSAFE",
+      "grant_revocations": 0,
+      "identity_disabled": false,
+      "identity_epoch": "5e8b74fa30ab9c44fe1102efb5c0df74",
+      "identity_security_version": 1,
+      "private_http": 404,
+      "restricted_activation": false,
+      "security_recovery": "FAIL: revoked session resurrected; epoch rotation/resync unsupported",
+      "session_http": 200
+    }
+  ],
+  "readiness": "NO_GO",
+  "rpo_rto_retention": "PENDING owner acceptance; not measured by this drill",
+  "server_binary_tcp": false,
+  "server_schema": 35,
+  "task": 658
+}

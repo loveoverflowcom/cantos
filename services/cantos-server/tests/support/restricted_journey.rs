@@ -18,6 +18,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 const CONTROL: &str = "d653d653d653d653d653d653d653d653d653d653d653d653d653d653d653d653";
 
+#[path = "publication_recovery.rs"]
+mod recovery;
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn unit_policy_hide_and_every_fetch_never_bypass_parent_or_restore_old_public_access() {
     use cantos_server::contract::studio::{UnitViewerGrant, UnitViewerPolicy, ViewerPrincipal};

@@ -134,6 +134,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.identity.bearer-lifecycle": (12, 11, 11),
             "cantos.identity.native-mailbox-proof": (8, 9, 8),
             "cantos.identity.native-session-admission": (8, 7, 8),
+            "cantos.catalog.viewer-access": (4, 4, 4),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:

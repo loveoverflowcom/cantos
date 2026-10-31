@@ -23,6 +23,7 @@ Each runnable capability keeps its authority table beside its model; the registr
 | `cantos.identity.bearer-lifecycle` | draft | [bearer_lifecycle.md](../../services/cantos-server/behavior/identity/bearer_lifecycle.md) |
 | `cantos.identity.native-mailbox-proof` | draft | [native_mailbox_proof.md](../../services/cantos-identity/behavior/native_mailbox_proof.md) |
 | `cantos.identity.native-session-admission` | draft | [native_session_admission.md](../../services/cantos-server/behavior/identity/native_session_admission.md) |
+| `cantos.catalog.viewer-access` | draft | [viewer_access.md](../../services/cantos-server/behavior/catalog/viewer_access.md) |
 
 ## Deferred capabilities
 

@@ -1,0 +1,68 @@
+[
+  {
+    "issue": 647,
+    "pr": 661,
+    "merge": "557de1a9b585f6f45371727394904d3a834869c1",
+    "head": "cbe93cbc33eb8abcbc5fd0cc340d1917491e8fbb"
+  },
+  {
+    "issue": 648,
+    "pr": 664,
+    "merge": "9f79067f91e435840d87c0fda976f56604802966",
+    "head": "77b9d649c95e3e85b26937a5808425bbe0e07fa4"
+  },
+  {
+    "issue": 649,
+    "pr": 668,
+    "merge": "4721c3c65e3eb0475fbdf7a8f76dc5f8b27850e0",
+    "head": "7b19a48000c52444d49b2be520d4204ffdb7b29f"
+  },
+  {
+    "issue": 650,
+    "pr": 672,
+    "merge": "e09bd769c1f1ef196150caf0cff98d3e00f87c9a",
+    "head": "8aa5476d8031a44b34145a2dc2c1028de1efbef7"
+  },
+  {
+    "issue": 651,
+    "pr": 674,
+    "merge": "10e9825fbc164798837f4ba2a5e9e7d8204f5924",
+    "head": "75e2890a2464304d43408cc0b6cf966ccaa4b740"
+  },
+  {
+    "issue": 652,
+    "pr": 675,
+    "merge": "989d2c172f1e8869d1f8763b4d1de01043fd5f7f",
+    "head": "612d823f84db5a30eedea0a694a2741b9ab9d4c2"
+  },
+  {
+    "issue": 653,
+    "pr": 677,
+    "merge": "28eb4d1d73cbf9a9ab8e095fc5e2e3d3c1306033",
+    "head": "8fc73fcc88e29d70b7559fb3bec88c030f9d993b"
+  },
+  {
+    "issue": 654,
+    "pr": 678,
+    "merge": "8b76e2bfbc97465fdbfd27249dec386c11e21224",
+    "head": "eeacdc5237dfd2e5dc1ff00f5e9343cb907e2c83"
+  },
+  {
+    "issue": 655,
+    "pr": 679,
+    "merge": "a1534cff46504dcf9c54431c423f779aa190ae40",
+    "head": "5ac74ad53c40ad49f1bc84f7dad457657e109896"
+  },
+  {
+    "issue": 656,
+    "pr": 680,
+    "merge": "027f9b72d1e70b46886b6c0fa7366c0fbcb4a600",
+    "head": "ff4c185366bd821ba7d1ccf1da84dc62a5dc43ed"
+  },
+  {
+    "issue": 657,
+    "pr": 681,
+    "merge": "1c2c867114f181207950e02989dde113da587309",
+    "head": "b3dda1d59dbcc39d31cae60a73cdb42ab184bda1"
+  }
+]
