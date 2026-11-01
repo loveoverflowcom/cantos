@@ -719,7 +719,7 @@ body { margin: 0; }
 .theatre-library-section > .theatre-actions:empty { display: none; }
 
 /* Guests retain their existing silhouette. Admitted generated identities use the shared
-   Lavender recipe at profile/control sizes. */
+   Lavender recipe at the shared 48-unit size. */
 .theatre-app .theatre-profile-avatar {
   position: relative;
   inline-size: var(--cantos-size-avatar-medium);
@@ -732,7 +732,7 @@ body { margin: 0; }
 }
 .theatre-profile-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .theatre-app .theatre-profile-avatar[data-navigation-avatar] { inline-size: var(--cantos-size-avatar-small); min-block-size: var(--cantos-size-avatar-small); }
-.theatre-app .theatre-profile-avatar[data-personalized] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
+.theatre-app .theatre-profile-avatar[data-personalized] { inline-size: var(--cantos-size-avatar-control); min-block-size: var(--cantos-size-avatar-control); }
 .theatre-app .theatre-profile-avatar[data-personalized][data-navigation-avatar] { inline-size: var(--cantos-size-avatar-control); min-block-size: var(--cantos-size-avatar-control); }
 .theatre-account-profile .theatre-avatar[data-profile] { margin-block-end: var(--cantos-space-md); }
 .theatre-account-profile .theatre-avatar[data-profile] svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }

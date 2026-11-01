@@ -156,14 +156,18 @@ The shell-owned logout confirmation remains mounted across account phases; an ex
 opens it, and one confirmation dispatches at most one intent. Back/Escape/backdrop dismiss;
 normal dismissal restores the opener, and a removed logout opener falls back to main content.
 The same shell-owned player, account and preference signals survive navigation and resize.
-Healthy signed-in copy is absent from Me. The isolated mock retains its earlier two-destination
+Healthy signed-in status captions are absent from Me. The isolated mock retains its earlier two-destination
 layout and remains outside live acceptance.
 
-The shared Avatar now supplies the same neutral person fallback in Me and navigation, following
-[the two-renderer checkpoint](../../../docs/evidence/theatre-navigation-646-shared-qa.md).
-Authorized name/photo facts remain absent under #481, so no initials are derived from an actor ID,
-email buffer or fixture. The admitted canonical three-spine Library vector is generated for both
-renderers under #613. No new profile endpoint or fabricated membership capability is used.
+Me and navigation consume the existing session-bound Server-generated alias/seed projection
+through the shared Lavender Pair Avatar. Me groups its avatar, localized bold serif greeting
+and supplied alias horizontally; missing presentation retains a truthful person fallback.
+Shortcuts share paired foregrounds in normal, hover, focus and pressed states, and logout keeps
+their keyline with readable secondary emphasis. The [account-card record](../../../docs/evidence/theatre-account-card-689.md)
+separates this presentation repair and synthetic preview identities from real-account/device
+acceptance under #662/#670. No initials are derived in the view from an actor ID, email or token.
+The admitted canonical three-spine Library vector is generated for both renderers under #613;
+membership authority remains unchanged.
 
 The guest profile is a compact borderless tonal card with a decorative 40-unit avatar and the
 existing filled Login/Register pair. The optional guest-info row/panel and its interaction state

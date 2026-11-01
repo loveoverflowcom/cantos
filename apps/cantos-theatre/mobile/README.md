@@ -371,8 +371,14 @@ v2 into the one guest shell; the [evidence record](../../../docs/evidence/theatr
 holds the matrix, provenance and acceptance gaps. The app still opens on Discovery. Account is an
 optional avatar entry and Login is a separate explicit intent, never a wall, so
 identity never replaces Home: the host passes its process-owned `NativeAccountController` into
-`NativeSessionRuntime`, which `TheatreShell` only observes and never closes. `AccountView` is the immutable projection (no actor, session, expiry, name or page
-count); a missing identity capability is `Unavailable`, a guest shell and not a failure.
+`NativeSessionRuntime`, which `TheatreShell` only observes and never closes. `AccountView` is the
+immutable projection (no actor, session, expiry or page count); its optional Server-generated
+alias/seed is a pseudonym, not a verified personal name. A missing identity capability is
+`Unavailable`, a guest shell and not a failure. The signed-in profile uses the shared Lavender
+Pair Avatar when these facts are available and retains the truthful fallback otherwise. Existing
+account rows and secondary logout share icon/label geometry and readable tonal ink; native
+adds no greeting or Saved row. The [account-card record](../../../docs/evidence/theatre-account-card-689.md)
+keeps JVM layout/interaction evidence separate from Android/iOS acceptance.
 
 - **Navigation** is the existing pure reducer plus `Login`/`Register`: a closed `Login[, Register]`
   suffix, never the root, whose return destination is the typed stack below it. `OpenLogin`,

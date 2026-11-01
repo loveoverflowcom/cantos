@@ -199,17 +199,11 @@ private fun SignedInAccount(
     }
     Surface(Modifier.fillMaxWidth().testTag("account-logout-group"), tone = SurfaceTone.Container,
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = tokenDp("size.control")).clip(MaterialTheme.shapes.large)
-                .focusRequester(logoutFocus).clickable(role = Role.Button) { confirming = true }
-                .padding(tokenDp("space.md")).testTag("logout").semantics(mergeDescendants = true) { },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
-        ) {
-            Icon(rememberCantosIconVector(authActionIcon(AuthIntent.Logout) ?: "logout"), null, tint = tokenColor("color.accent"))
-            Text(copy.text(AuthText.Logout), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary)
-        }
+        AccountRow(
+            rememberCantosIconVector(authActionIcon(AuthIntent.Logout) ?: "logout"),
+            copy.text(AuthText.Logout), null, "logout",
+            modifier = Modifier.focusRequester(logoutFocus), secondary = true, showChevron = false,
+        ) { confirming = true }
     }
     if (confirming) LogoutSheet(
         copy, backOverlay, pending = submitted,
@@ -255,19 +249,34 @@ private fun SupportInfoRow(copy: AuthCopy) {
 }
 
 @Composable
-private fun AccountRow(icon: ImageVector, title: String, value: String?, tag: String, onClick: () -> Unit) {
+private fun AccountRow(
+    icon: ImageVector,
+    title: String,
+    value: String?,
+    tag: String,
+    modifier: Modifier = Modifier,
+    secondary: Boolean = false,
+    showChevron: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val foreground = MaterialTheme.colorScheme.onSurface
+    // Lower emphasis comes from type, not faded ink that can look disabled on the tonal group.
+    val labelStyle = if (secondary) MaterialTheme.typography.labelLarge.copy(
+        fontWeight = MaterialTheme.typography.bodyMedium.fontWeight,
+    ) else MaterialTheme.typography.labelLarge
     Row(
-        Modifier.fillMaxWidth().heightIn(min = tokenDp("size.control")).clip(MaterialTheme.shapes.large)
+        modifier.fillMaxWidth().heightIn(min = tokenDp("size.control")).clip(MaterialTheme.shapes.large)
             .clickable(role = Role.Button, onClick = onClick).padding(tokenDp("space.md")).testTag(tag)
             .semantics(mergeDescendants = true) { if (value != null) stateDescription = value },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, null, Modifier.size(tokenDp("size.icon")), tint = foreground)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-            Text(title, style = MaterialTheme.typography.labelLarge)
-            if (value != null) Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = labelStyle, color = foreground)
+            if (value != null) Text(value, style = MaterialTheme.typography.bodySmall, color = foreground)
         }
-        Icon(rememberCantosIconVector("keyboard_arrow_right"), null)
+        if (showChevron) Icon(rememberCantosIconVector("keyboard_arrow_right"), null,
+            Modifier.size(tokenDp("size.icon")), tint = foreground)
     }
 }
