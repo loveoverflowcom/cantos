@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -222,7 +223,11 @@ internal fun ErrorText(text: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon("warning_amber", Modifier.testTag("error-icon"), tint = MaterialTheme.colorScheme.error)
-        Text(text, Modifier.weight(1f).testTag("error-text"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Text(
+            text, Modifier.weight(1f).testTag("error-text"),
+            style = MaterialTheme.typography.bodySmall.copy(lineBreak = LineBreak.Heading),
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 
