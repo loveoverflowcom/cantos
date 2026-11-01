@@ -21132,10 +21132,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tìm trong danh mục"
+          "text": "Tìm kiếm"
         },
         "en": {
-          "text": "Search the catalog"
+          "text": "Search"
         }
       }
     },
@@ -25373,18 +25373,6 @@
         },
         "en": {
           "text": "Story type"
-        }
-      }
-    },
-    "theatre.cmp_shell.search_results_heading": {
-      "args": {},
-      "exposure": "production",
-      "translations": {
-        "vi-VN": {
-          "text": "Kết quả tìm kiếm"
-        },
-        "en": {
-          "text": "Search results"
         }
       }
     },

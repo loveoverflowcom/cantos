@@ -639,8 +639,6 @@ private fun SearchResults(
     val counted = (state.catalogMode == ShellCatalogMode.Ready || state.catalogMode == ShellCatalogMode.Empty) &&
         catalog.worksPhase == ShellListPhase.Complete
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Text(copy.text(CopyKey.SearchResultsHeading), Modifier.testTag("search-results-heading").semantics { heading() },
-            style = MaterialTheme.typography.titleMedium)
         catalog.appliedSearch?.let { applied -> Text(copy.text(com.cantos.theatre.presentation.model.generated.ShellMessage.DisplayedSearch(
             query = applied.ifBlank { copy.text(CopyKey.Discover) })), Modifier.testTag("displayed-search"), style = MaterialTheme.typography.bodySmall) }
         if (counted) {

@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "9188665efb4a8295f31059a5899879b6086a793089cce9f3bac497a8cfab57ea",
+  "catalogSha256": "e371a0cbc6caa220cc12be00337e469ac313d6d8cc2434630f5e812b1b837c51",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1826,7 +1826,6 @@
     "theatre.cmp_shell.search_filter_group": {},
     "theatre.cmp_shell.search_hint": {},
     "theatre.cmp_shell.search_label": {},
-    "theatre.cmp_shell.search_results_heading": {},
     "theatre.cmp_shell.search_submit": {},
     "theatre.cmp_shell.seconds_spoken": {
       "minutes": "text",
