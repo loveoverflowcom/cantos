@@ -8,7 +8,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -22,6 +24,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,6 +41,7 @@ import com.cantos.theatre.features.shell.presentation.BackOverlayRegistry
 import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.CantosTheme
+import com.cantos.ui.CantosExpression
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import kotlin.test.assertEquals
@@ -46,6 +50,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Test
+import java.io.File
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 
 /**
  * The signed-in Account and its modal sign-out sheet over a recording intent sink. A fixed
@@ -69,14 +76,18 @@ class AccountLogoutSheetTest {
         }
     }
 
-    private class Host(val locale: ShellLocale = ShellLocale.Vietnamese, val account: AccountView = AccountView.SignedIn()) {
+    private class Host(
+        val locale: ShellLocale = ShellLocale.Vietnamese,
+        val account: AccountView = AccountView.SignedIn(),
+        val theme: Theme = Theme.Light,
+    ) {
         val intents = mutableListOf<AuthIntent>()
         val overlays = BackOverlayRegistry()
     }
 
     @Composable
     private fun Mounted(host: Host, textScale: Float) {
-        CantosTheme(UiPreferences(theme = Theme.Light, textScale = textScale)) {
+        CantosTheme(UiPreferences(theme = host.theme, textScale = textScale, expression = CantosExpression.Theatre)) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 AccountContent(host.locale, host.account, { host.intents += it }, FocusRequester()) { onBack -> BackOverlay(host.overlays, onBack) }
             }
@@ -90,8 +101,43 @@ class AccountLogoutSheetTest {
         textScale: Float = 1f,
         body: ComposeUiTest.(Host) -> Unit,
     ) = runDesktopComposeUiTest(width = width, height = height) {
-        setContent { Box(Modifier.requiredSize(width.dp, height.dp)) { Mounted(host, textScale) } }
+        setContent { Box(Modifier.requiredSize(width.dp, height.dp).testTag("account-capture")) { Mounted(host, textScale) } }
         body(host)
+    }
+
+    @Test
+    fun account_identity_and_row_keylines_survive_themes_locales_and_large_text() {
+        val identity = com.cantos.theatre.domain.identity.AccountPresentation("Mây Lam", "a".repeat(64))
+        for (theme in Theme.entries) for (locale in ShellLocale.entries) {
+            for ((width, scale) in listOf(390 to 1f, 320 to 2f)) {
+                run(Host(locale, AccountView.SignedIn(identity), theme), width = width, textScale = scale) { host ->
+                    onNodeWithTag("account-name").assertTextEquals("Mây Lam").assertIsDisplayed()
+                    val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
+                    val name = onNodeWithTag("account-name").fetchSemanticsNode().boundsInRoot
+                    assertTrue(avatar.right < name.left && name.right <= width * density.density)
+                    val rows = listOf("membership-preview-entry", "open-library", "settings", "logout").map { tag ->
+                        onNodeWithTag(tag).performScrollTo().assertIsEnabled().fetchSemanticsNode().boundsInRoot
+                    }
+                    rows.forEach {
+                        assertTrue(it.height >= 48f * density.density - 1f)
+                        assertEquals(rows.first().left, it.left, "all leading icons share a row inset")
+                        assertEquals(rows.first().right, it.right)
+                    }
+                    assertTrue(host.intents.isEmpty(), "layout and scrolling send no intent")
+                    capture("${theme.name}-${locale.name}-$width-$scale-rows")
+                    onNodeWithTag("account-profile").performScrollTo()
+                    capture("${theme.name}-${locale.name}-$width-$scale-profile")
+                }
+            }
+        }
+    }
+
+    private fun ComposeUiTest.capture(name: String) {
+        val output = System.getenv("CANTOS_ACCOUNT_CAPTURE_DIR")?.let(::File) ?: return
+        check(output.isDirectory || output.mkdirs())
+        val bitmap = onNodeWithTag("account-capture").captureToImage().asSkiaBitmap()
+        val bytes = requireNotNull(Image.makeFromBitmap(bitmap).encodeToData(EncodedImageFormat.PNG)).bytes
+        File(output, "$name.png").writeBytes(bytes)
     }
 
     private fun ComposeUiTest.openSheet() {
@@ -180,11 +226,13 @@ class AccountLogoutSheetTest {
     }
 
     @Test
-    fun large_text_on_a_narrow_screen_stacks_full_width_actions_inside_the_viewport() =
+    fun large_text_on_a_narrow_screen_keeps_stacked_full_width_actions_reachable() =
         run(width = 320, height = 568, textScale = 2f) { _ ->
             openSheet()
             onNodeWithTag("logout-cancel").assertIsDisplayed()
-            onNodeWithTag("logout-confirm").assertIsDisplayed()
+            // The real Theatre typography can make the sheet taller than this short viewport.
+            // Its existing scroll container must keep the second action reachable.
+            onNodeWithTag("logout-confirm").performScrollTo().assertIsDisplayed()
             val cancel = onNodeWithTag("logout-cancel").fetchSemanticsNode().boundsInRoot
             val confirm = onNodeWithTag("logout-confirm").fetchSemanticsNode().boundsInRoot
             assertTrue(cancel.bottom <= confirm.top, "actions stack instead of clipping labels")

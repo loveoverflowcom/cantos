@@ -23,7 +23,22 @@ impl PreviewActor {
             Self::A => ("auth-preview-fixture-a", 0xa1),
             Self::B => ("auth-preview-fixture-b", 0xb2),
         };
+        // Explicit diagnostic identities only. Production presentation comes from the Server;
+        // these samples let the actual Me/nav components exercise their personalized branch.
+        let (alias, seed) = match self {
+            Self::A => ("Mây Lam", "a"),
+            Self::B => ("Gió Bạc", "b"),
+        };
         AccountScope::from_session(actor.to_owned(), uuid::Uuid::from_u128(session).to_string())
+            .map(|scope| {
+                scope.with_presentation(
+                    crate::contract::account_presentation::AccountPresentation {
+                        version: "generated-alias-v1".to_owned(),
+                        alias: alias.to_owned(),
+                        avatar_seed: seed.repeat(64),
+                    },
+                )
+            })
     }
 }
 

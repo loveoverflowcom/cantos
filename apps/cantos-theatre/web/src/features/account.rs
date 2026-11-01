@@ -222,9 +222,16 @@ pub(crate) fn LiveAccount(
             </header>
             <div class="theatre-account">
                 <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
-                    <h2>{move || state.with(|s| s.presentation().map(|p| p.alias.clone()))
-                        .unwrap_or_else(|| profile_heading(ui, locale)().to_owned())}</h2>
+                    <div class="theatre-account-profile-heading"
+                        data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
+                        <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                        <div class="theatre-account-profile-copy">
+                            <h2>{profile_heading(ui, locale)}</h2>
+                            {move || state.with(|s| s.presentation().map(|person| view! {
+                                <p class="theatre-account-alias">{person.alias.clone()}</p>
+                            }))}
+                        </div>
+                    </div>
                     // Healthy account state adds no status row; keep every pending/failure reason.
                     <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
                         <p id="theatre-live-account-status" class="theatre-auth-feedback"
@@ -244,10 +251,13 @@ pub(crate) fn LiveAccount(
                             <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved/>
                             <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History/>
                         </ul>
-                        <Button id="theatre-account-logout" icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
-                            on_press=Callback::new(move |_| on_logout.run(()))>
-                            {move || messages::text(Key::SignOut, locale.get())}
-                        </Button>
+                        <div class="theatre-account-signout-row">
+                            <Button id="theatre-account-logout" class="theatre-account-signout"
+                                icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
+                                on_press=Callback::new(move |_| on_logout.run(()))>
+                                {move || messages::text(Key::SignOut, locale.get())}
+                            </Button>
+                        </div>
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
@@ -307,6 +317,49 @@ pub(crate) fn LiveAccount(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signed_in_header_groups_the_current_monogram_greeting_and_alias_and_clears_on_refresh() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                let locale = RwSignal::new(language);
+                for (actor, alias, initials) in [
+                    (PreviewActor::A, "Mây Lam", "ML"),
+                    (PreviewActor::B, "Gió Bạc", "GB"),
+                ] {
+                    signed_in(state, actor).unwrap();
+                    let html = render_live(state.read_only(), locale);
+                    let header = html
+                        .split("theatre-account-profile-heading")
+                        .nth(1)
+                        .expect("profile header")
+                        .split("</h2>")
+                        .next()
+                        .unwrap();
+                    assert!(header.contains("theatre-profile-avatar"));
+                    assert!(header.contains("data-size=\"control\""));
+                    assert!(header.contains(initials));
+                    assert!(header.contains(super::super::auth_copy::text(
+                        CopyKey::SignedHeading,
+                        language
+                    )));
+                    assert!(html.contains(&format!("class=\"theatre-account-alias\">{alias}</p>")));
+                    assert!(!html.contains(if alias == "Mây Lam" {
+                        "Gió Bạc"
+                    } else {
+                        "Mây Lam"
+                    }));
+                }
+                state.write().begin_refresh().unwrap();
+                let checking = render_live(state.read_only(), locale);
+                assert!(!checking.contains("theatre-account-alias"));
+                assert!(!checking.contains("data-personalized=\"true\""));
+                assert!(checking.contains("theatre-live-account-status"));
+            }
+        });
+    }
 
     #[test]
     fn me_keeps_recovery_but_omits_healthy_signed_in_status_and_duplicate_settings() {
