@@ -6,11 +6,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsAtLeast
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -80,7 +80,9 @@ class DiscoveryPresentationTest {
         val state = ShellState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), selectedEpisode = noSelection, query = "Đèn")
         setContent { CantosPresentation(state, ShellCatalogView(), events::add) }
         onNodeWithTag("search-submit").assertHasClickAction()
-        onNodeWithContentDescription("Tìm kiếm", useUnmergedTree = true).assertExists()
+        // The input and the magnifier share one name by design; the role (editable vs button) tells them apart.
+        onNodeWithTag("search-submit", useUnmergedTree = true).assertContentDescriptionEquals("Tìm kiếm")
+        onNodeWithTag("search-input", useUnmergedTree = true).assertContentDescriptionEquals("Tìm kiếm")
         onNodeWithTag("search-submit").performClick()
         assertEquals(listOf<ShellEvent>(ShellEvent.SubmitSearch), events.toList())
         onNodeWithTag("search-clear").assertExists()

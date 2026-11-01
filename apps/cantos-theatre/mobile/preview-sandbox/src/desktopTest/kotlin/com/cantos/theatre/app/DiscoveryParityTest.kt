@@ -75,7 +75,7 @@ class DiscoveryParityTest {
         val events = mutableListOf<ShellEvent>()
         setContent { CantosPresentation(state, ShellCatalogView(), events::add) }
         onAllNodes(hasSetTextAction()).assertCountEquals(0)
-        onNodeWithTag("search").assertContentDescriptionEquals("Tìm trong danh mục")
+        onNodeWithTag("search").assertContentDescriptionEquals("Tìm kiếm")
             .assertHasClickAction().assertHeightIsAtLeast(72.dp).assertWidthIsAtLeast(300.dp)
             .performTouchInput { click(centerLeft) }
         assertEquals(listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Search)), events.toList())
@@ -95,7 +95,8 @@ class DiscoveryParityTest {
         onNodeWithTag("search-input").assertExists()
         onNodeWithTag("search-submit").assertExists()
         onNodeWithTag("search-clear").assertExists()
-        onNodeWithTag("search-results-heading").assertExists()
+        // The visible results heading is gone; the applied-query context stays the only lead-in.
+        onNodeWithTag("search-results-heading").assertDoesNotExist()
         onNodeWithTag("back").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).performClick()
         assertEquals(listOf<ShellEvent>(ShellEvent.Back), events.toList())
         runOnIdle { back() }
