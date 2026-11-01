@@ -264,36 +264,8 @@ pub(crate) fn LiveAccount(
                 <div class="theatre-account-content">
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
                         <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                        <div class="theatre-pref-row">
-                            <div class="theatre-pref-tile theatre-pref-theme">
-                                <label class="theatre-pref-icon" for="theatre-account-theme-trigger" aria-hidden="true">
-                                    {move || view! { <Icon name=match theme.get() {
-                                        Theme::Light => IconName::LightMode,
-                                        Theme::Dark => IconName::DarkMode,
-                                        Theme::System => IconName::ThemeSystem,
-                                    }/> }}
-                                </label>
-                                <Select id="theatre-account-theme" class="theatre-pref-select"
-                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
-                                    value=Signal::derive(move || theme.get().as_str().to_owned())
-                                    options=Signal::derive(move || theme_options(locale.get()))
-                                    on_input=Callback::new(move |value: String| {
-                                        if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
-                                    })/>
-                            </div>
-                            <div class="theatre-pref-tile theatre-pref-language">
-                                <label class="theatre-pref-icon" for="theatre-account-locale-trigger" aria-hidden="true">
-                                    <Icon name=IconName::Language/>
-                                </label>
-                                <Select id="theatre-account-locale" class="theatre-pref-locale"
-                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
-                                    value=Signal::derive(move || locale.get().lang().to_owned())
-                                    options=crate::localization::locale_options()
-                                    on_input=on_locale/>
-                            </div>
-                        </div>
+                        <PreferenceFields locale theme on_locale scope="theatre-account"/>
+
                     </section>
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
                         <section aria-labelledby="theatre-account-membership-heading">
@@ -311,6 +283,48 @@ pub(crate) fn LiveAccount(
                 </div>
             </div>
         </section>
+    }
+}
+
+/// The existing Me choosers, also available to guests without mounting account presentation.
+#[component]
+pub(crate) fn PreferenceFields(
+    locale: RwSignal<Locale>,
+    theme: RwSignal<Theme>,
+    on_locale: Callback<String>,
+    scope: &'static str,
+) -> impl IntoView {
+    view! {
+                        <div class="theatre-pref-row">
+                            <div class="theatre-pref-tile theatre-pref-theme">
+                                <label class="theatre-pref-icon" for=format!("{scope}-theme-trigger") aria-hidden="true">
+                                    {move || view! { <Icon name=match theme.get() {
+                                        Theme::Light => IconName::LightMode,
+                                        Theme::Dark => IconName::DarkMode,
+                                        Theme::System => IconName::ThemeSystem,
+                                    }/> }}
+                                </label>
+                                <Select id=format!("{scope}-theme") class="theatre-pref-select"
+                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
+                                    value=Signal::derive(move || theme.get().as_str().to_owned())
+                                    options=Signal::derive(move || theme_options(locale.get()))
+                                    on_input=Callback::new(move |value: String| {
+                                        if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
+                                    })/>
+                            </div>
+                            <div class="theatre-pref-tile theatre-pref-language">
+                                <label class="theatre-pref-icon" for=format!("{scope}-locale-trigger") aria-hidden="true">
+                                    <Icon name=IconName::Language/>
+                                </label>
+                                <Select id=format!("{scope}-locale") class="theatre-pref-locale"
+                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
+                                    value=Signal::derive(move || locale.get().lang().to_owned())
+                                    options=crate::localization::locale_options()
+                                    on_input=on_locale/>
+                            </div>
+                        </div>
     }
 }
 

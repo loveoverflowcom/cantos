@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "e371a0cbc6caa220cc12be00337e469ac313d6d8cc2434630f5e812b1b837c51",
+  "catalogSha256": "2b32b86d880e41ea14eb135e906328da35a03b9e9300c3f2bd0aa3c8dd5fae65",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1393,6 +1393,7 @@
     "theatre.auth.account_created_notice": {},
     "theatre.auth.account_eyebrow": {},
     "theatre.auth.account_heading": {},
+    "theatre.auth.back": {},
     "theatre.auth.brand_genres": {},
     "theatre.auth.brand_heading": {},
     "theatre.auth.brand_help": {},

@@ -110,6 +110,7 @@ pub fn genre_key(genre: Genre) -> Key {
 
 pub fn route_key(route: Route) -> Key {
     match route {
+        Route::Landing => Key::HomeHeading,
         Route::Discover => Key::Discover,
         Route::Explore => Key::Explore,
         Route::SharedWork(_) | Route::Work(_) | Route::PublicWork(_) => Key::AboutWork,

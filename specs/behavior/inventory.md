@@ -20,6 +20,7 @@ Each runnable capability keeps its authority table beside its model; the registr
 | `cantos.production.forge-attempt` | draft | [forge_attempt.md](../../services/cantos-forge-functions/behavior/forge_attempt.md) |
 | `cantos.presentation.locale-preference` | draft | [locale_preference.md](../../apps/cantos-theatre/behavior/locale_preference.md) |
 | `cantos.presentation.discovery-retired-language` | draft | [discovery_retired_language.md](../../apps/cantos-theatre/behavior/discovery_retired_language.md) |
+| `cantos.presentation.guest-navigation` | draft | [guest_navigation.md](../../apps/cantos-theatre/behavior/guest_navigation.md) |
 | `cantos.identity.bearer-lifecycle` | draft | [bearer_lifecycle.md](../../services/cantos-server/behavior/identity/bearer_lifecycle.md) |
 | `cantos.identity.native-mailbox-proof` | draft | [native_mailbox_proof.md](../../services/cantos-identity/behavior/native_mailbox_proof.md) |
 | `cantos.identity.native-session-admission` | draft | [native_session_admission.md](../../services/cantos-server/behavior/identity/native_session_admission.md) |

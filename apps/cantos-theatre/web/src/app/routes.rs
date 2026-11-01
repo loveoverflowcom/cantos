@@ -9,6 +9,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
     SharedWork(PublicWorkId),
+    Landing,
     Discover,
     Explore,
     /// Isolated mock fixture detail; only the `?mode=mock` shell renders it.
@@ -39,16 +40,18 @@ impl Route {
                 .map(Self::SharedWork)
                 .unwrap_or(Self::NotFound);
         }
-        // Only the two discovery screens carry a search in their link.
+        // Only catalog compositions carry a search in their link.
         if let Some((path, _)) = value.split_once('?') {
             return match path {
+                "" | "landing" => Self::Landing,
                 "discover" => Self::Discover,
                 "explore" => Self::Explore,
                 _ => Self::NotFound,
             };
         }
         match value {
-            "" | "discover" => Self::Discover,
+            "" | "landing" => Self::Landing,
+            "discover" => Self::Discover,
             "explore" => Self::Explore,
             "library" => Self::Library,
             "history" => Self::History,
@@ -76,12 +79,14 @@ impl Route {
     pub fn from_mock_hash(hash: &str) -> Self {
         match Self::from_hash(hash) {
             Self::PublicWork(_) | Self::SharedWork(_) => Self::NotFound,
+            Self::Landing => Self::Discover,
             route => route,
         }
     }
     pub fn hash(self) -> String {
         match self {
             Self::SharedWork(id) => format!("#shared/{id}"),
+            Self::Landing => "#landing".into(),
             Self::Discover => "#discover".into(),
             Self::Explore => "#explore".into(),
             Self::Work(id) => format!("#work/{}", id.slug()),
@@ -101,6 +106,7 @@ impl Route {
     /// The link of a discovery screen carrying its search; an unfiltered search is the bare route.
     pub fn discovery_hash(self, query: &DiscoveryQuery) -> String {
         let base = match self {
+            Self::Landing => "#landing",
             Self::Explore => "#explore",
             _ => "#discover",
         };
@@ -118,11 +124,48 @@ impl Route {
     pub fn from_target(target: NavigationTarget) -> Self {
         match target {
             NavigationTarget::SharedWork(id) => Self::SharedWork(id),
+            NavigationTarget::PublicWork(id) => Self::PublicWork(id),
             NavigationTarget::Home => Self::Discover,
             NavigationTarget::Account => Self::Account,
             NavigationTarget::Library => Self::Library,
+            NavigationTarget::History => Self::History,
             NavigationTarget::Auth(auth) => Self::Auth(auth),
             NavigationTarget::Membership(member) => Self::Membership(member),
+        }
+    }
+
+    pub fn shows_primary_navigation(
+        self,
+        phase: crate::application::account_view::SessionPhase,
+    ) -> bool {
+        phase == crate::application::account_view::SessionPhase::SignedIn
+            && !matches!(self, Self::Auth(_))
+    }
+
+    pub fn is_catalog(self) -> bool {
+        matches!(self, Self::Landing | Self::Discover | Self::Explore)
+    }
+
+    /// The typed intent retained when an admitted guest arrives at an account-only page.
+    pub fn private_return(self) -> Option<crate::application::auth_navigation::ReturnDestination> {
+        use crate::application::auth_navigation::ReturnDestination;
+        match self {
+            Self::Library => Some(ReturnDestination::Library),
+            Self::History => Some(ReturnDestination::History),
+            Self::Account | Self::Settings => Some(ReturnDestination::Account),
+            _ => None,
+        }
+    }
+
+    /// Presentation normalization only. The account owner and backend still admit every read.
+    /// Unresolved phases preserve the intended destination until an actual session fact arrives.
+    pub fn for_session(self, phase: crate::application::account_view::SessionPhase) -> Self {
+        use crate::application::account_view::SessionPhase;
+        match (phase, self) {
+            (SessionPhase::Guest, Self::Discover | Self::Explore) => Self::Landing,
+            (SessionPhase::Guest, route) if route.private_return().is_some() => Self::Landing,
+            (SessionPhase::SignedIn, Self::Landing) => Self::Discover,
+            _ => self,
         }
     }
 
@@ -135,7 +178,7 @@ impl Route {
             Self::SharedWork(_) | Self::Library | Self::History => Some(Self::Library),
             Self::Settings | Self::Account | Self::Membership(_) => Some(Self::Account),
             Self::Auth(auth) => Self::from_target(auth.origin.target()).primary_navigation(),
-            Self::Player | Self::Queue | Self::NotFound => None,
+            Self::Landing | Self::Player | Self::Queue | Self::NotFound => None,
         }
     }
 }
@@ -176,7 +219,7 @@ fn carries_retired_language(hash: &str) -> bool {
 /// canonical link of the search the page actually applies. `None` when nothing needs rewriting,
 /// so reading the rewritten address again settles instead of rewriting it again.
 pub fn retired_language_rewrite(route: Route, hash: &str) -> Option<String> {
-    (matches!(route, Route::Discover | Route::Explore) && carries_retired_language(hash))
+    (route.is_catalog() && carries_retired_language(hash))
         .then(|| route.discovery_hash(&discovery_query(hash)))
 }
 
@@ -186,6 +229,7 @@ mod tests {
     #[test]
     fn routes_round_trip_and_unknown_values_have_a_recovery_route() {
         for route in [
+            Route::Landing,
             Route::Discover,
             Route::Explore,
             Route::Library,
@@ -274,7 +318,7 @@ mod tests {
     fn a_search_lives_in_the_discovery_link_and_round_trips_through_history() {
         use crate::contract::discovery::WorkKind;
         let query = DiscoveryQuery::new("Ánh đèn & ma", Some(WorkKind::Story), "").unwrap();
-        for route in [Route::Discover, Route::Explore] {
+        for route in [Route::Landing, Route::Discover, Route::Explore] {
             let hash = route.discovery_hash(&query);
             assert_eq!(Route::from_hash(&hash), route);
             assert_eq!(discovery_query(&hash), query);
@@ -436,5 +480,99 @@ mod shared_routes_tests {
             Route::NotFound
         );
         assert_eq!(Route::from_mock_hash(&route.hash()), Route::NotFound);
+    }
+}
+
+#[cfg(test)]
+mod guest_navigation_tests {
+    use super::*;
+    use crate::application::{
+        account_view::{AccountFailure, SessionPhase},
+        auth_navigation::ReturnDestination,
+    };
+
+    // Scenario: cantos.presentation.guest-navigation.run.session-root
+    #[test]
+    fn confirmed_session_alone_settles_root_and_private_destinations_idempotently() {
+        assert_eq!(Route::from_live_hash(""), Route::Landing);
+        for route in [
+            Route::Landing,
+            Route::Discover,
+            Route::Explore,
+            Route::Library,
+            Route::History,
+            Route::Account,
+            Route::Settings,
+        ] {
+            assert_eq!(route.for_session(SessionPhase::Guest), Route::Landing);
+            for phase in [
+                SessionPhase::Idle,
+                SessionPhase::Checking,
+                SessionPhase::LogoutPending,
+                SessionPhase::Failed(AccountFailure::Unavailable),
+            ] {
+                assert_eq!(route.for_session(phase), route);
+                assert!(!route.shows_primary_navigation(phase));
+            }
+            assert!(!route.shows_primary_navigation(SessionPhase::Guest));
+            assert!(route.shows_primary_navigation(SessionPhase::SignedIn));
+            for phase in [SessionPhase::Guest, SessionPhase::SignedIn] {
+                let settled = route.for_session(phase);
+                assert_eq!(settled.for_session(phase), settled);
+            }
+        }
+        assert_eq!(
+            Route::Landing.for_session(SessionPhase::SignedIn),
+            Route::Discover
+        );
+        assert_eq!(
+            Route::Library.private_return(),
+            Some(ReturnDestination::Library)
+        );
+        assert_eq!(
+            Route::History.private_return(),
+            Some(ReturnDestination::History)
+        );
+    }
+
+    // Scenario: cantos.presentation.guest-navigation.run.public-deep-link
+    #[test]
+    fn session_resolution_preserves_public_auth_shared_and_recovery_links() {
+        let id = PublicWorkId::parse("10000000-0000-4000-8000-000000000001").unwrap();
+        for route in [
+            Route::PublicWork(id),
+            Route::SharedWork(id),
+            Route::Player,
+            Route::Auth(AuthRoute::login(ReturnDestination::Library)),
+            Route::Auth(AuthRoute::register(ReturnDestination::Home)),
+            Route::NotFound,
+        ] {
+            for phase in [
+                SessionPhase::Guest,
+                SessionPhase::SignedIn,
+                SessionPhase::Checking,
+            ] {
+                assert_eq!(route.for_session(phase), route);
+            }
+        }
+        for origin in [
+            ReturnDestination::PublicWork(id),
+            ReturnDestination::History,
+        ] {
+            let auth = AuthRoute::login(origin);
+            assert_eq!(AuthRoute::from_hash(&auth.hash()), Some(auth));
+        }
+        for source in [
+            "work/private-title",
+            "work/10000000000040008000000000000001",
+            "history&redirect=evil",
+        ] {
+            assert_eq!(
+                AuthRoute::from_hash(&format!("#login?from={source}"))
+                    .unwrap()
+                    .origin,
+                ReturnDestination::Home
+            );
+        }
     }
 }

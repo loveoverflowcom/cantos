@@ -27715,6 +27715,18 @@
           "text": "The work must be actively published before changing individual chapters."
         }
       }
+    },
+    "theatre.auth.back": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quay lại"
+        },
+        "en": {
+          "text": "Back"
+        }
+      }
     }
   }
 }

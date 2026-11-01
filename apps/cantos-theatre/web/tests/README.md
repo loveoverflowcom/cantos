@@ -36,3 +36,14 @@ Ordinary CI does not start CUA or a browser. Record the source/build, browser, H
 live backend, parameters and result separately; native format/lint/tests cannot prove this
 DOM dispatch lifetime. The source-bound [qualification record](../../../../docs/evidence/search-dock-navigation-lifetime.md)
 records the observed red/green runs and remaining acceptance.
+
+## Guest entry
+
+`guest-entry.cua.mjs` drives the production Landing, guest private-link replacement, typed auth
+intent/cancel and repeated Landing navigation through the same CUA tab API. `guestChrome(tab)`
+checks that navigation nodes and scroll lock are absent, including while rechecking after
+session loss. `guestPrivateEntry(tab, {origin})` requires a controlled guest HTTP session and
+uses real compiled Leptos inputs. Start `repeatedGuestAddress(tab, {workId})` at canonical `#landing`.
+Use the shared `cantos.presentation.guest-navigation.run.*` IDs in observations. Session
+checking/failure/logout and stale callbacks require controlled HTTP timing; never substitute
+an injected DOM event, native string render or model result for these browser observations.

@@ -5,10 +5,12 @@ use super::{
     auth_copy::{self, CopyKey},
     signup::SignupPanel,
 };
+#[cfg(test)]
+use crate::application::auth_navigation::ReturnDestination;
 use crate::{
     application::{
         account_view::{AccountViewState, LoginRefusal, SessionPhase},
-        auth_navigation::{AuthRoute, AuthStep, ReturnDestination},
+        auth_navigation::{AuthRoute, AuthStep},
         signup::{SignupPhase, SignupState},
     },
     messages::{self, Key, Locale},
@@ -27,14 +29,8 @@ pub(crate) fn label(locale: RwSignal<Locale>, key: CopyKey) -> impl Fn() -> &'st
 fn back_key(route: AuthRoute) -> CopyKey {
     match route.step {
         AuthStep::Register => CopyKey::ReturnLogin,
-        AuthStep::Login => match route.origin {
-            ReturnDestination::Home => CopyKey::ReturnHome,
-            ReturnDestination::Account => CopyKey::ReturnAccount,
-            ReturnDestination::SharedWork(_) | ReturnDestination::Library => CopyKey::ReturnLibrary,
-            ReturnDestination::Membership | ReturnDestination::MembershipFromAccount => {
-                CopyKey::ReturnMembership
-            }
-        },
+        // Login returns to its guest-safe source; the success intent may name a private page.
+        AuthStep::Login => CopyKey::Back,
     }
 }
 
@@ -316,7 +312,7 @@ pub(crate) fn AuthPage(
                     <BackButton id="theatre-auth-back" name=name
                         on_back=Callback::new(move |_| on_back.run(()))/>
                 })}
-                <a id="theatre-auth-home" class="theatre-auth-brand" href="#discover"
+                <a id="theatre-auth-home" class="theatre-auth-brand" href="#landing"
                     aria-label=label(locale, CopyKey::ReturnHome)
                     on:click=move |event| { event.prevent_default(); on_home.run(()); }>
                     <Logo tone=LogoTone::Light class="theatre-logo-light"/>
@@ -567,15 +563,9 @@ mod tests {
 
     #[test]
     fn login_is_an_email_password_form_with_browser_credential_semantics() {
-        for (origin, back) in [
-            (ReturnDestination::Home, "Về Trang chủ"),
-            (ReturnDestination::Account, "Về Tài khoản"),
-            (ReturnDestination::Library, "Về Thư viện"),
-            (ReturnDestination::Membership, "Về Membership"),
-            (ReturnDestination::MembershipFromAccount, "Về Membership"),
-        ] {
+        for origin in ORIGINS {
             let html = render(AuthRoute::login(origin), guest(), Locale::Vietnamese);
-            assert!(html.contains(back));
+            assert_eq!(native_button_name(&html, "theatre-auth-back"), "Quay lại");
             assert!(html.contains("data-logo-variant=\"cantos\""));
             let email = control(&html, "theatre-login-email");
             assert!(
@@ -934,7 +924,7 @@ mod tests {
                     auth_copy::text(CopyKey::ReturnLogin, language)
                 );
                 assert!(html.contains("id=\"theatre-auth-home\""));
-                assert!(html.contains("href=\"#discover\""));
+                assert!(html.contains("href=\"#landing\""));
                 assert!(html.contains(&format!(
                     "aria-label=\"{}\"",
                     auth_copy::text(CopyKey::ReturnHome, language)
@@ -1100,7 +1090,7 @@ mod tests {
     }
 
     #[test]
-    fn route_back_targets_name_the_actual_internal_destination() {
+    fn login_back_names_the_local_return_without_advertising_a_private_guest_destination() {
         for language in [Locale::Vietnamese, Locale::English] {
             for origin in ORIGINS {
                 let route = AuthRoute::login(origin);

@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.presentation.guest-navigation",
+  "sourceRefs": [
+    "docs/design/theatre-guest-entry.md",
+    "apps/cantos-theatre/web/README.md",
+    "apps/cantos-theatre/mobile/README.md"
+  ],
+  "model": "apps/cantos-theatre/behavior/guest_navigation.qnt",
+  "module": "guest_navigation",
+  "scenarios": "apps/cantos-theatre/behavior/guest_navigation_tests.qnt",
+  "scenarioModule": "guest_navigation_tests",
+  "inventory": "apps/cantos-theatre/behavior/guest_navigation.md",
+  "ownedSources": [
+    "apps/cantos-theatre/web/src/app/routes.rs",
+    "apps/cantos-theatre/web/src/app/live_navigation.rs",
+    "apps/cantos-theatre/web/src/view/live_shell.rs",
+    "apps/cantos-theatre/web/src/platform/navigation_drawer.rs",
+    "apps/cantos-theatre/web/src/features/landing.rs",
+    "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/app/Navigation.kt",
+    "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/app/TheatreShell.kt",
+    "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/shell/presentation/CantosPresentation.kt",
+    "apps/cantos-theatre/web/src/features/account_menu.rs",
+    "apps/cantos-theatre/web/src/features/public_home.rs",
+    "apps/cantos-theatre/web/src/features/account.rs",
+    "apps/cantos-theatre/web/src/platform/auth_browser.rs"
+  ],
+  "implementationTests": [
+    "apps/cantos-theatre/web/src/app/routes.rs",
+    "apps/cantos-theatre/web/src/app/live_navigation.rs",
+    "apps/cantos-theatre/web/tests/guest-entry.cua.mjs",
+    "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/app/NavigationTest.kt",
+    "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/com/cantos/theatre/app/TheatreShellTest.kt",
+    "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/com/cantos/theatre/app/ShellLayoutTest.kt"
+  ],
+  "properties": [
+    {
+      "id": "cantos.presentation.guest-navigation.property.shell-admission",
+      "declaration": "shellAdmission"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.guest-safe",
+      "declaration": "guestSafe"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.unresolved-intent",
+      "declaration": "unresolvedIntent"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.auth-return",
+      "declaration": "authReturn"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.stale-ignored",
+      "declaration": "staleIgnored"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.idempotent-navigation",
+      "declaration": "idempotentNavigation"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.public-owners-survive",
+      "declaration": "publicOwnersSurvive"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.property.return-intent",
+      "declaration": "returnIntent"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.presentation.guest-navigation.run.session-root",
+      "declaration": "sessionRootTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.unresolved-session",
+      "declaration": "unresolvedSessionTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.auth-return",
+      "declaration": "authReturnTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.auth-cancel-late",
+      "declaration": "authCancelLateTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.logout-expiry",
+      "declaration": "logoutExpiryTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.public-deep-link",
+      "declaration": "publicDeepLinkTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.repeated-navigation",
+      "declaration": "repeatedNavigationTest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.run.preferences-player",
+      "declaration": "preferencesPlayerTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.presentation.guest-navigation.witness.guest-root",
+      "declaration": "guestRoot"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.unresolved-private",
+      "declaration": "unresolvedPrivate"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.returned-private",
+      "declaration": "returnedPrivate"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.cancelled-late",
+      "declaration": "cancelledLate"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.same-destination",
+      "declaration": "sameDestination"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.playing-guest",
+      "declaration": "playingGuest"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.signed-out-private",
+      "declaration": "signedOutPrivate"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.witness.retained-private-intent",
+      "declaration": "retainedPrivateIntent"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "691",
+    "samples": 300,
+    "steps": 24,
+    "scenarioSamples": 1,
+    "witnessSamples": 1500,
+    "timeoutSeconds": 60
+  },
+  "controls": [
+    {
+      "id": "cantos.presentation.guest-navigation.control.shell-admission",
+      "property": "cantos.presentation.guest-navigation.property.shell-admission",
+      "from": "nav: visible(phase, route),",
+      "to": "nav: true,"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.guest-safe",
+      "property": "cantos.presentation.guest-navigation.property.guest-safe",
+      "from": "if (phase == Guest and (privateRoute(route) or route == Discover)) Landing",
+      "to": "if (phase == Guest and route == Discover) Landing"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.unresolved-intent",
+      "property": "cantos.presentation.guest-navigation.property.unresolved-intent",
+      "from": "else if (phase == SignedIn and route == Landing) Discover else route",
+      "to": "else if (Set(Checking, Failed).contains(phase)) Landing else if (phase == SignedIn and route == Landing) Discover else route"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.auth-return",
+      "property": "cantos.presentation.guest-navigation.property.auth-return",
+      "from": "val target = if (state.origin == Landing) Discover else state.origin",
+      "to": "val target = Discover"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.stale-ignored",
+      "property": "cantos.presentation.guest-navigation.property.stale-ignored",
+      "from": "else record(state, Complete(ticket))",
+      "to": "else record({ ...state, route: Discover }, Complete(ticket))"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.idempotent-navigation",
+      "property": "cantos.presentation.guest-navigation.property.idempotent-navigation",
+      "from": "pushes: state.pushes + (if (route == state.route) 0 else 1)",
+      "to": "pushes: state.pushes + 1"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.public-owners-survive",
+      "property": "cantos.presentation.guest-navigation.property.public-owners-survive",
+      "from": "phase: LogoutPending, nav: false, pending: 0, origin: Discover",
+      "to": "phase: LogoutPending, nav: false, pending: 0, origin: Discover, publicPlays: 0"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation.control.return-intent",
+      "property": "cantos.presentation.guest-navigation.property.return-intent",
+      "from": "else if (route == state.route) state.origin else returnDestination(route)",
+      "to": "else if (route == state.route) Discover else returnDestination(route)"
+    }
+  ],
+  "aliases": []
+}
