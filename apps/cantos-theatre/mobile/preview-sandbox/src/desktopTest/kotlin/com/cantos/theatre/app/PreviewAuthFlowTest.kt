@@ -45,13 +45,13 @@ class PreviewAuthFlowTest {
 
             h.shell.dispatch(ShellEvent.Back); runCurrent()
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-            assertEquals(TheatreRoute.Discovery, h.route)
+            assertEquals(TheatreRoute.Landing, h.route)
 
             // The old attempt's response arrives late: no admission, no account, no navigation.
             h.identity.completeLogin(approve = true); runCurrent()
             assertEquals(0, h.identity.admissions)
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
-            assertEquals(TheatreRoute.Discovery, h.route)
+            assertEquals(TheatreRoute.Landing, h.route)
             assertEquals(1, h.identity.loginRequests)
         } finally { h.close() }
     }
@@ -82,6 +82,7 @@ class PreviewAuthFlowTest {
                 assertEquals(NativeAccountState.SignedOut, h.account.state.value)
 
                 h.identity.mode = PreviewLoginMode.Hold
+                assertTrue(h.shell.openLogin())
                 assertTrue(h.shell.login(email, "preview-only")); runCurrent()
                 advanceTimeBy(40L); runCurrent()
                 assertEquals(2, h.identity.loginRequests)
@@ -128,7 +129,7 @@ class PreviewAuthFlowTest {
     }
 
     @Test
-    fun a_stale_failure_is_dismissed_when_login_is_opened_again() = runTest {
+    fun reopening_login_retains_owner_failure_until_a_new_explicit_attempt() = runTest {
         val h = harness()
         try {
             h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
@@ -137,7 +138,7 @@ class PreviewAuthFlowTest {
             assertIs<NativeAccountState.Failed>(h.account.state.value)
 
             assertTrue(h.shell.openLogin()); runCurrent()
-            assertEquals(NativeAccountState.SignedOut, h.account.state.value)
+            assertIs<NativeAccountState.Failed>(h.account.state.value)
             assertEquals(1, h.identity.loginRequests)
         } finally { h.close() }
     }
@@ -166,19 +167,19 @@ class PreviewAuthFlowTest {
             h.shell.openLogin(); h.shell.login(email, "preview-only"); runCurrent()
             h.identity.completeLogin(approve = true); runCurrent()
             assertEquals(TheatreRoute.MembershipPreview, h.route)
-            assertEquals(3, h.stack.size)
+            assertEquals(2, h.stack.size)
         } finally { h.close() }
     }
 
     @Test
-    fun a_session_established_while_auth_is_closed_does_not_navigate() = runTest {
+    fun restore_without_an_open_auth_intent_does_not_revive_an_old_private_return() = runTest {
         val h = harness()
         try {
             h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
             h.identity.persistSession()
             h.account.restore(); runCurrent()
             assertIs<NativeAccountState.SignedIn>(h.account.state.value)
-            assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account), h.stack)
+            assertEquals(listOf(TheatreRoute.Discovery), h.stack)
         } finally { h.close() }
     }
 
@@ -207,10 +208,10 @@ class PreviewAuthFlowTest {
         val h = harness()
         try {
             assertTrue(h.shell.openRegister()); runCurrent()
-            assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.Register), h.stack)
+            assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login, TheatreRoute.Register), h.stack)
             assertEquals(0, h.identity.loginRequests)
             h.shell.dispatch(ShellEvent.Back); assertEquals(TheatreRoute.Login, h.route)
-            h.shell.dispatch(ShellEvent.Back); assertEquals(TheatreRoute.Discovery, h.route)
+            h.shell.dispatch(ShellEvent.Back); assertEquals(TheatreRoute.Landing, h.route)
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         } finally { h.close() }
     }
@@ -225,8 +226,8 @@ class PreviewAuthFlowTest {
             h.shell.logout(); runCurrent()
             assertEquals(NativeAccountState.CleanupRequired, h.account.state.value)
 
-            // The Login route is open, so only the account state can be what blocks the attempt.
-            assertTrue(h.shell.openLogin())
+            // Cleanup retains recovery on Landing; no auth entry can cross its barrier.
+            assertFalse(h.shell.openLogin())
             val begins = h.identity.loginRequests
             assertFalse(h.shell.login(email, "preview-only")); runCurrent()
             assertEquals(begins, h.identity.loginRequests)
@@ -235,6 +236,7 @@ class PreviewAuthFlowTest {
             h.identity.clearFails = false
             h.shell.logout(); runCurrent()
             assertEquals(NativeAccountState.SignedOut, h.account.state.value)
+            assertTrue(h.shell.openLogin())
             assertTrue(h.shell.login(email, "preview-only")); runCurrent()
             assertEquals(begins + 1, h.identity.loginRequests)
         } finally { h.close() }

@@ -36,6 +36,8 @@ internal fun MePreferences(
     copy: ShellCopy,
     dispatch: (ShellEvent) -> Unit,
     themeMode: ShellThemeMode,
+    compactActions: (@Composable (onTheme: () -> Unit, onLanguage: () -> Unit, themeFocus: FocusRequester, languageFocus: FocusRequester) -> Unit)? = null,
+    backOverlay: @Composable (() -> Unit) -> Unit = {},
 ) {
     var panel by remember { mutableStateOf<PreferencePanel?>(null) }
     var restoreFocus by remember { mutableStateOf<PreferencePanel?>(null) }
@@ -47,7 +49,10 @@ internal fun MePreferences(
             restoreFocus = null
         }
     }
-    Surface(Modifier.fillMaxWidth().testTag("account-preferences"), tone = SurfaceTone.Surface,
+    if (compactActions != null) compactActions(
+        { panel = PreferencePanel.Theme }, { panel = PreferencePanel.Language },
+        requesters.getValue(PreferencePanel.Theme), requesters.getValue(PreferencePanel.Language),
+    ) else Surface(Modifier.fillMaxWidth().testTag("account-preferences"), tone = SurfaceTone.Surface,
         variant = SurfaceVariant.AccountGroup, inset = Space.Md) {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Text(copy.text(CopyKey.PreferencesHeading), style = MaterialTheme.typography.titleLarge,
@@ -77,6 +82,8 @@ internal fun MePreferences(
         }
     }
     panel?.let { current ->
-        PreferenceDialog(current, state, copy, dispatch, themeMode) { panel = null; restoreFocus = current }
+        val dismiss = { panel = null; restoreFocus = current }
+        backOverlay(dismiss)
+        PreferenceDialog(current, state, copy, dispatch, themeMode, dismiss)
     }
 }

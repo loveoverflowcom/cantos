@@ -23,7 +23,7 @@ val PreviewNoSelection = ShellEpisodeId("none", ShellWorkId("none"))
  * scenario starts (route, theme, saved works, positions); the owners decide every later transition.
  */
 fun previewState(
-    stack: List<ShellRoute> = listOf(ShellRoute.Discovery),
+    stack: List<ShellRoute> = listOf(ShellRoute.Landing),
     selectedEpisode: ShellEpisodeId = PreviewNoSelection,
     positionMs: Long = 0,
     savedWorks: Set<ShellWorkId> = emptySet(),
@@ -52,9 +52,9 @@ fun previewProgress(episode: ShellEpisodeId, positionSeconds: Int) =
 
 /** Named starting points of the Desktop Preview; none is durable persistence or an account. */
 enum class PreviewSession {
-    /** A guest on Discover: the first screen a new listener sees. */
+    /** An admitted guest on the separate Landing. */
     Guest,
-    /** A guest on the Library tab: the account explanation and sign-in entry. */
+    /** A fresh guest Landing with no private Library state. */
     Fresh,
     /** A signed-in listener with saved works, continue entries and history already synced. */
     Restored,
@@ -62,7 +62,7 @@ enum class PreviewSession {
 
 fun PreviewSession.seed(): PreviewSeed = when (this) {
     PreviewSession.Guest -> PreviewSeed(previewState())
-    PreviewSession.Fresh -> PreviewSeed(previewState(stack = listOf(ShellRoute.Library)))
+    PreviewSession.Fresh -> PreviewSeed(previewState())
     PreviewSession.Restored -> {
         val points = listOf(
             previewProgress(PreviewEpisodeIds.DenKhua01, 91),

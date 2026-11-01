@@ -18,6 +18,7 @@ import com.cantos.theatre.application.identity.EmailVerificationController
 import com.cantos.theatre.application.identity.LinkReceipt
 import com.cantos.theatre.application.identity.ConfirmedSessionLoss
 import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.theatre.application.library.NativeLibraryController
 import com.cantos.theatre.ports.NativeApiFailure
 import com.cantos.theatre.ports.NativeApiResult
@@ -98,7 +99,8 @@ class TheatreShell(
     /** Borrowed process owner for completing an emailed signup; absent on hosts that claim no link. */
     val verification: EmailVerificationController? = null,
 ) {
-    private val mutableNavigation = MutableStateFlow(NavigationState())
+    private val mutableNavigation = MutableStateFlow(reduceNavigation(NavigationState(), NavigationEvent.ReconcileSession,
+        runtime.account?.state?.value.navigationAdmission()))
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
     private val mutableUi = MutableStateFlow(TheatreUiInputs(membership = initialMembership))
     val ui: StateFlow<TheatreUiInputs> = mutableUi.asStateFlow()
@@ -186,6 +188,9 @@ class TheatreShell(
             }
         }
         runtime.account?.let { owner ->
+            var handledLoss: ConfirmedSessionLoss? = null
+            // Observation history fences conflated logout/account switches; it never admits a session.
+            var previousActor: String? = null
             scope.launch { owner.state.collect {
                 if (closed) return@collect
                 observeSessionLoss()
@@ -194,8 +199,18 @@ class TheatreShell(
                         onErrorEvent(ErrorEvent.Resolved(ErrorKey(kind, ErrorOperation.SignIn)))
                     }
                     registration?.reset()
-                    navigate(NavigationEvent.AuthCompleted)
                 }
+                val loss = owner.confirmedLoss
+                val accountChanged = it is NativeAccountState.SignedIn && previousActor != null && previousActor != it.actor
+                val ended = it == NativeAccountState.CleanupRequired ||
+                    (it == NativeAccountState.SignedOut && previousActor != null) || (loss != null && loss != handledLoss)
+                if (ended || accountChanged) {
+                    navigate(NavigationEvent.SessionEnded)
+                    previousActor = null
+                    if (accountChanged) navigate(NavigationEvent.ReconcileSession)
+                } else navigate(NavigationEvent.ReconcileSession)
+                if (it is NativeAccountState.SignedIn) previousActor = it.actor
+                handledLoss = loss
             } }
         }
     }
@@ -239,8 +254,9 @@ class TheatreShell(
                 }
             }
             ShellEvent.Back -> back()
-            // Diagnostic-only controls of the sample session have no meaning against real owners.
-            ShellEvent.Reset, is ShellEvent.CatalogMode -> Unit
+            ShellEvent.Reset -> navigate(NavigationEvent.Reset)
+            // Diagnostic-only catalog controls have no meaning against real owners.
+            is ShellEvent.CatalogMode -> Unit
             is ShellEvent.OpenEpisode -> open(event.id)
             is ShellEvent.ResumeEpisode -> resume(event.id, fromHistory = false)
             is ShellEvent.ResumeHistoryEpisode -> resume(event.id, fromHistory = true)
@@ -292,7 +308,13 @@ class TheatreShell(
     fun navigate(event: NavigationEvent) {
         if (closed) return
         val before = mutableNavigation.value
-        val next = reduceNavigation(before, event)
+        val authRequested = event == NavigationEvent.OpenLogin || event == NavigationEvent.OpenRegister ||
+            (event is NavigationEvent.Navigate && event.route.isAuth)
+        val account = runtime.account?.state?.value
+        val repeatedLogin = before.route == TheatreRoute.Login && account == NativeAccountState.Pending &&
+            (event == NavigationEvent.OpenLogin || event == NavigationEvent.Navigate(TheatreRoute.Login))
+        if (authRequested && !repeatedLogin && !account.toAccountView().canBeginLogin) return
+        val next = reduceNavigation(before, event, runtime.account?.state?.value.navigationAdmission())
         if (before.route == TheatreRoute.Login && next.route != TheatreRoute.Login) cancelLogin()
         if (before.route == TheatreRoute.Register && next.route != TheatreRoute.Register) registration?.leave()
         if (before.route == TheatreRoute.VerifyEmail && next.route != TheatreRoute.VerifyEmail) verification?.leave()
@@ -317,8 +339,9 @@ class TheatreShell(
     /** Only an explicit listener intent opens Login, and a signed-in listener has none. */
     fun openLogin(): Boolean {
         val owner = runtime.account ?: return false
-        if (closed || owner.state.value is NativeAccountState.SignedIn) return false
-        if (owner.state.value is NativeAccountState.Failed) owner.cancelLogin()
+        if (closed) return false
+        if (mutableNavigation.value.route == TheatreRoute.Login && owner.state.value == NativeAccountState.Pending) return true
+        if (!owner.state.value.toAccountView().canBeginLogin) return false
         navigate(NavigationEvent.OpenLogin)
         return true
     }
@@ -327,7 +350,7 @@ class TheatreShell(
     fun openRegister(): Boolean {
         val owner = runtime.account ?: return false
         val state = owner.state.value
-        if (closed || state is NativeAccountState.SignedIn || state == NativeAccountState.Pending) return false
+        if (closed || !state.toAccountView().canBeginLogin) return false
         navigate(NavigationEvent.OpenRegister)
         return true
     }
@@ -350,7 +373,8 @@ class TheatreShell(
     fun continueAfterVerification() {
         if (closed || mutableNavigation.value.route != TheatreRoute.VerifyEmail) return
         if (runtime.account?.state?.value is NativeAccountState.SignedIn) navigate(NavigationEvent.Navigate(TheatreRoute.Account))
-        else if (!openLogin()) navigate(NavigationEvent.Back)
+        else if (runtime.account != null) openLogin()
+        else navigate(NavigationEvent.Back)
     }
 
     /** One attempt, only from the open Login route, never while another is pending or cleanup is owed. */
@@ -361,10 +385,13 @@ class TheatreShell(
         return true
     }
 
-    /** An explicit restore of the credential this device holds, never automatic. */
+    /** Explicit restore from Login or unresolved session recovery, never an automatic retry. */
     fun restoreSession(): RestoreOutcome {
         val owner = runtime.account ?: return RestoreOutcome.Refused
-        if (closed || mutableNavigation.value.route != TheatreRoute.Login || !owner.state.value.toAccountView().canBeginLogin) {
+        val state = owner.state.value
+        val recovery = state is NativeAccountState.Failed && !state.credentialAttempt && state.sessionLoss == null &&
+            (state.reason == NativeAccountFailure.Storage || state.reason == NativeAccountFailure.Api)
+        if (closed || (mutableNavigation.value.route != TheatreRoute.Login && !recovery) || !state.toAccountView().canBeginLogin) {
             return RestoreOutcome.Refused
         }
         owner.restore()
@@ -380,7 +407,11 @@ class TheatreShell(
     fun logout() {
         val owner = runtime.account ?: return
         val state = owner.state.value
-        if (!closed && (state is NativeAccountState.SignedIn || state == NativeAccountState.CleanupRequired)) owner.logout()
+        if (!closed && (state is NativeAccountState.SignedIn || state == NativeAccountState.CleanupRequired)) {
+            owner.logout()
+            navigate(NavigationEvent.SessionEnded)
+            clearMembership()
+        }
     }
 
     /** A saved work needs an account: a guest is taken to sign in, or to the Account explanation. */
@@ -659,6 +690,14 @@ class TheatreShell(
     }
 }
 
+/** Failed/checking/cleanup retain their own recovery; only the owner can admit a guest or account. */
+internal fun NativeAccountState?.navigationAdmission(): NavigationAdmission = when (this) {
+    null, NativeAccountState.SignedOut -> NavigationAdmission.Guest
+    is NativeAccountState.SignedIn -> NavigationAdmission.SignedIn
+    NativeAccountState.Pending, NativeAccountState.CleanupRequired -> NavigationAdmission.Unresolved
+    is NativeAccountState.Failed -> if (sessionLoss != null) NavigationAdmission.ConfirmedLoss else NavigationAdmission.Unresolved
+}
+
 private fun ShellSearchKind.toPublic(): PublicWorkKind? = when (this) {
     ShellSearchKind.All -> null
     ShellSearchKind.Novel -> PublicWorkKind.Novel
@@ -674,6 +713,7 @@ private fun ShellLibrarySection.toDomain(): LibrarySection = when (this) {
 }
 
 private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
+    ShellRoute.Landing -> TheatreRoute.Landing
     ShellRoute.Discovery -> TheatreRoute.Discovery
     ShellRoute.Search -> TheatreRoute.Search
     ShellRoute.Library -> TheatreRoute.Library

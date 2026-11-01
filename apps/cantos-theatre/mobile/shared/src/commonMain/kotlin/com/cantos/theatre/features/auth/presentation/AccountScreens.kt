@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -278,5 +279,37 @@ private fun AccountRow(
         }
         if (showChevron) Icon(rememberCantosIconVector("keyboard_arrow_right"), null,
             Modifier.size(tokenDp("size.icon")), tint = foreground)
+    }
+}
+
+/** Compact Landing/recovery actions; all admission and cleanup facts come from the account owner. */
+@Composable
+fun GuestEntry(
+    locale: ShellLocale,
+    account: AccountView,
+    onIntent: (AuthIntent) -> Unit,
+    loginFocus: FocusRequester,
+    loginAttempt: LoginAttempt = LoginAttempt.None,
+    offerPublicHome: Boolean = false,
+) {
+    val copy = AuthCopy(locale)
+    Column(Modifier.fillMaxWidth().testTag("guest-entry"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        if (!loginAttempt.owns(account)) AccountStatus(account, copy)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Button(copy.text(AuthText.SignIn), { onIntent(AuthIntent.OpenLogin) },
+                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
+                icon = authActionIcon(AuthIntent.OpenLogin),
+                controlModifier = Modifier.focusRequester(loginFocus).testTag("sign-in"))
+            if (account.canBeginLogin) Button(copy.text(AuthText.RegisterAction), { onIntent(AuthIntent.OpenRegister) },
+                variant = ButtonVariant.AuthSecondary, icon = authActionIcon(AuthIntent.OpenRegister),
+                controlModifier = Modifier.testTag("create-account"))
+            if (account == AccountView.CleanupRequired) Button(copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
+                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.testTag("auth-retry-cleanup"))
+            if (account is AccountView.Failed && account.offersRestoreRetry()) Button(copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
+                variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.testTag("auth-restore"))
+            if (offerPublicHome) Button(copy.text(AuthText.Back), { onIntent(AuthIntent.OpenHome) },
+                variant = ButtonVariant.Text, controlModifier = Modifier.testTag("guest-home"))
+        }
     }
 }

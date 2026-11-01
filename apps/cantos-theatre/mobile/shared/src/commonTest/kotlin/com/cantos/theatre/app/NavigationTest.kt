@@ -1,20 +1,128 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.domain.catalog.CatalogCheck
+import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.publication.WorkKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NavigationTest {
-    @Test
-    fun repeated_navigation_back_and_queue_selection_preserve_one_player_route() {
-        val initial = NavigationState()
-        assertFalse(initial.canGoBack)
-        assertEquals(initial, reduceNavigation(initial, NavigationEvent.Back))
-        val work = TheatreRoute.Work(WorkKey("son-ha-ky"))
-        val detail = reduceNavigation(initial, NavigationEvent.Navigate(work))
+    private val guest = NavigationState()
+    private val discovery = NavigationState(listOf(TheatreRoute.Discovery))
+    private val work = TheatreRoute.Work(WorkKey("10000000-0000-4000-8000-000000000001"))
+
+    // cantos.presentation.guest-navigation.run.session-root
+    @Test fun admitted_roots_search_back_and_reset_follow_current_authority() {
+        assertEquals(listOf(TheatreRoute.Landing), guest.stack)
+        assertFalse(guest.canGoBack)
+        assertEquals(guest, reduceNavigation(guest, NavigationEvent.Back))
+        for ((admission, home) in listOf(NavigationAdmission.Guest to guest, NavigationAdmission.SignedIn to discovery)) {
+            val search = reduceNavigation(home, NavigationEvent.Navigate(TheatreRoute.Search), admission)
+            assertEquals(home.stack + TheatreRoute.Search, search.stack)
+            assertEquals(search, reduceNavigation(search, NavigationEvent.Navigate(TheatreRoute.Search), admission))
+            val detail = reduceNavigation(search, NavigationEvent.Navigate(work), admission)
+            assertEquals(search, reduceNavigation(detail, NavigationEvent.Back, admission))
+            assertEquals(home, reduceNavigation(search, NavigationEvent.Back, admission))
+            assertEquals(home, reduceNavigation(detail, NavigationEvent.Reset, admission))
+        }
+        assertEquals(discovery, reduceNavigation(guest, NavigationEvent.ReconcileSession, NavigationAdmission.SignedIn))
+        assertEquals(guest, reduceNavigation(discovery, NavigationEvent.ReconcileSession))
+    }
+
+    // cantos.presentation.guest-navigation.run.auth-return
+    @Test fun private_guest_destination_is_a_typed_return_and_never_a_visible_private_stack() {
+        for (target in PrivateDestination.entries) {
+            val requested = reduceNavigation(guest, NavigationEvent.Navigate(target.route))
+            assertEquals(listOf(TheatreRoute.Landing), requested.stack)
+            assertEquals(target, requested.returnTo)
+            val login = reduceNavigation(requested, NavigationEvent.OpenLogin)
+            assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login), login.stack)
+            assertEquals(login, reduceNavigation(login, NavigationEvent.AuthCompleted), "a route confers no session")
+            val completed = reduceNavigation(login, NavigationEvent.AuthCompleted, NavigationAdmission.SignedIn)
+            assertEquals(target.route, completed.route)
+            assertNull(completed.returnTo)
+            assertTrue(completed.stack.none { it == TheatreRoute.Landing || it.isAuth })
+        }
+        val detail = reduceNavigation(guest, NavigationEvent.Navigate(work))
+        val login = reduceNavigation(detail, NavigationEvent.OpenLogin)
+        assertEquals(listOf(TheatreRoute.Discovery, work),
+            reduceNavigation(login, NavigationEvent.ReconcileSession, NavigationAdmission.SignedIn).stack)
+    }
+
+    // cantos.presentation.guest-navigation.run.unresolved-session
+    @Test fun unresolved_private_and_public_destinations_survive_checking_and_failure() {
+        for (route in listOf(TheatreRoute.Library, TheatreRoute.Account, work, TheatreRoute.Search)) {
+            val intended = reduceNavigation(guest, NavigationEvent.Navigate(route), NavigationAdmission.Unresolved)
+            assertEquals(route, intended.route)
+            assertEquals(intended, reduceNavigation(intended, NavigationEvent.ReconcileSession, NavigationAdmission.Unresolved))
+            assertEquals(TheatreRoute.Landing,
+                reduceNavigation(intended, NavigationEvent.Navigate(TheatreRoute.Discovery), NavigationAdmission.Unresolved).route,
+                "explicit public recovery never waits for a successful session lookup")
+            val admitted = reduceNavigation(intended, NavigationEvent.ReconcileSession, NavigationAdmission.SignedIn)
+            assertEquals(route, admitted.route)
+            assertTrue(TheatreRoute.Landing !in admitted.stack)
+        }
+        val intended = reduceNavigation(guest, NavigationEvent.Navigate(TheatreRoute.Library), NavigationAdmission.Unresolved)
+        val settled = reduceNavigation(intended, NavigationEvent.ReconcileSession)
+        assertEquals(listOf(TheatreRoute.Landing), settled.stack)
+        assertEquals(PrivateDestination.Library, settled.returnTo)
+    }
+
+    // cantos.presentation.guest-navigation.run.auth-cancel-late
+    @Test fun registration_unwinds_once_and_cancel_invalidates_the_private_return() {
+        val origin = reduceNavigation(guest, NavigationEvent.Navigate(TheatreRoute.Library))
+        val login = reduceNavigation(origin, NavigationEvent.OpenLogin)
+        val register = reduceNavigation(login, NavigationEvent.OpenRegister)
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login, TheatreRoute.Register), register.stack)
+        assertEquals(register, reduceNavigation(register, NavigationEvent.OpenRegister))
+        assertEquals(login, reduceNavigation(register, NavigationEvent.OpenLogin))
+        assertEquals(login, reduceNavigation(register, NavigationEvent.Back))
+        val cancelled = reduceNavigation(login, NavigationEvent.Back)
+        assertEquals(guest, cancelled)
+        assertNull(cancelled.returnTo)
+        assertEquals(cancelled, reduceNavigation(cancelled, NavigationEvent.AuthCompleted, NavigationAdmission.SignedIn))
+        val reopened = reduceNavigation(cancelled, NavigationEvent.OpenLogin)
+        assertEquals(discovery, reduceNavigation(reopened, NavigationEvent.AuthCompleted, NavigationAdmission.SignedIn))
+        assertEquals(guest, reduceNavigation(register, NavigationEvent.Reset))
+        assertEquals(guest, reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Discovery)))
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Settings),
+            reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Settings)).stack)
+    }
+
+    @Test fun auth_from_public_membership_or_work_returns_without_losing_the_source() {
+        for (route in listOf(TheatreRoute.MembershipPreview, work)) {
+            val origin = reduceNavigation(guest, NavigationEvent.Navigate(route))
+            val login = reduceNavigation(origin, NavigationEvent.OpenLogin)
+            assertEquals(origin, reduceNavigation(login, NavigationEvent.Back))
+            assertEquals(login, reduceNavigation(login, NavigationEvent.OpenLogin))
+            assertEquals(login, reduceNavigation(login, NavigationEvent.Navigate(TheatreRoute.Login)))
+            val register = reduceNavigation(guest, NavigationEvent.OpenRegister)
+            assertEquals(register, reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Register)))
+            assertEquals(listOf(TheatreRoute.Discovery, route),
+                reduceNavigation(login, NavigationEvent.AuthCompleted, NavigationAdmission.SignedIn).stack)
+        }
+    }
+
+    // cantos.presentation.guest-navigation.run.logout-expiry
+    @Test fun ended_session_cannot_restore_private_entries_or_old_auth_returns_by_back() {
+        val private = NavigationState(listOf(TheatreRoute.Library, TheatreRoute.History, TheatreRoute.Account))
+        val ended = reduceNavigation(private, NavigationEvent.SessionEnded, NavigationAdmission.Unresolved)
+        assertEquals(guest, ended)
+        assertEquals(ended, reduceNavigation(ended, NavigationEvent.Back))
+        assertEquals(ended, reduceNavigation(ended, NavigationEvent.ReconcileSession))
+        val publicDetail = NavigationState(private.stack + work)
+        assertEquals(listOf(TheatreRoute.Landing, work), reduceNavigation(publicDetail, NavigationEvent.SessionEnded).stack)
+        val login = reduceNavigation(reduceNavigation(guest, NavigationEvent.Navigate(TheatreRoute.History)), NavigationEvent.OpenLogin)
+        assertEquals(guest, reduceNavigation(login, NavigationEvent.SessionEnded))
+    }
+
+    // cantos.presentation.guest-navigation.run.repeated-navigation
+    @Test fun repeated_navigation_and_queue_selection_preserve_one_player_route() {
+        val detail = reduceNavigation(guest, NavigationEvent.Navigate(work))
         assertEquals(detail, reduceNavigation(detail, NavigationEvent.Navigate(work)))
         val player = reduceNavigation(detail, NavigationEvent.OpenPlayer)
         val queue = reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.Queue))
@@ -22,164 +130,50 @@ class NavigationTest {
         val settings = reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.Settings))
         assertEquals(player, reduceNavigation(settings, NavigationEvent.Back))
         assertEquals(detail, reduceNavigation(player, NavigationEvent.Back))
-        assertEquals(NavigationState(listOf(TheatreRoute.Library)), reduceNavigation(settings, NavigationEvent.Navigate(TheatreRoute.Library)))
-        assertEquals(initial, reduceNavigation(settings, NavigationEvent.Reset))
-    }
-
-    @Test
-    fun search_history_and_account_are_secondary_to_the_two_primary_destinations() {
-        val discovery = NavigationState()
-        val search = reduceNavigation(discovery, NavigationEvent.Navigate(TheatreRoute.Search))
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Search), search.stack)
-        assertEquals(discovery, reduceNavigation(search, NavigationEvent.Back))
-        val history = reduceNavigation(search, NavigationEvent.Navigate(TheatreRoute.History))
+        val history = reduceNavigation(discovery, NavigationEvent.Navigate(TheatreRoute.History), NavigationAdmission.SignedIn)
         assertEquals(listOf(TheatreRoute.Library, TheatreRoute.History), history.stack)
-        val account = reduceNavigation(history, NavigationEvent.Navigate(TheatreRoute.Account))
-        val settings = reduceNavigation(account, NavigationEvent.Navigate(TheatreRoute.Settings))
-        assertEquals(account, reduceNavigation(settings, NavigationEvent.Back))
-        assertEquals(history, reduceNavigation(account, NavigationEvent.Back))
-        assertEquals(NavigationState(listOf(TheatreRoute.Library)), reduceNavigation(history, NavigationEvent.Back))
-        assertEquals(discovery, reduceNavigation(settings, NavigationEvent.Navigate(TheatreRoute.Discovery)))
+        assertEquals(NavigationState(listOf(TheatreRoute.Library)), reduceNavigation(history, NavigationEvent.Back, NavigationAdmission.SignedIn))
     }
 
-    @Test
-    fun navigation_copies_collection_authority_and_rejects_empty_root() {
-        val stack = mutableListOf<TheatreRoute>(TheatreRoute.Discovery, TheatreRoute.Player)
-        val state = NavigationState(stack)
-        stack.clear()
-        (state.stack as MutableList<*>).clear()
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Player), state.stack)
-        assertEquals(TheatreRoute.Player, state.route)
-        assertFailsWith<IllegalArgumentException> { NavigationState(emptyList()) }
-    }
-
-    private val home = NavigationState()
-    private val account = reduceNavigation(home, NavigationEvent.Navigate(TheatreRoute.Account))
-
-    @Test
-    fun login_returns_to_its_origin_and_never_becomes_a_root() {
-        val fromHome = reduceNavigation(home, NavigationEvent.OpenLogin)
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login), fromHome.stack)
-        assertEquals(home, reduceNavigation(fromHome, NavigationEvent.Back))
-
-        val fromAccount = reduceNavigation(account, NavigationEvent.OpenLogin)
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account, TheatreRoute.Login), fromAccount.stack)
-        assertEquals(account, reduceNavigation(fromAccount, NavigationEvent.Back))
-
-        assertFailsWith<IllegalArgumentException> { NavigationState(listOf(TheatreRoute.Login)) }
-        assertFailsWith<IllegalArgumentException> { NavigationState(listOf(TheatreRoute.Register)) }
-    }
-
-    @Test
-    fun register_is_one_step_above_login_and_back_unwinds_to_login_then_the_origin() {
-        val login = reduceNavigation(account, NavigationEvent.OpenLogin)
-        val register = reduceNavigation(login, NavigationEvent.OpenRegister)
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Account, TheatreRoute.Login, TheatreRoute.Register), register.stack)
-        assertEquals(login, reduceNavigation(register, NavigationEvent.Back))
-        assertEquals(account, reduceNavigation(reduceNavigation(register, NavigationEvent.Back), NavigationEvent.Back))
-        // Login is also reachable from Register without growing the stack.
-        assertEquals(login, reduceNavigation(register, NavigationEvent.OpenLogin))
-    }
-
-    @Test
-    fun repeated_or_contextless_auth_intents_are_idempotent_and_fall_back_to_the_home_origin() {
-        val login = reduceNavigation(account, NavigationEvent.OpenLogin)
-        assertEquals(login, reduceNavigation(login, NavigationEvent.OpenLogin))
-        assertEquals(login, reduceNavigation(login, NavigationEvent.Navigate(TheatreRoute.Login)))
-        val register = reduceNavigation(login, NavigationEvent.OpenRegister)
-        assertEquals(register, reduceNavigation(register, NavigationEvent.OpenRegister))
-        assertEquals(register, reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Register)))
-
-        // A registration deep link has no Login context: Login is supplied and Back reaches Home, with no loop.
-        val deepLink = reduceNavigation(home, NavigationEvent.OpenRegister)
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.Register), deepLink.stack)
-        assertEquals(home, reduceNavigation(reduceNavigation(deepLink, NavigationEvent.Back), NavigationEvent.Back))
-        assertEquals(home, reduceNavigation(home, NavigationEvent.Back))
-    }
-
-    @Test
-    fun completion_closes_only_an_open_auth_intent_and_resumes_the_membership_origin() {
-        val membership = reduceNavigation(account, NavigationEvent.Navigate(TheatreRoute.MembershipPreview))
-        val login = reduceNavigation(membership, NavigationEvent.OpenLogin)
-        val register = reduceNavigation(login, NavigationEvent.OpenRegister)
-        assertEquals(membership, reduceNavigation(login, NavigationEvent.AuthCompleted))
-        assertEquals(membership, reduceNavigation(register, NavigationEvent.AuthCompleted))
-
-        // A completion that arrives after Back, or after leaving auth another way, is inert.
-        assertEquals(membership, reduceNavigation(membership, NavigationEvent.AuthCompleted))
-        assertEquals(account, reduceNavigation(account, NavigationEvent.AuthCompleted))
-        assertEquals(home, reduceNavigation(home, NavigationEvent.AuthCompleted))
-        val afterBack = reduceNavigation(login, NavigationEvent.Back)
-        assertEquals(afterBack, reduceNavigation(afterBack, NavigationEvent.AuthCompleted))
-    }
-
-    @Test
-    fun leaving_auth_by_another_destination_dismisses_it_and_never_stacks_above_it() {
-        val register = reduceNavigation(reduceNavigation(account, NavigationEvent.OpenLogin), NavigationEvent.OpenRegister)
-        assertEquals(account, reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Account)))
-        assertEquals(home, reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Discovery)))
-        assertEquals(home, reduceNavigation(register, NavigationEvent.Reset))
-        assertEquals(NavigationState(listOf(TheatreRoute.Library)), reduceNavigation(register, NavigationEvent.Navigate(TheatreRoute.Library)))
-        // Home -> Login -> Account has no Account below it, so Login is dropped before Account is pushed.
-        val login = reduceNavigation(home, NavigationEvent.OpenLogin)
-        assertEquals(account, reduceNavigation(login, NavigationEvent.Navigate(TheatreRoute.Account)))
-        assertEquals(
-            listOf(TheatreRoute.Discovery, TheatreRoute.Settings),
-            reduceNavigation(login, NavigationEvent.Navigate(TheatreRoute.Settings)).stack,
-        )
-    }
-
-    @Test
-    fun auth_routes_may_only_be_the_closed_login_then_register_suffix() {
-        assertFailsWith<IllegalArgumentException> {
-            NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.Account))
-        }
-        assertFailsWith<IllegalArgumentException> {
-            NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Register))
-        }
-        assertFailsWith<IllegalArgumentException> {
-            NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.Login))
-        }
-        assertFailsWith<IllegalArgumentException> {
-            NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Register, TheatreRoute.Login))
-        }
-        assertTrue(TheatreRoute.Login.isAuth && TheatreRoute.Register.isAuth && !TheatreRoute.Account.isAuth)
-    }
-
-    @Test
-    fun a_received_signup_link_is_a_transient_top_that_any_other_destination_removes() {
-        val work = TheatreRoute.Work(WorkKey("son-ha-ky"))
-        val player = reduceNavigation(reduceNavigation(NavigationState(), NavigationEvent.Navigate(work)), NavigationEvent.OpenPlayer)
+    // cantos.presentation.guest-navigation.run.public-deep-link
+    @Test fun shared_locator_and_verification_survive_without_granting_a_session() {
+        val id = (PublicWorkId.parse(work.key.value) as CatalogCheck.Valid).value
+        val shared = reduceNavigation(guest, NavigationEvent.Navigate(TheatreRoute.SharedWork(id)), NavigationAdmission.Unresolved)
+        assertEquals(shared, reduceNavigation(shared, NavigationEvent.ReconcileSession))
+        val player = reduceNavigation(reduceNavigation(guest, NavigationEvent.Navigate(work)), NavigationEvent.OpenPlayer)
         val verifying = reduceNavigation(player, NavigationEvent.OpenVerifyEmail)
         assertEquals(player.stack + TheatreRoute.VerifyEmail, verifying.stack)
         assertEquals(verifying, reduceNavigation(verifying, NavigationEvent.OpenVerifyEmail))
         assertEquals(player, reduceNavigation(verifying, NavigationEvent.Back))
-        // A sign-in completed elsewhere keeps completion open: it is allowed while signed in.
         assertEquals(verifying, reduceNavigation(verifying, NavigationEvent.AuthCompleted))
-        // An open auth intent is closed, so Back never reveals a Login under completion.
+        assertEquals(TheatreRoute.VerifyEmail,
+            reduceNavigation(verifying, NavigationEvent.ReconcileSession, NavigationAdmission.SignedIn).route)
         val login = reduceNavigation(reduceNavigation(player, NavigationEvent.OpenLogin), NavigationEvent.OpenRegister)
         assertEquals(verifying, reduceNavigation(login, NavigationEvent.OpenVerifyEmail))
-        // Every other destination leaves it first, so it is never kept below another route.
         assertEquals(reduceNavigation(player, NavigationEvent.OpenLogin), reduceNavigation(verifying, NavigationEvent.OpenLogin))
         assertEquals(reduceNavigation(player, NavigationEvent.OpenRegister), reduceNavigation(verifying, NavigationEvent.OpenRegister))
-        assertEquals(reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.Account)),
-            reduceNavigation(verifying, NavigationEvent.Navigate(TheatreRoute.Account)))
         assertEquals(player, reduceNavigation(verifying, NavigationEvent.OpenPlayer))
-        assertEquals(NavigationState(), reduceNavigation(verifying, NavigationEvent.Reset))
-        // A route event alone never opens completion.
+        assertEquals(guest, reduceNavigation(verifying, NavigationEvent.Reset))
         assertEquals(player, reduceNavigation(player, NavigationEvent.Navigate(TheatreRoute.VerifyEmail)))
     }
 
-    @Test
-    fun email_verification_is_only_ever_the_top_above_a_non_auth_root() {
+    @Test fun navigation_snapshots_collections_and_rejects_empty_or_invalid_transient_stacks() {
+        val input = mutableListOf<TheatreRoute>(TheatreRoute.Landing, TheatreRoute.Player)
+        val snapshot = NavigationState(input)
+        input.clear()
+        (snapshot.stack as MutableList<*>).clear()
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Player), snapshot.stack)
         for (stack in listOf(
-            listOf(TheatreRoute.VerifyEmail),
-            listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail, TheatreRoute.Settings),
-            listOf(TheatreRoute.Discovery, TheatreRoute.Login, TheatreRoute.VerifyEmail),
-            listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail, TheatreRoute.Login),
-        )) {
-            assertFailsWith<IllegalArgumentException>(stack.toString()) { NavigationState(stack) }
-        }
-        assertTrue(NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail)).canGoBack)
+            emptyList(), listOf(TheatreRoute.Login), listOf(TheatreRoute.Register), listOf(TheatreRoute.VerifyEmail),
+            listOf(TheatreRoute.Landing, TheatreRoute.Login, TheatreRoute.Account),
+            listOf(TheatreRoute.Landing, TheatreRoute.Register),
+            listOf(TheatreRoute.Landing, TheatreRoute.Login, TheatreRoute.Login),
+            listOf(TheatreRoute.Landing, TheatreRoute.Register, TheatreRoute.Login),
+            listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail, TheatreRoute.Settings),
+            listOf(TheatreRoute.Landing, TheatreRoute.Login, TheatreRoute.VerifyEmail),
+            listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail, TheatreRoute.Login),
+        )) assertFailsWith<IllegalArgumentException>(stack.toString()) { NavigationState(stack) }
+        assertTrue(TheatreRoute.Login.isAuth && TheatreRoute.Register.isAuth && !TheatreRoute.Account.isAuth)
+        assertTrue(NavigationState(listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail)).canGoBack)
     }
 }

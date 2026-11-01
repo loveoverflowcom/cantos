@@ -23,7 +23,7 @@ import com.cantos.ui.tokenDp
  * the stack has one; every drill-down route keeps Back (Close for the player) and the title only.
  */
 internal fun topBarShowsBrandMark(route: ShellRoute): Boolean = when (route) {
-    ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, ShellRoute.History -> true
+    ShellRoute.Landing, ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, ShellRoute.History -> true
     else -> false
 }
 

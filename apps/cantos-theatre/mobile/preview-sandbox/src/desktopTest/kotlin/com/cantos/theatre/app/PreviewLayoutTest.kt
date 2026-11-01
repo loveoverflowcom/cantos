@@ -37,17 +37,17 @@ class PreviewLayoutTest {
             val title = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             val profile = onNodeWithTag("account-profile").fetchSemanticsNode().boundsInRoot
             val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
-            val signIn = onNodeWithTag("sign-in").fetchSemanticsNode().boundsInRoot
-            val membership = onNodeWithTag("account-membership").fetchSemanticsNode().boundsInRoot
-            val group = onNodeWithTag("account-settings-group").fetchSemanticsNode().boundsInRoot
-            assertEquals(40f * density.density, avatar.width)
+            val name = onNodeWithTag("account-name").fetchSemanticsNode().boundsInRoot
+            val preferences = onNodeWithTag("account-preferences").fetchSemanticsNode().boundsInRoot
+            val group = onNodeWithTag("account-nav-group").fetchSemanticsNode().boundsInRoot
+            assertTrue(avatar.width >= 40f * density.density)
             assertEquals(avatar.width, avatar.height)
             assertTrue(title.bottom <= profile.top)
-            // Both guest auth actions remain inside the compact profile card.
-            assertTrue(profile.top <= avatar.top && avatar.bottom <= signIn.top)
-            assertTrue(signIn.bottom <= profile.bottom)
-            assertTrue(profile.bottom <= membership.top)
-            assertTrue(membership.bottom <= group.top)
+            assertTrue(profile.top <= avatar.top && avatar.bottom <= profile.bottom)
+            assertTrue(profile.left <= name.left && name.right <= profile.right)
+            onNodeWithTag("sign-in").assertDoesNotExist()
+            assertTrue(profile.bottom <= preferences.top)
+            assertTrue(preferences.bottom <= group.top)
             onNodeWithTag("account").assertDoesNotExist()
             // The shell stays below the scrolling account content.
             val settings = onNodeWithTag("settings").performScrollTo().assertIsDisplayed()
@@ -82,9 +82,9 @@ class PreviewLayoutTest {
         }
     }
 
-    /** A guest on the Account space with a paused selection, so the mini-player is part of the layout. */
+    /** A signed-in Account space with a paused selection; guest profile is no longer a route. */
     private fun accountSpace() = PreviewSeed(previewState(
         stack = listOf(ShellRoute.Library, ShellRoute.Account),
         selectedEpisode = PreviewEpisodeIds.SonHa03, positionMs = 768_000L,
-    ))
+    ), signedIn = true)
 }

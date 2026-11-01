@@ -57,7 +57,7 @@ class LibraryPresentationUiTest {
 
     private fun render(state: Pair<com.cantos.theatre.presentation.model.ShellState, ShellCatalogView>, events: MutableList<ShellEvent>, check: androidx.compose.ui.test.ComposeUiTest.() -> Unit) =
         runDesktopComposeUiTest(width = 390, height = 2400) {
-            setContent { Box(Modifier.requiredSize(390.dp, 2400.dp)) { CantosPresentation(state.first, state.second, { events += it }) } }
+            setContent { Box(Modifier.requiredSize(390.dp, 2400.dp)) { CantosPresentation(state.first, state.second, { events += it }, accountSignedIn = true) } }
             check()
         }
 
@@ -151,7 +151,7 @@ class LibraryPresentationUiTest {
         val state = sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.History), history = listOf(point))
         runDesktopComposeUiTest(width = 390, height = 2400) {
             setContent { Box(Modifier.requiredSize(390.dp, 2400.dp)) {
-                CantosPresentation(state, ShellCatalogView(library = ShellLibraryView(history = ShellLibraryPhase.More)), { events += it })
+                CantosPresentation(state, ShellCatalogView(library = ShellLibraryView(history = ShellLibraryPhase.More)), { events += it }, accountSignedIn = true)
             } }
             onNodeWithTag("history-${outsideEpisode}").performScrollTo().assert(hasText("Tập chưa từng được tải", substring = true))
             onNodeWithTag("history-more").performScrollTo().performClick()

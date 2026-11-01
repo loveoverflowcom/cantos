@@ -366,45 +366,66 @@ Android and deferred iOS/product evidence; issue #169 remains open.
 
 ## Guest-first account and auth
 
-[Issue #130](https://github.com/loveoverflowcom/cantos/issues/130) composes Auth–Account design
-v2 into the one guest shell; the [evidence record](../../../docs/evidence/theatre-cmp-auth-account.md)
-holds the matrix, provenance and acceptance gaps. The app still opens on Discovery. Account is an
-optional avatar entry and Login is a separate explicit intent, never a wall, so
-identity never replaces Home: the host passes its process-owned `NativeAccountController` into
-`NativeSessionRuntime`, which `TheatreShell` only observes and never closes. `AccountView` is the
-immutable projection (no actor, session, expiry or page count); its optional Server-generated
-alias/seed is a pseudonym, not a verified personal name. A missing identity capability is
-`Unavailable`, a guest shell and not a failure. The signed-in profile uses the shared Lavender
-Pair Avatar when these facts are available and retains the truthful fallback otherwise. Existing
-account rows and secondary logout share icon/label geometry and readable tonal ink; native
-adds no greeting or Saved row. The [account-card record](../../../docs/evidence/theatre-account-card-689.md)
-keeps JVM layout/interaction evidence separate from Android/iOS acceptance.
+[Issue #692](https://github.com/loveoverflowcom/cantos/issues/692) implements the
+[approved shared guest-entry policy](../../../docs/design/theatre-guest-entry.md). An admitted
+guest opens the distinct `Landing` route/composition. It reuses Discovery's catalog/search/cards,
+loading, empty, failure, paging and retry blocks and the same `PublicCatalogController`.
+There is no guest bottom navigation, rail, drawer or navigation spacer. Only a confirmed
+signed-in account mounts the existing two primary destinations; this does not implement #583's
+three-destination proposal. #692 supersedes only its guest bottom-bar requirement.
 
-- **Navigation** is the existing pure reducer plus `Login`/`Register`: a closed `Login[, Register]`
-  suffix, never the root, whose return destination is the typed stack below it. `OpenLogin`,
-  `OpenRegister` and `AuthCompleted` are idempotent; a completion that arrives after Back or any
-  other destination is inert, and navigating elsewhere dismisses auth first.
-- **Lifecycle** stays in `NativeAccountController`. `TheatreShell.back()` cancels a pending login
-  before popping, so a late response is fenced; `login(email, password)` is accepted only on the open Login
-  route in a resting guest state (a double tap or pending flow cannot restart it) and
-  `openLogin()` is refused for a signed-in listener. A refusal leaves Login and its
-  generic failure visible; another request requires a fresh explicit submit. Restore remains an
-  explicit action that says when the device holds nothing. Logout hides the projection first; a failed
-  cleanup keeps Login disabled with a retry. A Membership draft is cleared only when a signed-in
-  account ends, so Membership → Login → success resumes the guest's draft.
-- **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập** primary and
-  **Đăng ký** tonal actions from the #127 auth variants, with no tabs, legal links or
-  consent. Email/password fields dispatch through the account owner. When its
-  signup owner is configured, Register collects only email and gives Web completion guidance; otherwise
-  it explains the missing capability. Enrollment never authenticates the account. Guest and signed-in Account use the Profile,
-  Membership and AccountGroup surfaces; signed-in shows no invented name, total, conflict or
-  entitlement. Auth hides the tab bar and mini-player; the header gives priority to Back and the theme
-  toggle and shows the logo only in leftover space. Back (visible, Android system and JVM Escape) is one
-  intent; scroll positions are kept per stack entry and Back from auth restores focus to Sign in or
-  the avatar.
-- Still unrun: Android Keystore/lifecycle flows, iOS compilation and Keychain
-  (the pinned Kotlin/Native compiler is absent), TalkBack/VoiceOver, IME, font scale on a device and the
-  real Identity service. The #35 two primary destinations remain; Account is not a third tab.
+- **Navigation:** the pure `reduceNavigation` receives an admission projection from the existing
+  account owner on every event. Guest Search/Back/Reset use Landing; signed-in equivalents use
+  Discovery. Library/History/Account guest intents settle to Landing with a closed typed private
+  return allowlist. Login/Register remain a closed suffix; successful account admission replaces
+  Landing and resolves an open return, while Back/cancel invalidates it. Session reconciliation
+  cannot revive a private destination after auth was cancelled. Repeated destinations and
+  verification deliveries remain idempotent. Public Work and shared neutral locators survive
+  checking/restoration; platform URL claiming remains the existing verification-only App Link.
+- **Session:** pending restore/checking, an unconfirmed failure and cleanup are not guest states.
+  Intended private routes survive unresolved checks but render account recovery without private
+  rows or navigation. Nonconsuming network outages retain retry through the same account owner.
+  Explicit logout and API-confirmed loss remove private stack/presentation; cleanup retains its
+  retry and blocks both Login and Register. `AccountView` keeps the real failure/status throughout.
+  Late account/read responses retain the account owner's generation fences. Signup and email
+  proof never grant a session. Verification completion remains transient and usable while signed
+  in; Continue waits for account admission/cleanup instead of discarding a busy verification route.
+- **Presentation:** Landing offers direct Sign in/Register with admitted shared auth actions.
+  The local language/theme icon controls on guest Landing/detail/auth reuse `MePreferences` and
+  `PreferenceDialog` with the process `PreferencesController`; signed-in Me keeps its existing
+  preferences. Search and focused auth keep their task framing. Primary navigation visibility is
+  independent of the public mini-player; root reconciliation neither constructs a player nor
+  starts playback. Existing private playback/session teardown is unchanged. Back dismisses an
+  error/overlay before navigation. Scroll remains per stack entry; auth Back restores the surviving
+  Landing Sign in or public header opener. A credential refusal stays Login feedback and does not
+  repeat on Landing; reopening never fabricates a SignedOut account state.
+- **Identity:** the host owns `NativeAccountController`/`NativeSessionRuntime`; the shell borrows
+  them. `AccountView` contains no actor, credential, expiry or page count. Missing identity remains
+  Unavailable. Signed-in Me uses only the optional Server pseudonym/seed and retains the truthful
+  fallback; the [account-card record](../../../docs/evidence/theatre-account-card-689.md) is separate
+  source-bound evidence, not qualification of this guest change.
+
+### Shared scenario bindings and acceptance boundary
+
+Reuse the one draft capability `cantos.presentation.guest-navigation` from Web #691; there is no
+CMP Quint copy or registered client conformance observer. Its manifest already binds the Kotlin
+owners and tests below. Comments in those tests use the shared `run.*` IDs:
+
+| Shared run suffix | Mobile production seam / regression |
+| --- | --- |
+| `session-root`, `repeated-navigation` | `NavigationTest`: admitted roots, Search/Back/Reset, repeated navigation and queue/player |
+| `unresolved-session` | `NavigationTest`, `TheatreShellTest`: retained intent, real account recovery; `ShellLayoutTest`: no stale private presentation |
+| `auth-return`, `auth-cancel-late` | `NavigationTest`, `TheatreShellTest`: typed return, cancelled deferred response and fresh intent |
+| `logout-expiry` | `TheatreShellTest`: outage versus confirmed loss, pending cleanup and Back |
+| `public-deep-link` | `NavigationTest`, `TheatreShellTest`: public/neutral route retention; existing verification-link tests retain host claim boundaries |
+| `preferences-player` | `ShellLayoutTest`, `CantosTheatreAppTest`: public mini-player, navigation visibility and the existing preference dialogs |
+
+`cargo xtask theatre-preview verify` runs common/JVM tests and production Compose composition
+with synthetic external ports. `ShellLayoutTest` writes attributed captures/semantics under
+`shared/build/reports/guest-navigation`; opening them is a separate visual observation. JVM tests,
+model runs and Android artifacts do not establish OS Back, IME/safe areas, device auth, audio,
+TalkBack/VoiceOver, iOS runtime or Leptos/browser parity. The PR records actual source/commands,
+results and deferred platform acceptance; use the shared scenario IDs for compatible observations.
 
 ### Contextual session loss
 
@@ -443,9 +464,9 @@ and an older publication cannot clear the request for its replacement. The exist
 native transport, progress and Saved owners remain authoritative. See [issue595 evidence and
 device gaps](../../../docs/evidence/listen-hero-595.md).
 
-- Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary **Tài khoản** screen: a guest profile with vertical Sign in
-  and Register actions, a Membership card and the listening settings. A signed-in listener sees
+- Signed-in primary destinations: **Khám phá / Của tôi**. Guests enter Landing without primary
+  navigation; Search returns to the currently admitted root. The signed-in avatar opens secondary
+  **Tài khoản**. A signed-in listener sees
   a compact profile, one grouped list (membership, library and history, appearance, listening
   settings, support information) and a separate Sign out entry that opens a modal bottom sheet:
   only its confirm action asks the account owner to sign out, and Back closes the sheet before the
@@ -1048,14 +1069,14 @@ certificate and recipients. Native registration and downloads are still unavaila
 
 ## The application over real owners
 
-`CantosTheatreApp` shows the established screens — Discover, Search, Work, Player, Queue,
+`CantosTheatreApp` shows Landing and the established screens — Discover, Search, Work, Player, Queue,
 Library, History, Account, Settings, Login/Register, Membership preview and the mini-player — with
 the same layout, tokens, motion and copy. `ShellCatalogView`/`ShellState` are read-only
 projections; identities are the API's lower-case UUIDs, never a sample key.
 
 | Screen / control | Real owner |
 | --- | --- |
-| Discover, Search | `PublicCatalogController` (server `works`/`search`, cursors, fresh admission; no persisted authority) |
+| Landing, Discover, Search | `PublicCatalogController` (server `works`/`search`, cursors, fresh admission; no persisted authority) |
 | Work, chapters/episodes | `PublicCatalogController` detail + units walk; a count appears only when the walk is complete |
 | Player, mini-player, Queue, speed | `NativeListeningController`/`PlaybackController` over `AndroidMediaEngine`/`IosMediaEngine` with API-authorized grants |
 | Continue, History, Saved | `NativeLibraryController` (SQLDelight local SSOT, outbox, server sync); guests are asked to sign in |

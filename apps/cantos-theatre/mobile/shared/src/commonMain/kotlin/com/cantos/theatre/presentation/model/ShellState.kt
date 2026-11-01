@@ -1,6 +1,7 @@
 package com.cantos.theatre.presentation.model
 
 sealed interface ShellRoute {
+    data object Landing : ShellRoute
     data object Discovery : ShellRoute
     data object Search : ShellRoute
     data object Library : ShellRoute

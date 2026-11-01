@@ -91,7 +91,8 @@ class PreviewShellFlowTest {
         onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, expected))
 
     @Test
-    fun a_guest_walks_discover_detail_player_library_account_settings_and_back_on_one_path() = run { owners ->
+    fun signed_in_navigation_walks_detail_player_library_account_settings_and_back_on_one_path() = run(PreviewSeed(previewState(), signedIn = true)) { owners ->
+        waitUntil { owners.account.state.value is NativeAccountState.SignedIn }
         untilTag("work-$sonHa")
         title("Khám phá")
         onNodeWithTag("work-$sonHa").performScrollTo().performClick()
@@ -155,9 +156,9 @@ class PreviewShellFlowTest {
     fun the_card_save_is_a_separate_action_and_back_keeps_the_discovery_origin() = run { owners ->
         untilTag("work-$sonHa")
         onNodeWithTag("save-card-$sonHa").performScrollTo().performClick()
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login), owners.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login), owners.shell.navigation.value.stack)
         onNodeWithTag("back").performClick()
-        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
+        assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
     }
 
     @Test
@@ -168,20 +169,17 @@ class PreviewShellFlowTest {
         onNodeWithTag("search-input").performTextReplacement("Đèn")
         onNodeWithTag("back").performClick()
         onNodeWithTag("theme-toggle").assertDoesNotExist()
-        onNodeWithTag("account").performClick()
-        onNodeWithTag("setting-Theme").performScrollTo().performClick()
+        onNodeWithTag("guest-theme").performClick()
         onNodeWithTag("theme-System").performClick()
         waitForIdle()
         assertEquals(PreferenceTheme.System, owners.shell.preferences.state.value.theme)
-        onNodeWithTag("setting-Theme").performScrollTo().performClick()
+        onNodeWithTag("guest-theme").performClick()
         onNodeWithTag("theme-System").assertIsSelected()
         onNodeWithTag("theme-Dark").performClick()
         waitForIdle()
         assertEquals(ShellTheme.Dark, owners.projection().theme)
         assertEquals("Đèn", owners.projection().query)
-        assertEquals(TheatreRoute.Account, owners.shell.navigation.value.route)
-        onNodeWithTag("back").performClick()
-        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
+        assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
     }
 
     @Test
@@ -210,9 +208,10 @@ class PreviewShellFlowTest {
     @Test
     fun a_fresh_guest_library_explains_sign_in_and_a_restored_account_shows_continue_saved_and_history() {
         run(PreviewSession.Fresh.seed()) { owners ->
-            title("Của tôi")
-            onNodeWithTag("library-sync").assertExists()
-            onNodeWithTag("library-sign-in").assertExists()
+            title("Cantos")
+            onNodeWithTag("landing").assertExists()
+            onNodeWithTag("sign-in").assertExists()
+            onNodeWithTag("nav-library").assertDoesNotExist()
             assertEquals(null, owners.shell.library.value.account)
         }
         run(PreviewSession.Restored.seed()) { owners ->
@@ -280,7 +279,8 @@ class PreviewShellFlowTest {
         }
         run(PreviewSeed(previewState(catalogMode = ShellCatalogMode.Empty))) {
             waitForIdle()
-            onNodeWithTag("nav-discovery").assertIsDisplayed()
+            onNodeWithTag("nav-discovery").assertDoesNotExist()
+            onNodeWithTag("landing").assertExists()
             onAllNodesWithTag("work-$sonHa").assertCountEquals(0)
         }
     }
@@ -298,23 +298,22 @@ class PreviewShellFlowTest {
             onNodeWithTag("transport").performScrollTo().performClick()
             waitUntil(timeoutMillis = 5_000) { owners.runtime.listening.playback.state.value.status == PlaybackStatus.Paused }
             onNodeWithTag("back").performClick()
-            onNodeWithTag("account").performClick()
             val player = owners.runtime.listening.playback.state.value
             val library = owners.shell.library.value
             val account = owners.account.state.value
             val navigation = owners.shell.navigation.value
             val engineCommands = owners.engine.commands.toList()
-            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("guest-language").performClick()
             onNodeWithTag("locale-English").performClick()
             onNodeWithTag("locale-save-failure").performScrollTo().assertTextEquals(
                 "Không lưu được ngôn ngữ. Lựa chọn trước đó vẫn được giữ. Hãy thử lại.",
             )
-            onNodeWithTag("setting-Language").assert(hasText("Tiếng Việt"))
+            assertEquals(ShellLocale.Vietnamese, owners.projection().locale)
             runOnIdle { store.writesAvailable = true }
-            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("guest-language").performClick()
             onNodeWithTag("locale-English").performClick()
             onNodeWithTag("locale-save-failure").assertDoesNotExist()
-            onNodeWithTag("setting-Language").assert(hasText("English"))
+            assertEquals(ShellLocale.English, owners.projection().locale)
             assertEquals(LocalePreferenceRead.Saved(com.cantos.theatre.domain.preferences.UiLocale.English), store.readLocale())
             assertEquals(ShellLocale.English, owners.projection().locale)
             assertEquals(player, owners.runtime.listening.playback.state.value)

@@ -41,7 +41,7 @@ class DiscoveryPresentationTest {
     @Test
     fun discovery_brand_uses_one_decorative_official_mark_and_account_keeps_its_existing_header() {
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(ShellState(selectedEpisode = noSelection), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(ShellState(selectedEpisode = noSelection), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithTag("header-logo", useUnmergedTree = true)
                 .assertHeightIsAtLeast(44.dp).assertWidthIsAtLeast(44.dp)
                 .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
@@ -51,7 +51,7 @@ class DiscoveryPresentationTest {
             onNodeWithTag("header-title").assertExists()
         }
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(ShellState(stack = listOf(ShellRoute.Account), selectedEpisode = noSelection), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(ShellState(stack = listOf(ShellRoute.Account), selectedEpisode = noSelection), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithTag("header-logo", useUnmergedTree = true).assertDoesNotExist()
             onNodeWithTag("header-title").assertTextEquals("Tài khoản")
         }
@@ -65,7 +65,7 @@ class DiscoveryPresentationTest {
             CantosPresentation(state, ShellCatalogView(), { event ->
                 events += event
                 if (event is ShellEvent.Search) state = state.copy(query = event.query)
-            })
+            }, accountSignedIn = true)
         }
         onNodeWithTag("search-input").performTextReplacement("Sơn Hà")
         assertEquals(listOf<ShellEvent>(ShellEvent.Search("Sơn Hà")), events.toList())
@@ -78,7 +78,7 @@ class DiscoveryPresentationTest {
     fun the_docked_search_holds_one_magnifier_that_submits_without_changing_text_or_route() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
         val state = ShellState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), selectedEpisode = noSelection, query = "Đèn")
-        setContent { CantosPresentation(state, ShellCatalogView(), events::add) }
+        setContent { CantosPresentation(state, ShellCatalogView(), events::add, accountSignedIn = true) }
         onNodeWithTag("search-submit").assertHasClickAction()
         // The input and the magnifier share one name by design; the role (editable vs button) tells them apart.
         onNodeWithTag("search-submit", useUnmergedTree = true).assertContentDescriptionEquals("Tìm kiếm")
@@ -96,7 +96,7 @@ class DiscoveryPresentationTest {
         var listed by mutableStateOf(listOf(a, b, c))
         setContent {
             CantosPresentation(ShellState(stack = listOf(ShellRoute.Search), selectedEpisode = noSelection),
-                ShellCatalogView(works = listed), {})
+                ShellCatalogView(works = listed), {}, accountSignedIn = true)
         }
         val before = onNodeWithTag("work-b").fetchSemanticsNode().id
         runOnIdle { listed = listOf(c, a, b) }
@@ -108,7 +108,7 @@ class DiscoveryPresentationTest {
         val events = mutableListOf<ShellEvent>()
         setContent {
             CantosPresentation(ShellState(selectedEpisode = noSelection),
-                ShellCatalogView(worksPhase = ShellListPhase.More), events::add)
+                ShellCatalogView(worksPhase = ShellListPhase.More), events::add, accountSignedIn = true)
         }
         onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
         onNodeWithTag("catalog-empty-retry").assertDoesNotExist()
@@ -120,7 +120,7 @@ class DiscoveryPresentationTest {
     fun completed_catalog_empty_has_no_recovery_and_filtered_no_results_clears_without_navigation() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             val events = mutableListOf<ShellEvent>()
-            setContent { CantosPresentation(ShellState(selectedEpisode = noSelection, catalogMode = ShellCatalogMode.Empty), ShellCatalogView(), events::add) }
+            setContent { CantosPresentation(ShellState(selectedEpisode = noSelection, catalogMode = ShellCatalogMode.Empty), ShellCatalogView(), events::add, accountSignedIn = true) }
             onNodeWithText("Chưa có câu chuyện khả dụng").assertExists()
             onNodeWithText("Chưa tìm thấy câu chuyện").assertDoesNotExist()
             onNodeWithTag("catalog-empty-retry").assertDoesNotExist()
@@ -131,7 +131,7 @@ class DiscoveryPresentationTest {
             val events = mutableListOf<ShellEvent>()
             setContent {
                 CantosPresentation(ShellState(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), selectedEpisode = noSelection,
-                    catalogMode = ShellCatalogMode.Empty, query = "không có trong danh mục"), ShellCatalogView(), events::add)
+                    catalogMode = ShellCatalogMode.Empty, query = "không có trong danh mục"), ShellCatalogView(), events::add, accountSignedIn = true)
             }
             onNodeWithText("Chưa tìm thấy câu chuyện").assertExists()
             onNodeWithText("Chưa có câu chuyện khả dụng").assertDoesNotExist()

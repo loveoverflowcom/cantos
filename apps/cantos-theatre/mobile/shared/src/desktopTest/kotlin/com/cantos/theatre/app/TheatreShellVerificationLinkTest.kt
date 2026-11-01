@@ -102,7 +102,7 @@ class TheatreShellVerificationLinkTest {
         assertEquals(LinkReceipt.Shown, f.shell.receiveLink(link))
         assertEquals(LinkReceipt.Shown, f.shell.receiveLink(link))
         runCurrent()
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
         assertEquals(VerificationPhase.AwaitingConfirmation, f.verification.state.value.phase)
         assertEquals(0, f.completion.requests.size, "a link alone never reaches the API")
     }
@@ -130,7 +130,7 @@ class TheatreShellVerificationLinkTest {
         runCurrent()
         assertTrue(before === f.verification.state.value, "the captured link, password and confirmation are untouched")
         assertTrue(f.verification.state.value.canConfirm)
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
         assertEquals(0, f.completion.requests.size)
     }
 
@@ -145,7 +145,7 @@ class TheatreShellVerificationLinkTest {
         assertEquals(VerificationPhase.Completing, f.verification.state.value.phase)
         assertEquals(LinkReceipt.Busy, f.shell.receiveLink(link))
         assertEquals(LinkReceipt.Busy, f.shell.receiveLink("$ProductionVerifyEmailHandler?mode=verifyEmail"))
-        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.VerifyEmail), f.shell.navigation.value.stack)
         gate.complete(IdentityV1Result.Accepted(CompletionStatus.Completed))
         runCurrent()
         assertEquals(VerificationPhase.Completed(CompletionStatus.Completed), f.verification.state.value.phase)
@@ -158,7 +158,7 @@ class TheatreShellVerificationLinkTest {
         f.shell.close()
         assertEquals(LinkReceipt.NotClaimed, f.shell.receiveLink(link))
         runCurrent()
-        assertEquals(listOf(TheatreRoute.Discovery), f.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing), f.shell.navigation.value.stack)
         assertEquals(VerificationPhase.Idle, f.verification.state.value.phase)
     }
 }

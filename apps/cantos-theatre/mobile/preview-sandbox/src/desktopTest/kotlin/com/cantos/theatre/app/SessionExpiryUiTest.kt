@@ -46,7 +46,7 @@ class SessionExpiryUiTest {
         runOnIdle { repeat(10) { owners.account.revalidate("00000000-0000-4000-8000-0000000000b1") } }
         waitForIdle()
         onNodeWithTag("error-dialog").assertDoesNotExist()
-        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
+        assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
     }
 
     @Test fun contextual_dialog_is_localized_focusable_and_back_closes_before_navigation() {
@@ -85,7 +85,7 @@ class SessionExpiryUiTest {
                 runOnIdle { assertNotNull(systemBack).invoke() }
                 waitForIdle()
                 onNodeWithTag("error-dialog").assertDoesNotExist()
-                assertEquals(TheatreRoute.Library, owners.shell.navigation.value.route)
+                assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
                 // Dismiss is scoped to the loss epoch, including another private request.
                 runOnIdle { owners.shell.dispatch(ShellEvent.Navigate(ShellRoute.Library)) }
                 waitForIdle()
@@ -108,11 +108,12 @@ class SessionExpiryUiTest {
             waitForIdle()
             onNodeWithTag("error-dialog-primary").performClick()
             waitForIdle()
-            assertEquals(listOf(TheatreRoute.Library, TheatreRoute.Login), owners.shell.navigation.value.stack)
+            assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login), owners.shell.navigation.value.stack)
+            assertEquals(PrivateDestination.Library, owners.shell.navigation.value.returnTo)
             onNodeWithTag("error-dialog").assertDoesNotExist()
             onNodeWithTag("auth-status").assertDoesNotExist()
             onNodeWithTag("back").performClick()
             waitForIdle()
-            assertEquals(TheatreRoute.Library, owners.shell.navigation.value.route)
+            assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
         }
 }

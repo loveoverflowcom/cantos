@@ -73,7 +73,8 @@ class DesktopAcceptanceJourneyTest {
         title("Phòng nghe")
     }
 
-    @Test fun player_controls_keep_one_owner_across_queue_library_and_the_mini_player() = run { owners ->
+    @Test fun player_controls_keep_one_owner_across_queue_library_and_the_mini_player() = run(PreviewSeed(previewState(), signedIn = true)) { owners ->
+        waitUntil { owners.account.state.value is NativeAccountState.SignedIn }
         openPlayer()
         waitUntil(timeoutMillis = 5_000) { owners.runtime.listening.playback.state.value.status == PlaybackStatus.Playing }
         val session = owners.runtime.listening.playback.state.value.session?.source
@@ -128,8 +129,8 @@ class DesktopAcceptanceJourneyTest {
         assertTrue(!keys.onKeyEvent(key(androidx.compose.ui.input.key.Key.Enter)), "only Escape acts")
         assertTrue(keys.onKeyEvent(key()))
         waitForIdle()
-        title("Khám phá")
-        assertEquals(TheatreRoute.Discovery, owners.shell.navigation.value.route)
+        title("Cantos")
+        assertEquals(TheatreRoute.Landing, owners.shell.navigation.value.route)
         assertTrue(!keys.onKeyEvent(key()))
     }
 
@@ -184,9 +185,10 @@ class DesktopAcceptanceJourneyTest {
             waitUntil(timeoutMillis = 5_000) { owners.account.state.value == NativeAccountState.SignedOut }
             assertEquals(null, owners.shell.library.value.account)
             assertTrue(owners.shell.library.value.saved.isEmpty(), "no previous listener row remains in the Library owner")
-            onNodeWithTag("back").performClick()
-            title("Của tôi")
-            onNodeWithTag("library-saved").assertExists()
+            onNodeWithTag("back").assertDoesNotExist()
+            title("Cantos")
+            onNodeWithTag("library-saved").assertDoesNotExist()
+            onNodeWithTag("nav-library").assertDoesNotExist()
             assertTrue(owners.projection().savedWorks.isEmpty())
         }
 

@@ -60,8 +60,7 @@ class AuthAccountUiTest {
         body(owners)
     }
 
-    private fun ComposeUiTest.openLoginFromAccount() {
-        onNodeWithTag("account").performClick()
+    private fun ComposeUiTest.openLoginFromLanding() {
         onNodeWithTag("sign-in").performScrollTo().assertIsEnabled().performClick()
         waitForIdle()
     }
@@ -73,9 +72,9 @@ class AuthAccountUiTest {
     }
 
     @Test
-    fun login_is_a_focused_task_with_vertical_actions_and_back_restores_the_account_entry() = run { h ->
-        openLoginFromAccount()
-        onNodeWithTag("back").assertIsDisplayed().assertContentDescriptionEquals("Về Tài khoản")
+    fun login_is_a_focused_task_with_vertical_actions_and_back_restores_the_landing_entry() = run { h ->
+        openLoginFromLanding()
+        onNodeWithTag("back").assertIsDisplayed().assertContentDescriptionEquals("Quay lại")
         onNodeWithTag("login-create").performScrollTo().assertIsDisplayed()
         // Compare both controls in the same scrolled coordinate frame.
         val primary = onNodeWithTag("login-primary").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
@@ -98,32 +97,26 @@ class AuthAccountUiTest {
     }
 
     @Test
-    fun guest_account_offers_sign_in_then_create_account_as_one_vertical_hierarchy() = run { h ->
-        onNodeWithTag("account").performClick()
-        val profile = onNodeWithTag("account-profile").fetchSemanticsNode().boundsInRoot
+    fun guest_landing_offers_direct_auth_without_a_profile_or_primary_navigation() = run { h ->
+        onNodeWithTag("landing").assertExists()
         val signIn = onNodeWithTag("sign-in").performScrollTo().assertIsEnabled().fetchSemanticsNode().boundsInRoot
         val create = onNodeWithTag("create-account").performScrollTo().assertIsEnabled().fetchSemanticsNode().boundsInRoot
-        assertTrue(signIn.bottom <= create.top)
-        assertEquals(signIn.width, create.width)
-        assertTrue(profile.left <= signIn.left && create.right <= profile.right)
-        assertEquals(signIn.height, create.height, "Both active actions form one equal-height pill pair")
-        val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
-        assertEquals(40f, avatar.width, "The decorative guest avatar is compact, not a control")
-        assertEquals(avatar.width, avatar.height)
-        onNodeWithText("Người nghe khách").assertDoesNotExist()
-        onNodeWithText("Đăng nhập để mở thư viện của bạn.").assertExists()
-        onNodeWithText("Về chế độ nghe không đăng nhập").assertDoesNotExist()
-        onNodeWithTag("account-membership").assertExists()
-        onNodeWithTag("settings").assertExists()
-        // Nothing here is an invented name, total, conflict or Membership entitlement.
+        assertTrue(signIn.width >= 48f && create.width >= 48f)
+        assertTrue(signIn.height >= 48f && create.height >= 48f)
+        assertTrue(signIn.right <= create.left || signIn.bottom <= create.top)
+        onNodeWithTag("account-profile").assertDoesNotExist()
+        onNodeWithTag("account-avatar").assertDoesNotExist()
+        onNodeWithTag("nav-discovery").assertDoesNotExist()
+        onNodeWithTag("nav-library").assertDoesNotExist()
+        onNodeWithTag("guest-theme").assertIsDisplayed()
+        onNodeWithTag("guest-language").assertIsDisplayed()
         onNodeWithText("Minh An", substring = true).assertDoesNotExist()
-        onNodeWithText("12:48 / 18:25", substring = true).assertDoesNotExist()
         assertEquals(0, h.identity.loginRequests)
     }
 
     @Test
     fun pending_login_blocks_a_second_request_and_cancel_returns_to_the_entry_without_reopening() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         assertEquals(1, h.identity.loginRequests)
@@ -133,14 +126,15 @@ class AuthAccountUiTest {
 
         onNodeWithTag("auth-cancel").performScrollTo().performClick()
         waitForIdle()
-        onNodeWithTag("login-primary").performScrollTo().assertIsEnabled()
+        onNodeWithTag("login-primary").assertDoesNotExist()
+        onNodeWithTag("sign-in").performScrollTo().assertIsEnabled()
         assertEquals(NativeAccountState.SignedOut, h.account.state.value)
         assertEquals(1, h.identity.loginRequests)
     }
 
     @Test
     fun credential_refusal_stays_on_login_and_waits_for_another_explicit_attempt() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         h.identity.completeLogin(approve = false)
@@ -157,7 +151,7 @@ class AuthAccountUiTest {
 
     @Test
     fun back_during_a_pending_login_fences_a_late_login_response() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         onNodeWithTag("back").performClick()
@@ -187,7 +181,7 @@ class AuthAccountUiTest {
             var systemBack: (() -> Unit)? = null
             run(backHandler = { enabled, onBack -> systemBack = onBack.takeIf { enabled } }) { h ->
                 h.identity.loginFailure = failure
-                openLoginFromAccount()
+                openLoginFromLanding()
                 submitLogin()
                 waitForIdle()
                 h.identity.completeLogin(approve = false)
@@ -223,7 +217,7 @@ class AuthAccountUiTest {
 
     @Test
     fun back_during_a_pending_login_leaves_no_status_when_a_late_refusal_arrives() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         onNodeWithTag("back").performClick()
@@ -239,7 +233,6 @@ class AuthAccountUiTest {
     @Test
     fun a_failure_the_login_entry_did_not_request_stays_on_the_guest_card() = run { h ->
         // Negative control: the same typed refusal, reached without a Login attempt, is account status.
-        onNodeWithTag("account").performClick()
         waitForIdle()
         h.identity.mode = PreviewLoginMode.Deny
         val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("listener@example.test")).value
@@ -252,11 +245,12 @@ class AuthAccountUiTest {
 
     @Test
     fun a_confirmed_session_returns_to_account_and_shows_only_what_the_owner_may_project() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         h.identity.completeLogin(approve = true)
         waitForIdle()
+        onNodeWithTag("account").performClick()
         onNodeWithTag("sign-in").assertDoesNotExist()
         onNodeWithTag("open-library").performScrollTo().assertIsDisplayed()
         onNodeWithTag("account-name").assertExists()
@@ -271,11 +265,12 @@ class AuthAccountUiTest {
 
     @Test
     fun logout_hides_the_account_first_and_keeps_login_blocked_until_cleanup_succeeds() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         submitLogin()
         waitForIdle()
         h.identity.completeLogin(approve = true)
         waitForIdle()
+        onNodeWithTag("account").performClick()
 
         h.identity.clearFails = true
         onNodeWithTag("logout").performScrollTo().performClick()
@@ -295,7 +290,7 @@ class AuthAccountUiTest {
 
     @Test
     fun registration_collects_only_email_and_returns_through_login_to_its_origin() = run { h ->
-        openLoginFromAccount()
+        openLoginFromLanding()
         onNodeWithTag("login-create").performScrollTo().performClick()
         waitForIdle()
         onNodeWithTag("back").assertContentDescriptionEquals("Về Đăng nhập")
@@ -315,7 +310,7 @@ class AuthAccountUiTest {
 
     @Test
     fun large_text_on_a_narrow_screen_keeps_back_logo_theme_and_both_actions_reachable() = run(width = 320, height = 568, textScale = 2f) {
-        openLoginFromAccount()
+        openLoginFromLanding()
         val back = onNodeWithTag("back").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val theme = onNodeWithTag("auth-theme").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val logo = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot

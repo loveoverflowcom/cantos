@@ -40,7 +40,7 @@ class SessionExpiryFlowTest {
             repeat(10) { h.shell.dispatch(ShellEvent.SetSaved(work, true)) }
             assertEquals(0, h.shell.errors.value.queuedCount)
             h.shell.onErrorEvent(ErrorEvent.ActionChosen(ErrorAction.SignIn)); runCurrent()
-            assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Login), h.stack)
+            assertEquals(listOf(TheatreRoute.Landing, TheatreRoute.Login), h.stack)
             h.identity.sessionFailure = null
             h.identity.mode = PreviewLoginMode.Hold
             val email = assertIs<RegistrationResult.Accepted<RegistrationEmail>>(RegistrationEmail.parse("listener@example.test")).value
@@ -64,7 +64,7 @@ class SessionExpiryFlowTest {
             now += 901_000
             h.shell.dispatch(ShellEvent.SetSaved(work, true)); runCurrent()
             assertEquals(ErrorKind.SessionExpired, h.shell.errors.value.active?.kind)
-            assertEquals(TheatreRoute.Discovery, h.shell.navigation.value.route)
+            assertEquals(TheatreRoute.Landing, h.shell.navigation.value.route)
             assertEquals(0, h.libraryApi.mutations)
             assertNull(h.shell.library.value.account)
         } finally { h.close() }

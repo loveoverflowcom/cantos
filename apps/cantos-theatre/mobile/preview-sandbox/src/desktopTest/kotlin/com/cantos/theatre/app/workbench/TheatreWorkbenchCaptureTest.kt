@@ -131,7 +131,8 @@ class TheatreWorkbenchCaptureTest {
                 Box(Modifier.requiredSize(1200.dp, 1000.dp).testTag("workbench-capture")) { TheatreWorkbench(controller) }
             }
             waitForIdle()
-            onNodeWithTag("workbench-snapshot").assertTextContains("route=Library", substring = true)
+            onNodeWithTag("workbench-snapshot").assertTextContains(
+                "route=${if (fixture == TheatreFixture.Fresh) "Landing" else "Library"}", substring = true)
             val image = onNodeWithTag("workbench-capture").captureToImage()
             assertEquals(1200, image.width)
             assertEquals(1000, image.height)

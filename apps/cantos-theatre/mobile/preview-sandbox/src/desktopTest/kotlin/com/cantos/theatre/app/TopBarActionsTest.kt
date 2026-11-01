@@ -31,7 +31,7 @@ class TopBarActionsTest {
     @Test
     fun brand_and_account_keep_one_centerline_and_a_full_target_without_a_duplicate_theme_control() {
         for (theme in ShellTheme.entries) runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state(theme, ShellRoute.Discovery), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state(theme, ShellRoute.Discovery), ShellCatalogView(), {}, accountSignedIn = true) }
             val logo = onNodeWithTag("header-logo", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             val account = onNodeWithTag("account").fetchSemanticsNode().boundsInRoot
             assertEquals(logo.center.y, account.center.y, 1f)
@@ -44,7 +44,7 @@ class TopBarActionsTest {
     @Test
     fun large_text_keeps_the_only_header_account_target_full_size_and_reachable() =
         runDesktopComposeUiTest(width = 320, height = 568) {
-            setContent { CantosPresentation(state(ShellTheme.Dark, ShellRoute.Discovery), ShellCatalogView(), {}, textScale = 2f) }
+            setContent { CantosPresentation(state(ShellTheme.Dark, ShellRoute.Discovery), ShellCatalogView(), {}, textScale = 2f, accountSignedIn = true) }
             val box = onNodeWithTag("account").assertHasClickAction().fetchSemanticsNode().boundsInRoot
             assertTrue(box.left >= 0f && box.right <= 320f)
             onNodeWithTag("account").assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
@@ -54,7 +54,7 @@ class TopBarActionsTest {
     @Test
     fun account_retains_its_one_named_navigation_intent() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
-        setContent { CantosPresentation(state(ShellTheme.Dark, ShellRoute.Discovery), ShellCatalogView(), events::add) }
+        setContent { CantosPresentation(state(ShellTheme.Dark, ShellRoute.Discovery), ShellCatalogView(), events::add, accountSignedIn = true) }
         onNodeWithTag("account").assertHasClickAction().assertContentDescriptionEquals("Tài khoản").performClick()
         assertEquals(listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Account)), events)
         onNodeWithTag("theme-toggle").assertDoesNotExist()
@@ -63,13 +63,13 @@ class TopBarActionsTest {
     @Test
     fun a_drill_down_keeps_back_and_account_targets_and_me_adds_no_empty_action_group() {
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state(ShellTheme.Light, ShellRoute.Discovery, ShellRoute.Settings), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state(ShellTheme.Light, ShellRoute.Discovery, ShellRoute.Settings), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithTag("back").assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
             onNodeWithTag("account").assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
             onNodeWithTag("theme-toggle").assertDoesNotExist()
         }
         runDesktopComposeUiTest(width = 320, height = 568) {
-            setContent { CantosPresentation(state(ShellTheme.Light, ShellRoute.Discovery, ShellRoute.Account), ShellCatalogView(), {}, textScale = 2f) }
+            setContent { CantosPresentation(state(ShellTheme.Light, ShellRoute.Discovery, ShellRoute.Account), ShellCatalogView(), {}, textScale = 2f, accountSignedIn = true) }
             onNodeWithTag("account").assertDoesNotExist()
             onNodeWithTag("theme-toggle").assertDoesNotExist()
             onNodeWithTag("back").assertHasClickAction()
