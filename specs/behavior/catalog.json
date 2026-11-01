@@ -262,6 +262,12 @@
       "owner": "services/cantos-server/src/contexts/catalog/domain/viewer_access.rs",
       "lifecycle": "draft",
       "manifestPath": "services/cantos-server/behavior/catalog/viewer_access.manifest.json"
+    },
+    {
+      "id": "cantos.presentation.guest-navigation",
+      "lifecycle": "draft",
+      "owner": "apps/cantos-theatre/web/src/app/routes.rs",
+      "manifestPath": "apps/cantos-theatre/behavior/guest_navigation.manifest.json"
     }
   ]
 }

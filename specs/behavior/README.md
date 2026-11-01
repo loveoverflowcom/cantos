@@ -45,6 +45,11 @@ separates implemented kernels from model assumptions.
 The cover model includes fresh-projection fetch admission; its six `run.fetch-*` IDs are
 reused by independent native tests for traceability, without replaying model traces.
 
+The shared draft [guest-navigation capability](../../apps/cantos-theatre/behavior/guest_navigation.md)
+records the owner-approved Landing/session navigation policy for Web and CMP. Its model evidence
+is separate from compiled-browser and native device observations; no implementation observer is
+registered for it.
+
 ## Run locally
 
 ```sh
@@ -125,7 +130,7 @@ of a pointer lives in a module-owned JSON manifest:
   "sourceRefs": [], "inventory": "services/x/behavior/thing.md", "aliases": [] }
 ```
 
-**Layout.** All ten runnable capabilities are root pointers. A model, its `_tests.qnt`, its
+**Layout.** Runnable capabilities use root pointers. A model, its `_tests.qnt`, its
 `<name>.manifest.json` and its capability document `<name>.md` (the capability's rows of the
 [authority inventory](inventory.md#module-owned-inventories)) sit together in the `behavior/`
 directory of the boundary that owns the behavior: `services/<name>/behavior/`,

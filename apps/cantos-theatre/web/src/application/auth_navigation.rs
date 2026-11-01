@@ -6,10 +6,12 @@
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ReturnDestination {
     SharedWork(crate::core::public_ids::PublicWorkId),
+    PublicWork(crate::core::public_ids::PublicWorkId),
     #[default]
     Home,
     Account,
     Library,
+    History,
     Membership,
     MembershipFromAccount,
 }
@@ -18,9 +20,11 @@ impl ReturnDestination {
     pub fn slug(self) -> String {
         match self {
             Self::SharedWork(id) => format!("shared/{id}"),
+            Self::PublicWork(id) => format!("work/{id}"),
             Self::Home => "home".into(),
             Self::Account => "account".into(),
             Self::Library => "library".into(),
+            Self::History => "history".into(),
             Self::Membership => "membership".into(),
             Self::MembershipFromAccount => "membership-account".into(),
         }
@@ -30,10 +34,14 @@ impl ReturnDestination {
         if let Some(id) = value.strip_prefix("shared/") {
             return crate::core::public_ids::PublicWorkId::parse(id).map(Self::SharedWork);
         }
+        if let Some(id) = value.strip_prefix("work/") {
+            return crate::core::public_ids::PublicWorkId::parse(id).map(Self::PublicWork);
+        }
         match value {
             "home" => Some(Self::Home),
             "account" => Some(Self::Account),
             "library" => Some(Self::Library),
+            "history" => Some(Self::History),
             "membership" => Some(Self::Membership),
             "membership-account" => Some(Self::MembershipFromAccount),
             _ => None,
@@ -43,9 +51,11 @@ impl ReturnDestination {
     pub fn target(self) -> NavigationTarget {
         match self {
             Self::SharedWork(id) => NavigationTarget::SharedWork(id),
+            Self::PublicWork(id) => NavigationTarget::PublicWork(id),
             Self::Home => NavigationTarget::Home,
             Self::Account => NavigationTarget::Account,
             Self::Library => NavigationTarget::Library,
+            Self::History => NavigationTarget::History,
             Self::Membership => NavigationTarget::Membership(MembershipReturn::Home),
             Self::MembershipFromAccount => NavigationTarget::Membership(MembershipReturn::Account),
         }
@@ -149,9 +159,11 @@ impl MembershipReturn {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NavigationTarget {
     SharedWork(crate::core::public_ids::PublicWorkId),
+    PublicWork(crate::core::public_ids::PublicWorkId),
     Home,
     Account,
     Library,
+    History,
     Auth(AuthRoute),
     Membership(MembershipReturn),
 }

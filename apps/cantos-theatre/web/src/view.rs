@@ -78,7 +78,7 @@ pub fn Theatre() -> impl IntoView {
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             <p class="theatre-demo-notice" id="theatre-demo-notice">{move || ctx.text(Key::DemoNotice)}</p>
                             {move || match ctx.route.get() {
-                                Route::Discover | Route::Explore => view! { <Discover ctx=ctx/> }.into_any(),
+                                Route::Landing | Route::Discover | Route::Explore => view! { <Discover ctx=ctx/> }.into_any(),
                                 Route::Work(id) => view! { <WorkDetail ctx=ctx id=id/> }.into_any(),
                                 Route::Library => view! { <Library ctx=ctx/> }.into_any(),
                                 Route::History => view! { <History ctx=ctx/> }.into_any(),
@@ -330,11 +330,11 @@ mod tests {
     }
 
     #[test]
-    fn live_shell_mounts_account_and_library_without_mock_media_or_studio_authority() {
+    fn unresolved_live_shell_exposes_public_entry_without_mock_media_or_studio_authority() {
         Owner::new().with(|| {
             let html = view! { <LiveBoundary/> }.to_html();
             assert!(html.contains("theatre-public-home"));
-            assert!(html.contains("href=\"#account\""));
+            assert!(html.contains("id=\"theatre-landing\""));
             assert!(!html.contains("theatre-live-account-heading"));
             assert!(html.contains("role=\"status\""));
             for forbidden in [
@@ -350,34 +350,43 @@ mod tests {
         });
     }
     #[test]
-    fn live_shell_has_three_destinations_and_no_header_preference_or_avatar_entries() {
+    fn unresolved_shell_mounts_landing_and_preferences_without_application_navigation() {
         Owner::new().with(|| {
             let html = view! { <LiveBoundary/> }.to_html();
-            // The rail logo is the wordmark; the topbar names the place instead of repeating it.
-            assert!(!html.contains("theatre-brand-name"), "{html}");
-            assert!(html.contains("theatre-topbar-context"));
-            assert!(
-                html.find("id=\"theatre-navigation-menu\"").unwrap()
-                    < html.find("class=\"theatre-mobile-brand\"").unwrap()
-            );
-            assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 6);
-            // Each destination retains its leading glyph and a decorative selected check.
-            assert!(
-                html.contains("id=\"theatre-navigation-menu\"")
-                    && html.contains("id=\"theatre-navigation-drawer\"")
-            );
-            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 6);
-            assert!(html.contains("href=\"#account\"") && html.contains(">Me</span>"));
+            assert!(html.contains("id=\"theatre-landing\""));
+            assert!(html.contains("theatre-guest-preferences"));
+            assert!(html.contains("data-navigation=\"none\""));
             for absent in [
-                "theatre-topbar-theme",
-                "theatre-live-locale",
-                "theatre-account-entry",
-                "theatre-mobile-locale",
+                "theatre-navigation-rail",
+                "theatre-navigation-drawer",
+                "theatre-navigation-menu",
+                "theatre-rail-toggle",
+                "class=\"theatre-nav-link\"",
             ] {
                 assert!(!html.contains(absent), "{absent}");
             }
         });
     }
+
+    #[test]
+    fn admitted_navigation_keeps_the_existing_three_destinations_and_no_header_utilities() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(crate::application::account_view::AccountViewState::default());
+            crate::features::auth_preview::signed_in(state, crate::features::auth_preview::PreviewActor::A).unwrap();
+            let html = view! { <live_shell::NavigationChrome route=RwSignal::new(Route::Discover)
+                locale=RwSignal::new(Locale::Vietnamese) state=state.read_only() shell=NodeRef::new()/> }.to_html();
+            assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 6);
+            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 6);
+            for present in ["theatre-navigation-menu", "theatre-navigation-drawer", "href=\"#account\""] {
+                assert!(html.contains(present), "{present}");
+            }
+            for absent in ["theatre-topbar-theme", "theatre-live-locale", "theatre-account-entry", "theatre-mobile-locale"] {
+                assert!(!html.contains(absent), "{absent}");
+            }
+        });
+    }
+    // Shared scenario: cantos.presentation.guest-navigation.run.preferences-player
+    // Isolated mock scope only; real public audio remains a separate runtime gate.
     #[test]
     fn locale_projection_keeps_player_snapshot_and_saved_work() {
         Owner::new().with(|| {

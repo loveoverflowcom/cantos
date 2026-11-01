@@ -50,7 +50,7 @@ pub(crate) fn restore_return(snapshot: ReturnSnapshot) {
 }
 
 pub(crate) fn go(route: RwSignal<Route>, destination: Route, replace: bool) {
-    if route.get_untracked() == destination && !replace {
+    if route.get_untracked() == destination {
         return;
     }
     #[cfg(target_arch = "wasm32")]
@@ -71,6 +71,8 @@ pub(crate) fn go(route: RwSignal<Route>, destination: Route, replace: bool) {
             }
         }
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = replace;
     route.set(destination);
 }
 

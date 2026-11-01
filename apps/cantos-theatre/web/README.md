@@ -1,7 +1,7 @@
 # Cantos Theatre Web
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a public discovery Home, [live guest playback](#live-guest-playback) of published units, a
+a distinct guest Landing and signed-in Discover, [live guest playback](#live-guest-playback) of published units, a
 separate listener account/auth boundary and an explicitly isolated session-only mock; users see
 **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
@@ -71,6 +71,21 @@ logged, persisted or fetched into a `Blob`.
 - **Not covered here:** search and routing (#270), offline,
   queue, transcript, Safari/iOS and deployed CDN/CORS behavior.
 
+## Guest entry and Discover
+
+The [owner guest policy](../../../docs/design/theatre-guest-entry.md) supersedes the guest
+navigation/preferences placement of #641/#527/#690. `#landing` (also empty root) renders a
+separate Landing composition over the existing search, catalog and card owners. Confirmed
+SignedIn normalizes it to Discover; Guest private Library/History/Me URLs replace to Landing
+with an allowlisted auth return. Unresolved session phases retain destination and recovery;
+only SignedIn mounts navigation. Public Work/shared/auth/proof links keep their existing gates.
+Landing/auth expose a compact locale/theme disclosure with the same Me chooser and root signals.
+One player remains outside route/navigation mounts; route/session changes never autoplay.
+
+The [shared guest-navigation inventory](../behavior/guest_navigation.md) names the scenario IDs,
+finite model assumptions and pending CMP #692 bindings. Quint, host tests, compiled-browser
+observations and native device evidence are separate; a model PASS does not establish parity.
+
 ## Discover layout
 
 Discover keeps the intro and search/filters, then presents every returned Work in one keyed,
@@ -125,9 +140,9 @@ The shared `Status`/`ErrorState` APIs lack both-renderer qualification for new T
 sites, so this composition does not import them or alter the admission baseline. Their future
 migration needs the existing qualification process; source registration is not runtime approval.
 
-The default entrypoint opens public Home without a login wall. It reads actual published work
+The default entrypoint opens public Landing without a login wall. It reads actual published work
 summaries anonymously, independently of session availability. The live Web shell follows
-[#641 v9.2](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**.
+[#641 v9.2](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**, mounted only for a confirmed SignedIn account.
 At 1200 CSS px and above it defaults to a 216px labelled rail; the local toggle collapses it to
 96px without a route/history change. At 600–1199px the default is a 96px icon/caption rail;
 Menu opens the same destinations in a modal drawer without shifting content. Below 600px only
@@ -145,10 +160,10 @@ The labelled group has no additional card around those tonal rows; removing that
 surface/inset keeps the controls full-sized and brings Premium closer. The
 [Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records the
 measured before/after, actual popup/focus and locale-reload observations.
-Account recovery/logout and truthful Cantos Premium information remain present. The header has no locale/theme/avatar
-utilities. `#settings` remains a compatibility entry to the same Me composition; Membership is
+Account recovery/logout and truthful Cantos Premium information remain present. The signed-in header has no locale/theme/avatar
+utilities; guest Landing/auth have the compact preferences exception above. `#settings` remains a compatibility entry to the same Me composition; Membership is
 in the Me family. Discover/Search/Work and Library/History retain their own families. Guest
-Library offers auth actions directly with a typed Library return; it does not redirect into Me.
+Library/History/Me entries replace to Landing and retain a typed auth return; cancel is guest-safe.
 Only an admitted Guest can start authentication; checking, failed and logout-pending states
 keep their actual recovery and never expose private Library data.
 

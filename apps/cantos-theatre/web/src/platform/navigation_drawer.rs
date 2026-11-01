@@ -195,7 +195,12 @@ export function mount_navigation_drawer(dialog, headerMenu, railToggle, closeBut
     reconcile();
     return {route_changed: routeChanged, dispose() {
         disposed = true;
+        const active = doc.activeElement;
+        const lostNavigationFocus = dialog.contains(active) || active === headerMenu
+            || shell.querySelector('#theatre-navigation-rail')?.contains(active);
         close(false);
+        shell.dataset.navigation = 'none';
+        if (lostNavigationFocus) focus(doc.getElementById('theatre-main'));
         resize.disconnect();
         text.disconnect();
         listeners.forEach(remove => remove());

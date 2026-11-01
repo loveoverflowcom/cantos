@@ -48,8 +48,8 @@ pub(crate) fn outside_box(x: f64, y: f64, left: f64, top: f64, right: f64, botto
 }
 
 #[cfg(any(target_arch = "wasm32", test))]
-fn needs_focus_fallback(active_tag: Option<&str>) -> bool {
-    active_tag.is_none_or(|tag| tag == "BODY")
+fn needs_focus_fallback(active_tag: Option<&str>, visible: bool) -> bool {
+    !visible || active_tag.is_none_or(|tag| tag == "BODY")
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -71,8 +71,14 @@ mod browser {
         let Some(document) = leptos::web_sys::window().and_then(|window| window.document()) else {
             return;
         };
-        let active_tag = document.active_element().map(|element| element.tag_name());
-        if needs_focus_fallback(active_tag.as_deref()) {
+        let active = document.active_element();
+        let active_tag = active.as_ref().map(|element| element.tag_name());
+        // A just-closed dialog can still report its hidden button as active until blur settles.
+        let visible = active.as_ref().is_some_and(|element| {
+            let bounds = element.get_bounding_client_rect();
+            element.is_connected() && bounds.width() > 0.0 && bounds.height() > 0.0
+        });
+        if needs_focus_fallback(active_tag.as_deref(), visible) {
             let _ = focus_by_id("theatre-main");
         }
     }
@@ -221,8 +227,8 @@ pub(crate) fn LogoutConfirmation(
         }
         current
     });
-    // Dialog restores a connected opener first. Successful logout removes the Me logout
-    // button, so recover only if focus is still lost after that restoration has had a turn.
+    // Preserve a visible restored opener; a removed private opener or hidden closed-dialog
+    // action needs the shell's main landmark after native close has had a turn.
     Effect::new(move |was_open: Option<bool>| {
         let is_open = open.get();
         if was_open == Some(true) && !is_open {
@@ -287,10 +293,11 @@ mod tests {
 
     #[test]
     fn logout_focus_fallback_preserves_a_restored_opener_or_other_real_target() {
-        assert!(needs_focus_fallback(None));
-        assert!(needs_focus_fallback(Some("BODY")));
+        assert!(needs_focus_fallback(None, false));
+        assert!(needs_focus_fallback(Some("BODY"), true));
         for target in ["BUTTON", "INPUT", "A", "MAIN", "H1", "DIALOG"] {
-            assert!(!needs_focus_fallback(Some(target)), "{target}");
+            assert!(!needs_focus_fallback(Some(target), true), "{target}");
+            assert!(needs_focus_fallback(Some(target), false), "hidden {target}");
         }
     }
 

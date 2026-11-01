@@ -165,7 +165,7 @@ fn home_session(ui: &AccountUi) -> HomeSession {
 
 /// The intro's account slot (#538): the same authority as the header, projected for Discovery.
 #[component]
-fn HomeAccount(
+pub(crate) fn HomeAccount(
     account: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     on_login: Callback<()>,
@@ -347,7 +347,7 @@ fn SearchDockResults(
 }
 
 #[component]
-fn SearchForm(
+pub(crate) fn SearchForm(
     applied: RwSignal<DiscoveryQuery>,
     locale: RwSignal<Locale>,
     on_search: Callback<DiscoveryQuery>,
@@ -565,6 +565,33 @@ pub(crate) fn PublicHome(
     on_restart: Callback<()>,
     on_open_work: Callback<PublicWorkId>,
 ) -> impl IntoView {
+    view! {
+        <section class="theatre-public-home" aria-labelledby="theatre-public-home-heading">
+            <SearchForm applied locale on_search state on_retry on_restart on_load_more on_open_work>
+            <header class="theatre-discover-intro">
+                <div class="theatre-discover-intro-copy">
+                    <p class="theatre-eyebrow">{move || text(Key::PublicHomeEyebrow, locale.get())}</p>
+                    <h1 id="theatre-public-home-heading">{move || text(Key::HomeHeading, locale.get())}</h1>
+                    <p class="theatre-muted">{move || text(Key::PublicHomeIntroduction, locale.get())}</p>
+                </div>
+                <HomeAccount account locale on_login on_register on_refresh on_logout/>
+            </header>
+            </SearchForm>
+            <PublicCatalog state locale on_retry on_load_more on_restart on_open_work/>
+        </section>
+    }
+}
+
+/// Data states and keyed cards shared by Landing and Discover; requests stay in the shell.
+#[component]
+pub(crate) fn PublicCatalog(
+    state: RwSignal<PublicDiscoveryState>,
+    locale: RwSignal<Locale>,
+    on_retry: Callback<()>,
+    on_load_more: Callback<()>,
+    on_restart: Callback<()>,
+    on_open_work: Callback<PublicWorkId>,
+) -> impl IntoView {
     let current = Memo::new(move |_| state.with(|s| region(s.phase())));
     // Every returned Work stays in one keyed shelf, including the first result. This keeps
     // continuation and Back focus identities independent of visual rank or card reflow.
@@ -642,17 +669,6 @@ pub(crate) fn PublicHome(
         Tail::More | Tail::End | Tail::Loading => on_load_more.run(()),
     });
     view! {
-        <section class="theatre-public-home" aria-labelledby="theatre-public-home-heading">
-            <SearchForm applied locale on_search state on_retry on_restart on_load_more on_open_work>
-            <header class="theatre-discover-intro">
-                <div class="theatre-discover-intro-copy">
-                    <p class="theatre-eyebrow">{move || text(Key::PublicHomeEyebrow, locale.get())}</p>
-                    <h1 id="theatre-public-home-heading">{move || text(Key::HomeHeading, locale.get())}</h1>
-                    <p class="theatre-muted">{move || text(Key::PublicHomeIntroduction, locale.get())}</p>
-                </div>
-                <HomeAccount account locale on_login on_register on_refresh on_logout/>
-            </header>
-            </SearchForm>
             <section class="theatre-public-catalog" aria-labelledby="theatre-public-shelf-heading">
                 <h2 id="theatre-public-shelf-heading">{move || text(Key::StoryShelf, locale.get())}</h2>
                 {move || match current.get() {
@@ -727,7 +743,6 @@ pub(crate) fn PublicHome(
                     }
                 }}
             </section>
-        </section>
     }
 }
 

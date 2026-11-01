@@ -31,6 +31,9 @@ pub(crate) struct LiveNavigation {
     /// and the discovery walk follows it, so a cursor is never reused for another search.
     pub query: RwSignal<DiscoveryQuery>,
     preview: bool,
+    phase: Memo<SessionPhase>,
+    observed_phase: StoredValue<SessionPhase>,
+    guest_return: StoredValue<Option<ReturnDestination>>,
     intents: RwSignal<AuthIntentState>,
     pending: RwSignal<Option<AuthRequestFence>>,
     returned: StoredValue<Option<(Route, browser::ReturnSnapshot)>>,
@@ -52,19 +55,24 @@ impl LiveNavigation {
             _ => None,
         };
         let intents = AuthIntentState::new(auth);
+        let phase = observed_session_phase(state.read_only());
         let navigation = Self {
             route: RwSignal::new(initial),
             query: RwSignal::new(match initial {
-                Route::Discover | Route::Explore => super::routes::discovery_query(&hash),
+                route if route.is_catalog() => super::routes::discovery_query(&hash),
                 _ => DiscoveryQuery::default(),
             }),
             preview,
+            phase,
+            observed_phase: StoredValue::new(phase.get_untracked()),
+            guest_return: StoredValue::new(None),
             intents: RwSignal::new(intents),
             pending: RwSignal::new(None),
             returned: StoredValue::new(None),
             work_return: StoredValue::new(None),
         };
-        let previous = StoredValue::new(initial);
+        navigation.observe_session(phase.get_untracked());
+        let previous = StoredValue::new(navigation.route.get_untracked());
         Effect::new(move |_| {
             let current = navigation.route.get();
             if previous.get_value() != current {
@@ -89,8 +97,10 @@ impl LiveNavigation {
                         platform::focus_main(main);
                     }
                     navigation.returned.set_value(None);
-                } else if let (Route::PublicWork(from), Route::Discover | Route::Explore) =
-                    (old, current)
+                } else if let (
+                    Route::PublicWork(from),
+                    Route::Landing | Route::Discover | Route::Explore,
+                ) = (old, current)
                 {
                     match navigation
                         .work_return
@@ -121,7 +131,6 @@ impl LiveNavigation {
                 }
             }
         });
-        let phase = observed_session_phase(state.read_only());
         Effect::new(move |_| {
             navigation.observe_session(phase.get());
         });
@@ -170,24 +179,72 @@ impl LiveNavigation {
     /// notifying an unchanged route tears down the newly mounted page's reactive owner.
     #[cfg(any(target_arch = "wasm32", test))]
     fn observe_address(self, hash: &str) {
-        let destination = Route::from_live_hash(hash);
-        reconcile_retired_language(destination, hash);
-        let route_changed = destination != self.route.get_untracked();
-        if route_changed {
-            self.cancel();
+        let requested = Route::from_live_hash(hash);
+        let phase = self.phase.get_untracked();
+        let destination = requested.for_session(phase);
+        if phase == SessionPhase::Guest {
+            if let Some(intent) = requested.private_return() {
+                self.guest_return.set_value(Some(intent));
+            } else if destination != self.route.get_untracked() {
+                self.guest_return.set_value(None);
+            }
         }
-        if matches!(destination, Route::Discover | Route::Explore) {
+        if requested.is_catalog() {
             let query = super::routes::discovery_query(hash);
             if self.query.with_untracked(|current| *current != query) {
                 self.query.set(query);
             }
         }
-        if route_changed {
+        let changed = destination != self.route.get_untracked();
+        if changed {
+            self.cancel();
+        }
+        if requested != destination {
+            self.replace_route(destination);
+        } else {
+            reconcile_retired_language(destination, hash);
+        }
+        if changed && destination == requested {
+            self.route.set(destination);
+        }
+    }
+
+    /// A normalization replaces only the current address. Its search and history marker survive;
+    /// publishing an equal route would dispose a live renderer without a navigation intent.
+    fn replace_route(self, destination: Route) {
+        let hash = if destination.is_catalog() {
+            destination.discovery_hash(&self.query.get_untracked())
+        } else {
+            destination.hash()
+        };
+        browser::replace_address(&hash);
+        if self.route.get_untracked() != destination {
             self.route.set(destination);
         }
     }
 
     fn observe_session(self, phase: SessionPhase) {
+        let previous = self.observed_phase.get_value();
+        self.observed_phase.set_value(phase);
+        if previous == SessionPhase::SignedIn && phase != SessionPhase::SignedIn {
+            self.cancel();
+            self.returned.set_value(None);
+            self.work_return.set_value(None);
+            self.guest_return.set_value(None);
+        }
+        let current = self.route.get_untracked();
+        let destination = current.for_session(phase);
+        if current != destination {
+            if phase == SessionPhase::Guest
+                && !matches!(
+                    previous,
+                    SessionPhase::SignedIn | SessionPhase::LogoutPending
+                )
+            {
+                self.guest_return.set_value(current.private_return());
+            }
+            self.replace_route(destination);
+        }
         if phase == SessionPhase::SignedIn {
             if let Some(fence) = self.pending.get_untracked() {
                 let mut accepted = false;
@@ -197,13 +254,10 @@ impl LiveNavigation {
                 });
                 self.pending.set(None);
                 if accepted {
-                    browser::go(
-                        self.route,
-                        self.returned
-                            .get_value()
-                            .map(|(destination, _)| destination)
-                            .unwrap_or_else(|| Route::from_target(fence.route().origin.target())),
-                        true,
+                    self.guest_return.set_value(None);
+                    self.replace_route(
+                        Route::from_target(fence.route().origin.target())
+                            .for_session(SessionPhase::SignedIn),
                     );
                 }
             }
@@ -212,10 +266,6 @@ impl LiveNavigation {
                 && self.pending.get_untracked().is_some()
                 && !self.preview)
         {
-            // A sign-in attempt enters Checking synchronously. Guest afterwards means the API
-            // refused it or the attempt was cleaned up: release the intent so the form can be
-            // used again. The isolated preview retains its deliberately staged Outbound/Guest
-            // scenario.
             self.release();
         }
     }
@@ -230,6 +280,9 @@ impl LiveNavigation {
     }
 
     pub fn open_auth(self, auth: AuthRoute) {
+        if self.route.get_untracked() == Route::Auth(auth) {
+            return;
+        }
         if !matches!(self.route.get_untracked(), Route::Auth(_)) {
             self.returned.set_value(Some((
                 self.route.get_untracked(),
@@ -246,6 +299,7 @@ impl LiveNavigation {
             return;
         }
         let route = match self.route.get_untracked() {
+            Route::Landing => Route::Landing,
             Route::Explore => Route::Explore,
             _ => Route::Discover,
         };
@@ -257,7 +311,12 @@ impl LiveNavigation {
             self.route.get_untracked(),
             browser::capture_return(),
         )));
-        browser::go(self.route, Route::Account, false);
+        let phase = self.phase.get_untracked();
+        if phase == SessionPhase::Guest {
+            self.guest_return
+                .set_value(Some(ReturnDestination::Account));
+        }
+        browser::go(self.route, Route::Account.for_session(phase), false);
     }
     /// Open a public Work from Home, remembering the activating card for the return trip.
     pub fn open_work(self, work: PublicWorkId, return_focus: String) {
@@ -270,7 +329,7 @@ impl LiveNavigation {
     /// Contextual Back from a public Work: real history when this shell pushed it, else Home.
     pub fn close_work(self) {
         self.cancel();
-        browser::back(self.route, Route::Discover);
+        browser::back(self.route, self.home());
     }
     pub fn cancel(self) {
         #[cfg(target_arch = "wasm32")]
@@ -282,13 +341,23 @@ impl LiveNavigation {
     pub fn back(self) {
         self.cancel();
         let destination = match self.route.get_untracked() {
+            Route::Auth(auth)
+                if auth.step == crate::application::auth_navigation::AuthStep::Register =>
+            {
+                Route::from_target(auth.back())
+            }
             Route::Auth(auth) => self
                 .returned
                 .get_value()
                 .map(|(destination, _)| destination)
                 .unwrap_or_else(|| Route::from_target(auth.back())),
             Route::Membership(member) => Route::from_target(member.back()),
-            _ => Route::Discover,
+            _ => self.home(),
+        };
+        let destination = if self.phase.get_untracked() == SessionPhase::SignedIn {
+            destination.for_session(SessionPhase::SignedIn)
+        } else {
+            destination.for_session(SessionPhase::Guest)
         };
         browser::back(self.route, destination);
     }
@@ -331,11 +400,22 @@ impl LiveNavigation {
         #[cfg(not(target_arch = "wasm32"))]
         let _ = state;
     }
+    pub fn go_home(self) {
+        self.cancel();
+        self.guest_return.set_value(None);
+        browser::push_discovery(self.route, self.home(), &self.query.get_untracked());
+    }
+    pub fn home(self) -> Route {
+        Route::Landing.for_session(self.phase.get_untracked())
+    }
     pub fn origin(self) -> ReturnDestination {
         match self.route.get_untracked() {
             Route::SharedWork(id) => ReturnDestination::SharedWork(id),
+            Route::PublicWork(id) => ReturnDestination::PublicWork(id),
+            Route::Landing => self.guest_return.get_value().unwrap_or_default(),
             Route::Account | Route::Settings => ReturnDestination::Account,
-            Route::Library | Route::History => ReturnDestination::Library,
+            Route::Library => ReturnDestination::Library,
+            Route::History => ReturnDestination::History,
             Route::Membership(crate::application::auth_navigation::MembershipReturn::Account) => {
                 ReturnDestination::MembershipFromAccount
             }
@@ -366,6 +446,7 @@ mod tests {
                 NodeRef::new(),
                 true,
             );
+            nav.observe_address("#discover");
             let route_reads = Arc::new(AtomicUsize::new(0));
             let query_reads = Arc::new(AtomicUsize::new(0));
             let count = route_reads.clone();
@@ -478,26 +559,31 @@ mod tests {
         nav.login(state, EMAIL.to_owned(), PASSWORD.to_owned());
     }
 
+    // Shared scenario: cantos.presentation.guest-navigation.run.auth-return
     #[test]
-    fn library_and_history_auth_keep_their_source_through_back_and_login() {
-        for source in [Route::Library, Route::History] {
+    fn library_and_history_auth_keep_typed_return_but_cancel_to_guest_landing() {
+        for (source, intent) in [
+            (Route::Library, ReturnDestination::Library),
+            (Route::History, ReturnDestination::History),
+        ] {
             Owner::new().with(|| {
                 let state = RwSignal::new(AccountViewState::default());
                 crate::features::auth_preview::guest(state).unwrap();
                 let nav = LiveNavigation::new(state, NodeRef::new(), true);
-                nav.route.set(source);
-                assert_eq!(nav.origin(), ReturnDestination::Library);
-
+                nav.observe_address(&source.hash());
+                // The second event of one browser traversal reads our replaced canonical URL.
+                nav.observe_address("#landing");
+                assert_eq!(nav.route.get_untracked(), Route::Landing);
+                assert_eq!(nav.origin(), intent);
                 nav.open_auth(AuthRoute::login(nav.origin()));
+                nav.open_auth(AuthRoute::register(nav.origin()));
+                nav.back();
                 assert_eq!(
                     nav.route.get_untracked(),
-                    Route::Auth(AuthRoute::login(ReturnDestination::Library))
+                    Route::Auth(AuthRoute::login(intent))
                 );
-                nav.open_auth(AuthRoute::register(nav.origin()));
-                assert_eq!(nav.origin(), ReturnDestination::Library);
                 nav.back();
-                assert_eq!(nav.route.get_untracked(), source);
-
+                assert_eq!(nav.route.get_untracked(), Route::Landing);
                 nav.open_auth(AuthRoute::login(nav.origin()));
                 login(nav, state);
                 let lookup = state.write().begin_refresh().unwrap();
@@ -507,9 +593,10 @@ mod tests {
                 )
                 .unwrap();
                 assert!(matches!(
-                    state.write().finish_session(lookup, Ok(scope), || {
-                        uuid::Uuid::from_u128(100).to_string()
-                    }),
+                    state
+                        .write()
+                        .finish_session(lookup, Ok(scope), || uuid::Uuid::from_u128(100)
+                            .to_string()),
                     Ok(SessionCompletion::Authenticated(_))
                 ));
                 nav.observe_session(state.get_untracked().phase());
@@ -534,7 +621,7 @@ mod tests {
                 Route::Auth(AuthRoute::login(ReturnDestination::Library))
             );
             nav.back();
-            assert_eq!(nav.route.get_untracked(), Route::Library);
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
 
             nav.route
                 .set(Route::Auth(AuthRoute::login(ReturnDestination::Library)));
@@ -567,7 +654,7 @@ mod tests {
             assert_eq!(nav.origin(), ReturnDestination::Account);
             nav.open_auth(AuthRoute::login(nav.origin()));
             nav.back();
-            assert_eq!(nav.route.get_untracked(), Route::Account);
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
         });
     }
 
@@ -725,6 +812,7 @@ mod tests {
         });
     }
 
+    // Shared scenario: cantos.presentation.guest-navigation.run.auth-cancel-late
     #[test]
     fn cancelled_attempt_and_stale_session_cannot_complete_a_repeated_login() {
         Owner::new().with(|| {
@@ -766,8 +854,8 @@ mod tests {
                 Ok(SessionCompletion::Authenticated(_))
             ));
             nav.observe_session(state.get_untracked().phase());
-            // The listener opened sign-in from Discover and returns there.
-            assert_eq!(nav.route.get_untracked(), Route::Discover);
+            // The current intent names Account; a previous source snapshot cannot override it.
+            assert_eq!(nav.route.get_untracked(), Route::Account);
             assert_eq!(nav.pending.get_untracked(), None);
         });
     }
@@ -806,6 +894,72 @@ mod tests {
             ));
             nav.observe_session(state.get_untracked().phase());
             assert_eq!(nav.route.get_untracked(), Route::PublicWork(work));
+        });
+    }
+}
+
+#[cfg(test)]
+mod guest_scenarios {
+    use super::*;
+    use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+    // Shared scenario: cantos.presentation.guest-navigation.run.logout-expiry
+    #[test]
+    fn logout_and_expiry_reconcile_private_history_without_reusing_its_auth_return() {
+        Owner::new().with(|| {
+            let account = RwSignal::new(AccountViewState::default());
+            signed_in(account, PreviewActor::A).unwrap();
+            let nav = LiveNavigation::new(account, NodeRef::new(), true);
+            assert_eq!(nav.route.get_untracked(), Route::Discover);
+            nav.observe_address("#library");
+            nav.logout(account);
+            nav.observe_session(account.with_untracked(AccountViewState::phase));
+            assert_eq!(nav.route.get_untracked(), Route::Library);
+            assert_eq!(
+                account.with_untracked(AccountViewState::phase),
+                SessionPhase::LogoutPending
+            );
+            guest(account).unwrap();
+            nav.observe_session(account.with_untracked(AccountViewState::phase));
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
+            assert_eq!(nav.origin(), ReturnDestination::Home);
+            nav.observe_address("#account");
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
+            signed_in(account, PreviewActor::B).unwrap();
+            nav.observe_session(account.with_untracked(AccountViewState::phase));
+            nav.observe_address("#history");
+            guest(account).unwrap();
+            nav.observe_session(account.with_untracked(AccountViewState::phase));
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
+            assert_eq!(nav.origin(), ReturnDestination::Home);
+        });
+    }
+
+    // Shared scenario: cantos.presentation.guest-navigation.run.repeated-navigation
+    #[test]
+    fn guest_history_normalization_keeps_query_and_repeated_auth_keeps_the_pending_fence() {
+        Owner::new().with(|| {
+            let account = RwSignal::new(AccountViewState::default());
+            guest(account).unwrap();
+            let nav = LiveNavigation::new(account, NodeRef::new(), true);
+            nav.observe_address("#discover?q=%C4%91%C3%A8n&kind=story");
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
+            assert_eq!(nav.query.with_untracked(|q| q.text().to_owned()), "đèn");
+            let route = AuthRoute::login(nav.origin());
+            nav.open_auth(route);
+            nav.login(
+                account,
+                "listener@example.invalid".into(),
+                "test-only".into(),
+            );
+            let issued = nav.pending.get_untracked().unwrap();
+            nav.open_auth(route);
+            assert_eq!(nav.pending.get_untracked(), Some(issued));
+            nav.back();
+            assert_eq!(nav.route.get_untracked(), Route::Landing);
+            assert!(!nav.intents.with_untracked(|s| s.accepts(issued)));
+            nav.observe_session(SessionPhase::SignedIn);
+            assert_eq!(nav.route.get_untracked(), Route::Discover);
+            assert_eq!(nav.query.with_untracked(|q| q.text().to_owned()), "đèn");
         });
     }
 }

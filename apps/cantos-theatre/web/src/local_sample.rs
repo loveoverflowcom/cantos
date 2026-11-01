@@ -1108,7 +1108,7 @@ pub fn LocalSampleApp() -> impl IntoView {
                                 {move || crate::localization::preference_warning(locale_warning.get(), locale.get())}
                             </p>
                             {move || match route.get() {
-                                Route::Discover | Route::Explore => view! {
+                                Route::Landing | Route::Discover | Route::Explore => view! {
                                     <SampleHome state=list_state locale on_retry=on_list_retry on_open_work/>
                                 }.into_any(),
                                 Route::PublicWork(_) => view! {

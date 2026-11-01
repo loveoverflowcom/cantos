@@ -1,0 +1,38 @@
+module guest_navigation_tests {
+  import guest_navigation.* from "./guest_navigation"
+  action check(predicate: bool): bool = all {
+    assert(predicate), state' = state, before' = state, last' = Assertion
+  }
+  run sessionRootTest = init.then(navigate(Library)).then(observe(Checking))
+    .then(check(state.route == Library and not(state.nav)))
+    .then(observe(Guest)).then(check(guestRoot and guestSafe and shellAdmission))
+    .then(observe(SignedIn)).then(check(state.route == Discover and state.nav))
+  run unresolvedSessionTest = init.then(navigate(Library)).then(observe(Failed))
+    .then(check(unresolvedPrivate and unresolvedIntent)).then(observe(Checking))
+    .then(check(state.route == Library and not(state.nav))).then(observe(SignedIn))
+    .then(check(state.route == Library and state.nav))
+  run authReturnTest = init.then(observe(Guest)).then(navigate(Library)).then(navigate(Landing))
+    .then(check(retainedPrivateIntent and returnIntent)).then(openAuth(state.origin)).then(begin).then(complete(1))
+    .then(check(returnedPrivate and authReturn and shellAdmission))
+  run authCancelLateTest = init.then(observe(Guest)).then(openAuth(Library)).then(begin).then(cancel)
+    .then(check(state.route == Landing and state.pending == 0)).then(complete(1))
+    .then(check(cancelledLate and staleIgnored and not(state.nav)))
+    .then(observe(Guest)).then(openAuth(Work)).then(begin).then(complete(1))
+    .then(check(state.route == Auth and state.phase == Checking and staleIgnored))
+    .then(complete(2)).then(check(state.route == Work and authReturn))
+  run logoutExpiryTest = init.then(observe(SignedIn)).then(navigate(Library)).then(logout)
+    .then(check(state.route == Library and not(state.nav))).then(observe(Guest))
+    .then(check(signedOutPrivate and guestSafe)).then(navigate(Library))
+    .then(check(state.route == Landing)).then(observe(SignedIn)).then(navigate(Me))
+    .then(observe(Guest)).then(check(state.route == Landing and guestSafe))
+  run publicDeepLinkTest = init.then(navigate(Work)).then(observe(Checking)).then(observe(Guest))
+    .then(check(state.route == Work and not(state.nav))).then(navigate(Shared))
+    .then(observe(SignedIn)).then(check(state.route == Shared)).then(navigate(Recovery))
+    .then(observe(Guest)).then(check(state.route == Recovery))
+  run repeatedNavigationTest = init.then(observe(Guest)).then(navigate(Work)).then(navigate(Work))
+    .then(check(sameDestination and idempotentNavigation)).then(observe(Guest))
+    .then(check(state.pushes == 1 and idempotentNavigation))
+  run preferencesPlayerTest = init.then(listen).then(preferences).then(observe(SignedIn))
+    .then(navigate(Library)).then(logout).then(observe(Guest))
+    .then(check(playingGuest and publicOwnersSurvive and guestSafe))
+}

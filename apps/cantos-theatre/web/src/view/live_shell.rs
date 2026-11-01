@@ -21,6 +21,7 @@ use crate::{
         account::LiveAccount,
         auth::AuthPage,
         common::icon,
+        landing::Landing,
         library::{LibraryActions, LiveLibrary},
         live_player::{LiveMiniPlayer, LivePlayer, LivePlayerScreen, PlayerSyncControls},
         public_home::{self, PublicHome},
@@ -44,7 +45,7 @@ const CANTOS_BRAND: &str = "Cantos";
 #[component]
 pub(crate) fn LiveBrand() -> impl IntoView {
     view! {
-        <a class="theatre-brand theatre-live-brand" href="#discover" aria-label=CANTOS_BRAND>
+        <a class="theatre-brand theatre-live-brand" href="#landing" aria-label=CANTOS_BRAND>
             <Logo variant=LogoVariant::Symbol tone=LogoTone::Light class="theatre-logo-light"/>
             <Logo variant=LogoVariant::Symbol tone=LogoTone::Dark class="theatre-logo-dark"/>
             <strong class="theatre-live-brand-name">{CANTOS_BRAND}</strong>
@@ -66,6 +67,68 @@ fn PrimaryNavigation(
             <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
             <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/><span class="theatre-nav-label">{move || state.with(|s| s.presentation().map(|p| p.alias.clone())).unwrap_or_else(|| messages::text(Key::Me, locale.get()).to_owned())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
         </nav>
+    }
+}
+
+/// Exists only while the account admits the signed-in application shell.
+#[component]
+pub(crate) fn NavigationChrome(
+    route: RwSignal<Route>,
+    locale: RwSignal<Locale>,
+    state: ReadSignal<AccountViewState>,
+    shell: NodeRef<leptos::html::Div>,
+) -> impl IntoView {
+    let drawer = NodeRef::<leptos::html::Dialog>::new();
+    let menu_button = NodeRef::<leptos::html::Button>::new();
+    let drawer_close = NodeRef::<leptos::html::Button>::new();
+    let rail_toggle = NodeRef::<leptos::html::Button>::new();
+    platform::navigation_drawer::bind(
+        drawer,
+        menu_button,
+        rail_toggle,
+        drawer_close,
+        shell,
+        route.read_only(),
+    );
+    view! {
+                <div class="theatre-header">
+                    <super::LiveContainer>
+                    <header class="theatre-topbar">
+                        <button id="theatre-navigation-menu" node_ref=menu_button type="button" class="theatre-action theatre-menu" aria-controls="theatre-navigation-drawer" aria-expanded="false" aria-haspopup="dialog">
+                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
+                            <span>{move || messages::text(Key::Menu, locale.get())}</span>
+                        </button>
+                        <div class="theatre-mobile-brand"><LiveBrand/></div>
+                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
+                    </header>
+                    </super::LiveContainer>
+                </div>
+                <aside id="theatre-navigation-rail" class="theatre-rail">
+                    <div class="theatre-rail-header">
+                        <LiveBrand/>
+                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-tonal" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
+                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
+                            <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
+                            <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
+                            <span data-toggle-label="collapse">{move || messages::text(Key::CollapseNavigation, locale.get())}</span>
+                            <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
+                        </button>
+                    </div>
+                    <PrimaryNavigation route=route locale state/>
+                </aside>
+                <dialog id="theatre-navigation-drawer" class="theatre-navigation-drawer" node_ref=drawer aria-labelledby="theatre-drawer-heading">
+                    <header class="theatre-drawer-header">
+                        <div id="theatre-drawer-heading"><LiveBrand/></div>
+                        <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
+                    </header>
+                    <PrimaryNavigation route=route locale state/>
+                </dialog>
+                <div class="theatre-navigation-fit" aria-hidden="true">
+                    {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
+                        <span data-navigation-fit="compact">{move || messages::text(key, locale.get())}</span>
+                        <span data-navigation-fit="expanded">{move || messages::text(key, locale.get())}</span>
+                    }).collect_view()}
+                </div>
     }
 }
 
@@ -471,7 +534,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     // The discovery link owns the search. Leaving it purges the displayed access snapshot;
     // returning from Work detail rereads current counts instead of restoring old rows.
     Effect::new(move |_| {
-        if !matches!(nav.route.get(), Route::Discover | Route::Explore) {
+        if !nav.route.get().is_catalog() {
             if !preview {
                 discovery.update_untracked(PublicDiscoveryState::discard_snapshot);
             }
@@ -1126,7 +1189,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         let route = nav.route.get();
         discovery.with(|catalog| {
             update_errors(errors, |center| {
-                if !matches!(route, Route::Discover | Route::Explore) {
+                if !route.is_catalog() {
                     center.resolve(ErrorOperation::LoadCatalog);
                 } else {
                     match catalog.phase() {
@@ -1231,78 +1294,50 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         // listener once; failed scrub/reload keeps this owner blocked and exposes no signup IO.
         let _ = signup_browser::discard_link_and_reload();
     });
-    let drawer = NodeRef::<leptos::html::Dialog>::new();
-    let menu_button = NodeRef::<leptos::html::Button>::new();
-    let drawer_close = NodeRef::<leptos::html::Button>::new();
     let shell = NodeRef::<leptos::html::Div>::new();
-    let rail_toggle = NodeRef::<leptos::html::Button>::new();
-    platform::navigation_drawer::bind(
-        drawer,
-        menu_button,
-        rail_toggle,
-        drawer_close,
-        shell,
-        nav.route.read_only(),
-    );
+    let session_phase = Memo::new(move |_| state.with(AccountViewState::phase));
+    let navigation_visible = Memo::new(move |_| {
+        nav.route
+            .get()
+            .shows_primary_navigation(session_phase.get())
+    });
     view! {
         <super::LiveFrame theme>
             <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
             <PreviewControls preview state signup locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/>
-            <div class="theatre-app theatre-live-app" node_ref=shell data-navigation="drawer" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
+            <div class="theatre-app theatre-live-app" node_ref=shell data-navigation=move || if navigation_visible.get() { "drawer" } else { "none" } data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
-                <div class="theatre-header">
-                    <super::LiveContainer>
-                    <header class="theatre-topbar">
-                        <button id="theatre-navigation-menu" node_ref=menu_button type="button" class="theatre-action theatre-menu" aria-controls="theatre-navigation-drawer" aria-expanded="false" aria-haspopup="dialog">
-                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
-                            <span>{move || messages::text(Key::Menu, locale.get())}</span>
-                        </button>
-                        <div class="theatre-mobile-brand"><LiveBrand/></div>
-                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(nav.route.get()), locale.get())}</p>
-                    </header>
-                    </super::LiveContainer>
-                </div>
-                <aside id="theatre-navigation-rail" class="theatre-rail">
-                    <div class="theatre-rail-header">
-                        <LiveBrand/>
-                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-tonal" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
-                            <span class="theatre-menu-glyph" aria-hidden="true"></span>
-                            <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
-                            <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
-                            <span data-toggle-label="collapse">{move || messages::text(Key::CollapseNavigation, locale.get())}</span>
-                            <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
-                        </button>
-                    </div>
-                    <PrimaryNavigation route=nav.route locale state=state.read_only()/>
-                </aside>
-                <dialog id="theatre-navigation-drawer" class="theatre-navigation-drawer" node_ref=drawer aria-labelledby="theatre-drawer-heading">
-                    <header class="theatre-drawer-header">
-                        <div id="theatre-drawer-heading"><LiveBrand/></div>
-                        <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
-                    </header>
-                    <PrimaryNavigation route=nav.route locale state=state.read_only()/>
-                </dialog>
-                <div class="theatre-navigation-fit" aria-hidden="true">
-                    {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
-                        <span data-navigation-fit="compact">{move || messages::text(key, locale.get())}</span>
-                        <span data-navigation-fit="expanded">{move || messages::text(key, locale.get())}</span>
-                    }).collect_view()}
-                </div>
+                <Show when=move || navigation_visible.get() fallback=move || view! {
+                    <div class="theatre-header"><super::LiveContainer><header class="theatre-topbar"><LiveBrand/></header></super::LiveContainer></div>
+                }>
+                    <NavigationChrome route=nav.route locale state=shared_account shell/>
+                </Show>
                 <div class="theatre-content">
                     <super::LiveContainer>
 
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
+                            <Show when=move || session_phase.get() != SessionPhase::SignedIn || matches!(nav.route.get(), Route::Auth(_))>
+                                <details class="theatre-guest-preferences">
+                                    <summary>{move || messages::text(Key::Settings, locale.get())}</summary>
+                                    <crate::features::account::PreferenceFields locale theme on_locale scope="theatre-guest"/>
+                                </details>
+                            </Show>
                             <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
+                            } else if nav.route.get().private_return().is_some() && session_phase.get() != SessionPhase::SignedIn {
+                                view! { <section class="theatre-session-access" aria-labelledby="theatre-session-heading">
+                                    <h1 id="theatre-session-heading">{move || messages::text(Key::HomeHeading, locale.get())}</h1>
+                                    <public_home::HomeAccount account=shared_account locale on_login on_register on_refresh on_logout/>
+                                </section> }.into_any()
                             } else { match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state=state.read_only() signup locale route=auth account_created
+                                Route::Auth(auth) => view! { <AuthPage state=shared_account signup locale route=auth account_created
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=on_login_submit
-                                    on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
+                                    on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.go_home(); })
                                     on_refresh on_logout
                                     on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
-                                Route::Account | Route::Settings => view! { <LiveAccount state=state.read_only() locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                Route::Account | Route::Settings => view! { <LiveAccount state=shared_account locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state=state.read_only() locale actions=library_actions shared_section=ViewFn::from(move ||view!{<crate::features::shared_access::SharedLibrary account=shared_account state=shared locale
                                         on_reload=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.begin(DiscoveryQuery::default())).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })
@@ -1324,8 +1359,12 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::SharedWork(id) => view! { <crate::features::shared_access::SharedDetail work=id account=shared_account state=work_detail scope=work_scope locale listen=listen_controls on_login on_back=on_work_back on_retry=on_work_retry on_more=on_work_more/> }.into_any(),
                                 Route::PublicWork(id) => view! { <Show when=move ||work_scope.with(Option::is_none) && work_detail.with(|s|s.work_id()==Some(id)) fallback=move ||view!{<p role="status">{move ||messages::text(Key::PublicWorkLoading,locale.get())}</p>}><PublicWorkDetail state=work_detail locale listen=listen_controls sync_controls=work_sync_controls on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/></Show> }.into_any(),
                                 Route::Player => view! { <LivePlayerScreen live sync_controls=player_sync_controls/> }.into_any(),
+                                Route::Landing => view! {
+                                    <Landing state=discovery account=shared_account locale applied=nav.query on_search on_login on_register on_refresh on_logout
+                                        on_retry=on_discovery_retry on_load_more=on_discovery_more on_restart=on_discovery_restart on_open_work/>
+                                }.into_any(),
                                 Route::Discover | Route::Explore => view! {
-                                    <PublicHome state=discovery account=state.read_only() locale applied=nav.query on_search on_login on_register on_refresh on_logout
+                                    <PublicHome state=discovery account=shared_account locale applied=nav.query on_search on_login on_register on_refresh on_logout
                                         on_retry=on_discovery_retry on_load_more=on_discovery_more on_restart=on_discovery_restart on_open_work/>
                                 }.into_any(),
                                 // A route that parses but has no live capability says so; it never
@@ -1534,7 +1573,7 @@ mod tests {
         Owner::new().with(|| {
             let html = view! { <LiveBrand/> }.to_html();
             assert_eq!(html.matches("<a ").count(), 1);
-            assert!(html.contains("href=\"#discover\""));
+            assert!(html.contains("href=\"#landing\""));
             assert!(html.contains("aria-label=\"Cantos\""));
             assert_eq!(html.matches("data-logo-variant=\"symbol\"").count(), 2);
             assert!(html.contains("data-logo-tone=\"light\""));

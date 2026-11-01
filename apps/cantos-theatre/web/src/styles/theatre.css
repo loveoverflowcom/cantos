@@ -900,3 +900,13 @@ body { margin: 0; }
 .theatre-shared-rows li { background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); }
 .theatre-shared-rows a { display: grid; gap: var(--cantos-space-xs); }
 .theatre-shared-rows span, .theatre-shared-badge { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+
+/* Guest/unresolved entry has no application navigation or reserved rail space. */
+.theatre-live-app[data-navigation="none"] { --theatre-rail-size: 0px; display: flex; flex-direction: column; padding-inline: var(--cantos-space-md); }
+.theatre-live-app[data-navigation="none"] > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
+.theatre-live-app[data-navigation="none"] .theatre-topbar .theatre-brand { padding: 0; }
+.theatre-live-app[data-navigation="none"] .theatre-mini-player { inset-inline: var(--cantos-space-lg); }
+.theatre-guest-preferences { max-inline-size: 26rem; margin-block: var(--cantos-space-md); container-type: inline-size; }
+.theatre-guest-preferences > summary { cursor: pointer; width: fit-content; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); color: var(--cantos-color-on-surface-variant); font-weight: var(--cantos-type-label-weight); }
+.theatre-guest-preferences > summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: 0; border-radius: var(--cantos-web-shape-control); }
+.theatre-guest-preferences .theatre-pref-row { display: grid; }

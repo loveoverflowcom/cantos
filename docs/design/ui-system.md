@@ -76,6 +76,10 @@ Use command labels such as “Generate selected dialogue” and “Publish episo
 
 ## Theatre: compact listening
 
+The [guest entry decision](theatre-guest-entry.md) owns separate Landing and session-based
+primary navigation on Web/CMP, including guest locale/theme access. Only confirmed signed-in
+listeners use the application navigation shell.
+
 Discovery emphasizes cover art, title, genre, synopsis, duration, and episode availability. Avoid oversized banners, excessive gradients, and repeated nested cards. Episode lists must remain useful with long titles, missing covers, and no listening history.
 
 The owner's 2026-10-25 direction ([#452](https://github.com/loveoverflowcom/cantos/issues/452)) narrows
