@@ -216,9 +216,13 @@ private fun SupportingText(text: String) {
 /** An error is a glyph plus its message in place, so colour is never the only signal. */
 @Composable
 internal fun ErrorText(text: String, modifier: Modifier = Modifier) {
-    Row(modifier.semantics(mergeDescendants = true) { error(text) }, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Icon("warning_amber", tint = MaterialTheme.colorScheme.error)
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    Row(
+        modifier.testTag("error-row").semantics(mergeDescendants = true) { error(text) },
+        horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon("warning_amber", Modifier.testTag("error-icon"), tint = MaterialTheme.colorScheme.error)
+        Text(text, Modifier.weight(1f).testTag("error-text"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
 
