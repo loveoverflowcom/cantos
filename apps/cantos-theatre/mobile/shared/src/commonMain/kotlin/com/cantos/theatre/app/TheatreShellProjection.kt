@@ -240,6 +240,7 @@ private fun LibraryState.phase(section: LibrarySection, hasRows: Boolean): Shell
 }
 
 private fun TheatreRoute.toShellRoute(): ShellRoute = when (this) {
+    TheatreRoute.Landing -> ShellRoute.Landing
     TheatreRoute.Discovery -> ShellRoute.Discovery
     TheatreRoute.Search -> ShellRoute.Search
     TheatreRoute.Library -> ShellRoute.Library

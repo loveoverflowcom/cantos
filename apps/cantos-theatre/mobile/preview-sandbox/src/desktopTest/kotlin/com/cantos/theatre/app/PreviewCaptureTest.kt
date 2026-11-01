@@ -235,7 +235,8 @@ class PreviewCaptureTest {
         listOf(PreviewSession.Fresh, PreviewSession.Restored).forEach { session ->
             val label = session.name.lowercase()
             capture("jvm-light-$label-session-390x844", 390, 844, session.seed())
-            capture("jvm-light-$label-session-history-390x844", 390, 844, session.seed(), scrollToTag = "library-history")
+            capture("jvm-light-$label-session-content-390x844", 390, 844, session.seed(),
+                scrollToTag = if (session == PreviewSession.Restored) "library-history" else "sign-in")
         }
     }
 
@@ -274,7 +275,8 @@ class PreviewCaptureTest {
         libraryTab: ShellLibraryTab = ShellLibraryTab.Continuing,
         query: String = "",
         catalogMode: ShellCatalogMode = ShellCatalogMode.Ready,
-        withAccount: Boolean = saved.isNotEmpty() || progress.isNotEmpty() || history.isNotEmpty(),
+        withAccount: Boolean = saved.isNotEmpty() || progress.isNotEmpty() || history.isNotEmpty() ||
+            stack.any { it == ShellRoute.Library || it == ShellRoute.History || it == ShellRoute.Account },
     ): PreviewSeed = PreviewSeed(
         previewState(
             stack = stack, theme = theme, locale = locale, savedWorks = saved, progress = progress, history = history,

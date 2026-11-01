@@ -256,7 +256,7 @@ class VerifyEmailFlowTest {
     fun foreign_links_are_ignored_and_back_forgets_a_captured_link() = scenario(signedIn = false) { f ->
         runOnIdle {
             assertEquals(LinkReceipt.NotClaimed, f.shell.receiveLink("https://other.example/verify-email?mode=verifyEmail"))
-            assertEquals(listOf(TheatreRoute.Discovery), f.shell.navigation.value.stack)
+            assertEquals(listOf(TheatreRoute.Landing), f.shell.navigation.value.stack)
             assertEquals(LinkReceipt.Shown, f.shell.receiveLink("$ProductionVerifyEmailHandler?mode=verifyEmail"))
         }
         waitForIdle()
@@ -266,7 +266,7 @@ class VerifyEmailFlowTest {
         onNodeWithTag("back").performClick()
         waitForIdle()
         runOnIdle {
-            assertEquals(listOf(TheatreRoute.Discovery), f.shell.navigation.value.stack)
+            assertEquals(listOf(TheatreRoute.Landing), f.shell.navigation.value.stack)
             assertEquals(VerificationPhase.Idle, f.verification.state.value.phase)
             assertEquals("", f.verification.state.value.password)
             assertEquals(0, f.completion.requests.size)

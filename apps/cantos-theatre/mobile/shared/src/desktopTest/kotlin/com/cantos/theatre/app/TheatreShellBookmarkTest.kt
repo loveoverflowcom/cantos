@@ -189,7 +189,7 @@ class TheatreShellBookmarkTest {
         val shell = TheatreShell(scope, catalog, runtime, PreferencesController())
         runCurrent()
         shell.dispatch(ShellEvent.Bookmark); runCurrent()
-        assertEquals(TheatreRoute.Account, shell.navigation.value.route, "the guest is guided to an account, not shown a fake save")
+        assertEquals(TheatreRoute.Landing, shell.navigation.value.route, "the guest is guided to Landing, never shown a fake save")
         assertTrue(shell.library.value.bookmarks.isEmpty())
         runtime.close()
     }

@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class LocalLaunchPresentationTest {
     @Test
-    fun ready_guest_enters_discovery_even_while_catalog_is_offline() {
+    fun ready_guest_enters_landing_even_while_catalog_is_offline() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             mainClock.autoAdvance = false
             setContent {
@@ -55,7 +55,8 @@ class LocalLaunchPresentationTest {
             }
             onNodeWithTag("local-launch").assertDoesNotExist()
             onNodeWithTag("header-title").assertTextEquals("Cantos")
-            onNodeWithTag("nav-discovery").assertExists()
+            onNodeWithTag("landing").assertExists()
+            onNodeWithTag("nav-discovery").assertDoesNotExist()
             onNodeWithTag("retry").assertExists()
         }
     }

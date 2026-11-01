@@ -215,7 +215,7 @@ class PublicCoverUiTest {
         // The null cover issues no read at all; both covers the Server authorized were requested once.
         assertEquals(setOf(shown.cover!!.sha256, broken.cover!!.sha256), covers.loads.toSet())
         // Titles and navigation never depend on the image.
-        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).assertIsDisplayed() }
+        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).performScrollTo().assertIsDisplayed() }
     }
 
     @Test
@@ -257,7 +257,7 @@ class PublicCoverUiTest {
     fun an_exception_from_the_pipeline_is_the_fallback_not_a_crash() = runDesktopComposeUiTest(width = 390, height = 844) {
         mount(Covers { error("decoder exploded") })
         onAllNodesWithTag("cover-image", useUnmergedTree = true).assertCountEquals(0)
-        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).assertIsDisplayed() }
+        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).performScrollTo().assertIsDisplayed() }
         onNodeWithTag("work-${shown.id.value}").performScrollTo().performClick()
         waitUntil { onAllNodesWithText("Chương 1: Một tiếng chuông trong sương").fetchSemanticsNodes().isNotEmpty() }
     }
@@ -266,7 +266,7 @@ class PublicCoverUiTest {
     fun a_host_without_an_image_pipeline_shows_only_the_fallback() = runDesktopComposeUiTest(width = 390, height = 844) {
         mount(null)
         onAllNodesWithTag("cover-image", useUnmergedTree = true).assertCountEquals(0)
-        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).assertIsDisplayed() }
+        listOf(shown, plain, broken).forEach { onNodeWithText(it.title).performScrollTo().assertIsDisplayed() }
     }
 
     @Test

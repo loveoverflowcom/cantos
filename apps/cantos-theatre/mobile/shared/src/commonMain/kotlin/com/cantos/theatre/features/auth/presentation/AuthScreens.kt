@@ -97,6 +97,7 @@ sealed interface AuthIntent {
 
 /** Where Back leads, derived from the typed stack below the auth routes, never from a URL. */
 enum class AuthReturn(internal val label: AuthText) {
+    Landing(AuthText.Back),
     Home(AuthText.ReturnHome),
     Account(AuthText.ReturnAccount),
     Membership(AuthText.ReturnMembership),
@@ -108,6 +109,7 @@ fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
     if (stack.lastOrNull() == ShellRoute.Register) return AuthReturn.Login
     // Completion sits on whatever the listener was doing; name it when it is a known origin.
     if (stack.lastOrNull() == ShellRoute.VerifyEmail) return when (stack.getOrNull(stack.size - 2)) {
+        ShellRoute.Landing -> AuthReturn.Landing
         ShellRoute.Discovery -> AuthReturn.Home
         ShellRoute.Account -> AuthReturn.Account
         ShellRoute.MembershipPreview -> AuthReturn.Membership
@@ -115,6 +117,7 @@ fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
     }
     val origin = stack.getOrNull(stack.indexOfLast { it == ShellRoute.Login } - 1)
     return when (origin) {
+        ShellRoute.Landing -> AuthReturn.Landing
         ShellRoute.Account -> AuthReturn.Account
         ShellRoute.MembershipPreview -> AuthReturn.Membership
         is ShellRoute.SharedWork -> AuthReturn.Previous
@@ -236,13 +239,14 @@ fun LoginScreen(
     locale: ShellLocale,
     account: AccountView,
     nothingSaved: Boolean,
+    showStatus: Boolean = true,
     onIntent: (AuthIntent) -> Unit,
 ) {
     val copy = AuthCopy(locale)
     AuthTonalScope {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
             AuthHeading(copy.text(AuthText.LoginHeading))
-            AccountStatus(account, copy, nothingSaved)
+            if (showStatus) AccountStatus(account, copy, nothingSaved)
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                 LoginForm(account, copy, onIntent)
                 if (account.offersRegistration()) Button(

@@ -32,7 +32,7 @@ internal fun rememberAuthEntryFocus(stack: List<ShellRoute>): AuthEntryFocus {
         previous = stack
         if (before.last().isAuth() && !stack.last().isAuth() && stack.size < before.size) {
             withFrameNanos { }
-            runCatching { (if (stack.last() == ShellRoute.Account) entry.login else entry.account).requestFocus() }
+            runCatching { (if (stack.last() == ShellRoute.Account || stack.last() == ShellRoute.Landing) entry.login else entry.account).requestFocus() }
         }
     }
     return entry

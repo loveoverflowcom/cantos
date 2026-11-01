@@ -3,6 +3,22 @@ package com.cantos.theatre.app
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
 import com.cantos.theatre.application.preferences.PreferencesController
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.NativeAccountFailure
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Grant
+import com.cantos.theatre.domain.identity.NativeGrant
+import com.cantos.theatre.domain.identity.RegistrationEmail
+import com.cantos.theatre.domain.identity.RegistrationResult
+import com.cantos.theatre.ports.IdentityV1Result
+import com.cantos.theatre.ports.IdentityV1Failure
+import com.cantos.theatre.ports.NativeCredentialJournal
+import com.cantos.theatre.ports.NativeCredentialRecord
+import com.cantos.theatre.ports.NativeJournalRead
+import com.cantos.theatre.ports.NativeSession
+import com.cantos.theatre.ports.LogoutBarrier
+import com.cantos.theatre.ports.LogoutBarrierRead
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.PublicCatalogQuery
@@ -12,6 +28,7 @@ import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkId
 import com.cantos.theatre.domain.membership.MembershipScreen
+import com.cantos.theatre.domain.publication.WorkKey
 import com.cantos.theatre.domain.playback.AudioIdentity
 import com.cantos.theatre.domain.playback.PlaybackEngineCommand
 import com.cantos.theatre.domain.playback.PlaybackEvent
@@ -34,9 +51,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.test.TestScope
@@ -61,7 +82,7 @@ class TheatreShellTest {
         override fun close() = Unit
     }
 
-    private class Fixture(scope: CoroutineScope) {
+    private class Fixture(scope: CoroutineScope, account: NativeAccountController? = null) {
         var manifestGate: CompletableDeferred<Unit>? = null
         var manifestCalls = 0
         val work: PublicWork = PublicCatalogSamples.work(1, title = "Ánh đèn cuối sân khấu")
@@ -88,7 +109,7 @@ class TheatreShellTest {
                 }
                 override suspend fun authorize(identity: AudioIdentity): PlaybackAccessResult<PlaybackGrant> =
                     PlaybackAccessResult.Accepted(PlaybackGrant(PlaybackLocation("https://media.invalid/test-only"), 1_000_000))
-            }, account = null, library = null,
+            }, account = account, library = null,
             newUuid = { "00000000-0000-4000-8000-000000000001" }, nowMs = { 1_000 })
         val preferences = PreferencesController()
         val shell = TheatreShell(scope, catalog, runtime, preferences, searchDebounceMs = 350, timerMinutesMs = { 60_000L })
@@ -96,6 +117,156 @@ class TheatreShellTest {
 
     private fun TestScope.fixture() = Fixture(backgroundScope).also { runCurrent() }
     private val workRoute = { f: Fixture -> ShellRoute.Work(ShellWorkId(f.work.id.value)) }
+
+    /** Synthetic identity/journal only; all session and navigation decisions are production owners. */
+    private class Identity(scope: CoroutineScope, saved: Boolean = false) : StubIdentityV1Api() {
+        var grant = v1Grant('a', 'b', "actor-a", "00000000-0000-4000-8000-000000000001", 121, 601, 901, 1, 1)
+        var record: NativeCredentialRecord? = if (saved) NativeCredentialRecord.Active(grant) else null
+        var marked = false
+        var loginCalls = 0
+        var loginGate: CompletableDeferred<Unit>? = null
+        var sessionGate: CompletableDeferred<Unit>? = null
+        var cleanupGate: CompletableDeferred<Unit>? = null
+        var sessionFailure: IdentityV1Failure? = null
+        val account = NativeAccountController(scope, this, object : NativeCredentialJournal {
+            override fun read() = record?.let { NativeJournalRead.Found(it) } ?: NativeJournalRead.Missing
+            override fun write(record: NativeCredentialRecord): com.cantos.theatre.ports.CredentialFailure? { this@Identity.record = record; return null }
+            override fun clear(): com.cantos.theatre.ports.CredentialFailure? { record = null; return null }
+        }, object : LogoutBarrier {
+            override fun read() = if (marked) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
+            override fun mark(): com.cantos.theatre.ports.CredentialFailure? { marked = true; return null }
+            override fun clear(): com.cantos.theatre.ports.CredentialFailure? { marked = false; return null }
+        }, now = { 1 })
+
+        override suspend fun login(email: RegistrationEmail, password: String): IdentityV1Result<NativeGrant> {
+            loginCalls += 1
+            // Simulates a remote commit whose response arrives despite local cancellation.
+            withContext(NonCancellable) { loginGate?.await() }
+            return IdentityV1Result.Accepted(grant)
+        }
+        override suspend fun session(previous: NativeGrant): IdentityV1Result<NativeSession> {
+            sessionGate?.await()
+            return sessionFailure?.let { IdentityV1Result.Refused(it) } ?: IdentityV1Result.Accepted(previous.view)
+        }
+        override suspend fun revokeFamily(previous: NativeGrant): IdentityV1Result<Unit> {
+            cleanupGate?.await()
+            return IdentityV1Result.Accepted(Unit)
+        }
+    }
+
+    // cantos.presentation.guest-navigation.run.unresolved-session / run.public-deep-link
+    @Test fun restoring_preserves_public_and_private_intents_without_enabling_auth_early() = runTest {
+        val identity = Identity(backgroundScope, saved = true)
+        val gate = CompletableDeferred<Unit>().also { identity.sessionGate = it }
+        val f = Fixture(backgroundScope, identity.account)
+        runCurrent()
+        assertEquals(NativeAccountState.Pending, identity.account.state.value)
+        assertFalse(f.shell.openLogin())
+        assertFalse(f.shell.openRegister())
+        f.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Library))
+        assertEquals(TheatreRoute.Library, f.shell.navigation.value.route)
+        f.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Work(WorkKey(f.work.id.value))))
+        runCurrent()
+        assertEquals(f.work.id, f.catalog.state.value.detail?.id, "public data does not await session lookup")
+        gate.complete(Unit)
+        runCurrent()
+        assertIs<NativeAccountState.SignedIn>(identity.account.state.value)
+        assertEquals(listOf(TheatreRoute.Library, TheatreRoute.Work(WorkKey(f.work.id.value))), f.shell.navigation.value.stack)
+    }
+
+    // cantos.presentation.guest-navigation.run.auth-return / run.auth-cancel-late
+    @Test fun cancelled_login_response_cannot_reopen_private_return_and_a_new_intent_can_complete() = runTest {
+        val identity = Identity(backgroundScope)
+        val f = Fixture(backgroundScope, identity.account)
+        runCurrent()
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Library))
+        assertEquals(listOf(TheatreRoute.Landing), f.shell.navigation.value.stack)
+        assertTrue(f.shell.openLogin())
+        val email = (RegistrationEmail.parse("listener@example.test") as RegistrationResult.Accepted).value
+        val late = CompletableDeferred<Unit>().also { identity.loginGate = it }
+        assertTrue(f.shell.login(email, "synthetic-password"))
+        assertFalse(f.shell.login(email, "synthetic-password"))
+        runCurrent()
+        f.shell.dispatch(ShellEvent.Back)
+        runCurrent()
+        late.complete(Unit)
+        runCurrent()
+        assertEquals(NativeAccountState.SignedOut, identity.account.state.value)
+        assertEquals(NavigationState(), f.shell.navigation.value)
+        assertEquals(1, identity.loginCalls)
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.History))
+        assertTrue(f.shell.openRegister())
+        assertEquals(TheatreRoute.Register, f.shell.navigation.value.route)
+        f.shell.dispatch(ShellEvent.Back)
+        assertEquals(TheatreRoute.Login, f.shell.navigation.value.route)
+        assertTrue(f.shell.login(email, "synthetic-password"))
+        runCurrent()
+        assertEquals(TheatreRoute.History, f.shell.navigation.value.route)
+        assertTrue(f.shell.navigation.value.stack.none { it.isAuth || it == TheatreRoute.Landing })
+    }
+
+    // cantos.presentation.guest-navigation.run.logout-expiry / run.unresolved-session
+    @Test fun owner_initiated_account_switch_and_logout_cannot_retain_the_old_private_return() = runTest {
+        val identity = Identity(backgroundScope, saved = true)
+        val f = Fixture(backgroundScope, identity.account)
+        runCurrent()
+        f.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
+        identity.grant = v1Grant('c', 'd', "actor-b", "00000000-0000-4000-8000-000000000002", 121, 601, 901, 1, 1)
+        val email = (RegistrationEmail.parse("listener@example.test") as RegistrationResult.Accepted).value
+        identity.account.login(email, "synthetic-password")
+        runCurrent()
+        assertEquals("actor-b", (identity.account.state.value as NativeAccountState.SignedIn).actor)
+        assertEquals(NavigationState(listOf(TheatreRoute.Discovery)), f.shell.navigation.value)
+        f.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Library))
+        identity.account.logout()
+        runCurrent()
+        assertEquals(NativeAccountState.SignedOut, identity.account.state.value)
+        assertEquals(NavigationState(), f.shell.navigation.value)
+        assertNull(f.shell.navigation.value.returnTo)
+    }
+
+    // cantos.presentation.guest-navigation.run.logout-expiry / run.unresolved-session
+    @Test fun outage_retains_recovery_but_confirmed_loss_and_logout_remove_the_private_stack() = runTest {
+        val identity = Identity(backgroundScope, saved = true)
+        val f = Fixture(backgroundScope, identity.account)
+        runCurrent()
+        assertEquals(TheatreRoute.Discovery, f.shell.navigation.value.route)
+        // This fixture has no durable Library adapter; exercise the production route/session seam.
+        f.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Library))
+        identity.sessionFailure = IdentityV1Failure.ServiceUnavailable
+        identity.account.revalidate(identity.grant.view.session)
+        runCurrent()
+        assertEquals(NativeAccountFailure.Api, (identity.account.state.value as NativeAccountState.Failed).reason)
+        assertEquals(TheatreRoute.Library, f.shell.navigation.value.route, "outage is unresolved, never confirmed logout")
+        assertNull(identity.account.confirmedLoss)
+        identity.sessionFailure = null
+        assertEquals(RestoreOutcome.Requested, f.shell.restoreSession())
+        runCurrent()
+        assertIs<NativeAccountState.SignedIn>(identity.account.state.value)
+        identity.sessionFailure = IdentityV1Failure.Unauthorized
+        identity.account.revalidate(identity.grant.view.session)
+        runCurrent()
+        assertEquals(NativeAccountFailure.Expired, (identity.account.state.value as NativeAccountState.Failed).reason)
+        assertEquals(NavigationState(), f.shell.navigation.value)
+        identity.sessionFailure = null
+        assertTrue(f.shell.openLogin())
+        val email = (RegistrationEmail.parse("listener@example.test") as RegistrationResult.Accepted).value
+        assertTrue(f.shell.login(email, "synthetic-password"))
+        runCurrent()
+        f.shell.dispatch(ShellEvent.Navigate(ShellRoute.Account))
+        val cleanup = CompletableDeferred<Unit>().also { identity.cleanupGate = it }
+        f.shell.logout()
+        runCurrent()
+        assertEquals(NativeAccountState.CleanupRequired, identity.account.state.value)
+        assertFalse(f.shell.openLogin())
+        assertFalse(f.shell.openRegister())
+        assertEquals(NavigationState(), f.shell.navigation.value)
+        f.shell.dispatch(ShellEvent.Back)
+        cleanup.complete(Unit)
+        runCurrent()
+        assertEquals(NativeAccountState.SignedOut, identity.account.state.value)
+        assertEquals(NavigationState(), f.shell.navigation.value)
+    }
 
     @Test
     fun repeat_open_during_resolve_keeps_one_exact_release_request() = runTest {
@@ -139,7 +310,7 @@ class TheatreShellTest {
         f.shell.dispatch(ShellEvent.Back)
         runCurrent()
         assertNull(f.catalog.state.value.detail)
-        assertEquals(listOf(TheatreRoute.Discovery), f.shell.navigation.value.stack)
+        assertEquals(listOf(TheatreRoute.Landing), f.shell.navigation.value.stack)
     }
 
     @Test
@@ -243,15 +414,15 @@ class TheatreShellTest {
         val f = fixture()
         f.shell.dispatch(ShellEvent.SetSaved(ShellWorkId(f.work.id.value), true))
         runCurrent()
-        // No identity boundary here: the guest is taken to the Account explanation, nothing is saved.
-        assertEquals(TheatreRoute.Account, f.shell.navigation.value.route)
+        // No identity boundary: Landing explains unavailable login, and nothing is saved.
+        assertEquals(TheatreRoute.Landing, f.shell.navigation.value.route)
         val before = f.shell.ui.value
         f.shell.dispatch(ShellEvent.Bookmark)
         f.shell.dispatch(ShellEvent.Reset)
         f.shell.dispatch(ShellEvent.CatalogMode(com.cantos.theatre.presentation.model.ShellCatalogMode.Error))
         runCurrent()
         assertEquals(before, f.shell.ui.value)
-        assertEquals(TheatreRoute.Account, f.shell.navigation.value.route)
+        assertEquals(TheatreRoute.Landing, f.shell.navigation.value.route)
         f.shell.dispatch(ShellEvent.Navigate(ShellRoute.MembershipPreview))
         assertEquals(MembershipScreen.Intro, f.shell.ui.value.membership.screen)
     }

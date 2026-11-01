@@ -74,7 +74,7 @@ class SharedCatalogPresentationTest {
                 ) {
                     CantosPresentation(ShellState(selectedEpisode = com.cantos.theatre.presentation.model.ShellEpisodeId(
                         "no-selection", com.cantos.theatre.presentation.model.ShellWorkId("no-selection")),
-                        stack = listOf(ShellRoute.Library)), ShellCatalogView(), {})
+                        stack = listOf(ShellRoute.Library)), ShellCatalogView(), {}, accountSignedIn = true)
                 }
             }
             onNodeWithTag("library-continue").assertExists()

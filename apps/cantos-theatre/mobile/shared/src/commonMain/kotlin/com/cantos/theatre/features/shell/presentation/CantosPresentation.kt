@@ -206,6 +206,8 @@ fun CantosPresentation(
     themeMode: ShellThemeMode = state.theme.mode(),
     accountSignedIn: Boolean = false,
     accountPresentation: com.cantos.theatre.domain.identity.AccountPresentation? = null,
+    guestAuthEnabled: Boolean = true,
+    guestEntry: @Composable (FocusRequester) -> Unit = {},
 ) {
     var surfaceBounds by remember { mutableStateOf(Rect.Zero) }
     val copy = ShellCopy(state.locale, LocalShellLiveCopy.current)
@@ -243,7 +245,7 @@ fun CantosPresentation(
                             }
                         }
                     }.onPreviewKeyEvent {
-                    if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && (overlays.active || canGoBack(state))) {
+                    if (it.key == Key.Escape && it.type == KeyEventType.KeyUp && (activeError != null || overlays.active || canGoBack(state))) {
                         back()
                         true
                     } else {
@@ -258,7 +260,14 @@ fun CantosPresentation(
                     }
                 }
                 // Search is a fullscreen task with its own Back and input; no shared header repeats above it.
-                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn, accountPresentation)
+                else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn, accountPresentation, guestAuthEnabled) {
+                    GuestPreferences(state, copy, dispatch, themeMode, overlays)
+                }
+                if (!accountSignedIn && state.route.isAccountTask()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm")), horizontalArrangement = Arrangement.End) {
+                        GuestPreferences(state, copy, dispatch, themeMode, overlays)
+                    }
+                }
                 state.listeningFailure?.let { failure ->
                     Column(
                         Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
@@ -292,7 +301,10 @@ fun CantosPresentation(
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
                         ShellBanners(state, copy, notice.takeUnless { framed }, localeSaveUnavailable)
-                        when (val route = state.route) {
+                        if (!accountSignedIn && state.route in listOf(ShellRoute.Library, ShellRoute.History, ShellRoute.Account)) {
+                            guestEntry(entryFocus.login)
+                        } else when (val route = state.route) {
+                            ShellRoute.Landing -> LandingScreen(state, catalog, copy, dispatch) { guestEntry(entryFocus.login) }
                             ShellRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
                             ShellRoute.Search -> Unit // Fullscreen: rendered above, outside the scrolling column.
                             ShellRoute.Library -> LibraryScreen(state, catalog, copy, dispatch)
@@ -316,7 +328,7 @@ fun CantosPresentation(
                 // Search is fullscreen: the tab bar and mini-player step aside while playback continues.
                 if (state.route != ShellRoute.Player && state.route != ShellRoute.Queue && state.route != ShellRoute.Search && !framed) {
                     MiniPlayer(state, catalog, copy, dispatch)
-                    ShellTabs(state, copy, dispatch)
+                    if (accountSignedIn) ShellTabs(state, copy, dispatch)
                 }
             }
             if (activeError != null) {
@@ -331,6 +343,25 @@ fun CantosPresentation(
         }
         }
     }
+}
+
+/** The shell supplies compact controls; the existing preferences owner retains dialog/focus state. */
+@Composable
+private fun GuestPreferences(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit,
+    themeMode: ShellThemeMode, overlays: BackOverlayRegistry) {
+    MePreferences(state, copy, dispatch, themeMode,
+        compactActions = { onTheme, onLanguage, themeFocus, languageFocus ->
+            Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                com.cantos.ui.IconButton(
+                    name = AccessibleName.of(copy.text(CopyKey.Theme)), icon = "theme_system", onPress = onTheme,
+                    controlModifier = Modifier.focusRequester(themeFocus).testTag("guest-theme"),
+                )
+                com.cantos.ui.IconButton(
+                    name = AccessibleName.of(copy.text(CopyKey.PreferenceLanguage)), icon = "language", onPress = onLanguage,
+                    controlModifier = Modifier.focusRequester(languageFocus).testTag("guest-language"),
+                )
+            }
+        }, backOverlay = { onBack -> BackOverlay(overlays, onBack) })
 }
 
 @Composable
@@ -349,6 +380,7 @@ private val AUTH_FRAME_MAX_WIDTH = 430.dp
 
 private fun routeTitle(route: ShellRoute, copy: ShellCopy): String = copy.text(
     when (route) {
+        ShellRoute.Landing -> CopyKey.Brand
         ShellRoute.Discovery -> CopyKey.Discover
         ShellRoute.Search -> CopyKey.Search
         ShellRoute.Library -> CopyKey.Library
@@ -370,7 +402,7 @@ private fun headerTitleKey(route: ShellRoute): CopyKey = when (route) {
     ShellRoute.Player -> CopyKey.Player
     ShellRoute.Account -> CopyKey.Account
     ShellRoute.MembershipPreview -> CopyKey.Brand
-    ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, is ShellRoute.SharedWork, ShellRoute.Queue,
+    ShellRoute.Landing, ShellRoute.Discovery, ShellRoute.Search, ShellRoute.Library, is ShellRoute.Work, is ShellRoute.SharedWork, ShellRoute.Queue,
     ShellRoute.History, ShellRoute.Settings, ShellRoute.Unavailable, ShellRoute.Login, ShellRoute.Register,
     ShellRoute.VerifyEmail -> CopyKey.Brand
 }
@@ -383,14 +415,20 @@ private fun ShellHeader(
     accountFocus: FocusRequester,
     accountSignedIn: Boolean,
     accountPresentation: com.cantos.theatre.domain.identity.AccountPresentation?,
+    guestAuthEnabled: Boolean,
+    guestPreferences: @Composable () -> Unit,
 ) {
     val branded = topBarShowsBrandMark(state.route)
     BoxWithConstraints(
-        Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
+        Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp(if (accountSignedIn) "space.xs" else "space.sm")),
     ) {
         val reflow = maxWidth < tokenDp("breakpoint.medium") && LocalDensity.current.fontScale > 1.3f
+        val accountAction = state.route != ShellRoute.Account && accountSignedIn ||
+            !accountSignedIn && state.route != ShellRoute.Landing && guestAuthEnabled
+        val actionCount = (if (accountSignedIn) 0 else 2) + (if (accountAction) 1 else 0)
+        val actionWidth = tokenDp("size.control") * actionCount + tokenDp("space.sm") * actionCount
         val brandWidth = if (reflow || state.route == ShellRoute.Account) maxWidth
-            else (maxWidth - tokenDp("size.avatarControl")).coerceAtLeast(tokenDp("size.control"))
+            else (maxWidth - actionWidth).coerceAtLeast(tokenDp("size.control"))
         FlowRow(
             Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
@@ -421,14 +459,15 @@ private fun ShellHeader(
             color = MaterialTheme.colorScheme.primary,
         )
         }
-        if (state.route != ShellRoute.Account) Row(if (reflow) Modifier.fillMaxWidth() else Modifier,
+        if (state.route != ShellRoute.Account || !accountSignedIn) Row(if (reflow) Modifier.fillMaxWidth() else Modifier,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"), Alignment.End),
             verticalAlignment = Alignment.CenterVertically) {
-            TopBarAccountButton(
-                label = copy.text(CopyKey.Account),
+            if (!accountSignedIn) guestPreferences()
+            if (accountAction) TopBarAccountButton(
+                label = copy.text(if (accountSignedIn) CopyKey.Account else CopyKey.SignIn),
                 signedIn = accountSignedIn,
                 presentation = accountPresentation,
-                onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Account)) },
+                onClick = { dispatch(ShellEvent.Navigate(if (accountSignedIn) ShellRoute.Account else ShellRoute.Login)) },
                 modifier = Modifier.focusRequester(accountFocus).testTag("account"),
             )
         }
@@ -451,6 +490,28 @@ private fun DiscoveryScreen(state: ShellState, catalog: ShellCatalogView, copy: 
         }
     }
     if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
+    DiscoveryCatalog(state, catalog, copy, dispatch)
+}
+
+/** A distinct entry composition over the same catalog/search owner and presentation blocks. */
+@Composable
+private fun LandingScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, entry: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().testTag("landing"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+        Surface(Modifier.fillMaxWidth(), color = tokenColor("color.theatreHero"), contentColor = tokenColor("color.theatreOnHero"),
+            shape = MaterialTheme.shapes.extraLarge) {
+            Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                Text(copy.text(CopyKey.DiscoveryWelcome), style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.semantics { heading() })
+                entry()
+                DiscoverySearchPill(state.query, copy) { dispatch(ShellEvent.Navigate(ShellRoute.Search)) }
+            }
+        }
+        DiscoveryCatalog(state, catalog, copy, dispatch)
+    }
+}
+
+@Composable
+private fun DiscoveryCatalog(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     Box(Modifier.fillMaxWidth()) {
         Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
             modifier = Modifier.semantics { heading() })

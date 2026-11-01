@@ -35,6 +35,7 @@ import com.cantos.theatre.features.auth.presentation.AuthHeader
 import com.cantos.theatre.features.auth.presentation.AuthIntent
 import com.cantos.theatre.features.auth.presentation.LoginAttempt
 import com.cantos.theatre.features.auth.presentation.LoginScreen
+import com.cantos.theatre.features.auth.presentation.GuestEntry
 import com.cantos.theatre.features.auth.presentation.RegisterScreen
 import com.cantos.theatre.features.auth.presentation.RegistrationIntent
 import com.cantos.theatre.features.auth.presentation.VerificationIntent
@@ -116,13 +117,17 @@ fun CantosTheatreApp(
         PreferenceTheme.System -> ShellThemeMode.System
     }
     val theme = themeMode.resolve(systemIsDark)
-    val projection = remember(navigation, catalog, known, playback, selection, failure, requested, library, ui, theme, locale) {
-        projectTheatreShell(TheatreShellInputs(navigation, catalog, known, playback, selection, requested,
-            failure != null, library, theme, locale, ui.query, ui.libraryTab, ui.timer, accessFailure = failure, searchKind = ui.searchKind))
-    }
     val accountView = accountState.toAccountView()
     // A private draft must not outlive the account that made it; a guest draft survives sign-in.
     val signedIn = accountView is AccountView.SignedIn
+    // Synchronous projection closes the collector/recomposition gap after quarantine or logout.
+    // A stale Library projection never supplies titles/rows while account admission is absent.
+    val visibleLibrary = library.takeIf { signedIn && sharedSession != null && it.account == sharedSession.session.actor } ?: LibraryState()
+    val admittedNavigation = reduceNavigation(navigation, NavigationEvent.ReconcileSession, accountState.navigationAdmission())
+    val projection = remember(admittedNavigation, catalog, known, playback, selection, failure, requested, visibleLibrary, ui, theme, locale) {
+        projectTheatreShell(TheatreShellInputs(admittedNavigation, catalog, known, playback, selection, requested,
+            failure != null, visibleLibrary, theme, locale, ui.query, ui.libraryTab, ui.timer, accessFailure = failure, searchKind = ui.searchKind))
+    }
     var wasSignedIn by remember(shell) { mutableStateOf(signedIn) }
     LaunchedEffect(signedIn) {
         if (wasSignedIn && !signedIn) shell.clearMembership()
@@ -134,6 +139,7 @@ fun CantosTheatreApp(
     // Which failure answers a credential attempt from Login, so Account does not repeat it after Back.
     // A restore stays out: its storage or expiry failure is account health the guest card still shows.
     var loginAttempt by remember(shell) { mutableStateOf<LoginAttempt>(LoginAttempt.None) }
+    var submittedOnEntry by remember(navigation.route) { mutableStateOf(false) }
     LaunchedEffect(accountView) { loginAttempt = loginAttempt.after(accountView) }
 
     val state = projection.state
@@ -141,6 +147,7 @@ fun CantosTheatreApp(
     val onAuth: (AuthIntent) -> Unit = { intent ->
         when (intent) {
             is AuthIntent.Login -> if (shell.login(intent.email, intent.password)) {
+                submittedOnEntry = true
                 loginAttempt = LoginAttempt.Open.after(shell.runtime.account?.state?.value.toAccountView())
             }
             AuthIntent.CancelLogin -> shell.cancelLogin()
@@ -186,6 +193,9 @@ fun CantosTheatreApp(
             themeMode = themeMode,
             accountSignedIn = signedIn,
             accountPresentation = (accountView as? AccountView.SignedIn)?.presentation,
+            guestAuthEnabled = accountView.canBeginLogin,
+            guestEntry = { loginFocus -> GuestEntry(locale, accountView, onAuth, loginFocus, loginAttempt,
+                offerPublicHome = state.route in listOf(ShellRoute.Library, ShellRoute.History, ShellRoute.Account)) },
             membershipContent = {
                 MembershipPreview(ui.membership, locale, shell::membership,
                     onExplore = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) })
@@ -232,7 +242,8 @@ fun CantosTheatreApp(
                             RegistrationIntent.Restart -> owner.restart()
                         } }
                     })
-                else LoginScreen(locale, accountView, nothingSaved, onAuth)
+                else LoginScreen(locale, accountView, nothingSaved,
+                    showStatus = submittedOnEntry || !loginAttempt.owns(accountView), onIntent = onAuth)
             },
             authHeader = { AuthHeader(locale, theme, authReturnFor(state.stack), onAuth) },
             density = density,

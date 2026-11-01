@@ -60,12 +60,12 @@ class BookmarkPresentationUiTest {
 
     private fun render(
         state: ShellState, catalog: ShellCatalogView = ShellCatalogView(works = sampleWorks), locale: ShellLocale = ShellLocale.Vietnamese,
-        bookmarksOffered: Boolean = true, events: MutableList<ShellEvent> = mutableListOf(), check: ComposeUiTest.() -> Unit,
+        bookmarksOffered: Boolean = true, events: MutableList<ShellEvent> = mutableListOf(), signedIn: Boolean = true, check: ComposeUiTest.() -> Unit,
     ) = runDesktopComposeUiTest(width = 390, height = 3000) {
         setContent {
             Box(Modifier.requiredSize(390.dp, 3000.dp)) {
                 CompositionLocalProvider(LocalShellCapabilities provides ShellCapabilities(bookmarks = bookmarksOffered)) {
-                    CantosPresentation(state.copy(locale = locale), catalog, { events += it })
+                    CantosPresentation(state.copy(locale = locale), catalog, { events += it }, accountSignedIn = signedIn)
                 }
             }
         }
@@ -170,9 +170,10 @@ class BookmarkPresentationUiTest {
 
     @Test
     fun a_guest_projection_shows_no_bookmark_section_loading_or_rows() {
-        render(sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Library), bookmarks = emptyList()), ShellCatalogView(works = sampleWorks)) {
+        render(sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Library), bookmarks = listOf(synced)), ShellCatalogView(works = sampleWorks), signedIn = false) {
             assertEquals(0, count("library-bookmarks-loading"))
-            onNodeWithText(vi.text(CopyKey.NoBookmarks)).performScrollTo().assertExists()
+            onNodeWithText(vi.text(CopyKey.NoBookmarks)).assertDoesNotExist()
+            onNodeWithTag("library-bookmark-b-synced-open").assertDoesNotExist()
         }
     }
 
@@ -181,7 +182,7 @@ class BookmarkPresentationUiTest {
         runDesktopComposeUiTest(width = 390, height = 3000) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 3000.dp)) {
-                    CantosPresentation(library(offline, failed).copy(locale = ShellLocale.English), ShellCatalogView(works = sampleWorks), { }, textScale = 2f)
+                    CantosPresentation(library(offline, failed).copy(locale = ShellLocale.English), ShellCatalogView(works = sampleWorks), { }, textScale = 2f, accountSignedIn = true)
                 }
             }
             onNodeWithTag("library-bookmark-b-offline-status", useUnmergedTree = true).performScrollTo().assert(hasText(en.text(CopyKey.BookmarkOffline)))

@@ -214,6 +214,7 @@ private fun validatePosition(id: ShellEpisodeId, positionMs: Long) {
 }
 
 private fun routeId(route: ShellRoute): String = when (route) {
+    ShellRoute.Landing -> "Landing"
     ShellRoute.Discovery -> "Discovery"
     ShellRoute.Search -> "Search"
     ShellRoute.Library -> "Library"
@@ -233,6 +234,7 @@ private fun routeId(route: ShellRoute): String = when (route) {
 }
 
 private fun decodeRoute(id: String): ShellRoute = when (id) {
+    "Landing" -> ShellRoute.Landing
     "Discovery" -> ShellRoute.Discovery
     "Search" -> ShellRoute.Search
     "Library" -> ShellRoute.Library

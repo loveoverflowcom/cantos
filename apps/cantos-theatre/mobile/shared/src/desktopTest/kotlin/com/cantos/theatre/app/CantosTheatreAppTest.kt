@@ -130,7 +130,7 @@ class CantosTheatreAppTest {
     }
 
     @Test
-    fun me_keeps_system_selected_while_the_host_appearance_changes() =
+    fun guest_preferences_keep_system_selected_while_the_host_appearance_changes() =
         runDesktopComposeUiTest(width = 390, height = 844) {
             lateinit var fixture: Fixture
             var hostDark by mutableStateOf(false)
@@ -141,8 +141,7 @@ class CantosTheatreAppTest {
                 DisposableEffect(owner) { onDispose { owner.close() } }
                 CantosTheatreApp(owner.shell, systemIsDark = hostDark, onThemeChanged = { renderedDark = it })
             }
-            onNodeWithTag("account").performClick()
-            onNodeWithTag("setting-Theme").performScrollTo().performClick()
+            onNodeWithTag("guest-theme").performClick()
             onNodeWithTag("theme-System").performClick()
             waitForIdle()
             assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
@@ -153,8 +152,7 @@ class CantosTheatreAppTest {
             assertEquals(PreferenceTheme.System, fixture.preferences.state.value.theme)
             onNodeWithText("C", substring = false).assertDoesNotExist()
 
-            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Account)) }
-            onNodeWithTag("setting-Theme").performScrollTo().performClick()
+            onNodeWithTag("guest-theme").performClick()
             onNodeWithTag("theme-System").assertIsSelected()
             onNodeWithTag("theme-Dark").performClick()
             waitForIdle()
@@ -162,7 +160,7 @@ class CantosTheatreAppTest {
             runOnIdle { hostDark = false }
             waitForIdle()
             assertEquals(true, renderedDark, "an explicit choice ignores later host changes")
-            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("guest-language").performClick()
             onNodeWithTag("locale-English").performClick()
             waitForIdle()
             assertEquals(PreferenceLocale.English, fixture.preferences.state.value.locale)
@@ -229,11 +227,13 @@ class CantosTheatreAppTest {
                 runOnIdle { fixture.engine.emit(PlaybackEvent.EngineStarted(fixture.engine.loads.last().identity)) }
                 waitForIdle()
                 capture(name + "-mini", "capture-root", width, height, scale, theme)
-                onNodeWithTag("nav-library").performClick()
-                onNodeWithTag("library-continue").assertExists()
+                onNodeWithTag("nav-library").assertDoesNotExist()
+                onNodeWithTag("nav-discovery").assertDoesNotExist()
+                runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Landing)) }
+                onNodeWithTag("landing").assertExists()
                 onNodeWithTag("mini-player").assertIsDisplayed()
-                onNodeWithTag("account").performClick()
-                onNodeWithTag("account-profile").assertExists()
+                onNodeWithTag("guest-theme").assertIsDisplayed()
+                onNodeWithTag("guest-language").assertIsDisplayed()
                 assertEquals(1, fixture.factories)
                 assertEquals(2, fixture.authorizations)
                 assertEquals(fixture.audio, fixture.runtime.listening.playback.state.value.session?.source?.audio)
@@ -330,12 +330,13 @@ class CantosTheatreAppTest {
             val reads = fixture.worksReads
             onNodeWithTag("catalog-refresh").performClick()
             waitUntil { fixture.worksReads > reads }
-            // Guest Library: sign-in is the explanation; no sample row or fixture content appears.
-            onNodeWithTag("nav-library").performClick()
-            onNodeWithTag("library-sync").assertExists()
-            onNodeWithText("Đăng nhập để lưu và đồng bộ tủ sách, lịch sử và điểm nghe.").assertExists()
-            onNodeWithTag("library-continue").assertExists()
-            onNodeWithTag("library-empty-hero").assertExists()
+            // A private destination settles to Landing; no private Library presentation is mounted.
+            onNodeWithTag("nav-library").assertDoesNotExist()
+            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Library)) }
+            onNodeWithTag("landing").assertExists()
+            onNodeWithTag("library-sync").assertDoesNotExist()
+            onNodeWithTag("library-continue").assertDoesNotExist()
+            onNodeWithTag("library-empty-hero").assertDoesNotExist()
         }
     }
 

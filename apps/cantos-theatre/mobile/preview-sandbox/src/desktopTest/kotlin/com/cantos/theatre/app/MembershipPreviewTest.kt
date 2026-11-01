@@ -64,7 +64,7 @@ class MembershipPreviewTest {
     @Test
     fun account_entry_opens_a_blank_single_form_with_no_plan_or_consent_selection() {
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { MembershipTestRoot(initial = previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account))) }
+            setContent { MembershipTestRoot(initial = previewState(stack = listOf(ShellRoute.Discovery, ShellRoute.Account)), signedIn = true) }
             onNodeWithTag("membership-preview-entry").performScrollTo().performClick()
             onNodeWithTag("membership-start").performScrollTo().performClick()
             onNodeWithTag("membership-name").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
@@ -197,8 +197,9 @@ private fun MembershipTestRoot(
     width: Int = 390,
     height: Int = 844,
     textScale: Float = 1f,
+    signedIn: Boolean = false,
 ) {
     Box(Modifier.requiredSize(width.dp, height.dp)) {
-        PreviewTestRoot(PreviewSeed(initial, membership = fixture), textScale = textScale)
+        PreviewTestRoot(PreviewSeed(initial, membership = fixture, signedIn = signedIn), textScale = textScale)
     }
 }

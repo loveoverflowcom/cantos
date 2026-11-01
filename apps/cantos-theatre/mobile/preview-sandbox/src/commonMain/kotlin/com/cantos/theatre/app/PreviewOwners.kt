@@ -223,6 +223,7 @@ private fun ShellCatalogMode.toScenario(): PreviewCatalogScenario = when (this) 
 }
 
 private fun ShellRoute.toTheatreRoute(): TheatreRoute = when (this) {
+    ShellRoute.Landing -> TheatreRoute.Landing
     ShellRoute.Discovery -> TheatreRoute.Discovery
     ShellRoute.Search -> TheatreRoute.Search
     ShellRoute.Library -> TheatreRoute.Library

@@ -57,7 +57,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, catalog(), { events += it })
+                    CantosPresentation(state, catalog(), { events += it }, accountSignedIn = true)
                 }
             }
             onNodeWithTag("bookmark").performScrollTo().assert(hasText("Đã ghi dấu điểm này"))
@@ -83,7 +83,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, catalog(), { events += it })
+                    CantosPresentation(state, catalog(), { events += it }, accountSignedIn = true)
                 }
             }
             onNodeWithTag("simulation-status").assertTextEquals("Đang mở tập…")
@@ -110,7 +110,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, catalog(), {})
+                    CantosPresentation(state, catalog(), {}, accountSignedIn = true)
                 }
             }
             expected.forEach { (status, label) ->
@@ -131,7 +131,7 @@ class ShellPresentationStateTest {
                         sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Work(SampleWorkIds.CanhBuom))),
                         catalog(),
                         { events += it },
-                    )
+                    accountSignedIn = true)
                 }
             }
             onNodeWithTag("selection-unavailable").assertExists()
@@ -152,7 +152,7 @@ class ShellPresentationStateTest {
                         sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Unavailable)),
                         catalog(),
                         { events += it },
-                    )
+                    accountSignedIn = true)
                 }
             }
             onNodeWithTag("selection-unavailable").assertExists()
@@ -168,7 +168,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(sampleState(), ShellCatalogView(), {})
+                    CantosPresentation(sampleState(), ShellCatalogView(), {}, accountSignedIn = true)
                 }
             }
             onNodeWithText("Chưa có câu chuyện khả dụng").assertExists()
@@ -188,7 +188,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, ShellCatalogView(), {})
+                    CantosPresentation(state, ShellCatalogView(), {}, accountSignedIn = true)
                 }
             }
             onNodeWithTag("selection-unavailable").assertExists()
@@ -212,7 +212,7 @@ class ShellPresentationStateTest {
                         sampleState(stack = listOf(ShellRoute.Discovery, ShellRoute.Work(SampleWorkIds.SonHa)), savedWorks = emptySet()),
                         view,
                         { events += it },
-                    )
+                    accountSignedIn = true)
                 }
             }
             onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled()
@@ -231,7 +231,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, catalog(), { events += it })
+                    CantosPresentation(state, catalog(), { events += it }, accountSignedIn = true)
                 }
             }
             onNodeWithTag("save-card-SonHa").performScrollTo().performClick().performClick()
@@ -256,7 +256,7 @@ class ShellPresentationStateTest {
         val events = mutableListOf<ShellEvent>()
         var state by mutableStateOf(sampleState(savedWorks = emptySet()).copy(pendingSavedWorks = setOf(SampleWorkIds.SonHa)))
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state, catalog(), { events += it }) }
+            setContent { CantosPresentation(state, catalog(), { events += it }, accountSignedIn = true) }
             onNodeWithTag("save-card-SonHa").performScrollTo().assertIsNotEnabled().performClick()
             assertEquals(emptyList(), events)
             runOnIdle { state = state.copy(savedWorks = setOf(SampleWorkIds.SonHa), pendingSavedWorks = emptySet()) }
@@ -274,7 +274,7 @@ class ShellPresentationStateTest {
                         sampleState(savedWorks = emptySet(), listeningFailure = ShellListeningFailure.MemoryStoreUnavailable),
                         catalog(),
                         { events += it },
-                    )
+                    accountSignedIn = true)
                 }
             }
             onNodeWithTag("listening-failure").assertExists()
@@ -303,7 +303,7 @@ class ShellPresentationStateTest {
                         ),
                         ShellCatalogView(listOf(work)),
                         {},
-                    )
+                    accountSignedIn = true)
                 }
             }
             onNodeWithTag("library-continue").performScrollTo()
@@ -319,7 +319,7 @@ class ShellPresentationStateTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosPresentation(state, catalog(), {})
+                    CantosPresentation(state, catalog(), {}, accountSignedIn = true)
                 }
             }
             // Search is fullscreen: it owns no primary destination and shows no tab bar.

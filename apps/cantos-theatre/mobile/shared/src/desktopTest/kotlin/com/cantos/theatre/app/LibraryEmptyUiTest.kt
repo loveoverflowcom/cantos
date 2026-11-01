@@ -50,7 +50,7 @@ class LibraryEmptyUiTest {
         val events = mutableListOf<ShellEvent>()
         var state by mutableStateOf(sampleState(stack = listOf(ShellRoute.Library)))
         runDesktopComposeUiTest(width = 320, height = 800) {
-            setContent { Box(Modifier.requiredSize(320.dp, 800.dp)) { CantosPresentation(state, ShellCatalogView(), { events += it }, textScale = 2f) } }
+            setContent { Box(Modifier.requiredSize(320.dp, 800.dp)) { CantosPresentation(state, ShellCatalogView(), { events += it }, textScale = 2f, accountSignedIn = true) } }
             onAllNodesWithTag("library-empty-discover").assertCountEquals(1)
             val discover = onNodeWithTag("library-empty-discover").performScrollTo()
             discover.assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
@@ -71,7 +71,7 @@ class LibraryEmptyUiTest {
         val events = mutableListOf<ShellEvent>()
         val state = sampleState(stack = listOf(ShellRoute.Library, ShellRoute.History))
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state, ShellCatalogView(library = ShellLibraryView(history = phase)), { events += it }) }
+            setContent { CantosPresentation(state, ShellCatalogView(library = ShellLibraryView(history = phase)), { events += it }, accountSignedIn = true) }
             ShellLibraryPhase.entries.forEach { next ->
                 runOnIdle { phase = next; events.clear() }
                 onAllNodesWithTag("history-empty").assertCountEquals(if (next == ShellLibraryPhase.Complete) 1 else 0)
@@ -101,7 +101,7 @@ class LibraryEmptyUiTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 CompositionLocalProvider(LocalShellCapabilities provides ShellCapabilities(bookmarks = false)) {
-                    CantosPresentation(sampleState(stack = listOf(ShellRoute.Library)), ShellCatalogView(), {})
+                    CantosPresentation(sampleState(stack = listOf(ShellRoute.Library)), ShellCatalogView(), {}, accountSignedIn = true)
                 }
             }
             onNodeWithTag("library-bookmarks-unavailable").assertExists()

@@ -87,18 +87,18 @@ class AuthCaptureTest {
     }
 
     @Test
-    fun account_is_captured_as_guest_and_signed_in() {
-        capture("account-guest-light-390x844", 390, 844, account)
-        capture("account-guest-dark-390x844", 390, 844, account.themed(ShellTheme.Dark))
+    fun landing_and_signed_in_account_are_captured() {
+        capture("landing-guest-light-390x844", 390, 844, account)
+        capture("landing-guest-dark-390x844", 390, 844, account.themed(ShellTheme.Dark))
         val english = account.copy(state = account.state.copy(locale = ShellLocale.English))
-        capture("account-guest-light-en-390x844", 390, 844, english)
-        capture("account-guest-dark-en-768x1024", 768, 1024, english.themed(ShellTheme.Dark))
-        capture("account-guest-dark-en-text2-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f)
-        capture("account-guest-dark-en-text2-actions-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f, scrollToTag = "create-account")
-        capture("account-guest-light-text2-320x800", 320, 800, account, textScale = 2f)
-        capture("account-guest-light-text2-actions-320x800", 320, 800, account, textScale = 2f, scrollToTag = "create-account")
-        capture("account-guest-light-text2-settings-320x800", 320, 800, account, textScale = 2f, scrollToTag = "settings")
-        capture("account-guest-light-768x1024", 768, 1024, account)
+        capture("landing-guest-light-en-390x844", 390, 844, english)
+        capture("landing-guest-dark-en-768x1024", 768, 1024, english.themed(ShellTheme.Dark))
+        capture("landing-guest-dark-en-text2-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f)
+        capture("landing-guest-dark-en-text2-actions-320x800", 320, 800, english.themed(ShellTheme.Dark), textScale = 2f, scrollToTag = "create-account")
+        capture("landing-guest-light-text2-320x800", 320, 800, account, textScale = 2f)
+        capture("landing-guest-light-text2-actions-320x800", 320, 800, account, textScale = 2f, scrollToTag = "create-account")
+        capture("landing-guest-light-text2-preferences-320x800", 320, 800, account, textScale = 2f) { it.click("guest-language") }
+        capture("landing-guest-light-768x1024", 768, 1024, account)
         capture("account-signed-light-390x844", 390, 844, account) { it.completeLogin() }
         capture("account-signed-dark-390x844", 390, 844, account.themed(ShellTheme.Dark)) { it.completeLogin() }
         capture("account-signed-light-text2-320x800", 320, 800, account, textScale = 2f) { it.completeLogin() }
@@ -122,13 +122,13 @@ class AuthCaptureTest {
 
     @Test
     fun compact_me_preferences_and_existing_choosers_are_captured() {
-        capture("me-preferences-light-390x844", 390, 844, account, scrollToTag = "account-preferences")
+        capture("me-preferences-light-390x844", 390, 844, account, scrollToTag = "account-preferences") { it.completeLogin() }
         capture("me-preferences-dark-en-text2-320x800", 320, 800,
             account.copy(state = account.state.copy(theme = ShellTheme.Dark, locale = ShellLocale.English)),
-            textScale = 2f, scrollToTag = "account-preferences")
-        capture("me-theme-dialog-light-390x844", 390, 844, account) { it.click("setting-Theme") }
+            textScale = 2f, scrollToTag = "account-preferences") { it.completeLogin() }
+        capture("me-theme-dialog-light-390x844", 390, 844, account) { it.completeLogin(); it.click("setting-Theme") }
         capture("me-language-dialog-dark-text2-320x800", 320, 800, account.themed(ShellTheme.Dark), textScale = 2f) {
-            it.click("setting-Language")
+            it.completeLogin(); it.click("setting-Language")
         }
     }
 
@@ -139,7 +139,8 @@ class AuthCaptureTest {
                 test.onNodeWithTag("login-email").performScrollTo().performTextInput("listener@example.test")
                 test.onNodeWithTag("login-password").performScrollTo().performTextInput("preview-only")
             }
-            test.onNodeWithTag(tag).performScrollTo().performClick()
+            val target = test.onNodeWithTag(tag)
+            if (tag.startsWith("guest-")) target.performClick() else target.performScrollTo().performClick()
             test.waitForIdle()
         }
 
@@ -147,6 +148,8 @@ class AuthCaptureTest {
             click("sign-in")
             click("login-primary")
             h.identity.completeLogin(approve = true)
+            test.waitForIdle()
+            if (h.shell.navigation.value.route != TheatreRoute.Account) h.shell.navigate(NavigationEvent.Navigate(TheatreRoute.Account))
             test.waitForIdle()
         }
     }

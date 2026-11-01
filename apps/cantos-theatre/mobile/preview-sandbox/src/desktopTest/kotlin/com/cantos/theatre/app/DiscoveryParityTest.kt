@@ -64,7 +64,7 @@ class DiscoveryParityTest {
     fun discovery_only_claims_continuation_when_progress_exists() {
         for (hasProgress in listOf(false, true)) runDesktopComposeUiTest(width = 390, height = 844) {
             val progress = if (hasProgress) listOf(ShellProgress(episode, 20)) else emptyList()
-            setContent { CantosPresentation(state.copy(progress = progress), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state.copy(progress = progress), ShellCatalogView(), {}, accountSignedIn = true) }
             if (hasProgress) onNodeWithText("CHUYỆN CÒN DỞ").assertExists()
             else onNodeWithText("CHUYỆN CÒN DỞ").assertDoesNotExist()
         }
@@ -73,7 +73,7 @@ class DiscoveryParityTest {
     @Test
     fun discovery_search_is_a_full_width_pill_with_one_navigation_intent() = runDesktopComposeUiTest(width = 390, height = 844) {
         val events = mutableListOf<ShellEvent>()
-        setContent { CantosPresentation(state, ShellCatalogView(), events::add) }
+        setContent { CantosPresentation(state, ShellCatalogView(), events::add, accountSignedIn = true) }
         onAllNodes(hasSetTextAction()).assertCountEquals(0)
         onNodeWithTag("search").assertContentDescriptionEquals("Tìm kiếm")
             .assertHasClickAction().assertHeightIsAtLeast(72.dp).assertWidthIsAtLeast(300.dp)
@@ -87,7 +87,7 @@ class DiscoveryParityTest {
         var back: () -> Unit = {}
         setContent {
             CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "  Đèn  "),
-                ShellCatalogView(), events::add, backHandler = { _, action -> back = action })
+                ShellCatalogView(), events::add, backHandler = { _, action -> back = action }, accountSignedIn = true)
         }
         // No dock to collapse, no shared header or tab bar above or below the fullscreen route.
         for (gone in listOf("search-dock", "search-collapse", "header-title", "theme-toggle", "account", "nav-discovery", "nav-library", "mini-open"))
@@ -106,12 +106,12 @@ class DiscoveryParityTest {
     @Test
     fun search_focuses_an_empty_input_on_entry_but_does_not_reopen_the_keyboard_over_existing_text() {
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search)), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search)), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithTag("search-input").assertIsFocused()
             onNodeWithTag("search-clear").assertDoesNotExist()
         }
         runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn"), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn"), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithTag("search-input").assertIsNotFocused()
         }
     }
@@ -122,7 +122,7 @@ class DiscoveryParityTest {
         var kind by mutableStateOf(ShellSearchKind.All)
         setContent {
             CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), searchKind = kind),
-                ShellCatalogView(), { events += it; if (it is ShellEvent.SelectSearchKind) kind = it.kind })
+                ShellCatalogView(), { events += it; if (it is ShellEvent.SelectSearchKind) kind = it.kind }, accountSignedIn = true)
         }
         onNodeWithTag("search-kind-all").assertIsSelected()
         for (chip in listOf("search-kind-all", "search-kind-novel", "search-kind-story", "search-kind-podcast"))
@@ -141,7 +141,7 @@ class DiscoveryParityTest {
             val events = mutableListOf<ShellEvent>()
             setContent {
                 CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), query = "Đèn"),
-                    ShellCatalogView(listOf(work), searchedBySource = true, appliedSearch = "Đèn"), events::add)
+                    ShellCatalogView(listOf(work), searchedBySource = true, appliedSearch = "Đèn"), events::add, accountSignedIn = true)
             }
             onNodeWithTag("work-$workId").assertHasClickAction().performClick()
             assertEquals(listOf<ShellEvent>(ShellEvent.Navigate(ShellRoute.Work(workId))), events.toList())
@@ -150,7 +150,7 @@ class DiscoveryParityTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
                 CantosPresentation(state.copy(stack = listOf(ShellRoute.Discovery, ShellRoute.Search), catalogMode = ShellCatalogMode.Empty,
-                    searchKind = ShellSearchKind.Podcast), ShellCatalogView(), {})
+                    searchKind = ShellSearchKind.Podcast), ShellCatalogView(), {}, accountSignedIn = true)
             }
             onNodeWithText("Chưa tìm thấy câu chuyện").assertExists()
             onNodeWithTag("catalog-clear-search").assertExists()
@@ -160,7 +160,7 @@ class DiscoveryParityTest {
     @Test
     fun search_loading_and_failure_do_not_announce_a_completed_zero_count() {
         for (mode in listOf(ShellCatalogMode.Loading, ShellCatalogMode.Error)) runDesktopComposeUiTest(width = 390, height = 844) {
-            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Search), catalogMode = mode), ShellCatalogView(), {}) }
+            setContent { CantosPresentation(state.copy(stack = listOf(ShellRoute.Search), catalogMode = mode), ShellCatalogView(), {}, accountSignedIn = true) }
             onNodeWithText("0 tác phẩm").assertDoesNotExist()
             onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
         }
@@ -171,7 +171,7 @@ class DiscoveryParityTest {
         for (mode in listOf(ShellCatalogMode.Empty, ShellCatalogMode.Error, ShellCatalogMode.Loading)) {
             runDesktopComposeUiTest(width = 390, height = 844) {
                 val events = mutableListOf<ShellEvent>()
-                setContent { CantosPresentation(state.copy(catalogMode = mode), ShellCatalogView(), events::add) }
+                setContent { CantosPresentation(state.copy(catalogMode = mode), ShellCatalogView(), events::add, accountSignedIn = true) }
                 onNodeWithTag("catalog-empty-retry").assertDoesNotExist()
                 if (mode == ShellCatalogMode.Empty) {
                     onNodeWithTag("retry").assertDoesNotExist()
@@ -191,7 +191,7 @@ class DiscoveryParityTest {
     fun retained_and_partial_rows_keep_their_footer_and_never_become_empty() {
         for (phase in listOf(ShellListPhase.More, ShellListPhase.Loading, ShellListPhase.Failed)) {
             runDesktopComposeUiTest(width = 390, height = 844) {
-                setContent { CantosPresentation(state, ShellCatalogView(listOf(work), worksPhase = phase), {}) }
+                setContent { CantosPresentation(state, ShellCatalogView(listOf(work), worksPhase = phase), {}, accountSignedIn = true) }
                 onNodeWithTag("work-$workId").assertExists()
                 onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
                 val footer = when (phase) {
@@ -210,7 +210,7 @@ class DiscoveryParityTest {
         for (request in listOf(com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement, com.cantos.theatre.presentation.model.ShellCatalogRequest.Append)) {
             runDesktopComposeUiTest(width = 390, height = 844) {
                 val view = ShellCatalogView(listOf(work), worksPhase = ShellListPhase.Loading, request = request, appliedSearch = "previous")
-                setContent { CantosPresentation(state, view, {}) }
+                setContent { CantosPresentation(state, view, {}, accountSignedIn = true) }
                 onNodeWithTag("work-$workId").assertHasClickAction()
                 onNodeWithTag("catalog-empty-artwork").assertDoesNotExist()
                 if (request == com.cantos.theatre.presentation.model.ShellCatalogRequest.Replacement) {
@@ -234,7 +234,7 @@ class DiscoveryParityTest {
         for (theme in ShellTheme.entries) for ((name, shown, view) in cases) {
             runDesktopComposeUiTest(width = 390, height = 844) {
                 setContent { Box(Modifier.requiredSize(390.dp, 844.dp).testTag("loading-root")) {
-                    CantosPresentation(shown.copy(theme = theme), view, {})
+                    CantosPresentation(shown.copy(theme = theme), view, {}, accountSignedIn = true)
                 } }
                 waitForIdle()
                 val root = onNodeWithTag("loading-root")
@@ -266,7 +266,7 @@ class DiscoveryParityTest {
                     val shown = scenario.copy(theme = theme, locale = locale)
                     setContent {
                         Box(Modifier.requiredSize(width.dp, 844.dp).testTag("parity-root")) {
-                            CantosPresentation(shown, catalog, {}, textScale = scale)
+                            CantosPresentation(shown, catalog, {}, textScale = scale, accountSignedIn = true)
                         }
                     }
                     waitForIdle()
