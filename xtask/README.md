@@ -232,6 +232,11 @@ File and fake-host tests do not qualify the executor or authorize production.
 data. It writes a separate historical upgrade/restore report; it never changes the four
 current-schema qualification records or supplies operator admission/live acceptance.
 
+`--transition v27-v35` selects the separate [v35 forward qualification](../docs/deployment/native-forward-v35.md)
+from the pinned v27 image pair. It never restores a historical snapshot after start and does
+not implement host activation or discharge the independent recovery NO_GO. The corrected OCI
+restore gate refuses a pair that revives a session revoked after its backup cut.
+
 `cargo xtask release native-executor-build --output FRESH_DIR` builds a static amd64 xtask on
 a disposable Linux builder with the pinned Rust/musl toolchain. The
 [delivery contract](../docs/deployment/native-existing-host-migration.md#pinned-executor-delivery-without-a-host-compiler-change)

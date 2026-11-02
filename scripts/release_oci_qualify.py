@@ -505,6 +505,11 @@ def run_gates(fixture, manifest, plan):
                                                         "storage_driver": "vfs", "principal": "rootful-disposable"}}
     yield "native-e2e", {"checks": f.call("signup")["checks"]}
     yield "native-isolation", {"checks": f.isolation()}
+    yield "migration-restore", migration_restore(f)
+
+
+def migration_restore(f):
+    """Exercise the restore gate independently; no input PASS record can satisfy it."""
     f.stop()
     backups = {service: cold_copy(path, f.work / "backup" / service) for service, path in f.databases.items()}
     # Idempotent migration on a real populated cold copy, then actual HTTP/auth from that copy.
@@ -525,11 +530,15 @@ def run_gates(fixture, manifest, plan):
         cold_copy(f.work / "backup" / service, f.databases[service], backups[service])
     f.migrate()
     f.restart()
-    checks += f.call("persisted")["checks"]
-    yield "migration-restore", {"checks": checks + ["cold-complete-directory-copy", "populated-idempotent-migrate",
-                                                  "restore-to-fresh-roots", "restored-http-auth-session"],
+    # A pre-cut backup must not revive a session revoked after that cut. Checking
+    # persisted()/login success here inverted the security oracle and admitted revival.
+    # Without qualified revocation reconciliation the real fixture must FAIL, not waive
+    # this check because the restored Server and Identity files form a consistent pair.
+    checks += f.call("revoked")["checks"]
+    return {"checks": checks + ["cold-complete-directory-copy", "populated-idempotent-migrate",
+                                                  "restore-to-fresh-roots", "restored-post-cut-revoked-session-denied"],
                                 "backup_files": backups,
-                                "scope": "fresh current-schema migration and same-schema restore; no historical schema upgrade"}
+                                "scope": "current-schema migration/restore with post-cut session-revocation check; historical upgrade and account-disable recovery remain separate"}
 
 
 def write_result(output, manifest, input_path, input_digest, records, configuration, failure):

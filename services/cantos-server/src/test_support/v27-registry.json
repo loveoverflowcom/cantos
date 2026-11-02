@@ -1,0 +1,140 @@
+{
+  "source_sha": "89c5964c89cdbb0c50397f7d1263af34a5c3e517",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "server_actor_registry",
+      "checksum": "5b59e260ac5ccbcf34439e9034a51ffe26d528a35bad4a0cb3c651300c64a6b2"
+    },
+    {
+      "version": 2,
+      "name": "server_identity_sessions",
+      "checksum": "1d3c06536d55bc13b5969d205322d5d861c2f7a0f702889f6a2af5845207e6fe"
+    },
+    {
+      "version": 3,
+      "name": "server_development_sessions",
+      "checksum": "026023de2acac92637a90bdfe01c0942a8a837081264f658004a5fbad7913a8b"
+    },
+    {
+      "version": 4,
+      "name": "server_editorial",
+      "checksum": "d0132b8bf2fd3dffb4843d1284541a08b4f96974882db6e38912614e6ba2a736"
+    },
+    {
+      "version": 5,
+      "name": "server_catalog",
+      "checksum": "5f3d8714ebf030ac4501db9fc2cf398a51c64b00982dc920c58df0e875cded54"
+    },
+    {
+      "version": 6,
+      "name": "server_admin",
+      "checksum": "5235143fb06d723f3c9b643ef3f6cf0369bc535837fbd120e3f5d72544b7f6bb"
+    },
+    {
+      "version": 7,
+      "name": "server_adaptation",
+      "checksum": "49f76d6d3c46806eef049f5f3b162a882fc5b71a6042a281df501af6bc452eda"
+    },
+    {
+      "version": 8,
+      "name": "server_production",
+      "checksum": "bd51c30614b3d7802fda079d525e2056cc687c1442bfafe3ae4689bf710812a4"
+    },
+    {
+      "version": 9,
+      "name": "server_media_artwork",
+      "checksum": "03f57e58b2aa906ab4da2805f8bb86124910b907035fc6cff10b0db02304de23"
+    },
+    {
+      "version": 10,
+      "name": "server_media_audio",
+      "checksum": "86798afc7fe07f87e98d409eea2790257faad4f1f40fba7b2bd07dc6a6da66d0"
+    },
+    {
+      "version": 11,
+      "name": "server_listening",
+      "checksum": "638b94dcc4c3ec7a77dc1c02adb78318f773f8e88f1b51292c8684e740c9ee92"
+    },
+    {
+      "version": 12,
+      "name": "server_catalog_publication_read",
+      "checksum": "1999c895ed8c18eecf71368eb48cf56fa70cb55127fbb65b5ff5ea4ba3767081"
+    },
+    {
+      "version": 13,
+      "name": "server_production_briefs",
+      "checksum": "e3af46702f29ca3c2c7c2f8f421e45184d8242f06237eb9a2f1eb8d3a6a3048c"
+    },
+    {
+      "version": 14,
+      "name": "server_audio_release_chain",
+      "checksum": "977397256e91359d0e748da07411229a9d46167c8eb2743e585fb19e53759357"
+    },
+    {
+      "version": 15,
+      "name": "server_listener_library",
+      "checksum": "d142e11ea7b950396ed98f8aed6fa82a9c742e47d219a0decd0910e7e2919349"
+    },
+    {
+      "version": 16,
+      "name": "server_editorial_ingestion",
+      "checksum": "0b93886bb37539e4ab7e90cde5cf99355cff0984c2ff0cb5efd9a0eeabacdfad"
+    },
+    {
+      "version": 17,
+      "name": "server_catalog_studio",
+      "checksum": "ff69f612baec73c8eee3e459fdbef08139274bf8c40f8c73f7e1d2128a22eb46"
+    },
+    {
+      "version": 18,
+      "name": "server_adaptation_contexts",
+      "checksum": "ebecfb6c726689075779d7418c4fdd5e4c7df517f5b8d4d3fde7aed78362e757"
+    },
+    {
+      "version": 19,
+      "name": "server_production_snapshots",
+      "checksum": "c691da49e70048d71e583dd8966a5e26ac75898ea0bfff5e690a57ed343bab7e"
+    },
+    {
+      "version": 20,
+      "name": "server_private_media",
+      "checksum": "9d0ff2d321091a811dc5a1a1da6b76a92bf68dcd108c516f6d9ef5592621dd1a"
+    },
+    {
+      "version": 21,
+      "name": "server_producer_grants",
+      "checksum": "9551478647580c48eacadc7c01fbee4021dadcbda0a8222270e1bdfd947d6654"
+    },
+    {
+      "version": 22,
+      "name": "server_admin_audit",
+      "checksum": "9d84cd9b9bb9a93faddb986b7bce5cc56e61b96cd850f66b35500ab5652817c7"
+    },
+    {
+      "version": 23,
+      "name": "server_publication_receipts",
+      "checksum": "e700ce5fda39c757d6376059ce157075ae54f038a4e39144628ce0ca6b64dab1"
+    },
+    {
+      "version": 24,
+      "name": "server_media_cover_disclosures",
+      "checksum": "ea8e02950d21cc64c815e5743ce242534c9fb3b4e76fb93ed7b1307290596493"
+    },
+    {
+      "version": 25,
+      "name": "server_sample_metadata_disclosures",
+      "checksum": "e9b1030a7c2f1470937f4820cdc889c8fa024ae9fe9b458e97cf946f0f0af093"
+    },
+    {
+      "version": 26,
+      "name": "server_sample_seed_principal",
+      "checksum": "e75ebf1bd39c6deb3ffab07bc3d047f4e4446c85a2c433911d2f45bb8c2949fd"
+    },
+    {
+      "version": 27,
+      "name": "server_fictional_sample",
+      "checksum": "3e7892b6a0ecb7b76b56371193235b5387fbecc1fc7587bcafd93457611e329c"
+    }
+  ]
+}

@@ -102,6 +102,7 @@ jobs:
               output.write(f'manifest={path}\n')
               output.write(f'digest={hashlib.sha256(raw).hexdigest()}\n')
               output.write(f'configuration={manifest["configuration_sha256"]}\n')
+              output.write(f'server_schema={manifest["compatibility"]["server_schema"]}\n')
           PY
       - name: Qualify the exact pair on disposable native Linux
         env:
@@ -122,6 +123,7 @@ jobs:
             --authfile "$RUNNER_TEMP/qualification-auth.json" \
             --output artifacts/release-qualification/exact-pair
       - name: Rehearse historical v24 to v27 and cold pair recovery
+        if: ${{ steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v27' }}
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
@@ -143,6 +145,7 @@ jobs:
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-v27"
       - name: Rehearse second pinned v24 pair to v27 and cold pair recovery
+        if: ${{ steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v27' }}
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
@@ -161,6 +164,29 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
+      - name: Rehearse pinned v27 to v35 forward upgrade independently
+        # A failed recovery gate stays FAIL and the job stays failed. This independent
+        # synthetic upgrade evidence cannot grant admission or host activation.
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v35' }}
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+          CANDIDATE: ${{ steps.candidate.outputs.manifest }}
+        run: |
+          set -Eeuo pipefail
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/v35-rehearsal-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/v35-rehearsal-auth.json"' EXIT
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          if ! test -f "$MANIFEST"; then MANIFEST="$CANDIDATE"; fi
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+          BASELINE_DIGEST=$(sha256sum infra/oci/historical-v27.json | cut -d' ' -f1)
+          sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
+            release native-rehearse \
+            --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+            --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+            --baseline infra/oci/historical-v27.json --baseline-digest "$BASELINE_DIGEST" \
+            --transition v27-v35 --authfile "$RUNNER_TEMP/v35-rehearsal-auth.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v27-v35"
       - name: Qualify separate sample operator against the exact pair
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
@@ -189,6 +215,7 @@ jobs:
             fi
           fi
       - name: Rehearse disposable systemd executor transitions
+        if: ${{ steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v27' }}
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}

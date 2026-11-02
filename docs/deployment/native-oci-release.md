@@ -97,6 +97,10 @@ This is not a signature/key-management system and cannot prove who approved a fi
 `platform`, complete `images`, `producer` and `gates`. Each named gate has `status=PASS` and a
 `record_sha256` identifying the immutable producer record: `native-isolation`, `native-e2e`,
 `migration-restore`, `image-pair`. The operator must review those records before admission.
+The restore gate now requires post-cut revoked sessions to remain denied after restoring a
+pre-cut pair. A pair that revives them fails qualification; the
+[v35 forward rehearsal](native-forward-v35.md) cannot replace that gate or authorize a host
+migration. Historical receipt hashes never waive the corrected security oracle.
 The verifier now requires the actual bounded regular `gate-records/GATE.json` file for each
 `record_sha256`, and checks its bytes plus `gate`, `status=PASS`, `source_sha`,
 `configuration_sha256`, `platform` and complete `images` against the manifest. Other record
