@@ -4,6 +4,7 @@ use super::{
     *,
 };
 use std::collections::BTreeMap;
+use std::os::unix::fs::DirBuilderExt;
 
 const WORK: &str = "12345678-1234-1234-1234-123456789abc";
 const IMAGE: &str = "20000000-0000-4000-8000-000000000001";
@@ -313,8 +314,14 @@ async fn migrating_a_stale_copy_cannot_reconstruct_post_cut_revocation() {
     let run = TestRun::new("historical-v35-recovery-counterexample");
     let live_root = run.path("live");
     let copy_root = run.path("stale");
-    std::fs::create_dir(&live_root).unwrap();
-    std::fs::create_dir(&copy_root).unwrap();
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&live_root)
+        .unwrap();
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&copy_root)
+        .unwrap();
     let live = live_root.join("server.db");
     let copy = copy_root.join("server.db");
     let old = OwnedDatabase::open(OpenRequest::new(&live, v27(), Intent::Migrate, clock()))
