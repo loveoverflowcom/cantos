@@ -29,6 +29,46 @@ def layer(files):
     return buffer.getvalue()
 
 
+class RestoreRuntimeDouble:
+    """Named model of post-cut session revival; never a Turso/HTTP acceptance claim."""
+    def __init__(self, work, revives):
+        self.work, self.revives = work, revives
+        self.databases = {service: work / 'current' / service for service in oci.SERVICES}
+        for service, path in self.databases.items():
+            path.mkdir(parents=True, mode=0o700)
+            (path / ('server.db' if service == 'cantos-server' else 'identity.db')).write_bytes(b'synthetic')
+        self.actions = []
+        self.revoked = False
+
+    def stop(self): pass
+    def migrate(self): pass
+    def restart(self): pass
+
+    def call(self, action):
+        self.actions.append(action)
+        if action == 'revoke':
+            self.revoked = True
+        if action == 'revoked' and self.revoked and self.revives and self.databases['cantos-server'].parent.name == 'restored':
+            raise ValueError('POST_CUT_REVOKED_SESSION_RESTORED')
+        return {'checks': ['runtime-double-' + action]}
+
+
+class RestoreGateOracle(unittest.TestCase):
+    def test_post_cut_revoked_session_cannot_produce_a_passing_restore_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = RestoreRuntimeDouble(Path(tmp), revives=True)
+            with self.assertRaisesRegex(ValueError, 'POST_CUT_REVOKED_SESSION_RESTORED'):
+                qualify.migration_restore(runtime)
+
+    def test_restored_session_denial_is_observed_and_never_replaced_by_a_login_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = RestoreRuntimeDouble(Path(tmp), revives=False)
+            result = qualify.migration_restore(runtime)
+            self.assertEqual(runtime.actions, ['persisted', 'revoke', 'revoked', 'revoked'])
+            self.assertIn('restored-post-cut-revoked-session-denied', result['checks'])
+            self.assertNotIn('restored-http-auth-session', result['checks'])
+
+
 class QualificationContract(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

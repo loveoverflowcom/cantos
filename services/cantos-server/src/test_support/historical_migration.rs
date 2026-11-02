@@ -2,7 +2,7 @@
 //! Test-only module declared by platform/turso/tests.rs; never part of a runtime build.
 use super::*;
 
-async fn history_of(owner: &OwnedDatabase) -> Vec<Vec<Value>> {
+pub(super) async fn history_of(owner: &OwnedDatabase) -> Vec<Vec<Value>> {
     let reader = owner.reader().await.unwrap();
     let mut rows = reader
         .query(
@@ -18,7 +18,7 @@ async fn history_of(owner: &OwnedDatabase) -> Vec<Vec<Value>> {
     out
 }
 
-async fn owner_values(owner: &OwnedDatabase, sql: &str) -> Vec<Vec<Value>> {
+pub(super) async fn owner_values(owner: &OwnedDatabase, sql: &str) -> Vec<Vec<Value>> {
     let reader = owner.reader().await.unwrap();
     let mut rows = reader.query(sql, ()).await.unwrap();
     let mut out = Vec::new();

@@ -112,6 +112,20 @@ class ProducerContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'differs from source registry'):
             build.compatibility(self.root, git(self.root, 'rev-parse', 'HEAD'))
 
+    def test_checked_in_source_and_policy_form_a_consistent_release_identity(self):
+        # Use the real checked-in policy/registries inside a disposable Git source fixture.
+        # This exercises the production owner (which reads exact committed bytes), while
+        # retaining the separate negative drift regression and avoiding any image build.
+        source = Path(__file__).resolve().parents[1]
+        for name in (build.COMPATIBILITY, "services/cantos-server/src/platform/turso/mod.rs",
+                     "services/cantos-identity/src/persistence/mod.rs", "Cargo.lock"):
+            (self.root / name).write_bytes((source / name).read_bytes())
+        git(self.root, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
+            'commit', '-aqm', 'actual source and policy')
+        actual = build.compatibility(self.root, git(self.root, 'rev-parse', 'HEAD'))
+        self.assertEqual(actual['server_schema'], 'server-turso-epoch-1-v35')
+        self.assertEqual(actual['identity_schema'], 'identity-migrations-v4')
+
     def test_host_bundle_has_only_committed_host_assets_with_git_modes(self):
         names = {name: mode for name, _, mode in build.host_members(self.root, self.sha)}
         self.assertEqual(names, {"REVISION": 0o644, "infra/vps/bin/cantos-vps": 0o755,
