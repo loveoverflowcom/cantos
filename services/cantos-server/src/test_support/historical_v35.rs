@@ -77,7 +77,7 @@ async fn seed(owner: &OwnedDatabase) {
     )
     .await
     .unwrap();
-    tx.execute("INSERT INTO catalog_operations VALUES('alice','10000000-0000-4000-8000-000000000001',?1,?1,X'00ff7b7d')", [&sha])
+    tx.execute("INSERT INTO catalog_operations VALUES('alice','10000000-0000-4000-8000-000000000001',?1,?1,X'00ff7b7d')", [sha.as_str()])
         .await.unwrap();
     tx.execute("INSERT INTO media_image_intents VALUES(?1,?2,'alice','10000000-0000-4000-8000-000000000002',?3,67,'image/png','cover-image-v1',0,1800000,X'7b7d',?4)",
         params_from_iter([text(IMAGE), text(WORK), text(&sha), text(&format!("ii-r1:sha256:{sha}"))]))
