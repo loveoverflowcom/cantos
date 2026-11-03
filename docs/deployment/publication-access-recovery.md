@@ -20,7 +20,7 @@ their own authorized task and reviewed implementation.
 These are actual production-router requests and a real Identity process/RPC on disposable Turso
 files at the recorded S12 source. They are not production recovery acceptance.
 `IdentityStore::open` still retains the epoch on ordinary reopen. The owner subsequently accepted
-[ADR 0057](../decisions/0057-fail-closed-native-recovery.md): independently retained commit floors,
+[ADR 0058](../decisions/0058-fail-closed-native-recovery.md): independently retained commit floors,
 an explicit receipt-bound restore rotation, current-authority reconciliation and a closed exposure
 barrier. These source additions and the disposable exact-image rehearsal do not establish
 production qualification. A file that predates logout/revoke cannot discover lost history itself.
@@ -88,7 +88,7 @@ The existing [OCI release contract](native-oci-release.md) remains authoritative
 supported same-schema host/binary upgrade lane; that lane explicitly never restores database
 bytes. Do not reinterpret binary rollback as this two-file security recovery.
 
-The ADR0057 source primitive is `scripts/release_native_recovery.py`; its finite exact-image
+The ADR0058 source primitive is `scripts/release_native_recovery.py`; its finite exact-image
 adapter is `scripts/release_native_recovery_qualify.py`. The supported source is a complete current
 stopped-owner pair whose markers match the floors outside both restore roots. It preserves current
 account/session and policy facts without a table-by-table historical security merge. Missing or

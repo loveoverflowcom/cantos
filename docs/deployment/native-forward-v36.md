@@ -66,9 +66,11 @@ it is never waived because both files are consistent or the migration passed.
 The real-engine stale-copy counterexample shows the separate limit: applying every new DDL
 to an older internally consistent directory cannot reconstruct a revocation absent at its cut.
 A successful counterexample test demonstrates that unsafe state; it is not recovery PASS.
-Identity account-disable recovery, trustworthy post-cut authority, epoch rotation/resync,
-grant/group/withdraw reconciliation and the existing #676/#658 NO_GO remain unresolved here.
-No security policy/model is changed and no old backup is restored into production.
+The separate [ADR0058 current-authority protocol](../decisions/0058-fail-closed-native-recovery.md)
+adds the approved fail-closed recovery policy and owner primitives. Its exact-image recovery
+matrix, host executor and the existing #676/#658 NO_GO remain independent of this forward
+rehearsal. The session-admission kernel is unchanged; the new storage/recovery protocol is not
+covered by its pure model. No old backup is restored into production.
 
 ## Production boundary and next required evidence
 

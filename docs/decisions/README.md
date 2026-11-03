@@ -94,4 +94,4 @@ ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1
 
 - [ADR 0053: Fully decode AVIF before Media admission](0053-media-avif-only-admission.md) — proposed decoder integration; owner-selected AVIF-only admission.
 
-- [ADR 0057: Fail-closed native recovery](0057-fail-closed-native-recovery.md) — accepted recovery policy; current-authority reconciliation and independent owner fences, with implementation and qualification pending.
+- [ADR 0058: Fail-closed native recovery](0058-fail-closed-native-recovery.md) — accepted recovery policy; current-authority reconciliation and independent owner fences, with implementation and qualification pending.

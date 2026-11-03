@@ -57,7 +57,7 @@ independent private filesystem commit floor outside database backup roots. Every
 publishes Pending before mutation and Committed after the engine commit. Missing, stale or
 uncertain authority stays closed; opening a database never invents or resets a floor.
 An enrolled database refuses an unfenced reopen. Explicit maintenance and the shared exposure
-barrier follow [ADR 0057](../../docs/decisions/0057-fail-closed-native-recovery.md).
+barrier follow [ADR 0058](../../docs/decisions/0058-fail-closed-native-recovery.md).
 These primitives alone do not qualify an image, host executor or production restore.
 
 ## Persisted compatibility

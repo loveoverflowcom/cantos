@@ -1,4 +1,4 @@
-"""Disposable exact-image ADR0057 rehearsal. No production path or activation command."""
+"""Disposable exact-image ADR0058 rehearsal. No production path or activation command."""
 import json
 import os
 from pathlib import Path
@@ -199,6 +199,6 @@ def run(f, copy, record):
         recovery.barrier(f.exposure_dir/'barrier',f.recovery_operation)
         raise
     return {'checks':checks,'backup_files':stale_records,'fixture_actor':fixture_actor,
-            'recovery_protocol':'ADR0057_CURRENT_AUTHORITY_ONLY','coordinator_process_crashes':2,
+            'recovery_protocol':'ADR0058_CURRENT_AUTHORITY_ONLY','coordinator_process_crashes':2,
             'stale_backup_only':'UNSUPPORTED_CLOSED','production_activation':'NOT_RUN',
             'scope':'exact images, real Turso owners/RPC/HTTP; external floor and current-source reconciliation; host executor, full-host rollback and restricted activation remain separate'}

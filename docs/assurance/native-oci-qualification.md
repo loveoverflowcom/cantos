@@ -43,17 +43,23 @@ statuses are never reused. The candidate remains unchanged; output must be fresh
 | `image-pair` | GHCR manifest/config readback; digest pull; fixed service UID/GID; actual process UID, zero effective capabilities and no-new-privileges; exact DB/socket mounts; all saved layer descriptors and uncompressed diff IDs; required executable set; serve-before-migrate refuses without creating data; current-schema migrations; production public HTTP readiness |
 | `native-isolation` | Pair namespace differs from host, without external route; SMTP loopback positive and host-loopback sentinel negative; each UID reads its own DB and cannot read the other even when deliberately mounted; mounted synthetic credential/executable positives and absent-mount negatives; 0660 socket; real Server UID denied by a wrong Identity caller allowlist; stopped Identity fails closed |
 | `native-e2e` | Production Server HTTP → OS-peer-authenticated Identity RPC → real Turso/Argon2id; local SMTP proof; confirmation/wrong-proof refusal; completion creates no session; exact replay; wrong password; native/browser and Studio refusal; native login/session/refresh; Secure/HttpOnly/SameSite cookie; Web CSRF/logout; policy lifetimes |
-| `migration-restore` | Both owners stopped before copying every DB/sidecar; source/copy hash, size, mode, UID/GID equality; pinned backup rechecked before use; populated current-schema migration; HTTP verifies account/password/session; revocation persists across restart; fresh-root restore must still deny the session revoked after its backup cut |
+| `migration-restore` | Both owners stopped before copying every DB/sidecar; source/copy hash, size, mode, UID/GID equality; revocation persists across restart. For the ADR0058 fenced pair, stale/mixed pair and missing/corrupt/untrusted security authority are refused; actual owner commands reconcile only a current authority cut, preserve disabled-account login denial, rotate the epoch and retire prior families. Real coordinator SIGKILL/replay precedes HTTP denial and valid new-login/restart controls. The legacy unfenced lane retains its raw stale-restore denial oracle. |
 
 The earlier oracle expected the pre-cut restored session to work after post-cut revocation.
 That accepted the unsafe state. The corrected oracle fails any pair that revives it; an
 internally consistent pair or passing upgrade is insufficient. Historical receipts retain
 their source-bound scope and are not rewritten or promoted to satisfy the corrected gate.
-Account-disable recovery and trustworthy revocation reconciliation remain separate NO_GO
-obligations; this check adds no recovery mechanism or production restore authority.
+The source now implements the bounded [ADR0058](../decisions/0058-fail-closed-native-recovery.md)
+current-authority lane. Its finite synthetic-account actor is source-pinned and excluded from
+runtime image packaging. Source implementation and deterministic tests do not establish that
+the exact-image checks ran: require their fresh receipts. Production restore, host executor and
+the existing recovery NO_GO remain separate until independently qualified.
 
-Restore covers current-schema creation, idempotent migration and this same-schema denial check. It does
-not accept historical schema upgrade/downgrade, restore rotation, arbitrary compatibility, live
+Recovery covers current-schema creation, idempotent migration and the named same-schema controls.
+The two coordinator crash probes occur after real owner commits and before coordinator phase
+acknowledgements; they do not simulate engine power loss. Recovery accepts no stale-backup-only
+source or full-host/floor rollback. It does not accept historical schema upgrade/downgrade,
+arbitrary compatibility, live
 VPS backup/restore, Quadlet/systemd/reboot, real-provider mailbox delivery, browser/device,
 Kani, full token/proof expiry elapsed in wall time, or unported business journeys. No expiry/auth
 policy, clock override or preseeded credential is introduced. These limits remain separate work.

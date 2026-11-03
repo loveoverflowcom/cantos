@@ -36,7 +36,7 @@ static migration first, then initializes an OS-random epoch in a guarded transac
 all service tables are empty. A crash between those stages leaves an uninitialized file which
 Serve refuses and explicit Migrate may finish. Ordinary reopen preserves the epoch; data without
 the metadata is corruption. A restore cannot be detected from that file alone.
-[ADR0057](../../../docs/decisions/0057-fail-closed-native-recovery.md) adds explicit owner-fenced
+[ADR0058](../../../docs/decisions/0058-fail-closed-native-recovery.md) adds explicit owner-fenced
 recovery primitives and current-authority reconciliation; ordinary startup still never rotates
 the epoch. Exact-image and production recovery acceptance remain separate.
 

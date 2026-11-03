@@ -1,4 +1,4 @@
-# ADR 0057: Fail-closed native recovery
+# ADR 0058: Fail-closed native recovery
 
 - Status: accepted recovery policy; implementation and qualification pending
 - Date: 2026-11-03

@@ -1,4 +1,4 @@
-"""Offline current-authority reconciliation primitive (ADR0057), never implicit activation.
+"""Offline current-authority reconciliation primitive (ADR0058), never implicit activation.
 
 The adapter supplies only stopped-owner CLI calls, verified cold-directory copy and immutable
 image identity. No SQL, password, credential, HTTP session, provider or host-service command is

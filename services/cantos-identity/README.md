@@ -157,7 +157,7 @@ wrong-epoch/foreign-owner refusal and reopen have real pinned-engine tests.
 The signup extension below persists the credential. This shell does not implement general
 recovery/re-enable/delete policy, provide authenticated RPC or consume events in Server.
 The explicit fenced epoch-rotation primitive and current-authority coordinator follow
-[ADR0057](../../docs/decisions/0057-fail-closed-native-recovery.md); ordinary reopen never rotates.
+[ADR0058](../../docs/decisions/0058-fail-closed-native-recovery.md); ordinary reopen never rotates.
 A copied old file alone cannot identify its own restore. Exact-image/host recovery acceptance
 remains separate, as do crash,
 true ENOSPC, browser/device, footprint and actual D1 Kani proof evidence.
