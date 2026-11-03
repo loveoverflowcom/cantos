@@ -131,7 +131,7 @@ rights expiry, casting completeness and publication readiness are not proved by 
 
 ## Run and verify
 
-From the repository root with Rust 1.98.1 and Python 3:
+From the repository root with Rust 1.99.1 and Python 3:
 
 ```sh
 cargo run --locked --bin validate-script -- services/cantos-server/contracts/studio/script-ir/0.1.0/fixtures/accept/two-scenes.json

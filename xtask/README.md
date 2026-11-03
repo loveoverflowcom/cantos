@@ -673,7 +673,7 @@ cargo xtask forge-probe deploy-plan --bundle artifacts/forge-probe/RUN
 ```
 
 The [Functions policy](../infra/firebase/functions/README.md) owns prerequisites and recovery.
-`package` uses Rust 1.98.1, an already installed `x86_64-unknown-linux-musl` target/linker, a locked
+`package` uses Rust 1.99.1, an already installed `x86_64-unknown-linux-musl` target/linker, a locked
 release build and a fresh run-owned directory. It records source revision/input hashes, compiler,
 binary digest and static ELF/mode evidence; no installer or cloud tool is invoked. Dry-run
 validates arguments and prints the plan without child-tool or artifact effects. `inspect` checks
@@ -977,7 +977,7 @@ Prepare official Kani **0.68.0** separately with its existing matching
 `nightly-2026-08-21-x86_64-unknown-linux-gnu` toolchain and CBMC **6.11.0**, then set `KANI_HOME`
 to its bundle parent (default `$HOME/.kani`). The current compatible model is
 x86_64-unknown-linux-gnu/64-bit `usize`, bundled
-`rustc 1.100.0-nightly (8925ea358 2026-08-20)`, with CaDiCaL. Production still uses **Rust 1.98.1**.
+`rustc 1.100.0-nightly (8925ea358 2026-08-20)`, with CaDiCaL. Production still uses **Rust 1.99.1**.
 The shared read-only probe checks the existing bundle, compiler/host and both version lines.
 It invokes only the absolute installed driver in cargo-plugin mode, never an installer proxy,
 setup, download or global toolchain change. Missing/incompatible tools are `UNSUPPORTED` before
@@ -1066,7 +1066,7 @@ manager caching disabled, then runs the same offline wrapper gate. xtask itself 
 
 ### doctor
 
-Reports the selected `rustc` against the pinned 1.98.1, each tool and its version, which gates can
+Reports the selected `rustc` against the pinned 1.99.1, each tool and its version, which gates can
 run here, the unsupported production Theatre Mobile surface and the separate mock and Kanidm's configuration-only status. It exits with
 failure only when Cargo, Git or Python 3 is missing.
 

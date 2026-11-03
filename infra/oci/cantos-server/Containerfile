@@ -4,8 +4,8 @@
 # Required build arguments carry the identity that `release oci-verify --registry-readback`
 # checks, so a build without them fails instead of publishing an unlabelled image.
 
-FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
-ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+FROM docker.io/library/rust:1.99.1-slim-trixie@sha256:9daf2b244ccc30523e55cafe32edf8465671ba567d0101620e5612ccb76ea1a7 AS build
+ENV RUSTUP_TOOLCHAIN=1.99.1 CARGO_TERM_COLOR=never
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libdav1d-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .

@@ -12,19 +12,19 @@ class Executor(unittest.TestCase):
     def test_source_and_compiler_are_pinned_without_a_deployment_toolchain_override(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root/'rust-toolchain.toml').write_text('[toolchain]\nchannel="1.98.1"\n')
+            (root/'rust-toolchain.toml').write_text('[toolchain]\nchannel="1.99.1"\n')
             linux = SimpleNamespace(system=lambda: 'Linux', machine=lambda: 'x86_64')
             with patch.object(executor.oci, 'git', side_effect=[b'a'*40+b'\n', b'']):
-                sha, pin, checkout = executor.identity(root, 'rustc 1.98.1 (fixture)', system=linux)
-            self.assertEqual((sha, pin, str(checkout)), ('a'*40, '1.98.1', '/opt/cantos-native-executor/'+'a'*40))
+                sha, pin, checkout = executor.identity(root, 'rustc 1.99.1 (fixture)', system=linux)
+            self.assertEqual((sha, pin, str(checkout)), ('a'*40, '1.99.1', '/opt/cantos-native-executor/'+'a'*40))
             with patch.object(executor.oci, 'git', side_effect=[b'a'*40, b'']):
                 with self.assertRaisesRegex(ValueError, 'exact pinned'):
                     executor.identity(root, 'rustc 1.97.0 (fixture)', system=linux)
             with patch.object(executor.oci, 'git', side_effect=[b'a'*40, b' M changed']):
                 with self.assertRaisesRegex(ValueError, 'clean executor source'):
-                    executor.identity(root, 'rustc 1.98.1 (fixture)', system=linux)
+                    executor.identity(root, 'rustc 1.99.1 (fixture)', system=linux)
             with self.assertRaisesRegex(ValueError, 'native Linux amd64'):
-                executor.identity(root, 'rustc 1.98.1 (fixture)', system=SimpleNamespace(system=lambda: 'Darwin'))
+                executor.identity(root, 'rustc 1.99.1 (fixture)', system=SimpleNamespace(system=lambda: 'Darwin'))
 
     def test_dynamic_loader_shared_libraries_wrong_architecture_and_non_elf_refuse(self):
         with tempfile.TemporaryDirectory() as temporary:

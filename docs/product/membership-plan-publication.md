@@ -117,7 +117,7 @@ infrastructure is necessary for this review boundary.
 | Atomic publication, withdrawal, version/cache/reload | Stale terms reappear or drafts leak; independent expected-state sequences above | `documented`: test obligations only | Pure tests followed by selected source concurrency/restart/API tests |
 | Read-only display cannot charge or grant access | Plan navigation creates subscription or paid status; inspect effects/row deltas in later flow | `documented`: explicit scope and unchanged source | Handler allowed-method and zero-write tests; Web/CMP origin/receipt/playback assertions |
 
-Docs-only handoff uses `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight
+Docs-only handoff uses `RUSTUP_TOOLCHAIN=1.99.1 TMPDIR=/private/tmp cargo xtask preflight
 --changed-only`. Its repository/format result establishes hygiene, not runtime behavior.
 L2/L4/L5 implementation, publication/cache/version tests, real DB/provider/device and renderer
 acceptance are NOT_RUN in this boundary. Later implementations select the affected

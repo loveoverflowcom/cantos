@@ -85,7 +85,7 @@ cargo xtask preflight --changed-only --base "$BASE_REF"
 ```
 
 Preflight compares your branch, staged, unstaged and untracked files with the resolved `BASE_REF`, runs
-the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.98.1 and
+the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.99.1 and
 see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
 (`repository`, `rust`, `contracts`, `web`, `turso`, `mutation`) and `cargo xtask ci`, which
 runs the same jobs as GitHub Actions. If a gate cannot run on your machine, it is reported as

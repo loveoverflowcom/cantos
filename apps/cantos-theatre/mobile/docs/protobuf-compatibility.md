@@ -111,7 +111,7 @@ hosts. For current inputs use `cargo xtask theatre-preview verify`; native build
 owned by [theatre-host](../../../../xtask/README.md#theatre-host). Those production-host builds
 do not execute this common/JVM fixture suite or establish the old mock-build result.
 
-From the repository root with installed Rust 1.98.1, Python 3, a full JDK and Gradle 8.14.3:
+From the repository root with installed Rust 1.99.1, Python 3, a full JDK and Gradle 8.14.3:
 
 ```sh
 cargo xtask doctor

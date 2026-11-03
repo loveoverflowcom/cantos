@@ -77,7 +77,7 @@ keeps pending budgets, experimental indexes and runtime adoption separate.
 
 ## Development and verification
 
-Use Rust 1.98.1 from `rust-toolchain.toml`, Python 3.11+ for repository checks and the explicitly
+Use Rust 1.99.1 from `rust-toolchain.toml`, Python 3.11+ for repository checks and the explicitly
 prepared tools for the selected target. No PostgreSQL, Kanidm, container engine or emulator is
 needed for native checks. Editor exclusions in `.vscode/settings.json` hide generated output;
 they never delete data or change Git tracking.

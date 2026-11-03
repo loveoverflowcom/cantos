@@ -41,7 +41,7 @@ jobs:
           # Disposable builder only: no compiler installation or containerized host execution on a VPS.
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends musl-tools
-          rustup target add x86_64-unknown-linux-musl --toolchain 1.98.1
+          rustup target add x86_64-unknown-linux-musl --toolchain 1.99.1
           sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/cantos-native-executor
           cargo xtask release native-executor-build --output artifacts/native-executor
           # Root's historical rehearsal uses this exact immutable checkout, not the builder's cwd.

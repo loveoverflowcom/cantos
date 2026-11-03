@@ -28,7 +28,7 @@ cargo xtask preflight --changed-only --base origin/develop
 ```
 
 The ordinary test suite executes the Rust projection with installed `rustc`, including a
-compile-negative wrong-count probe. Set `RUSTUP_TOOLCHAIN=1.98.1` to match the repository.
+compile-negative wrong-count probe. Set `RUSTUP_TOOLCHAIN=1.99.1` to match the repository.
 The optional Kotlin test needs **already installed** Kotlin 2.2.20 compiler jars:
 
 ```sh

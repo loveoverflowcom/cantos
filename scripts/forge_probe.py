@@ -199,7 +199,7 @@ def package(args):
     before = snapshot()
     revision = invoke(["git", "rev-parse", "HEAD"], capture=True).stdout.strip()
     compiler = invoke(["rustc", "--version"], capture=True).stdout.strip()
-    require(compiler.startswith("rustc 1.98.1 "), "rust_1_98_1_required")
+    require(compiler.startswith("rustc 1.99.1 "), "rust_1_99_1_required")
     target_dir = ROOT / "target/forge-probe-build"
     env = {key: val for key, val in os.environ.items() if key not in
            ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_TARGET", "CARGO_TARGET_DIR")}

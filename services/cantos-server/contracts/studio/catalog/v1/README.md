@@ -199,7 +199,7 @@ unavailable. Shared root enum additions do not create endpoints in other surface
 
 ## Verification boundary
 
-Run the canonical repository gates with Rust 1.98.1: `cargo xtask verify repository`,
+Run the canonical repository gates with Rust 1.99.1: `cargo xtask verify repository`,
 `cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify turso`, and
 `cargo xtask preflight --changed-only`. Shared consumer tests establish raw wire shapes and
 PATCH representation; HTTP tests establish routes, error/status/schema conformance and guards;

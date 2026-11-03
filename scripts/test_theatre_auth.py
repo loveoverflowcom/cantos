@@ -55,7 +55,7 @@ def isolated_environment(inherited):
     for key, default in (("CARGO_HOME", original_home / ".cargo"),
                          ("RUSTUP_HOME", original_home / ".rustup")):
         environment[key] = inherited.get(key, str(default))
-    environment.update(HOME="/nonexistent/cantos-no-user-home", RUSTUP_TOOLCHAIN="1.98.1",
+    environment.update(HOME="/nonexistent/cantos-no-user-home", RUSTUP_TOOLCHAIN="1.99.1",
                        RUSTUP_AUTO_INSTALL="0", CARGO_NET_OFFLINE="true", NO_COLOR="1")
     return environment
 

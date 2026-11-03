@@ -2,29 +2,32 @@
 
 ## Compiler and compatibility boundary
 
-[`rust-toolchain.toml`](../../rust-toolchain.toml) owns the exact production Rust **1.98.1**
+[`rust-toolchain.toml`](../../rust-toolchain.toml) owns the exact production Rust **1.99.1**
 compiler pin, minimal profile, matching rustfmt/Clippy and `wasm32-unknown-unknown` target.
-All seven member manifests declare the same patch-qualified MSRV. Edition **2021**, the
+All ten member manifests declare the same patch-qualified MSRV. Edition **2021**, the
 workspace resolver and dependency versions remain unchanged. The pin is also the minimum
 supported compiler; a separate older compiler is not claimed to be supported.
 
 From the repository root, `rustup show active-toolchain` installs/selects this configuration.
-All four [CI jobs](../../.github/workflows/repository-checks.yml) use that operation before their
+The [CI jobs](../../.github/workflows/repository-checks.yml) use that operation before their
 existing `cargo xtask ci --job ...` gate. Trunk stays **0.21.14** and is installed using the
 same repository compiler rather than an unrelated moving `stable` channel. Avoid a conflicting
 `RUSTUP_TOOLCHAIN` environment variable or directory override; `cargo xtask doctor` diagnoses
 an exact compiler mismatch. No application, schema, wire codec, authentication, publication,
 storage identity, native CMP or external-producer boundary changes with this upgrade.
 
-The [Rust 1.98.1 release](https://blog.rust-lang.org/2026/09/03/Rust-1.98.1/) fixes vtable
-miscompilation in 1.98.0. Selecting the point release is preventive; it is not evidence that
-Cantos encountered that defect. The compiler upgrade itself makes no throughput or allocation
-claim. Historical run logs retain their original compiler versions.
+This upgrade moves the production compiler and all member MSRVs from 1.98.1 to 1.99.1.
+Release and Forge packaging guards, CI targets and build-image pins select the same compiler.
+The three Rust builder images use `1.99.1-slim-trixie` with the registry-observed multi-platform
+index digest `sha256:9daf2b244ccc30523e55cafe32edf8465671ba567d0101620e5612ccb76ea1a7`;
+the CircleCI deployment executor uses the available `cimg/rust:1.99.1-node` tag. Tag/digest
+readback does not establish an image build or Linux runtime acceptance. The compiler upgrade
+makes no throughput or allocation claim. Historical run logs retain their original compiler versions.
 
 ## Independent verification tooling
 
 [`xtask::config`](../../xtask/src/config.rs) tests the exact pin, profile/components/target and
-all seven declared MSRVs/editions. Doctor checks the complete compiler version token, not a
+all ten declared MSRVs/editions. Doctor checks the complete compiler version token, not a
 minor-version or patch-prefix match. Workflow tests reject a moving compiler override.
 The private-admission [Quint observer](../../scripts/verify_behavior_conformance.py) reads the
 production pin, requires exact Cargo/rustc output, and binds the pin file to its source identity.
@@ -35,17 +38,27 @@ an ambient rustup override outside the repository.
 [Kani](../../xtask/README.md#optional-targeted-kani-proofs) is intentionally separate:
 Kani 0.68.0 / CBMC 6.11.0 / bundled `nightly-2026-08-21-x86_64-unknown-linux-gnu` with
 `rustc 1.100.0-nightly (8925ea358 2026-08-20)`, CaDiCaL and unwind 2. Production rustup selection
-must not replace that proof compiler. The seven registered kernels remain unchanged. A production
+must not replace that proof compiler. The registered kernels remain unchanged. A production
 build, doctor capability row or ordinary test does not establish a Kani proof or Quint conformance.
 
 A toolchain/CI input selects every ordinary preflight gate. Required acceptance still includes
-real PostgreSQL, both Leptos Web clients and their gallery, applicable contract/media fixtures,
-DBSP's existing experimental lane and platform acceptance. Missing tools stay `UNSUPPORTED` or
+the native Rust/Turso lanes, both Leptos Web clients and their gallery, applicable contract/media
+fixtures, behavior models and platform acceptance. PostgreSQL and DBSP gates are retired.
+Missing tools stay `UNSUPPORTED` or
 explicitly skipped `NOT_RUN`; no failure is waived. Native aarch64/macOS runtime requires that
 platform, not merely a downloadable distribution artifact on Linux. No paid live storage or
 production credentials are needed for compiler verification.
 
-## Required lint compatibility
+## Rust 1.99 compatibility
+
+The file-backed Turso clock-fault test double uses `AtomicU32::try_update`, the replacement
+name for deprecated `fetch_update`, with the same checked subtraction and sequentially
+consistent orderings. The existing clock-fault regression still exercises refusal before a
+transaction begins and the following successful write. Rustfmt 1.99 also expands the long
+`capability!` invocations in Theatre's `application/account_writer.rs`; this is formatting only.
+No warning is suppressed and no test assertion or production algorithm is weakened.
+
+## Earlier Rust 1.98 lint adaptations
 
 Rust 1.98 Clippy flags fixed-size `chunks_exact(2)` and the manual generic `PatchField`
 and `LinkPatch` defaults. The upgrade uses `as_chunks::<2>().0.iter()` in the existing hex/pair helpers,
@@ -92,5 +105,6 @@ and WASM linker behavior must be observed on their own targets, never generalize
 See [issue 125](https://github.com/loveoverflowcom/cantos/issues/125) for the wider candidates and
 acceptance checklist. A submitted draft is not a merged, deployed or fully accepted upgrade.
 
-The [fresh compatibility record](../evidence/rust-toolchain-1-98-1.md) records executed scope,
-retained failures and remaining acceptance separately from this policy.
+The [historical Rust 1.98.1 compatibility record](../evidence/rust-toolchain-1-98-1.md) records its original executed scope,
+retained failures and remaining acceptance; it is not evidence for Rust 1.99.1. The upgrade PR
+records the 1.99.1 checks and outstanding acceptance separately from this policy.

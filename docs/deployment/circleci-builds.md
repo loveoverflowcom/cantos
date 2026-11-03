@@ -159,7 +159,7 @@ No command retries all writes. Browser/identity/media acceptance always remains 
 - Web context: `FIREBASE_PROJECT`, `FIREBASE_THEATRE_SITE`, `FIREBASE_STUDIO_SITE` and a scoped
   `FIREBASE_SERVICE_ACCOUNT_JSON`. Credentials and ignored mapping are outside artifact storage;
   teardown removes keys. Never retain raw Firebase debug logs as shared artifacts.
-- Rust follows 1.98.1, Trunk 0.21.14, checksum-pinned Node 22.23.3/Gradle 8.14.3, Android SDK/build
+- Rust follows 1.99.1, Trunk 0.21.14, checksum-pinned Node 22.23.3/Gradle 8.14.3, Android SDK/build
   tools 35/35.0.0 and JDK 17; missing SDK/license acceptance fails. Executor images remain rolling
   vendor images, so this is not a fully reproducible environment snapshot. No resource class was
   increased. Registry/git downloads and build-only tool caches contain no release or secrets;

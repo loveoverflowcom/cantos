@@ -118,13 +118,14 @@ mod tests {
 
     #[test]
     fn compiler_pin_matches_the_exact_stable_patch_not_a_prefix() {
-        assert!(is_pinned_rustc("rustc 1.98.1 (release hash)"));
+        assert!(is_pinned_rustc("rustc 1.99.1 (release hash)"));
         for version in [
-            "rustc 1.98.0 (known vtable regression)",
-            "rustc 1.98.10 (different patch)",
-            "rustc 1.98.1-nightly (different channel)",
-            "rustc 1.99.0 (different release)",
-            "cargo 1.98.1 (wrong executable)",
+            "rustc 1.98.1 (previous pin)",
+            "rustc 1.99.0 (different patch)",
+            "rustc 1.99.10 (different patch)",
+            "rustc 1.99.1-nightly (different channel)",
+            "rustc 1.100.0 (different release)",
+            "cargo 1.99.1 (wrong executable)",
             "rustc",
         ] {
             assert!(!is_pinned_rustc(version), "{version}");

@@ -1124,7 +1124,7 @@ mod tests {
             self.config.clone()
         }
         fn tool_versions(&mut self) -> (Option<String>, Option<String>) {
-            (Some("cargo 1.98.1".into()), Some("trunk 0.21.14".into()))
+            (Some("cargo 1.99.1".into()), Some("trunk 0.21.14".into()))
         }
         fn create_run(&mut self) -> Result<RunDir, String> {
             if self.fail_create_run {

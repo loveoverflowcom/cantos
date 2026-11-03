@@ -45,11 +45,11 @@ See [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md) and th
 not disable existing content/manual-audio workflows. No browser-held provider/OAuth secret,
 automatic draft ingestion or publication is permitted.
 
-Requires Rust 1.98.1, `wasm32-unknown-unknown`, Trunk 0.21.14 and matching wasm-bindgen 0.2.100.
+Requires Rust 1.99.1, `wasm32-unknown-unknown`, Trunk 0.21.14 and matching wasm-bindgen 0.2.100.
 From the repository root:
 
 ```sh
-rustup target add wasm32-unknown-unknown --toolchain 1.98.1
+rustup target add wasm32-unknown-unknown --toolchain 1.99.1
 cargo xtask build cantos-studio --web   # NO_COLOR=true trunk build --locked in this directory
 cargo xtask verify web                  # WASM clippy plus Trunk builds of Studio and Theatre
 cargo xtask web-performance cantos-studio # release asset hashes and offline compression sizes

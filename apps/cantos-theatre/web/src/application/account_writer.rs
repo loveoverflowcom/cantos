@@ -86,29 +86,112 @@ impl AccountWriter {
         // try_maybe_update releases the guard before any caller interprets value/effects.
     }
 
-    capability!(request_saved(work: &str, desired: bool, presentation: Option<WorkPresentation>, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
-    capability!(retry_saved(work: &str, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
-    capability!(request_progress(audio: AudioIdentity, intent: ExplicitProgress, presentation: Option<AudioPresentation>, now_ms: i64, mint: impl FnOnce() -> String) -> Option<PendingMutation>);
-    capability!(resolve_progress_conflict(publication: &str, keep_local: bool, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<(PendingMutation, u64)>);
-    capability!(retry_progress(publication: &str, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
+    capability!(
+        request_saved(
+            work: &str,
+            desired: bool,
+            presentation: Option<WorkPresentation>,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
+    capability!(
+        retry_saved(
+            work: &str,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
+    capability!(
+        request_progress(
+            audio: AudioIdentity,
+            intent: ExplicitProgress,
+            presentation: Option<AudioPresentation>,
+            now_ms: i64,
+            mint: impl FnOnce() -> String,
+        ) -> Option<PendingMutation>
+    );
+    capability!(
+        resolve_progress_conflict(
+            publication: &str,
+            keep_local: bool,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<(PendingMutation, u64)>
+    );
+    capability!(
+        retry_progress(
+            publication: &str,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
     capability!(prompt_clear_history() -> Option<HistoryState>);
     capability!(cancel_clear_history() -> ());
-    capability!(confirm_clear_history(mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
-    capability!(retry_history(mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
-    capability!(begin_resume(publication: String, status: ResumeStatus, presentation: Option<AudioPresentation>) -> Option<ResumeTicket>);
+    capability!(
+        confirm_clear_history(
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
+    capability!(
+        retry_history(
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
+    capability!(
+        begin_resume(
+            publication: String,
+            status: ResumeStatus,
+            presentation: Option<AudioPresentation>,
+        ) -> Option<ResumeTicket>
+    );
     capability!(reset_resume() -> ());
     capability!(ensure_saved_read(work: &str, presentation: Option<WorkPresentation>) -> bool);
-    capability!(ensure_progress_read(publication: &str, presentation: Option<AudioPresentation>) -> bool);
+    capability!(
+        ensure_progress_read(publication: &str, presentation: Option<AudioPresentation>) -> bool
+    );
     capability!(reread_saved(fence: &RequestFence, work: &str) -> bool);
     capability!(reread_progress(fence: &RequestFence, publication: &str) -> bool);
     capability!(finish_saved_read(fence: &RequestFence, record: SavedRecord) -> bool);
     capability!(fail_saved_read(fence: &RequestFence, work: &str) -> ());
-    capability!(finish_progress_read(fence: &RequestFence, publication: &str, record: Option<ProgressRecord>, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Option<PendingMutation>);
+    capability!(
+        finish_progress_read(
+            fence: &RequestFence,
+            publication: &str,
+            record: Option<ProgressRecord>,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Option<PendingMutation>
+    );
     capability!(fail_progress_read(fence: &RequestFence, publication: &str) -> ());
-    capability!(finish_resume(fence: &RequestFence, ticket: ResumeTicket, result: Result<u32, ResumeRefusal>) -> bool);
-    capability!(apply_receipt(fence: &RequestFence, operation: &str, receipt: Receipt, via_lookup: bool, mint: impl FnOnce() -> String, reported_at_ms: Option<i64>) -> Result<AppliedReceipt, CommandError>);
+    capability!(
+        finish_resume(
+            fence: &RequestFence,
+            ticket: ResumeTicket,
+            result: Result<u32, ResumeRefusal>,
+        ) -> bool
+    );
+    capability!(
+        apply_receipt(
+            fence: &RequestFence,
+            operation: &str,
+            receipt: Receipt,
+            via_lookup: bool,
+            mint: impl FnOnce() -> String,
+            reported_at_ms: Option<i64>,
+        ) -> Result<AppliedReceipt, CommandError>
+    );
     capability!(record_unknown_outcome(fence: &RequestFence, operation: &str) -> bool);
-    capability!(record_command_error(fence: &RequestFence, operation: &str, error: CommandError, rotate_device: impl FnOnce() -> String) -> bool);
+    capability!(
+        record_command_error(
+            fence: &RequestFence,
+            operation: &str,
+            error: CommandError,
+            rotate_device: impl FnOnce() -> String,
+        ) -> bool
+    );
     pub fn observe_playback(
         self,
         observation: PlaybackObservation,

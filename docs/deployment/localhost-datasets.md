@@ -7,7 +7,7 @@ its non-login principals remain unchanged. No migration or production search def
 
 ## Select and operate a dataset
 
-Use Rust 1.98.1 from the repository root. The parent directory must already exist outside
+Use Rust 1.99.1 from the repository root. The parent directory must already exist outside
 **every** Git checkout. Use a dedicated absolute root; never point at an Identity, development,
 user or production directory. Keep outputs and test credentials private.
 

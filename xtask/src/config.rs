@@ -4,7 +4,7 @@
 use std::net::{Ipv4Addr, SocketAddr};
 
 /// Rust version every package declares and CI pins (`rust-version` / `rust-toolchain.toml`).
-pub const REQUIRED_RUST: &str = "1.98.1";
+pub const REQUIRED_RUST: &str = "1.99.1";
 /// Trunk version the web READMEs document.
 pub const TRUNK_VERSION: &str = "0.21.14";
 /// Gradle version the checked-in wrappers pin (`gradle-wrapper.properties`); the preferred install.
@@ -186,6 +186,9 @@ mod tests {
         );
         for manifest in [
             "services/cantos-server/Cargo.toml",
+            "services/cantos-identity/Cargo.toml",
+            "packages/store-turso/Cargo.toml",
+            "packages/localization/rust/Cargo.toml",
             "services/cantos-forge-functions/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",
