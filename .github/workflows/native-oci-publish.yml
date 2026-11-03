@@ -284,6 +284,7 @@ jobs:
             --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --authfile "$RUNNER_TEMP/v36-systemd-auth.json" \
+            --executor "$GITHUB_WORKSPACE/artifacts/native-executor/xtask" \
             --historical "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v27-v36/historical-upgrade.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/executor-v36"
       - name: Make only this run's qualification receipts readable for artifact retention

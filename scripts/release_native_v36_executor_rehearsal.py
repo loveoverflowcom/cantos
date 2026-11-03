@@ -28,6 +28,44 @@ import release_oci as oci
 PHASE = 'PREFLIGHT'
 
 
+def cli_plan(root,args,request,inventory,new):
+    """Reach the shipped xtask/Python planner with real manifest validation.
+
+    This provisional admission and executor witness belong only to this disposable
+    qualification. They stay in its private state and are never exported as admission.
+    """
+    executable=args.executor.resolve()
+    descriptor=contract.read_json(executable.parent/'executor.json',None)
+    contract.require(descriptor.get('source_sha')==args.source_sha and
+        descriptor.get('required_checkout')==str(root) and
+        contract.file_record(executable,executable.parent)==descriptor.get('binary'),
+        'exact source-pinned prebuilt executor required')
+    private=native.STATE/'fixture-only-cli';private.mkdir(mode=0o700)
+    admission=private/'admission.json'
+    forward._write_once(admission,contract.canonical({'schema_version':1,
+        'manifest_sha256':args.manifest_digest,'producer':new['producer']}))
+    request={**request,'next':{**request['next'],'manifest':str(args.manifest.resolve()),
+        'admission':str(admission),'admission_digest':native.digest_file(admission)}}
+    path=private/'request.json';observed=private/'inventory.json'
+    forward._write_once(path,contract.canonical(request))
+    forward._write_once(observed,inventory)
+    current=native.digest_file(native.STATE/'current.json')
+    contract.require(not (native.STATE/'in-progress.json').exists(),'CLI plan requires no operation intent')
+    result=subprocess.run([str(executable),'release','native-migrate-v36',
+        '--request',str(path),'--request-digest',native.digest_file(path),
+        '--inventory',str(observed),'--inventory-digest',native.digest_file(observed),
+        '--executor-source',args.source_sha],cwd='/',stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,check=True,timeout=60)
+    contract.require(len(result.stdout)<=65536,'bounded CLI plan output required')
+    records=[forward.decode_unique(line) for line in result.stdout.splitlines() if line.startswith(b'{')]
+    contract.require(len(records)==1 and records[0].get('status')=='PLAN_ONLY' and
+        records[0].get('activation')=='NOT_RUN' and
+        native.digest_file(native.STATE/'current.json')==current and
+        not (native.STATE/'in-progress.json').exists() and not Path(policy.SECURITY_ROOT).exists(),
+        'offline CLI plan changed host state or failed to reach policy')
+    return request,hashlib.sha256(result.stdout).hexdigest()
+
+
 def resume_inputs(request, raw, *, abort=False):
     marker = native.pinned(native.STATE/'in-progress.json',None)
     inventory = contract.canonical({'fixture':'v36-forward-current-state','observation':uuid.uuid4().hex})
@@ -90,6 +128,9 @@ def run(root,args):
                 'configuration_digest':new['configuration_sha256'],'platform':new['platform']},
         'rehearsal':{'path':str(args.historical),'sha256':native.digest_file(args.historical)},
         'executor_rehearsal':{'path':str(provisional),'sha256':native.digest_file(provisional)},**layout}
+    PHASE='REAL_PREBUILT_CLI_PLAN'
+    request,cli_digest=cli_plan(root,args,request,inventory,new)
+    system.observe(layout,old)
     raw=contract.canonical(request)
     approval=contract.canonical({'schema_version':1,'operation':policy.OPERATION,
         'request_sha256':native.digest_bytes(raw),'inventory_sha256':request['inventory_sha256'],
@@ -116,7 +157,8 @@ def run(root,args):
     marker=native.pinned(native.STATE/'in-progress.json',None)
     contract.require(marker['phase']=='MIGRATE_INTENT','real migration crash boundary mismatch')
     system.require_stopped(request)
-    provenance={'migration_intent_sha256':native.digest_file(native.STATE/'in-progress.json')}
+    provenance={'offline_cli_plan_sha256':cli_digest,
+                'migration_intent_sha256':native.digest_file(native.STATE/'in-progress.json')}
     try:
         live.execute(request,raw,approval,inventory,old,new,system)
     except ValueError as error:
@@ -199,7 +241,7 @@ def run(root,args):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    for name in ('manifest','authfile','historical','output'):
+    for name in ('manifest','authfile','historical','output','executor'):
         parser.add_argument('--'+name,required=True,type=Path)
     for name in ('manifest-digest','source-sha','configuration-digest','platform'):
         parser.add_argument('--'+name,required=True)

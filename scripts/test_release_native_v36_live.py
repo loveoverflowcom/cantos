@@ -1,5 +1,7 @@
 """Real private files plus a named runtime double; never systemd/image evidence."""
 import copy
+import io
+import json
 from pathlib import Path
 import tempfile
 import time
@@ -15,6 +17,42 @@ import release_native_v36_live as live
 import release_native_v36_policy as policy
 import release_native_v36_rehearsal as historical
 import test_release_native_v36_policy as fixtures
+from test_release_native import annotated_fixture
+
+
+class CliReleaseBoundary(unittest.TestCase):
+    def test_offline_cli_passes_the_verified_manifest_to_policy_without_host_effects(self):
+        # Real Git/tar/manifest/admission/gate files exercise native.release's return
+        # contract. Only the unrelated historical baseline and host policy are doubled.
+        with tempfile.TemporaryDirectory() as tmp:
+            root,args,manifest,_,pins=annotated_fixture(tmp)
+            private=Path(tmp).resolve();state=private/'state';state.mkdir(mode=0o700)
+            inventory=private/'inventory.json';native.atomic(inventory,b'{}')
+            native.atomic(state/'current.json',b'{}')
+            request={'executor_source':manifest['source_sha'],'next':pins,
+                     'inventory_sha256':native.digest_file(inventory),
+                     'current_sha256':native.digest_file(state/'current.json')}
+            path=private/'request.json';native.atomic(path,contract.canonical(request))
+            argv=['native-migrate-v36','--request',str(path),'--request-digest',native.digest_file(path),
+                  '--inventory',str(inventory),'--inventory-digest',native.digest_file(inventory),
+                  '--executor-source',manifest['source_sha']]
+            read=contract.read_json
+            def fixture_read(path,digest):
+                return {} if path==root/'infra/oci/historical-v27.json' else read(path,digest)
+            def decide(actual,current,old,target,now):
+                self.assertEqual(actual,request)
+                self.assertEqual(target,manifest)
+                return {'status':'PLAN_ONLY','activation':'NOT_RUN'}
+            with patch.object(live,'__file__',str(root/'scripts/release_native_v36_live.py')), \
+                 patch.object(contract,'read_json',side_effect=fixture_read), \
+                 patch.object(migration,'baseline',return_value={'fixture':'old baseline'}), \
+                 patch.object(native,'STATE',state),patch.object(policy,'decide',side_effect=decide) as planned, \
+                 patch.object(live,'rehearsal'),patch.object(live,'InitialSystem') as host, \
+                 patch('sys.argv',argv),patch('sys.stdout',new_callable=io.StringIO) as output:
+                live.main()
+                planned.assert_called_once()
+                host.assert_not_called()
+                self.assertEqual(json.loads(output.getvalue()),{'status':'PLAN_ONLY','activation':'NOT_RUN'})
 
 
 class QuiescentFailedUnits(unittest.TestCase):

@@ -27,6 +27,7 @@ import release_native_v36_rehearsal as historical
 import release_oci as oci
 
 CHECKS = ['exact-v27-v36-systemd-quadlet-process-and-private-bridge',
+          'prebuilt-xtask-cli-plan-with-verified-manifest-and-no-host-effects',
           'foreign-owner-and-drift-refused-before-stop', 'pre-migration-abort-keeps-current-unenrolled-pair',
           'current-cold-pair-and-copy-migration',
           'initial-owner-floors-and-blocked-exposure', 'forward-only-migration-crash-replay',
@@ -608,7 +609,7 @@ def main():
         inventory = native.private_path(args.inventory).read_bytes()
         contract.require(native.digest_bytes(inventory) == args.inventory_digest, 'inventory bytes drift')
         old = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v27.json',None))
-        new, _ = native.release(root, request['next'])
+        new = native.release(root, request['next'])
         resume_inputs=(args.resume_approval,args.resume_approval_digest,args.resume_inventory,args.resume_inventory_digest)
         contract.require(not (args.resume_forward and args.abort_before_migrate),'one explicit recovery action required')
         recovering=args.resume_forward or args.abort_before_migrate

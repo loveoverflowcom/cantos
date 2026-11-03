@@ -103,6 +103,10 @@ the observed unit states in the private attempt before resetting only those prov
 failed units for an explicit start. This is neither a health PASS nor a database/floor reset;
 the original same-schema and v27 adapters keep their bounds. The disposable rehearsal must
 reach this blocked-barrier case and preserve a session accepted before the coordinator crash.
+It also invokes the hash-checked prebuilt xtask from another cwd through the actual offline
+CLI, using the real candidate manifest, bundle and gate validation. Its provisional admission
+and executor witness stay inside the disposable fixture, never in exported deployment inputs.
+The plan must reach policy without changing generation, operation intent, units or services.
 
 ## Behavior impact and verification ledger
 

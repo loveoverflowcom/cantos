@@ -1,15 +1,31 @@
 """Safety and pinned crash-target checks; not real systemd qualification."""
 from pathlib import Path
 from types import SimpleNamespace
+import tempfile
 import unittest
 from unittest.mock import patch
 
 import release_native_v36_executor_rehearsal as rehearsal
 import release_native_v36_live as live
+import release_artifact as contract
 from test_release_native_v36_rehearsal import pair
 
 
 class DisposableBoundary(unittest.TestCase):
+    def test_wrong_prebuilt_executor_hash_refuses_before_process_or_fixture_authority(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();executable=root/'xtask'
+            executable.write_bytes(b'synthetic executable, never run')
+            descriptor={'source_sha':'1'*40,'required_checkout':str(root),
+                        'binary':{'path':'xtask','bytes':executable.stat().st_size,'sha256':'0'*64}}
+            (root/'executor.json').write_bytes(contract.canonical(descriptor))
+            args=SimpleNamespace(executor=executable,source_sha='1'*40)
+            with patch.object(rehearsal.native,'STATE',root),patch.object(rehearsal.subprocess,'run') as run:
+                with self.assertRaisesRegex(ValueError,'exact source-pinned prebuilt executor'):
+                    rehearsal.cli_plan(root,args,{},b'{}',{})
+                run.assert_not_called()
+                self.assertFalse((root/'fixture-only-cli').exists())
+
     def test_initial_fixture_target_is_the_manifest_not_the_running_baseline(self):
         old,new=pair()
         layout={'fixture':'synthetic host boundary'}
