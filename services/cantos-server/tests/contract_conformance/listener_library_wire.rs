@@ -238,3 +238,92 @@ fn bookmark_schema_bounds_page_size_ids_and_deleted_receipt_outcome() {
     bad["outcome"] = Value::String("resurrected".into());
     assert!(!valid("Receipt", &bad));
 }
+
+macro_rules! work_projection_fixture {
+    ($file:literal) => {
+        include_str!(concat!(
+            "../../contracts/theatre/library/v1/fixtures/work_projection/",
+            $file,
+            ".json"
+        ))
+    };
+}
+/// ADR 0057 1.3.0 is a specification before L02/L03 add DTOs, so this checks the schema alone.
+#[test]
+fn work_projection_fixtures_conform_and_next_kinds_constrain_their_members() {
+    let root: Value = serde_json::from_str(SCHEMA).unwrap();
+    let valid = |definition: &str, value: &Value| {
+        let mut schema = root.clone();
+        schema["$ref"] = Value::String(format!("#/$defs/{definition}"));
+        schema.as_object_mut().unwrap().remove("anyOf");
+        jsonschema::validator_for(&schema).unwrap().is_valid(value)
+    };
+    let saved: Value = serde_json::from_str(work_projection_fixture!("saved_work")).unwrap();
+    assert!(valid("SavedWorkPage", &saved));
+    let page: Value = serde_json::from_str(work_projection_fixture!("continue_work")).unwrap();
+    assert!(valid("ContinueWorkPage", &page));
+    let caught_up: Value =
+        serde_json::from_str(work_projection_fixture!("continue_work_caught_up")).unwrap();
+    assert!(valid("ContinueWorkPage", &caught_up));
+    let kinds: Vec<_> = page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["next"]["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "start_next",
+            "resume_exact",
+            "release_replaced",
+            "audio_unavailable"
+        ]
+    );
+
+    // A shown Saved row never has a null or missing Work card, nor an unknown listen state.
+    let mut bad = saved["items"][1].clone();
+    bad["work"] = Value::Null;
+    assert!(!valid("SavedWorkItem", &bad));
+    let mut bad = saved["items"][1].clone();
+    bad.as_object_mut().unwrap().remove("listen");
+    assert!(!valid("SavedWorkItem", &bad));
+    let mut bad = saved["items"][1].clone();
+    bad["listen"] = Value::String("locked".into());
+    assert!(!valid("SavedWorkItem", &bad));
+    let mut bad = saved["items"][0].clone();
+    bad["work"]["cover"]["content_type"] = Value::String("image/png".into());
+    assert!(!valid("SavedWorkItem", &bad));
+
+    // Playable kinds name an exact release; audio_unavailable names none.
+    for index in 0..3 {
+        let mut bad = page["items"][index].clone();
+        bad["next"]["publication_id"] = Value::Null;
+        assert!(!valid("ContinueWorkItem", &bad), "item {index}");
+        let mut bad = page["items"][index].clone();
+        bad["next"]["duration_ms"] = Value::Null;
+        assert!(!valid("ContinueWorkItem", &bad), "item {index}");
+    }
+    let mut bad = page["items"][3].clone();
+    bad["next"]["publication_id"] = page["items"][1]["next"]["publication_id"].clone();
+    assert!(!valid("ContinueWorkItem", &bad));
+    // The anchor's completion must agree with the kind: start_next follows a finished chapter.
+    let mut bad = page["items"][0].clone();
+    bad["anchor"]["completion"] = Value::String("in_progress".into());
+    assert!(!valid("ContinueWorkItem", &bad));
+    for index in 1..4 {
+        let mut bad = page["items"][index].clone();
+        bad["anchor"]["completion"] = Value::String("completed".into());
+        assert!(!valid("ContinueWorkItem", &bad), "item {index}");
+    }
+    let mut bad = page["items"][0].clone();
+    bad["next"]["kind"] = Value::String("caught_up".into());
+    assert!(!valid("ContinueWorkItem", &bad));
+    let mut bad = page["items"][0].clone();
+    bad.as_object_mut().unwrap().remove("work");
+    assert!(!valid("ContinueWorkItem", &bad));
+    let mut bad = page.clone();
+    let item = bad["items"][0].clone();
+    bad["items"] = Value::Array(vec![item; 51]);
+    assert!(!valid("ContinueWorkPage", &bad));
+}

@@ -127,6 +127,7 @@ class BehaviorContracts(unittest.TestCase):
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
             "cantos.media.public-cover-projection": (17, 6, 12),
+            "cantos.listening.library-projection": (10, 11, 11),
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
             "cantos.presentation.discovery-retired-language": (4, 4, 3),
@@ -135,6 +136,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.identity.native-mailbox-proof": (8, 9, 8),
             "cantos.identity.native-session-admission": (8, 7, 8),
             "cantos.catalog.viewer-access": (4, 4, 4),
+            "cantos.presentation.guest-navigation": (8, 8, 8),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:

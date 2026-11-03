@@ -71,6 +71,12 @@
       "reason": "Existing reconciliation kernel is implemented; cross-client offline/native acceptance and model scope require review."
     },
     {
+      "id": "cantos.listening.library-projection",
+      "owner": "services/cantos-server/src/contexts/listening/domain/projection.rs",
+      "lifecycle": "draft",
+      "manifestPath": "services/cantos-server/behavior/listening/library_projection.manifest.json"
+    },
+    {
       "id": "cantos.tooling.hosting-deploy",
       "lifecycle": "draft",
       "owner": "xtask/src/deploy/flow.rs",
