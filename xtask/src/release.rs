@@ -256,6 +256,23 @@ pub enum Action {
         #[arg(long, requires = "execute", conflicts_with = "recover_before_start")]
         reconcile_after_start: bool,
     },
+    /// Initial v27/Identity4 to v36/Identity7, with separately qualified owner floors.
+    NativeMigrateV36 {
+        #[command(flatten)]
+        input: NativeOperatorArgs,
+        #[arg(long, conflicts_with = "abort_before_migrate", requires_all = ["execute", "resume_approval", "resume_approval_digest", "resume_inventory", "resume_inventory_digest"])]
+        resume_forward: bool,
+        #[arg(long, conflicts_with = "resume_forward", requires_all = ["execute", "resume_approval", "resume_approval_digest", "resume_inventory", "resume_inventory_digest"])]
+        abort_before_migrate: bool,
+        #[arg(long)]
+        resume_approval: Option<PathBuf>,
+        #[arg(long)]
+        resume_approval_digest: Option<String>,
+        #[arg(long)]
+        resume_inventory: Option<PathBuf>,
+        #[arg(long)]
+        resume_inventory_digest: Option<String>,
+    },
     /// Historical upgrade and pair restore on disposable Linux using synthetic data and exact
     /// old/new images. Separate from the four current-schema OCI qualification records.
     NativeRehearse {
@@ -389,11 +406,16 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         }
         return command;
     }
-    if let Action::NativeForward { input, .. } | Action::NativeMigrateV27 { input, .. } = action {
+    if let Action::NativeForward { input, .. }
+    | Action::NativeMigrateV27 { input, .. }
+    | Action::NativeMigrateV36 { input, .. } = action
+    {
         let script = if matches!(action, Action::NativeForward { .. }) {
             "scripts/release_native_forward.py"
-        } else {
+        } else if matches!(action, Action::NativeMigrateV27 { .. }) {
             "scripts/release_native_v27_live.py"
+        } else {
+            "scripts/release_native_v36_live.py"
         };
         let mut command = command
             .args([
@@ -451,6 +473,39 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
                 command = command
                     .arg_if(*recover_before_start, "--recover-before-start")
                     .arg_if(*reconcile_after_start, "--reconcile-after-start");
+            }
+            Action::NativeMigrateV36 {
+                resume_forward,
+                abort_before_migrate,
+                resume_approval,
+                resume_approval_digest,
+                resume_inventory,
+                resume_inventory_digest,
+                ..
+            } => {
+                command = command
+                    .arg_if(*resume_forward, "--resume-forward")
+                    .arg_if(*abort_before_migrate, "--abort-before-migrate");
+                for (flag, value) in [
+                    (
+                        "--resume-approval",
+                        resume_approval
+                            .as_ref()
+                            .map(|path| path.display().to_string()),
+                    ),
+                    ("--resume-approval-digest", resume_approval_digest.clone()),
+                    (
+                        "--resume-inventory",
+                        resume_inventory
+                            .as_ref()
+                            .map(|path| path.display().to_string()),
+                    ),
+                    ("--resume-inventory-digest", resume_inventory_digest.clone()),
+                ] {
+                    if let Some(value) = value {
+                        command = command.args([flag.to_owned(), value]);
+                    }
+                }
             }
             _ => unreachable!(),
         }
@@ -677,6 +732,7 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
         | Action::NativeAdopt { .. }
         | Action::NativeForward { .. }
         | Action::NativeMigrateV27 { .. }
+        | Action::NativeMigrateV36 { .. }
         | Action::NativeRehearse { .. }
         | Action::NativeUpgrade { .. } => {
             unreachable!("handled above")
@@ -1171,7 +1227,7 @@ mod tests {
 
     #[test]
     fn forward_and_v27_are_plan_only_without_both_pinned_approval_fields() {
-        for lane in ["native-forward", "native-migrate-v27"] {
+        for lane in ["native-forward", "native-migrate-v27", "native-migrate-v36"] {
             let base = [
                 "xtask",
                 "release",

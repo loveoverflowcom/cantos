@@ -1,7 +1,8 @@
 # v27 → v36 forward qualification
 
-Status: source and synthetic qualification tooling. No host activation, admission or recovery
-acceptance is implied. The independent [same-schema](native-oci-release.md) and
+Status: source, initial-host executor and disposable qualification tooling. The new executor
+has no Linux/systemd acceptance until its separate attributed rehearsal actually passes.
+No host activation, admission or recovery acceptance is implied. The independent [same-schema](native-oci-release.md) and
 [v24-to-v27 candidate](native-forward-v27.md) retain their original bounds.
 
 ## Existing SQL versus release policy
@@ -83,8 +84,8 @@ covered by its pure model. No old backup is restored into production.
 
 ## Production boundary and next required evidence
 
-This source does not add `native-migrate-v36 --execute` or broaden an old activation command.
-The old `native-migrate-v27` still refuses v27-to-v36. Before activation there must be an
+`cargo xtask release native-migrate-v36` is a separate initial-host lane; the old
+`native-migrate-v27` still refuses v27-to-v36. Before activation there must be an
 operator-reviewed current inventory/schema check, passing exact target-pair gates, a reviewed
 v27-to-v36 host executor with failure/replay and forward-recovery evidence, an ingress/write
 fence and fresh source/image/configuration-bound operator inputs. No image-only rollback may

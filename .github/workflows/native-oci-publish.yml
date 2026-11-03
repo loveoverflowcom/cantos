@@ -200,7 +200,8 @@ jobs:
           sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/v36-rehearsal-auth.json"
           trap 'sudo rm -f "$RUNNER_TEMP/v36-rehearsal-auth.json"' EXIT
           MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
-          if ! test -f "$MANIFEST"; then MANIFEST="$CANDIDATE"; fi
+          # Qualification outputs are root-private until the retention step.
+          if ! sudo test -f "$MANIFEST"; then MANIFEST="$CANDIDATE"; fi
           MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
           BASELINE_DIGEST=$(sha256sum infra/oci/historical-v27.json | cut -d' ' -f1)
           sudo "/opt/cantos-native-executor/$SOURCE_SHA/target/x86_64-unknown-linux-musl/release/xtask" \
@@ -265,6 +266,26 @@ jobs:
               printf '%s\n' '{"status":"FAIL","executor_transition":"NOT_RUN","activation":"NOT_RUN"}' > "$OUTPUT"
             fi
           fi
+      - name: Rehearse disposable v36 systemd executor transitions
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v36' }}
+        env:
+          CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          # A missing prerequisite or failed transition never produces a PASS receipt.
+          jq -e '.status == "PREREQUISITES_ONLY"' "$RUNNER_TEMP/native-systemd-prerequisites.json" > /dev/null
+          MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
+          MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/v36-systemd-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/v36-systemd-auth.json"' EXIT
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="${RUNNER_ENVIRONMENT:-unknown}" \
+            python3 "/opt/cantos-native-executor/$SOURCE_SHA/scripts/release_native_v36_executor_rehearsal.py" \
+            --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
+            --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
+            --authfile "$RUNNER_TEMP/v36-systemd-auth.json" \
+            --historical "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v27-v36/historical-upgrade.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/executor-v36"
       - name: Make only this run's qualification receipts readable for artifact retention
         if: always()
         run: |

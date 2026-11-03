@@ -28,12 +28,18 @@ import release_oci_qualify as qualify
 PHASE = 'PREFLIGHT'
 
 
-def setup(root, args, *, historical=False):
+def setup(root, args, *, historical=False, initial_v36=False):
     global PHASE
     probe.preflight()
     manifest, _ = qualify.validate_input(root, args)
     qualify.require(qualify.native_host() == manifest['platform'], 'native fixture platform mismatch')
-    if historical:
+    contract.require(not (historical and initial_v36), 'one disposable baseline required')
+    if initial_v36:
+        import release_native_v36_rehearsal as v36
+        previous = running = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v27.json',None))
+        v36.transition(running,manifest)
+        qualify.require(not Path('/var/lib/cantos-security').exists(), 'disposable security root must be absent')
+    elif historical:
         previous = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v23.json', None))
         running = migration.baseline(root, contract.read_json(root/'infra/oci/historical-v24-8862.json', None))
         migration.transition(previous, running)
@@ -85,6 +91,23 @@ def setup(root, args, *, historical=False):
     PHASE = 'CREATE_UNITS_AND_MIGRATE'
     for service in oci.SERVICES:
         rendered = fixture.render(service, running['images'][service]['ref'], name)
+        if initial_v36:
+            # Exercise the actual production pre-start shape and container destinations.
+            # Credentials remain synthetic and private to this disposable runner.
+            rendered = {**rendered,
+                'unit':rendered['unit'].replace(b':/database\n',b':/var/lib/cantos/db\n').replace(b':/identity',b':/run/cantos'),
+                'environment':rendered['environment'].replace(b'/database/',b'/var/lib/cantos/db/').replace(b'/identity/',b'/run/cantos/')}
+            image = running['images'][service]['ref']
+            if service == 'cantos-server':
+                prestart = ('ExecStartPre=/usr/bin/podman run --rm --network none --user 10001:10001 '
+                    '-e CANTOS_SERVER_DATABASE=/var/lib/cantos/db/server.db '
+                    '-v /root/cantos-native/server-db:/var/lib/cantos/db:Z '
+                    '--entrypoint /usr/local/bin/cantos-migrate '+image)
+            else:
+                prestart = ('ExecStartPre=/usr/bin/podman run --rm --network none --user 10002:10002 '
+                    '--env-file /root/cantos-native/config/identity.env '
+                    '-v /root/cantos-native/identity-db:/var/lib/cantos/db:Z '+image+' migrate')
+            rendered['unit'] = rendered['unit'].replace(('ExecStartPre=/usr/bin/podman image exists '+image).encode(),prestart.encode())
         env = Path(rendered['environment_path'])
         forward._write_once(env, rendered['environment'])
         configs[str(env)] = native.digest_file(env)
@@ -108,8 +131,8 @@ def setup(root, args, *, historical=False):
                'configuration_files': configs, 'peer_policy': 'direct_peer', 'units': units,
                'health_url': {'kind': 'podman-bridge', 'network': name, 'network_id': network[0]['id'],
                               'subnet': '10.231.42.0/24', 'port': 8080, 'path': '/api/v1/theatre/works'},
-               'mounts': {s: [{'source': migration.DATABASES[s], 'destination': '/database', 'read_only': False},
-                              {'source': migration.SOCKET, 'destination': '/identity', 'read_only': s == 'cantos-server'}]
+               'mounts': {s: [{'source': migration.DATABASES[s], 'destination': '/var/lib/cantos/db' if initial_v36 else '/database', 'read_only': False},
+                              {'source': migration.SOCKET, 'destination': '/run/cantos' if initial_v36 else '/identity', 'read_only': s == 'cantos-server'}]
                           for s in oci.SERVICES}}
     return system, request, previous, running, manifest, v23_roots, fixture_marker
 
