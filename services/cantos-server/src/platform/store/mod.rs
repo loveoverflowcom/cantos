@@ -48,6 +48,9 @@ impl From<ServerDatabaseError> for StoreError {
 }
 
 impl Store {
+    pub async fn finish_pending_writes(&self) -> Result<(), cantos_store_turso::error::StoreFault> {
+        self.database.owner().finish_pending_writes().await
+    }
     /// Open `server.db` at `path`. [`Intent::Serve`] never changes the file and refuses one that
     /// is missing, foreign, diverged, newer or pending migrations; [`Intent::Migrate`] is the
     /// explicit operator action that creates or upgrades it. A second process opening the same
@@ -57,6 +60,18 @@ impl Store {
         intent: Intent,
     ) -> Result<Self, ServerDatabaseError> {
         let database = ServerDatabase::open(path, intent, Arc::new(SystemClock)).await?;
+        Ok(Self::from_database(database))
+    }
+
+    pub async fn open_with_recovery(
+        path: impl Into<PathBuf>,
+        intent: Intent,
+        fence: Option<PathBuf>,
+        barrier: Option<cantos_store_turso::recovery::RecoveryBarrier>,
+    ) -> Result<Self, ServerDatabaseError> {
+        let database =
+            ServerDatabase::open_with_recovery(path, intent, Arc::new(SystemClock), fence, barrier)
+                .await?;
         Ok(Self::from_database(database))
     }
 

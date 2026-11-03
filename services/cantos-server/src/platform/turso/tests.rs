@@ -1193,8 +1193,8 @@ mod business;
 #[path = "../../test_support/historical_migration.rs"]
 mod historical;
 
-#[path = "../../test_support/historical_v35.rs"]
-mod historical_v35;
+#[path = "../../test_support/historical_upgrade.rs"]
+mod historical_upgrade;
 
 #[path = "../../test_support/sample_metadata_barrier_tests.rs"]
 mod sample_metadata;

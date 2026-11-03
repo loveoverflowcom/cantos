@@ -26,7 +26,7 @@ pub(super) fn positive(value: i64) -> Result<u64, IdentityStoreError> {
         .ok_or(IdentityStoreError::CorruptRecord)
 }
 
-fn bytes(row: &Row, index: usize) -> Result<[u8; 16], IdentityStoreError> {
+pub(super) fn bytes(row: &Row, index: usize) -> Result<[u8; 16], IdentityStoreError> {
     match row
         .get_value(index)
         .map_err(|_| IdentityStoreError::CorruptRecord)?

@@ -29,6 +29,7 @@ async fn explicit_check_refuses_missing_or_owned_data_and_never_migrates_or_open
     let run = RunDir::new();
     let config = MigrateConfig {
         database: run.path("identity.db"),
+        recovery_fence: None,
     };
     assert_eq!(run_check(&config).await, Err(RunError::Database));
     assert!(!config.database.exists());

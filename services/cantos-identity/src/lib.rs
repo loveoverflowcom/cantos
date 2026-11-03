@@ -31,6 +31,8 @@ pub mod mail;
 #[cfg(feature = "service")]
 pub mod policy;
 #[cfg(feature = "service")]
+pub mod recovery;
+#[cfg(feature = "service")]
 pub mod rpc;
 #[cfg(feature = "service")]
 pub mod server;

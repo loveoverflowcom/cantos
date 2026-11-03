@@ -172,6 +172,12 @@ fn random_nonzero() -> Option<[u8; 16]> {
 }
 
 impl IdentityService {
+    pub async fn finish_pending_writes(&self) -> Result<(), ServiceError> {
+        self.store
+            .finish_pending_writes()
+            .await
+            .map_err(|_| ServiceError::Unavailable)
+    }
     /// Blocking: hashes one dummy password. Call before serving, off the async executor.
     pub fn new(
         store: Arc<IdentityStore>,

@@ -93,3 +93,5 @@ ADR 0041/#253's Web Bearer direction is superseded by #295 and [Identity auth v1
 - [ADR0052: Decode bundled AVIF artwork at renderer adapters](0052-bundled-avif-decoding.md) — proposed bounded desktop dependency; native qualification and Media transition remain separate.
 
 - [ADR 0053: Fully decode AVIF before Media admission](0053-media-avif-only-admission.md) — proposed decoder integration; owner-selected AVIF-only admission.
+
+- [ADR 0057: Fail-closed native recovery](0057-fail-closed-native-recovery.md) — accepted recovery policy; current-authority reconciliation and independent owner fences, with implementation and qualification pending.

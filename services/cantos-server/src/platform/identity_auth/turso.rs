@@ -22,6 +22,66 @@ use cantos_store_turso::{
     Row, Rows, Value, WriteTransaction,
 };
 
+/// Offline recovery primitive over the Server-owned file. Reuses permanent family revocation;
+/// it grants no session, account or policy authority and never reads Identity's database.
+pub async fn retire_restored_sessions(
+    owner: &cantos_store_turso::OwnedDatabase,
+) -> Result<(), CommitFault> {
+    use cantos_store_turso::{error::StoreFault, recovery::RecoveryFault};
+    if owner.registry().application_id() != crate::platform::turso::SERVER_APPLICATION_ID
+        || !owner.has_recovery_fence()
+    {
+        return Err(CommitFault::Rejected(StoreFault::Recovery(
+            RecoveryFault::Unenrolled,
+        )));
+    }
+    if all_sessions_retired(owner)
+        .await
+        .map_err(CommitFault::Rejected)?
+    {
+        return Ok(());
+    }
+    let tx = owner.begin_write().await.map_err(CommitFault::Unknown)?;
+    match tx
+        .execute(
+            "UPDATE identity_sessions SET revoked=1,revoked_reason='epoch-changed' WHERE revoked=0",
+            (),
+        )
+        .await
+    {
+        Ok(_) => tx.commit().await,
+        Err(fault) => match tx.rollback().await {
+            Ok(()) => Err(CommitFault::Rejected(fault)),
+            Err(error) => Err(CommitFault::Unknown(error)),
+        },
+    }
+}
+
+/// Fresh owner observation used to verify completed recovery, never a caller-supplied flag.
+pub async fn all_sessions_retired(
+    owner: &cantos_store_turso::OwnedDatabase,
+) -> Result<bool, cantos_store_turso::error::StoreFault> {
+    use cantos_store_turso::error::StoreFault;
+    let reader = owner.reader().await?;
+    let mut rows = reader
+        .query(
+            "SELECT EXISTS(SELECT 1 FROM identity_sessions WHERE revoked=0)",
+            (),
+        )
+        .await?;
+    match rows
+        .next()
+        .await?
+        .ok_or(StoreFault::Corrupt)?
+        .get_value(0)
+        .map_err(|_| StoreFault::Corrupt)?
+    {
+        Value::Integer(0) => Ok(true),
+        Value::Integer(1) => Ok(false),
+        _ => Err(StoreFault::Corrupt),
+    }
+}
+
 use super::{
     credential::{Channel, Secrets, Surface},
     decision::{Epoch, ObservedSecurity, RevokeReason, Subject},
