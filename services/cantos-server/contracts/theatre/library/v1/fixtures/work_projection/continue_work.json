@@ -1,0 +1,153 @@
+{
+  "items": [
+    {
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "kind": "novel",
+        "title": "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói",
+        "language": "vi-VN",
+        "unit_count": 13,
+        "cover": {
+          "url": "/api/v1/theatre/works/00000000-0000-4000-8000-000000000001/cover/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "content_type": "image/avif",
+          "width_px": 600,
+          "height_px": 900,
+          "byte_length": 48213,
+          "alt_text": "Bìa truyện Ánh đèn cuối sân khấu"
+        }
+      },
+      "anchor": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000001",
+          "unit_id": "00000000-0000-4000-8000-000000000012",
+          "publication_id": "00000000-0000-4000-8000-000000000013",
+          "rendition_id": "00000000-0000-4000-8000-000000000014",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 1800000
+        },
+        "position_ms": 1800000,
+        "completion": "completed",
+        "revision": 4,
+        "accepted_at_ms": 9000,
+        "listener_order": 9,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "mark_completed"
+      },
+      "next": {
+        "kind": "start_next",
+        "unit_id": "00000000-0000-4000-8000-000000000015",
+        "unit_title": "Chương 13: Tấm vé không tên",
+        "ordinal": 13,
+        "publication_id": "00000000-0000-4000-8000-000000000016",
+        "duration_ms": 1650000
+      }
+    },
+    {
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000031",
+        "kind": "podcast",
+        "title": "Đêm khuya kể chuyện",
+        "language": "vi-VN",
+        "unit_count": 40,
+        "cover": null
+      },
+      "anchor": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000031",
+          "unit_id": "00000000-0000-4000-8000-000000000032",
+          "publication_id": "00000000-0000-4000-8000-000000000033",
+          "rendition_id": "00000000-0000-4000-8000-000000000034",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "duration_ms": 2400000
+        },
+        "position_ms": 504000,
+        "completion": "in_progress",
+        "revision": 2,
+        "accepted_at_ms": 8000,
+        "listener_order": 8,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "checkpoint"
+      },
+      "next": {
+        "kind": "resume_exact",
+        "unit_id": "00000000-0000-4000-8000-000000000032",
+        "unit_title": "Tập 7: Người gác đèn",
+        "ordinal": 7,
+        "publication_id": "00000000-0000-4000-8000-000000000033",
+        "duration_ms": 2400000
+      }
+    },
+    {
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000041",
+        "kind": "novel",
+        "title": "Mùa sen trên phố cổ",
+        "language": "vi-VN",
+        "unit_count": 8,
+        "cover": null
+      },
+      "anchor": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000041",
+          "unit_id": "00000000-0000-4000-8000-000000000042",
+          "publication_id": "00000000-0000-4000-8000-000000000043",
+          "rendition_id": "00000000-0000-4000-8000-000000000044",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duration_ms": 900000
+        },
+        "position_ms": 120000,
+        "completion": "in_progress",
+        "revision": 1,
+        "accepted_at_ms": 6000,
+        "listener_order": 6,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "checkpoint"
+      },
+      "next": {
+        "kind": "release_replaced",
+        "unit_id": "00000000-0000-4000-8000-000000000042",
+        "unit_title": "Chương 2: Gánh hàng rong",
+        "ordinal": 2,
+        "publication_id": "00000000-0000-4000-8000-000000000045",
+        "duration_ms": 910000
+      }
+    },
+    {
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000021",
+        "kind": "story",
+        "title": "Chuyến đò cuối ngày",
+        "language": "vi-VN",
+        "unit_count": 2,
+        "cover": null
+      },
+      "anchor": {
+        "audio": {
+          "work_id": "00000000-0000-4000-8000-000000000021",
+          "unit_id": "00000000-0000-4000-8000-000000000022",
+          "publication_id": "00000000-0000-4000-8000-000000000023",
+          "rendition_id": "00000000-0000-4000-8000-000000000024",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "duration_ms": 600000
+        },
+        "position_ms": 60000,
+        "completion": "in_progress",
+        "revision": 2,
+        "accepted_at_ms": 4000,
+        "listener_order": 4,
+        "written_by": "00000000-0000-4000-8000-00000000000b",
+        "kind": "checkpoint"
+      },
+      "next": {
+        "kind": "audio_unavailable",
+        "unit_id": "00000000-0000-4000-8000-000000000022",
+        "unit_title": "Phần 1: Bến sông",
+        "ordinal": 1,
+        "publication_id": null,
+        "duration_ms": null
+      }
+    }
+  ],
+  "next_cursor": null
+}

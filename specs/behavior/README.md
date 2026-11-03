@@ -50,6 +50,11 @@ records the owner-approved Landing/session navigation policy for Web and CMP. It
 is separate from compiled-browser and native device observations; no implementation observer is
 registered for it.
 
+The draft, model-only [Library projection capability](../../services/cantos-server/behavior/listening/library_projection.md),
+`cantos.listening.library-projection`, encodes the Work-level Saved/Continue/history rules accepted
+in [ADR 0057](../../docs/decisions/0057-listener-library-work-projection.md). It deliberately differs
+from current Library v1 code and stays draft until slices implement it; no observer is registered.
+
 ## Run locally
 
 ```sh
