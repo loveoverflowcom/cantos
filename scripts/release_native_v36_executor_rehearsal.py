@@ -101,7 +101,7 @@ def run(root,args):
     PHASE='REAL_PRE_MIGRATION_ABORT'
     trace.interrupt(Path(live.__file__),'execute',
         "        phase(state, attempt, digest, 'STOP_INTENT')",
-        '        ports.stop(request)',
+        '        stopped = ports.stop(request)',
         lambda:live.execute(request,raw,approval,inventory,old,new,system))
     abort,observed=resume_inputs(request,raw,abort=True)
     result=live.abort_before_migrate(request,raw,abort,observed,old,new,system)
@@ -182,6 +182,11 @@ def run(root,args):
                      'lost enrollment response reset the external authority')
     live.verify_backup(attempt,native.digest_bytes(raw))
     provenance['upgrade_receipt_sha256']=native.digest_file(attempt/'receipt.json')
+    stops=list(attempt.glob('forward-*/stop-observation.json'))
+    observations=[native.pinned(path,None)['unit_states'] for path in stops]
+    contract.require(observations and any('failed' in states.values() for states in observations),
+                     'blocked exposure failed-unit quiescence was not reached')
+    provenance['blocked_exposure_stop_states']=observations
     record={'schema_version':1,'operation':policy.OPERATION+'_EXECUTOR_REHEARSAL','status':'PASS',
         'executor_source':args.source_sha,'previous':migration.new_identity(old),'target':migration.new_identity(new),
         'target_manifest_sha256':args.manifest_digest,'checks':live.CHECKS,'evidence_level':'integration-tested',

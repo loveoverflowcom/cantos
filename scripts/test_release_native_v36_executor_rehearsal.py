@@ -32,7 +32,7 @@ class DisposableBoundary(unittest.TestCase):
 
     def test_each_real_interruption_anchor_identifies_one_exact_source_boundary(self):
         for anchor,wanted in [
-            ("        phase(state, attempt, digest, 'STOP_INTENT')",'        ports.stop(request)'),
+            ("        phase(state, attempt, digest, 'STOP_INTENT')",'        stopped = ports.stop(request)'),
             ('            ports.database_command(new, service, path, check=True)',"        phase(state, attempt, digest, 'ENROLL_INTENT')"),
             ("            observed = ports.enroll_or_reconcile(new,service,Path(request['databases'][service]))","            path = attempt/(service+'-enrollment.json')"),
             ('            ports.start(layout,new)','            ports.observe_target(layout,new)')]:

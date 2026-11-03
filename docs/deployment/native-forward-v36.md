@@ -96,6 +96,14 @@ running source. Identity schema v4 alone proves no RPC/image-pair compatibility.
 image requires its own authorized scope and exact-pair tests; never infer it from API deploy
 permission. Keep existing Studio roster, data paths, peer policy and restricted-serving locks.
 
+Closing the exposure barrier before stopping a running pair can make graceful shutdown retain
+systemd's `failed` state. The initial v36 adapter accepts that state as stopped only after both
+named containers are absent and the existing process/DB-FD exclusion check passes. It retains
+the observed unit states in the private attempt before resetting only those proven stopped
+failed units for an explicit start. This is neither a health PASS nor a database/floor reset;
+the original same-schema and v27 adapters keep their bounds. The disposable rehearsal must
+reach this blocked-barrier case and preserve a session accepted before the coordinator crash.
+
 ## Behavior impact and verification ledger
 
 `cantos.identity.native-session-admission` is draft; the approved auth contract owns permanent

@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import release_artifact as contract
 import release_native as native
@@ -15,6 +15,51 @@ import release_native_v36_live as live
 import release_native_v36_policy as policy
 import release_native_v36_rehearsal as historical
 import test_release_native_v36_policy as fixtures
+
+
+class QuiescentFailedUnits(unittest.TestCase):
+    def setUp(self):
+        self.system=live.InitialSystem()
+        self.states=dict.fromkeys(native.SERVICES,'failed')
+        self.running=set()
+        self.commands=[]
+        self.request={'databases':{'cantos-server':'/synthetic/server','cantos-identity':'/synthetic/identity'}}
+        self.system.assert_closed=Mock()
+        self.system.command=self.command
+
+    def command(self,argv):
+        self.commands.append(argv)
+        if argv[:2]==['systemctl','show']:
+            return (self.states[argv[-1].removesuffix('.service')]+'\n').encode()
+        if argv[:2]==['podman','ps']:
+            service=next(s for s in native.SERVICES if s in argv[-1])
+            return contract.canonical([{'Id':'synthetic-running'}] if service in self.running else [])
+        return b''
+
+    def test_failed_units_are_stopped_only_after_container_and_file_lease_checks(self):
+        result=self.system.stop(self.request)
+        self.assertEqual(result,dict.fromkeys(native.SERVICES,'failed'))
+        self.system.assert_closed.assert_called_once()
+        self.assertFalse(any(x[:2]==['systemctl','reset-failed'] for x in self.commands))
+
+    def test_failed_state_with_a_running_container_is_not_quiescence(self):
+        self.running.add('cantos-server')
+        with self.assertRaisesRegex(ValueError,'owner still running'):
+            self.system.require_stopped(self.request)
+        self.system.assert_closed.assert_not_called()
+
+    def test_failed_state_with_an_open_database_lease_is_not_quiescence(self):
+        self.system.assert_closed.side_effect=ValueError('database lease remains open')
+        with self.assertRaisesRegex(ValueError,'lease remains open'):
+            self.system.require_stopped(self.request)
+
+    def test_start_resets_only_proven_quiescent_failed_units_before_delegating(self):
+        self.states['cantos-identity']='inactive'
+        with patch.object(live.previous_live.LiveSystem,'start',return_value=None) as parent:
+            self.system.start(self.request,{'fixture':'no runtime'})
+            parent.assert_called_once_with(self.request,{'fixture':'no runtime'})
+        resets=[x for x in self.commands if x[:2]==['systemctl','reset-failed']]
+        self.assertEqual(resets,[['systemctl','reset-failed','cantos-server.service']])
 
 
 class HostDouble:
@@ -34,7 +79,9 @@ class HostDouble:
     def pull(self,release):
         self.events.append('pull')
         if self.failure=='pull': raise ValueError('pull failed')
-    def stop(self,request): self.events.append('stop');self.running=False
+    def stop(self,request):
+        self.events.append('stop');self.running=False
+        return dict.fromkeys(native.SERVICES,'inactive')
     def require_stopped(self,request):
         if self.running: raise ValueError('unexpected live owner')
     def recovery_host(self,request,old,new): self.events.append('recovery-host')

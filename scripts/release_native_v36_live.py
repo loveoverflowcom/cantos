@@ -31,6 +31,7 @@ CHECKS = ['exact-v27-v36-systemd-quadlet-process-and-private-bridge',
           'current-cold-pair-and-copy-migration',
           'initial-owner-floors-and-blocked-exposure', 'forward-only-migration-crash-replay',
           'enrollment-crash-replay-without-floor-reset', 'start-crash-preserves-accepted-writes',
+          'blocked-exposure-quiescence-and-scoped-failed-unit-reset',
           'preserved-auth-and-revoked-session', 'ordinary-restart-keeps-valid-session']
 
 
@@ -115,6 +116,33 @@ def verify_backup(attempt, request_digest):
 
 class InitialSystem(previous_live.LiveSystem):
     """The known rootful adapter, with only the approved owner-floor/exposure access delta."""
+    def require_stopped(self, request):
+        # A closed exposure barrier makes the owners' final admission check fail during
+        # graceful shutdown. systemd can retain `failed` after the processes have exited.
+        # Neither unit state alone establishes quiescence: require no container and no DB FD.
+        states = {}
+        for service in oci.SERVICES:
+            state = self.command(['systemctl','show','--property=ActiveState','--value',service+'.service']).strip()
+            contract.require(state in (b'inactive',b'failed'), 'owner unit is not quiescent')
+            states[service] = state.decode('ascii')
+            running = forward.decode_unique(self.command(['podman','ps','--format','json','--filter','name=^'+service+'$']))
+            contract.require(running == [], 'database owner still running')
+        self.assert_closed(request['databases'].values())
+        return states
+
+    def stop(self, request):
+        for service in oci.SERVICES:
+            self.command(['systemctl','stop',service+'.service'])
+        return self.require_stopped(request)
+
+    def start(self, request, release):
+        states = self.require_stopped(request)
+        for service, state in states.items():
+            if state == 'failed':
+                # Only the two proven stopped, request-bound units; no DB/floor reset.
+                self.command(['systemctl','reset-failed',service+'.service'])
+        return super().start(request,release)
+
     def provision(self, operation):
         for item in policy.security_layout().values():
             path = Path(item['path'])
@@ -252,7 +280,8 @@ def execute(request, request_bytes, approval_bytes, inventory_bytes, old, new, p
             forward._write_once(attempt/(service+'.target.container'), targets[service])
         phase(state, attempt, digest, 'PREPARE')
         phase(state, attempt, digest, 'STOP_INTENT')
-        ports.stop(request)
+        stopped = ports.stop(request)
+        retain(attempt/'stop-observation.json',contract.canonical({'unit_states':stopped,'owners_stopped':True}))
         ports.require_stopped(request)
         ports.recovery_host(request, old, new)
         ports.ensure_capacity(request)
@@ -417,7 +446,8 @@ def resume_forward(request, request_bytes, resume_bytes, inventory_bytes, old, n
         if stage >= policy.PHASES.index('START_INTENT'):
             ports.recovery_host(layout,new,new)
             ports.exposure(operation,ready=False)
-            ports.stop(layout)
+            stopped = ports.stop(layout)
+            retain(recovery_attempt/'stop-observation.json',contract.canonical({'unit_states':stopped,'owners_stopped':True}))
         ports.require_stopped(request)
         pinned_units(request,saved,metadata,operation,old,new,allow_target=True)
         if stage == policy.PHASES.index('MIGRATE_INTENT'):
@@ -531,7 +561,8 @@ def abort_before_migrate(request, request_bytes, approval_bytes, inventory_bytes
         for name,data in [('approval.json',approval_bytes),('inventory.json',inventory_bytes),
                           ('original-marker.json',contract.canonical(marker))]:
             forward._write_once(recovery_attempt/name,data)
-        ports.stop(request)
+        stopped=ports.stop(request)
+        forward._write_once(recovery_attempt/'stop-observation.json',contract.canonical({'unit_states':stopped,'owners_stopped':True}))
         ports.require_stopped(request)
         for service in oci.SERVICES:
             ports.database_command(old,service,Path(request['databases'][service]),check=True)
