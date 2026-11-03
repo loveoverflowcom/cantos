@@ -4,7 +4,8 @@
 `develop@1b8864d6`. It is not accepted policy: the implemented
 [Library v1 contract](../../services/cantos-server/contracts/theatre/library/v1/README.md) still
 governs current behavior, and each decision below becomes policy only when the acceptance slice
-of the Library epic records it (ADR or owning-doc update). The technical design is in
+of the Library epic ([#701](https://github.com/loveoverflowcom/cantos/issues/701), acceptance slice [L01 #702](https://github.com/loveoverflowcom/cantos/issues/702)) records it (ADR or
+owning-doc update). The technical design is in
 [Listener Library projection](../architecture/listener-library-projection.md); the draft
 executable expectation is `cantos.listening.library-projection`
 ([inventory](../../services/cantos-server/behavior/listening/library_projection.md)).

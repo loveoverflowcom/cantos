@@ -67,17 +67,17 @@ The owner's 2026-11-03 draft positions the Library as a personal listening libra
 changes first: Saved from published Work metadata and Continue as a Work-level next action
 ([design](../architecture/listener-library-projection.md)). The draft model
 `cantos.listening.library-projection` makes both differences from current code executable.
-Decisions stay proposed until L01 records them. One slice is one reviewable outcome; GitHub
-owns status, assignment and acceptance.
+Decisions stay proposed until L01 records them. The epic is [#701](https://github.com/loveoverflowcom/cantos/issues/701); one slice is one
+reviewable outcome and GitHub owns status, assignment and acceptance.
 
 | Slice | Outcome | Depends on | Main evidence |
 | --- | --- | --- | --- |
-| L01 | Record D-L01–D-L11 (ADR/owning docs), amend Library v1 text and add `presentation=2` schema + fixtures as spec; reconcile the draft model with accepted decisions | — | repository + behavior gates |
-| L02 | Server Saved: metadata Work card + `listen` under `presentation=2`, batched read | L01 | pure/Turso/HTTP/contract tests, dataset measurement |
-| L03 | Server Continue: `work_next_action` core and Work-level membership under `presentation=2` | L01; after L02 (same files) | pure/Turso/HTTP/contract tests, dataset measurement |
-| L04 | Theatre Web adopts L02/L03, natural-end completion and clear-history copy | L02, L03 | Web gate, browser observations (viewports, Vietnamese text, keyboard/screen reader) |
-| L05 | Theatre CMP adopts L02/L03 through SQLDelight/outbox | L02, L03 | JVM/desktop tests, Android device; iOS when available |
-| L06 | Cross-client synchronization acceptance, then removal of superseded Saved/Continue lanes | L04, L05 | evidence record per platform; contract/fixture cleanup |
+| [L01](https://github.com/loveoverflowcom/cantos/issues/702) | Record D-L01–D-L11 (ADR/owning docs), amend Library v1 text and add `presentation=2` schema + fixtures as spec; reconcile the draft model with accepted decisions | — | repository + behavior gates |
+| [L02](https://github.com/loveoverflowcom/cantos/issues/703) | Server Saved: metadata Work card + `listen` under `presentation=2`, batched read | L01 | pure/Turso/HTTP/contract tests, dataset measurement |
+| [L03](https://github.com/loveoverflowcom/cantos/issues/704) | Server Continue: `work_next_action` core and Work-level membership under `presentation=2` | L01; after L02 (same files) | pure/Turso/HTTP/contract tests, dataset measurement |
+| [L04](https://github.com/loveoverflowcom/cantos/issues/705) | Theatre Web adopts L02/L03, natural-end completion and clear-history copy | L02, L03 | Web gate, browser observations (viewports, Vietnamese text, keyboard/screen reader) |
+| [L05](https://github.com/loveoverflowcom/cantos/issues/706) | Theatre CMP adopts L02/L03 through SQLDelight/outbox | L02, L03 | JVM/desktop tests, Android device; iOS when available |
+| [L06](https://github.com/loveoverflowcom/cantos/issues/707) | Cross-client synchronization acceptance, then removal of superseded Saved/Continue lanes | L04, L05 | evidence record per platform; contract/fixture cleanup |
 
 Later (not scheduled): viewer-aware/shared Library after the #634 shared projection, per-Work
 dismiss, full listening-data deletion, collections, per-session history, downloads and
