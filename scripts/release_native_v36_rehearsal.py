@@ -29,7 +29,7 @@ def transition(old, new):
     contract.require(before.get('server_schema') == SCHEMA_27 and
                      after.get('server_schema') == SCHEMA_36 and
                      before.get('identity_schema') == 'identity-migrations-v4' and
-                     after.get('identity_schema') == 'identity-migrations-v6' and
+                     after.get('identity_schema') == 'identity-migrations-v7' and
                      before.get('security_state') == 'identity-security-store-v1' and
                      after.get('security_state') == 'identity-security-store-v1-recovery-fence-v1' and
                      before == {**after, 'server_schema': SCHEMA_27,
@@ -115,6 +115,10 @@ def rehearse(root, args):
         code = str(error)
         safe = isinstance(error, ValueError) and re.fullmatch('[A-Z0-9_]{1,160}', code)
         record.update(status='FAIL', failure=code if safe else type(error).__name__)
+        if fixture is not None:
+            phase = getattr(fixture, 'adapter_phase', getattr(fixture, 'operation_context', 'UNKNOWN'))
+            if isinstance(phase, str) and re.fullmatch('[A-Za-z0-9_-]{1,100}', phase):
+                record['failure_context'] = phase
     contract.write_new(args.output/'historical-upgrade.json', record)
     return record
 

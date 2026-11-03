@@ -37,7 +37,7 @@ use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, 
 /// Persisted ASCII `CNTI` marker. Never change it for an existing database.
 pub const IDENTITY_APPLICATION_ID: i32 = 0x434E_5449;
 
-const MIGRATIONS: [Migration; 6] = [
+const MIGRATIONS: [Migration; 7] = [
     Migration {
         version: 1,
         name: "identity_security_state",
@@ -67,6 +67,11 @@ const MIGRATIONS: [Migration; 6] = [
         version: 6,
         name: "identity_explicit_restore_epoch",
         sql: include_str!("restore_epoch.sql"),
+    },
+    Migration {
+        version: 7,
+        name: "identity_historical_proof_epochs",
+        sql: include_str!("proof_epoch_history.sql"),
     },
 ];
 const RECEIPT_QUERY: &str = "SELECT operation_id,subject_id,kind,expected_version,committed_version,event_seq FROM operation_receipts WHERE operation_id=?1";

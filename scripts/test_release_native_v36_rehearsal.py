@@ -15,7 +15,7 @@ def pair():
     old, new = releases()
     old['compatibility']['server_schema'] = v36.SCHEMA_27
     new['compatibility']['server_schema'] = v36.SCHEMA_36
-    new['compatibility']['identity_schema'] = 'identity-migrations-v6'
+    new['compatibility']['identity_schema'] = 'identity-migrations-v7'
     new['compatibility']['security_state'] = 'identity-security-store-v1-recovery-fence-v1'
     return old, new
 

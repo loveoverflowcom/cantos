@@ -8,6 +8,15 @@ acceptance is implied. The independent [same-schema](native-oci-release.md) and
 
 The historical suffix 28–35 remains byte-for-byte registered. Server v36 appends owner recovery
 metadata; Identity v5–v6 append that metadata and the explicit restore-epoch receipt/guard.
+Identity v7 preserves proof epoch history: it replaces the proof workflow's FK to the mutable
+current epoch with an immutable epoch ledger, copying the dependent signup/provider graph
+inside one owner migration. Old proofs/receipts retain their original bindings; new workflows
+must use the current epoch. Registered v1–v6 SQL is unchanged. A populated v6 fixture checks
+all retained records, disabled state, migration replay and rotation; DDL conflicts must roll
+back every new copy and leave the v6 prefix servable.
+The initial v4 baseline is unenrolled. An already-enrolled older registry remains refused
+unchanged by the owner's existing startup guard; this slice adds no fenced-schema-upgrade
+executor and never drops/recreates its authority to get past that refusal.
 The declaration matches those actual registries, with the new fenced security-state contract;
 the producer's mismatch guard remains unchanged. The checked-in
 v27 image baseline is the observed source `89c5964c89cdbb0c50397f7d1263af34a5c3e517` and exact
