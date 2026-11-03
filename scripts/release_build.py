@@ -171,8 +171,8 @@ def package(root, target, *, dry_run=False, origin=None, request=None, base=None
         "created_at": time.time(),
         "artifacts": artifacts, "deployed": False,
         "runtime_acceptance": "NOT_RUN"}
-    if manifest["rust"].split()[1] != "1.98.1":
-        raise ValueError("release requires the repository Rust 1.98.1 pin")
+    if manifest["rust"].split()[1] != "1.99.1":
+        raise ValueError("release requires the repository Rust 1.99.1 pin")
     if target == "android":
         manifest.update(application_id="com.cantos.theatre", signing="unsigned",
                         live_login_acceptance="NOT_RUN")

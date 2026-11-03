@@ -38,7 +38,7 @@ def git(root, *args):
 def repository(root):
     files = {"services/cantos-server/src/platform/turso/mod.rs": b"pub const SERVER_EPOCH: u32 = 1;\n    version: 1,\n",
              "services/cantos-identity/src/persistence/mod.rs": b"    version: 1,\n",
-             "rust-toolchain.toml": b"[toolchain]\nchannel='1.98.1'\n",
+             "rust-toolchain.toml": b"[toolchain]\nchannel='1.99.1'\n",
              "Cargo.lock": b'[[package]]\nname = "turso"\nversion = "0.8.3"\n',
              build.COMPATIBILITY: json.dumps({"rpc": "rpc-v1", "server_schema": "server-turso-epoch-1-v1",
                                               "identity_schema": "identity-migrations-v1",

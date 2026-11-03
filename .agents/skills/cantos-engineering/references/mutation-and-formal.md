@@ -169,7 +169,7 @@ nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,
 the selected package's library/no default features, CaDiCaL and unwind 2. Actual execution, source
 identity, covers and residuals are recorded in
 [the proof ledger](../../../../docs/assurance/kani.md). Production remains Rust
-1.98.1; the verifier has no runtime dependency and no automatic install/setup.
+1.99.1; the verifier has no runtime dependency and no automatic install/setup.
 
 The implemented [xtask command contract](../../../../xtask/README.md#optional-targeted-kani-proofs)
 keeps Kani out of normal builds, `verify rust`, ordinary full preflight and CI.
@@ -208,7 +208,7 @@ speculative UI/rendering/native/backend proof lanes.
 
 For any new target, record its concrete gap/production reach, exact verifier /
 compiler / solver / target compatibility and configuration before adopting it.
-Normal Cantos builds remain Rust 1.98.1. Do not add a runtime proof dependency,
+Normal Cantos builds remain Rust 1.99.1. Do not add a runtime proof dependency,
 change the production toolchain, install tools just to green a docs change or
 register every backend harness by default. Extend the existing typed xtask
 registry and gate tests rather than adding competing repository orchestration.

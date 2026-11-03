@@ -86,7 +86,7 @@ configured production database.
 
 ## Create, reopen and reseed
 
-Run from the intended checkout with Rust 1.98.1. The same command performs initial import and
+Run from the intended checkout with Rust 1.99.1. The same command performs initial import and
 idempotent reseeding; use the identical source input and media directory for replay.
 
 ```sh

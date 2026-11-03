@@ -435,7 +435,7 @@ earlier captures do not establish its changed navigation or library behavior.
 
 ## Build, run and checks
 
-Use the existing [xtask commands](../../../xtask/README.md), Rust 1.98.1,
+Use the existing [xtask commands](../../../xtask/README.md), Rust 1.99.1,
 `wasm32-unknown-unknown` and Trunk 0.21.14:
 
 ```sh

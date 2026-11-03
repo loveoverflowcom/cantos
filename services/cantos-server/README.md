@@ -125,7 +125,7 @@ producer authority. PostgreSQL migration0014 and its role grants are historical 
 not native runtime setup.
 
 For local coverage use `cargo test --locked -p cantos-server --lib live_acceptance` and
-`cargo test --locked -p cantos-server --test audio_intake_turso` with Rust 1.98.1 and installed
+`cargo test --locked -p cantos-server --test audio_intake_turso` with Rust 1.99.1 and installed
 ffmpeg/ffprobe. The first uses offline HTTP doubles with two live tests ignored; the second
 uses real run-owned Turso/filesystem files and synthetic Ogg/Opus. Neither accepts Long Vân.
 The [current acceptance handoff](../../docs/evidence/longvan-s3-acceptance.md#native-server-local-handoff-26-october-2026)

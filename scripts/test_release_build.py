@@ -178,7 +178,7 @@ class ReleaseBuildTests(unittest.TestCase):
     @patch.dict("os.environ", {"SECRET_TOKEN": "must-not-appear"}, clear=True)
     @patch.object(contract, "configuration", return_value={"component": "android", "api_origin": "https://api.cantos.cc", "profile": "release"})
     @patch.object(release, "source_revision", return_value="a" * 40)
-    @patch.object(release, "run", return_value="rustc 1.98.1")
+    @patch.object(release, "run", return_value="rustc 1.99.1")
     def test_manifest_binds_artifact_bytes_and_does_not_dump_environment(self, run, revision, config):
         def fake_build(root, target, sha, output, origin):
             for name in contract.EXPECTED[target]:

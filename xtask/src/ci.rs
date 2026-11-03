@@ -172,7 +172,7 @@ mod tests {
             "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
             "persist-credentials: false",
             "musl-tools=1.2.4-2",
-            "rustup target add x86_64-unknown-linux-musl --toolchain 1.98.1",
+            "rustup target add x86_64-unknown-linux-musl --toolchain 1.99.1",
             "node-version: '22.23.4'",
             "npm_config_registry: https://registry.npmjs.org",
             "cargo xtask forge-probe package",

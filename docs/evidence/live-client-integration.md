@@ -79,7 +79,7 @@ fresh PostgreSQL rerun with between-suite cleanup passed, preserving the restart
 Historical checkpoint: `RUSTUP_TOOLCHAIN=1.87.0 cargo kani --version` returned
 `no such command: kani`. That observation remains **NOT_RUN**, with no installed toolchain or
 bounded-model-checked result. The Rust 1.87 command prefix and local checks above describe the
-original source checkpoint, not current execution guidance; production now pins Rust 1.98.1.
+original source checkpoint, not current execution guidance; production now pins Rust 1.99.1.
 
 At that checkpoint, two unregistered `cfg(kani)` harnesses existed in `live/request.rs`:
 

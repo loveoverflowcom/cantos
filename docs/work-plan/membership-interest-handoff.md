@@ -95,7 +95,7 @@ and P/Q different canonical contact intents under the future accepted policy.
 | L5 native Turso and HTTP | BLOCKED / NOT_RUN; no production contract/migration/route | Backend/identity owners, unassigned; after implementation, `cargo xtask verify turso` plus the future Server-owned native HTTP/receipt tests; all applicable matrix races/restart/denial cases required |
 | L5 Web/CMP live and native/provider acceptance | BLOCKED / NOT_RUN; no receipt adapter or accepted contact collection | #129/#130 with #12; `cargo xtask verify web`, `cargo xtask theatre-preview verify`, then named real browser/device/provider observations for the implemented flows; builds/JVM tests are insufficient |
 
-Handoff runs `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only`
+Handoff runs `RUSTUP_TOOLCHAIN=1.99.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only`
 on the final diff and records exact selected gates/output in the PR. There is no new fixture
 corpus, Quint model, DB/API runtime result or live contact collection in this boundary.
 No provider, checkout, payment, entitlement, Studio Mobile, audio/publication or storage service

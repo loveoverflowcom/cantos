@@ -572,22 +572,22 @@ Android/iOS or production-flow acceptance.
 ## Local commands
 
 Repository operations use [`cargo xtask`](../../../xtask/README.md). Put installed Gradle
-**8.14.3**, a full **JDK 17+** and Rust **1.98.1** on the environment. Existing pins remain Kotlin
+**8.14.3**, a full **JDK 17+** and Rust **1.99.1** on the environment. Existing pins remain Kotlin
 **2.2.20**, Compose **1.9.0**, Material3 **1.8.2**, AGP **8.11.1**; JVM bytecode targets Java 17.
 No command installs Gradle/JDK/SDK/native compiler or weakens TLS.
 
 ```sh
 # Desktop Preview (JVM only: no Android SDK and no Kotlin/Native are consulted).
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview build
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview verify
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview build
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview verify
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview run
 
 # Existing platform 35 + build-tools 35.0.0 in ANDROID_HOME / ANDROID_SDK_ROOT.
 # The Android application (shared only): unsigned optimized release APK/AAB, unshrunk audit, pre-shrink and artifact inspection.
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host android-release
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-host android-release
 
 # Full Xcode and already installed Kotlin/Native 2.2.20 distribution: the production frameworks.
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host ios-build \
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-host ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
 
@@ -656,7 +656,7 @@ The native hosts never receive the fixture; `TheatreShell` starts Membership una
 The Desktop Preview alone can explicitly opt into manual fixture outcomes (`TheatreShell(initialMembership = …)`):
 
 ```sh
-CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
+CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview run
 ```
 
 Open Account → Membership preview. Fixture controls can confirm a receipt, fail a request,
@@ -689,7 +689,7 @@ Missing capabilities remain explained.
 
 ```sh
 CANTOS_THEATRE_PREVIEW_API_ORIGIN=https://api.local.example \
-RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
+RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview run
 ```
 
 A supplied invalid origin is refused, never replaced by production or offline recipes. The preview
@@ -775,7 +775,7 @@ controls live outside the product navigation: the app has no "Fresh", "Restored"
 button.
 
 ```sh
-CANTOS_THEATRE_WORKBENCH=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-preview run
+CANTOS_THEATRE_WORKBENCH=1 RUSTUP_TOOLCHAIN=1.99.1 cargo xtask theatre-preview run
 ```
 
 `TheatreRecipe.select` validates a versioned synthetic fixture, seed, injected `PreviewSettings`,

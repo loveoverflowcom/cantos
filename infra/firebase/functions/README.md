@@ -27,7 +27,7 @@ root, refuses an existing directory or an escape outside `artifacts/forge-probe`
 subprocess/network/artifact write in dry-run. The xtask binary works from other working directories;
 all paths in its plan remain literal arguments, including spaces.
 
-For a real package, supply Rust 1.98.1 and the already installed
+For a real package, supply Rust 1.99.1 and the already installed
 `x86_64-unknown-linux-musl` target plus linker. No target/compiler/VM is installed or started by
 these commands. `package` builds `cantos-forge-worker` with locked Cargo dependencies and the
 explicit Linux target in `target/forge-probe-build`, then stages an allowlisted wrapper and
@@ -70,7 +70,7 @@ inspection. No command deletes an old bundle, cloud function, log, key, backup o
 The independent `forge-probe-linux` job in
 [repository-checks.yml](../../../.github/workflows/repository-checks.yml) checks out the exact
 PR head SHA (the event SHA for push/manual runs) on Ubuntu 24.04. Its ten-minute budget is
-separate from the broad workspace test job. It provisions Rust 1.98.1 with the musl target,
+separate from the broad workspace test job. It provisions Rust 1.99.1 with the musl target,
 Ubuntu `musl-tools=1.2.4-2` and Node 22.23.4, then calls the existing `self-test`, `package`,
 `inspect` and `qualify` commands. Rustup and the pinned official setup-node action obtain the
 compiler/runtime from their official distributions; apt uses Ubuntu's signed repositories and

@@ -3,9 +3,9 @@
 # of exactly the deployed commit, so untracked or private files cannot enter the image.
 # Base images are pinned by digest; an upgrade is a reviewed edit of these lines.
 
-FROM docker.io/library/rust:1.98.1-slim-trixie@sha256:fce83543909cd5409924a61ce296bdf5bab0fca37f004c0f6c8ef6f4a37bbc59 AS build
+FROM docker.io/library/rust:1.99.1-slim-trixie@sha256:9daf2b244ccc30523e55cafe32edf8465671ba567d0101620e5612ccb76ea1a7 AS build
 # The repository toolchain file also requests wasm/clippy/rustfmt; the server needs none of them.
-ENV RUSTUP_TOOLCHAIN=1.98.1 CARGO_TERM_COLOR=never
+ENV RUSTUP_TOOLCHAIN=1.99.1 CARGO_TERM_COLOR=never
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,id=cantos-server-cargo-registry,target=/usr/local/cargo/registry \

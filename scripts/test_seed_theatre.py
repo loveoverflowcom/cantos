@@ -140,9 +140,9 @@ class RetainedClusterTest(unittest.TestCase):
     def test_inherited_connection_settings_never_reach_the_seed(self):
         inherited = {"PATH": "/bin", "DATABASE_URL": "postgresql://prod", "PGHOST": "prod",
                      "PGSERVICE": "prod", "CANTOS_TEST_CLUSTER_URL": "postgresql://other",
-                     "RUSTUP_TOOLCHAIN": "1.98.1"}
+                     "RUSTUP_TOOLCHAIN": "1.99.1"}
         self.assertEqual(seed_theatre.isolated_environment(inherited),
-                         {"PATH": "/bin", "RUSTUP_TOOLCHAIN": "1.98.1"})
+                         {"PATH": "/bin", "RUSTUP_TOOLCHAIN": "1.99.1"})
 
 
 class SeedRecordTest(unittest.TestCase):

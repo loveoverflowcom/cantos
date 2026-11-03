@@ -160,7 +160,7 @@ Executed on 2026-10-13, x86_64-unknown-linux-gnu (`usize` = 64 bits), API librar
 no default features. Kani **0.68.0**, bundled compiler
 `rustc 1.100.0-nightly (8925ea358 2026-08-20)` (toolchain nightly-2026-08-21),
 CBMC **6.11.0**, SAT solver **CaDiCaL 3.0.0**. The production build at that historical checkpoint
-used Rust **1.87.0**; current production pins **1.98.1**. The primitive commands below are
+used Rust **1.87.0**; current production pins **1.99.1**. The primitive commands below are
 historical provenance, superseded for repository acceptance by `cargo xtask verify kani`.
 Compatibility was checked against the [official pinned release](https://github.com/model-checking/kani/releases/tag/kani-0.68.0),
 [installation guide](https://model-checking.github.io/kani/install-guide.html),

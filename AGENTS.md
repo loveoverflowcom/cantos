@@ -256,7 +256,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Localhost dataset profiles | `cargo xtask seed dataset` has explicit list/plan/create/verify/serve/archive actions ([runbook](docs/deployment/localhost-datasets.md)); bounded regressions stay in existing Rust gates. Heavy sizes and engine probes never run at startup/preflight/CI. Test callers do not establish Studio login. |
 | Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
-Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). Native checks require no PostgreSQL,
+Use Rust 1.99.1 (`RUSTUP_TOOLCHAIN=1.99.1`, as in CI). Native checks require no PostgreSQL,
 Kanidm, emulator or container runtime. `run` starts only its owned native processes with private
 files and explicit migrations; `app` starts only a frontend. Report each gate as printed:
 `PASS`, `FAIL`, `NOT_RUN` or `UNSUPPORTED`, keeping browser/device/deployed acceptance separate.
