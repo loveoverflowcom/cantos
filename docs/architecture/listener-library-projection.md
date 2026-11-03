@@ -1,12 +1,14 @@
-# Listener Library projection — proposed design
+# Listener Library projection — accepted design
 
-**Status: proposed design**, reviewed against `develop@1b8864d6` on 2026-11-03. The implemented
-authority is [Library v1](../../services/cantos-server/contracts/theatre/library/v1/README.md);
-product intent and open decisions are in the [Library decision register](../product/listener-library.md#decision-register).
-Nothing here is implemented until a slice of the [Library handoff](../work-plan/listener-library-progress-handoff.md#next-delivery-work-level-library)
+**Status: accepted design, not implemented.** The owner accepted the decisions in
+[ADR 0057](../decisions/0057-listener-library-work-projection.md) on 2026-11-03 (reviewed against
+`develop@1b8864d6`). Current behavior is still the 1.2.0 part of
+[Library v1](../../services/cantos-server/contracts/theatre/library/v1/README.md), whose 1.3.0
+definitions and fixtures now specify the representations below. Each slice of the
+[Library handoff](../work-plan/listener-library-progress-handoff.md#next-delivery-work-level-library)
 lands with its own evidence. The draft model `cantos.listening.library-projection`
 ([inventory](../../services/cantos-server/behavior/listening/library_projection.md)) encodes the
-recommended decisions so that their differences from today's code are executable.
+accepted rules, so their differences from today's code are executable.
 
 ## Ownership
 
@@ -47,7 +49,7 @@ nothing below was executed in this review.
 | Continue takes the newest register per Work, then drops it when completed | [`listening/turso.rs` L825–L834](https://github.com/loveoverflowcom/cantos/blob/1b8864d6a972b2f7c7dca84de85cc8e489d7b103/services/cantos-server/src/contexts/listening/turso.rs#L825-L834); test [`latest_completed_release_suppresses_older_unfinished_work_…`](https://github.com/loveoverflowcom/cantos/blob/1b8864d6a972b2f7c7dca84de85cc8e489d7b103/services/cantos-server/src/theatre_library_http_tests.rs#L397) | Finishing chapter 12 removes the novel from Continue |
 | Library visibility is public-only, Work and anchor Unit, before keyset/LIMIT | [`library_visibility.rs`](https://github.com/loveoverflowcom/cantos/blob/1b8864d6a972b2f7c7dca84de85cc8e489d7b103/services/cantos-server/src/contexts/catalog/turso/library_visibility.rs) | Shared/restricted Works never enter Library |
 | Web ignores playback observations of shared tracks | [`web/src/live/runtime.rs` L665](https://github.com/loveoverflowcom/cantos/blob/1b8864d6a972b2f7c7dca84de85cc8e489d7b103/apps/cantos-theatre/web/src/live/runtime.rs#L665) | Shared listening writes no Library state |
-| Clear history removes history rows only | [Library v1 § Playback, completion, history and clear](../../services/cantos-server/contracts/theatre/library/v1/README.md#playback-completion-history-and-clear) | After “Xóa lịch sử”, Continue still lists the same Works |
+| Clear history removes history rows only | [Library v1 § Playback, completion, history and clear](../../services/cantos-server/contracts/theatre/library/v1/README.md#playback-completion-history-and-clear) | After “Xóa lịch sử”, Continue still lists the same Works; D-L08 removes the use case |
 | Unit order is the generation entry `position` (1–1000, PK `work_id, generation, position`) | [`catalog_metadata_publications.sql`](https://github.com/loveoverflowcom/cantos/blob/1b8864d6a972b2f7c7dca84de85cc8e489d7b103/services/cantos-server/src/platform/turso/catalog_metadata_publications.sql#L30-L42) | “Next chapter” is an index probe, not a list load |
 
 ## Proposed projection
@@ -72,7 +74,7 @@ per-row release hydration.
 The anchor stays the newest register per Work (current window), **without** the completion
 filter. A pure function derives one closed action:
 
-| Anchor | Condition | `next.kind` | In Continue |
+| Anchor | Condition | Action (`next.kind` on the wire) | In Continue |
 | --- | --- | --- | --- |
 | unfinished | its exact release is current | `resume_exact` (audio, position) | yes |
 | unfinished | another release is current for the Unit | `release_replaced` (stored audio, current publication) | yes, explicit choice only |
@@ -82,7 +84,8 @@ filter. A pure function derives one closed action:
 | completed | no following visible Unit | `caught_up` | no |
 | any | anchor Unit or Work not visible | — | no, never an older-chapter fallback |
 
-“Following” is the smallest `position` greater than the anchor Unit's position in the **active**
+Only the four Continue actions are wire values; `waiting_audio`, `caught_up` and hidden are
+outcomes of the pure function that keep the Work off the page. “Following” is the smallest `position` greater than the anchor Unit's position in the **active**
 generation among visible Units (stored positions may have gaps; S10 makes outward ordinals consecutive). There is no skip over a
 chapter without audio. Order stays the anchor's `listener_order`, so completing a chapter keeps
 the Work at the top. `waiting_audio`/`caught_up` reuse the same function for Saved/Recent badges
@@ -97,16 +100,38 @@ frontier only on refresh, as the existing frontier rule already states.
 
 Clients send `mark_completed` when the listener chooses it or when the engine acknowledges the
 natural end of the current account/session/source at the exact duration. A checkpoint or seek
-to the end remains a position, never completion. This edits the v1 completion sentence before
-any client changes; auto-next playback is a separate opt-in preference.
+to the end remains a position, never completion. The Library v1 completion sentence now says
+so; Web and CMP adopt it in L04/L05. Auto-next playback is not part of this delivery.
+
+### Recent history without clear (D-L08)
+
+History keeps the latest confirmed start per Work and engine-session de-duplication. The
+clear-history use case is removed: Web/CMP drop the action in L04/L05, and L06 removes
+`POST /library/history/clear`, `HistoryClear`, `history_epoch_conflict` and the epoch fields of
+playback starts, history pages and cursors in the same delivery that updates every client.
+Registered migrations are not edited; a constant epoch column may stay or be dropped by an
+appended migration.
 
 ## API delta
 
-| Route | Proposed representation | Notes |
+| Route | Library 1.3.0 definition | Notes |
 | --- | --- | --- |
-| `GET /library/saved?presentation=2` | `{ saved, work: WorkCard, listen: playable \| no_audio_yet }` | `work` required, non-null |
-| `GET /library/continue?presentation=2` | `{ work: WorkCard, anchor: ProgressRecord, next: NextAction }` | `next` is a closed tagged union keyed by `kind` |
-| `GET /library/history` | unchanged in this delivery | badges may reuse the next-action function later |
+| `GET /library/saved?presentation=2` | `SavedWorkPage` of `{ saved, work: WorkCard, listen: ListenState }` | `work` required, non-null |
+| `GET /library/continue?presentation=2` | `ContinueWorkPage` of `{ work: WorkCard, anchor: ProgressRecord, next: NextAction }` | `next.kind` decides which nullable members are present |
+| `GET /library/history` | unchanged until L06 removes its epoch | badges may reuse the next-action function later |
+
+`WorkCard` mirrors Discovery's Work fields that a card needs: `work_id`, `kind`, `title`,
+`language`, `unit_count`, nullable `cover`. `NextAction` is one closed object:
+
+| `kind` | `unit_id`, `unit_title`, `ordinal` | `publication_id`, `duration_ms` |
+| --- | --- | --- |
+| `resume_exact` | the anchor Unit | the anchor's exact release (position is `anchor.position_ms`) |
+| `release_replaced` | the anchor Unit | the current replacement, offered only by explicit choice |
+| `audio_unavailable` | the anchor Unit | `null` |
+| `start_next` | the immediately following visible Unit | its current release, started at zero |
+
+The schema expresses the per-kind rules with `allOf`; the CMP wire generator and its subset
+validator ignore `allOf`, so the Kotlin consumer re-checks them when it maps the wire value.
 
 `presentation=2` is additive, binds the cursor like `presentation=1`, ships with strict JSON
 Schema, fixtures and Server/Web/CMP decoders, and is removed together with the superseded lanes
@@ -161,7 +186,7 @@ Required cross-client cases:
 | Pause on CMP, open Web | Same exact release and position |
 | Rewind after a later checkpoint | Explicit seek wins; a delayed old checkpoint is `keep_server` |
 | Lost Save/Unsave response, then retry | Same receipt; no flip |
-| Clear history, then a delayed old start | `history_epoch_conflict`; history stays empty |
+| Duplicate engine start after a retry | Same receipt; history keeps one entry per Work, not reordered |
 | Finish a chapter on CMP, open Web | Continue shows the next chapter |
 | Sign out A, sign in B | No A rows rendered or submitted as B |
 
@@ -172,6 +197,6 @@ Required cross-client cases:
 | Named collections | New `collections` and `collection_items(work)` resources on the same operation envelope; Saved stays its own register (optionally exposed later as a read-only built-in list) |
 | Per-session history, play counts | `listening_sessions` from engine-session acknowledgements, deduplicated by engine session, with a retention policy decided first; never one row per checkpoint |
 | Dismiss from Continue | Per-Work `continue_dismissed_order`; a Work shows again when its anchor order exceeds it |
-| Full listening-data deletion | Designed with receipt/tombstone/session retention horizons; current clear stays history-only |
+| Listening-data export/deletion | An account-level flow designed with receipt/tombstone/session retention horizons; no per-section clear (D-L08) |
 | Downloads, new-chapter notifications | Own registers and lifecycles; never derived from Saved |
 | Work completion | Needs an owner-declared series status in Catalog first |

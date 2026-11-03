@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "saved": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "saved": true,
+        "revision": 1,
+        "listener_order": 7,
+        "accepted_at_ms": 7000
+      },
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "kind": "novel",
+        "title": "Ánh đèn cuối sân khấu — Một lời hẹn chưa nói",
+        "language": "vi-VN",
+        "unit_count": 13,
+        "cover": {
+          "url": "/api/v1/theatre/works/00000000-0000-4000-8000-000000000001/cover/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "content_type": "image/avif",
+          "width_px": 600,
+          "height_px": 900,
+          "byte_length": 48213,
+          "alt_text": "Bìa truyện Ánh đèn cuối sân khấu"
+        }
+      },
+      "listen": "playable"
+    },
+    {
+      "saved": {
+        "work_id": "00000000-0000-4000-8000-000000000021",
+        "saved": true,
+        "revision": 3,
+        "listener_order": 5,
+        "accepted_at_ms": 5000
+      },
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000021",
+        "kind": "story",
+        "title": "Chuyến đò cuối ngày",
+        "language": "vi-VN",
+        "unit_count": 2,
+        "cover": null
+      },
+      "listen": "no_audio_yet"
+    }
+  ],
+  "next_cursor": null
+}

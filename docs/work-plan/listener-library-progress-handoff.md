@@ -38,6 +38,8 @@ Private media success does not authorize public bytes or native playback.
    do not count. Deduplicate session acknowledgement and include the observed history epoch.
 6. Require a fresh confirmation for clear using observed revision/epoch. Clear history alone;
    delayed old epochs conflict, and a replayed old start cannot restore cleared history.
+   [ADR 0057](../decisions/0057-listener-library-work-projection.md) D-L08 removes this use case:
+   clients drop the action in L04/L05 and L06 removes the route and epoch with every client.
 7. Fence asynchronous responses by account/session and local intent generation. An old receipt
    is historical, not current state. Ignore older register revisions and reread after outbox
    recovery. Clear projections/credentials immediately on logout before account B becomes visible.
@@ -67,17 +69,19 @@ The owner's 2026-11-03 draft positions the Library as a personal listening libra
 changes first: Saved from published Work metadata and Continue as a Work-level next action
 ([design](../architecture/listener-library-projection.md)). The draft model
 `cantos.listening.library-projection` makes both differences from current code executable.
-Decisions stay proposed until L01 records them. The epic is [#701](https://github.com/loveoverflowcom/cantos/issues/701); one slice is one
-reviewable outcome and GitHub owns status, assignment and acceptance.
+The owner accepted D-L01–D-L11 in [ADR 0057](../decisions/0057-listener-library-work-projection.md)
+(L01); Library v1 now specifies the 1.3.0 representations. The epic is
+[#701](https://github.com/loveoverflowcom/cantos/issues/701); one slice is one reviewable outcome
+and GitHub owns status, assignment and acceptance.
 
 | Slice | Outcome | Depends on | Main evidence |
 | --- | --- | --- | --- |
 | [L01](https://github.com/loveoverflowcom/cantos/issues/702) | Record D-L01–D-L11 (ADR/owning docs), amend Library v1 text and add `presentation=2` schema + fixtures as spec; reconcile the draft model with accepted decisions | — | repository + behavior gates |
 | [L02](https://github.com/loveoverflowcom/cantos/issues/703) | Server Saved: metadata Work card + `listen` under `presentation=2`, batched read | L01 | pure/Turso/HTTP/contract tests, dataset measurement |
 | [L03](https://github.com/loveoverflowcom/cantos/issues/704) | Server Continue: `work_next_action` core and Work-level membership under `presentation=2` | L01; after L02 (same files) | pure/Turso/HTTP/contract tests, dataset measurement |
-| [L04](https://github.com/loveoverflowcom/cantos/issues/705) | Theatre Web adopts L02/L03, natural-end completion and clear-history copy | L02, L03 | Web gate, browser observations (viewports, Vietnamese text, keyboard/screen reader) |
-| [L05](https://github.com/loveoverflowcom/cantos/issues/706) | Theatre CMP adopts L02/L03 through SQLDelight/outbox | L02, L03 | JVM/desktop tests, Android device; iOS when available |
-| [L06](https://github.com/loveoverflowcom/cantos/issues/707) | Cross-client synchronization acceptance, then removal of superseded Saved/Continue lanes | L04, L05 | evidence record per platform; contract/fixture cleanup |
+| [L04](https://github.com/loveoverflowcom/cantos/issues/705) | Theatre Web adopts L02/L03 and natural-end completion; removes the clear-history action | L02, L03 | Web gate, browser observations (viewports, Vietnamese text, keyboard/screen reader) |
+| [L05](https://github.com/loveoverflowcom/cantos/issues/706) | Theatre CMP adopts L02/L03 through SQLDelight/outbox and natural-end completion; removes the clear-history action | L02, L03 | JVM/desktop tests, Android device; iOS when available |
+| [L06](https://github.com/loveoverflowcom/cantos/issues/707) | Cross-client synchronization acceptance, then removal of the superseded Saved/Continue lanes and of the clear route and history epoch | L04, L05 | evidence record per platform; contract/fixture cleanup |
 
 Later (not scheduled): viewer-aware/shared Library after the #634 shared projection, per-Work
 dismiss, full listening-data deletion, collections, per-session history, downloads and

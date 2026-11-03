@@ -1,6 +1,8 @@
 # Listener Library and Progress v1
 
-Schema version **1.2.0**, additive opt-in resources under `/api/v1/theatre`. This reviewed core
+Schema version **1.3.0**, additive opt-in resources under `/api/v1/theatre`; the 1.3.0
+[Work-level projection](#work-level-projection-v130-adr-0057-specified-not-served) is an accepted
+specification that no route serves yet. This reviewed core
 contract is shared by Web/CMP; their current mock reducers are not production consumers.
 JSON Schema, strict Rust DTO fixture conformance and HTTP tests accompany it. OpenAPI,
 generated/drift-checked Kotlin and real-client adoption remain acceptance work.
@@ -14,7 +16,7 @@ generated/drift-checked Kotlin and real-client adoption remain acceptance work.
 | GET, PUT | `/library/saved/{work}` | current revisioned desired state; conditional desired-state mutation |
 | GET | `/library/history` | latest confirmed playback-start per Work, newest first, including completed |
 | POST | `/library/history/playback-starts` | only an acknowledged actual engine start, not Play intent or page view |
-| POST | `/library/history/clear` | explicitly confirmed conditional clear, only history |
+| POST | `/library/history/clear` | explicitly confirmed conditional clear, only history; **use case removed** by ADR 0057 D-L08, route deleted in L06 |
 | GET, PUT | `/progress/{publication}` | exact publication progress authority, conditional update/reconcile |
 | GET | `/library/bookmarks` | live release-bound bookmarks, newest accepted first, with exact audio and required nullable metadata; no playback effect |
 | PUT | `/library/bookmarks/{bookmark}` | create-once bookmark at an exact release position, client-minted ID |
@@ -110,6 +112,39 @@ Fixtures live in `fixtures/theatre/library/v1/bookmarks/` (a separate corpus so 
 and its strict readers, are unchanged); the schema/DTO additions are strictly additive:
 `WriteOutcome::bookmark_deleted` and `MutationState::bookmark` occur only for bookmark operations.
 
+## Work-level projection v1.3.0 (ADR 0057, specified, not served)
+
+Accepted by the owner on 2026-11-03 as the target of the Saved and Continue page reads with the
+closed query `presentation=2`. **No route accepts `presentation=2` yet**: until L02/L03 implement
+it, the value returns `invalid_request` like any other unknown selector. Default and
+`presentation=1` shapes, fixtures and readers are unchanged. The
+[design](../../../../../../docs/architecture/listener-library-projection.md) owns the rationale.
+
+- `SavedWorkPage` items are `{saved, work, listen}`. `work` is a required, non-null `WorkCard` of
+  the Work's **active published metadata generation** (the same source as Discovery):
+  `work_id`, `kind`, `title`, `language`, visible `unit_count` and nullable `cover`. `listen` is
+  `playable` when at least one visible Unit of that generation has a current exact audio
+  association, otherwise `no_audio_yet`. Row membership and HIDE are unchanged; a Work that is
+  no longer visible leaves the page while its register stays.
+- `ContinueWorkPage` items are `{work, anchor, next}`. `anchor` is the Work's newest progress
+  register, completed or not. `next` is a closed `NextAction`: `resume_exact` (the anchor's
+  exact release, at `anchor.position_ms`), `release_replaced` (a different current release for
+  the anchor Unit, offered only by explicit choice), `audio_unavailable` (no current audio for
+  the anchor Unit; `publication_id` and `duration_ms` are null) or `start_next` (the immediately
+  following visible Unit of the active generation and its current release, started at zero).
+  `unit_id`, `unit_title` and the outward `ordinal` name the Unit to open.
+- A completed anchor whose following visible Unit has no current audio, or that has no following
+  visible Unit, is **not** listed (caught up); the Work returns when the following Unit becomes
+  playable. A hidden anchor Unit or Work is not listed and never falls back to an older chapter.
+  Membership is decided before keyset/LIMIT; a Work re-entering above a frozen frontier appears
+  only on refresh. Order is the anchor's `listener_order`.
+- Cursors bind `presentation=2` exactly as they bind `presentation=1`. These are read
+  snapshots: they grant no playback and never substitute, clamp or migrate a release.
+
+The schema states the per-kind `NextAction` rules with `allOf`. The CMP wire generator and its
+subset validator ignore `allOf`, so the Kotlin consumer re-checks them while mapping. Fixtures
+live in the separate corpus `fixtures/work_projection/`, read by no 1.2.0 consumer.
+
 ## Identity, concurrency and receipts
 
 Work and ContentUnit IDs are stable continuity. Publication, rendition, SHA-256 and duration
@@ -145,7 +180,10 @@ and credentials; account A's queued operations must never be submitted as B.
 ## Playback, completion, history and clear
 
 Positions are integer milliseconds in `[0,duration]`. Checkpoint or seek to end does not imply
-completion. `mark_completed` is an explicit listener intent at the exact end; `restart` requires
+completion. `mark_completed` is sent at the exact end on an explicit listener action or, per
+[ADR 0057](../../../../../../docs/decisions/0057-listener-library-work-projection.md) D-L05, when the
+engine acknowledges the natural end of the current account/session/source (clients adopt this in
+L04/L05; the Server cannot tell the two apart and needs no change). `restart` requires
 zero and resets completion. Completed progress stays in history and remains individually readable,
 but is excluded from Continue. Backward `explicit_seek` is valid on the current revision.
 
@@ -162,6 +200,12 @@ engine-session tombstones. Delayed pre-clear acknowledgements conflict as `histo
 replayed old starts return their old receipt without recreating entries. New actual starts with
 the new epoch may create history. Concurrent new starts invalidate a stale clear revision and
 must be shown for fresh confirmation. No analytics pipeline is introduced.
+
+ADR 0057 D-L08 removes the clear-history **use case**. Web and CMP drop the action in L04/L05;
+L06 deletes this route, `HistoryClear`, `history_epoch_conflict` and the epoch members of
+`HistoryStart`, `HistoryState`, the history page and its cursor binding in the same delivery that
+updates every client (ADR 0055). Engine-session de-duplication stays. Until then the behavior
+above is unchanged.
 
 ## Resume and changed access
 

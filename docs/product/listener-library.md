@@ -1,13 +1,13 @@
 # Listener Library — vision, journeys and decision register
 
-**Status: proposed.** This records the owner's 2026-11-03 Library draft after review against
-`develop@1b8864d6`. It is not accepted policy: the implemented
-[Library v1 contract](../../services/cantos-server/contracts/theatre/library/v1/README.md) still
-governs current behavior, and each decision below becomes policy only when the acceptance slice
-of the Library epic ([#701](https://github.com/loveoverflowcom/cantos/issues/701), acceptance slice [L01 #702](https://github.com/loveoverflowcom/cantos/issues/702)) records it (ADR or
-owning-doc update). The technical design is in
-[Listener Library projection](../architecture/listener-library-projection.md); the draft
-executable expectation is `cantos.listening.library-projection`
+**Status: accepted (owner, 3 November 2026)** in
+[ADR 0057](../decisions/0057-listener-library-work-projection.md); not implemented. The owner
+selected the decisions below through the acceptance slice [L01 #702](https://github.com/loveoverflowcom/cantos/issues/702)
+of epic [#701](https://github.com/loveoverflowcom/cantos/issues/701). Until slices L02–L06 land,
+current behavior is still the 1.2.0 part of the
+[Library v1 contract](../../services/cantos-server/contracts/theatre/library/v1/README.md). The
+technical design is in [Listener Library projection](../architecture/listener-library-projection.md);
+the executable expectation is the draft `cantos.listening.library-projection`
 ([inventory](../../services/cantos-server/behavior/listening/library_projection.md)).
 
 ## Vision
@@ -52,7 +52,7 @@ Continue's cards at the same weight on the Library page.
 | J3 | Long-form listening: finish a chapter | Nghe tiếp shows “Nghe chương 13” for the immediately following published chapter |
 | J4 | Device switch: save or listen on Web, open CMP with the same account | The same Saved/progress state after synchronization; account B never sees account A |
 | J5 | Caught up, then a new chapter | “Bạn đã nghe đến chương mới nhất” moves the Work out of Continue; when the next chapter becomes playable it returns without a notification subscription |
-| J6 | Clear recent history | Gần đây is empty; the copy says that Nghe tiếp, Đã lưu and progress are kept |
+| J6 | Replay an old chapter | Nghe tiếp follows the chapter heard last; Gần đây shows the Work once, newest first |
 
 ## Concepts that stay separate
 
@@ -64,27 +64,27 @@ Continue's cards at the same weight on the Library page.
 | Recent history | Latest confirmed engine start per Work | A per-session log, a play count or analytics |
 | Unit completion | `mark_completed` of one exact release | Work completion |
 | Caught up | Every currently published chapter after the anchor is finished or absent | “Đã hoàn thành tác phẩm” |
-| Work completion | The listener finished a Work the owner declared complete | Available in MVP (no series status exists) |
+| Work completion | The listener finished a Work the owner declared complete | Not in MVP: no series status exists yet |
 | Download, notification, collection | Separate resources with their own lifecycles | Side effects of Save |
 
 ## Decision register
 
-Each row is a proposal with a recommended disposition. “Changes v1” means the implemented
-contract text changes before code.
+Dispositions accepted by the owner on 3 November 2026 ([ADR 0057](../decisions/0057-listener-library-work-projection.md)).
+“Changes v1” means the Library v1 text changed before any code.
 
-| ID | Decision | Options | Recommended | Changes v1 |
+| ID | Decision | Options considered | Accepted | Changes v1 |
 | --- | --- | --- | --- | --- |
 | D-L01 | Library structure | three sections in one destination; three tabs | Three sections in one destination; “Xem tất cả” per section | No |
-| D-L02 | Saved presentation source | audio representative (current); published Work metadata | Active published metadata generation, same source as Discovery; audio availability `playable`/`no_audio_yet` as a separate field; never `null` for a shown row | Yes |
-| D-L03 | Continue anchor and next action | newest unfinished register (current); newest register per Work plus a derived next action | Newest register per Work, completed or not; closed next-action union; next = immediately following published Unit, never a skip | Yes |
-| D-L04 | Caught up / next chapter without audio | keep in Continue disabled; leave Continue | Leave Continue and show the state on Saved/Recent; re-enter at read time when the next chapter is playable | Yes |
-| D-L05 | What completes a chapter | explicit only (current); engine natural end too | Explicit action **or** the engine's acknowledged natural end of the current session/source at the exact duration; checkpoint or seek to the end still never completes; auto-next playback is a later opt-in | Yes |
-| D-L06 | Work completion | derive from chapters; owner series status | Defer until Catalog has an owner-declared series status; MVP shows only “caught up” | No |
-| D-L07 | Podcast “next” | published position; none; newest | Kind-neutral published position for MVP; revisit with podcast listening evidence | No |
-| D-L08 | Scope of “Xóa lịch sử gần đây” | history only (current); all listening data | Keep history-only and state it in the confirmation copy; per-Work “Ẩn khỏi Nghe tiếp” and full data deletion are later, separately designed with retention | No |
-| D-L09 | Shared/restricted Works in Library | public-only (current); viewer-aware | Public-only until the #634 shared projection supplies a complete viewer-aware predicate; keep the Catalog-owned predicate seam | No |
-| D-L10 | Guest Library | local guest saves; sign-in invitation | Sign-in invitation only; no guest persistence or merge (#34 has no merge policy) | No |
-| D-L11 | Representation rollout | replace in place (ADR 0055); additive `presentation=2` then removal | Additive opt-in `presentation=2` on Saved and Continue pages, Web and CMP adopt in their slices, then remove the superseded lanes once no current client uses them | Yes (additive) |
+| D-L02 | Saved presentation source | audio representative (current); published Work metadata | Work card of the active published metadata generation, same source as Discovery, plus a separate `listen` state `playable`/`no_audio_yet`; never `null` for a shown row | Yes (1.3.0) |
+| D-L03 | Continue anchor and next action | newest unfinished register (current); newest register per Work plus a next action | Newest register per Work, completed or not; closed next-action kind; next = immediately following visible Unit, never a skip | Yes (1.3.0) |
+| D-L04 | Caught up / next chapter without audio | keep in Continue disabled; leave Continue | Leave Continue; re-enter at read time when the following chapter is playable | Yes (1.3.0) |
+| D-L05 | What completes a chapter | explicit only (current); engine natural end too; plus auto-next | Explicit action **or** the engine's acknowledged natural end of the current account/session/source at the exact duration; checkpoint or seek to the end never completes; no auto-next | Yes |
+| D-L06 | Work completion | derive from chapters; owner series status | Deferred until Catalog has an owner-declared series status; “caught up” is a read state only | No |
+| D-L07 | Podcast “next” | published position; none; newest | Published order for every kind | No |
+| D-L08 | “Xóa lịch sử gần đây” | history only (current); also dismiss Continue; all listening data; **remove** | **Removed.** Web/CMP drop the action (L04/L05); L06 removes the clear route, epoch conflict and epoch wire fields with every client in one delivery. Self-service data deletion belongs to a later account-level export/deletion flow | Yes (L06) |
+| D-L09 | Shared/restricted Works in Library | public-only (current); viewer-aware | Public-only until the #634 shared projection supplies a complete viewer-aware predicate | No |
+| D-L10 | Guest Library | local guest saves; sign-in invitation | Sign-in invitation only; no guest persistence or merge | No |
+| D-L11 | Representation rollout | replace in place (ADR 0055); additive `presentation=2` then removal | Additive `presentation=2` on Saved and Continue (Library 1.3.0); Web and CMP adopt; L06 removes the superseded lanes | Yes (1.3.0) |
 
 ## Success signals
 
@@ -99,6 +99,6 @@ pipeline follows from this document).
 ## Later, not MVP
 
 Per-session listening history and play counts; named collections (“Nghe trước khi ngủ”); a player
-queue or playlist; per-Work dismiss from Continue; full listening-data deletion with a receipt and
-tombstone retention horizon; downloads; new-chapter notifications; recommendations. The design
+queue or playlist; per-Work dismiss from Continue; account-level listening-data export/deletion with
+receipt and tombstone retention horizons; auto-next playback; downloads; new-chapter notifications; recommendations. The design
 document records an extension path for each so MVP choices do not block them.

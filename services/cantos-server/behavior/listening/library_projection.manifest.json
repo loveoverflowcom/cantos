@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "capabilityId": "cantos.listening.library-projection",
   "sourceRefs": [
+    "docs/decisions/0057-listener-library-work-projection.md",
     "docs/architecture/listener-library-projection.md",
     "docs/product/listener-library.md",
     "services/cantos-server/contracts/theatre/library/v1/README.md",
@@ -97,8 +98,8 @@
       "declaration": "finishNotCompleteTest"
     },
     {
-      "id": "cantos.listening.library-projection.run.clear-history",
-      "declaration": "clearHistoryTest"
+      "id": "cantos.listening.library-projection.run.unsave-retains",
+      "declaration": "unsaveRetainsTest"
     },
     {
       "id": "cantos.listening.library-projection.run.history-from-start",
@@ -143,8 +144,8 @@
       "declaration": "finishedNotCompleted"
     },
     {
-      "id": "cantos.listening.library-projection.witness.cleared-keeps-continue",
-      "declaration": "clearedKeepsContinue"
+      "id": "cantos.listening.library-projection.witness.unsaved-keeps-continue",
+      "declaration": "unsavedKeepsContinue"
     },
     {
       "id": "cantos.listening.library-projection.witness.checkpoint-without-history",
@@ -218,8 +219,8 @@
     {
       "id": "cantos.listening.library-projection.control.registers-independent",
       "property": "cantos.listening.library-projection.property.registers-independent",
-      "from": "record({ ...state, historyUnit: 0, epoch: state.epoch + 1 }, ClearHistory)",
-      "to": "record({ ...state, historyUnit: 0, epoch: state.epoch + 1, progress: initial.progress }, ClearHistory)"
+      "from": "record(if (admitted) { ...state, saved: desired, clock: state.clock + 1 } else state, Save(desired))",
+      "to": "record(if (admitted) { ...state, saved: desired, historyUnit: if (desired) state.historyUnit else 0, clock: state.clock + 1 } else state, Save(desired))"
     },
     {
       "id": "cantos.listening.library-projection.control.history-from-start",

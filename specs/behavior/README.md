@@ -51,9 +51,9 @@ is separate from compiled-browser and native device observations; no implementat
 registered for it.
 
 The draft, model-only [Library projection capability](../../services/cantos-server/behavior/listening/library_projection.md),
-`cantos.listening.library-projection`, encodes the **proposed** Work-level Saved/Continue rules of the
-[Library design](../../docs/architecture/listener-library-projection.md). It deliberately differs
-from current Library v1 code; it is an expectation for upcoming slices, with no observer.
+`cantos.listening.library-projection`, encodes the Work-level Saved/Continue/history rules accepted
+in [ADR 0057](../../docs/decisions/0057-listener-library-work-projection.md). It deliberately differs
+from current Library v1 code and stays draft until slices implement it; no observer is registered.
 
 ## Run locally
 

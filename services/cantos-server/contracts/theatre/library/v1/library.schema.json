@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cantos.example/contracts/theatre/library/1.2.0",
-  "title": "Listener Library and Progress 1.2.0 (presentation opt-in, release-bound bookmarks)",
+  "$id": "https://cantos.example/contracts/theatre/library/1.3.0",
+  "title": "Listener Library and Progress 1.3.0 (presentation opt-in, release-bound bookmarks, Work-level projection spec)",
   "$defs": {
     "Operation": {
       "type": "object",
@@ -1020,6 +1020,371 @@
         "items",
         "next_cursor"
       ]
+    },
+    "ListenState": {
+      "type": "string",
+      "enum": [
+        "playable",
+        "no_audio_yet"
+      ]
+    },
+    "WorkCover": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "image/avif"
+          ]
+        },
+        "width_px": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "height_px": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "alt_text": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "url",
+        "sha256",
+        "content_type",
+        "width_px",
+        "height_px",
+        "byte_length",
+        "alt_text"
+      ]
+    },
+    "WorkCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "novel",
+            "story",
+            "podcast"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 63
+        },
+        "unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkCover"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "work_id",
+        "kind",
+        "title",
+        "language",
+        "unit_count",
+        "cover"
+      ]
+    },
+    "SavedWorkItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "saved": {
+          "$ref": "#/$defs/SavedRecord"
+        },
+        "work": {
+          "$ref": "#/$defs/WorkCard"
+        },
+        "listen": {
+          "$ref": "#/$defs/ListenState"
+        }
+      },
+      "required": [
+        "saved",
+        "work",
+        "listen"
+      ]
+    },
+    "SavedWorkPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/SavedWorkItem"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ]
+    },
+    "NextActionKind": {
+      "type": "string",
+      "enum": [
+        "resume_exact",
+        "release_replaced",
+        "audio_unavailable",
+        "start_next"
+      ]
+    },
+    "NextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/NextActionKind"
+        },
+        "unit_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "unit_title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "publication_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "unit_id",
+        "unit_title",
+        "ordinal",
+        "publication_id",
+        "duration_ms"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "resume_exact",
+                  "release_replaced",
+                  "start_next"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "publication_id": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+              },
+              "duration_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9223372036854775807
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "audio_unavailable"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "publication_id": {
+                "type": "null"
+              },
+              "duration_ms": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ContinueWorkItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work": {
+          "$ref": "#/$defs/WorkCard"
+        },
+        "anchor": {
+          "$ref": "#/$defs/ProgressRecord"
+        },
+        "next": {
+          "$ref": "#/$defs/NextAction"
+        }
+      },
+      "required": [
+        "work",
+        "anchor",
+        "next"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "next": {
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "resume_exact",
+                      "release_replaced",
+                      "audio_unavailable"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "anchor": {
+                "properties": {
+                  "completion": {
+                    "const": "in_progress"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "next": {
+                "properties": {
+                  "kind": {
+                    "const": "start_next"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "anchor": {
+                "properties": {
+                  "completion": {
+                    "const": "completed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ContinueWorkPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/ContinueWorkItem"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ]
     }
   },
   "anyOf": [
@@ -1079,6 +1444,12 @@
     },
     {
       "$ref": "#/$defs/BookmarkRecord"
+    },
+    {
+      "$ref": "#/$defs/SavedWorkPage"
+    },
+    {
+      "$ref": "#/$defs/ContinueWorkPage"
     }
   ]
 }

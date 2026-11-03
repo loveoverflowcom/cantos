@@ -41,12 +41,13 @@ module library_projection_tests {
   run finishNotCompleteTest = init.then(start(1)).then(checkpoint(1, true))
     .then(check(finishedNotCompleted and noAutoComplete and libraryAction(state) == Resume(1)))
     .then(complete(1)).then(check(state.progress.get(1).completed and libraryAction(state) == WaitingAudio(2)))
-  // J6: clearing recent history leaves Continue, Saved and progress untouched.
-  run clearHistoryTest = init.then(save(true)).then(start(1)).then(clearHistory)
-    .then(check(clearedKeepsContinue and registersIndependent and state.saved and not(historyShown(state))))
-    .then(save(false)).then(check(registersIndependent and inContinue(state)))
-    .then(start(1)).then(check(historyShown(state) and state.epoch == 1))
-  run historyFromStartTest = init.then(start(1)).then(clearHistory).then(checkpoint(1, false))
-    .then(check(checkpointWithoutHistory and historyFromStart)).then(start(3))
-    .then(check(state.historyUnit == 3 and historyFromStart))
+  // Unsave keeps Continue, Recent and progress; saving again restores only the Saved row.
+  run unsaveRetainsTest = init.then(save(true)).then(start(1)).then(save(false))
+    .then(check(unsavedKeepsContinue and registersIndependent and savedRow(state) == SavedAbsent))
+    .then(save(true)).then(check(registersIndependent and libraryAction(state) == Resume(1)
+      and historyShown(state)))
+  // D-L08: no clear; Recent moves only on an acknowledged engine start, never on a checkpoint.
+  run historyFromStartTest = init.then(start(1)).then(start(3)).then(checkpoint(1, false))
+    .then(check(checkpointWithoutHistory and historyFromStart and state.historyUnit == 3))
+    .then(start(1)).then(check(state.historyUnit == 1 and historyFromStart))
 }

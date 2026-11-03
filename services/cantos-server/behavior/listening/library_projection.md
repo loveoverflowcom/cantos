@@ -1,11 +1,12 @@
-# Listener Library projection: proposed Work-level expectation
+# Listener Library projection: accepted Work-level expectation
 
-Lifecycle: **draft**. Authority: the owner's 2026-11-03 Library draft as reviewed in the
-[projection design](../../../../docs/architecture/listener-library-projection.md) and the
-[decision register](../../../../docs/product/listener-library.md#decision-register). Those
-decisions are **proposed** until the acceptance slice records them; the implemented
-[Library v1 contract](../../contracts/theatre/library/v1/README.md) still governs current code.
-This model is therefore an expectation for future work, not a description of `develop`.
+Lifecycle: **draft**. Authority: [ADR 0057](../../../../docs/decisions/0057-listener-library-work-projection.md),
+accepted by the owner on 2026-11-03, with the [projection design](../../../../docs/architecture/listener-library-projection.md)
+and the [decision register](../../../../docs/product/listener-library.md#decision-register). The
+requirements are accepted; the model stays draft because no slice implements them yet, and the
+current code still follows the 1.2.0 part of the
+[Library v1 contract](../../contracts/theatre/library/v1/README.md). It is an expectation for
+L02–L06, not a description of `develop`.
 
 | Requirement source | Implementation fact at `1b8864d6` | Finite assumption | Unmodeled / next owner |
 | --- | --- | --- | --- |
@@ -15,7 +16,7 @@ This model is therefore an expectation for future work, not a description of `de
 | D-L04: caught-up and waiting-for-audio Works leave Continue and return when playable | No implementation | Membership is a pure read-time function | Cursor frontier when a Work re-enters mid-walk; UI badges |
 | Hidden anchor fails closed with no older-chapter fallback | Current HIDE predicate before keyset/LIMIT | Work and Unit gates collapse into `visibleUnit` | Shared/restricted viewers |
 | D-L05: checkpoint or seek to the end is not completion | `mark_completed` is explicit; checkpoints never complete | Position is only "at end" or not | Engine natural-end acknowledgement policy; auto-next |
-| D-L08: clear history touches history only; unsave keeps progress/history | Implemented and tested in the reconcile kernel | History is one latest Unit per Work; epoch bounded at two | Per-Work dismiss and full listening-data deletion |
+| D-L08: no clear-history use case; history changes only on an acknowledged start; unsave keeps progress/history | Clear route and epoch still implemented until L06 removes them | History is one latest Unit per Work | Account-level data export/deletion; per-Work dismiss |
 | Access loss retains account registers | Implemented: replacement/withdrawal retain owned progress | Catalog/Media facts change without touching registers | Revocation of cached client projections |
 
 Every property has a named run, a reachable witness and one typechecking negative control. Three
@@ -24,7 +25,15 @@ controls deliberately encode today's implemented behavior (`saved-presentable`,
 PASS records that the proposed rule differs from `develop` rather than accepting either.
 
 Out of scope: revisions, device sequences, receipts, operation replay, cursors and paging,
-history epochs beyond a counter, bookmarks, guests, multiple accounts or Works, Web journal/CMP
+history epochs (removed by D-L08), bookmarks, guests, multiple accounts or Works, Web journal/CMP
 outbox, real time, bytes and sessions. Those keep their native/HTTP/client oracles. No pure-core
 observer is registered; `--conformance` does not apply. A future `work_next_action` core can
 reuse the named-run IDs for native tests and, after a reviewed protocol change, an observer.
+
+## Retired IDs
+
+D-L08 removed the clear action. Retired with no successor meaning, never reused:
+`cantos.listening.library-projection.run.clear-history` and
+`cantos.listening.library-projection.witness.cleared-keeps-continue` (both existed only in the
+unaccepted draft of PR #700). `run.unsave-retains` and `witness.unsaved-keeps-continue` are new
+IDs for the Unsave half of `property.registers-independent`, whose control now mutates Unsave.

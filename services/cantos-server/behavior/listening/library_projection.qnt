@@ -1,6 +1,7 @@
-// Draft executable expectation for the PROPOSED Work-level Listener Library projection
-// (docs/architecture/listener-library-projection.md, decisions D-L02..D-L08). It is not the
-// implemented Library v1 behavior: Saved presentation and Continue membership differ on purpose.
+// Draft executable expectation for the Work-level Listener Library projection accepted in
+// ADR 0057 (D-L02..D-L08); lifecycle stays draft until L02/L03 implement it. It is not the current
+// Library v1 behavior: Saved presentation and Continue membership differ on purpose, and D-L08
+// removes the clear-history use case, so history changes only on an acknowledged start.
 // One account, one Work and four Units in published order. Catalog/Media facts are inputs.
 // Registers abstract the implemented reconcile kernel: no revisions, device sequences, receipts,
 // cursors, clocks, bytes, sessions or clients. A Unit holds at most one progress register here.
@@ -11,14 +12,14 @@ module library_projection {
   type LibraryAction = NoActivity | Hidden | Resume(int) | Replaced(int) | AudioUnavailable(int)
     | StartNext(int) | WaitingAudio(int) | CaughtUp
   type Event = NoEvent | Assertion | Save(bool) | Start(int) | Checkpoint(int) | Finish(int)
-    | Complete(int) | ClearHistory | Publish(int) | Hide(int) | Attach(int) | Withdraw(int)
+    | Complete(int) | Publish(int) | Hide(int) | Attach(int) | Withdraw(int)
     | Expose(bool)
   // release 0 means no current eligible audio association for the published Unit.
   type UnitFact = { published: bool, release: int }
   // release 0 means no register; order is the account's accepted order of the last change.
   type Progress = { release: int, atEnd: bool, completed: bool, order: int }
   type State = { workPublic: bool, units: int -> UnitFact, saved: bool,
-    progress: int -> Progress, historyUnit: int, epoch: int, clock: int, releases: int }
+    progress: int -> Progress, historyUnit: int, clock: int, releases: int }
 
   pure val UNITS = Set(1, 2, 3, 4)
   pure val noProgress: Progress = { release: 0, atEnd: false, completed: false, order: 0 }
@@ -27,7 +28,7 @@ module library_projection {
     units: Map(1 -> { published: true, release: 1 }, 2 -> { published: true, release: 0 },
       3 -> { published: true, release: 2 }, 4 -> { published: false, release: 0 }),
     saved: false, progress: Map(1 -> noProgress, 2 -> noProgress, 3 -> noProgress, 4 -> noProgress),
-    historyUnit: 0, epoch: 0, clock: 0, releases: 2 }
+    historyUnit: 0, clock: 0, releases: 2 }
 
   pure def visibleUnit(s: State, u: int): bool = s.workPublic and s.units.get(u).published
   pure def listenable(s: State, u: int): bool = visibleUnit(s, u) and s.units.get(u).release > 0
@@ -122,10 +123,6 @@ module library_projection {
         clock: state.clock + 1 }, Complete(u))
     }
   }
-  action clearHistory = all {
-    state.historyUnit > 0, state.epoch < 2,
-    record({ ...state, historyUnit: 0, epoch: state.epoch + 1 }, ClearHistory)
-  }
 
   // Catalog/Media facts. They never edit account registers.
   action publish(u: int): bool =
@@ -147,7 +144,7 @@ module library_projection {
     nondet u = UNITS.oneOf()
     nondet flag = Set(true, false).oneOf()
     any {
-      save(flag), start(u), checkpoint(u, flag), complete(u), clearHistory,
+      save(flag), start(u), checkpoint(u, flag), complete(u),
       any { publish(u), hide(u), attach(u), withdraw(u), expose(flag) }
     }
   }
@@ -205,14 +202,12 @@ module library_projection {
     | _ => true
   }
   val registersIndependent = match last {
-    | ClearHistory => state.historyUnit == 0 and state.progress == before.progress
-      and state.saved == before.saved and libraryAction(state) == libraryAction(before)
     | Save(_) => state.progress == before.progress and state.historyUnit == before.historyUnit
+      and libraryAction(state) == libraryAction(before)
     | _ => true
   }
   val historyFromStart = match last {
     | Start(u) => state.historyUnit == u
-    | ClearHistory => state.historyUnit == 0
     | _ => state.historyUnit == before.historyUnit
   }
 
@@ -243,7 +238,10 @@ module library_projection {
     | Finish(u) => not(state.progress.get(u).completed)
     | _ => false
   }
-  val clearedKeepsContinue = last == ClearHistory and inContinue(state)
+  val unsavedKeepsContinue = match last {
+    | Save(d) => not(d) and before.saved and not(state.saved) and inContinue(state) and historyShown(state)
+    | _ => false
+  }
   val checkpointWithoutHistory = match last {
     | Checkpoint(u) => state.historyUnit != u
     | _ => false
