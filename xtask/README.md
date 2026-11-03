@@ -232,7 +232,7 @@ File and fake-host tests do not qualify the executor or authorize production.
 data. It writes a separate historical upgrade/restore report; it never changes the four
 current-schema qualification records or supplies operator admission/live acceptance.
 
-`--transition v27-v35` selects the separate [v35 forward qualification](../docs/deployment/native-forward-v35.md)
+`--transition v27-v36` selects the separate [v36 forward qualification](../docs/deployment/native-forward-v36.md)
 from the pinned v27 image pair. It never restores a historical snapshot after start and does
 not implement host activation or discharge the independent recovery NO_GO. The corrected OCI
 restore gate refuses a pair that revives a session revoked after its backup cut.

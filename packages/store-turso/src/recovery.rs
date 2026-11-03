@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, Weak,
     },
 };
 
@@ -244,6 +244,7 @@ pub(crate) struct Fence {
     path: PathBuf,
     current: Mutex<Token>,
     abandoned: Mutex<Option<(Token, Token)>>,
+    live_write: Mutex<Option<(Token, Weak<AtomicBool>)>>,
     // Independent lease prevents two restored copies from sharing the same authority.
     _lease: OwnerLock,
 }
@@ -267,6 +268,7 @@ impl Fence {
             path: path.to_owned(),
             current: Mutex::new(token),
             abandoned: Mutex::new(None),
+            live_write: Mutex::new(None),
             _lease: lease,
         }))
     }
@@ -316,7 +318,24 @@ impl Fence {
 
     pub fn verify(&self) -> Result<(), RecoveryFault> {
         match self.read()? {
-            Record::Pending(_) => Err(RecoveryFault::Pending),
+            Record::Pending(token) => {
+                let live = self.live_write.lock().map_err(|_| RecoveryFault::Pending)?;
+                let current = self.token()?;
+                // The same live owner may read its engine's committed snapshot while a
+                // normal transaction runs. A new process/restored copy has no such witness.
+                if token == current.next()?
+                    && live.as_ref().is_some_and(|(expected, weak)| {
+                        *expected == token
+                            && weak
+                                .upgrade()
+                                .is_some_and(|active| active.load(Ordering::Acquire))
+                    })
+                {
+                    Ok(())
+                } else {
+                    Err(RecoveryFault::Pending)
+                }
+            }
             Record::Committed(token) if token == self.token()? => Ok(()),
             Record::Committed(_) => Err(RecoveryFault::Mismatch),
         }
@@ -327,11 +346,14 @@ impl Fence {
         let previous = self.token()?;
         let next = previous.next()?;
         self.publish(Some(Record::Committed(previous)), Record::Pending(next))?;
+        let active = Arc::new(AtomicBool::new(true));
+        *self.live_write.lock().map_err(|_| RecoveryFault::Pending)? =
+            Some((next, Arc::downgrade(&active)));
         Ok(FenceWrite {
             fence: self.clone(),
             previous,
             next,
-            active: Arc::new(AtomicBool::new(true)),
+            active,
             commit_attempted: AtomicBool::new(false),
             settled: AtomicBool::new(false),
         })
@@ -517,6 +539,41 @@ impl WriteProof {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expired_write_witness_never_revives_when_rollback_reuses_a_revision() {
+        use std::os::unix::fs::DirBuilderExt;
+        let run = crate::testing::TestRun::new("recovery-write-witness");
+        let root = run.dir().canonicalize().unwrap();
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(root.join("database"))
+            .unwrap();
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(root.join("authority"))
+            .unwrap();
+        let (fence, token) = Fence::prepare_enrollment(
+            &root.join("authority/current"),
+            &root.join("database/state.db"),
+        )
+        .unwrap();
+        fence.finish_enrollment(token).unwrap();
+        let first = fence.begin().unwrap();
+        let expired = first.proof();
+        let revision = first.next;
+        assert_eq!(expired.verify(), Ok(()));
+        // Filesystem/capability test only: the separate real-engine test proves rollback.
+        first.rollback().unwrap();
+        drop(first);
+        let second = fence.begin().unwrap();
+        assert_eq!(second.next, revision);
+        assert_eq!(expired.verify(), Err(RecoveryFault::Pending));
+        assert_eq!(second.proof().verify(), Ok(()));
+        assert_eq!(fence.verify(), Ok(()));
+        drop(second);
+        assert_eq!(fence.verify(), Err(RecoveryFault::Pending));
+    }
 
     #[test]
     fn canonical_records_reject_ambiguity_and_overflow() {

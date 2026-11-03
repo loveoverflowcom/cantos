@@ -14,7 +14,7 @@ and the [checkpoint](../architecture/server-turso-porting.md#checkpoint-boundary
 | 5 | [#348](https://github.com/loveoverflowcom/cantos/issues/348) | Qualify exact OCI pair/admission, historical v23-to-v24 rehearsal and the [existing-host adoption/recovery](../deployment/native-existing-host-migration.md) consumer, including the observed Podman process/bridge adapter and pinned executor delivery; retain the independent same-schema lane and later first-native/legacy cutover | Fresh inventory, historical/private-copy rehearsal and operator approval fence effects; live auth/business/recovery acceptance remains separate |
 
 New native and release work branches from latest `origin/develop` and targets `develop`.
-For the v35 target, first qualify the [v27-to-v35 suffix and restore oracle](../deployment/native-forward-v35.md),
+For the v36 target, first qualify the [v27-to-v36 suffix and restore oracle](../deployment/native-forward-v36.md),
 then the current-layout executor/recovery boundary. A passed migration cannot accept stale-pair
 revocation recovery or broaden the existing v24-to-v27 activation lane.
 Earlier integration-branch SHAs/permalinks remain historical evidence, not active routing. PostgreSQL/DBSP/Kanidm/emulator operation is not a prerequisite for

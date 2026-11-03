@@ -28,7 +28,9 @@ The bounded implementation uses the existing single Turso owner and its serializ
    outside this protocol. No service reads the other service's database.
 2. Before each write transaction, publish/fsync a pending fence. Commit the next revision with
    the transaction, then publish/fsync the committed fence before reporting success. Reads and
-   reopen refuse a missing, untrusted, malformed, pending or mismatching fence. Explicit known
+   reopen refuse a missing, untrusted, malformed, uncertain pending or mismatching fence. A
+   live owner may retain ordinary committed-snapshot reads during its own active transaction;
+   that unique in-memory witness is never available to a restored copy/new process. Explicit known
    rollback may clear its own pending marker. In the same owner lifetime, a cancellation with
    no COMMIT attempt may also be settled after acknowledged rollback and a previous-marker
    check. Process loss destroys that in-memory evidence; unknown COMMIT never uses this path.

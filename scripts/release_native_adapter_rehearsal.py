@@ -40,6 +40,11 @@ def run(fixture):
                    'mounts': {s: [{'source': str(f.databases[s]), 'destination': '/database', 'read_only': False},
                                   {'source': str(f.socket_dir), 'destination': '/identity', 'read_only': s == 'cantos-server'}]
                               for s in oci.SERVICES}}
+        if f.fenced_images():
+            for service in oci.SERVICES:
+                request['mounts'][service] += [
+                    {'source':str(f.fences[service]),'destination':'/fence','read_only':False},
+                    {'source':str(f.exposure_dir),'destination':'/recovery','read_only':True}]
 
         class FixtureSystem(migration.AdoptionSystem):
             def inspect(self, service):

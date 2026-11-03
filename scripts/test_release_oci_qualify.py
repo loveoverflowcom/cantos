@@ -41,6 +41,7 @@ class RestoreRuntimeDouble:
         self.revoked = False
 
     def stop(self): pass
+    def fenced_images(self): return False
     def migrate(self): pass
     def restart(self): pass
 
@@ -78,6 +79,7 @@ class QualificationContract(unittest.TestCase):
         self.root.mkdir()
         repository(self.root)
         for name in qualify.FIXTURE_FILES:
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
             (self.root / name).write_text("# fixture-bound implementation\n")
         git(self.root, "add", ".")
         git(self.root, "-c", "user.name=Fixture", "-c", "user.email=f@example.invalid", "commit", "--quiet", "-m", "fixture driver")

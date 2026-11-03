@@ -1,4 +1,4 @@
-"""Disposable exact-image v27 -> v35 forward upgrade; never live activation/restore."""
+"""Disposable exact-image v27 -> v36 forward upgrade; never live activation/restore."""
 import argparse
 import json
 from pathlib import Path
@@ -13,12 +13,12 @@ import release_native_migration as migration
 import release_oci as oci
 import release_oci_qualify as qualify
 
-OPERATION = 'HISTORICAL_V27_V35_FORWARD_REHEARSAL'
+OPERATION = 'HISTORICAL_V27_V36_FORWARD_REHEARSAL'
 SCHEMA_27 = 'server-turso-epoch-1-v27'
-SCHEMA_35 = 'server-turso-epoch-1-v35'
+SCHEMA_36 = 'server-turso-epoch-1-v36'
 CHECKS = ['exact-v27-populated-http-auth-and-revoked-cookie',
-          'v35-serve-before-migrate-refused-unchanged', 'complete-stopped-current-pair',
-          'v27-to-v35-migrate', 'repeated-migrate', 'v35-integrity-and-foreign-keys',
+          'v36-serve-before-migrate-refused-unchanged', 'complete-stopped-current-pair',
+          'v27-to-v36-migrate', 'repeated-migrate', 'v36-integrity-and-foreign-keys',
           'preserved-http-auth-and-pre-cut-revoked-cookie',
           'post-upgrade-revocation-survives-restart', 'real-podman-process-and-bridge']
 
@@ -27,9 +27,14 @@ def transition(old, new):
     contract.require(old['platform'] == new['platform'], 'migration platform mismatch')
     before, after = old['compatibility'], new['compatibility']
     contract.require(before.get('server_schema') == SCHEMA_27 and
-                     after.get('server_schema') == SCHEMA_35 and
-                     before == {**after, 'server_schema': SCHEMA_27},
-                     'only reviewed v27 to v35 transition supported')
+                     after.get('server_schema') == SCHEMA_36 and
+                     before.get('identity_schema') == 'identity-migrations-v4' and
+                     after.get('identity_schema') == 'identity-migrations-v6' and
+                     before.get('security_state') == 'identity-security-store-v1' and
+                     after.get('security_state') == 'identity-security-store-v1-recovery-fence-v1' and
+                     before == {**after, 'server_schema': SCHEMA_27,
+                                'identity_schema':'identity-migrations-v4', 'security_state':'identity-security-store-v1'},
+                     'only reviewed v27 to v36 transition supported')
 
 
 def run(f, old, new):
@@ -57,7 +62,7 @@ def run(f, old, new):
                     'PENDING_SCHEMA_CHECK_CHANGED_BYTES')
     # The stopped source accepts no intervening writes. These fresh copies are for
     # forward qualification only; no historical snapshot is restored after a start.
-    f.databases = {service: f.work/'v35-forward'/service for service in oci.SERVICES}
+    f.databases = {service: f.work/'v36-forward'/service for service in oci.SERVICES}
     for service in oci.SERVICES:
         qualify.cold_copy(f.work/'v27-current-cut'/service, f.databases[service], copies[service])
     f.migrate()
@@ -65,8 +70,9 @@ def run(f, old, new):
     for service in oci.SERVICES:
         entry = '/usr/local/bin/cantos-migrate' if service == 'cantos-server' else '/usr/local/bin/cantos-identity'
         flag = '--check' if service == 'cantos-server' else 'check'
-        f.pod('run', '--rm', '--network=none', *f.options(service), '--entrypoint',
+        f.pod('run', '--rm', '--network=none', *f.options(service, maintenance=True), '--entrypoint',
               entry, f.image(service), flag)
+    f.prepare_recovery_fences()
     f.restart()
     f.call('historical_state')
     f.call('revoke')
@@ -96,7 +102,7 @@ def rehearse(root, args):
     contract.write_new(args.output/'attempt.json', record)
     fixture = None
     try:
-        with tempfile.TemporaryDirectory(prefix='cantos-v27-v35-forward-') as tmp:
+        with tempfile.TemporaryDirectory(prefix='cantos-v27-v36-forward-') as tmp:
             fixture = qualify.Fixture(root, Path(tmp), old, args.authfile)
             try:
                 copies = run(fixture, old, new)
@@ -124,7 +130,7 @@ def main():
     try:
         record = rehearse(Path(__file__).resolve().parents[1], args)
     except (ValueError, OSError, KeyError, TypeError):
-        parser.exit(1, 'v27 to v35 forward rehearsal input refused; no host activation\n')
+        parser.exit(1, 'v27 to v36 forward rehearsal input refused; no host activation\n')
     print(json.dumps(record, sort_keys=True))
     return 0 if record['status'] == 'PASS' else 1
 

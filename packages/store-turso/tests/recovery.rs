@@ -196,6 +196,122 @@ async fn same_owner_proves_cancelled_write_rollback_without_leaving_service_clos
 }
 
 #[tokio::test]
+async fn live_owner_reads_committed_state_during_a_normal_write_without_treating_it_as_restore() {
+    let (_run, db, fence) = fixture("recovery-live-read");
+    let owner = enrolled(&db, &fence).await;
+    let tx = owner.begin_write().await.unwrap();
+    tx.execute("INSERT INTO state VALUES(1,1)", ())
+        .await
+        .unwrap();
+    let reader = owner.reader().await.unwrap();
+    let mut rows = reader
+        .query("SELECT count(*) FROM state", ())
+        .await
+        .unwrap();
+    assert_eq!(
+        rows.next().await.unwrap().unwrap().get_value(0).unwrap(),
+        Value::Integer(0)
+    );
+    drop(rows);
+    drop(reader);
+    tx.commit().await.unwrap();
+    assert_eq!(state(&owner).await, 1);
+}
+
+#[test]
+#[ignore = "subprocess worker; invoked only by the bounded crash regression"]
+fn recovery_crash_worker() {
+    use std::io::Read;
+    let root = std::path::PathBuf::from(
+        std::env::var_os("CANTOS_RECOVERY_CRASH_TEST_ROOT").expect("private test root"),
+    );
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let db = root.join("database/state.db");
+        let fence = root.join("authority/current.fence");
+        let owner = OwnedDatabase::open(request(&db, Intent::Serve).with_recovery_fence(&fence))
+            .await
+            .unwrap();
+        let tx = owner.begin_write().await.unwrap();
+        tx.execute("INSERT INTO state VALUES(1,1)", ())
+            .await
+            .unwrap();
+        fs::write(root.join("worker-ready"), b"pending-no-commit").unwrap();
+        // Parent SIGKILLs this process before COMMIT; destructors cannot retain RAM evidence.
+        let mut stop = [0];
+        let _ = std::io::stdin().read_exact(&mut stop);
+        drop(tx);
+    });
+}
+
+#[tokio::test]
+async fn sigkill_before_commit_cannot_use_the_lost_same_owner_cancellation_witness() {
+    use std::{
+        process::{Child, Command, Stdio},
+        time::{Duration, Instant},
+    };
+    struct ChildGuard(Child);
+    impl Drop for ChildGuard {
+        fn drop(&mut self) {
+            if matches!(self.0.try_wait(), Ok(None)) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+    }
+    let (run, db, fence) = fixture("recovery-crash-before-commit");
+    let owner = enrolled(&db, &fence).await;
+    drop(owner);
+    let root = run.dir().canonicalize().unwrap();
+    let mut child = ChildGuard(
+        Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--ignored",
+                "--exact",
+                "recovery_crash_worker",
+                "--nocapture",
+            ])
+            .env("CANTOS_RECOVERY_CRASH_TEST_ROOT", &root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while !root.join("worker-ready").exists() {
+        assert!(
+            child.0.try_wait().unwrap().is_none(),
+            "worker failed before the tested crash point"
+        );
+        assert!(
+            Instant::now() < deadline,
+            "worker did not reach the bounded crash point"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        fs::read(root.join("worker-ready")).unwrap(),
+        b"pending-no-commit"
+    );
+    child.0.kill().unwrap();
+    assert!(!child.0.wait().unwrap().success());
+    recovery_open(
+        OwnedDatabase::open(request(&db, Intent::Serve).with_recovery_fence(&fence)).await,
+        RecoveryFault::Pending,
+    );
+    recovery_open(
+        OwnedDatabase::reconcile_recovery_fence(
+            request(&db, Intent::Serve).with_recovery_fence(&fence),
+        )
+        .await,
+        RecoveryFault::Mismatch,
+    );
+}
+
+#[tokio::test]
 async fn missing_corrupt_old_or_public_authority_never_becomes_fresh() {
     use std::os::unix::fs::PermissionsExt;
     let (_run, db, fence) = fixture("recovery-bad-source");
@@ -270,7 +386,6 @@ async fn cursor_cannot_outlive_the_fenced_write_authority() {
 
 #[tokio::test]
 async fn lost_fence_ack_only_reconciles_exact_committed_next_state() {
-    use std::os::unix::fs::PermissionsExt;
     let (run, db, fence) = fixture("recovery-lost-ack");
     let owner = enrolled(&db, &fence).await;
     private(&run.path("old"));
@@ -280,16 +395,17 @@ async fn lost_fence_ack_only_reconciles_exact_committed_next_state() {
     tx.execute("INSERT INTO state VALUES(1,1)", ())
         .await
         .unwrap();
-    // Real engine COMMIT succeeds, but publishing the acknowledgement cannot create its
-    // temporary file. This exercises the actual durable boundary, not a fake success record.
+    // Real engine COMMIT succeeds, but its independent authority path disappears before ACK.
+    // Rename the actual directory, so this fault works for root and unprivileged runners.
     let parent = fence.parent().unwrap();
-    fs::set_permissions(parent, fs::Permissions::from_mode(0o500)).unwrap();
+    let held = parent.with_file_name("held-authority");
+    fs::rename(parent, &held).unwrap();
     let outcome = tx.commit().await;
-    fs::set_permissions(parent, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::rename(&held, parent).unwrap();
     assert!(matches!(
         outcome,
         Err(cantos_store_turso::error::CommitFault::Unknown(
-            StoreFault::Recovery(RecoveryFault::Io)
+            StoreFault::Recovery(RecoveryFault::Missing)
         ))
     ));
     assert!(matches!(

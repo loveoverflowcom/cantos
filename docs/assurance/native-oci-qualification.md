@@ -62,7 +62,7 @@ The separate [historical v23-to-v24 rehearsal](../deployment/native-existing-hos
 uses the old pair to create/populate v23 and restores that original pair after the actual upgrade.
 Its `historical-upgrade.json` is independently source/image bound; it never relabels the
 `migration-restore` record above or establishes live host/adoption acceptance. The separate
-[v27-to-v35 forward rehearsal](../deployment/native-forward-v35.md) preserves the newer suffix
+[v27-to-v36 forward rehearsal](../deployment/native-forward-v36.md) preserves the newer suffix
 without claiming snapshot restore, executor transition or recovery acceptance.
 
 The serve-before-migrate negative control allows only the owner's empty 0600 `.db.owner` lock

@@ -46,6 +46,29 @@ jobs:
           cargo xtask release native-executor-build --output artifacts/native-executor
           # Root's historical rehearsal uses this exact immutable checkout, not the builder's cwd.
           sudo chown -R root:root "/opt/cantos-native-executor/$GITHUB_SHA"
+      - name: Build the disposable source-pinned Identity recovery fixture
+        env:
+          CANTOS_TEST_SOURCE_SHA: ${{ github.sha }}
+          CARGO_BUILD_JOBS: '1'
+        run: |
+          set -Eeuo pipefail
+          # This finite test actor is never copied into a runtime image or deployed.
+          cargo build --locked --release -p cantos-identity --features recovery-testing \
+            --bin cantos-identity-recovery-fixture --target x86_64-unknown-linux-musl
+          install -d artifacts/recovery-fixture
+          install -m 0555 target/x86_64-unknown-linux-musl/release/cantos-identity-recovery-fixture \
+            artifacts/recovery-fixture/identity-fixture
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          binary = Path('artifacts/recovery-fixture/identity-fixture')
+          header = binary.read_bytes()[:20]
+          assert header[:6] == b'\x7fELF\x02\x01' and int.from_bytes(header[18:20], 'little') == 62
+          record = {'source_sha':os.environ['CANTOS_TEST_SOURCE_SHA'], 'platform':'linux/amd64',
+                    'target':'x86_64-unknown-linux-musl', 'features':['recovery-testing'],
+                    'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(), 'deployment':'FORBIDDEN'}
+          Path('artifacts/recovery-fixture/manifest.json').write_text(json.dumps(record, sort_keys=True)+'\n')
+          PY
       - name: Log in to GHCR with a job-scoped authfile
         env:
           GITHUB_TOKEN_VALUE: ${{ secrets.GITHUB_TOKEN }}
@@ -164,18 +187,18 @@ jobs:
             --transition v24-v27 \
             --authfile "$RUNNER_TEMP/historical-auth.json" \
             --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v24-8862-v27"
-      - name: Rehearse pinned v27 to v35 forward upgrade independently
+      - name: Rehearse pinned v27 to v36 forward upgrade independently
         # A failed recovery gate stays FAIL and the job stays failed. This independent
         # synthetic upgrade evidence cannot grant admission or host activation.
-        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v35' }}
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && steps.candidate.outputs.server_schema == 'server-turso-epoch-1-v36' }}
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
           SOURCE_SHA: ${{ github.sha }}
           CANDIDATE: ${{ steps.candidate.outputs.manifest }}
         run: |
           set -Eeuo pipefail
-          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/v35-rehearsal-auth.json"
-          trap 'sudo rm -f "$RUNNER_TEMP/v35-rehearsal-auth.json"' EXIT
+          sudo install -m 0600 "$RUNNER_TEMP/ghcr-auth.json" "$RUNNER_TEMP/v36-rehearsal-auth.json"
+          trap 'sudo rm -f "$RUNNER_TEMP/v36-rehearsal-auth.json"' EXIT
           MANIFEST=artifacts/release-qualification/exact-pair/manifest.json
           if ! test -f "$MANIFEST"; then MANIFEST="$CANDIDATE"; fi
           MANIFEST_DIGEST=$(sudo sha256sum "$MANIFEST" | cut -d' ' -f1)
@@ -185,8 +208,8 @@ jobs:
             --manifest "$GITHUB_WORKSPACE/$MANIFEST" --manifest-digest "$MANIFEST_DIGEST" \
             --source-sha "$SOURCE_SHA" --configuration-digest "$CONFIGURATION" --platform linux/amd64 \
             --baseline infra/oci/historical-v27.json --baseline-digest "$BASELINE_DIGEST" \
-            --transition v27-v35 --authfile "$RUNNER_TEMP/v35-rehearsal-auth.json" \
-            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v27-v35"
+            --transition v27-v36 --authfile "$RUNNER_TEMP/v36-rehearsal-auth.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/release-qualification/historical-v27-v36"
       - name: Qualify separate sample operator against the exact pair
         env:
           CONFIGURATION: ${{ steps.candidate.outputs.configuration }}
@@ -261,6 +284,7 @@ jobs:
             artifacts/release-qualification/
             artifacts/native-executor/
             artifacts/sample-operator/
+            artifacts/recovery-fixture/
             ${{ runner.temp }}/oci-build-result.json
             ${{ runner.temp }}/native-systemd-prerequisites.json
             ${{ runner.temp }}/native-executor-rehearsal-status.json

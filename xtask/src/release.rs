@@ -278,7 +278,7 @@ pub enum Action {
         #[arg(long)]
         baseline_digest: String,
         /// Explicit bounded transition; older v23 -> v24 behavior remains the default.
-        #[arg(long, value_parser = ["v23-v24", "v24-v25", "v24-v26", "v24-v27", "v27-v35"], default_value = "v23-v24")]
+        #[arg(long, value_parser = ["v23-v24", "v24-v25", "v24-v26", "v24-v27", "v27-v36"], default_value = "v23-v24")]
         transition: String,
     },
     /// Build the native Server/Identity image pair from one clean commit; with `--publish`, push
@@ -477,8 +477,8 @@ fn command(workspace: &Workspace, action: &Action) -> CommandSpec {
     } = action
     {
         let script = match action {
-            Action::NativeRehearse { transition, .. } if transition == "v27-v35" => {
-                "scripts/release_native_v35_rehearsal.py"
+            Action::NativeRehearse { transition, .. } if transition == "v27-v36" => {
+                "scripts/release_native_v36_rehearsal.py"
             }
             Action::NativeRehearse { transition, .. } if transition == "v24-v27" => {
                 "scripts/release_native_v27_rehearsal.py"
@@ -1351,12 +1351,12 @@ mod tests {
             "scripts/release_native_v26_rehearsal.py"
         );
         if let Action::NativeRehearse { transition, .. } = &mut latest {
-            *transition = "v27-v35".into();
+            *transition = "v27-v36".into();
         }
         assert_eq!(
             command(&Workspace::discover().unwrap(), &latest).args[0],
-            "scripts/release_native_v35_rehearsal.py"
+            "scripts/release_native_v36_rehearsal.py"
         );
-        assert!(Cli::try_parse_from(base.into_iter().chain(["--transition", "v27-v35"])).is_ok());
+        assert!(Cli::try_parse_from(base.into_iter().chain(["--transition", "v27-v36"])).is_ok());
     }
 }

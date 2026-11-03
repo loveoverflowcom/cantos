@@ -2,7 +2,7 @@
 
 Reusable single-owner embedded [Turso](https://github.com/tursodatabase/turso) infrastructure.
 Consumers supply a nonzero signed `application_id`, schema epoch and ordered migrations. This
-crate knows no service database identities, schemas or business rules and imports no apps or
+crate knows no service database identities, business schemas or business rules and imports no apps or
 services. It remains an internal Cantos library with a deliberately fixed, compatible storage
 format. See the [native Turso decision](../../docs/architecture/native-turso-refactor.md).
 
@@ -49,6 +49,16 @@ stay shared. Service statement facades and row decoders stay local: Server's car
 errors and Identity's security-record validation have different contracts. Extracting them here
 would introduce business coupling rather than remove duplication. No new dependencies, ORM,
 pool, configuration framework or performance optimization is introduced.
+
+## Explicit recovery floor
+
+Opt-in owner recovery uses the common infrastructure `cantos_recovery_state` table and an
+independent private filesystem commit floor outside database backup roots. Every fenced write
+publishes Pending before mutation and Committed after the engine commit. Missing, stale or
+uncertain authority stays closed; opening a database never invents or resets a floor.
+An enrolled database refuses an unfenced reopen. Explicit maintenance and the shared exposure
+barrier follow [ADR 0057](../../docs/decisions/0057-fail-closed-native-recovery.md).
+These primitives alone do not qualify an image, host executor or production restore.
 
 ## Persisted compatibility
 

@@ -29,9 +29,14 @@ import release_artifact as contract
 import release_oci as oci
 import release_oci_build as build
 import release_oci_registry as registry
+import release_native_recovery as recovery
 
 UIDS = {"cantos-server": 10001, "cantos-identity": 10002}
-FIXTURE_FILES = ("scripts/release_oci_qualify.py", "scripts/release_oci_fixture.py")
+FIXTURE_FILES = ("scripts/release_oci_qualify.py", "scripts/release_oci_fixture.py",
+                 "scripts/release_native_recovery.py",
+                 "scripts/release_native_recovery_qualify.py",
+                 "services/cantos-identity/src/bin/cantos-identity-recovery-fixture.rs",
+                 "services/cantos-identity/src/persistence/recovery_fixture.rs")
 SERVER_ENV = {"CANTOS_ENV": "production", "CANTOS_BIND_ADDRESS": "127.0.0.1:8080",
               "CANTOS_SERVER_DATABASE": "/database/server.db",
               "CANTOS_STUDIO_WEB_ORIGIN": "https://studio.example.test",
@@ -107,7 +112,7 @@ def inspect_identity(service, image, manifest, inspection):
     require(image["ref"] in inspection.get("RepoDigests", []), "PULLED_REGISTRY_DIGEST_MISMATCH")
 
 
-def check_runtime_environment(service, entries, identity_server_uid=10001):
+def check_runtime_environment(service, entries, identity_server_uid=10001, recovery_operation=None):
     observed = {}
     for entry in entries:
         key, separator, value = entry.partition("=")
@@ -115,6 +120,12 @@ def check_runtime_environment(service, entries, identity_server_uid=10001):
         observed[key] = value
     expected = SERVER_ENV if service == "cantos-server" else {
         **IDENTITY_ENV, "CANTOS_IDENTITY_SERVER_UIDS": str(identity_server_uid)}
+    if recovery_operation is not None:
+        name = 'CANTOS_SERVER_RECOVERY_FENCE' if service=='cantos-server' else 'CANTOS_IDENTITY_RECOVERY_FENCE'
+        expected = {**expected, name:'/fence/current', 'CANTOS_RECOVERY_BARRIER':'/recovery/barrier',
+                    'CANTOS_RECOVERY_OPERATION':recovery.operation(recovery_operation), 'CANTOS_ENV':'production'}
+        recovery_names = {key for key in observed if 'RECOVERY' in key and key.startswith('CANTOS_')}
+        require(recovery_names=={name,'CANTOS_RECOVERY_BARRIER','CANTOS_RECOVERY_OPERATION'}, 'RUNNING_RECOVERY_ENVIRONMENT_MISMATCH')
     require(all(observed.get(key) == value for key, value in expected.items()), "RUNNING_ENVIRONMENT_MISMATCH")
 
 
@@ -225,6 +236,15 @@ class Fixture:
         os.chown(self.socket_dir, 10002, 10001)
         self.socket_dir.chmod(0o2750)
         self.databases = self.new_databases("initial")
+        self.fences = self.new_databases("security-fences")
+        self.recovery_operation = uuid.uuid4().hex
+        self.exposure_dir = self.work/'exposure'
+        self.exposure_dir.mkdir(mode=0o755)
+        self.exposure_dir.chmod(0o755)
+        recovery.barrier(self.exposure_dir/'barrier', self.recovery_operation)
+
+    def fenced_images(self):
+        return self.manifest['compatibility']['security_state'] == 'identity-security-store-v1-recovery-fence-v1'
 
     def sh(self, args, expected=0, timeout=120, *, include_stderr=False):
         result = subprocess.run(args, cwd=self.root, env=self.env, stdin=subprocess.DEVNULL,
@@ -260,7 +280,7 @@ class Fixture:
     def image(self, service):
         return self.manifest["images"][service]["ref"]
 
-    def options(self, service, *, database=None, socket_mount=True):
+    def options(self, service, *, database=None, socket_mount=True, maintenance=False, force_fence=False):
         mount = database or self.databases[service]
         result = ["--pull=never", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
                   "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m", "--mount", f"type=bind,src={mount},dst=/database"]
@@ -269,14 +289,78 @@ class Fixture:
             result += ["--mount", f"type=bind,src={self.socket_dir},dst=/identity{readonly}"]
         for key, value in (SERVER_ENV if service == "cantos-server" else IDENTITY_ENV).items():
             result += ["--env", key + "=" + value]
+        if self.fenced_images():
+            result += ['--mount', f'type=bind,src={self.fences[service]},dst=/fence',
+                       '--mount', f'type=bind,src={self.exposure_dir},dst=/recovery,ro=true']
+            if force_fence or not maintenance or (self.fences[service]/'current').exists():
+                name = 'CANTOS_SERVER_RECOVERY_FENCE' if service=='cantos-server' else 'CANTOS_IDENTITY_RECOVERY_FENCE'
+                result += ['--env',name+'=/fence/current']
+            if not maintenance:
+                result += ['--env','CANTOS_RECOVERY_BARRIER=/recovery/barrier',
+                           '--env','CANTOS_RECOVERY_OPERATION='+self.recovery_operation]
         return result
+
+    def owner_command(self, service, action, arguments=(), *, database=None, extra=()):
+        require(action in ('observe','enroll','export','reconcile','rotate','retire-sessions'), 'OWNER_ACTION_REFUSED')
+        require((action!='rotate' or service=='cantos-identity') and
+                (action!='retire-sessions' or service=='cantos-server'), 'OWNER_ACTION_SURFACE')
+        entry = '/usr/local/bin/cantos-migrate' if service=='cantos-server' else '/usr/local/bin/cantos-identity'
+        command = '--recovery-'+action if service=='cantos-server' else 'recovery-'+action
+        self.operation_context = 'recovery-'+action+'-'+service
+        raw = self.pod('run','--rm','--network=none',*self.options(service,database=database,maintenance=True,force_fence=True),
+                       *extra,'--entrypoint',entry,self.image(service),command,*arguments)
+        try:
+            return recovery.proof(json.loads(raw),service)
+        except (ValueError, TypeError, KeyError):
+            raise ValueError('OWNER_RECOVERY_PROOF_REFUSED') from None
+
+    def prepare_recovery_fences(self):
+        if not self.fenced_images(): return
+        recovery.barrier(self.exposure_dir/'barrier', self.recovery_operation)
+        for service in oci.SERVICES:
+            self.owner_command(service,'enroll')
+        recovery.barrier(self.exposure_dir/'barrier', self.recovery_operation, ready=True)
+
+    def disable_recovery_fixture_account(self):
+        """Finite source-pinned disposable actor; never included in the runtime image."""
+        directory = self.root/'artifacts/recovery-fixture'
+        receipt = registry.bounded_json((directory/'manifest.json').read_bytes())
+        oci.fields(receipt,'source_sha platform target features binary_sha256 deployment','FIXTURE_HELPER_FIELDS')
+        require(receipt['source_sha']==self.manifest['source_sha'] and receipt['platform']==self.manifest['platform'] and
+                receipt['target']=='x86_64-unknown-linux-musl' and receipt['features']==['recovery-testing'] and
+                receipt['deployment']=='FORBIDDEN','FIXTURE_HELPER_SOURCE_REQUIRED')
+        source = directory/'identity-fixture'
+        meta=source.lstat()
+        require(stat.S_ISREG(meta.st_mode) and meta.st_nlink==1 and 0<meta.st_size<=64*1024*1024,
+                'FIXTURE_HELPER_REGULAR_BOUNDED_FILE_REQUIRED')
+        raw=source.read_bytes()
+        require(sha(raw)==contract.digest(receipt['binary_sha256']) and raw[:6]==b'\x7fELF\x02\x01' and
+                int.from_bytes(raw[18:20],'little')==62,'FIXTURE_HELPER_DIGEST_OR_PLATFORM')
+        private=self.work/'recovery-fixture-actor'
+        private.mkdir(mode=0o755)
+        private.chmod(0o755)
+        (private/'identity-fixture').write_bytes(raw)
+        (private/'identity-fixture').chmod(0o555)
+        marker={'kind':'DISPOSABLE_CANTOS_RECOVERY_TEST','source_sha':self.manifest['source_sha'],
+                'database':'/database/identity.db','mailbox':'recovery-disabled@example.test'}
+        (private/'marker.json').write_bytes(contract.canonical(marker))
+        (private/'marker.json').chmod(0o644)
+        self.operation_context='disable-existing-synthetic-account'
+        result=self.pod('run','--rm','--network=none',
+            *self.options('cantos-identity',maintenance=True,force_fence=True),
+            '--mount',f'type=bind,src={private},dst=/fixture,ro=true',
+            '--entrypoint','/fixture/identity-fixture',self.image('cantos-identity'))
+        require(registry.bounded_json(result)=={'status':'PASS','operation':'DISABLE_EXISTING_SYNTHETIC_ACCOUNT'},
+                'FIXTURE_DISABLE_EFFECT_REFUSED')
+        return {'source_sha':receipt['source_sha'],'binary_sha256':receipt['binary_sha256'],
+                'scope':'disposable-test-only; no credential/hash read; absent from runtime packaging'}
 
     def migrate(self):
         for service in oci.SERVICES:
             self.operation_context = "migrate-" + service
             entry = "/usr/local/bin/cantos-migrate" if service == "cantos-server" else "/usr/local/bin/cantos-identity"
             args = [] if service == "cantos-server" else ["migrate"]
-            self.pod("run", "--rm", "--network=none", *self.options(service), "--entrypoint", entry,
+            self.pod("run", "--rm", "--network=none", *self.options(service, maintenance=True), "--entrypoint", entry,
                      self.image(service), *args)
 
     def start(self, *, identity_server_uid=10001):
@@ -300,7 +384,8 @@ class Fixture:
                     self.manifest["images"][service]["config_digest"],
                     "RUNNING_EXACT_IMAGE_REQUIRED")
             require(observed["Config"]["User"] == f"{UIDS[service]}:{UIDS[service]}", "RUNNING_UID_MISMATCH")
-            check_runtime_environment(service, observed["Config"]["Env"], identity_server_uid)
+            check_runtime_environment(service, observed["Config"]["Env"], identity_server_uid,
+                                      self.recovery_operation if self.fenced_images() else None)
             process = Path(f"/proc/{observed['State']['Pid']}/status").read_text()
             namespaces.append(os.readlink(f"/proc/{observed['State']['Pid']}/ns/net"))
             facts = dict(line.split(":", 1) for line in process.splitlines() if ":" in line)
@@ -309,10 +394,15 @@ class Fixture:
                     int(facts["CapEff"].strip(), 16) == 0 and facts["NoNewPrivs"].strip() == "1",
                     "PROCESS_UID_CAPABILITIES_OR_PRIVILEGES")
             mounts = {m["Destination"]: m for m in observed["Mounts"] if m["Type"] == "bind"}
-            require(set(mounts) == {"/database", "/identity"} and
+            expected_mounts = {"/database", "/identity"} | ({'/fence','/recovery'} if self.fenced_images() else set())
+            require(set(mounts) == expected_mounts and
                     mounts["/database"]["Source"] == str(self.databases[service]) and mounts["/database"]["RW"] and
                     mounts["/identity"]["Source"] == str(self.socket_dir) and
                     mounts["/identity"]["RW"] == (service == "cantos-identity"), "RUNNING_MOUNT_MISMATCH")
+            if self.fenced_images():
+                require(mounts['/fence']['Source']==str(self.fences[service]) and mounts['/fence']['RW'] and
+                        mounts['/recovery']['Source']==str(self.exposure_dir) and not mounts['/recovery']['RW'],
+                        'RUNNING_RECOVERY_MOUNT_MISMATCH')
         self.pid = json.loads(self.pod("inspect", identity))[0]["State"]["Pid"]
         require(len(set(namespaces)) == 1 and namespaces[0] != os.readlink("/proc/self/ns/net"),
                 "SHARED_PRIVATE_NETWORK_NAMESPACE_REQUIRED")
@@ -498,6 +588,7 @@ def run_gates(fixture, manifest, plan):
               *(["serve"] if service == "cantos-identity" else []), expected=1)
         check_unmigrated_layout(service, directory_record(f.databases[service], allow_empty=True))
     f.migrate()
+    f.prepare_recovery_fences()
     f.start()
     yield "image-pair", {"checks": ["registry-manifest-config", "exact-running-configs-uids-mounts",
                                     "all-layer-policy", "serve-before-migrate-refused", "production-http-readiness"],
@@ -510,6 +601,9 @@ def run_gates(fixture, manifest, plan):
 
 def migration_restore(f):
     """Exercise the restore gate independently; no input PASS record can satisfy it."""
+    if f.fenced_images():
+        from release_native_recovery_qualify import run
+        return run(f,cold_copy,directory_record)
     f.stop()
     backups = {service: cold_copy(path, f.work / "backup" / service) for service, path in f.databases.items()}
     # Idempotent migration on a real populated cold copy, then actual HTTP/auth from that copy.

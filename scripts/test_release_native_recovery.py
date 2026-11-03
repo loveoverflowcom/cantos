@@ -115,5 +115,30 @@ class RecoveryProtocol(unittest.TestCase):
                 with self.assertRaises((ValueError,FileNotFoundError,json.JSONDecodeError)): recovery.reconcile(state,request,ports)
                 self.closed(request)
 
+    def test_corrupt_or_foreign_intent_cannot_jump_to_ready(self):
+        for mode in ('jump','epoch','path'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                state,request,ports=self.fixture(directory)
+                if mode=='jump':
+                    ports.fault='export-cantos-server'
+                    with self.assertRaises(RuntimeError): recovery.reconcile(state,request,ports)
+                else: recovery.reconcile(state,request,ports)
+                path=state/'intent.json'; intent=json.loads(path.read_text())
+                if mode=='jump': intent['stage']='COMPLETE'
+                elif mode=='epoch': intent['effects']['cantos-identity']['epoch']=intent['sources']['cantos-identity']['epoch']
+                else: intent['staged']['cantos-server']=str(Path(directory).resolve()/'foreign')
+                path.write_text(json.dumps(intent))
+                with self.assertRaises(ValueError): recovery.expose(state,request,ports)
+                self.closed(request)
+
+    def test_pair_lock_is_shared_across_attempt_directories(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state,request,ports=self.fixture(directory)
+            exposure=Path(request['barrier']).parent
+            with recovery.pair_lock(exposure), self.assertRaises(BlockingIOError):
+                recovery.reconcile(state,request,ports)
+            self.assertFalse((state/'intent.json').exists())
+            self.assertFalse(Path(request['barrier']).exists())
+
 
 if __name__=='__main__': unittest.main()

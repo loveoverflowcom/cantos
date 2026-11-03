@@ -110,6 +110,7 @@ def qualify_operator(root, args):
                 qualify.inspect_identity(service, manifest['images'][service], manifest,
                                          json.loads(f.pod('image', 'inspect', f.image(service)))[0])
             f.migrate()
+            f.prepare_recovery_fences()
             inputs = work/'inputs'
             inputs.mkdir(mode=0o755)
             (inputs/'source.json').write_bytes(source)
@@ -127,7 +128,11 @@ def qualify_operator(root, args):
                       '--mount', f'type=bind,src={args.binary},dst=/cantos-operator,ro=true',
                       '--mount', f'type=bind,src={inputs},dst=/inputs,ro=true',
                       '--env', 'CANTOS_SERVER_DATABASE=/database/server.db',
-                      '--entrypoint', '/cantos-operator', f.image(server)]
+                      ]
+            if f.fenced_images():
+                common += ['--mount', f'type=bind,src={f.fences[server]},dst=/fence',
+                           '--env', 'CANTOS_SERVER_RECOVERY_FENCE=/fence/current']
+            common += ['--entrypoint', '/cantos-operator', f.image(server)]
             f.pod(*common, 'sample-metadata', '/inputs/deny.json', '/inputs/source.json', expected=1)
             for _ in range(2):
                 f.pod(*common, 'sample-metadata', '/inputs/publish.json', '/inputs/source.json')

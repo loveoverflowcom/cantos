@@ -5,10 +5,13 @@ image identity. No SQL, password, credential, HTTP session, provider or host-ser
 accepted here. The caller must separately qualify its adapter and production executor.
 """
 import hashlib
+import contextlib
+import fcntl
 import json
 import os
 from pathlib import Path
 import re
+import stat
 
 import release_artifact as contract
 import release_native as native
@@ -37,13 +40,19 @@ def proof(value, service):
         {'epoch'} if service == 'cantos-identity' else {'all_prior_sessions_retired'})
     contract.require(set(value) <= allowed, 'unexpected owner recovery proof fields')
     operation(value.get('instance'))
-    contract.require(type(value.get('revision')) is int and value['revision'] > 0 and
-                     type(value.get('schema')) is int and value['schema'] > 0,
+    contract.require(type(value.get('revision')) is int and 0 < value['revision'] <= 2**63-1 and
+                     type(value.get('schema')) is int and 0 < value['schema'] <= 2**32-1,
                      'owner freshness marker required')
     if service == 'cantos-identity':
         operation(value.get('epoch'))
     else:
         contract.require(type(value.get('all_prior_sessions_retired')) is bool, 'current session state required')
+    if value.get('backup') is not None:
+        backup=value['backup']
+        contract.require(type(backup) is dict, 'invalid backup proof')
+        oci.fields(backup,'sha256 bytes','invalid backup proof fields')
+        contract.digest(backup['sha256'])
+        contract.require(type(backup['bytes']) is int and 0 < backup['bytes'] <= 2**64-1,'invalid backup proof length')
     return value
 
 
@@ -59,6 +68,21 @@ def same(current, expected):
 
 def save(path, value):
     native.atomic(path, contract.canonical(value))
+
+
+@contextlib.contextmanager
+def pair_lock(directory):
+    """One coordinator for the shared pair, even when attempt directories differ."""
+    path=directory/'.coordinator.lock'
+    descriptor=os.open(path,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+    try:
+        meta=os.fstat(descriptor)
+        contract.require(stat.S_ISREG(meta.st_mode) and meta.st_uid==os.geteuid() and meta.st_nlink==1 and not meta.st_mode & 0o077,
+                         'foreign recovery pair lock')
+        fcntl.flock(descriptor,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(descriptor)
 
 
 def validate_intent(value, state):
@@ -84,7 +108,7 @@ def validate_intent(value, state):
                          'unretired recovery intent')
 
 
-def reconcile(state, request, ports):
+def reconcile(state, request, ports, *, _expose=False):
     """Explicit, fail-closed current-cut recovery; caller never supplies a historical merge.
 
     Ports: observe(service, root), export(service, source, destination), copy(source, target),
@@ -116,10 +140,13 @@ def reconcile(state, request, ports):
     source_paths = {service: Path(request['sources'][service]) for service in oci.SERVICES}
     contract.require(len(set(source_paths.values())) == 2 and all(path.is_absolute() and path.resolve() == path
                      and path.is_dir() and not exposure.is_relative_to(path) and not state.is_relative_to(path)
+                     and not path.is_relative_to(state)
                      for path in source_paths.values()), 'disjoint current source roots required')
+    first,second=source_paths.values()
+    contract.require(not first.is_relative_to(second) and not second.is_relative_to(first),'nested source roots refused')
     raw = contract.canonical(request)
     digest = hashlib.sha256(raw).hexdigest()
-    with native.locked(state):
+    with pair_lock(exposure.parent), native.locked(state):
         intent_path = state/'intent.json'
         if intent_path.exists():
             intent = native.pinned(intent_path, None)
@@ -202,9 +229,11 @@ def reconcile(state, request, ports):
                 contract.require(current['epoch'] != intent['sources'][service]['epoch'], 'recovery epoch is stale')
         # Deliberately no READY effect. This is state reconciliation, not HTTP/exact-image,
         # restricted-policy, source-admission, host-executor or production acceptance.
+        if _expose:
+            barrier(exposure,op,ready=True)
         return {'operation':op, 'stage':'COMPLETE', 'request_sha256':digest,
                 'staged':intent['staged'], 'owners':intent['effects'],
-                'exposure':'BLOCKED', 'production_activation':'NOT_RUN'}
+                'exposure':'PRIVATE_REHEARSAL_ONLY' if _expose else 'BLOCKED', 'production_activation':'NOT_RUN'}
 
 
 def expose(state, request, ports):
@@ -213,6 +242,4 @@ def expose(state, request, ports):
     This grants no production activation or restricted-delivery permission. Caller must own
     isolated ingress, run the actual HTTP probes, and re-close on any failure/unknown result.
     """
-    result = reconcile(state, request, ports)
-    barrier(Path(request['barrier']), result['operation'], ready=True)
-    return result
+    return reconcile(state,request,ports,_expose=True)
