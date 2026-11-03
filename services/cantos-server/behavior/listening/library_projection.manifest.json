@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "capabilityId": "cantos.listening.library-projection",
+  "sourceRefs": [
+    "docs/architecture/listener-library-projection.md",
+    "docs/product/listener-library.md",
+    "services/cantos-server/contracts/theatre/library/v1/README.md",
+    "services/cantos-server/contracts/theatre/discovery/v1/README.md"
+  ],
+  "model": "services/cantos-server/behavior/listening/library_projection.qnt",
+  "module": "library_projection",
+  "scenarios": "services/cantos-server/behavior/listening/library_projection_tests.qnt",
+  "scenarioModule": "library_projection_tests",
+  "inventory": "services/cantos-server/behavior/listening/library_projection.md",
+  "ownedSources": [
+    "services/cantos-server/src/contexts/listening/domain/projection.rs",
+    "services/cantos-server/src/contexts/listening/turso.rs",
+    "services/cantos-server/src/contexts/catalog/turso/library_visibility.rs"
+  ],
+  "properties": [
+    {
+      "id": "cantos.listening.library-projection.property.saved-presentable",
+      "declaration": "savedPresentable"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.saved-listen-honest",
+      "declaration": "savedListenHonest"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.saved-admission",
+      "declaration": "savedAdmission"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.retained-when-hidden",
+      "declaration": "retainedWhenHidden"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.exact-resume",
+      "declaration": "exactResume"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.next-in-order",
+      "declaration": "nextInOrder"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.continue-membership",
+      "declaration": "continueMembership"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.hidden-fails-closed",
+      "declaration": "hiddenFailsClosed"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.no-auto-complete",
+      "declaration": "noAutoComplete"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.registers-independent",
+      "declaration": "registersIndependent"
+    },
+    {
+      "id": "cantos.listening.library-projection.property.history-from-start",
+      "declaration": "historyFromStart"
+    }
+  ],
+  "runs": [
+    {
+      "id": "cantos.listening.library-projection.run.saved-without-audio",
+      "declaration": "savedWithoutAudioTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.save-admission",
+      "declaration": "saveAdmissionTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.hidden-retains",
+      "declaration": "hiddenRetainsTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.replaced-release",
+      "declaration": "replacedReleaseTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.next-in-order",
+      "declaration": "nextInOrderTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.caught-up",
+      "declaration": "caughtUpTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.hidden-anchor",
+      "declaration": "hiddenAnchorTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.finish-not-complete",
+      "declaration": "finishNotCompleteTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.clear-history",
+      "declaration": "clearHistoryTest"
+    },
+    {
+      "id": "cantos.listening.library-projection.run.history-from-start",
+      "declaration": "historyFromStartTest"
+    }
+  ],
+  "witnesses": [
+    {
+      "id": "cantos.listening.library-projection.witness.saved-no-audio",
+      "declaration": "savedNoAudio"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.metadata-only-save",
+      "declaration": "metadataOnlySave"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.hidden-retained",
+      "declaration": "hiddenRetained"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.replaced-release",
+      "declaration": "replacedRelease"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.waiting-before-later",
+      "declaration": "waitingBeforeLater"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.chapter-reentered",
+      "declaration": "chapterReentered"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.caught-up",
+      "declaration": "caughtUp"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.hidden-latest",
+      "declaration": "hiddenLatest"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.finished-not-completed",
+      "declaration": "finishedNotCompleted"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.cleared-keeps-continue",
+      "declaration": "clearedKeepsContinue"
+    },
+    {
+      "id": "cantos.listening.library-projection.witness.checkpoint-without-history",
+      "declaration": "checkpointWithoutHistory"
+    }
+  ],
+  "simulation": {
+    "backend": "typescript",
+    "seed": "1103",
+    "samples": 300,
+    "steps": 24,
+    "scenarioSamples": 1,
+    "witnessSamples": 3000,
+    "timeoutSeconds": 90
+  },
+  "controls": [
+    {
+      "id": "cantos.listening.library-projection.control.saved-presentable",
+      "property": "cantos.listening.library-projection.property.saved-presentable",
+      "from": "Metadata(if (anyListenable(s)) Playable else NoAudioYet)",
+      "to": "if (anyListenable(s)) Metadata(Playable) else NullPresentation"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.saved-listen-honest",
+      "property": "cantos.listening.library-projection.property.saved-listen-honest",
+      "from": "Metadata(if (anyListenable(s)) Playable else NoAudioYet)",
+      "to": "Metadata(Playable)"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.saved-admission",
+      "property": "cantos.listening.library-projection.property.saved-admission",
+      "from": "val admitted = not(desired) or state.saved or state.workPublic",
+      "to": "val admitted = not(desired) or state.saved or anyListenable(state)"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.retained-when-hidden",
+      "property": "cantos.listening.library-projection.property.retained-when-hidden",
+      "from": "record({ ...state, workPublic: visible }, Expose(visible))",
+      "to": "record({ ...state, workPublic: visible, saved: state.saved and visible }, Expose(visible))"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.exact-resume",
+      "property": "cantos.listening.library-projection.property.exact-resume",
+      "from": "if (current == p.release) Resume(a)",
+      "to": "if (current > 0) Resume(a)"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.next-in-order",
+      "property": "cantos.listening.library-projection.property.next-in-order",
+      "from": "if (u > a and s.units.get(u).published and (n == 0 or u < n)) u else n)",
+      "to": "if (u > a and s.units.get(u).published and s.units.get(u).release > 0 and (n == 0 or u < n)) u else n)"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.continue-membership",
+      "property": "cantos.listening.library-projection.property.continue-membership",
+      "from": "| StartNext(_) => true | _ => false",
+      "to": "| _ => false"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.hidden-fails-closed",
+      "property": "cantos.listening.library-projection.property.hidden-fails-closed",
+      "from": "if (s.progress.get(u).release > 0 and (a == 0 or",
+      "to": "if (s.progress.get(u).release > 0 and visibleUnit(s, u) and (a == 0 or"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.no-auto-complete",
+      "property": "cantos.listening.library-projection.property.no-auto-complete",
+      "from": "{ ...p, atEnd: toEnd, order: state.clock + 1 }",
+      "to": "{ ...p, atEnd: toEnd, completed: toEnd, order: state.clock + 1 }"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.registers-independent",
+      "property": "cantos.listening.library-projection.property.registers-independent",
+      "from": "record({ ...state, historyUnit: 0, epoch: state.epoch + 1 }, ClearHistory)",
+      "to": "record({ ...state, historyUnit: 0, epoch: state.epoch + 1, progress: initial.progress }, ClearHistory)"
+    },
+    {
+      "id": "cantos.listening.library-projection.control.history-from-start",
+      "property": "cantos.listening.library-projection.property.history-from-start",
+      "from": "record({ ...state, progress: moved, clock: state.clock + 1 }",
+      "to": "record({ ...state, progress: moved, historyUnit: u, clock: state.clock + 1 }"
+    }
+  ],
+  "aliases": []
+}

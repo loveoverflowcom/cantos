@@ -25,6 +25,7 @@ restore, Kani, footprint or deployed behavior.
 | Production briefs/private audio | [020](020-cast-and-generate-dialogue.md), [client matrix](live-client-api-matrix.md) |
 | Review/publication | [030](030-mix-review-and-publish.md) |
 | Theatre Web/CMP listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library handoff](listener-library-progress-handoff.md) |
+| Listener Library (Saved/Continue/Recent) next delivery | [decision register](../product/listener-library.md), [projection design](../architecture/listener-library-projection.md), [slices](listener-library-progress-handoff.md#next-delivery-work-level-library) |
 | Catalog/cover/metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover](public-cover-implementation-handoff.md), [metadata](public-metadata-decision-handoff.md) |
 | Publication lifecycle and Work/Unit access | [#634](https://github.com/loveoverflowcom/cantos/issues/634), [design handoff](publication-access-handoff.md), accepted [ADR 0054](../decisions/0054-publication-generation-and-access.md) |
 | Runtime image transition | [#607](https://github.com/loveoverflowcom/cantos/issues/607), [image policy and dependency order](../design/runtime-images.md); AVIF-only source admission is separate from historical data conversion, repinned sample inputs and native/deployed qualification |

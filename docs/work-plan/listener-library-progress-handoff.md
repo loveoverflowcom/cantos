@@ -60,6 +60,31 @@ Use affected native Rust/Turso/contract and Web/CMP checks through [xtask](../..
 `verify postgres` is retired. Measure current Turso SQL/index first under #384, then consider
 ArcSwap/Quick Cache if justified; old PG plans do not establish native performance.
 
+## Next delivery: Work-level Library
+
+The owner's 2026-11-03 draft positions the Library as a personal listening library
+([vision and decisions](../product/listener-library.md)) and the review selects two projection
+changes first: Saved from published Work metadata and Continue as a Work-level next action
+([design](../architecture/listener-library-projection.md)). The draft model
+`cantos.listening.library-projection` makes both differences from current code executable.
+Decisions stay proposed until L01 records them. One slice is one reviewable outcome; GitHub
+owns status, assignment and acceptance.
+
+| Slice | Outcome | Depends on | Main evidence |
+| --- | --- | --- | --- |
+| L01 | Record D-L01–D-L11 (ADR/owning docs), amend Library v1 text and add `presentation=2` schema + fixtures as spec; reconcile the draft model with accepted decisions | — | repository + behavior gates |
+| L02 | Server Saved: metadata Work card + `listen` under `presentation=2`, batched read | L01 | pure/Turso/HTTP/contract tests, dataset measurement |
+| L03 | Server Continue: `work_next_action` core and Work-level membership under `presentation=2` | L01; after L02 (same files) | pure/Turso/HTTP/contract tests, dataset measurement |
+| L04 | Theatre Web adopts L02/L03, natural-end completion and clear-history copy | L02, L03 | Web gate, browser observations (viewports, Vietnamese text, keyboard/screen reader) |
+| L05 | Theatre CMP adopts L02/L03 through SQLDelight/outbox | L02, L03 | JVM/desktop tests, Android device; iOS when available |
+| L06 | Cross-client synchronization acceptance, then removal of superseded Saved/Continue lanes | L04, L05 | evidence record per platform; contract/fixture cleanup |
+
+Later (not scheduled): viewer-aware/shared Library after the #634 shared projection, per-Work
+dismiss, full listening-data deletion, collections, per-session history, downloads and
+new-chapter notifications. [#34](https://github.com/loveoverflowcom/cantos/issues/34) keeps the
+listener-first vision and [#35](https://github.com/loveoverflowcom/cantos/issues/35) the MVP
+Library UX checklist; these slices refine, not replace, them.
+
 The [original backend handoff](https://github.com/loveoverflowcom/cantos/blob/2ee9360817a207eb89a8f05ee9ed42102d714229/docs/work-plan/listener-library-progress-handoff.md)
 and [original evidence](../evidence/listener-library-progress.md) preserve their source-bound
 mock-only/PG observations. They are historical comparison inputs, not current implementation
