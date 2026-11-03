@@ -62,6 +62,35 @@ jobs:
           sudo apt-get install --yes ffmpeg pkg-config libdav1d-dev
       - name: Format, lint, test, offline Forge wrapper and actual media inspection
         run: cargo xtask ci --job rust
+  recovery-owner-linux:
+    # Independent real-owner evidence: an earlier workspace test failure must not hide
+    # crash/fence regressions. This neither replaces full CI nor qualifies runtime images.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_INCREMENTAL: '0'
+      CANTOS_TEST_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out the exact source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Select pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Lint and test the real Turso owner recovery boundaries
+        run: |
+          cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings
+          cargo test -p cantos-store-turso --features testing --locked
+          cargo test -p cantos-identity --features persistence --locked
+      - name: Check the isolated synthetic account actor
+        # This opt-in actor remains absent from the service feature and production images.
+        run: cargo clippy -p cantos-identity --features recovery-testing --all-targets --locked -- -D warnings
   forge-probe-linux:
     # Independent test-only lane: broad workspace failures cannot hide #486's package proof.
     # No environment, cloud credentials, publisher or privileged pull_request_target event.
