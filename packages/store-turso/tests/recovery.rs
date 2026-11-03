@@ -218,6 +218,68 @@ async fn live_owner_reads_committed_state_during_a_normal_write_without_treating
     assert_eq!(state(&owner).await, 1);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_queries_keep_admission_during_commits_and_rollbacks() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+    let (_run, db, fence) = fixture("recovery-concurrent-queries");
+    let owner = Arc::new(enrolled(&db, &fence).await);
+    let tx = owner.begin_write().await.unwrap();
+    tx.execute("INSERT INTO state VALUES(1,0)", ())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let start = Arc::new(tokio::sync::Barrier::new(4));
+    let done = Arc::new(AtomicBool::new(false));
+    let mut readers = Vec::new();
+    for _ in 0..3 {
+        let (owner, start, done) = (owner.clone(), start.clone(), done.clone());
+        readers.push(tokio::spawn(async move {
+            let reader = owner.reader().await.unwrap();
+            start.wait().await;
+            let mut count = 0;
+            loop {
+                let mut rows = reader
+                    .query("SELECT revoked FROM state WHERE id=1", ())
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    rows.next().await.unwrap().unwrap().get_value(0).unwrap(),
+                    Value::Integer(0)
+                );
+                count += 1;
+                if done.load(Ordering::Acquire) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+            count
+        }));
+    }
+    start.wait().await;
+    for index in 0..32 {
+        let tx = owner.begin_write().await.unwrap();
+        if index % 2 == 0 {
+            tx.execute("UPDATE state SET revoked=0 WHERE id=1", ())
+                .await
+                .unwrap();
+            tx.commit().await.unwrap();
+        } else {
+            tx.execute("UPDATE state SET revoked=1 WHERE id=1", ())
+                .await
+                .unwrap();
+            tx.rollback().await.unwrap();
+        }
+    }
+    done.store(true, Ordering::Release);
+    for reader in readers {
+        assert!(reader.await.unwrap() > 0);
+    }
+    assert_eq!(state(&owner).await, 0);
+}
+
 #[test]
 #[ignore = "subprocess worker; invoked only by the bounded crash regression"]
 fn recovery_crash_worker() {

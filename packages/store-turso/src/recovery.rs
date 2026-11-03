@@ -242,6 +242,8 @@ impl Record {
 
 pub(crate) struct Fence {
     path: PathBuf,
+    // Keep on-disk records, live witnesses and the RAM token coherent for concurrent readers.
+    transition: Mutex<()>,
     current: Mutex<Token>,
     abandoned: Mutex<Option<(Token, Token)>>,
     live_write: Mutex<Option<(Token, Weak<AtomicBool>)>>,
@@ -266,6 +268,7 @@ impl Fence {
         let lease = OwnerLock::acquire(path).map_err(|_| RecoveryFault::Untrusted)?;
         Ok(Arc::new(Self {
             path: path.to_owned(),
+            transition: Mutex::new(()),
             current: Mutex::new(token),
             abandoned: Mutex::new(None),
             live_write: Mutex::new(None),
@@ -317,6 +320,11 @@ impl Fence {
     }
 
     pub fn verify(&self) -> Result<(), RecoveryFault> {
+        let _transition = self.transition.lock().map_err(|_| RecoveryFault::Pending)?;
+        self.verify_locked()
+    }
+
+    fn verify_locked(&self) -> Result<(), RecoveryFault> {
         match self.read()? {
             Record::Pending(token) => {
                 let live = self.live_write.lock().map_err(|_| RecoveryFault::Pending)?;
@@ -342,7 +350,8 @@ impl Fence {
     }
 
     pub fn begin(self: &Arc<Self>) -> Result<FenceWrite, RecoveryFault> {
-        self.verify()?;
+        let _transition = self.transition.lock().map_err(|_| RecoveryFault::Pending)?;
+        self.verify_locked()?;
         let previous = self.token()?;
         let next = previous.next()?;
         self.publish(Some(Record::Committed(previous)), Record::Pending(next))?;
@@ -360,6 +369,7 @@ impl Fence {
     }
 
     pub fn finish_enrollment(&self, token: Token) -> Result<(), RecoveryFault> {
+        let _transition = self.transition.lock().map_err(|_| RecoveryFault::Pending)?;
         self.publish(Some(Record::Pending(token)), Record::Committed(token))
     }
 
@@ -373,6 +383,7 @@ impl Fence {
     /// Only the SAME owner lifetime remembers that COMMIT was never attempted. Caller has
     /// acknowledged engine ROLLBACK and checked the previous DB token under its writer lease.
     pub fn finish_abandoned(&self, previous: Token, next: Token) -> Result<(), RecoveryFault> {
+        let _transition = self.transition.lock().map_err(|_| RecoveryFault::Pending)?;
         let mut ticket = self.abandoned.lock().map_err(|_| RecoveryFault::Pending)?;
         if *ticket != Some((previous, next)) {
             return Err(RecoveryFault::Pending);
@@ -485,6 +496,11 @@ impl FenceWrite {
     }
 
     pub fn commit(&self) -> Result<(), RecoveryFault> {
+        let _transition = self
+            .fence
+            .transition
+            .lock()
+            .map_err(|_| RecoveryFault::Pending)?;
         self.fence.publish(
             Some(Record::Pending(self.next)),
             Record::Committed(self.next),
@@ -500,6 +516,11 @@ impl FenceWrite {
 
     /// Only called after an acknowledged engine rollback. Drop deliberately leaves Pending.
     pub fn rollback(&self) -> Result<(), RecoveryFault> {
+        let _transition = self
+            .fence
+            .transition
+            .lock()
+            .map_err(|_| RecoveryFault::Pending)?;
         self.fence.publish(
             Some(Record::Pending(self.next)),
             Record::Committed(self.previous),
@@ -528,6 +549,11 @@ pub(crate) struct WriteProof {
 
 impl WriteProof {
     pub fn verify(&self) -> Result<(), RecoveryFault> {
+        let _transition = self
+            .fence
+            .transition
+            .lock()
+            .map_err(|_| RecoveryFault::Pending)?;
         if self.active.load(Ordering::Acquire) && self.fence.read()? == Record::Pending(self.next) {
             Ok(())
         } else {
@@ -539,6 +565,56 @@ impl WriteProof {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn concurrent_reads_do_not_refuse_normal_fence_transitions() {
+        use std::{os::unix::fs::DirBuilderExt, sync::Barrier, thread};
+        let run = crate::testing::TestRun::new("recovery-concurrent-read");
+        let root = run.dir().canonicalize().unwrap();
+        for name in ["database", "authority"] {
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(root.join(name))
+                .unwrap();
+        }
+        let (fence, token) = Fence::prepare_enrollment(
+            &root.join("authority/current"),
+            &root.join("database/state.db"),
+        )
+        .unwrap();
+        fence.finish_enrollment(token).unwrap();
+        let start = Barrier::new(5);
+        let done = AtomicBool::new(false);
+        thread::scope(|scope| {
+            let readers: Vec<_> = (0..4)
+                .map(|_| {
+                    scope.spawn(|| {
+                        start.wait();
+                        let mut observations = 0;
+                        while !done.load(Ordering::Acquire) {
+                            assert_eq!(fence.verify(), Ok(()), "normal live-owner transition");
+                            observations += 1;
+                        }
+                        observations
+                    })
+                })
+                .collect();
+            start.wait();
+            for index in 0..128 {
+                let write = fence.begin().unwrap();
+                if index % 2 == 0 {
+                    write.commit().unwrap();
+                } else {
+                    write.rollback().unwrap();
+                }
+            }
+            done.store(true, Ordering::Release);
+            for reader in readers {
+                assert!(reader.join().unwrap() > 0);
+            }
+        });
+        assert_eq!(fence.verify(), Ok(()));
+    }
 
     #[test]
     fn expired_write_witness_never_revives_when_rollback_reuses_a_revision() {

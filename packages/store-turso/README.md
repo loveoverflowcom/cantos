@@ -58,6 +58,10 @@ publishes Pending before mutation and Committed after the engine commit. Missing
 uncertain authority stays closed; opening a database never invents or resets a floor.
 An enrolled database refuses an unfenced reopen. Explicit maintenance and the shared exposure
 barrier follow [ADR 0058](../../docs/decisions/0058-fail-closed-native-recovery.md).
+Within one live owner, fence verification and publication share a transition lock: readers
+cannot mistake the owner's atomic file replacement or RAM-token update for untrusted authority.
+The lock covers filesystem checks only, never an asynchronous database transaction. Concurrent
+query regressions retain committed-snapshot reads across normal commits and rollbacks.
 These primitives alone do not qualify an image, host executor or production restore.
 
 ## Persisted compatibility
