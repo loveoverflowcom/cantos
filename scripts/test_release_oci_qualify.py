@@ -29,6 +29,38 @@ def layer(files):
     return buffer.getvalue()
 
 
+class UnmigratedProbe(unittest.TestCase):
+    def test_schema_negative_reaches_a_ready_barrier_and_always_closes_afterward(self):
+        # Actual barrier bytes, finite process double: not a schema/engine acceptance claim.
+        for fails in (False, True):
+            with self.subTest(fails=fails), tempfile.TemporaryDirectory() as temporary:
+                work = Path(temporary).resolve()
+                exposure = work/'exposure'
+                exposure.mkdir()
+                operation = 'a'*32
+                databases = {service:work/service for service in oci.SERVICES}
+                for path in databases.values(): path.mkdir(mode=0o700)
+                observed = []
+                def pod(*args, expected):
+                    self.assertEqual(expected, 1)
+                    self.assertEqual((exposure/'barrier').read_bytes(),
+                                     ('CANTOS_RECOVERY_BARRIER_V1\nready '+operation+'\n').encode())
+                    observed.append(args)
+                    if fails: raise ValueError('synthetic probe transport failure')
+                fixture = SimpleNamespace(fenced_images=lambda:True, exposure_dir=exposure,
+                    recovery_operation=operation, databases=databases, options=lambda _:[],
+                    image=lambda service:service, pod=pod)
+                qualify.recovery.barrier(exposure/'barrier', operation)
+                if fails:
+                    with self.assertRaisesRegex(ValueError, 'synthetic probe transport failure'):
+                        qualify.probe_unmigrated_serve(fixture)
+                else:
+                    qualify.probe_unmigrated_serve(fixture)
+                self.assertEqual(len(observed), 1 if fails else 2)
+                self.assertEqual((exposure/'barrier').read_bytes(),
+                                 ('CANTOS_RECOVERY_BARRIER_V1\nblocked '+operation+'\n').encode())
+
+
 class RestoreRuntimeDouble:
     """Named model of post-cut session revival; never a Turso/HTTP acceptance claim."""
     def __init__(self, work, revives):

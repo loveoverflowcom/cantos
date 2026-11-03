@@ -84,10 +84,7 @@ jobs:
       - name: Select pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Lint and test the real Turso owner recovery boundaries
-        run: |
-          cargo clippy -p cantos-store-turso --features testing --all-targets --locked -- -D warnings
-          cargo test -p cantos-store-turso --features testing --locked
-          cargo test -p cantos-identity --features persistence --locked
+        run: cargo xtask verify turso
       - name: Check the isolated synthetic account actor
         # This opt-in actor remains absent from the service feature and production images.
         run: cargo clippy -p cantos-identity --features recovery-testing --all-targets --locked -- -D warnings

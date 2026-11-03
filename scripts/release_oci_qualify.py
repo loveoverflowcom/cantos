@@ -568,6 +568,22 @@ def cold_copy(source, destination, expected=None):
     return before
 
 
+def probe_unmigrated_serve(f):
+    # Reach the schema refusal with a valid exposure control. A BLOCKED barrier would
+    # make this negative vacuous: the process could exit before observing its database.
+    fenced = f.fenced_images()
+    try:
+        if fenced:
+            recovery.barrier(f.exposure_dir/'barrier', f.recovery_operation, ready=True)
+        for service in oci.SERVICES:
+            f.pod("run", "--rm", "--network=none", *f.options(service), f.image(service),
+                  *(["serve"] if service == "cantos-identity" else []), expected=1)
+            check_unmigrated_layout(service, directory_record(f.databases[service], allow_empty=True))
+    finally:
+        if fenced:
+            recovery.barrier(f.exposure_dir/'barrier', f.recovery_operation)
+
+
 def run_gates(fixture, manifest, plan):
     f = fixture
     registry.observe(manifest, plan, authfile=f.authfile)
@@ -583,10 +599,7 @@ def run_gates(fixture, manifest, plan):
         layers[service] = check_archive(archive, service, manifest["images"][service])
         archive.unlink()  # Only the exact owned export; layer hashes remain in the receipt.
     # Fail before migrate: neither production process may initialize a missing database.
-    for service in oci.SERVICES:
-        f.pod("run", "--rm", "--network=none", *f.options(service), f.image(service),
-              *(["serve"] if service == "cantos-identity" else []), expected=1)
-        check_unmigrated_layout(service, directory_record(f.databases[service], allow_empty=True))
+    probe_unmigrated_serve(f)
     f.migrate()
     f.prepare_recovery_fences()
     f.start()
