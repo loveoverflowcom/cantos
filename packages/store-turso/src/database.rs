@@ -19,6 +19,7 @@ use turso::{Builder, Connection, IntoParams, Row, Value};
 use crate::clock::Clock;
 use crate::error::{CommitFault, OpenError, StoreFault};
 use crate::owner::{lock_path, private_directory_of, OwnerLock};
+use crate::recovery::{Fence, FenceWrite, RecoveryBarrier, RecoveryFault, Token, WriteProof};
 use crate::registry::{
     plan_startup, AppliedMigration, Intent, Migration, Observation, Plan, PresentFile, Refusal,
     Registry, HISTORY_TABLE,
@@ -45,6 +46,8 @@ pub struct OpenRequest {
     pub intent: Intent,
     pub clock: Arc<dyn Clock>,
     pub busy_timeout: Duration,
+    pub recovery_fence: Option<PathBuf>,
+    pub recovery_barrier: Option<RecoveryBarrier>,
 }
 
 impl OpenRequest {
@@ -60,7 +63,14 @@ impl OpenRequest {
             intent,
             clock,
             busy_timeout: DEFAULT_BUSY_TIMEOUT,
+            recovery_fence: None,
+            recovery_barrier: None,
         }
+    }
+
+    pub fn with_recovery_fence(mut self, path: impl Into<PathBuf>) -> Self {
+        self.recovery_fence = Some(path.into());
+        self
     }
 }
 
@@ -71,6 +81,8 @@ pub struct OwnedDatabase {
     clock: Arc<dyn Clock>,
     path: PathBuf,
     busy_timeout: Duration,
+    recovery_fence: Option<Arc<Fence>>,
+    recovery_barrier: Option<RecoveryBarrier>,
     // Declared last so the engine handles close before the ownership lock is released.
     owner: Arc<OwnerLock>,
 }
@@ -79,10 +91,51 @@ impl OwnedDatabase {
     /// Take exclusive ownership, inspect the file read-only, refuse anything the registry does
     /// not allow, then execute exactly the planned creation or migrations.
     pub async fn open(request: OpenRequest) -> Result<Self, OpenError> {
+        Self::open_mode(request, false).await
+    }
+
+    /// Reconcile only an exact committed database/next-fence token after a lost acknowledgement.
+    /// Missing state or an old token stays closed. This does not restore files or change policy.
+    pub async fn reconcile_recovery_fence(request: OpenRequest) -> Result<Self, OpenError> {
+        Self::open_mode(request, true).await
+    }
+
+    async fn open_mode(request: OpenRequest, reconcile: bool) -> Result<Self, OpenError> {
+        if let Some(barrier) = &request.recovery_barrier {
+            if request.recovery_fence.is_none() {
+                return Err(StoreFault::Recovery(RecoveryFault::Unenrolled).into());
+            }
+            barrier.verify().map_err(StoreFault::from)?;
+        }
         let owner = OwnerLock::acquire(&request.path)?;
         let observed = observe_path(&request.path).await?;
         let plan = plan_startup(&request.registry, &observed, request.intent)
             .map_err(OpenError::Refused)?;
+        // Observe through a read-only connection before any journal/schema change. Enrolled
+        // files cannot silently shed their fence by omitting configuration.
+        let token = if request.path.exists() {
+            let database = build(&request.path, true).await?;
+            let reader = database.connect().map_err(StoreFault::from)?;
+            if reconcile {
+                crate::integrity::check(&reader).await?;
+            }
+            recovery_token(&reader).await?
+        } else {
+            None
+        };
+        let recovery_fence = match (token, request.recovery_fence.as_ref()) {
+            (Some(token), Some(path)) if matches!(plan, Plan::Ready) => Some(
+                if reconcile {
+                    Fence::reconcile(path, &request.path, token)
+                } else {
+                    Fence::open(path, &request.path, token)
+                }
+                .map_err(StoreFault::from)?,
+            ),
+            (Some(_), _) => return Err(StoreFault::Recovery(RecoveryFault::Mismatch).into()),
+            (None, Some(_)) => return Err(StoreFault::Recovery(RecoveryFault::Unenrolled).into()),
+            (None, None) => None,
+        };
         let database = build(&request.path, false).await?;
         let writer = database.connect().map_err(StoreFault::from)?;
         configure(&writer, request.busy_timeout, false).await?;
@@ -102,6 +155,8 @@ impl OwnedDatabase {
             clock: request.clock,
             path: request.path,
             busy_timeout: request.busy_timeout,
+            recovery_fence,
+            recovery_barrier: request.recovery_barrier,
             owner: Arc::new(owner),
         })
     }
@@ -114,10 +169,98 @@ impl OwnedDatabase {
         &self.registry
     }
 
+    pub fn has_recovery_fence(&self) -> bool {
+        self.recovery_fence.is_some()
+    }
+
+    pub async fn recovery_observation(
+        &self,
+    ) -> Result<crate::recovery::RecoveryObservation, StoreFault> {
+        let writer = self.writer.lock().await;
+        self.verify_recovery()?;
+        let fence = self
+            .recovery_fence
+            .as_ref()
+            .ok_or(RecoveryFault::Unenrolled)?;
+        let token = recovery_token(&writer)
+            .await?
+            .ok_or(RecoveryFault::Unenrolled)?;
+        if token != fence.token()? {
+            return Err(RecoveryFault::Mismatch.into());
+        }
+        Ok(crate::recovery::RecoveryObservation {
+            instance: token.instance,
+            revision: token.revision,
+        })
+    }
+
+    /// Explicit stopped-owner enrollment after the service's appended recovery migration.
+    /// No caller may delete/recreate a pending fence to reconcile an uncertain enrollment.
+    pub async fn enroll_recovery_fence(mut self, path: &Path) -> Result<Self, StoreFault> {
+        if self.recovery_fence.is_some() {
+            return Err(RecoveryFault::AlreadyEnrolled.into());
+        }
+        self.check_integrity().await?;
+        let writer = self.writer.lock().await;
+        if recovery_token(&writer).await?.is_some() {
+            return Err(RecoveryFault::AlreadyEnrolled.into());
+        }
+        sql::scalar_integer(&writer, "SELECT count(*) FROM cantos_recovery_state", ()).await?;
+        let (fence, token) = Fence::prepare_enrollment(path, &self.path)?;
+        writer.execute("BEGIN IMMEDIATE", ()).await?;
+        writer
+            .execute(
+                "INSERT INTO cantos_recovery_state(singleton,instance,revision) VALUES(1,?1,?2)",
+                turso::params_from_iter([
+                    Value::Blob(token.instance.to_vec()),
+                    Value::Integer(token.revision),
+                ]),
+            )
+            .await?;
+        // Any error/cancellation leaves Pending. It is not evidence of rollback.
+        writer.execute("COMMIT", ()).await?;
+        fence.finish_enrollment(token)?;
+        drop(writer);
+        self.recovery_fence = Some(fence);
+        Ok(self)
+    }
+
+    fn verify_recovery(&self) -> Result<(), StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
+        if let Some(fence) = &self.recovery_fence {
+            fence.verify()?;
+        }
+        Ok(())
+    }
+
+    async fn recover_on(&self, connection: &Connection) -> Result<(), StoreFault> {
+        recover(connection).await?;
+        if let Some(fence) = &self.recovery_fence {
+            if let Some((previous, next)) = fence.abandoned()? {
+                if recovery_token(connection).await? != Some(previous) {
+                    return Err(RecoveryFault::Mismatch.into());
+                }
+                fence.finish_abandoned(previous, next)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// After request draining, settle only this owner's known never-committed cancellation.
+    /// A lost COMMIT acknowledgement has no such ticket and remains fail-closed.
+    pub async fn finish_pending_writes(&self) -> Result<(), StoreFault> {
+        let writer = self.writer.lock().await;
+        self.recover_on(&writer).await?;
+        self.verify_recovery()
+    }
+
     /// Explicit cold recovery check on the pinned engine; does not initialize or migrate.
     /// The caller must separately validate the service registry through `Intent::Serve`.
     pub async fn check_integrity(&self) -> Result<(), StoreFault> {
         let writer = self.writer.lock().await;
+        self.verify_recovery()?;
         crate::integrity::check(&writer).await
     }
 
@@ -145,23 +288,57 @@ impl OwnedDatabase {
         &'a self,
         guard: MutexGuard<'a, Connection>,
     ) -> Result<WriteTransaction<'a>, StoreFault> {
-        recover(&guard).await?;
+        self.recover_on(&guard).await?;
+        self.verify_recovery()?;
         let now = self.clock.now().map_err(|_| StoreFault::Clock)?;
         guard.execute("BEGIN IMMEDIATE", ()).await?;
+        let fence_write = if let Some(fence) = &self.recovery_fence {
+            if recovery_token(&guard).await? != Some(fence.token()?) {
+                guard.execute("ROLLBACK", ()).await?;
+                return Err(RecoveryFault::Mismatch.into());
+            }
+            let write = match fence.begin() {
+                Ok(write) => write,
+                Err(error) => {
+                    guard.execute("ROLLBACK", ()).await?;
+                    return Err(error.into());
+                }
+            };
+            guard
+                .execute(
+                    "UPDATE cantos_recovery_state SET revision=?1 WHERE singleton=1",
+                    [write.next.revision],
+                )
+                .await?;
+            Some(write)
+        } else {
+            None
+        };
         Ok(WriteTransaction {
             guard,
             now,
             owner: self.owner.clone(),
+            fence_write,
+            recovery_barrier: self.recovery_barrier.clone(),
         })
     }
 
     /// A new connection that cannot write. Its snapshot is isolated from the open writer.
     pub async fn reader(&self) -> Result<ReadConnection, StoreFault> {
+        if let Some(fence) = &self.recovery_fence {
+            if fence.abandoned()?.is_some() {
+                let guard = self.writer.lock().await;
+                self.recover_on(&guard).await?;
+            }
+        }
+        self.verify_recovery()?;
         let conn = self.database.connect()?;
         configure(&conn, self.busy_timeout, true).await?;
         Ok(ReadConnection {
             conn,
             owner: self.owner.clone(),
+            recovery_fence: self.recovery_fence.clone(),
+            recovery_barrier: self.recovery_barrier.clone(),
         })
     }
 
@@ -186,7 +363,8 @@ impl OwnedDatabase {
             .replace('\'', "''");
         let copied = async {
             let guard = self.writer.lock().await;
-            recover(&guard).await?;
+            self.recover_on(&guard).await?;
+            self.verify_recovery()?;
             // The engine copies the snapshot this connection last saw, and a connection that
             // predates a schema change fails after creating the file. A read first brings the
             // connection up to date; without it the copy omits other connections' newest commits.
@@ -263,9 +441,12 @@ impl OwnedDatabase {
 /// An open `BEGIN IMMEDIATE` transaction. Dropping it without `commit` or `rollback` leaves the
 /// transaction open until the next `begin_write`, which rolls it back before beginning.
 pub struct WriteTransaction<'a> {
+    // Queue known cancellation before releasing the serialized writer to another request.
+    fence_write: Option<FenceWrite>,
     guard: MutexGuard<'a, Connection>,
     now: UnixMicros,
     owner: Arc<OwnerLock>,
+    recovery_barrier: Option<RecoveryBarrier>,
 }
 
 impl WriteTransaction<'_> {
@@ -275,26 +456,75 @@ impl WriteTransaction<'_> {
     }
 
     pub async fn execute(&self, sql: &str, params: impl IntoParams) -> Result<u64, StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
         Ok(self.guard.execute(sql, params).await?)
     }
 
     /// Drain or drop the returned `Rows` before the next statement: a write while a `RETURNING`
     /// cursor is open is refused as busy by the engine.
     pub async fn query(&self, sql: &str, params: impl IntoParams) -> Result<Rows, StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
         Ok(Rows {
             inner: self.guard.query(sql, params).await?,
             _owner: self.owner.clone(),
+            recovery_fence: None,
+            recovery_barrier: self.recovery_barrier.clone(),
+            write_proof: self.fence_write.as_ref().map(FenceWrite::proof),
         })
     }
 
     pub async fn commit(self) -> Result<(), CommitFault> {
+        if let Some(fault) = self
+            .recovery_barrier
+            .as_ref()
+            .and_then(|barrier| barrier.verify().err())
+        {
+            return match self.rollback().await {
+                Ok(()) => Err(CommitFault::Rejected(fault.into())),
+                Err(error) => Err(CommitFault::Unknown(error)),
+            };
+        }
+        if let Some(write) = &self.fence_write {
+            if recovery_token(&self.guard)
+                .await
+                .map_err(CommitFault::Unknown)?
+                != Some(write.next)
+            {
+                return Err(CommitFault::Unknown(RecoveryFault::Mismatch.into()));
+            }
+        }
+        if let Some(write) = &self.fence_write {
+            write.commit_attempted();
+        }
         match self.guard.execute("COMMIT", ()).await {
-            Ok(_) => Ok(()),
+            Ok(_) => match self.fence_write {
+                Some(write) => write
+                    .commit()
+                    .map_err(|fault| CommitFault::Unknown(fault.into())),
+                None => Ok(()),
+            },
             Err(error) => {
                 let fault = CommitFault::classify(error);
                 if matches!(fault, CommitFault::Rejected(_)) {
                     // A rejected COMMIT (deferred foreign key, busy) leaves the transaction open.
-                    let _ = self.guard.execute("ROLLBACK", ()).await;
+                    if self.guard.execute("ROLLBACK", ()).await.is_ok() {
+                        if let Some(write) = self.fence_write {
+                            if recovery_token(&self.guard)
+                                .await
+                                .map_err(CommitFault::Unknown)?
+                                != Some(write.previous())
+                            {
+                                return Err(CommitFault::Unknown(RecoveryFault::Mismatch.into()));
+                            }
+                            write
+                                .rollback()
+                                .map_err(|fault| CommitFault::Unknown(fault.into()))?;
+                        }
+                    }
                 }
                 Err(fault)
             }
@@ -303,6 +533,12 @@ impl WriteTransaction<'_> {
 
     pub async fn rollback(self) -> Result<(), StoreFault> {
         self.guard.execute("ROLLBACK", ()).await?;
+        if let Some(write) = self.fence_write {
+            if recovery_token(&self.guard).await? != Some(write.previous()) {
+                return Err(RecoveryFault::Mismatch.into());
+            }
+            write.rollback()?;
+        }
         Ok(())
     }
 }
@@ -310,19 +546,36 @@ impl WriteTransaction<'_> {
 pub struct ReadConnection {
     conn: Connection,
     owner: Arc<OwnerLock>,
+    recovery_fence: Option<Arc<Fence>>,
+    recovery_barrier: Option<RecoveryBarrier>,
 }
 
 impl ReadConnection {
     pub async fn query(&self, sql: &str, params: impl IntoParams) -> Result<Rows, StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
+        if let Some(fence) = &self.recovery_fence {
+            fence.verify()?;
+        }
         Ok(Rows {
             inner: self.conn.query(sql, params).await?,
             _owner: self.owner.clone(),
+            recovery_fence: self.recovery_fence.clone(),
+            recovery_barrier: self.recovery_barrier.clone(),
+            write_proof: None,
         })
     }
 
     /// Pin one snapshot for every following read until [`Self::end_snapshot`], so a multi-query
     /// read (a page plus its count, a head plus its history) cannot observe two commits.
     pub async fn begin_snapshot(&self) -> Result<(), StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
+        if let Some(fence) = &self.recovery_fence {
+            fence.verify()?;
+        }
         self.conn.execute("BEGIN", ()).await?;
         Ok(())
     }
@@ -341,12 +594,24 @@ impl ReadConnection {
 /// wrappers close. No raw statement/connection escape can detach those engine handles from it.
 pub struct Rows {
     inner: turso::Rows,
+    recovery_fence: Option<Arc<Fence>>,
+    recovery_barrier: Option<RecoveryBarrier>,
+    write_proof: Option<WriteProof>,
     // Keep last: the statement and its engine handles must close before releasing ownership.
     _owner: Arc<OwnerLock>,
 }
 
 impl Rows {
     pub async fn next(&mut self) -> Result<Option<Row>, StoreFault> {
+        if let Some(barrier) = &self.recovery_barrier {
+            barrier.verify()?;
+        }
+        if let Some(proof) = &self.write_proof {
+            proof.verify()?;
+        }
+        if let Some(fence) = &self.recovery_fence {
+            fence.verify()?;
+        }
         Ok(self.inner.next().await?)
     }
 
@@ -369,6 +634,35 @@ impl Rows {
     pub fn columns(&self) -> Vec<turso::Column> {
         self.inner.columns()
     }
+}
+
+async fn recovery_token(conn: &Connection) -> Result<Option<Token>, StoreFault> {
+    if sql::scalar_integer(
+        conn,
+        "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='cantos_recovery_state'",
+        (),
+    )
+    .await?
+        == 0
+    {
+        return Ok(None);
+    }
+    let mut rows = conn
+        .query(
+            "SELECT instance,revision FROM cantos_recovery_state WHERE singleton=1",
+            (),
+        )
+        .await?;
+    let Some(row) = rows.next().await? else {
+        return Ok(None);
+    };
+    let bytes = sql::blob(&row, 0)?;
+    let instance: [u8; 16] = bytes.try_into().map_err(|_| StoreFault::Corrupt)?;
+    let revision = sql::integer(&row, 1)?;
+    if instance == [0; 16] || revision < 1 {
+        return Err(StoreFault::Corrupt);
+    }
+    Ok(Some(Token { instance, revision }))
 }
 
 /// `create_dir` reserves this destination across tasks/processes before waiting for the writer.

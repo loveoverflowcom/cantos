@@ -187,6 +187,61 @@ class Journey:
         self.session(401)
         return ["revoked-session-denied"]
 
+    def recovery_accounts(self):
+        self.recovery_users = {}
+        for kind in ('disabled','positive'):
+            login = {'email':'recovery-'+kind+'@example.test','password':'Synthetic-recovery-only-83!'}
+            self.http('POST',self.base+'signup',202,{'email':login['email']})
+            message=email.message_from_bytes(self.sink.messages.get(timeout=15),policy=email.policy.default)
+            link=re.search(r'https://theatre\.example\.test/signup#[^\s]+',message.get_content())
+            check(link is not None,'recovery-real-smtp-proof')
+            parts=urllib.parse.parse_qs(urllib.parse.urlsplit(link[0]).fragment,strict_parsing=True)
+            self.http('POST',self.base+'signup/complete',200,{'operation_id':parts['operation'][0],
+                'proof_id':parts['proof'][0],'proof_secret':parts['secret'][0],
+                'password':login['password'],'explicit_confirmation':True})
+            pair,_=self.http('POST',self.base+'login',200,login)
+            self.recovery_users[kind]={'login':login,'pair':pair}
+        return ['recovery-real-smtp-disabled-and-unaffected-accounts']
+
+    def recovery_session(self,pair,expected):
+        self.http('GET',self.base+'session',expected,headers={'Authorization':'Bearer '+pair['access_token']})
+
+    def recovery_revoked(self):
+        self.session(401)
+        self.http('POST',self.base+'refresh',401,{key:self.pair[key] for key in ('refresh_token','session_id')})
+        self.http('GET','/api/v1/theatre/identity/session',401,headers=self.revoked_browser)
+
+    def recovery_current_security(self):
+        self.recovery_revoked()
+        disabled=self.recovery_users['disabled']
+        self.http('POST',self.base+'login',401,disabled['login'])
+        self.recovery_session(disabled['pair'],401)
+        self.recovery_session(self.recovery_users['positive']['pair'],200)
+        return ['post-cut-logout-refresh-disabled-account-denied','unaffected-current-account-positive']
+
+    def recovery_after(self):
+        self.recovery_revoked()
+        disabled=self.recovery_users['disabled']
+        self.http('POST',self.base+'login',401,disabled['login'])
+        self.recovery_session(disabled['pair'],401)
+        positive=self.recovery_users['positive']
+        self.recovery_session(positive['pair'],401)
+        self.positive_after,_=self.http('POST',self.base+'login',200,positive['login'])
+        self.recovery_session(self.positive_after,200)
+        return ['restored-logout-and-refresh-stay-denied','restored-disabled-account-new-login-denied',
+                'old-unaffected-family-retired','valid-unaffected-new-login-after-reconciliation']
+
+    def recovery_after_restart(self):
+        self.recovery_revoked()
+        self.http('POST',self.base+'login',401,self.recovery_users['disabled']['login'])
+        self.recovery_session(self.positive_after,200)
+        old=self.positive_after
+        self.positive_after,_=self.http('POST',self.base+'refresh',200,
+            {key:old[key] for key in ('refresh_token','session_id')})
+        self.recovery_session(self.positive_after,200)
+        return ['reconciled-revocations-survive-restart','ordinary-restart-keeps-valid-session',
+                'valid-refresh-after-recovery-and-restart']
+
     def unavailable(self):
         # Identity unavailable must never grant a session, even with a valid password.
         self.http("POST", self.base + "login", 503, self.login)
@@ -224,7 +279,8 @@ def main():
             action = request["action"]
             if action == "isolation":
                 checks = journey.isolation(request["host_port"])
-            elif action in ("health", "signup", "persisted", "historical_state", "revoke", "unavailable", "denied_peer"):
+            elif action in ("health", "signup", "persisted", "historical_state", "revoke", "unavailable", "denied_peer",
+                            "recovery_accounts","recovery_current_security","recovery_after","recovery_after_restart"):
                 checks = getattr(journey, action)()
             elif action == "revoked":
                 journey.session(401)

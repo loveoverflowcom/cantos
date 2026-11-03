@@ -123,8 +123,9 @@ class ProducerContract(unittest.TestCase):
         git(self.root, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
             'commit', '-aqm', 'actual source and policy')
         actual = build.compatibility(self.root, git(self.root, 'rev-parse', 'HEAD'))
-        self.assertEqual(actual['server_schema'], 'server-turso-epoch-1-v35')
-        self.assertEqual(actual['identity_schema'], 'identity-migrations-v4')
+        self.assertEqual(actual['server_schema'], 'server-turso-epoch-1-v36')
+        self.assertEqual(actual['identity_schema'], 'identity-migrations-v7')
+        self.assertEqual(actual['security_state'], 'identity-security-store-v1-recovery-fence-v1')
 
     def test_host_bundle_has_only_committed_host_assets_with_git_modes(self):
         names = {name: mode for name, _, mode in build.host_members(self.root, self.sha)}

@@ -11,6 +11,8 @@ description = "Cantos native Identity: security-state kernels, credentials and t
 persistence = ["dep:cantos-store-turso", "dep:getrandom", "dep:sha2", "dep:subtle", "dep:zeroize"]
 # Explicit xtask development composition only. OCI builds select `service` without this.
 local-development = ["service"]
+# Privileged disposable fixture writer, excluded from service-only runtime images.
+recovery-testing = ["persistence", "dep:tokio", "dep:serde_json"]
 # Credentials, mail, private RPC and the `cantos-identity` executable. Never part of the default
 # pure core, so Kani and `cargo test -p cantos-identity` keep their dependency-free build.
 service = [
@@ -64,6 +66,11 @@ tower = { version = "=0.5.2", default-features = false, features = ["util"] }
 name = "cantos-identity"
 path = "src/bin/cantos-identity.rs"
 required-features = ["service"]
+
+[[bin]]
+name = "cantos-identity-recovery-fixture"
+path = "src/bin/cantos-identity-recovery-fixture.rs"
+required-features = ["recovery-testing"]
 
 [lints.rust]
 # Kani injects its crate only for cfg(kani); normal builds have no verifier dependency.

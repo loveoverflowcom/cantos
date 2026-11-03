@@ -14,6 +14,41 @@ import release_native_forward as forward
 import release_oci as oci
 
 
+def fenced_views(fixture, request, service, container):
+    """Validate the fixture-only security binds before the legacy adapter sees its view.
+
+    These exact two extra binds are derived from this disposable fixture, never from an
+    operator request. The production adapter's closed mount allowlist remains unchanged.
+    """
+    if not fixture.fenced_images():
+        return request, container
+    extra = [(str(fixture.fences[service]), '/fence', False),
+             (str(fixture.exposure_dir), '/recovery', True)]
+    for item in request['mounts'][service]:
+        oci.fields(item, 'source destination read_only', 'fixture exact mount fields required')
+        contract.require(type(item['read_only']) is bool, 'fixture exact mount policy required')
+    planned = [(item['source'], item['destination'], item['read_only']) for item in request['mounts'][service]]
+    actual = []
+    for item in container['Mounts']:
+        contract.require(item.get('Type') == 'bind' and type(item.get('RW')) is bool,
+                         'fixture security mounts require exact binds')
+        actual.append((item['Source'], item['Destination'], not item['RW']))
+    contract.require(sorted(actual) == sorted(planned) and all(planned.count(item) == 1 for item in extra),
+                     'fixture security mount inventory mismatch')
+    prefix = 'CANTOS_SERVER' if service == 'cantos-server' else 'CANTOS_IDENTITY'
+    expected = {prefix+'_RECOVERY_FENCE':'/fence/current',
+                'CANTOS_RECOVERY_BARRIER':'/recovery/barrier',
+                'CANTOS_RECOVERY_OPERATION':fixture.recovery_operation}
+    environment = container['Config'].get('Env', [])
+    contract.require(all([entry.split('=', 1)[1] for entry in environment if entry.startswith(key+'=')] == [value]
+                         for key, value in expected.items()), 'fixture security environment mismatch')
+    base = {**request, 'mounts':{**request['mounts'], service:[item for item in request['mounts'][service]
+            if (item['source'], item['destination'], item['read_only']) not in extra]}}
+    view = {**container, 'Mounts':[item for item in container['Mounts']
+            if (item['Source'], item['Destination'], not item['RW']) not in extra]}
+    return base, view
+
+
 def run(fixture):
     f = fixture
     name = f.prefix+'-bridge'
@@ -40,8 +75,17 @@ def run(fixture):
                    'mounts': {s: [{'source': str(f.databases[s]), 'destination': '/database', 'read_only': False},
                                   {'source': str(f.socket_dir), 'destination': '/identity', 'read_only': s == 'cantos-server'}]
                               for s in oci.SERVICES}}
+        if f.fenced_images():
+            for service in oci.SERVICES:
+                request['mounts'][service] += [
+                    {'source':str(f.fences[service]),'destination':'/fence','read_only':False},
+                    {'source':str(f.exposure_dir),'destination':'/recovery','read_only':True}]
 
         class FixtureSystem(migration.AdoptionSystem):
+            def check_container(self, request, service, container, images):
+                base, view = fenced_views(f, request, service, container)
+                super().check_container(base, service, view, images)
+
             def inspect(self, service):
                 return json.loads(f.pod('inspect', names[service]))[0]
 
@@ -79,6 +123,10 @@ def run(fixture):
         # unit and host-identity seams remain fixture doubles, so this is explicitly not a
         # full systemd or transition-executor qualification.
         class FixtureForwardSystem(forward.ForwardSystem):
+            def check_container(self, request, service, container, images):
+                base, view = fenced_views(f, request, service, container)
+                super().check_container(base, service, view, images)
+
             def host_identity(self, request, release):
                 pass
 

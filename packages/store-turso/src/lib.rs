@@ -16,6 +16,7 @@
 pub mod capability;
 pub mod clock;
 pub mod error;
+pub mod recovery;
 pub mod registry;
 pub mod value;
 

@@ -1,4 +1,4 @@
-//! Exact v27 prefix to v35 on real Turso. Synthetic files only, never live restore evidence.
+//! Exact v27 prefix to v36 on real Turso. Synthetic files only, never live restore evidence.
 use super::{
     historical::{history_of, owner_values},
     *,
@@ -110,8 +110,8 @@ async fn snapshot(owner: &OwnedDatabase, tables: &[String]) -> BTreeMap<String, 
 }
 
 #[tokio::test]
-async fn v27_to_v35_preserves_every_baseline_table_and_revocation_and_is_repeatable() {
-    let run = TestRun::new("historical-v27-v35");
+async fn v27_to_v36_preserves_every_baseline_table_and_revocation_and_is_repeatable() {
+    let run = TestRun::new("historical-v27-v36");
     let path = run.path("server.db");
     let old = OwnedDatabase::open(OpenRequest::new(&path, v27(), Intent::Migrate, clock()))
         .await
@@ -127,7 +127,7 @@ async fn v27_to_v35_preserves_every_baseline_table_and_revocation_and_is_repeata
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 27,
-            latest: 35
+            latest: 36
         }))
     );
     assert_eq!(bytes(&path), unchanged);
@@ -136,7 +136,7 @@ async fn v27_to_v35_preserves_every_baseline_table_and_revocation_and_is_repeata
         current.owner().check_integrity().await.unwrap();
         assert_eq!(snapshot(current.owner(), &tables).await, before);
         let applied = history_of(current.owner()).await;
-        assert_eq!(applied.len(), 35);
+        assert_eq!(applied.len(), 36);
         assert_eq!(applied[..27], history);
         assert_eq!(
             values(&current, "SELECT active FROM actors WHERE id='bob'").await,
@@ -186,7 +186,7 @@ async fn v27_to_v35_preserves_every_baseline_table_and_revocation_and_is_repeata
         Err(error) => assert_eq!(
             error,
             OpenError::Refused(Refusal::NewerThanBinary {
-                applied: 35,
+                applied: 36,
                 known: 27
             })
         ),
@@ -196,8 +196,8 @@ async fn v27_to_v35_preserves_every_baseline_table_and_revocation_and_is_repeata
 }
 
 #[tokio::test]
-async fn v35_failure_keeps_committed_prefix_and_data_without_claiming_completion() {
-    let run = TestRun::new("historical-v35-failure");
+async fn v36_failure_keeps_committed_prefix_and_data_without_claiming_completion() {
+    let run = TestRun::new("historical-v36-failure");
     let path = run.path("server.db");
     let old = OwnedDatabase::open(OpenRequest::new(&path, v27(), Intent::Migrate, clock()))
         .await
@@ -245,7 +245,7 @@ async fn v35_failure_keeps_committed_prefix_and_data_without_claiming_completion
 
 #[tokio::test]
 async fn v32_failure_retains_the_completed_suffix_and_never_permits_image_only_rollback() {
-    let run = TestRun::new("historical-v35-partial-failure");
+    let run = TestRun::new("historical-v36-partial-failure");
     let path = run.path("server.db");
     let old = OwnedDatabase::open(OpenRequest::new(&path, v27(), Intent::Migrate, clock()))
         .await
@@ -311,7 +311,7 @@ async fn v32_failure_retains_the_completed_suffix_and_never_permits_image_only_r
 /// lacks post-cut revocation. Running all new DDL cannot reconstruct that missing fact.
 #[tokio::test]
 async fn migrating_a_stale_copy_cannot_reconstruct_post_cut_revocation() {
-    let run = TestRun::new("historical-v35-recovery-counterexample");
+    let run = TestRun::new("historical-v36-recovery-counterexample");
     let live_root = run.path("live");
     let copy_root = run.path("stale");
     std::fs::DirBuilder::new()
@@ -356,7 +356,7 @@ async fn migrating_a_stale_copy_cannot_reconstruct_post_cut_revocation() {
     );
     let stale = open(&copy, Intent::Migrate).await.unwrap();
     stale.owner().check_integrity().await.unwrap();
-    assert_eq!(history_of(stale.owner()).await.len(), 35);
+    assert_eq!(history_of(stale.owner()).await.len(), 36);
     // This demonstrates the unsafe state. It must never be labelled restore PASS.
     assert_eq!(
         values(

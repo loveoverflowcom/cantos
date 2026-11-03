@@ -241,6 +241,46 @@ mod tests {
     }
 
     #[test]
+    fn recovery_owner_lane_keeps_the_canonical_gate_and_read_only_boundary() {
+        let workspace = Workspace::discover().unwrap();
+        let workflow =
+            std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
+                .unwrap();
+        let job = workflow
+            .split_once("  recovery-owner-linux:\n")
+            .expect("the independent recovery owner lane exists")
+            .1
+            .split_once("  forge-probe-linux:\n")
+            .unwrap()
+            .0;
+        for required in [
+            "runs-on: ubuntu-24.04",
+            "timeout-minutes: 20",
+            "permissions:\n      contents: read",
+            "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+            "persist-credentials: false",
+            "run: rustup show active-toolchain",
+            "run: cargo xtask verify turso",
+            "cargo clippy -p cantos-identity --features recovery-testing --all-targets --locked -- -D warnings",
+        ] {
+            assert!(job.contains(required), "missing {required}");
+        }
+        for forbidden in [
+            "needs:",
+            "secrets.",
+            "id-token:",
+            "packages: write",
+            "continue-on-error:",
+            "--skip",
+            "--publish",
+            "firebase deploy",
+            "sysctl",
+        ] {
+            assert!(!job.contains(forbidden), "forbidden {forbidden}");
+        }
+    }
+
+    #[test]
     fn the_workflow_calls_each_job_through_xtask() {
         let workspace = Workspace::discover().unwrap();
         let workflow =
@@ -257,8 +297,8 @@ mod tests {
             workflow
                 .matches("run: rustup show active-toolchain")
                 .count(),
-            CiJob::ALL.len() + 2,
-            "every job, including the two qualification lanes, must select rust-toolchain.toml"
+            CiJob::ALL.len() + 3,
+            "every job, including all three independent qualification lanes, must select rust-toolchain.toml"
         );
         assert!(
             !workflow.contains("RUSTUP_TOOLCHAIN:"),

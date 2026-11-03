@@ -8,7 +8,8 @@ use std::{env, fs::File, io::Read};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The operator owns server.db for the command's duration: stop the Server first.
     let path = env::var_os("CANTOS_SERVER_DATABASE").ok_or("CANTOS_SERVER_DATABASE is required")?;
-    let store = Store::open(path, Intent::Serve).await?;
+    let fence = env::var_os("CANTOS_SERVER_RECOVERY_FENCE").map(std::path::PathBuf::from);
+    let store = Store::open_with_recovery(path, Intent::Serve, fence, None).await?;
     let args: Vec<String> = env::args().skip(1).collect();
     match args
         .iter()

@@ -46,8 +46,8 @@ fn announce(readiness: Readiness) {
 }
 
 fn main() -> ExitCode {
-    let mut arguments = std::env::args().skip(1);
-    let (Some(command), None) = (arguments.next(), arguments.next()) else {
+    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    let Some(command) = arguments.first() else {
         return fail(2, &"usage: cantos-identity <migrate|check|serve>");
     };
     let runtime = match tokio::runtime::Builder::new_multi_thread()
@@ -57,6 +57,26 @@ fn main() -> ExitCode {
         Ok(runtime) => runtime,
         Err(_) => return fail(1, &"async runtime unavailable"),
     };
+    if command.starts_with("recovery-") {
+        let command = match cantos_identity::recovery::Command::parse(&arguments) {
+            Ok(command) => command,
+            Err(error) => return fail(2, &error),
+        };
+        let config = match MigrateConfig::from_lookup(lookup) {
+            Ok(config) => config,
+            Err(error) => return fail(2, &error),
+        };
+        return match runtime.block_on(cantos_identity::recovery::run(&config, command)) {
+            Ok(receipt) => {
+                println!("{receipt}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => fail(1, &error),
+        };
+    }
+    if arguments.len() != 1 {
+        return fail(2, &"unexpected command arguments");
+    }
     match command.as_str() {
         "migrate" | "check" => {
             let config = match MigrateConfig::from_lookup(lookup) {

@@ -24,7 +24,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `cantos-migrate` is the explicit operator action that creates or upgrades it.
     let database =
         env::var_os("CANTOS_SERVER_DATABASE").ok_or("CANTOS_SERVER_DATABASE is required")?;
-    let mut store = Store::open(database, cantos_store_turso::registry::Intent::Serve).await?;
+    let fence = env::var_os("CANTOS_SERVER_RECOVERY_FENCE").map(std::path::PathBuf::from);
+    let barrier_path = env::var_os("CANTOS_RECOVERY_BARRIER").map(std::path::PathBuf::from);
+    let operation = env::var("CANTOS_RECOVERY_OPERATION").ok();
+    let barrier = match (fence.as_ref(), barrier_path, operation) {
+        (Some(_), Some(path), Some(operation)) => Some(cantos_store_turso::recovery::RecoveryBarrier::from_hex(path, &operation, 0)
+            .map_err(|_| "invalid recovery barrier configuration")?),
+        (None, None, None) if host.mode() == HostMode::Development => None,
+        _ => return Err("production requires CANTOS_SERVER_RECOVERY_FENCE, CANTOS_RECOVERY_BARRIER and CANTOS_RECOVERY_OPERATION".into()),
+    };
+    let mut store = Store::open_with_recovery(
+        database,
+        cantos_store_turso::registry::Intent::Serve,
+        fence,
+        barrier,
+    )
+    .await?;
     if !host.development_sessions() {
         store = store.without_development_sessions();
     }
@@ -71,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_origin_publication(runtime.storage);
         (publication, runtime.playback)
     });
+    let quiesce = state.store.clone();
     let app = server_router(state, host.origins(), host.web_dist(), public_media);
     let listener = tokio::net::TcpListener::bind(address).await?;
     match host.mode() {
@@ -83,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .with_graceful_shutdown(shutdown_signal())
     .await?;
+    quiesce.finish_pending_writes().await?;
     Ok(())
 }
 

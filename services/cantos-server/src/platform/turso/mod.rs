@@ -22,7 +22,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 35] = [
+pub(crate) const MIGRATIONS: [Migration; 36] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -201,6 +201,11 @@ pub(crate) const MIGRATIONS: [Migration; 35] = [
         name: "server_catalog_unit_viewer_access",
         sql: include_str!("catalog_unit_viewer_access.sql"),
     },
+    Migration {
+        version: 36,
+        name: "server_owner_recovery_fence",
+        sql: cantos_store_turso::recovery::RECOVERY_SCHEMA,
+    },
 ];
 
 /// The one `server.db` registry. Migration and serving compositions must share it.
@@ -240,8 +245,21 @@ impl ServerDatabase {
         intent: Intent,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServerDatabaseError> {
+        Self::open_with_recovery(path, intent, clock, None, None).await
+    }
+
+    pub async fn open_with_recovery(
+        path: impl Into<PathBuf>,
+        intent: Intent,
+        clock: Arc<dyn Clock>,
+        fence: Option<PathBuf>,
+        barrier: Option<cantos_store_turso::recovery::RecoveryBarrier>,
+    ) -> Result<Self, ServerDatabaseError> {
         let schema = registry().map_err(|_| ServerDatabaseError::InvalidRegistry)?;
-        let owner = OwnedDatabase::open(OpenRequest::new(path, schema, intent, clock.clone()))
+        let mut request = OpenRequest::new(path, schema, intent, clock.clone());
+        request.recovery_fence = fence;
+        request.recovery_barrier = barrier;
+        let owner = OwnedDatabase::open(request)
             .await
             .map_err(ServerDatabaseError::Open)?;
         Ok(Self {

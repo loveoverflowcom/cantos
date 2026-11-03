@@ -70,21 +70,31 @@ impl std::error::Error for RunError {}
 
 /// Opens (and on first use initializes) the database. Never runs implicitly from `serve`.
 pub async fn run_migrate(config: &MigrateConfig) -> Result<(), RunError> {
-    IdentityStore::open(&config.database, Intent::Migrate, Arc::new(SystemClock))
-        .await
-        .map(|_| ())
-        .map_err(|error| {
-            events::emit("migrate_failed", store_reason(&error));
-            RunError::Database
-        })
+    IdentityStore::open_with_recovery_fence(
+        &config.database,
+        Intent::Migrate,
+        Arc::new(SystemClock),
+        config.recovery_fence.clone(),
+    )
+    .await
+    .map(|_| ())
+    .map_err(|error| {
+        events::emit("migrate_failed", store_reason(&error));
+        RunError::Database
+    })
 }
 
 /// Verify the existing Identity registry, initialized epoch and engine integrity without
 /// migrations, mailbox delivery or opening a socket. Both owners must be stopped first.
 pub async fn run_check(config: &MigrateConfig) -> Result<(), RunError> {
-    let store = IdentityStore::open(&config.database, Intent::Serve, Arc::new(SystemClock))
-        .await
-        .map_err(|_| RunError::Database)?;
+    let store = IdentityStore::open_with_recovery_fence(
+        &config.database,
+        Intent::Serve,
+        Arc::new(SystemClock),
+        config.recovery_fence.clone(),
+    )
+    .await
+    .map_err(|_| RunError::Database)?;
     store
         .check_integrity()
         .await
@@ -235,12 +245,18 @@ pub struct Readiness {
 /// happens here, before the socket exists.
 pub async fn compose(config: &ServeConfig) -> Result<(Arc<IdentityService>, Readiness), RunError> {
     let clock: Arc<dyn cantos_store_turso::clock::Clock> = Arc::new(SystemClock);
-    let store = IdentityStore::open(&config.database, Intent::Serve, Arc::clone(&clock))
-        .await
-        .map_err(|error| {
-            events::emit("open_failed", store_reason(&error));
-            RunError::Database
-        })?;
+    let store = IdentityStore::open_with_recovery(
+        &config.database,
+        Intent::Serve,
+        Arc::clone(&clock),
+        config.recovery_fence.clone(),
+        config.recovery_barrier.clone(),
+    )
+    .await
+    .map_err(|error| {
+        events::emit("open_failed", store_reason(&error));
+        RunError::Database
+    })?;
     let mail_configured = config.smtp.is_some() || config.firebase.is_some();
     let mailer: Arc<dyn Mailer> = match &config.smtp {
         Some(smtp) => Arc::new(SmtpMailer::new(smtp.clone()).map_err(|_| RunError::Configuration)?),
@@ -315,6 +331,7 @@ pub async fn run_serve(
             }
         }
     });
+    let quiesce = service.clone();
     let rpc = IdentityServer::new(IdentityRpc::new(service, caller_policy))
         .max_decoding_message_size(MAX_MESSAGE_BYTES)
         .max_encoding_message_size(MAX_MESSAGE_BYTES);
@@ -347,7 +364,10 @@ pub async fn run_serve(
     let _ = stop.send(());
     let drained = tokio::time::timeout(policy::SHUTDOWN_DRAIN, server).await;
     match drained {
-        Ok(Ok(Ok(()))) => Ok(()),
+        Ok(Ok(Ok(()))) => quiesce
+            .finish_pending_writes()
+            .await
+            .map_err(|_| RunError::Database),
         Ok(_) => Err(RunError::Serve),
         Err(_) => {
             events::emit("drain_expired", "in-flight requests were abandoned");

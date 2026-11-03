@@ -155,9 +155,15 @@ immutable guards, bounded event pages, integer exhaustion,
 wrong-epoch/foreign-owner refusal and reopen have real pinned-engine tests.
 
 The signup extension below persists the credential. This shell does not implement general
-recovery/re-enable/delete policy, rotate an epoch on restore, provide authenticated RPC, consume events in Server
-or establish revocation propagation/login. A copied old file cannot identify its own restore;
-the explicit restore rotation and Server resync remain #334/#335/#336 acceptance, as do crash,
+recovery/re-enable/delete policy, provide authenticated RPC or consume events in Server.
+The explicit fenced epoch-rotation primitive and current-authority coordinator follow
+[ADR0058](../../docs/decisions/0058-fail-closed-native-recovery.md); ordinary reopen never rotates.
+The v7 migration retains an immutable epoch ledger for historical proof bindings rather than
+referencing only the mutable current epoch. It copies the dependent proof/signup/provider graph
+atomically without changing credentials, receipts or old bindings. New proof workflows still
+require the current epoch; retained old proofs acquire no new authority after rotation.
+A copied old file alone cannot identify its own restore. Exact-image/host recovery acceptance
+remains separate, as do crash,
 true ENOSPC, browser/device, footprint and actual D1 Kani proof evidence.
 
 ## File-backed mailbox proofs

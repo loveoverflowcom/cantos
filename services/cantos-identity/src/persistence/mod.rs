@@ -4,6 +4,8 @@
 pub mod firebase;
 mod mailbox;
 pub mod proofs;
+#[cfg(feature = "recovery-testing")]
+mod recovery_fixture;
 mod rows;
 pub mod signup;
 pub use proofs::{
@@ -35,7 +37,7 @@ use rows::{decode_epoch, decode_event, decode_receipt, decode_subject, integer, 
 /// Persisted ASCII `CNTI` marker. Never change it for an existing database.
 pub const IDENTITY_APPLICATION_ID: i32 = 0x434E_5449;
 
-const MIGRATIONS: [Migration; 4] = [
+const MIGRATIONS: [Migration; 7] = [
     Migration {
         version: 1,
         name: "identity_security_state",
@@ -55,6 +57,21 @@ const MIGRATIONS: [Migration; 4] = [
         version: 4,
         name: "identity_firebase_verification",
         sql: include_str!("firebase.sql"),
+    },
+    Migration {
+        version: 5,
+        name: "identity_owner_recovery_fence",
+        sql: cantos_store_turso::recovery::RECOVERY_SCHEMA,
+    },
+    Migration {
+        version: 6,
+        name: "identity_explicit_restore_epoch",
+        sql: include_str!("restore_epoch.sql"),
+    },
+    Migration {
+        version: 7,
+        name: "identity_historical_proof_epochs",
+        sql: include_str!("proof_epoch_history.sql"),
     },
 ];
 const RECEIPT_QUERY: &str = "SELECT operation_id,subject_id,kind,expected_version,committed_version,event_seq FROM operation_receipts WHERE operation_id=?1";
@@ -197,18 +214,44 @@ impl IdentityStore {
         self.database.check_integrity().await.map_err(Into::into)
     }
 
-    // ACCEPTANCE-PENDING(#334/#336): restore epoch rotation. A copied old file cannot identify
-    // its own restore, so a restored database keeps its epoch until the explicit rotation and the
-    // Server resync are accepted. No code here pretends that is done.
+    pub async fn finish_pending_writes(&self) -> Result<(), IdentityStoreError> {
+        self.database
+            .finish_pending_writes()
+            .await
+            .map_err(Into::into)
+    }
+
     /// Explicit migrate may initialize an empty Identity instance. Serve never creates a
-    /// schema or epoch. Ordinary reopen retains the epoch; restore rotation is not supplied.
+    /// schema or epoch. Ordinary reopen retains the epoch. Explicit fenced recovery is separate.
     pub async fn open(
         path: impl Into<PathBuf>,
         intent: Intent,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, IdentityStoreError> {
+        Self::open_with_recovery_fence(path, intent, clock, None).await
+    }
+
+    pub async fn open_with_recovery_fence(
+        path: impl Into<PathBuf>,
+        intent: Intent,
+        clock: Arc<dyn Clock>,
+        fence: Option<PathBuf>,
+    ) -> Result<Self, IdentityStoreError> {
+        Self::open_with_recovery(path, intent, clock, fence, None).await
+    }
+
+    pub async fn open_with_recovery(
+        path: impl Into<PathBuf>,
+        intent: Intent,
+        clock: Arc<dyn Clock>,
+        fence: Option<PathBuf>,
+        barrier: Option<cantos_store_turso::recovery::RecoveryBarrier>,
+    ) -> Result<Self, IdentityStoreError> {
         let schema = registry().map_err(|_| IdentityStoreError::InvalidRegistry)?;
-        let database = OwnedDatabase::open(OpenRequest::new(path, schema, intent, clock))
+        let mut request = OpenRequest::new(path, schema, intent, clock);
+        request.recovery_fence = fence;
+        request.recovery_barrier = barrier;
+        let database = OwnedDatabase::open(request)
             .await
             .map_err(IdentityStoreError::Open)?;
         let reader = database.reader().await?;
@@ -231,6 +274,78 @@ impl IdentityStore {
 
     pub const fn epoch(&self) -> InstanceEpoch {
         self.epoch
+    }
+
+    pub async fn recovery_observation(
+        &self,
+    ) -> Result<cantos_store_turso::recovery::RecoveryObservation, IdentityStoreError> {
+        self.database
+            .recovery_observation()
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn recovery_backup(
+        &self,
+        destination: &std::path::Path,
+    ) -> Result<cantos_store_turso::BackupReceipt, cantos_store_turso::BackupError> {
+        self.database.backup_to(destination).await
+    }
+
+    /// Explicit stopped-owner enrollment; never a serving or migration side effect.
+    pub async fn enroll_recovery_fence(
+        self,
+        path: &std::path::Path,
+    ) -> Result<Self, IdentityStoreError> {
+        Ok(Self {
+            database: self.database.enroll_recovery_fence(path).await?,
+            epoch: self.epoch,
+        })
+    }
+
+    /// Restore-only transition. The fenced current source must already be reconciled by the
+    /// external recovery coordinator. This primitive alone is not exposure authorization.
+    pub async fn rotate_restore_epoch(
+        mut self,
+        operation: OperationId,
+        expected: InstanceEpoch,
+    ) -> Result<Self, IdentityStoreError> {
+        use cantos_store_turso::recovery::RecoveryFault;
+        if !self.database.has_recovery_fence() {
+            return Err(
+                cantos_store_turso::error::StoreFault::Recovery(RecoveryFault::Unenrolled).into(),
+            );
+        }
+        let mut bytes = [0; 16];
+        getrandom::fill(&mut bytes).map_err(|_| IdentityStoreError::EntropyUnavailable)?;
+        let next =
+            InstanceEpoch::from_bytes(bytes).map_err(|_| IdentityStoreError::EntropyUnavailable)?;
+        let tx = self.database.begin_write().await?;
+        let mut receipt = tx.query("SELECT previous_epoch,new_epoch FROM identity_restore_epochs WHERE operation_id=?1", [operation.to_bytes().to_vec()]).await?;
+        if let Some(row) = receipt.next().await? {
+            let previous = rows::bytes(&row, 0)?;
+            let current = rows::bytes(&row, 1)?;
+            drop(receipt);
+            tx.rollback().await?;
+            if previous != expected.to_bytes() || current != self.epoch.to_bytes() {
+                return Err(IdentityStoreError::OperationReused);
+            }
+            return Ok(self);
+        }
+        drop(receipt);
+        if self.epoch != expected {
+            tx.rollback().await?;
+            return Err(IdentityStoreError::EpochChanged);
+        }
+        let result = async {
+            tx.execute("INSERT INTO identity_restore_epochs(operation_id,previous_epoch,new_epoch) VALUES(?1,?2,?3)",
+                params_from_iter([Value::Blob(operation.to_bytes().to_vec()), Value::Blob(expected.to_bytes().to_vec()), Value::Blob(bytes.to_vec())])).await?;
+            tx.execute("UPDATE identity_instance SET instance_epoch=?1 WHERE singleton=1", [bytes.to_vec()]).await?;
+            Ok(next)
+        }.await;
+        let next = finish(tx, result).await?;
+        self.epoch = next;
+        Ok(self)
     }
 
     pub async fn subject(
@@ -491,6 +606,9 @@ async fn initialize_instance(
 
 #[cfg(test)]
 mod file_tests;
+
+#[cfg(test)]
+mod recovery_tests;
 
 #[cfg(test)]
 mod row_tests;

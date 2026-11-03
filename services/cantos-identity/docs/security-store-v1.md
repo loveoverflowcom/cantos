@@ -35,8 +35,10 @@ ACK protocol is supplied by this slice.
 static migration first, then initializes an OS-random epoch in a guarded transaction only when
 all service tables are empty. A crash between those stages leaves an uninitialized file which
 Serve refuses and explicit Migrate may finish. Ordinary reopen preserves the epoch; data without
-the metadata is corruption. A restore cannot be detected from that file alone. Epoch rotation
-and Server full resync are still required future acceptance, not implicit startup behavior.
+the metadata is corruption. A restore cannot be detected from that file alone.
+[ADR0058](../../../docs/decisions/0058-fail-closed-native-recovery.md) adds explicit owner-fenced
+recovery primitives and current-authority reconciliation; ordinary startup still never rotates
+the epoch. Exact-image and production recovery acceptance remain separate.
 
 All mutations require the expected instance epoch before writer acquisition or receipt replay:
 

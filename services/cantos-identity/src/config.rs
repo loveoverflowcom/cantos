@@ -14,6 +14,9 @@ pub const SOCKET_MODE: &str = "CANTOS_IDENTITY_SOCKET_MODE";
 pub const SERVER_UIDS: &str = "CANTOS_IDENTITY_SERVER_UIDS";
 pub const SIGNUP_LINK_BASE: &str = "CANTOS_IDENTITY_SIGNUP_LINK_BASE";
 pub const MAIL_PROVIDER: &str = "CANTOS_IDENTITY_MAIL_PROVIDER";
+pub const RECOVERY_FENCE: &str = "CANTOS_IDENTITY_RECOVERY_FENCE";
+pub const RECOVERY_BARRIER: &str = "CANTOS_RECOVERY_BARRIER";
+pub const RECOVERY_OPERATION: &str = "CANTOS_RECOVERY_OPERATION";
 
 /// The mail capability selected by [`MAIL_PROVIDER`], parsed once so the validation here and the
 /// Firebase adapter's emulator decision cannot disagree on a spelling.
@@ -75,11 +78,14 @@ impl SocketMode {
 #[derive(Clone, Debug)]
 pub struct MigrateConfig {
     pub database: PathBuf,
+    pub recovery_fence: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ServeConfig {
     pub database: PathBuf,
+    pub recovery_fence: Option<PathBuf>,
+    pub recovery_barrier: Option<cantos_store_turso::recovery::RecoveryBarrier>,
     pub socket: PathBuf,
     pub socket_mode: SocketMode,
     pub server_uids: BTreeSet<u32>,
@@ -100,12 +106,23 @@ fn absolute_path(
     Ok(path)
 }
 
+fn optional_path(
+    name: &'static str,
+    lookup: &mut impl FnMut(&str) -> Option<String>,
+) -> Result<Option<PathBuf>, ConfigError> {
+    match lookup(name) {
+        None => Ok(None),
+        Some(value) => absolute_path(name, &mut |_| Some(value.clone())).map(Some),
+    }
+}
+
 impl MigrateConfig {
     pub fn from_lookup(
         mut lookup: impl FnMut(&str) -> Option<String>,
     ) -> Result<Self, ConfigError> {
         Ok(Self {
             database: absolute_path(DATABASE, &mut lookup)?,
+            recovery_fence: optional_path(RECOVERY_FENCE, &mut lookup)?,
         })
     }
 }
@@ -136,6 +153,22 @@ impl ServeConfig {
             }
         }
         let database = absolute_path(DATABASE, &mut lookup)?;
+        let production = match lookup("CANTOS_ENV").as_deref() {
+            None | Some("development") => false,
+            Some("production") => true,
+            Some(_) => return Err(ConfigError::Invalid("CANTOS_ENV")),
+        };
+        let recovery_fence = optional_path(RECOVERY_FENCE, &mut lookup)?;
+        let barrier = optional_path(RECOVERY_BARRIER, &mut lookup)?;
+        let operation = lookup(RECOVERY_OPERATION);
+        let recovery_barrier = match (recovery_fence.as_ref(), barrier, operation) {
+            (Some(_), Some(path), Some(operation)) => Some(
+                cantos_store_turso::recovery::RecoveryBarrier::from_hex(path, &operation, 0)
+                    .map_err(|_| ConfigError::Invalid(RECOVERY_OPERATION))?,
+            ),
+            (None, None, None) if !production => None,
+            _ => return Err(ConfigError::Missing(RECOVERY_FENCE)),
+        };
         let socket = absolute_path(SOCKET, &mut lookup)?;
         let socket_mode = match lookup(SOCKET_MODE).as_deref() {
             None | Some("0600") => SocketMode::OwnerOnly,
@@ -209,6 +242,8 @@ impl ServeConfig {
             };
         Ok(Self {
             database,
+            recovery_fence,
+            recovery_barrier,
             socket,
             socket_mode,
             server_uids,

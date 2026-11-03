@@ -41,6 +41,8 @@ impl GuardCode {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StoreFault {
+    /// Independent freshness authority is unavailable, uncertain or disagrees with this file.
+    Recovery(crate::recovery::RecoveryFault),
     /// Another connection holds the write lock; nothing was changed.
     Busy,
     /// A deferred transaction read an older snapshot than the current writer; retry whole.
@@ -67,6 +69,7 @@ pub enum StoreFault {
 impl fmt::Display for StoreFault {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
+            Self::Recovery(_) => "database recovery reconciliation is required",
             Self::Busy => "the database write lock is busy",
             Self::StaleSnapshot => "the transaction snapshot is stale",
             Self::Constraint { .. } => "a database constraint rejected the change",

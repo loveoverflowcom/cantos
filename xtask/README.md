@@ -226,13 +226,27 @@ They default to a host-local read-only plan and require separate pinned approval
 execution for mutations. Pre-start restore and post-start forward reconciliation are distinct.
 File and fake-host tests do not qualify the executor or authorize production.
 
+`cargo xtask release native-migrate-v36` is the separate initial v27/Identity4 to
+v36/Identity7 lane. It accepts the same pinned request/inventory/executor/approval inputs,
+defaults to an offline plan, and requires independent exact-image and real systemd executor
+receipts. Its [contract](../docs/deployment/native-forward-v36.md) preserves the current pair,
+adds only the approved per-owner floors/read-only exposure mounts, and removes implicit startup
+migration. From migration intent onward, recovery is forward-only. An interrupted execution
+refuses ordinary replay; `--resume-forward` additionally requires `--resume-approval`,
+`--resume-approval-digest`, `--resume-inventory` and `--resume-inventory-digest`. It never restores
+old files, resets a floor or rotates an epoch during an ordinary upgrade. Builds, gates and
+preflight never activate a real host.
+Before migration intent only, the separately approved `--abort-before-migrate` uses the same
+four fresh recovery input flags to check and resume the unchanged unenrolled old pair. It
+installs no database copy and leaves the generation unchanged; any migration intent refuses it.
+
 `cargo xtask release native-rehearse --manifest PATH --manifest-digest SHA256 --source-sha FULL_SHA
 --configuration-digest SHA256 --platform P --baseline PATH --baseline-digest SHA256 --output FRESH_DIR
 [--authfile PATH]` runs the old and new exact pairs on disposable native Linux with synthetic
 data. It writes a separate historical upgrade/restore report; it never changes the four
 current-schema qualification records or supplies operator admission/live acceptance.
 
-`--transition v27-v35` selects the separate [v35 forward qualification](../docs/deployment/native-forward-v35.md)
+`--transition v27-v36` selects the separate [v36 forward qualification](../docs/deployment/native-forward-v36.md)
 from the pinned v27 image pair. It never restores a historical snapshot after start and does
 not implement host activation or discharge the independent recovery NO_GO. The corrected OCI
 restore gate refuses a pair that revives a session revoked after its backup cut.
