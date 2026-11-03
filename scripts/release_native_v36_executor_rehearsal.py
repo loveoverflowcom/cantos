@@ -44,7 +44,8 @@ def resume_inputs(request, raw, *, abort=False):
 def run(root,args):
     global PHASE
     # setup's strict probe refuses every pre-existing protected path/service before effects.
-    _,layout,old,new,_,_,_=fixture.setup(root,args,initial_v36=True)
+    _,layout,old,_,new,_,_=fixture.setup(root,args,initial_v36=True)
+    live.historical.transition(old,new)
     system=live.InitialSystem()
     PHASE='START_OLD_EXACT_PAIR'
     system.start(layout,old)

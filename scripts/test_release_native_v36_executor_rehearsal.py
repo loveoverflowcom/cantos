@@ -6,9 +6,23 @@ from unittest.mock import patch
 
 import release_native_v36_executor_rehearsal as rehearsal
 import release_native_v36_live as live
+from test_release_native_v36_rehearsal import pair
 
 
 class DisposableBoundary(unittest.TestCase):
+    def test_initial_fixture_target_is_the_manifest_not_the_running_baseline(self):
+        old,new=pair()
+        layout={'fixture':'synthetic host boundary'}
+        # setup returns system/layout/previous/running/TARGET/history/marker. For this
+        # initial lane the first two release values both name the old pair.
+        with patch.object(rehearsal.fixture,'setup',return_value=(None,layout,old,old,new,{},b'marker')):
+            with patch.object(rehearsal.live,'InitialSystem') as factory:
+                system=factory.return_value
+                system.start.side_effect=RuntimeError('validated target reached old-start boundary')
+                with self.assertRaisesRegex(RuntimeError,'validated target reached'):
+                    rehearsal.run(Path('/fixture'),SimpleNamespace())
+                system.start.assert_called_once_with(layout,old)
+
     def test_untrusted_runner_refuses_before_source_reads_or_host_effects(self):
         with patch.object(rehearsal.fixture.probe,'preflight',side_effect=ValueError('not disposable')):
             with patch.object(rehearsal.fixture.qualify,'validate_input') as read:
