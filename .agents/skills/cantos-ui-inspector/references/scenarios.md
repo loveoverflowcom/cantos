@@ -15,7 +15,7 @@
 | reviewed scenario contracts | `.agents/skills/cantos-ui-inspector/scenarios/<id>.json` | Git, by a reviewed PR |
 | an unreviewed draft written during a run | `artifacts/ui-evidence/<run-id>/scenario-draft.json` | local only (`/artifacts/` is ignored) |
 | unreviewed scenarios kept between runs | `.local/ui-inspector/scenarios/<id>.json` — **only after** `.local/` is ignored | local only |
-| the binding of a run (origin, build, account alias, device) | the run's report | local; shared only with confirmation |
+| the binding of a run (origin, build, account alias, device) | the run's report | local; shared within the user's explicit task authorization |
 
 A scenario never contains an origin, build ID, account alias, credential or signed URL; those
 belong to a run.

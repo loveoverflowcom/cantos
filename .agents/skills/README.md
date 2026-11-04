@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Twenty skills shared by every agent runtime in this repository: nine **rule owners** and eleven
+Twenty-two skills shared by every agent runtime in this repository: nine **rule owners** and thirteen
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -26,6 +26,8 @@ cantos-ui-design                   ← shared UI policy: Material 3 Expressive, 
 task entrypoints (own a workflow and a report, never a rule):
 cantos-work-item                   ← deliver one work-plan item or issue end to end
 cantos-code-review                 ← read-only, assurance-first review of an existing change
+cantos-ui-capture                  ← current implementation screenshots, runtime provenance and coverage bundle
+cantos-ui-evidence-drive           ← resumable evidence upload/retrieval, readback and screen index
 cantos-ui-inspector                ← report-only, component-first UI/UX inspection with reusable scenarios
 cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
 cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
@@ -125,6 +127,8 @@ Passing it proves skill hygiene only.
 | light source/score/audio artifact audit and handoff integrity | [`cantos-story-audit`](cantos-story-audit/SKILL.md) |
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
+| capturing current Theatre Web, Theatre CMP or Studio Web UI without an audit | [`cantos-ui-capture`](cantos-ui-capture/SKILL.md) |
+| uploading/resuming a UI evidence bundle on Drive, maintaining its screen index or retrieving a pinned run | [`cantos-ui-evidence-drive`](cantos-ui-evidence-drive/SKILL.md) |
 | auditing UI/UX, inspecting components or comparing them with a requested design, and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
 | repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
@@ -138,6 +142,14 @@ regression, test defect or unknown) and a confirmed or bounded cause. It reads s
 to focused to deep depth (D0–D2, distinct from the L1–L5 layers), keeps full output in an ignored
 `artifacts/agent-runs/<run-id>/` record and removes its temporary instrumentation; it grants no
 repair authority and adds no status or gate.
+
+UI capture, Drive storage and inspection have separate deliverables. `cantos-ui-capture` records
+runtime pixels and honest coverage using the existing renderer tools; `cantos-ui-evidence-drive`
+stores/retrieves the same immutable bundle and maintains its index; `cantos-ui-inspector` audits
+the pinned images in existing mode when requested. A combined request composes them using the
+existing authorization. Neither upload success nor preview coverage accepts native/runtime or
+design fidelity. The [bundle contract](cantos-ui-capture/references/evidence-bundle.md) is shared
+by all three; this adds no capture runner or application API.
 
 The two focused-fix entrypoints locate the existing invariant owner and deliver minimal repairs
 with independent L1–L5 results; they add no rule owner or outward-action authority. Correct
