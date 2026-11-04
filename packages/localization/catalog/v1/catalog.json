@@ -6745,10 +6745,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đăng nhập Studio chưa khả dụng"
+          "text": "Đăng nhập chưa khả dụng"
         },
         "en": {
-          "text": "Studio sign-in is not available"
+          "text": "Studio sign-in unavailable"
         }
       }
     },
@@ -6757,10 +6757,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Máy chủ chưa cấu hình đăng nhập Studio hoặc chưa có danh sách tài khoản được phép, và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên. Bản nháp đang giữ trong phiên này vẫn còn."
+          "text": "Máy chủ chưa cấu hình đăng nhập Studio hoặc danh sách tài khoản được phép. Liên hệ quản trị viên; tải lại trang sau khi cấu hình được khắc phục."
         },
         "en": {
-          "text": "The server has no Studio sign-in or no list of allowed accounts configured, and there is no alternative sign-in. Contact an administrator. Drafts retained in this session are still here."
+          "text": "The server has no Studio sign-in or allowed-account list configured. Contact an administrator; reload the page after the configuration is fixed."
         }
       }
     },
@@ -6829,10 +6829,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không vào được Studio bằng tài khoản này"
+          "text": "Không vào được Studio"
         },
         "en": {
-          "text": "This account cannot enter Studio"
+          "text": "Studio access denied"
         }
       }
     },
@@ -6853,10 +6853,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa thể xác nhận phiên Studio"
+          "text": "Chưa xác nhận phiên"
         },
         "en": {
-          "text": "Your Studio session could not be confirmed"
+          "text": "Session not confirmed"
         }
       }
     },
@@ -6865,10 +6865,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Kiểm tra kết nối rồi thử lại. Bản nháp đang giữ trong phiên này vẫn còn."
+          "text": "Kiểm tra kết nối rồi đăng nhập bằng biểu mẫu bên dưới."
         },
         "en": {
-          "text": "Check your connection and try again. Drafts retained in this session are still here."
+          "text": "Check your connection, then sign in using the form below."
         }
       }
     },
@@ -6901,10 +6901,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Studio chưa nhận phiên đăng nhập"
+          "text": "Studio từ chối phiên"
         },
         "en": {
-          "text": "Studio did not accept this session"
+          "text": "Studio refused this session"
         }
       }
     },
@@ -6913,10 +6913,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tài khoản đã được xác nhận nhưng Studio vẫn từ chối dữ liệu. Đăng nhập lại; nếu vẫn lặp lại, xoá cookie của trang này rồi tải lại."
+          "text": "Studio vẫn từ chối dữ liệu của phiên này. Đăng nhập lại bằng biểu mẫu bên dưới; nếu vẫn lặp lại, hãy liên hệ quản trị viên."
         },
         "en": {
-          "text": "Your account was confirmed but Studio still refused the data. Sign in again; if it repeats, clear this site's cookies and reload."
+          "text": "Studio still refused data for this session. Sign in again using the form below; if it repeats, contact an administrator."
         }
       }
     },
