@@ -155,15 +155,17 @@ cannot fit. The drawer is `min(320px, viewport − 32px)` wide; Web has no botto
 Escape, Close, backdrop, selection and route/history changes close the drawer and release body
 scrolling. Crossing presentation modes also closes it and restores a visible navigation target;
 same-mode resizes preserve it. The current destination gets initial focus. Selected items use
-a filled indicator, bold label and check; keyboard focus has one flush perimeter with no gap.
+a filled indicator, bold label and `aria-current` without a decorative check; keyboard focus has
+one flush perimeter with no gap. The account destination is localized as Tôi/Me; a person's alias
+remains on the account card.
 
-Me (`#account`) contains the single locale and explicit Light/Dark/System selectors as compact
-tonal rows with canonical mode/globe icons, the current value and the existing chooser. Labels
-and icons activate the same control; enlarged text reflows instead of truncating words.
-The labelled group has no additional card around those tonal rows; removing that redundant
-surface/inset keeps the controls full-sized and brings Premium closer. The
-[Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records the
-measured before/after, actual popup/focus and locale-reload observations.
+Me (`#account`) contains one locale and one explicit Light/Dark/System selector as compact
+tonal controls. The theme's icon and both current values sit inside their existing chooser;
+the locale trigger shows a short code while retaining its full accessible name and menu options.
+They sit beside the heading when wide and after the profile when narrow, with room to reflow.
+The labelled group has no additional card. The earlier
+[Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records its own
+source-bound observations, not acceptance of this newer layout.
 Account recovery/logout and truthful Cantos Premium information remain present. The signed-in header has no locale/theme/avatar
 utilities; guest Landing/auth have the compact preferences exception above. `#settings` remains a compatibility entry to the same Me composition; Membership is
 in the Me family. Discover/Search/Work and Library/History retain their own families. Guest

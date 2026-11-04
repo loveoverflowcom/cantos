@@ -25,10 +25,7 @@ use crate::{
     },
     messages::{self, text, Key, Locale},
     platform,
-    view::{
-        LiveBrand, LiveContainer, LiveFrame, LiveLocaleSelect, LivePreferences, LiveRecovery,
-        NAV_ICON_SELECTED,
-    },
+    view::{LiveBrand, LiveContainer, LiveFrame, LiveLocaleSelect, LivePreferences, LiveRecovery},
 };
 use cantos_ui::{Theme, ThemeCycleButton};
 use leptos::prelude::*;
@@ -1080,13 +1077,11 @@ pub fn LocalSampleApp() -> impl IntoView {
                             aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>
                             {icon(NAV_ICON_DISCOVER)}
                             <span>{move || messages::text(Key::Discover, locale.get())}</span>
-                            <span class="theatre-nav-selected" aria-hidden="true">{icon(NAV_ICON_SELECTED)}</span>
                         </a>
                         <a class="theatre-nav-link" href="#library"
                             aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")>
                             {icon(NAV_ICON_LIBRARY)}
                             <span>{move || messages::text(Key::Library, locale.get())}</span>
-                            <span class="theatre-nav-selected" aria-hidden="true">{icon(NAV_ICON_SELECTED)}</span>
                         </a>
                     </nav>
                 </aside>

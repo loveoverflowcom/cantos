@@ -10,7 +10,11 @@ pub(crate) fn ProfileAvatar(
     #[prop(optional)] navigation: bool,
     #[prop(optional, into)] identity: Signal<Option<AccountPresentation>>,
 ) -> impl IntoView {
-    let size = AvatarSize::Control;
+    let size = if navigation {
+        AvatarSize::Small
+    } else {
+        AvatarSize::Control
+    };
     let guest_size = if navigation {
         AvatarSize::Small
     } else {

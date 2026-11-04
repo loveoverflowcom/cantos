@@ -24,8 +24,6 @@ use cantos_ui::{
 };
 use leptos::prelude::*;
 
-pub(crate) const NAV_ICON_SELECTED: &str = "check";
-
 #[cfg(feature = "preview")]
 #[component]
 pub fn Theatre() -> impl IntoView {
@@ -112,7 +110,6 @@ fn Navigation(ctx: TheatreContext) -> impl IntoView {
             <a class="theatre-nav-link" href=route.hash()
                 aria-current=move || (ctx.route.get().primary_navigation() == Some(route)).then_some("page")>
                 {icon(asset)}<span>{move || ctx.text(label)}</span>
-                <span class="theatre-nav-selected" aria-hidden="true">{icon(NAV_ICON_SELECTED)}</span>
             </a>
         }
     })
@@ -268,7 +265,7 @@ mod tests {
                 assert!(html.contains("href=\"#discover\""));
                 assert!(html.contains("href=\"#library\""));
                 assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
-                assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 2);
+                assert!(!html.contains("theatre-nav-selected"));
                 for secondary in ["#explore", "#account", "#settings", "#player", "#queue"] {
                     assert!(!html.contains(secondary), "{secondary}");
                 }
@@ -378,7 +375,7 @@ mod tests {
             let html = view! { <live_shell::NavigationChrome route=RwSignal::new(Route::Discover)
                 locale=RwSignal::new(Locale::Vietnamese) state=state.read_only() shell=NodeRef::new()/> }.to_html();
             assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 6);
-            assert_eq!(html.matches("class=\"theatre-nav-selected\"").count(), 6);
+            assert!(!html.contains("theatre-nav-selected"));
             for present in ["theatre-navigation-menu", "theatre-navigation-drawer", "href=\"#account\""] {
                 assert!(html.contains(present), "{present}");
             }

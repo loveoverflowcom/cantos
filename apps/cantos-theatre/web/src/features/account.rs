@@ -14,8 +14,8 @@ use crate::{
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonVariant, Icon, IconName, Select, SelectDensity, SelectLabelPlacement, Space,
-    Surface, SurfaceTone, SurfaceVariant, Theme,
+    Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
+    SurfaceTone, SurfaceVariant, Theme,
 };
 use leptos::prelude::*;
 
@@ -177,6 +177,11 @@ fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
                 theme.as_str(),
                 messages::text(theme_value_key(theme), locale),
             )
+            .with_icon(match theme {
+                Theme::Light => IconName::LightMode,
+                Theme::Dark => IconName::DarkMode,
+                Theme::System => IconName::ThemeSystem,
+            })
         })
         .collect()
 }
@@ -261,9 +266,8 @@ pub(crate) fn LiveAccount(
                     </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
-                <div class="theatre-account-content">
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
-                        <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
+                        <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
                         <PreferenceFields locale theme on_locale scope="theatre-account"/>
 
                     </section>
@@ -280,7 +284,6 @@ pub(crate) fn LiveAccount(
                             </Button>
                         </section>
                     </Surface>
-                </div>
             </div>
         </section>
     }
@@ -313,13 +316,6 @@ pub(crate) fn PreferenceFields(
     view! {
                         <div class="theatre-pref-row">
                             <div class="theatre-pref-tile theatre-pref-theme">
-                                <label class="theatre-pref-icon" for=format!("{scope}-theme-trigger") aria-hidden="true">
-                                    {move || view! { <Icon name=match theme.get() {
-                                        Theme::Light => IconName::LightMode,
-                                        Theme::Dark => IconName::DarkMode,
-                                        Theme::System => IconName::ThemeSystem,
-                                    }/> }}
-                                </label>
                                 <Select id=format!("{scope}-theme") class="theatre-pref-select"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
@@ -330,14 +326,17 @@ pub(crate) fn PreferenceFields(
                                     })/>
                             </div>
                             <div class="theatre-pref-tile theatre-pref-language">
-                                <label class="theatre-pref-icon" for=format!("{scope}-locale-trigger") aria-hidden="true">
-                                    <Icon name=IconName::Language/>
-                                </label>
                                 <Select id=format!("{scope}-locale") class="theatre-pref-locale"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
                                     value=Signal::derive(move || locale.get().lang().to_owned())
                                     options=crate::localization::locale_options()
+                                    short_label=Callback::new(|tag: String| {
+                                        let language = tag.split('-').next()?;
+                                        let mut letters = language.chars();
+                                        let first = letters.next()?.to_uppercase().collect::<String>();
+                                        Some(format!("{first}{}", letters.as_str()))
+                                    })
                                     on_input=on_locale/>
                             </div>
                         </div>
@@ -442,7 +441,7 @@ mod tests {
     }
 
     #[test]
-    fn preferences_precede_membership_and_form_two_tiles_that_name_their_value() {
+    fn preferences_precede_membership_and_keep_two_named_controlled_selects() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
             for language in [Locale::Vietnamese, Locale::English] {
@@ -469,10 +468,11 @@ mod tests {
                     .nth(1)
                     .expect("preference row");
                 let row = row.split("theatre-action-rows").next().unwrap();
-                let visible = visible_text(row);
                 for shown in [theme_label, theme_value, locale_label, autonym] {
-                    assert!(visible.contains(shown), "{shown}");
+                    assert!(row.contains(shown), "{shown}");
                 }
+                assert!(row.contains("theatre-account-theme-label"));
+                assert!(row.contains("theatre-account-locale-label"));
             }
         });
     }
