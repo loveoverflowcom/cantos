@@ -339,6 +339,7 @@ body { margin: 0; }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
 .studio-shell .studio-account-actions .cui-button { justify-content: flex-start; text-align: start; }
+.studio-shell .studio-account-actions .cui-control-label { text-align: start; }
 .studio-shell .studio-account-help { padding-inline: var(--cantos-space-control-inline); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
