@@ -32,14 +32,20 @@ class ComponentStates(unittest.TestCase):
         role = "--cantos-web-supporting-text-color"
         neutral = "var(--cantos-color-on-surface-variant)"
         paired = "var(--cantos-color-on-primary-container)"
+        reason_chip = (':where(.cantos-ui) .cui-button[data-variant="listen-hero"]'
+                       ' + .cui-button-reason:not([hidden])')
         owners = {
             ":where(.cantos-ui)": neutral,
             ":where(.cantos-ui) .cui-surface": neutral,
             ':where(.cantos-ui) .cui-surface[data-tone="primary-container"]': paired,
+            # The reason chip paints its own tonal paper. Inherit neither inverse-surface
+            # ink nor an ancestor's theme: bind its supporting role at that new boundary.
+            reason_chip: neutral,
         }
         consumers = {
             ":where(.cantos-ui) .cui-field-help",
             ":where(.cantos-ui) .cui-button-reason",
+            reason_chip,
         }
         for filename in ("foundation.css.in", "foundation.css"):
             css = (ROOT / "packages/ui-system/leptos" / filename).read_text()
@@ -56,6 +62,8 @@ class ComponentStates(unittest.TestCase):
             with self.subTest(filename=filename):
                 self.assertEqual(bindings, owners)
                 self.assertEqual(colors, {selector: f"var({role})" for selector in consumers})
+                chip_body = re.search(re.escape(reason_chip) + r"\s*\{([^{}]*)\}", css).group(1)
+                self.assertRegex(chip_body, r"background:\s*var\(--cantos-color-surface-container\);")
 
     def test_nearest_surface_supporting_roles_keep_contrast_in_both_themes(self):
         source = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())

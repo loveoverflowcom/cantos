@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.14.0 sha256:79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218 template-sha256:c8070ff26840fb257d92401f8722031da7d23b4a197ab5158bd465bc26a30f3b
+/* Generated from Cantos UI tokens v0.14.0 sha256:79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218 template-sha256:49bdb11b129e16d2d271552674b47dab06ad13ed684be4b90fbfb6bd4e4a9efe
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -1443,13 +1443,15 @@
    It carries the same typed text and description link as any button reason; only the surface
    differs. No border, shadow or gradient; the chip wraps instead of clipping at large text. */
 :where(.cantos-ui) .cui-button[data-variant="listen-hero"] + .cui-button-reason:not([hidden]) {
+  /* The chip owns its paper, so it also owns its supporting ink, even on an inverse Surface. */
+  --cantos-web-supporting-text-color: var(--cantos-color-on-surface-variant);
   display: inline-block;
   max-inline-size: 100%;
   border-radius: var(--cantos-shape-pill);
   padding-block: calc(var(--cantos-space-xs) * 1.5);
   padding-inline: var(--cantos-space-inset);
   background: var(--cantos-color-surface-container);
-  color: var(--cantos-color-on-surface-variant);
+  color: var(--cantos-web-supporting-text-color);
   font-size: var(--cantos-type-label-size);
   line-height: var(--cantos-type-label-line-height);
 }
