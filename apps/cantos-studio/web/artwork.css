@@ -22,7 +22,7 @@
 .studio-artwork p, .studio-artwork small { overflow-wrap: anywhere; }
 .studio-artwork input[type=file] { max-inline-size: 100%; min-block-size: var(--cantos-size-control); font: inherit; }
 .studio-artwork input[type=file]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
-.artwork-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
+.artwork-actions { display: grid; align-items: start; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
 .artwork-actions .cui-button-field { min-inline-size: 0; }
 .artwork-actions .cui-button { inline-size: 100%; }
 @container (max-width: 36rem) { .artwork-columns, .artwork-actions { grid-template-columns: minmax(0, 1fr); } }
