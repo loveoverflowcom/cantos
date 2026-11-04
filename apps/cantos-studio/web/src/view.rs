@@ -806,9 +806,7 @@ pub fn Studio() -> impl IntoView {
                         <Logo variant=LogoVariant::Symbol tone=LogoTone::Dark class="studio-logo-dark"/>
                     </div>
                     <div class="entry-story-copy">
-                        <p class="entry-eyebrow">"Cantos Studio"</p>
                         <h2 id="entry-story-title">{move ||entry_text(EntryKey::Welcome,locale.get())}</h2>
-                        <p>{move ||entry_text(EntryKey::WelcomeHelp,locale.get())}</p>
                     </div>
                 </aside>
                 <div class="entry-form">
