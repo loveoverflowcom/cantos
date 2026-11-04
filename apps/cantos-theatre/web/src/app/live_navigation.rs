@@ -156,10 +156,12 @@ impl LiveNavigation {
                 }
             });
             let escape = window_event_listener_untyped("keydown", move |event| {
-                if event
-                    .dyn_ref::<web_sys::KeyboardEvent>()
-                    .is_some_and(|e| e.key() == "Escape")
-                    && matches!(navigation.route.get_untracked(), Route::Auth(_))
+                if event.dyn_ref::<web_sys::KeyboardEvent>().is_some_and(|e| {
+                    crate::application::auth_navigation::unhandled_escape(
+                        &e.key(),
+                        event.default_prevented(),
+                    )
+                }) && matches!(navigation.route.get_untracked(), Route::Auth(_))
                 {
                     event.prevent_default();
                     navigation.back();
