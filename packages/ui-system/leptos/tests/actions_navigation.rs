@@ -57,8 +57,12 @@ fn button_retains_caller_projections_through_owner_cleanup() {
             });
             let class = Signal::derive(|| "retained-row-action".to_owned());
             let expanded = Signal::derive(|| false);
+            let emphasis = listening.clone();
+            let variant = Signal::derive(move || {
+                if emphasis.get() { ButtonVariant::Primary } else { ButtonVariant::Tonal }
+            });
             view! {
-                <Button id="retained-row" icon_signal=icon state class aria_expanded=expanded>
+                <Button id="retained-row" variant icon_signal=icon state class aria_expanded=expanded>
                     "Nghe"
                 </Button>
             }
@@ -70,6 +74,7 @@ fn button_retains_caller_projections_through_owner_cleanup() {
         assert!(html.contains("data-state=\"enabled\""), "{html}");
         assert!(html.contains("retained-row-action"), "{html}");
         assert!(html.contains("aria-expanded=\"false\""), "{html}");
+        assert!(html.contains("data-variant=\"tonal\""), "{html}");
         assert!(!html.contains("Đang chuẩn bị chương"), "{html}");
     });
 }

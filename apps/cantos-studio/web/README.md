@@ -547,7 +547,12 @@ Development composition preview: build with `cargo xtask build cantos-studio --w
 the same form and makes no API/storage call. Its v1 scenarios are `empty`, `current`,
 `replacement`, `validating`, `preparing`, `prepared`, `uploading`, `awaiting-acknowledgement`,
 `admitted`, `failed`, `expired`, `unknown`, and `conflict`. Scenario selection explicitly resets
-projection; theme/locale retain draft text. This entry and its fixture module are excluded by
+projection; theme/locale retain draft text. Additional cover-view fixtures are `preview-loading`,
+`preview-unavailable`, `selected`, `invalid-file`, `unreadable` and `non-owner`. The preview's
+100%/200% text-size control scales the document font; it is injected text scaling, not browser
+zoom or OS accessibility acceptance. File/step callbacks remain inert apart from the existing
+clear-confirmation dialog: selecting a scenario supplies facts and never simulates an upload.
+This entry and its fixture module are excluded by
 `cfg(debug_assertions)` in release builds. It is a Studio-owned composition using established
 UI primitives, not a new shared component or a native Studio surface.
 

@@ -13083,10 +13083,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn tệp từ máy"
+          "text": "Chọn tệp ảnh"
         },
         "en": {
-          "text": "Choose a local file"
+          "text": "Choose an image file"
         }
       }
     },
@@ -13179,10 +13179,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "1. Chuẩn bị upload"
+          "text": "1. Chuẩn bị"
         },
         "en": {
-          "text": "1. Prepare upload"
+          "text": "1. Prepare"
         }
       }
     },
@@ -13191,10 +13191,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "2. Tải tệp & chờ máy chủ xác nhận"
+          "text": "2. Tải ảnh lên"
         },
         "en": {
-          "text": "2. Upload & wait for server confirmation"
+          "text": "2. Upload image"
         }
       }
     },
@@ -13203,10 +13203,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "3. Gắn / thay ảnh bìa"
+          "text": "3. Chọn làm bìa"
         },
         "en": {
-          "text": "3. Select / replace cover"
+          "text": "3. Select as cover"
         }
       }
     },
@@ -19443,10 +19443,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa có ảnh bìa"
+          "text": "Sẵn sàng chọn tệp ảnh"
         },
         "en": {
-          "text": "No cover selected"
+          "text": "Ready to choose an image"
         }
       }
     },
@@ -27833,6 +27833,122 @@
         },
         "en": {
           "text": "About validation and comparison"
+        }
+      }
+    },
+    "studio.artwork.workflow": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn tệp từ máy → Chuẩn bị → Tải lên → Chọn làm bìa. Mỗi bước cần bạn xác nhận."
+        },
+        "en": {
+          "text": "Choose a local file → Prepare → Upload → Select as cover. Confirm each step separately."
+        }
+      }
+    },
+    "studio.artwork.details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin ảnh và phiên bản"
+        },
+        "en": {
+          "text": "Image and revision details"
+        }
+      }
+    },
+    "studio.artwork.select_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh đã tải lên vẫn riêng tư và chưa là ảnh bìa. Chọn làm bìa sẽ dùng phiên bản tác phẩm đang hiển thị"
+        },
+        "en": {
+          "text": "The uploaded image is private and is not the cover yet. Selecting it uses the displayed Work revision"
+        }
+      }
+    },
+    "studio.artwork.preview_scale": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cỡ chữ"
+        },
+        "en": {
+          "text": "Text size"
+        }
+      }
+    },
+    "studio.artwork.image_identity": {
+      "args": {
+        "revision": "text",
+        "asset": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{revision} · {asset}"
+        },
+        "en": {
+          "text": "{revision} · {asset}"
+        }
+      }
+    },
+    "studio.artwork.selection_revision": {
+      "args": {
+        "revision": "count"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": " · r{revision}"
+        },
+        "en": {
+          "text": " · r{revision}"
+        }
+      }
+    },
+    "studio.artwork.preview_option": {
+      "args": {
+        "label": "text",
+        "id": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{label} · {id}"
+        },
+        "en": {
+          "text": "{label} · {id}"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_100": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "100%"
+        },
+        "en": {
+          "text": "100%"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_200": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "200%"
+        },
+        "en": {
+          "text": "200%"
         }
       }
     }

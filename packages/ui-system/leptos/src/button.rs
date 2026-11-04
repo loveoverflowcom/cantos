@@ -153,7 +153,7 @@ pub(crate) fn description_ids(extra: &str, reason_id: Option<&str>) -> Option<St
 pub fn Button(
     #[prop(into)] id: String,
     children: Children,
-    #[prop(optional)] variant: ButtonVariant,
+    #[prop(into, default = ButtonVariant::Primary.into())] variant: Signal<ButtonVariant>,
     #[prop(optional)] icon: Option<IconName>,
     /// A stateful decorative glyph; the native button, focus and callback stay mounted.
     /// Takes precedence over the compatible static `icon` input when supplied.
@@ -180,6 +180,7 @@ pub fn Button(
     let icon: Option<ArcSignal<IconName>> = icon_signal
         .or_else(|| icon.map(Signal::stored))
         .map(ArcSignal::from);
+    let variant: ArcSignal<ButtonVariant> = variant.into();
     let state: ArcSignal<ButtonState> = state.into();
     let class: ArcSignal<String> = class.into();
     let described_by: ArcSignal<String> = described_by.into();
@@ -190,10 +191,11 @@ pub fn Button(
     };
     let disabled = {
         let state = state.clone();
+        let variant = variant.clone();
         move || {
             let state = state.get();
             matches!(state, ButtonState::Disabled(_))
-                || (variant != ButtonVariant::ListenHero && state.is_busy())
+                || (variant.get() != ButtonVariant::ListenHero && state.is_busy())
         }
     };
     let aria_disabled = {
@@ -238,7 +240,7 @@ pub fn Button(
     let button_ref = NodeRef::<leptos::html::Button>::new();
     #[cfg(target_arch = "wasm32")]
     if matches!(
-        variant,
+        variant.get_untracked(),
         ButtonVariant::AuthPrimary | ButtonVariant::AuthSecondary | ButtonVariant::AuthOutlined
     ) {
         auth_geometry::bind(button_ref);
@@ -246,7 +248,7 @@ pub fn Button(
     view! {
         <div class="cui-button-field">
             <button id=id node_ref=button_ref type="button" class=move || component_class("cui-button", &class.get())
-                data-variant=variant.as_str() data-state=data_state
+                data-variant=move ||variant.get().as_str() data-state=data_state
                 disabled=disabled
                 aria-disabled=aria_disabled
                 aria-busy=aria_busy

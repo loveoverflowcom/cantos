@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "8f444d9cae4d963cd99dbca48afb54c8780cd48016f7d18bc85837f79da90f1b",
+  "catalogSha256": "7b12334a96d580e0a0603219ffa70680b2c1074cd98e4a4e8f1960745c984447",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -151,6 +151,7 @@
     "studio.artwork.compare": {},
     "studio.artwork.confirm": {},
     "studio.artwork.current": {},
+    "studio.artwork.details": {},
     "studio.artwork.discard": {},
     "studio.artwork.empty": {},
     "studio.artwork.file": {},
@@ -160,6 +161,10 @@
       "mime": "text",
       "name": "text",
       "width": "count"
+    },
+    "studio.artwork.image_identity": {
+      "asset": "text",
+      "revision": "text"
     },
     "studio.artwork.intent_receipt": {},
     "studio.artwork.media_facts": {
@@ -185,6 +190,13 @@
     "studio.artwork.preview_light": {},
     "studio.artwork.preview_loading": {},
     "studio.artwork.preview_locale": {},
+    "studio.artwork.preview_option": {
+      "id": "text",
+      "label": "text"
+    },
+    "studio.artwork.preview_scale": {},
+    "studio.artwork.preview_scale_100": {},
+    "studio.artwork.preview_scale_200": {},
     "studio.artwork.preview_scenario": {},
     "studio.artwork.preview_theme": {},
     "studio.artwork.preview_title": {},
@@ -204,6 +216,10 @@
     "studio.artwork.rights": {},
     "studio.artwork.rights_help": {},
     "studio.artwork.select": {},
+    "studio.artwork.select_help": {},
+    "studio.artwork.selection_revision": {
+      "revision": "count"
+    },
     "studio.artwork.stage_admitted": {},
     "studio.artwork.stage_awaiting_acknowledgement": {},
     "studio.artwork.stage_conflict": {},
@@ -228,6 +244,7 @@
     "studio.artwork.unavailable_preview": {},
     "studio.artwork.unverified": {},
     "studio.artwork.upload": {},
+    "studio.artwork.workflow": {},
     "studio.authoring.authoring_copy_act": {},
     "studio.authoring.authoring_copy_act_title": {},
     "studio.authoring.authoring_copy_add_act": {},
