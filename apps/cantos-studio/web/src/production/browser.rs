@@ -314,7 +314,7 @@ pub fn ProductionInputs(
                 <dt>{move || text(Key::ExportDigest, locale.get())}</dt><dd><code>{move || state.with(|s| s.context.export_digest.clone())}</code></dd>
             </dl>
         </Show>
-        <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
+        <ActionButton id="production-load" locale=locale variant=ButtonVariant::Tonal blocked=Signal::derive(move || session_pending.get() || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready())) reason=BlockReason::ProductionReview on_press=Callback::new(move |_| {
             if session_pending.get_untracked() {return;}
             let Some((reading, ticket)) = state.get_untracked().start_read(ReadKind::State) else { return; };
             let script = editor.with_untracked(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default());
@@ -324,7 +324,7 @@ pub fn ProductionInputs(
                 let result = async { let catalog = api.production_catalog().await?; let stored = api.production_state(&ticket.context.script).await?; Ok::<_,ApiError>((catalog, stored)) }.await;
                 let _ = state.try_update(|s| *s = match result { Ok((catalog, stored)) => s.loaded(&ticket, catalog, stored, &script), Err(error) => s.read_failed(&ticket, error) });
             });
-        }>{move || text(Key::Load, locale.get())}</button>
+        })>{move || text(Key::Load, locale.get())}</ActionButton>
         <button class="cui-button" data-variant="secondary" type="button" disabled=move ||state.with(Production::has_activity)||composing.with(|f|!f.is_empty()) on:click=move |_|{
             if state.with_untracked(Production::has_activity)||composing.with_untracked(|f|!f.is_empty())||!confirm_discard(locale.get_untracked()){return;}
             if let Some(discarded)=state.get_untracked().discard_drafts(){state.set(discarded);rights.set(RightsForm::default());rights_dirty.set(false);retained_rights.set(None);}
@@ -335,8 +335,8 @@ pub fn ProductionInputs(
             <p id="production-pending-help">{move || text(Key::PendingHelp, locale.get())}</p>
             <dl class="source-identity"><dt>{move || text(Key::Actor, locale.get())}</dt><dd>{move || state.with(|s| s.pending().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
                 <dt>{move || text(Key::Operation, locale.get())}</dt><dd><code>{move || state.with(|s| s.pending().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
-            <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || !state.with(Production::can_retry) on:click=move |_| { if session_pending.get_untracked() { return; }
-                if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,locale.get())}</button>
+            <ActionButton id="production-retry" locale=locale variant=ButtonVariant::Tonal blocked=Signal::derive(move || session_pending.get() || !state.with(Production::can_retry)) reason=BlockReason::Pending on_press=Callback::new(move |_| { if session_pending.get_untracked() { return; }
+                if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } })>{move || text(Key::Retry,locale.get())}</ActionButton>
         </section></Show>
         <Show when=move || state.with(|s| s.form.is_some())><div class="production-layout">
             <section class="production-settings" aria-labelledby="casting-title"><h3 id="casting-title">{move || text(Key::Settings, locale.get())}</h3>
@@ -369,8 +369,8 @@ pub fn ProductionInputs(
         </Show>
         <section class="production-snapshots" aria-labelledby="production-snapshot-title"><h3 id="production-snapshot-title">{move || text(Key::Snapshot,locale.get())}</h3>
             <div class="toolbar"><label for="production-snapshot-id">{move || text(Key::SnapshotId,locale.get())}</label><input class="cui-field-control" id="production-snapshot-id" autocomplete="off" spellcheck="false" prop:value=move || snapshot_id.get() on:input=move |e| snapshot_id.set(event_target_value(&e)) />
-                <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| read_snapshot(state,api,snapshot_id.get_untracked())>{move || text(Key::Inspect,locale.get())}</button></div>
-            <div class="toolbar">{move || state.with(|s| s.stored.as_ref().map(|s| s.snapshots.clone()).unwrap_or_default()).into_iter().map(|snapshot| { let id=StoredValue::new(snapshot.id.clone()); view! { <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) on:click=move |_| { snapshot_id.set(id.get_value());read_snapshot(state,api,id.get_value()); }><code>{snapshot.id}</code>" · "{snapshot.script_revision}</button> } }).collect_view()}</div>
+                <ActionButton id="production-inspect" locale=locale variant=ButtonVariant::Tonal blocked=Signal::derive(move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready())) reason=BlockReason::ProductionReview on_press=Callback::new(move |_| read_snapshot(state,api,snapshot_id.get_untracked()))>{move || text(Key::Inspect,locale.get())}</ActionButton></div>
+            <div class="toolbar">{move || state.with(|s| s.stored.as_ref().map(|s| s.snapshots.clone()).unwrap_or_default()).into_iter().map(|snapshot| { let id=StoredValue::new(snapshot.id.clone()); view! { <ActionButton id=format!("production-snapshot-{}", id.get_value()) locale=locale variant=ButtonVariant::Tonal blocked=Signal::derive(move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty())) reason=BlockReason::ProductionReview on_press=Callback::new(move |_| { snapshot_id.set(id.get_value());read_snapshot(state,api,id.get_value()); })><code>{snapshot.id}</code>" · "{snapshot.script_revision}</ActionButton> } }).collect_view()}</div>
             {move || state.with(|s| s.snapshot.clone()).map(|snapshot| view! { <SnapshotDetails snapshot=snapshot locale=locale /> })}
             <Show when=move || state.with(|s| s.snapshot.is_some())><crate::ui::ReviewCheckbox id="production-confirm" locale=locale reason=BlockReason::ProductionReview
                 label=Signal::derive(move ||text(Key::ConfirmApproval,locale.get()).to_owned())
@@ -910,11 +910,11 @@ fn RightsFields(
             <FormField id="production-rights-restrictions".into() label=Key::Restrictions value=value(RightsField::Restrictions) change=change(RightsField::Restrictions) locale=locale readonly=readonly />
             <FormField id="production-rights-from".into() label=Key::ValidFrom value=value(RightsField::From) change=change(RightsField::From) locale=locale readonly=readonly kind="number" />
             <FormField id="production-rights-until".into() label=Key::ValidUntil value=value(RightsField::Until) change=change(RightsField::Until) locale=locale readonly=readonly kind="number" />
-        </div><p class="help">{move ||text(Key::TimeHelp,locale.get())}</p><p class="help">{move ||text(Key::RestrictionsHelp,locale.get())}</p><button class="cui-button" data-variant="secondary" type="button" disabled=mutation_blocked on:click=move |_|{
+        </div><p class="help">{move ||text(Key::TimeHelp,locale.get())}</p><p class="help">{move ||text(Key::RestrictionsHelp,locale.get())}</p><ActionButton id="production-rights-save" locale=locale variant=ButtonVariant::Tonal blocked=Signal::derive(mutation_blocked) reason=BlockReason::ProductionReview on_press=Callback::new(move |_|{
             if mutation_blocked(){return;}let current=state.get_untracked();let Some(claim)=current.form.as_ref().and_then(|form|rights.get_untracked().declaration(form))else{state.update(|s|s.error=Some(error(ErrorCode::InvalidRequest)));return;};
             let expected_version=current.stored.as_ref().and_then(|s|s.rights.iter().find(|r|r.claim.declaration.record_id==claim.record_id).map(|r|r.claim.version)).unwrap_or(0);
             match operation_id(){Ok(operation_id)=>{submit(state,api,Command::Rights(SaveProductionRightsRequest{operation_id,expected_version,claim}));},Err(error)=>state.update(|s|s.error=Some(error))}
-        }>{move ||text(Key::SaveRights,locale.get())}</button></fieldset>
+        })>{move ||text(Key::SaveRights,locale.get())}</ActionButton></fieldset>
     </section>}
 }
 

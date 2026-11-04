@@ -70,7 +70,17 @@ body { margin: 0; }
 .studio-shell .authoring-nav ul { list-style: none; margin: 0; padding-inline-start: var(--cantos-space-sm); }
 .studio-shell .authoring-nav h3 { margin-block: var(--cantos-space-sm); }
 .studio-shell .authoring-canvas > h3, .studio-shell .authoring-inspector > h3 { margin-block-start: 0; }
-.studio-shell .authoring-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
+.studio-shell .authoring-inspector { padding-inline-start: var(--cantos-space-md); overflow-wrap: anywhere; }
+.studio-shell .authoring-inspector[data-state="attention"] { border-inline-start: var(--cantos-size-border) solid var(--cantos-color-outline); }
+.studio-shell .authoring-inspector h3 { font-size: var(--cantos-type-label-size); margin-block: var(--cantos-space-md) var(--cantos-space-xs); }
+.studio-shell .authoring-inspector p { margin-block: var(--cantos-space-xs) var(--cantos-space-sm); }
+.studio-shell .authoring-help, .studio-shell .authoring-identity { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); margin-block: var(--cantos-space-xs); }
+.studio-shell .authoring-identity code { display: block; overflow-wrap: anywhere; }
+.studio-shell :is(.authoring-help, .authoring-identity) > summary { min-block-size: var(--cantos-size-control); align-content: center; cursor: pointer; }
+.studio-shell .authoring-history { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-xs); }
+.studio-shell .authoring-history > .cui-button { flex: 0 1 auto; }
+.studio-shell .authoring-history-status { margin-block: var(--cantos-space-xs); }
+.studio-shell .authoring-history-status:empty, .studio-shell .authoring-action-status:empty { display: none; }
 .studio-shell .authoring-inspector pre { max-height: 18rem; font-size: var(--cantos-type-metadata-size); }
 .studio-shell .authoring-inspector .source-identity { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-sm); }
 .studio-shell .authoring-inspector .source-identity dd { margin-block-end: var(--cantos-space-sm); }

@@ -12,9 +12,11 @@ use crate::{
         },
         workspace::{text as workspace_text, Key as WorkspaceKey},
     },
-    ui::{BlockReason, LocalizedReason},
+    ui::{ActionButton, BlockReason, LocalizedReason},
 };
-use cantos_ui::{ChoiceState, ErrorState, FieldError, FieldLabel, Select, SelectOption};
+use cantos_ui::{
+    ButtonVariant, ChoiceState, ErrorState, FieldError, FieldLabel, Select, SelectOption,
+};
 use leptos::context::Provider;
 use leptos::prelude::*;
 use leptos::{wasm_bindgen::JsCast, web_sys::HtmlElement};
@@ -333,6 +335,21 @@ pub fn StructuredEditor(
         namespace,
     };
     let copy = move || authoring_copy(locale.get());
+    let history_reason = move || {
+        let copy = copy();
+        if readonly.get() {
+            copy.readonly_choice
+        } else if activity.get() {
+            copy.buffered
+        } else {
+            history.with(|history| match history.as_ref() {
+                Some(history) if history.can_undo() && history.can_redo() => "",
+                Some(history) if history.can_undo() => copy.history_no_redo,
+                Some(history) if history.can_redo() => copy.history_no_undo,
+                _ => copy.history_empty,
+            })
+        }
+    };
     let move_history = move |redo: bool| {
         if readonly.get_untracked() || activity.get_untracked() {
             return;
@@ -353,14 +370,15 @@ pub fn StructuredEditor(
         <section class="authoring" aria-labelledby=format!("{namespace}-authoring-title")>
             <div class="authoring-heading">
                 <h2 id=format!("{namespace}-authoring-title")>{move || copy().title}</h2>
-                <div class="toolbar authoring-history" aria-describedby=format!("{namespace}-history-help")>
-                    <button class="cui-button" data-variant="text" type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_undo)) on:click=move |_| move_history(false)>{move || copy().undo}</button>
-                    <button class="cui-button" data-variant="text" type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_redo)) on:click=move |_| move_history(true)>{move || copy().redo}</button>
+                // Native grouped history actions share one visible reason instead of repeating it per button.
+                <div class="authoring-history" role="group" aria-label=move || copy().history_label>
+                    <button class="cui-button" data-variant="text" type="button" aria-describedby=format!("{namespace}-history-status") disabled=move || readonly.get() || activity.get() || !history.with(|history| history.as_ref().is_some_and(History::can_undo)) on:click=move |_| move_history(false)>{move || copy().undo}</button>
+                    <button class="cui-button" data-variant="text" type="button" aria-describedby=format!("{namespace}-history-status") disabled=move || readonly.get() || activity.get() || !history.with(|history| history.as_ref().is_some_and(History::can_redo)) on:click=move |_| move_history(true)>{move || copy().redo}</button>
                 </div>
             </div>
-            <p class="help" id=format!("{namespace}-history-help")>{move || copy().history_help}</p>
+            <p class="help authoring-history-status" id=format!("{namespace}-history-status")>{history_reason}</p>
+            <details class="authoring-help"><summary>{move || copy().history_label}</summary><p class="help">{move || copy().history_help}</p></details>
             <p class="authoring-action-status" role="status" aria-live="polite">{move || movement.get().map(|(id, position, group)| crate::messages::authoring::item_moved(&id, position, &group, locale.get())).unwrap_or_default()}</p>
-            <Show when=move || activity.get()><p class="help authoring-buffered">{move || copy().buffered}</p></Show>
             <Show when=move || readonly.get()><p class="mode">{move || copy().readonly}</p></Show>
             <Show when=move || notice.get().is_some()>
                 <p class="authoring-error" role="alert">{move || copy().operation_failed}
@@ -397,11 +415,11 @@ pub fn StructuredEditor(
                                 </div>
                             }
                         } />
-                        <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
+                        <ActionButton id=format!("{namespace}-add-act") locale=locale variant=ButtonVariant::Tonal blocked=readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| {
                             if let Ok(id) = minted_id("act") {
                                 if ctx.structural_change(|document| document.insert_act(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Act))) { selected.set(Some(Target::Act(id))); reveal_canvas(); }
                             }
-                        }>{move || copy().add_act}</button>
+                        })>{move || copy().add_act}</ActionButton>
                         <h3>{move || copy().characters}</h3>
                         <For each=move || document.get().map(|document| document.characters()).unwrap_or_default() key=|character| character.id.clone() children=move |character| {
                             let id = StoredValue::new(character.id);
@@ -411,11 +429,11 @@ pub fn StructuredEditor(
                                 </button>
                             }
                         } />
-                        <button class="cui-button" data-variant="tonal" type="button" disabled=move || readonly.get() on:click=move |_| {
+                        <ActionButton id=format!("{namespace}-add-character") locale=locale variant=ButtonVariant::Tonal blocked=readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| {
                             if let Ok(id) = minted_id("character") {
                                 if ctx.structural_change(|document| document.insert_character(&id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Character), "character", "")) { selected.set(Some(Target::Character(id))); reveal_canvas(); }
                             }
-                        }>{move || copy().add_character}</button>
+                        })>{move || copy().add_character}</ActionButton>
                         <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); reveal_canvas(); } }>{move || copy().metadata}</button>
                     </nav>
                     <div class="authoring-canvas" id=format!("{namespace}-canvas") tabindex="-1">
@@ -427,9 +445,8 @@ pub fn StructuredEditor(
                         }}
                     </div>
             </Show>
-                    <aside class="authoring-inspector" aria-label=move || copy().inspector>
+                    <aside class="authoring-inspector" data-state=move || if issues.get().is_empty() { "quiet" } else { "attention" } aria-label=move || copy().inspector>
                         <h3>{move || copy().validation}</h3>
-                        <p class="help">{move || copy().validation_help}</p>
                         <Show when=move || !issues.get().is_empty() fallback=move || view! { <p>{move || copy().no_issues}</p> }>
                             <ul class="authoring-findings">{move || issues.get().into_iter().map(|issue| {
                                 let finding = issue.clone();
@@ -443,22 +460,22 @@ pub fn StructuredEditor(
                                         } else {
                                             leptos::leptos_dom::helpers::request_animation_frame(move || focus_field(&format!("{namespace}-json")));
                                         }
-                                    }><span>{validation_rule(&issue.rule, locale.get())}</span><code>{issue.path}</code></button><code>{issue.rule}</code></li>
+                                    }><span>{validation_rule(&issue.rule, locale.get())}</span><span class="cui-sr-only">{issue.path.clone()}</span></button><details class="authoring-identity"><summary>{move || copy().identity}</summary><code>{issue.path}</code><code>{issue.rule}</code></details></li>
                                 }
                             }).collect_view()}</ul>
                         </Show>
                         <h3>{move || copy().comparison}</h3>
-                        <p class="help">{move || copy().comparison_help}</p>
                         {move || {
                             let changes = document.get().zip(Document::parse(&baseline.get()).ok()).map(|(current, base)| current.changes_from(&base)).unwrap_or_default();
                             if changes.is_empty() { view! { <p>{move || copy().unchanged}</p> }.into_any() }
                             else { view! { <div class="authoring-comparison">{changes.into_iter().map(|change| view! {
                                 <details class="authoring-change">
-                                    <summary>{match change.kind { ChangeKind::Added => copy().added, ChangeKind::Removed => copy().removed, ChangeKind::Changed => copy().changed, ChangeKind::Reordered => copy().reordered }}<code>{change.entity_id.clone().unwrap_or(change.path.clone())}</code><code>{change.path}</code></summary>
-                                    <dl><dt>{move || copy().before}</dt><dd><crate::ui::ContentText language=baseline_language text=Signal::stored(change.before.unwrap_or_default())/></dd><dt>{move || copy().after}</dt><dd><crate::ui::ContentText language=content_language text=Signal::stored(change.after.unwrap_or_default())/></dd></dl>
+                                    <summary>{match change.kind { ChangeKind::Added => copy().added, ChangeKind::Removed => copy().removed, ChangeKind::Changed => copy().changed, ChangeKind::Reordered => copy().reordered }}<code>{change.entity_id.clone().unwrap_or(change.path.clone())}</code></summary>
+                                    <code>{change.path}</code><dl><dt>{move || copy().before}</dt><dd><crate::ui::ContentText language=baseline_language text=Signal::stored(change.before.unwrap_or_default())/></dd><dt>{move || copy().after}</dt><dd><crate::ui::ContentText language=content_language text=Signal::stored(change.after.unwrap_or_default())/></dd></dl>
                                 </details>
                             }).collect_view()}</div> }.into_any() }
                         }}
+                        <details class="authoring-help"><summary>{move || copy().review_help}</summary><p class="help">{move || copy().validation_help}</p><p class="help">{move || copy().comparison_help}</p></details>
                         <div class="authoring-review-extension">{children()}</div>
                     </aside>
             </div>
@@ -892,6 +909,13 @@ fn ItemActions(target: Target) -> impl IntoView {
     }
 }
 
+/// Web-owned optional metadata, independent of the field/buffer mount and domain identity.
+#[component]
+fn ItemIdentity(id: String) -> impl IntoView {
+    let ctx = context();
+    view! { <details class="authoring-identity"><summary>{move || authoring_copy(ctx.locale.get()).identity}</summary><code class="authoring-id">{id}</code></details> }
+}
+
 #[component]
 fn MetadataEditor() -> impl IntoView {
     let ctx = context();
@@ -911,7 +935,7 @@ fn CharacterEditor(id: String) -> impl IntoView {
     let copy = move || authoring_copy(ctx.locale.get());
     let target = Target::Character(id.clone());
     view! {
-        <h3>{move || copy().characters}</h3><code class="authoring-id">{id}</code>
+        <h3>{move || copy().characters}</h3><ItemIdentity id=id />
         <TextField target=target.clone() field=Field::Name label=Signal::derive(move || copy().character_name) />
         <ChoiceField target=target.clone() field=Field::Role label=Signal::derive(move || copy().role) options=choices(&["narrator", "character"], ctx.locale) />
         <TextField target=target.clone() field=Field::Personality label=Signal::derive(move || copy().personality) multiline=true />
@@ -925,14 +949,14 @@ fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
     let copy = move || authoring_copy(ctx.locale.get());
     let saved_id = StoredValue::new(id.clone());
     view! {
-        <h3>{move || copy().act}</h3><code class="authoring-id">{id.clone()}</code>
+        <h3>{move || copy().act}</h3><ItemIdentity id=id.clone() />
         <TextField target=Target::Act(id.clone()) field=Field::Title label=Signal::derive(move || copy().act_title) />
         <ItemActions target=Target::Act(id) />
-        <button class="cui-button" data-variant="tonal" type="button" disabled=move || ctx.readonly.get() on:click=move |_| {
+        <ActionButton id=format!("{}-{}-add-scene", ctx.namespace, saved_id.get_value()) locale=ctx.locale variant=ButtonVariant::Tonal blocked=ctx.readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| {
             if let Ok(id) = minted_id("scene") {
                 if ctx.structural_change(|document| document.insert_scene(&saved_id.get_value(), &id, crate::messages::authoring::new_content_label(&document.metadata().language, &id, crate::messages::authoring::NewContentItem::Scene))) { selected.set(Some(Target::Scene(id))); }
             }
-        }>{move || copy().add_scene}</button>
+        })>{move || copy().add_scene}</ActionButton>
     }
 }
 
@@ -956,15 +980,15 @@ fn SceneEditor(id: String) -> impl IntoView {
         }
     };
     view! {
-        <h3>{move || copy().scene}</h3><code class="authoring-id">{id.clone()}</code>
+        <h3>{move || copy().scene}</h3><ItemIdentity id=id.clone() />
         <TextField target=Target::Scene(id.clone()) field=Field::Title label=Signal::derive(move || copy().scene_title) />
         <ItemActions target=Target::Scene(id) />
         <div class="authoring-dialogues">
             <For each=move || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).map(|scene| scene.dialogues).unwrap_or_default() key=|dialogue| dialogue.id.clone() children=move |dialogue| view! { <DialogueEditor id=dialogue.id /> } />
         </div>
         <div class="toolbar">
-            <button class="cui-button" data-variant="tonal" type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(false)>{move || copy().add_dialogue}</button>
-            <button class="cui-button" data-variant="tonal" type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(true)>{move || copy().add_narration}</button>
+            <ActionButton id=format!("{}-{}-add_dialogue", ctx.namespace, saved_id.get_value()) locale=ctx.locale variant=ButtonVariant::Tonal blocked=ctx.readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| add_dialogue(false))>{move || copy().add_dialogue}</ActionButton>
+            <ActionButton id=format!("{}-{}-add_narration", ctx.namespace, saved_id.get_value()) locale=ctx.locale variant=ButtonVariant::Tonal blocked=ctx.readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| add_dialogue(true))>{move || copy().add_narration}</ActionButton>
         </div>
         <h4>{move || copy().cues}</h4>
         <For each=move || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).map(|scene| scene.sound_cues).unwrap_or_default() key=|cue| cue.id.clone() children=move |cue| view! { <CueEditor id=cue.id scene_id=saved_id.get_value() /> } />
@@ -1000,7 +1024,7 @@ fn DialogueEditor(id: String) -> impl IntoView {
     };
     view! {
         <section class="authoring-row" data-dialogue-id=id.clone() aria-labelledby=format!("{}-{}-label", ctx.namespace, id)>
-            <div class="authoring-row-heading"><h4 id=format!("{}-{}-label", ctx.namespace, id)>{move || if is_narrator() { copy().narration } else { copy().dialogue }}</h4><code class="authoring-id">{id.clone()}</code></div>
+            <div class="authoring-row-heading"><h4 id=format!("{}-{}-label", ctx.namespace, id)>{move || if is_narrator() { copy().narration } else { copy().dialogue }}</h4><ItemIdentity id=id.clone() /></div>
             <ChoiceField target=target.clone() field=Field::Speaker label=Signal::derive(move || copy().speaker) content=true options=Signal::derive(move || ctx.document.get().map(|document| document.characters().into_iter().map(|character| (character.id, character.name)).collect()).unwrap_or_default()) />
             <TextField target=target.clone() field=Field::Text label=Signal::derive(move || copy().spoken_text) multiline=true />
             <details class="authoring-performance">
@@ -1011,7 +1035,7 @@ fn DialogueEditor(id: String) -> impl IntoView {
                 </div>
                 <h5>{move || copy().pronunciation}</h5><p class="help">{move || copy().pronunciation_help}</p>
                 <For each=move || ctx.document.get().map(|document| document.acts().into_iter().flat_map(|act| act.scenes).flat_map(|scene| scene.dialogues).find(|dialogue| dialogue.id == saved_id.get_value()).map(|dialogue| (0..dialogue.pronunciation_overrides.len()).collect::<Vec<_>>()).unwrap_or_default()).unwrap_or_default() key=|index| *index children=move |index| view! { <PronunciationEditor dialogue_id=saved_id.get_value() index=index /> } />
-                <button class="cui-button" data-variant="tonal" type="button" disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.add_pronunciation(&saved_id.get_value(), "", "")); }>{move || copy().add_pronunciation}</button>
+                <ActionButton id=format!("{}-{}-add-pronunciation", ctx.namespace, saved_id.get_value()) locale=ctx.locale variant=ButtonVariant::Tonal blocked=ctx.readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| { ctx.structural_change(|document| document.add_pronunciation(&saved_id.get_value(), "", "")); })>{move || copy().add_pronunciation}</ActionButton>
             </details>
             <ItemActions target=target />
         </section>
@@ -1107,7 +1131,7 @@ fn CueEditor(id: String, scene_id: String) -> impl IntoView {
     let target = Target::Cue(id.clone());
     view! {
         <section class="authoring-cue" data-cue-id=id.clone()>
-            <code class="authoring-id">{id.clone()}</code>
+            <ItemIdentity id=id.clone() />
             <ChoiceField target=target.clone() field=Field::CueKind label=Signal::derive(move || copy().cue_kind) options=choices(&["ambience", "music", "sfx"], ctx.locale) />
             <TextField target=target.clone() field=Field::CueDescription label=Signal::derive(move || copy().description) multiline=true />
             <ChoiceField target=target.clone() field=Field::CueDialogue label=Signal::derive(move || copy().anchor) content=true options=Signal::derive(move || ctx.document.get().and_then(|document| scene(&document, &scene_id.get_value())).map(|scene| scene.dialogues.into_iter().map(|dialogue| (dialogue.id, dialogue.text)).collect()).unwrap_or_default()) />
@@ -1183,7 +1207,7 @@ mod tests {
 
     fn button<'a>(html: &'a str, label: &str) -> &'a str {
         let at = html
-            .find(&format!(">{label}</button>"))
+            .find(&format!(">{label}<"))
             .unwrap_or_else(|| panic!("{label}: {html}"));
         let start = html[..at].rfind("<button").unwrap();
         &html[start..=at]
@@ -1230,6 +1254,84 @@ mod tests {
             };
             view! { <Provider value=ctx>{render()}</Provider> }.to_html()
         })
+    }
+
+    #[test]
+    fn grouped_history_has_one_visible_reason_and_optional_help_without_rendering_a_commit() {
+        let (html, commits) = editor(&fixture(), vec![], false);
+        assert_eq!(commits, 0);
+        let copy = authoring_copy(crate::localization::Locale::Vietnamese);
+        for label in [copy.undo, copy.redo] {
+            let button = button(&html, label);
+            assert!(button.contains(" disabled"), "{button}");
+            assert!(
+                button.contains("aria-describedby=\"test-history-status\""),
+                "{button}"
+            );
+            assert!(button.contains("data-variant=\"text\""), "{button}");
+        }
+        assert_eq!(html.matches(copy.history_empty).count(), 1, "{html}");
+        let help = html.find(copy.history_help).unwrap();
+        let start = html[..help].rfind("<details").unwrap();
+        let opening = &html[start..=start + html[start..].find('>').unwrap()];
+        assert!(
+            !opening.contains(" open"),
+            "optional help starts collapsed: {opening}"
+        );
+        assert!(html[start..help].contains("<summary>"), "{html}");
+        let (readonly, _) = editor(&fixture(), vec![], true);
+        assert!(readonly.contains(copy.readonly_choice), "{readonly}");
+        assert!(!readonly.contains(copy.history_empty), "{readonly}");
+    }
+
+    #[test]
+    fn inspector_keeps_findings_actionable_and_puts_exact_rule_and_path_in_reachable_details() {
+        let document = fixture();
+        let finding = issue(&document, &Target::Work, Field::Title, "empty_text");
+        let path = finding.path.clone();
+        let (html, commits) = editor(&document, vec![finding], false);
+        assert_eq!(commits, 0);
+        let rule = validation_rule("empty_text", crate::localization::Locale::Vietnamese);
+        let finding_button = button(&html, rule);
+        assert!(!finding_button.contains(" disabled"), "{html}");
+        assert!(html.contains("data-state=\"attention\""), "{html}");
+        let path_at = html.find(&format!("<code>{path}</code>")).unwrap();
+        let details_at = html[..path_at].rfind("<details").unwrap();
+        assert!(html[details_at..path_at].contains("<summary>"), "{html}");
+        assert!(
+            html[path_at..].contains("<code>empty_text</code>"),
+            "{html}"
+        );
+        let (quiet, _) = editor(&document, vec![], false);
+        assert!(quiet.contains("data-state=\"quiet\""), "{quiet}");
+        assert!(quiet.contains(authoring_copy(crate::localization::Locale::Vietnamese).no_issues));
+    }
+
+    #[test]
+    fn row_identity_disclosure_preserves_ids_and_the_regular_buffered_textarea() {
+        let html = pane(
+            &fixture(),
+            vec![],
+            false,
+            || view! { <DialogueEditor id="dialogue-02".to_owned()/> },
+        );
+        assert!(html.contains("data-dialogue-id=\"dialogue-02\""), "{html}");
+        assert!(
+            html.contains("<code class=\"authoring-id\">dialogue-02</code>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<details class=\"authoring-identity\"><summary>"),
+            "{html}"
+        );
+        assert!(
+            tag(&html, "test-dialogue-02-Text").starts_with("<textarea"),
+            "{html}"
+        );
+        assert!(
+            field(&html, "test-dialogue-02-Text").contains("data-variant=\"regular\""),
+            "{html}"
+        );
     }
 
     #[test]

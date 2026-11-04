@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "3eaea25536e588ac01f253f0e13a092b6b45e321a69b5e9396185c942f07f19d",
+  "catalogSha256": "b3213838edb3522226faf678443e77c922b1b6438de644b7f9fcafdc9bbf5e85",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -261,7 +261,12 @@
     "studio.authoring.authoring_copy_emotion": {},
     "studio.authoring.authoring_copy_empty": {},
     "studio.authoring.authoring_copy_episode_title": {},
+    "studio.authoring.authoring_copy_history_empty": {},
     "studio.authoring.authoring_copy_history_help": {},
+    "studio.authoring.authoring_copy_history_label": {},
+    "studio.authoring.authoring_copy_history_no_redo": {},
+    "studio.authoring.authoring_copy_history_no_undo": {},
+    "studio.authoring.authoring_copy_identity": {},
     "studio.authoring.authoring_copy_inspector": {},
     "studio.authoring.authoring_copy_intensity": {},
     "studio.authoring.authoring_copy_invalid": {},
@@ -293,6 +298,7 @@
     "studio.authoring.authoring_copy_removed": {},
     "studio.authoring.authoring_copy_reordered": {},
     "studio.authoring.authoring_copy_replacement": {},
+    "studio.authoring.authoring_copy_review_help": {},
     "studio.authoring.authoring_copy_role": {},
     "studio.authoring.authoring_copy_scene": {},
     "studio.authoring.authoring_copy_scene_title": {},
