@@ -98,9 +98,15 @@ access-request, invitation or Membership flow.
 | 403 at login | "the request was refused: this account may not access Cantos Studio"; the Denied entry. A 403 is a wrong `Origin` **or** a roster denial and the response cannot tell which, so no copy claims the password was right. Login and email never grant Studio authority |
 | 404 | "Studio sign-in is not available on this server"; no fallback sign-in, form hidden |
 | 429 | the bounded `Retry-After` seconds; the identity client refuses every request of this surface (login, renew, reads, writes, downloads, uploads) until then, even with a still-valid session |
-| 503, network, timeout | unknown effect, shown as unavailable with Retry; never as signed out; drafts kept |
+| 503, network, timeout | unknown effect, shown as unavailable with connection/sign-in guidance; no entry Retry or automatic credential replay; never as signed out; retained drafts remain in this tab |
 | 400 | invalid input message |
 | refused account (retained-draft owner mismatch) | message that the new session was revoked; the other account is never adopted |
+
+Entry gives the form the full column through tablet widths; the optional hero appears only
+when the content container exceeds 64rem. The form remains bounded on wider screens, and
+root text scaling collapses the layout before the hero can squeeze the fields. State-specific
+guidance names the existing sign-in form or administrator/configuration recovery. Draft
+memory warnings appear only when the shell actually holds unsaved content.
 
 The header toolbar uses a compact tonal language pill (short code and chevron, with full
 registry autonyms in the menu) and a separate tonal, icon-only theme-cycle button. Full localized
@@ -542,7 +548,12 @@ Development composition preview: build with `cargo xtask build cantos-studio --w
 the same form and makes no API/storage call. Its v1 scenarios are `empty`, `current`,
 `replacement`, `validating`, `preparing`, `prepared`, `uploading`, `awaiting-acknowledgement`,
 `admitted`, `failed`, `expired`, `unknown`, and `conflict`. Scenario selection explicitly resets
-projection; theme/locale retain draft text. This entry and its fixture module are excluded by
+projection; theme/locale retain draft text. Additional cover-view fixtures are `preview-loading`,
+`preview-unavailable`, `selected`, `invalid-file`, `unreadable` and `non-owner`. The preview's
+100%/200% text-size control scales the document font; it is injected text scaling, not browser
+zoom or OS accessibility acceptance. File/step callbacks remain inert apart from the existing
+clear-confirmation dialog: selecting a scenario supplies facts and never simulates an upload.
+This entry and its fixture module are excluded by
 `cfg(debug_assertions)` in release builds. It is a Studio-owned composition using established
 UI primitives, not a new shared component or a native Studio surface.
 

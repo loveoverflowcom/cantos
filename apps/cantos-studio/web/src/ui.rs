@@ -314,7 +314,7 @@ pub fn ActionButton(
     children: Children,
     on_press: Callback<MouseEvent>,
     #[prop(optional)] focus_on_press: bool,
-    #[prop(optional)] variant: ButtonVariant,
+    #[prop(into, default = ButtonVariant::Primary.into())] variant: Signal<ButtonVariant>,
     #[prop(optional)] icon: Option<IconName>,
     #[prop(into, default = false.into())] blocked: Signal<bool>,
     #[prop(into, default = false.into())] busy: Signal<bool>,

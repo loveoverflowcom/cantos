@@ -5804,6 +5804,42 @@
         }
       }
     },
+    "theatre.auth.listening_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhịp nghe của bạn"
+        },
+        "en": {
+          "text": "Your listening space"
+        }
+      }
+    },
+    "theatre.auth.saved_shortcut_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Những câu chuyện muốn nghe"
+        },
+        "en": {
+          "text": "Stories you want to hear"
+        }
+      }
+    },
+    "theatre.auth.history_shortcut_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm lại những câu chuyện đã nghe"
+        },
+        "en": {
+          "text": "Return to stories you’ve heard"
+        }
+      }
+    },
     "theatre.auth.guest_heading": {
       "args": {},
       "exposure": "production",
@@ -6709,10 +6745,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đăng nhập Studio chưa khả dụng"
+          "text": "Đăng nhập chưa khả dụng"
         },
         "en": {
-          "text": "Studio sign-in is not available"
+          "text": "Studio sign-in unavailable"
         }
       }
     },
@@ -6721,10 +6757,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Máy chủ chưa cấu hình đăng nhập Studio hoặc chưa có danh sách tài khoản được phép, và không có cách đăng nhập thay thế. Hãy liên hệ quản trị viên. Bản nháp đang giữ trong phiên này vẫn còn."
+          "text": "Máy chủ chưa cấu hình đăng nhập Studio hoặc danh sách tài khoản được phép. Liên hệ quản trị viên; tải lại trang sau khi cấu hình được khắc phục."
         },
         "en": {
-          "text": "The server has no Studio sign-in or no list of allowed accounts configured, and there is no alternative sign-in. Contact an administrator. Drafts retained in this session are still here."
+          "text": "The server has no Studio sign-in or allowed-account list configured. Contact an administrator; reload the page after the configuration is fixed."
         }
       }
     },
@@ -6793,10 +6829,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không vào được Studio bằng tài khoản này"
+          "text": "Không vào được Studio"
         },
         "en": {
-          "text": "This account cannot enter Studio"
+          "text": "Studio access denied"
         }
       }
     },
@@ -6817,10 +6853,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa thể xác nhận phiên Studio"
+          "text": "Chưa xác nhận phiên"
         },
         "en": {
-          "text": "Your Studio session could not be confirmed"
+          "text": "Session not confirmed"
         }
       }
     },
@@ -6829,10 +6865,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Kiểm tra kết nối rồi thử lại. Bản nháp đang giữ trong phiên này vẫn còn."
+          "text": "Kiểm tra kết nối rồi đăng nhập bằng biểu mẫu bên dưới."
         },
         "en": {
-          "text": "Check your connection and try again. Drafts retained in this session are still here."
+          "text": "Check your connection, then sign in using the form below."
         }
       }
     },
@@ -6865,10 +6901,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Studio chưa nhận phiên đăng nhập"
+          "text": "Studio từ chối phiên"
         },
         "en": {
-          "text": "Studio did not accept this session"
+          "text": "Studio refused this session"
         }
       }
     },
@@ -6877,10 +6913,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tài khoản đã được xác nhận nhưng Studio vẫn từ chối dữ liệu. Đăng nhập lại; nếu vẫn lặp lại, xoá cookie của trang này rồi tải lại."
+          "text": "Studio vẫn từ chối dữ liệu của phiên này. Đăng nhập lại bằng biểu mẫu bên dưới; nếu vẫn lặp lại, hãy liên hệ quản trị viên."
         },
         "en": {
-          "text": "Your account was confirmed but Studio still refused the data. Sign in again; if it repeats, clear this site's cookies and reload."
+          "text": "Studio still refused data for this session. Sign in again using the form below; if it repeats, contact an administrator."
         }
       }
     },
@@ -13047,10 +13083,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn tệp từ máy"
+          "text": "Chọn tệp ảnh"
         },
         "en": {
-          "text": "Choose a local file"
+          "text": "Choose an image file"
         }
       }
     },
@@ -13143,10 +13179,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "1. Chuẩn bị upload"
+          "text": "1. Chuẩn bị"
         },
         "en": {
-          "text": "1. Prepare upload"
+          "text": "1. Prepare"
         }
       }
     },
@@ -13155,10 +13191,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "2. Tải tệp & chờ máy chủ xác nhận"
+          "text": "2. Tải ảnh lên"
         },
         "en": {
-          "text": "2. Upload & wait for server confirmation"
+          "text": "2. Upload image"
         }
       }
     },
@@ -13167,10 +13203,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "3. Gắn / thay ảnh bìa"
+          "text": "3. Chọn làm bìa"
         },
         "en": {
-          "text": "3. Select / replace cover"
+          "text": "3. Select as cover"
         }
       }
     },
@@ -17199,10 +17235,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Hoàn tác chỉnh sửa"
+          "text": "Hoàn tác"
         },
         "en": {
-          "text": "Undo edit"
+          "text": "Undo"
         }
       }
     },
@@ -17211,10 +17247,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Làm lại chỉnh sửa"
+          "text": "Làm lại"
         },
         "en": {
-          "text": "Redo edit"
+          "text": "Redo"
         }
       }
     },
@@ -19407,10 +19443,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chưa có ảnh bìa"
+          "text": "Sẵn sàng chọn tệp ảnh"
         },
         "en": {
-          "text": "No cover selected"
+          "text": "Ready to choose an image"
         }
       }
     },
@@ -27725,6 +27761,194 @@
         },
         "en": {
           "text": "Back"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lịch sử chỉnh sửa"
+        },
+        "en": {
+          "text": "Edit history"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có chỉnh sửa đã ghi để hoàn tác hoặc làm lại."
+        },
+        "en": {
+          "text": "No committed edits to undo or redo yet."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_no_undo": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không còn bước để hoàn tác."
+        },
+        "en": {
+          "text": "No earlier edit to undo."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_no_redo": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không còn bước để làm lại."
+        },
+        "en": {
+          "text": "No later edit to redo."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_identity": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mã tham chiếu"
+        },
+        "en": {
+          "text": "Reference details"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_review_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về kiểm tra và đối chiếu"
+        },
+        "en": {
+          "text": "About validation and comparison"
+        }
+      }
+    },
+    "studio.artwork.workflow": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn tệp từ máy → Chuẩn bị → Tải lên → Chọn làm bìa. Mỗi bước cần bạn xác nhận."
+        },
+        "en": {
+          "text": "Choose a local file → Prepare → Upload → Select as cover. Confirm each step separately."
+        }
+      }
+    },
+    "studio.artwork.details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin ảnh và phiên bản"
+        },
+        "en": {
+          "text": "Image and revision details"
+        }
+      }
+    },
+    "studio.artwork.select_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh đã tải lên vẫn riêng tư và chưa là ảnh bìa. Chọn làm bìa sẽ dùng phiên bản tác phẩm đang hiển thị"
+        },
+        "en": {
+          "text": "The uploaded image is private and is not the cover yet. Selecting it uses the displayed Work revision"
+        }
+      }
+    },
+    "studio.artwork.preview_scale": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cỡ chữ"
+        },
+        "en": {
+          "text": "Text size"
+        }
+      }
+    },
+    "studio.artwork.image_identity": {
+      "args": {
+        "revision": "text",
+        "asset": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{revision} · {asset}"
+        },
+        "en": {
+          "text": "{revision} · {asset}"
+        }
+      }
+    },
+    "studio.artwork.selection_revision": {
+      "args": {
+        "revision": "count"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": " · r{revision}"
+        },
+        "en": {
+          "text": " · r{revision}"
+        }
+      }
+    },
+    "studio.artwork.preview_option": {
+      "args": {
+        "label": "text",
+        "id": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{label} · {id}"
+        },
+        "en": {
+          "text": "{label} · {id}"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_100": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "100%"
+        },
+        "en": {
+          "text": "100%"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_200": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "200%"
+        },
+        "en": {
+          "text": "200%"
         }
       }
     }

@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "386a770cddd1f9e6ba98cfa75294db50e4a5ca36324abbf784ca24175bb9192f",
+  "catalogSha256": "7b12334a96d580e0a0603219ffa70680b2c1074cd98e4a4e8f1960745c984447",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -151,6 +151,7 @@
     "studio.artwork.compare": {},
     "studio.artwork.confirm": {},
     "studio.artwork.current": {},
+    "studio.artwork.details": {},
     "studio.artwork.discard": {},
     "studio.artwork.empty": {},
     "studio.artwork.file": {},
@@ -160,6 +161,10 @@
       "mime": "text",
       "name": "text",
       "width": "count"
+    },
+    "studio.artwork.image_identity": {
+      "asset": "text",
+      "revision": "text"
     },
     "studio.artwork.intent_receipt": {},
     "studio.artwork.media_facts": {
@@ -185,6 +190,13 @@
     "studio.artwork.preview_light": {},
     "studio.artwork.preview_loading": {},
     "studio.artwork.preview_locale": {},
+    "studio.artwork.preview_option": {
+      "id": "text",
+      "label": "text"
+    },
+    "studio.artwork.preview_scale": {},
+    "studio.artwork.preview_scale_100": {},
+    "studio.artwork.preview_scale_200": {},
     "studio.artwork.preview_scenario": {},
     "studio.artwork.preview_theme": {},
     "studio.artwork.preview_title": {},
@@ -204,6 +216,10 @@
     "studio.artwork.rights": {},
     "studio.artwork.rights_help": {},
     "studio.artwork.select": {},
+    "studio.artwork.select_help": {},
+    "studio.artwork.selection_revision": {
+      "revision": "count"
+    },
     "studio.artwork.stage_admitted": {},
     "studio.artwork.stage_awaiting_acknowledgement": {},
     "studio.artwork.stage_conflict": {},
@@ -228,6 +244,7 @@
     "studio.artwork.unavailable_preview": {},
     "studio.artwork.unverified": {},
     "studio.artwork.upload": {},
+    "studio.artwork.workflow": {},
     "studio.authoring.authoring_copy_act": {},
     "studio.authoring.authoring_copy_act_title": {},
     "studio.authoring.authoring_copy_add_act": {},
@@ -261,7 +278,12 @@
     "studio.authoring.authoring_copy_emotion": {},
     "studio.authoring.authoring_copy_empty": {},
     "studio.authoring.authoring_copy_episode_title": {},
+    "studio.authoring.authoring_copy_history_empty": {},
     "studio.authoring.authoring_copy_history_help": {},
+    "studio.authoring.authoring_copy_history_label": {},
+    "studio.authoring.authoring_copy_history_no_redo": {},
+    "studio.authoring.authoring_copy_history_no_undo": {},
+    "studio.authoring.authoring_copy_identity": {},
     "studio.authoring.authoring_copy_inspector": {},
     "studio.authoring.authoring_copy_intensity": {},
     "studio.authoring.authoring_copy_invalid": {},
@@ -293,6 +315,7 @@
     "studio.authoring.authoring_copy_removed": {},
     "studio.authoring.authoring_copy_reordered": {},
     "studio.authoring.authoring_copy_replacement": {},
+    "studio.authoring.authoring_copy_review_help": {},
     "studio.authoring.authoring_copy_role": {},
     "studio.authoring.authoring_copy_scene": {},
     "studio.authoring.authoring_copy_scene_title": {},
@@ -1399,6 +1422,8 @@
     "theatre.auth.brand_help": {},
     "theatre.auth.guest_heading": {},
     "theatre.auth.guest_help": {},
+    "theatre.auth.history_shortcut_help": {},
+    "theatre.auth.listening_heading": {},
     "theatre.auth.login_email": {},
     "theatre.auth.login_eyebrow": {},
     "theatre.auth.login_heading": {},
@@ -1429,6 +1454,7 @@
     "theatre.auth.return_library": {},
     "theatre.auth.return_login": {},
     "theatre.auth.return_membership": {},
+    "theatre.auth.saved_shortcut_help": {},
     "theatre.auth.settings_help": {},
     "theatre.auth.signed_heading": {},
     "theatre.auth.signed_help": {},
