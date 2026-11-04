@@ -554,12 +554,13 @@ query-on-change/Clear contract. Library's invitation uses the qualified shared `
 The app-owned search containment reads the dedicated Theatre hero/foreground and heading-weight
 tokens. It does not enable the global Theatre expression or change account/Auth/Membership
 presentation globally. The app-owned Shell header keeps the official Logo and 48 dp Account
-opener; theme and language now live once in the Account/Me preference group. The opener remains
-necessary until the separately scoped native three-root navigation (#583) is implemented.
-Both guest and signed-in Account compose the same compact tonal rows, with canonical mode/globe
-icons and controlled values; the existing PreferenceDialog dispatches to the root
-PreferencesController. Light/Dark/System and host resolution remain intact, theme stays memory-only,
-and rejected locale writes keep the previous value and can be retried through the chooser.
+opener where available; the opener remains necessary until the separately scoped native
+three-root navigation (#583) is implemented. Guests have compact theme and language actions in
+the header or account-task frame. Signed-in Account/Me has two controlled compact triggers: the
+theme mode icon and value, and the short Vi/En value without a globe. Both presentations reuse the
+existing PreferenceDialog and root PreferencesController. Light/Dark/System and host resolution
+remain intact, theme stays memory-only, and rejected locale writes keep the previous value and can
+be retried through the chooser.
 Listening Settings keeps Speed/Timer/Diagnostics. Shared pointer observation uses `pointerInput`
 so search reopening and outside dismissal compile on native targets too. The guest profile alone
 opts into the admitted Theatre profile recipe; signed-in identity is unchanged. See the
