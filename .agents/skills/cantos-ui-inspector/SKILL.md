@@ -10,7 +10,8 @@ description: >-
   when requested; reports reproducible component-level findings with rule source, kind, severity,
   confidence and honest coverage against the shared Material 3 Expressive, accessibility,
   localization and state criteria. Inspection never implies fixing. Use for a UI audit, UX
-  review, visual QA, design comparison, accessibility pass or screenshot review.
+  review, visual QA, design comparison, accessibility pass or screenshot/evidence-bundle review;
+  capture-only and Drive-storage requests use their dedicated skills.
 ---
 
 # Cantos UI inspector
@@ -22,6 +23,10 @@ findings report; inspection never implies fixing. A fix is a separate task throu
 [`cantos-work-item`](../cantos-work-item/SKILL.md) and the renderer skill, rechecked afterwards
 with the same scenario.
 
+For capture-only requests use [`cantos-ui-capture`](../cantos-ui-capture/SKILL.md); requested
+Drive storage/retrieval uses [`cantos-ui-evidence-drive`](../cantos-ui-evidence-drive/SKILL.md).
+A combined capture/upload/audit request composes these workflows within the existing grant.
+
 ## Repository reality
 
 Studio Web, the isolated Theatre Web/CMP mocks and shared preview hosts exist. Studio Mobile
@@ -31,7 +36,8 @@ is out of scope; never scaffold it for inspection.
   A reachable mock does not implement native playback or a complete scenario. Mark each
   unsupported journey/check separately; never build a copied screen to create evidence.
 - **`existing` mode** consumes supplied/located PNGs, recordings, design artifacts, JVM capture
-  bundles or `comparison/report.json`. Record historical build identity or `unknown`; a mockup
+  bundles, the [shared evidence bundle](../cantos-ui-capture/references/evidence-bundle.md)
+  (local or pinned Drive run), or `comparison/report.json`. Record historical build identity or `unknown`; a mockup
   is not a product render. Reference fidelity needs the approved pairing described by the
   [visual review owner](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
 - JVM `DemoCaptureTest`/shared `AuthAccountCaptureTest` export PNGs, metadata and semantics.
@@ -75,8 +81,9 @@ the [report contract](references/report.md) and the reviewed scenarios. It cites
 - **Test accounts only** through the app's official sign-up or sign-in flow, in a local or QA
   environment the user authorized; never production, never a real creator's account.
   Credentials never appear in chat, Git, scenarios, reports, command arguments or screenshots.
-- **Outward actions** — filing issues, uploading images, commenting — need the user's
-  confirmation each time.
+- **Outward actions** — filing issues, uploading images, commenting — need authorization in the
+  current task's scope. Reuse an explicit existing grant; do not ask again per image or report.
+  Inspection alone authorizes none of these writes. Requested evidence upload uses the Drive skill.
 
 ## The inspection order
 
@@ -127,6 +134,27 @@ it does not establish stay `unknown`, and the inspection stays report-only whate
 |---|---|---|
 | `existing` | inspects supplied or located evidence; validates its digest when a manifest exists; records the historical source and build or `unknown` | launches a server, build, emulator or browser; relabels an old image as the current HEAD; makes pixel claims from source alone (that report is `inconclusive`) |
 | `live` | drives an instance the user authorized: already running, or started within budget by the repository's documented launch command | targets production; falls back silently to another origin; invents a launch command |
+
+### Consume an evidence bundle
+
+Pin its run ID, manifest digest and per-target historical source/build; validate selected image
+bytes, size/hash, renderer and variant against the shared bundle contract. For Drive input use
+the evidence skill's read-only retrieval procedure, then open each cited image locally or with
+an image-capable connected tool. Missing images or hash conflicts block their findings, while
+independently verified cells continue. A verified upload link is not an opened/inspected image.
+
+Keep capture coverage and audit coverage separate. `CAPTURED`/opened does not pass a scenario
+assertion, and `BLOCKED`/`NOT_IMPLEMENTED`/`UNSUPPORTED`/`NOT_RUN` cells remain gaps. Existing
+screenshots can support visible component findings; absent interaction, focus, motion, semantics
+or screen-reader evidence leaves those checks not-run/inconclusive, never fabricated passes.
+Public-production screenshots may be inspected as historical artifacts in this mode; they do
+not authorize driving production or establish that deployment matches the checkout.
+
+Write a separate inspection report referencing capture/artifact IDs and hashes. Preserve the
+capture manifest, original sidecars and capture `REPORT.md`; never mutate sealed evidence to
+claim it was reviewed. If audit and upload are both requested before sealing, include the
+separate report as an artifact; for an already sealed/uploaded run use a new linked review
+bundle/run through the Drive protocol. Missing design approval yields advisory comparison only.
 
 ## 3. Budget and forbidden actions
 
@@ -226,7 +254,7 @@ Images opened:               <n> of <n> cited
 Report path:                 artifacts/ui-evidence/<run-id>/report.md
 Fixtures and mutations:      created, changed, retained
 Usage:                       minutes · actions · images, or unknown
-Shared outward:              none | drafted locally | filed with confirmation
+Shared outward:              none | drafted locally | shared within explicit task authorization
 <foundation § 9 fields … Not covered / residual risk>
 ```
 

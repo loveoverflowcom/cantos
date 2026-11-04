@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos UI Evidence Drive"
+  short_description: "Upload, recover and retrieve verified UI evidence"
+  default_prompt: "Use $cantos-ui-evidence-drive to upload or resume this Cantos UI bundle in the selected Drive destination, verify each file, preserve run history and update the screen index using the existing task authorization."
