@@ -178,8 +178,8 @@ class CantosTheatreAppTest {
     }
 
     @Test
-    fun signed_in_me_preferences_use_the_root_owner_handle_store_failure_and_keep_player() =
-        runDesktopComposeUiTest(width = 390, height = 844) {
+    fun signed_in_me_preferences_use_the_root_owner_handle_store_failure_and_keep_player() {
+        for ((width, scale) in listOf(390 to 1f, 320 to 2f)) runDesktopComposeUiTest(width = width, height = 844) {
             val store = LocaleStore()
             lateinit var fixture: Fixture
             var renderedDark = false
@@ -190,7 +190,7 @@ class CantosTheatreAppTest {
                     Fixture(scope, works, units, localeStore = store, account = signedInAccount(scope)).also { fixture = it }
                 }
                 DisposableEffect(owner) { onDispose { owner.close() } }
-                CantosTheatreApp(owner.shell, systemIsDark = false, onThemeChanged = { renderedDark = it })
+                CantosTheatreApp(owner.shell, textScale = scale, systemIsDark = false, onThemeChanged = { renderedDark = it })
             }
             waitUntil { fixture.runtime.account?.state?.value is NativeAccountState.SignedIn }
             onNodeWithTag("work-${fixture.work.id.value}").performScrollTo().performClick()
@@ -211,6 +211,11 @@ class CantosTheatreAppTest {
             runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Account)) }
             waitForIdle()
             val routeBefore = fixture.shell.navigation.value
+            for (tag in listOf("setting-Theme", "setting-Language")) {
+                val bounds = onNodeWithTag(tag).performScrollTo().fetchSemanticsNode().boundsInRoot
+                assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$width / $scale: undersized $tag")
+                assertTrue(bounds.left >= 0f && bounds.right <= width.toFloat(), "$width / $scale: clipped $tag")
+            }
 
             onNodeWithTag("setting-Theme").performScrollTo().performClick()
             onNodeWithTag("theme-Dark").performClick()
@@ -258,6 +263,7 @@ class CantosTheatreAppTest {
             assertEquals(readsBefore, fixture.worksReads)
             assertEquals(authorizationsBefore, fixture.authorizations)
         }
+    }
 
     @Test
     fun guest_preferences_keep_system_selected_while_the_host_appearance_changes() =
