@@ -766,6 +766,13 @@ fn server_replies_preserve_preview_handle_until_lifecycle_retires_it_once() {
 #[test]
 fn artwork_named_facts_preserve_literal_braces_and_localize_units() {
     let name = "Lời hẹn {time}.png";
+    for locale in crate::localization::Locale::supported() {
+        assert_eq!(copy::selection_revision(7, locale), " · r7");
+        assert_eq!(
+            copy::image_identity("r7", "asset_{time}", locale),
+            "r7 · asset_{time}"
+        );
+    }
     assert_eq!(
         copy::media_facts(1, 1, 1, "image/png", crate::localization::Locale::English),
         "1 byte · 1 × 1 px · image/png"

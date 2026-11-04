@@ -27883,6 +27883,74 @@
           "text": "Text size"
         }
       }
+    },
+    "studio.artwork.image_identity": {
+      "args": {
+        "revision": "text",
+        "asset": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{revision} · {asset}"
+        },
+        "en": {
+          "text": "{revision} · {asset}"
+        }
+      }
+    },
+    "studio.artwork.selection_revision": {
+      "args": {
+        "revision": "count"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": " · r{revision}"
+        },
+        "en": {
+          "text": " · r{revision}"
+        }
+      }
+    },
+    "studio.artwork.preview_option": {
+      "args": {
+        "label": "text",
+        "id": "text"
+      },
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "{label} · {id}"
+        },
+        "en": {
+          "text": "{label} · {id}"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_100": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "100%"
+        },
+        "en": {
+          "text": "100%"
+        }
+      }
+    },
+    "studio.artwork.preview_scale_200": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "200%"
+        },
+        "en": {
+          "text": "200%"
+        }
+      }
     }
   }
 }

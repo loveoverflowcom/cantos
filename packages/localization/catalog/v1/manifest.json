@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "40279af02b9f526ed5d2202579ffad74754a3cb93a37a54e3b0ab04d73a358fe",
+  "catalogSha256": "7b12334a96d580e0a0603219ffa70680b2c1074cd98e4a4e8f1960745c984447",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -162,6 +162,10 @@
       "name": "text",
       "width": "count"
     },
+    "studio.artwork.image_identity": {
+      "asset": "text",
+      "revision": "text"
+    },
     "studio.artwork.intent_receipt": {},
     "studio.artwork.media_facts": {
       "byte_length": "count",
@@ -186,7 +190,13 @@
     "studio.artwork.preview_light": {},
     "studio.artwork.preview_loading": {},
     "studio.artwork.preview_locale": {},
+    "studio.artwork.preview_option": {
+      "id": "text",
+      "label": "text"
+    },
     "studio.artwork.preview_scale": {},
+    "studio.artwork.preview_scale_100": {},
+    "studio.artwork.preview_scale_200": {},
     "studio.artwork.preview_scenario": {},
     "studio.artwork.preview_theme": {},
     "studio.artwork.preview_title": {},
@@ -207,6 +217,9 @@
     "studio.artwork.rights_help": {},
     "studio.artwork.select": {},
     "studio.artwork.select_help": {},
+    "studio.artwork.selection_revision": {
+      "revision": "count"
+    },
     "studio.artwork.stage_admitted": {},
     "studio.artwork.stage_awaiting_acknowledgement": {},
     "studio.artwork.stage_conflict": {},

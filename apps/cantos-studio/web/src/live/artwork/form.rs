@@ -82,7 +82,7 @@ pub fn ArtworkForm(
                                 <img class="artwork-image" src=url alt=art.alt_text.clone()/><p>{art.alt_text.clone()}</p>
                                 <details class="artwork-metadata"><summary>{label(Key::Details)}</summary>
                                     {m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}
-                                    <small>{format!("{} · {}",revision.clone().unwrap_or_default(),art.image_asset_id)}</small>
+                                    <small>{copy::image_identity(&revision.clone().unwrap_or_default(),&art.image_asset_id,locale.get())}</small>
                                 </details></div> }.into_any())
                         }
                         CoverView::PreviewLoading => Some(view!{<div class="artwork-placeholder" data-state=view.name()><SurfacePulse/><p>{label(Key::PreviewLoading)}</p></div><small>{revision}</small>}.into_any()),
@@ -122,7 +122,7 @@ pub fn ArtworkForm(
         </div>
         <Show when=move ||model.with(|m|m.intent.is_some())><p>{move ||label(Key::PreparedHelp)}</p><details><summary>{move ||label(Key::IntentReceipt)}</summary><small>{move ||model.with(|m|m.intent.as_ref().map(|i|i.operation_id.clone()))}</small></details></Show>
         <Show when=move ||model.with(|m|m.compared_revision.is_some())><p>{move ||label(Key::Compare)}{move ||model.with(|m|format!(" · r{} / r{}",m.compared_revision.unwrap_or_default(),m.reported_revision.or_else(||m.current.as_ref().map(|r|r.work_revision)).unwrap_or_default()))}</p></Show>
-        <Show when=move ||model.with(|m|m.asset.is_some())><p class="artwork-selection-context">{move ||label(Key::SelectHelp)}{move ||model.with(|m|m.current.as_ref().map(|r|format!(" · r{}",r.work_revision)))}</p></Show>
+        <Show when=move ||model.with(|m|m.asset.is_some())><p class="artwork-selection-context">{move ||label(Key::SelectHelp)}{move ||model.with(|m|m.current.as_ref().map(|r|copy::selection_revision(r.work_revision,locale.get())))}</p></Show>
         <div class="artwork-actions">
             <ActionButton id="artwork-prepare" locale=locale reason=BlockReason::Artwork(Key::NeedFile)
                 variant=Signal::derive(move ||if next.get()==Some(Intent::Prepare) {ButtonVariant::Primary} else {ButtonVariant::Tonal})
