@@ -10,6 +10,25 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InfrastructureLayout(unittest.TestCase):
+    def test_nested_rust_outputs_are_ignored_without_hiding_crate_sources(self):
+        generated = [
+            "target/debug/xtask",
+            "tools/proto-codegen/target/debug/cantos-proto-codegen",
+            "scripts/protobuf-oracle/rust/target/debug/protobuf-oracle",
+        ]
+        sources = [
+            "tools/proto-codegen/Cargo.toml",
+            "tools/proto-codegen/Cargo.lock",
+            "tools/proto-codegen/src/main.rs",
+            "scripts/protobuf-oracle/rust/Cargo.toml",
+            "scripts/protobuf-oracle/rust/src/main.rs",
+        ]
+        result = subprocess.run(
+            ["git", "check-ignore", "--no-index", *generated, *sources],
+            cwd=ROOT, check=True, capture_output=True, text=True,
+        )
+        self.assertEqual(result.stdout.splitlines(), generated)
+
     def test_only_infra_owns_tracked_edge_and_hosting_assets(self):
         self.assertTrue((ROOT / "infra/edge/Caddyfile").is_file())
         self.assertTrue((ROOT / "infra/edge/duck.sh.example").is_file())

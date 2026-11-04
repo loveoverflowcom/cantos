@@ -59,6 +59,9 @@ then [Identity auth v1](../services/cantos-server/contracts/auth/identity-auth/v
 | Local checks and deployment | [xtask](../xtask/README.md), [seeded Theatre catalog runbook](deployment/theatre-seeded-catalog.md), [retained legacy topology/runbook](deployment/vps-production.md), [Hosting tooling](deployment/firebase-hosting.md), [Cloudflare Pages publisher](deployment/cloudflare-pages.md), [CircleCI artifact builds](deployment/circleci-builds.md), [Google Secret Manager custody and `secrets` helper](deployment/google-secret-manager.md) |
 | Cloudflare Web transition | [Rollout/recovery and offline report](deployment/cloudflare-rollout.md); #277/#278 own promotion/publishing prerequisites, #280 owns live acceptance and Hosting-only retirement. Source preparation is independent of operator execution. |
 
+The [developer storage audit](evidence/development-storage-711.md) records the 4 November 2026
+macOS inventory, retained cache ownership, source hygiene fixes and deferred cleanup choices (#711).
+
 ## Keeping documents current
 
 - Update the owner rather than appending a parallel summary to the queue. Keep the queue short;
