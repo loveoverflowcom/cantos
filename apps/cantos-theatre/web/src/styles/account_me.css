@@ -1,9 +1,5 @@
 /* Me owns account composition. The admitted Select keeps its native fallback,
    value, keyboard/popover/focus state and accessible label; no second chooser is introduced. */
-.theatre-live-app #account .theatre-account {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-}
-.theatre-account-primary { display: grid; gap: var(--cantos-space-xl); min-inline-size: 0; }
 .theatre-live-app #account .theatre-account-profile-heading {
   display: grid;
   gap: var(--cantos-space-md);
@@ -153,10 +149,6 @@
   margin-block: var(--cantos-space-md) 0;
   font-size: var(--cantos-type-metadata-size);
 }
-/* Match the content-fit v9.2 account breakpoint without changing navigation geometry. */
-@media (max-width: 960px) {
-  .theatre-live-app #account .theatre-account { grid-template-columns: minmax(0, 1fr); }
-}
 /* Text expansion follows available content space, rather than a device guess. Keep the
    current value whole on a second line; icon + label remain the first line of the same row. */
 @container (max-width: 18rem) {
@@ -197,4 +189,37 @@
   .theatre-live-app #account .theatre-account-membership .cui-button {
     padding-inline: var(--cantos-space-xs);
   }
+}
+
+/* One set of Me controls: beside the heading when wide, after the profile when narrow.
+   Listening shortcuts follow the profile; Sign out follows Premium in visual and reading order. */
+.theatre-live-app #account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-areas: "heading preferences" "profile membership" "activity signout";
+  gap: var(--cantos-space-lg);
+  align-items: start;
+  container-type: inline-size;
+}
+.theatre-live-app #account > .theatre-account { display: contents; }
+.theatre-live-app #account > .theatre-page-heading { grid-area: heading; }
+.theatre-live-app #account .theatre-account-profile { grid-area: profile; }
+.theatre-live-app #account .theatre-account-preferences { grid-area: preferences; justify-self: end; align-self: center; min-inline-size: 0; max-inline-size: 100%; }
+.theatre-live-app #account .theatre-account-membership { grid-area: membership; }
+.theatre-live-app #account .theatre-account-activity { grid-area: activity; min-inline-size: 0; }
+.theatre-live-app #account .theatre-account-signout-row { grid-area: signout; min-inline-size: 0; }
+.theatre-live-app #account .theatre-pref-row { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin: 0; }
+.theatre-live-app #account .theatre-pref-tile { display: block; flex: 0 1 auto; max-inline-size: 100%; }
+.theatre-live-app #account .theatre-pref-tile .cui-select-field { display: block; min-inline-size: 0; }
+.theatre-live-app #account .theatre-pref-tile .cui-field-label {
+  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select { min-inline-size: 0; }
+.theatre-live-app #account .theatre-pref-tile .cui-field-control { min-block-size: var(--cantos-size-control); }
+.theatre-live-app #account .theatre-pref-tile .cui-select-trigger { justify-content: flex-start; gap: var(--cantos-space-xs); padding-inline: var(--cantos-space-sm); }
+.theatre-live-app #account .theatre-pref-tile .cui-select-value { flex: 0 1 auto; text-align: start; }
+@media (max-width: 960px) {
+  .theatre-live-app #account { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "profile" "activity" "preferences" "membership" "signout"; }
+  .theatre-live-app #account .theatre-account-preferences { justify-self: start; }
 }

@@ -85,9 +85,9 @@ fn PrimaryNavigation(
 ) -> impl IntoView {
     view! {
         <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
-            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
-            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/><span class="theatre-nav-label">{move || state.with(|s| s.presentation().map(|p| p.alias.clone())).unwrap_or_else(|| messages::text(Key::Me, locale.get()).to_owned())}</span><span class="theatre-nav-selected" aria-hidden="true">{icon(super::NAV_ICON_SELECTED)}</span></a>
+            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span></a>
+            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span></a>
+            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/><span class="theatre-nav-label">{move || messages::text(Key::Me, locale.get())}</span></a>
         </nav>
     }
 }
@@ -128,7 +128,7 @@ pub(crate) fn NavigationChrome(
                 <aside id="theatre-navigation-rail" class="theatre-rail">
                     <div class="theatre-rail-header">
                         <LiveBrand/>
-                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-tonal" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
+                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-text" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
                             <span class="theatre-menu-glyph" aria-hidden="true"></span>
                             <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
                             <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
@@ -1772,8 +1772,27 @@ mod tests {
                     assert_eq!(html.matches("<a ").count(), 3);
                     assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
                     assert!(html.contains(&format!("href=\"{selected}\" aria-current=\"page\"")), "{html}");
-                    assert!(html.contains(messages::text(Key::Library, language)) && html.contains(">Me</span>"));
+                    assert!(html.contains(messages::text(Key::Library, language)) && html.contains(&format!(">{}</span>", messages::text(Key::Me, language))));
+                    assert!(!html.contains("theatre-nav-selected"));
                 }
+            }
+        });
+    }
+
+    #[test]
+    fn signed_in_navigation_uses_the_localized_destination_not_the_person_alias() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            signed_in(state, PreviewActor::A).unwrap();
+            for (language, label) in [(Locale::Vietnamese, "Tôi"), (Locale::English, "Me")] {
+                let html = view! { <PrimaryNavigation route=RwSignal::new(Route::Account)
+                locale=RwSignal::new(language) state=state.read_only()/> }
+                .to_html();
+                assert!(html.contains(&format!("class=\"theatre-nav-label\">{label}</span>")));
+                assert!(!html.contains("Mây Lam"));
+                assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
+                assert!(!html.contains("theatre-nav-selected"));
             }
         });
     }

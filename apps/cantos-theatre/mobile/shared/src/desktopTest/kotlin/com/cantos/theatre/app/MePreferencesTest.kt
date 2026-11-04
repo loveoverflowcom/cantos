@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -18,11 +18,10 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -37,22 +36,26 @@ import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellThemeMode
 import com.cantos.ui.CantosTheme
+import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 import org.junit.Test
 
 /** Actual JVM production rows/dialog. A controlled value stays unchanged until its owner acknowledges it. */
 @OptIn(ExperimentalTestApi::class)
 class MePreferencesTest {
     @Test
-    fun compact_rows_keep_full_targets_names_system_and_autonyms_and_restore_focus_after_escape_or_choice() {
-        for (locale in ShellLocale.entries) runDesktopComposeUiTest(width = 320, height = 800) {
+    fun compact_controls_keep_targets_names_values_and_restore_focus_after_escape_or_choice() {
+        for (theme in Theme.entries) for (locale in ShellLocale.entries) for ((width, scale) in listOf(390 to 1f, 320 to 2f)) runDesktopComposeUiTest(width = width, height = 800) {
             val events = mutableListOf<ShellEvent>()
             val state = ShellState(locale = locale, selectedEpisode = ShellEpisodeId("none", ShellWorkId("none")))
             setContent {
-                CantosTheme(UiPreferences(textScale = 2f)) {
-                    Box(Modifier.requiredSize(320.dp, 800.dp)) {
+                CantosTheme(UiPreferences(theme = theme, textScale = scale)) {
+                    Box(Modifier.requiredSize(width.dp, 800.dp).testTag("preference-capture")) {
                         Column(Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
                             MePreferences(state, ShellCopy(locale), events::add, ShellThemeMode.System)
                         }
@@ -64,15 +67,27 @@ class MePreferencesTest {
                     .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
                     .fetchSemanticsNode().boundsInRoot
                 assertTrue(box.width >= 48f && box.height >= 48f)
-                assertTrue(box.left >= 0f && box.right <= 320f)
+                assertTrue(box.left >= 0f && box.right <= width.toFloat())
             }
-            if (locale == ShellLocale.English) {
-                onNodeWithText(ShellCopy(locale).text(CopyKey.Theme), useUnmergedTree = true)
-                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { read ->
-                        val layouts = mutableListOf<TextLayoutResult>()
-                        assertTrue(read(layouts))
-                        assertEquals(1, layouts.single().lineCount, "Appearance stays a whole word at 320dp / 200%")
-                    }
+            val copy = ShellCopy(locale)
+            onNodeWithTag("setting-Theme")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf(copy.text(CopyKey.Theme))))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, copy.text(CopyKey.System)))
+            onNodeWithTag("setting-Language")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf(copy.text(CopyKey.PreferenceLanguage))))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, locale.autonym))
+            if (scale == 1f) {
+                val theme = onNodeWithTag("setting-Theme").fetchSemanticsNode().boundsInRoot
+                val language = onNodeWithTag("setting-Language").fetchSemanticsNode().boundsInRoot
+                assertEquals(theme.top, language.top, "Both choices share a row at normal text size")
+                assertTrue(theme.right <= language.left)
+            }
+            System.getenv("CANTOS_ME_PREF_CAPTURE_DIR")?.let { path ->
+                val output = File(path)
+                check(output.isDirectory || output.mkdirs())
+                val bitmap = onNodeWithTag("preference-capture").captureToImage().asSkiaBitmap()
+                val bytes = requireNotNull(Image.makeFromBitmap(bitmap).encodeToData(EncodedImageFormat.PNG)).bytes
+                File(output, "${theme.name}-${locale.name}-$width-$scale.png").writeBytes(bytes)
             }
             onNodeWithTag("setting-Theme").performScrollTo().performClick()
             onNodeWithTag("theme-System").assertIsSelected().assertIsFocused()
@@ -93,6 +108,32 @@ class MePreferencesTest {
             onNodeWithTag("preference-close").performClick()
             onNodeWithTag("setting-Language").assertIsFocused()
             assertEquals(1, events.size, "Dismissal emits no preference mutation")
+            val other = ShellLocale.entries.first { it != locale }
+            onNodeWithTag("setting-Language").performClick()
+            onNodeWithTag("locale-$other").performClick()
+            assertEquals(listOf(ShellEvent.SetThemeMode(ShellThemeMode.Dark), ShellEvent.SetLocale(other)), events)
+            onNodeWithTag("setting-Language").assertIsFocused().performClick()
+            onNodeWithTag("locale-$locale").assertIsSelected()
+        }
+    }
+
+    @Test
+    fun acknowledged_theme_modes_are_reflected_in_the_control_and_dialog() {
+        for (mode in ShellThemeMode.entries) runDesktopComposeUiTest(width = 390, height = 800) {
+            val events = mutableListOf<ShellEvent>()
+            val state = ShellState(locale = ShellLocale.Vietnamese, selectedEpisode = ShellEpisodeId("none", ShellWorkId("none")))
+            val copy = ShellCopy(state.locale)
+            val value = copy.text(when (mode) {
+                ShellThemeMode.Light -> CopyKey.PreferenceLight
+                ShellThemeMode.Dark -> CopyKey.PreferenceDark
+                ShellThemeMode.System -> CopyKey.System
+            })
+            setContent { CantosTheme(UiPreferences()) { MePreferences(state, copy, events::add, mode) } }
+            onNodeWithTag("setting-Theme")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value))
+                .performClick()
+            onNodeWithTag("theme-$mode").assertIsSelected()
+            assertTrue(events.isEmpty(), "Opening a controlled chooser sends no preference mutation")
         }
     }
 }

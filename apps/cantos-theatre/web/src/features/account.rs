@@ -14,8 +14,8 @@ use crate::{
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonVariant, Icon, IconName, Select, SelectDensity, SelectLabelPlacement, Space,
-    Surface, SurfaceTone, SurfaceVariant, Theme,
+    Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
+    SurfaceTone, SurfaceVariant, Theme,
 };
 use leptos::prelude::*;
 
@@ -177,6 +177,11 @@ fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
                 theme.as_str(),
                 messages::text(theme_value_key(theme), locale),
             )
+            .with_icon(match theme {
+                Theme::Light => IconName::LightMode,
+                Theme::Dark => IconName::DarkMode,
+                Theme::System => IconName::ThemeSystem,
+            })
         })
         .collect()
 }
@@ -221,50 +226,47 @@ pub(crate) fn LiveAccount(
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
-                <h1 id="theatre-live-account-heading">{label(locale, CopyKey::AccountHeading)}</h1>
+                <h1 id="theatre-live-account-heading">{move || messages::text(Key::Me, locale.get())}</h1>
             </header>
             <div class="theatre-account">
-                <div class="theatre-account-primary">
-                    <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                        <div class="theatre-account-profile-heading"
-                            data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
-                            <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
-                            <div class="theatre-account-profile-copy">
-                                <h2>{profile_heading(ui, locale)}</h2>
-                                {move || state.with(|s| s.presentation().map(|person| view! {
-                                    <p class="theatre-account-alias">{person.alias.clone()}</p>
-                                }))}
-                            </div>
+                <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
+                    <div class="theatre-account-profile-heading"
+                        data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
+                        <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                        <div class="theatre-account-profile-copy">
+                            <h2>{profile_heading(ui, locale)}</h2>
+                            {move || state.with(|s| s.presentation().map(|person| view! {
+                                <p class="theatre-account-alias">{person.alias.clone()}</p>
+                            }))}
                         </div>
-                        // Healthy account state adds no status row; keep every pending/failure reason.
-                        <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
-                            <p id="theatre-live-account-status" class="theatre-auth-feedback"
-                                data-tone=move || session_tone(ui.get().phase).as_str()
-                                role="status" aria-live="polite" aria-atomic="true">
-                                {profile_status(ui, locale)}
-                            </p>
-                        </Show>
-                        {move || profile_help(ui.get().phase).map(|key| view! {
-                            <p class="theatre-account-help">{label(locale, key)}</p>
-                        })}
-                        <Show when=move || ui.get().can_authenticate>
-                            <AuthActions state locale scope="theatre-account" on_login on_register/>
-                        </Show>
-                        <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
-                    </Surface>
-                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                        <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
-                            <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
-                            <ul class="theatre-action-rows theatre-me-shortcuts">
-                                <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
-                                <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
-                            </ul>
-                        </section>
+                    </div>
+                    // Healthy account state adds no status row; keep every pending/failure reason.
+                    <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
+                        <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                            data-tone=move || session_tone(ui.get().phase).as_str()
+                            role="status" aria-live="polite" aria-atomic="true">
+                            {profile_status(ui, locale)}
+                        </p>
                     </Show>
-                </div>
-                <div class="theatre-account-content">
+                    {move || profile_help(ui.get().phase).map(|key| view! {
+                        <p class="theatre-account-help">{label(locale, key)}</p>
+                    })}
+                    <Show when=move || ui.get().can_authenticate>
+                        <AuthActions state locale scope="theatre-account" on_login on_register/>
+                    </Show>
+                    <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
+                </Surface>
+                <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                    <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
+                        <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
+                        <ul class="theatre-action-rows theatre-me-shortcuts">
+                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
+                        </ul>
+                    </section>
+                </Show>
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
-                        <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
+                        <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
                         <PreferenceFields locale theme on_locale scope="theatre-account"/>
 
                     </section>
@@ -290,7 +292,6 @@ pub(crate) fn LiveAccount(
                             </Button>
                         </div>
                     </Show>
-                </div>
             </div>
         </section>
     }
@@ -323,13 +324,6 @@ pub(crate) fn PreferenceFields(
     view! {
                         <div class="theatre-pref-row">
                             <div class="theatre-pref-tile theatre-pref-theme">
-                                <label class="theatre-pref-icon" for=format!("{scope}-theme-trigger") aria-hidden="true">
-                                    {move || view! { <Icon name=match theme.get() {
-                                        Theme::Light => IconName::LightMode,
-                                        Theme::Dark => IconName::DarkMode,
-                                        Theme::System => IconName::ThemeSystem,
-                                    }/> }}
-                                </label>
                                 <Select id=format!("{scope}-theme") class="theatre-pref-select"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
@@ -340,14 +334,17 @@ pub(crate) fn PreferenceFields(
                                     })/>
                             </div>
                             <div class="theatre-pref-tile theatre-pref-language">
-                                <label class="theatre-pref-icon" for=format!("{scope}-locale-trigger") aria-hidden="true">
-                                    <Icon name=IconName::Language/>
-                                </label>
                                 <Select id=format!("{scope}-locale") class="theatre-pref-locale"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
                                     value=Signal::derive(move || locale.get().lang().to_owned())
                                     options=crate::localization::locale_options()
+                                    short_label=Callback::new(|tag: String| {
+                                        let language = tag.split('-').next()?;
+                                        let mut letters = language.chars();
+                                        let first = letters.next()?.to_uppercase().collect::<String>();
+                                        Some(format!("{first}{}", letters.as_str()))
+                                    })
                                     on_input=on_locale/>
                             </div>
                         </div>
@@ -367,16 +364,22 @@ mod tests {
                 signed_in(state, PreviewActor::A).unwrap();
                 let html = render_live(state.read_only(), RwSignal::new(language));
                 assert!(html.contains(super::super::auth_copy::text(
-                    CopyKey::AccountHeading,
+                    CopyKey::ListeningHeading,
                     language
                 )));
+                for help in [CopyKey::SavedShortcutHelp, CopyKey::HistoryShortcutHelp] {
+                    assert!(html.contains(super::super::auth_copy::text(help, language)));
+                }
                 let positions = [
+                    "id=\"theatre-live-account-heading\"",
                     "theatre-account-profile-heading",
                     "id=\"theatre-account-activity-heading\"",
                     "id=\"theatre-account-open-saved\"",
                     "id=\"theatre-account-open-history\"",
                     "id=\"theatre-account-preferences-heading\"",
                     "id=\"theatre-account-membership-heading\"",
+                    "id=\"theatre-account-membership\"",
+                    "id=\"theatre-account-membership-status\"",
                     "id=\"theatre-account-logout\"",
                 ]
                 .map(|marker| html.find(marker).unwrap_or_else(|| panic!("{marker}")));
@@ -486,7 +489,7 @@ mod tests {
     }
 
     #[test]
-    fn preferences_precede_membership_and_form_two_tiles_that_name_their_value() {
+    fn preferences_precede_membership_and_keep_two_named_controlled_selects() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
             for language in [Locale::Vietnamese, Locale::English] {
@@ -513,10 +516,11 @@ mod tests {
                     .nth(1)
                     .expect("preference row");
                 let row = row.split("theatre-action-rows").next().unwrap();
-                let visible = visible_text(row);
                 for shown in [theme_label, theme_value, locale_label, autonym] {
-                    assert!(visible.contains(shown), "{shown}");
+                    assert!(row.contains(shown), "{shown}");
                 }
+                assert!(row.contains("theatre-account-theme-label"));
+                assert!(row.contains("theatre-account-locale-label"));
             }
         });
     }
@@ -886,7 +890,7 @@ mod tests {
                 guest(state).unwrap();
                 let html = render_live(state.read_only(), RwSignal::new(language));
                 assert_eq!(html.matches("<h1").count(), 1);
-                // The page heading names the listening space; the shell owns the Me label.
+                // Me names the destination; healthy status and a second help sentence add no fact.
                 for removed in [
                     "theatre-live-account-status",
                     "Chưa đăng nhập vào Cantos",
@@ -897,12 +901,7 @@ mod tests {
                     assert!(!html.contains(removed), "{removed}");
                 }
                 let text = visible_text(&html);
-                for shown in [
-                    super::super::auth_copy::text(CopyKey::AccountHeading, language),
-                    greeting,
-                    line,
-                    create,
-                ] {
+                for shown in [messages::text(Key::Me, language), greeting, line, create] {
                     assert!(text.contains(shown), "{shown}");
                 }
                 assert!(!html.contains(super::super::auth_copy::text(
@@ -953,10 +952,7 @@ mod tests {
             assert!(checking.contains("role=\"status\""));
             assert!(checking.contains(messages::text(Key::AccountChecking, Locale::Vietnamese)));
             assert!(!checking.contains("theatre-guest-info"));
-            assert!(checking.contains(super::super::auth_copy::text(
-                CopyKey::AccountHeading,
-                Locale::Vietnamese
-            )));
+            assert!(checking.contains(messages::text(Key::Me, Locale::Vietnamese)));
             // Failed: the failure text is visible with its retry control.
             let issued = state.write().begin_refresh().unwrap();
             state
