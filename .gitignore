@@ -1,7 +1,8 @@
 .env
 .env.*
 !.env.example
-/target/
+# Cargo output from the workspace and isolated tool/oracle crates.
+target/
 /apps/*/web/dist/
 **/build/
 /apps/cantos-theatre/mobile/androidApp/build-audit/
