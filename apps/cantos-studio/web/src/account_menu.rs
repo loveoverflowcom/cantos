@@ -1,9 +1,11 @@
 //! Header account entry: an avatar trigger and a floating popover.
 //!
 //! Presentation only. The session owner (`SessionState`) stays in `view.rs`; this component owns
-//! the disclosure geometry, dismissal, contained keyboard traversal and focus return,
+//! the disclosure geometry, dismissal and focus return,
 //! and renders whatever account actions the shell passes as children.
-use cantos_ui::{avatar_initials, avatar_seed, avatar_tone, AvatarInitials, Button, ButtonVariant};
+use cantos_ui::{
+    avatar_initials, avatar_seed, avatar_tone, AvatarInitials, Button, ButtonVariant, IconName,
+};
 use leptos::{ev, html, prelude::*};
 
 pub const ENTRY_ID: &str = "studio-account-entry";
@@ -48,44 +50,6 @@ mod browser {
         }
     }
 
-    /// Resolve the current rendered controls on each Tab: opening reauthentication and
-    /// pending actions can change the list without recreating the account disclosure.
-    pub(super) fn contain_tab(event: &ev::KeyboardEvent, wrapper: NodeRef<html::Div>) {
-        if event.key() != "Tab" || event.is_composing() {
-            return;
-        }
-        let Some(wrapper) = wrapper.get_untracked() else {
-            return;
-        };
-        let controls = focusable(&wrapper);
-        let Some(first) = controls.first() else {
-            return;
-        };
-        let Some(last) = controls.last() else { return };
-        let active = wrapper
-            .owner_document()
-            .and_then(|document| document.active_element());
-        let target = if event.shift_key()
-            && active
-                .as_ref()
-                .is_none_or(|active| active.is_same_node(Some(first)))
-        {
-            Some(last)
-        } else if !event.shift_key()
-            && active
-                .as_ref()
-                .is_none_or(|active| active.is_same_node(Some(last)))
-        {
-            Some(first)
-        } else {
-            None
-        };
-        if let Some(target) = target {
-            event.prevent_default();
-            let _ = target.focus();
-        }
-    }
-
     pub(super) fn focus(element: NodeRef<html::Button>) {
         if let Some(element) = element.get_untracked() {
             let _ = element.unchecked_into::<HtmlElement>().focus();
@@ -123,16 +87,19 @@ mod browser {
         false
     }
     pub(super) fn focus(_: NodeRef<html::Button>) {}
-    pub(super) fn contain_tab(_: &ev::KeyboardEvent, _: NodeRef<html::Div>) {}
 }
 
 /// App-private identity badge. The shared `Avatar` is not admitted for new adoption until it has
 /// both-renderer qualification evidence (the preview catalog gate), so this renders the same
 /// shared initials and tone contracts with Studio-owned markup; swap to `Avatar` once qualified.
 #[component]
-fn ActorBadge(#[prop(into)] actor: Signal<Option<String>>, size: &'static str) -> impl IntoView {
-    let initials =
-        move || avatar_initials(&actor.get().unwrap_or_default(), AvatarInitials::Single);
+fn ActorBadge(
+    #[prop(into)] actor: Signal<Option<String>>,
+    label: Signal<String>,
+    size: &'static str,
+) -> impl IntoView {
+    // The session actor is an opaque authority key, never a display name.
+    let initials = move || avatar_initials(&label.get(), AvatarInitials::Single);
     let tone = move || {
         let actor = actor.get();
         let name = actor.as_deref().unwrap_or_default();
@@ -150,7 +117,7 @@ pub const fn menu_visible(available: bool, open: bool) -> bool {
 /// owned by the shell so it can discard typed reauthentication input when the popover closes.
 #[component]
 pub fn AccountEntry(
-    /// Authenticated actor shown in the popover; the avatar initials derive from it.
+    /// Opaque actor key, used only to choose a stable avatar tone.
     #[prop(into)]
     actor: Signal<Option<String>>,
     #[prop(into)] available: Signal<bool>,
@@ -166,7 +133,6 @@ pub fn AccountEntry(
     let wrapper = NodeRef::<html::Div>::new();
     let trigger = NodeRef::<html::Button>::new();
     let menu = NodeRef::<html::Div>::new();
-    let name = Signal::derive(move || actor.get().unwrap_or_default());
     let visible = Memo::new(move |_| menu_visible(available.get(), open.get()));
 
     Effect::new(move |_| {
@@ -201,11 +167,6 @@ pub fn AccountEntry(
     }
     view! {
         <div class="studio-account" node_ref=wrapper hidden=move || !available.get()
-            on:keydown=move |event: ev::KeyboardEvent| {
-                if visible.get_untracked() {
-                    browser::contain_tab(&event, menu);
-                }
-            }
             on:focusout=move |event: ev::FocusEvent| {
                 if browser::focus_left(&event, wrapper) {
                     open.set(false);
@@ -215,21 +176,23 @@ pub fn AccountEntry(
                 aria-label=move || label.get() aria-controls=MENU_ID
                 aria-expanded=move || visible.get().to_string()
                 on:click=move |_| open.update(|open| *open = !*open)>
-                <ActorBadge actor=actor size="medium"/>
+                <ActorBadge actor=actor label=label size="medium"/>
             </button>
             <Show when=move || visible.get()>
                 <div class="studio-account-scrim" on:click=move |_| open.set(false) aria-hidden="true"></div>
                 <div id=MENU_ID node_ref=menu class="studio-account-menu" role="group" aria-label=move || label.get()>
-                    <Button id="studio-account-close" class="studio-account-close" variant=ButtonVariant::Text
-                        on_press=Callback::new(move |_| {
-                            open.set(false);
-                            browser::focus(trigger);
-                        })>{move || close_label.get()}</Button>
-                    <div class="studio-account-identity">
-                        <ActorBadge actor=actor size="large"/>
-                        <div class="studio-account-name">
-                            <p class="identity">{move || name.get()}</p>
+                    <div class="studio-account-header">
+                        <div class="studio-account-identity">
+                            <ActorBadge actor=actor label=label size="large"/>
+                            <div class="studio-account-name">
+                                <p class="identity">{move || label.get()}</p>
+                            </div>
                         </div>
+                        <Button id="studio-account-close" class="studio-account-close" variant=ButtonVariant::Text icon=IconName::Close
+                            on_press=Callback::new(move |_| {
+                                open.set(false);
+                                browser::focus(trigger);
+                            })><span class="cui-sr-only">{move || close_label.get()}</span></Button>
                     </div>
                     <div class="studio-account-actions">{children()}</div>
                 </div>
@@ -263,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn collapsed_trigger_is_a_named_disclosure_with_the_actor_initial_and_no_popover() {
+    fn collapsed_trigger_is_a_named_disclosure_with_a_neutral_initial_and_no_popover() {
         Owner::new().with(|| {
             let html = render(Some("minh@example.test"), true, false);
             assert!(html.contains("id=\"studio-account-entry\""), "{html}");
@@ -274,7 +237,8 @@ mod tests {
                 "{html}"
             );
             assert!(html.contains("studio-avatar"), "{html}");
-            assert!(html.contains(">M<"), "{html}");
+            assert!(html.contains(">T<"), "{html}");
+            assert!(!html.contains("minh@example.test"), "{html}");
             assert!(!html.contains("id=\"studio-account-menu\""), "{html}");
             assert!(!html.contains("probe-action"), "{html}");
             assert!(
@@ -294,9 +258,10 @@ mod tests {
                 .nth(1)
                 .expect(&html);
             assert!(html.contains("role=\"group\""), "{html}");
-            for required in ["minh@example.test", "probe-action"] {
+            for required in ["Tài khoản Studio", "probe-action"] {
                 assert!(menu.contains(required), "{required}: {html}");
             }
+            assert!(!html.contains("minh@example.test"), "{html}");
             assert!(html.matches("data-size=\"large\"").count() == 1, "{html}");
             assert!(html.contains("class=\"studio-account-scrim\""), "{html}");
         });
@@ -314,10 +279,15 @@ mod tests {
     }
 
     #[test]
-    fn vietnamese_actor_uses_the_given_initial_not_a_placeholder() {
+    fn opaque_actor_ids_never_appear_as_names_or_initials() {
         Owner::new().with(|| {
-            let html = render(Some("Ánh Nguyễn"), true, false);
-            assert!(html.contains(">Á<"), "{html}");
+            let html = render(Some("f1234567-1234-1234-1234-123456789abc"), true, true);
+            assert!(
+                !html.contains("f1234567-1234-1234-1234-123456789abc"),
+                "{html}"
+            );
+            assert!(!html.contains(">F<"), "{html}");
+            assert!(html.contains(">T<"), "{html}");
         });
     }
 }

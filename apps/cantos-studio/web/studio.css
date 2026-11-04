@@ -306,7 +306,7 @@ body { margin: 0; }
   inset-block-start: calc(100% + var(--cantos-space-sm));
   inset-inline-end: 0;
   box-sizing: border-box;
-  inline-size: min(24rem, calc(100vw - 2 * var(--cantos-space-lg)));
+  inline-size: min(20.5rem, calc(100vw - 2 * var(--cantos-space-lg)));
   max-block-size: calc(100dvh - 6rem);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -319,11 +319,17 @@ body { margin: 0; }
   box-shadow: var(--cantos-elevation-overlay);
 }
 .studio-shell .studio-account-menu p { margin: 0; }
+.studio-shell .studio-account-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--cantos-space-sm); }
 .studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
-.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; }
-.studio-shell .studio-account-close { justify-self: end; }
+.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; font-weight: var(--cantos-type-label-weight); }
+.studio-shell .studio-account-close { inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border-radius: var(--cantos-shape-pill); color: inherit; }
+.studio-shell .studio-account-close:hover { background: var(--cantos-color-surface-container); }
+.studio-shell .studio-account-close:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); }
+.studio-shell #account-logout[data-variant="text"]:not(:disabled) { color: var(--cantos-color-error); }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
+.studio-shell .studio-account-actions .cui-button { justify-content: flex-start; text-align: start; }
+.studio-shell .studio-account-help { padding-inline: var(--cantos-space-control-inline); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 /* The art panel is the Expressive hero surface (Theatre's auth art uses the same pair); under the expression primaryContainer is selection ink, not a brand block. */
