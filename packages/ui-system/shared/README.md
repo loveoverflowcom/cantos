@@ -2,16 +2,21 @@
 
 v0.14.0 re-tones the confirmed Saved Work fill for the flat-tonal Work detail of
 [#665](https://github.com/loveoverflowcom/cantos/issues/665): Light honey `#f3c75b`, Dark
-`#e6b94b`, with the unchanged dark ink `#281d2b` (about 10.1:1 and 8.8:1). The light fill no
-longer meets 3:1 against the near-white Theatre surface, so that boundary pair is removed; the
-unconfirmed pill on the same surface never met it either. Both pills are identified by their
-visible label, and Saved is told apart by the filled bookmark glyph and the `Đã lưu` / `Saved`
-label as well as by colour. No role is added or removed, and pending or unconfirmed changes
-still must not use this fill.
+`#e6b94b`, with the unchanged dark ink `#281d2b` (about 10.1:1 and 8.8:1). The light fill is
+1.57:1 against the near-white Theatre surface. Its boundary pair is removed because the visible
+label and contrasting bookmark identify the control, while the filled glyph and `Đã lưu` /
+`Saved` label identify the confirmed state without relying on colour. Under
+[WCAG 2.2 SC 1.4.11, Boundaries](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html#boundaries),
+a hit-area boundary is not required when visible text or an icon identifies the control.
+The `onSavedWork` / `savedWork` text-and-icon pair still has a 4.5:1 admission floor; the
+focus indicator retains its separate non-text contrast requirement. This is not a general
+exemption for control boundaries or selected-state graphics. No role is added or removed,
+and pending or unconfirmed changes still must not use this fill.
 
 v0.13.0 adds the `color.savedWork` / `color.onSavedWork` pair for a confirmed Saved Work action.
 Light uses amber `#b77c17`, Dark uses `#d6a23f`, both with dark ink `#281d2b`.
-The token generator checks text contrast and the boundary against Theatre surface. `size.savedWork`
+At v0.13.0 the token generator checked text contrast and the boundary against Theatre surface;
+v0.14.0 supersedes the latter as explained above. `size.savedWork`
 sets a 120-unit minimum to keep Save and Saved widths steady. Pending and unconfirmed changes
 must not use this success fill.
 

@@ -177,6 +177,24 @@ class CircleConfigTests(unittest.TestCase):
         # JSON is a YAML subset; stdlib parsing avoids adding a runtime YAML dependency.
         self.config = json.loads((ROOT / ".circleci/config.yml").read_text())
 
+    def test_build_caches_follow_the_rust_pin_and_restore_exactly_what_they_save(self):
+        commands = self.config["commands"]
+        for restore, save in (
+            (commands["build-cache-restore"]["steps"][0]["restore_cache"],
+             commands["build-cache-save"]["steps"][0]["save_cache"]),
+            (commands["install-build-trunk"]["steps"][0]["restore_cache"],
+             commands["install-build-trunk"]["steps"][2]["save_cache"]),
+        ):
+            with self.subTest(key=save["key"]):
+                self.assertEqual(restore["keys"], [save["key"]])
+                self.assertIn('{{ checksum "rust-toolchain.toml" }}', save["key"])
+                self.assertIn("{{ arch }}", save["key"])
+        # Reusable source downloads stay separate from compiler output and private artifacts.
+        self.assertEqual(commands["build-cache-save"]["steps"][0]["save_cache"]["paths"],
+                         ["~/.cargo/registry", "~/.cargo/git"])
+        self.assertEqual(commands["install-build-trunk"]["steps"][2]["save_cache"]["paths"],
+                         ["~/.cargo/bin/trunk"])
+
     def value(self, expr, parameters):
         if isinstance(expr, str) and expr.startswith("<< pipeline.parameters."):
             return parameters[expr.split(".")[-1].split()[0]]

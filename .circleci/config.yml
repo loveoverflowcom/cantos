@@ -80,7 +80,7 @@
         {
           "restore_cache": {
             "keys": [
-              "v2-build-{{ arch }}-rust1981-{{ .Branch }}-{{ checksum \"Cargo.lock\" }}"
+              "v3-build-{{ arch }}-{{ checksum \"rust-toolchain.toml\" }}-{{ .Branch }}-{{ checksum \"Cargo.lock\" }}"
             ]
           }
         }
@@ -90,7 +90,7 @@
       "steps": [
         {
           "save_cache": {
-            "key": "v2-build-{{ arch }}-rust1981-{{ .Branch }}-{{ checksum \"Cargo.lock\" }}",
+            "key": "v3-build-{{ arch }}-{{ checksum \"rust-toolchain.toml\" }}-{{ .Branch }}-{{ checksum \"Cargo.lock\" }}",
             "paths": [
               "~/.cargo/registry",
               "~/.cargo/git"
@@ -104,7 +104,7 @@
         {
           "restore_cache": {
             "keys": [
-              "v2-trunk-{{ arch }}-rust1981-02114"
+              "v3-trunk-{{ arch }}-{{ checksum \"rust-toolchain.toml\" }}-02114"
             ]
           }
         },
@@ -117,7 +117,7 @@
         },
         {
           "save_cache": {
-            "key": "v2-trunk-{{ arch }}-rust1981-02114",
+            "key": "v3-trunk-{{ arch }}-{{ checksum \"rust-toolchain.toml\" }}-02114",
             "paths": [
               "~/.cargo/bin/trunk"
             ]
