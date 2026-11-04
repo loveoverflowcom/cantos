@@ -244,7 +244,12 @@ pub(crate) fn bind_capture(
         let escape = window_event_listener_untyped("keydown", move |event| {
             if event
                 .dyn_ref::<web_sys::KeyboardEvent>()
-                .is_some_and(|event| event.key() == "Escape")
+                .is_some_and(|key| {
+                    crate::application::auth_navigation::unhandled_escape(
+                        &key.key(),
+                        event.default_prevented(),
+                    )
+                })
             {
                 on_leave.run(());
             }

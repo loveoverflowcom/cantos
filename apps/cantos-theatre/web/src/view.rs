@@ -355,6 +355,8 @@ mod tests {
             let html = view! { <LiveBoundary/> }.to_html();
             assert!(html.contains("id=\"theatre-landing\""));
             assert!(html.contains("theatre-guest-preferences"));
+            let main = html.split("id=\"theatre-main\"").nth(1).unwrap();
+            assert!(!main.contains("theatre-guest-preferences"));
             assert!(html.contains("data-navigation=\"none\""));
             for absent in [
                 "theatre-navigation-rail",

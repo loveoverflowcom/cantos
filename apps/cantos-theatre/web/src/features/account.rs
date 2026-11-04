@@ -293,7 +293,23 @@ pub(crate) fn PreferenceFields(
     theme: RwSignal<Theme>,
     on_locale: Callback<String>,
     scope: &'static str,
+    #[prop(optional)] compact: bool,
 ) -> impl IntoView {
+    if compact {
+        return view! {
+            <div class="cui-topbar-actions theatre-guest-preferences">
+                <Select id=format!("{scope}-locale") class="theatre-locale-field"
+                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
+                    value=Signal::derive(move || locale.get().lang().to_owned())
+                    options=crate::localization::locale_options()
+                    short_label=Callback::new(|value: String| value.split('-').next().map(str::to_owned))
+                    on_input=on_locale/>
+                <cantos_ui::ThemeCycleButton id=format!("{scope}-theme") theme
+                    labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))/>
+            </div>
+        }.into_any();
+    }
     view! {
                         <div class="theatre-pref-row">
                             <div class="theatre-pref-tile theatre-pref-theme">
@@ -325,7 +341,7 @@ pub(crate) fn PreferenceFields(
                                     on_input=on_locale/>
                             </div>
                         </div>
-    }
+    }.into_any()
 }
 
 #[cfg(test)]

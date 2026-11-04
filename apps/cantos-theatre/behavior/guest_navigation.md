@@ -24,11 +24,13 @@ All IDs use prefix `cantos.presentation.guest-navigation`.
 | `repeated-navigation` | idempotent-navigation / same-destination | Address/query no-op and browser history | Reducer tests |
 | `preferences-player` | public-owners-survive / playing-guest | Shell player and preference chooser | ShellLayoutTest.kt |
 
-CMP ownedSources/implementationTests in the manifest identify existing owners for impact
-selection, **not completed scenario bindings or evidence**. At base
-994c8174541c659dc1607594af862653aa20815d they retain the earlier Discovery/tab policy.
-#692 must add the same IDs to tests of its actual reducer/coordinator/composition and provide
-compatible SHA plus JVM/device observations. Do not create a CMP model copy.
+CMP ownedSources/implementationTests in the manifest identify the native owners for impact
+selection. [#697](https://github.com/loveoverflowcom/cantos/pull/697), source
+`bd0693ece1913332d8fba270103eb4f911e76d07`, binds the same IDs to production
+reducer/coordinator/composition tests and records bounded JVM interaction/visual observations.
+Those source-bound observations do not establish Android/iOS or full renderer parity.
+Do not create a CMP model copy. The #691 Web header placement amendment is presentation-only:
+it keeps the session/navigation transitions and root preference/player owners modeled here.
 
 Every property has a named run, reachable witness and deliberate typechecking negative control.
 Default execution is model-only; no implementation observer is registered for this capability.

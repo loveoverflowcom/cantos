@@ -3,6 +3,12 @@
 //! A route is presentation intent, never proof of authentication or registration. The shell must
 //! confirm the current session with the API before treating the listener as signed in.
 
+/// Menus/tooltips consume Escape before page-level authentication cancellation.
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) fn unhandled_escape(key: &str, default_prevented: bool) -> bool {
+    key == "Escape" && !default_prevented
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ReturnDestination {
     SharedWork(crate::core::public_ids::PublicWorkId),
@@ -268,6 +274,18 @@ impl AuthIntentState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Shared scenario: cantos.presentation.guest-navigation.run.auth-cancel-late
+    #[test]
+    fn a_control_consumed_escape_never_cancels_authentication() {
+        assert!(unhandled_escape("Escape", false));
+        assert!(!unhandled_escape("Escape", true));
+        for key in ["Enter", "Tab", "ArrowDown"] {
+            for handled in [false, true] {
+                assert!(!unhandled_escape(key, handled));
+            }
+        }
+    }
 
     #[test]
     fn library_auth_context_roundtrips_without_accepting_redirect_parameters() {
