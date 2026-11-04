@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.13.0 sha256:f8f55689c0f42c22303463b4f11c5d12e8018d5c7409b448b1438e9d13daa45e
+// Generated from Cantos UI tokens v0.14.0 sha256:79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.13.0";
+pub const VERSION: &str = "0.14.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -659,8 +659,8 @@ impl Token {
                 crate::Theme::Light | crate::Theme::System => "#e6d9f1",
             },
             Self::ColorSavedWork => match theme {
-                crate::Theme::Dark => "#d6a23f",
-                crate::Theme::Light | crate::Theme::System => "#b77c17",
+                crate::Theme::Dark => "#e6b94b",
+                crate::Theme::Light | crate::Theme::System => "#f3c75b",
             },
             Self::ColorSuccess => match theme {
                 crate::Theme::Dark => "#b7d6ba",

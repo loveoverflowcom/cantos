@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
@@ -93,8 +94,25 @@ fun Button(
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         ButtonControl(onPress, controlModifier, state, variant, name = name, interactionSource = interactionSource, icon = icon, content = content)
-        state.reason()?.let { FieldHelp(it) }
+        state.reason()?.let { if (variant == ButtonVariant.ListenHero) ListenReasonChip(it) else FieldHelp(it) }
     }
+}
+
+/**
+ * Issue 665: the hero's blocked reason is a flat, non-interactive status chip attached below it.
+ * The text and the control's state description are unchanged; only the surface differs. No
+ * border, elevation or gradient, and the label wraps instead of clipping at large text.
+ */
+@Composable
+private fun ListenReasonChip(text: String) {
+    if (text.isBlank()) return
+    Text(
+        text,
+        Modifier.background(tokenColor("color.surfaceContainer"), CantosShapes.full)
+            .padding(horizontal = tokenDp("space.inset"), vertical = tokenDp("space.xs") * 1.5f),
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = MaterialTheme.typography.bodyMedium.fontWeight),
+        color = tokenColor("color.onSurfaceVariant"),
+    )
 }
 
 /** Control semantics belong on the native interactive node, separate from adjacent help. */

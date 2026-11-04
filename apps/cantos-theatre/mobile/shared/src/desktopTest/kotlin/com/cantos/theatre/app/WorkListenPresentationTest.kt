@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -135,6 +137,56 @@ class WorkListenPresentationTest {
                 File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-$width-text${scale.toInt()}.png").writeBytes(bytes)
             }
         }
+    }
+
+    @Test
+    fun flat_tonal_metadata_reason_and_save_share_one_action_band() {
+        // Issue 665: a complete count is a non-interactive chip, the no-audio reason is a chip
+        // below Listen, and Save stays centred on the hero's face band in every theme and scale.
+        val output = File("build/reports/work-665").apply { mkdirs() }
+        val chapters = work.copy(episodes = emptyList(), unitKind = com.cantos.theatre.presentation.model.ShellUnitKind.Chapter)
+        for (theme in ShellTheme.entries) for (saved in listOf(false, true)) for ((width, scale) in listOf(390 to 1f, 320 to 2f)) {
+            // Desktop bounds are clipped to the scroll viewport; a tall window keeps the band visible.
+            val height = if (scale > 1f) 1400 else 844
+            runDesktopComposeUiTest(width = width, height = height) {
+                val supplied = state(theme = theme).copy(savedWorks = if (saved) setOf(id) else emptySet())
+                setContent {
+                    Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture")) {
+                        CantosPresentation(supplied, ShellCatalogView(works = listOf(chapters)), {}, textScale = scale)
+                    }
+                }
+                val count = onNodeWithTag("work-unit-count").performScrollTo().assertTextEquals("0 chương")
+                count.assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
+                val listen = onNodeWithTag("work-listen").performScrollTo().assertIsNotEnabled().fetchSemanticsNode().boundsInRoot
+                // The first match is the hero's reason chip; the second is the empty list's own note.
+                val reason = onAllNodesWithText("Chưa có audio")[0].fetchSemanticsNode().boundsInRoot
+                kotlin.test.assertTrue(reason.top >= listen.bottom, "the reason chip sits below Listen: $reason vs $listen")
+                kotlin.test.assertTrue(reason.left >= listen.left - 1f && reason.right <= width, "the reason chip stays under Listen")
+                val save = onNodeWithTag("save-work").assertIsEnabled().fetchSemanticsNode().boundsInRoot
+                if (save.top < listen.bottom) {
+                    kotlin.test.assertTrue(kotlin.math.abs(save.center.y - listen.center.y) <= 1f,
+                        "Save shares the hero band: ${save.center.y} vs ${listen.center.y}")
+                }
+                kotlin.test.assertTrue(save.height >= 48f && save.right <= width)
+                val bytes = requireNotNull(Image.makeFromBitmap(onNodeWithTag("capture").captureToImage().asSkiaBitmap())
+                    .encodeToData(EncodedImageFormat.PNG)).bytes
+                File(output, "work-${theme.name}-${if (saved) "saved" else "save"}-$width-text${scale.toInt()}.png").writeBytes(bytes)
+            }
+        }
+    }
+
+    @Test
+    fun count_chip_is_absent_until_the_list_is_complete() = runDesktopComposeUiTest(width = 390, height = 844) {
+        var phase by mutableStateOf(com.cantos.theatre.presentation.model.ShellListPhase.Loading)
+        setContent {
+            CantosPresentation(state(), ShellCatalogView(works = listOf(work.copy(unitsPhase = phase,
+                unitKind = com.cantos.theatre.presentation.model.ShellUnitKind.Chapter))), {})
+        }
+        onNodeWithTag("work-unit-count").assertDoesNotExist()
+        runOnIdle { phase = com.cantos.theatre.presentation.model.ShellListPhase.More }
+        onNodeWithTag("work-unit-count").assertDoesNotExist()
+        runOnIdle { phase = com.cantos.theatre.presentation.model.ShellListPhase.Complete }
+        onNodeWithTag("work-unit-count").performScrollTo().assertTextEquals("1 chương")
     }
 
     @Test

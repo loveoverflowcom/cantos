@@ -206,7 +206,7 @@ pub(crate) fn HomeAccount(
     }
 }
 
-/// "Truyện · Tiếng Việt · Chương đã công bố: 12", the card's server-supplied facts.
+/// "Truyện · Tiếng Việt · 12 chương đã công bố", the card's server-supplied facts.
 fn feature_meta(kind: WorkKind, language: &str, count: u64, locale: Locale) -> String {
     let units = messages::public_unit_count(kind, locale, count);
     messages::message(
@@ -926,7 +926,7 @@ mod tests {
         assert!(html.contains("Ngày mai, mình có diễn tiếp không?"));
         assert!(html.contains("Every story, a world"));
         // The count is the server's public unit_count, never the length of the page.
-        assert!(html.contains("Published chapters: 3"));
+        assert!(html.contains("3 published chapters"));
         assert!(html.contains("Showing 1 stories; the catalog has more."));
         assert!(html.contains("theatre-discovery-more") && html.contains("Load more stories"));
         for absent in [
@@ -948,7 +948,7 @@ mod tests {
         podcast.unit_count = 12;
         let state = answered(DiscoveryQuery::default(), Ok(page(vec![podcast], None)));
         let html = render(state, Locale::Vietnamese);
-        assert!(html.contains("Tập đã công bố: 12"));
+        assert!(html.contains("12 tập đã công bố"));
         assert!(html.contains("Đã hiển thị hết các tác phẩm: 1."));
         assert!(!html.contains("theatre-discovery-more"));
     }

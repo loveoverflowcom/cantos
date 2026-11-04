@@ -1437,6 +1437,20 @@
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
 }
+/* Issue 665: the hero's blocked reason is a flat, non-interactive status chip attached below it.
+   It carries the same typed text and description link as any button reason; only the surface
+   differs. No border, shadow or gradient; the chip wraps instead of clipping at large text. */
+:where(.cantos-ui) .cui-button[data-variant="listen-hero"] + .cui-button-reason:not([hidden]) {
+  display: inline-block;
+  max-inline-size: 100%;
+  border-radius: var(--cantos-shape-pill);
+  padding-block: calc(var(--cantos-space-xs) * 1.5);
+  padding-inline: var(--cantos-space-inset);
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+}
 
 /* Theatre expression. Palette and weights arrive from the canonical expression remap in
    tokens.css; only renderer-local geometry lives here, scoped to data-expression="theatre" so a

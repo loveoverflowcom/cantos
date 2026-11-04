@@ -1,4 +1,13 @@
-# Shared semantic contract v0.13.0
+# Shared semantic contract v0.14.0
+
+v0.14.0 re-tones the confirmed Saved Work fill for the flat-tonal Work detail of
+[#665](https://github.com/loveoverflowcom/cantos/issues/665): Light honey `#f3c75b`, Dark
+`#e6b94b`, with the unchanged dark ink `#281d2b` (about 10.1:1 and 8.8:1). The light fill no
+longer meets 3:1 against the near-white Theatre surface, so that boundary pair is removed; the
+unconfirmed pill on the same surface never met it either. Both pills are identified by their
+visible label, and Saved is told apart by the filled bookmark glyph and the `Đã lưu` / `Saved`
+label as well as by colour. No role is added or removed, and pending or unconfirmed changes
+still must not use this fill.
 
 v0.13.0 adds the `color.savedWork` / `color.onSavedWork` pair for a confirmed Saved Work action.
 Light uses amber `#b77c17`, Dark uses `#d6a23f`, both with dark ink `#281d2b`.
