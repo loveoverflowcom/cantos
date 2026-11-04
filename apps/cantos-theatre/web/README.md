@@ -178,6 +178,14 @@ The same shell-owned player, account and preference signals survive navigation a
 Healthy signed-in status captions are absent from Me. The isolated mock retains its earlier two-destination
 layout and remains outside live acceptance.
 
+Me uses the localized **Your space** heading. Its profile is a compact identity band, followed
+by Saved/History shortcut cards with localized supporting copy. Preferences and Premium remain
+in the second column; Sign out follows Premium in both visual and reading order. The columns
+stack at 960 CSS px and the shortcut cards stack when enlarged text needs more room. Native links,
+session recovery and the shell-owned sign-out confirmation retain their existing owners. This
+presentation follows the account content in the external Navigation & Me v9.2 design; navigation,
+preference controls and auth pending presentation remain separate work.
+
 Me and navigation consume the existing session-bound Server-generated alias/seed projection
 through the shared Lavender Pair Avatar. Me groups its avatar, localized bold serif greeting
 and supplied alias horizontally; missing presentation retains a truthful person fallback.

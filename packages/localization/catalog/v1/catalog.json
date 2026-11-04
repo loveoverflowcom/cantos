@@ -5804,6 +5804,42 @@
         }
       }
     },
+    "theatre.auth.listening_heading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhịp nghe của bạn"
+        },
+        "en": {
+          "text": "Your listening space"
+        }
+      }
+    },
+    "theatre.auth.saved_shortcut_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Những câu chuyện muốn nghe"
+        },
+        "en": {
+          "text": "Stories you want to hear"
+        }
+      }
+    },
+    "theatre.auth.history_shortcut_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tìm lại những câu chuyện đã nghe"
+        },
+        "en": {
+          "text": "Return to stories you’ve heard"
+        }
+      }
+    },
     "theatre.auth.guest_heading": {
       "args": {},
       "exposure": "production",

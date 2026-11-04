@@ -1,5 +1,9 @@
 /* Me owns account composition. The admitted Select keeps its native fallback,
    value, keyboard/popover/focus state and accessible label; no second chooser is introduced. */
+.theatre-live-app #account .theatre-account {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+}
+.theatre-account-primary { display: grid; gap: var(--cantos-space-xl); min-inline-size: 0; }
 .theatre-live-app #account .theatre-account-profile-heading {
   display: grid;
   gap: var(--cantos-space-md);
@@ -89,13 +93,39 @@
   text-align: end;
 }
 .theatre-live-app #account .theatre-me-shortcuts {
-  margin-block: var(--cantos-space-md);
+  /* Two compact destinations when their text fits; enlarged text stacks whole cards. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--cantos-space-sm);
+  margin-block-start: var(--cantos-space-md);
 }
 .theatre-live-app #account .theatre-me-shortcuts .theatre-action-row {
-  padding-inline: var(--cantos-space-md);
+  flex-direction: column;
+  align-items: flex-start;
+  block-size: 100%;
+  padding: var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-container);
+  background: var(--cantos-color-surface);
+  color: var(--cantos-color-on-surface);
 }
-/* Each state owns one foreground/background pair for the icon, label and chevron. */
-.theatre-live-app #account .theatre-me-shortcuts .theatre-action-row > * { color: inherit; }
+.theatre-me-shortcuts > li { min-inline-size: 0; }
+.theatre-me-shortcut-icon {
+  display: grid;
+  place-items: center;
+  inline-size: var(--cantos-size-control);
+  block-size: var(--cantos-size-control);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+}
+.theatre-me-shortcut-copy { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
+.theatre-me-shortcut-copy .theatre-action-row-label { font-weight: var(--cantos-type-label-weight); }
+.theatre-me-shortcut-help {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  overflow-wrap: anywhere;
+}
+/* Cards retain paired text roles in every state; decorative icon circles keep their own pair. */
 .theatre-live-app #account .theatre-me-shortcuts .theatre-action-row:is(:focus-visible, :active) {
   background: var(--cantos-color-surface-container);
   color: var(--cantos-color-on-surface);
@@ -112,16 +142,20 @@
   justify-content: flex-start;
   gap: var(--cantos-space-md);
   padding-inline: var(--cantos-space-md);
-  color: var(--cantos-color-on-primary-container);
+  color: var(--cantos-color-on-surface);
   font-weight: var(--cantos-type-body-weight);
 }
 .theatre-live-app #account .theatre-account-signout .cui-control-label { text-align: start; }
-/* A ring on the dark card needs the card's paired ink, not the global dark focus role. */
-.theatre-live-app #account .theatre-account-profile :is(.theatre-action-row, .theatre-account-signout):focus-visible {
-  outline-color: var(--cantos-color-on-primary-container);
-}
 .theatre-live-app #account .theatre-account-membership .cui-button {
   max-inline-size: 100%;
+}
+.theatre-live-app #account .theatre-membership-note {
+  margin-block: var(--cantos-space-md) 0;
+  font-size: var(--cantos-type-metadata-size);
+}
+/* Match the content-fit v9.2 account breakpoint without changing navigation geometry. */
+@media (max-width: 960px) {
+  .theatre-live-app #account .theatre-account { grid-template-columns: minmax(0, 1fr); }
 }
 /* Text expansion follows available content space, rather than a device guess. Keep the
    current value whole on a second line; icon + label remain the first line of the same row. */

@@ -181,8 +181,8 @@ fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
         .collect()
 }
 
-/// A navigation row: leading icon, one label, trailing chevron. The whole row is the target and
-/// keeps the route's own hash, so history and Back behave as for any other link.
+/// A Me shortcut keeps the existing native route link. Its supporting copy explains the
+/// destination without inventing a library count or an account capability.
 #[component]
 fn ActionRow(
     id: &'static str,
@@ -190,13 +190,16 @@ fn ActionRow(
     asset: &'static str,
     locale: RwSignal<Locale>,
     label: Key,
+    help: CopyKey,
 ) -> impl IntoView {
     view! {
         <li>
-            <a id=id class="theatre-action-row" href=route.hash()>
-                {icon(asset)}
-                <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
-                <ChevronGlyph/>
+            <a id=id class="theatre-action-row theatre-me-shortcut" href=route.hash()>
+                <span class="theatre-me-shortcut-icon">{icon(asset)}</span>
+                <span class="theatre-me-shortcut-copy">
+                    <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
+                    <span class="theatre-me-shortcut-help">{super::auth::label(locale, help)}</span>
+                </span>
             </a>
         </li>
     }
@@ -218,49 +221,47 @@ pub(crate) fn LiveAccount(
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
-                <h1 id="theatre-live-account-heading">{move || messages::text(Key::Me, locale.get())}</h1>
+                <h1 id="theatre-live-account-heading">{label(locale, CopyKey::AccountHeading)}</h1>
             </header>
             <div class="theatre-account">
-                <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <div class="theatre-account-profile-heading"
-                        data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
-                        <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
-                        <div class="theatre-account-profile-copy">
-                            <h2>{profile_heading(ui, locale)}</h2>
-                            {move || state.with(|s| s.presentation().map(|person| view! {
-                                <p class="theatre-account-alias">{person.alias.clone()}</p>
-                            }))}
+                <div class="theatre-account-primary">
+                    <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
+                        <div class="theatre-account-profile-heading"
+                            data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
+                            <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                            <div class="theatre-account-profile-copy">
+                                <h2>{profile_heading(ui, locale)}</h2>
+                                {move || state.with(|s| s.presentation().map(|person| view! {
+                                    <p class="theatre-account-alias">{person.alias.clone()}</p>
+                                }))}
+                            </div>
                         </div>
-                    </div>
-                    // Healthy account state adds no status row; keep every pending/failure reason.
-                    <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
-                        <p id="theatre-live-account-status" class="theatre-auth-feedback"
-                            data-tone=move || session_tone(ui.get().phase).as_str()
-                            role="status" aria-live="polite" aria-atomic="true">
-                            {profile_status(ui, locale)}
-                        </p>
-                    </Show>
-                    {move || profile_help(ui.get().phase).map(|key| view! {
-                        <p class="theatre-account-help">{label(locale, key)}</p>
-                    })}
-                    <Show when=move || ui.get().can_authenticate>
-                        <AuthActions state locale scope="theatre-account" on_login on_register/>
-                    </Show>
+                        // Healthy account state adds no status row; keep every pending/failure reason.
+                        <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
+                            <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                                data-tone=move || session_tone(ui.get().phase).as_str()
+                                role="status" aria-live="polite" aria-atomic="true">
+                                {profile_status(ui, locale)}
+                            </p>
+                        </Show>
+                        {move || profile_help(ui.get().phase).map(|key| view! {
+                            <p class="theatre-account-help">{label(locale, key)}</p>
+                        })}
+                        <Show when=move || ui.get().can_authenticate>
+                            <AuthActions state locale scope="theatre-account" on_login on_register/>
+                        </Show>
+                        <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
+                    </Surface>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                        <ul class="theatre-action-rows theatre-me-shortcuts">
-                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved/>
-                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History/>
-                        </ul>
-                        <div class="theatre-account-signout-row">
-                            <Button id="theatre-account-logout" class="theatre-account-signout"
-                                icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
-                                on_press=Callback::new(move |_| on_logout.run(()))>
-                                {move || messages::text(Key::SignOut, locale.get())}
-                            </Button>
-                        </div>
+                        <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
+                            <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
+                            <ul class="theatre-action-rows theatre-me-shortcuts">
+                                <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                                <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
+                            </ul>
+                        </section>
                     </Show>
-                    <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
-                </Surface>
+                </div>
                 <div class="theatre-account-content">
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
                         <h2 id="theatre-account-preferences-heading" class="theatre-group-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
@@ -271,15 +272,24 @@ pub(crate) fn LiveAccount(
                         <section aria-labelledby="theatre-account-membership-heading">
                             <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
                             <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
-                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
-                            <p id="theatre-account-membership-status" class="theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
                             <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
                                 icon=IconName::Star focus_on_press=true
                                 on_press=Callback::new(move |_| on_membership.run(()))>
                                 {label(locale, CopyKey::MembershipLearn)}
                             </Button>
+                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
+                            <p id="theatre-account-membership-status" class="theatre-membership-note theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
                         </section>
                     </Surface>
+                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                        <div class="theatre-account-signout-row">
+                            <Button id="theatre-account-logout" class="theatre-account-signout"
+                                icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
+                                on_press=Callback::new(move |_| on_logout.run(()))>
+                                {move || messages::text(Key::SignOut, locale.get())}
+                            </Button>
+                        </div>
+                    </Show>
                 </div>
             </div>
         </section>
@@ -347,6 +357,40 @@ pub(crate) fn PreferenceFields(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn me_orders_identity_listening_preferences_membership_then_signout() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                signed_in(state, PreviewActor::A).unwrap();
+                let html = render_live(state.read_only(), RwSignal::new(language));
+                assert!(html.contains(super::super::auth_copy::text(
+                    CopyKey::AccountHeading,
+                    language
+                )));
+                let positions = [
+                    "theatre-account-profile-heading",
+                    "id=\"theatre-account-activity-heading\"",
+                    "id=\"theatre-account-open-saved\"",
+                    "id=\"theatre-account-open-history\"",
+                    "id=\"theatre-account-preferences-heading\"",
+                    "id=\"theatre-account-membership-heading\"",
+                    "id=\"theatre-account-logout\"",
+                ]
+                .map(|marker| html.find(marker).unwrap_or_else(|| panic!("{marker}")));
+                assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+                for id in [
+                    "theatre-account-open-saved",
+                    "theatre-account-open-history",
+                    "theatre-account-logout",
+                ] {
+                    assert_eq!(html.matches(&format!("id=\"{id}\"")).count(), 1);
+                }
+            }
+        });
+    }
 
     #[test]
     fn signed_in_header_groups_the_current_monogram_greeting_and_alias_and_clears_on_refresh() {
@@ -842,7 +886,7 @@ mod tests {
                 guest(state).unwrap();
                 let html = render_live(state.read_only(), RwSignal::new(language));
                 assert_eq!(html.matches("<h1").count(), 1);
-                // Me names the destination; healthy status and a second help sentence add no fact.
+                // The page heading names the listening space; the shell owns the Me label.
                 for removed in [
                     "theatre-live-account-status",
                     "Chưa đăng nhập vào Cantos",
@@ -853,7 +897,12 @@ mod tests {
                     assert!(!html.contains(removed), "{removed}");
                 }
                 let text = visible_text(&html);
-                for shown in [messages::text(Key::Me, language), greeting, line, create] {
+                for shown in [
+                    super::super::auth_copy::text(CopyKey::AccountHeading, language),
+                    greeting,
+                    line,
+                    create,
+                ] {
                     assert!(text.contains(shown), "{shown}");
                 }
                 assert!(!html.contains(super::super::auth_copy::text(
@@ -904,7 +953,10 @@ mod tests {
             assert!(checking.contains("role=\"status\""));
             assert!(checking.contains(messages::text(Key::AccountChecking, Locale::Vietnamese)));
             assert!(!checking.contains("theatre-guest-info"));
-            assert!(checking.contains(messages::text(Key::Me, Locale::Vietnamese)));
+            assert!(checking.contains(super::super::auth_copy::text(
+                CopyKey::AccountHeading,
+                Locale::Vietnamese
+            )));
             // Failed: the failure text is visible with its retry control.
             let issued = state.write().begin_refresh().unwrap();
             state
