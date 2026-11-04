@@ -280,7 +280,7 @@ pub fn Studio() -> impl IntoView {
         }
     });
     let session_epoch = Signal::derive(move || session.with(SessionState::epoch));
-    // Retain draft ownership in Editor; only the API-confirmed actor is shown as signed in.
+    // Retain draft ownership in Editor; the API-confirmed actor is an opaque authority key.
     let authenticated_actor =
         Signal::derive(move || session.with(|session| session.actor().map(str::to_owned)));
     let content_activity = RwSignal::new(false);
@@ -791,11 +791,12 @@ pub fn Studio() -> impl IntoView {
                         label=Signal::derive(move || entry_text(EntryKey::Session, locale.get()).to_owned())
                         close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, locale.get()).to_owned())>
                         <ActionButton id="account-refresh" icon=IconName::Refresh locale=locale variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,locale.get())}</ActionButton>
-                        <ActionButton id="account-reauthenticate" icon=IconName::Login locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,locale.get())}</ActionButton>
+                        <ActionButton id="account-reauthenticate" icon=IconName::Login locale=locale variant=ButtonVariant::Text described_by="account-reauth-help" blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,locale.get())}</ActionButton>
+                        <p id="account-reauth-help" class="studio-account-help" hidden=move || reauth_open.get()>{move || crate::messages::signin::text(crate::messages::signin::Key::ReauthenticateHelp, locale.get())}</p>
                         <Show when=move || reauth_open.get()>
                             <SignInPanel id="account" form=account_form locale=locale blocked=auth_blocked on_submit=submit_reauthentication reauthenticate=true/>
                         </Show>
-                        <ActionButton id="account-logout" icon=IconName::Logout locale=locale variant=ButtonVariant::Danger blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,locale.get())}</ActionButton>
+                        <ActionButton id="account-logout" icon=IconName::Logout locale=locale variant=ButtonVariant::Text blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,locale.get())}</ActionButton>
                     </AccountEntry>
                 </div>
             </header>

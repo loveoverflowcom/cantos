@@ -111,11 +111,12 @@ memory warnings appear only when the shell actually holds unsaved content.
 The header toolbar uses a compact tonal language pill (short code and chevron, with full
 registry autonyms in the menu) and a separate tonal, icon-only theme-cycle button. Full localized
 accessible names and the Dark → Light → System cycle remain available. Once the workspace is
-confirmed, it shows a round avatar derived from the authenticated actor; the login entry has no
-placeholder identity. The avatar opens a floating account group on wide
-screens and a bottom sheet on narrow screens. Opening focuses its close button; Tab and Shift+Tab
-wrap through its visible enabled controls. Escape or the close button restores focus to the
-trigger; a press outside or focus leaving also closes it. Closing disposes the reauthentication
+confirmed, it shows a round avatar with a localized generic account initial. The opaque actor
+key selects its tone but is never displayed as a name; the current session contract does not
+provide an authorized display name or email. The login entry has no placeholder identity. The
+avatar opens a floating account group on wide screens and a bottom sheet on narrow screens. Opening
+focuses its close button; Tab and Shift+Tab follow the document order and leaving the group closes
+it. Escape or the close button restores focus to the trigger; a press outside or focus leaving also closes it. Closing disposes the reauthentication
 form, clears its typed credentials and rejects late updates to that form. Session authority
 stays in the session owner; closing the group does not assert cancellation of an in-flight server
 operation. This is not an aria-modal dialog and does not establish background inertness or
