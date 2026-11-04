@@ -164,3 +164,33 @@
     padding-inline: var(--cantos-space-xs);
   }
 }
+
+/* One set of Me controls: beside the heading when wide, after the profile when narrow. */
+.theatre-live-app #account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  grid-template-areas: "heading preferences" "profile membership";
+  gap: var(--cantos-space-lg);
+  align-items: start;
+  container-type: inline-size;
+}
+.theatre-live-app #account > .theatre-account { display: contents; }
+.theatre-live-app #account > .theatre-page-heading { grid-area: heading; }
+.theatre-live-app #account .theatre-account-profile { grid-area: profile; }
+.theatre-live-app #account .theatre-account-preferences { grid-area: preferences; justify-self: end; align-self: center; min-inline-size: 0; max-inline-size: 100%; }
+.theatre-live-app #account .theatre-account-membership { grid-area: membership; }
+.theatre-live-app #account .theatre-pref-row { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin: 0; }
+.theatre-live-app #account .theatre-pref-tile { display: block; flex: 0 1 auto; max-inline-size: 100%; }
+.theatre-live-app #account .theatre-pref-tile .cui-select-field { display: block; min-inline-size: 0; }
+.theatre-live-app #account .theatre-pref-tile .cui-field-label {
+  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.theatre-live-app #account .theatre-pref-tile .cui-select { min-inline-size: 0; }
+.theatre-live-app #account .theatre-pref-tile .cui-field-control { min-block-size: var(--cantos-size-control); }
+.theatre-live-app #account .theatre-pref-tile .cui-select-trigger { justify-content: flex-start; gap: var(--cantos-space-xs); padding-inline: var(--cantos-space-sm); }
+.theatre-live-app #account .theatre-pref-tile .cui-select-value { flex: 0 1 auto; text-align: start; }
+@media (max-width: 960px) {
+  .theatre-live-app #account { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "profile" "preferences" "membership"; }
+  .theatre-live-app #account .theatre-account-preferences { justify-self: start; }
+}

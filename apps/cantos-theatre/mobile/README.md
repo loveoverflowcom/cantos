@@ -497,7 +497,9 @@ device gaps](../../../docs/evidence/listen-hero-595.md).
   in and nothing is saved. Evidence: JVM tests, the production authorized HTTP port's route allow-list, and a loopback run of the sync adapter
   and client over a JDK transport against a file-backed Server API. The separate authorized
   journey above adds real Identity; neither is device, audio or deployed acceptance.
-- Account/Me owns Light/Dark/System and VI/EN preference rows; its Listening Settings entry retains speed/timer preferences.
+- Account/Me owns compact, independently named Light/Dark/System and VI/EN controls. They wrap
+  when space or text size requires it and retain the existing dialog and preference owner; its
+  Listening Settings entry retains speed/timer preferences.
 
 Android system Back, visible Back/close and JVM Escape use the same pure navigation transitions.
 Play expresses intent; only a matching engine observation confirms running. The Desktop Preview

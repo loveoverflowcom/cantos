@@ -1,9 +1,14 @@
 package com.cantos.theatre.features.shell.presentation
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,21 +17,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellThemeMode
-import com.cantos.ui.Space
-import com.cantos.ui.Surface
-import com.cantos.ui.SurfaceTone
-import com.cantos.ui.SurfaceVariant
+import com.cantos.ui.rememberCantosIconVector
+import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 /** Local chooser/focus state only. Values and effects stay with the root PreferencesController. */
@@ -52,11 +59,10 @@ internal fun MePreferences(
     if (compactActions != null) compactActions(
         { panel = PreferencePanel.Theme }, { panel = PreferencePanel.Language },
         requesters.getValue(PreferencePanel.Theme), requesters.getValue(PreferencePanel.Language),
-    ) else Surface(Modifier.fillMaxWidth().testTag("account-preferences"), tone = SurfaceTone.Surface,
-        variant = SurfaceVariant.AccountGroup, inset = Space.Md) {
-        Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Text(copy.text(CopyKey.PreferencesHeading), style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() })
+    ) else {
+        FlowRow(Modifier.fillMaxWidth().testTag("account-preferences"),
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             for (choice in listOf(PreferencePanel.Theme, PreferencePanel.Language)) {
                 val icon = when (choice) {
                     PreferencePanel.Theme -> when (themeMode) {
@@ -64,20 +70,29 @@ internal fun MePreferences(
                         ShellThemeMode.Dark -> "dark_mode"
                         ShellThemeMode.System -> "theme_system"
                     }
-                    else -> "language"
+                    else -> null
                 }
-                PreferenceRow(
-                    title = copy.text(if (choice == PreferencePanel.Theme) CopyKey.Theme else CopyKey.PreferenceLanguage),
-                    value = if (choice == PreferencePanel.Theme) copy.text(when (themeMode) {
+                val name = copy.text(if (choice == PreferencePanel.Theme) CopyKey.Theme else CopyKey.PreferenceLanguage)
+                val value = if (choice == PreferencePanel.Theme) copy.text(when (themeMode) {
                         ShellThemeMode.Light -> CopyKey.PreferenceLight
                         ShellThemeMode.Dark -> CopyKey.PreferenceDark
                         ShellThemeMode.System -> CopyKey.System
-                    }) else state.locale.autonym,
-                    onClick = { panel = choice },
-                    modifier = Modifier.testTag("setting-$choice").focusRequester(requesters.getValue(choice)),
-                    leadingIcon = icon,
-                    compact = true,
-                )
+                    }) else state.locale.autonym
+                val visibleValue = if (choice == PreferencePanel.Theme) value else
+                    state.locale.tag.substringBefore('-').replaceFirstChar { it.uppercase() }
+                Surface(onClick = { panel = choice },
+                    modifier = Modifier.testTag("setting-$choice").focusRequester(requesters.getValue(choice))
+                        .semantics { role = Role.Button; contentDescription = name; stateDescription = value },
+                    shape = MaterialTheme.shapes.large, color = tokenColor("color.surfaceContainerHigh")) {
+                    Row(Modifier.sizeIn(minWidth = tokenDp("size.control"), minHeight = tokenDp("size.control"))
+                        .padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
+                        horizontalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        if (icon != null) Icon(rememberCantosIconVector(icon), null)
+                        Text(visibleValue, style = MaterialTheme.typography.labelLarge)
+                        Icon(rememberCantosIconVector("expand_more"), null)
+                    }
+                }
             }
         }
     }
