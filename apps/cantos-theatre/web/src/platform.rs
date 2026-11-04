@@ -127,6 +127,34 @@ pub fn focus_main(main: NodeRef<leptos::html::Main>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_main(_main: NodeRef<leptos::html::Main>) {}
 
+/// Resolve a typed Library section only after the route has mounted. A session gate may
+/// have removed private content in the meantime, so missing targets fall back to main.
+pub(crate) fn focus_library_section(
+    main: NodeRef<leptos::html::Main>,
+    section: Option<crate::application::library::Section>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use web_sys::wasm_bindgen::JsCast;
+        let target = section.and_then(|section| {
+            web_sys::window()?
+                .document()?
+                .get_element_by_id(&format!("theatre-library-{}-heading", section.name()))?
+                .dyn_into::<web_sys::HtmlElement>()
+                .ok()
+        });
+        if let Some(target) = target {
+            if target.focus().is_ok() {
+                target.scroll_into_view_with_bool(true);
+                return;
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = section;
+    focus_main(main);
+}
+
 #[cfg(feature = "preview")]
 #[cfg(target_arch = "wasm32")]
 pub fn focus_input(input: NodeRef<leptos::html::Input>) {

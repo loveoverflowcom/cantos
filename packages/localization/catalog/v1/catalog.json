@@ -1719,6 +1719,18 @@
         }
       }
     },
+    "theatre.shell.auth_preview_text_scale_200": {
+      "args": {},
+      "exposure": "preview",
+      "translations": {
+        "vi-VN": {
+          "text": "200%"
+        },
+        "en": {
+          "text": "200%"
+        }
+      }
+    },
     "theatre.shell.auth_preview_ready": {
       "args": {},
       "exposure": "preview",

@@ -162,10 +162,24 @@ remains on the account card.
 Me (`#account`) contains one locale and one explicit Light/Dark/System selector as compact
 tonal controls. The theme's icon and both current values sit inside their existing chooser;
 the locale trigger shows a short code while retaining its full accessible name and menu options.
-They sit beside the heading when wide and after the profile when narrow, with room to reflow.
+They sit beside the heading when wide and after the listening group when narrow, with room to reflow.
 The labelled group has no additional card. The earlier
 [Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records its own
 source-bound observations, not acceptance of this newer layout.
+Profile and listening shortcuts form one content-driven stack; Premium and Sign out form a
+second. Premium wrapping cannot push Activity away from the profile. Me owns this composition
+and its named container query; no shared component or token variant changes. Shortcut hover
+inverts the icon well's surface pair, keyboard focus retains one outline, and press uses the
+higher surface tone. The existing compact preference controls remain unchanged.
+
+Saved retains `#library`: transitions from Me/Settings focus the existing Saved heading.
+Ordinary Library entry retains its page start. `#history` focuses the existing History heading,
+including after session restoration; Back/Forward retain the existing routes and Library family.
+Section headings are programmatic focus targets outside Tab order. No selected-section state,
+new URL contract or API is introduced. Auth-return restoration keeps its existing owner.
+The [harmonization evidence](../../../docs/evidence/theatre-me-visual-harmonization.md) separates
+fixture-browser observations and remaining real-account/browser acceptance.
+
 Account recovery/logout and truthful Cantos Premium information remain present. The signed-in header has no locale/theme/avatar
 utilities; guest Landing/auth have the compact preferences exception above. `#settings` remains a compatibility entry to the same Me composition; Membership is
 in the Me family. Discover/Search/Work and Library/History retain their own families. Guest
@@ -559,7 +573,9 @@ Open `?mode=auth-preview` for labeled, no-network Home/Auth/Account diagnostics 
 production composition. Its controls explicitly select Guest or synthetic A/B, hold and deliver
 an old session result, fail or acknowledge logout cleanup, and cancel an auth intent. Fixture
 completion exercises the existing account owner; it never proves provider login or registration.
-No timer or unavailable live response selects these fixtures. Unknown mode values stay live.
+The diagnostic includes an explicit valid long-alias identity and a `200%` toggle that changes
+the root font size only while this preview is mounted. This is injected text scaling, not real
+browser zoom. No timer or unavailable live response selects these fixtures. Unknown mode values stay live.
 The diagnostic also shows the candidate Material action-icon mapping for
 [#224](https://github.com/loveoverflowcom/cantos/issues/224); live icon adoption awaits shared
 admission. The [phase/action audit](../../../docs/evidence/theatre-web-auth-actions-224.md)

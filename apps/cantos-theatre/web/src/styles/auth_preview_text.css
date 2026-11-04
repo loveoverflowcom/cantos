@@ -1,0 +1,2 @@
+/* Mounted only by the explicit preview owner; removed when that owner unmounts. */
+html { font-size: 200%; }

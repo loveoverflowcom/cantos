@@ -685,7 +685,7 @@ body { margin: 0; }
 .theatre-live-app[data-auth="true"] > .theatre-content { grid-column: 1; grid-row: 1; }
 .theatre-live-app[data-auth="true"] .theatre-main { padding-block-start: var(--cantos-space-xl); }
 .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
-.theatre-auth-preview { margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }
+.theatre-auth-preview { overflow-wrap: anywhere; margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }
 @media (max-width: 56.25rem) { .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr); } }
 
 /* App-owned decorative assets retain their original colors and proportions. Theme follows
@@ -707,6 +707,14 @@ body { margin: 0; }
 .theatre-public-empty :where(h3, p) { margin: 0; max-inline-size: 60ch; }
 .theatre-public-empty > .cui-button { margin-block-start: var(--cantos-space-sm); }
 /* Live Library composition; one global illustration, with quiet completed-empty summaries. */
+/* Programmatic section destinations stay outside Tab order but show one token focus ring
+   for keyboard navigation. The inset keeps the heading clear of the viewport edge. */
+.theatre-live-app .theatre-library-section > .theatre-section-heading { scroll-margin-block-start: var(--cantos-space-lg); }
+.theatre-live-app .theatre-library-section > .theatre-section-heading:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: 0;
+}
+
 .theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
 .theatre-library-tools p { margin: 0; }
 .theatre-library-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-lg); }

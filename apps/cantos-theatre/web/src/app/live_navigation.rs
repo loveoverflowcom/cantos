@@ -4,6 +4,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthIntentState, AuthRequestFence, AuthRoute, ReturnDestination},
+        library::Section,
         public_discovery::DiscoveryQuery,
     },
     core::public_ids::PublicWorkId,
@@ -13,6 +14,17 @@ use leptos::prelude::*;
 
 fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPhase> {
     Memo::new(move |_| state.with(AccountViewState::phase))
+}
+
+/// Me's Saved shortcut uses the canonical Library address; other Library entries retain
+/// the full page's starting point. History always reveals its existing section, including
+/// a direct link. This changes focus/scroll only, never data, routes or authentication.
+fn library_focus_target(from: Route, to: Route) -> Option<Section> {
+    match (from, to) {
+        (_, Route::History) => Some(Section::History),
+        (Route::Account | Route::Settings, Route::Library) => Some(Section::Saved),
+        _ => None,
+    }
 }
 
 /// An older discovery link may still carry the content-language filter that was retired (#424).
@@ -73,9 +85,15 @@ impl LiveNavigation {
         };
         navigation.observe_session(phase.get_untracked());
         let previous = StoredValue::new(navigation.route.get_untracked());
+        let history_was_ready = StoredValue::new(false);
         Effect::new(move |_| {
             let current = navigation.route.get();
-            if previous.get_value() != current {
+            // A History deep link can mount its private content only after session restore.
+            let history_ready =
+                current == Route::History && navigation.phase.get() == SessionPhase::SignedIn;
+            let reveal_history = history_ready && !history_was_ready.get_value();
+            history_was_ready.set_value(history_ready);
+            if previous.get_value() != current || reveal_history {
                 let old = previous.get_value();
                 previous.set_value(current);
                 navigation.intents.update(|s| {
@@ -126,7 +144,12 @@ impl LiveNavigation {
                         window.scroll_to_with_x_and_y(0.0, 0.0);
                     }
                     leptos::leptos_dom::helpers::request_animation_frame(move || {
-                        platform::focus_main(main)
+                        if navigation.route.get_untracked() == current {
+                            platform::focus_library_section(
+                                main,
+                                library_focus_target(old, current),
+                            );
+                        }
                     });
                 }
             }
@@ -544,6 +567,33 @@ mod tests {
                 ]
             );
         });
+    }
+
+    #[test]
+    fn me_shortcuts_focus_their_library_section_without_changing_route_families() {
+        use crate::application::library::Section;
+        for origin in [Route::Account, Route::Settings] {
+            assert_eq!(
+                library_focus_target(origin, Route::Library),
+                Some(Section::Saved)
+            );
+            assert_eq!(
+                library_focus_target(origin, Route::History),
+                Some(Section::History)
+            );
+        }
+        // History deep links and traversal keep the section; ordinary Library entry keeps its top.
+        assert_eq!(
+            library_focus_target(Route::History, Route::History),
+            Some(Section::History)
+        );
+        assert_eq!(
+            library_focus_target(Route::Discover, Route::History),
+            Some(Section::History)
+        );
+        assert_eq!(library_focus_target(Route::Discover, Route::Library), None);
+        assert_eq!(library_focus_target(Route::Library, Route::Account), None);
+        assert_eq!(Route::History.primary_navigation(), Some(Route::Library));
     }
 
     const EMAIL: &str = "listener@example.invalid";

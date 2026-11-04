@@ -229,47 +229,50 @@ pub(crate) fn LiveAccount(
                 <h1 id="theatre-live-account-heading">{move || messages::text(Key::Me, locale.get())}</h1>
             </header>
             <div class="theatre-account">
-                <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <div class="theatre-account-profile-heading"
-                        data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
-                        <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
-                        <div class="theatre-account-profile-copy">
-                            <h2>{profile_heading(ui, locale)}</h2>
-                            {move || state.with(|s| s.presentation().map(|person| view! {
-                                <p class="theatre-account-alias">{person.alias.clone()}</p>
-                            }))}
+                <div class="theatre-account-listening">
+                    <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
+                        <div class="theatre-account-profile-heading"
+                            data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
+                            <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                            <div class="theatre-account-profile-copy">
+                                <h2>{profile_heading(ui, locale)}</h2>
+                                {move || state.with(|s| s.presentation().map(|person| view! {
+                                    <p class="theatre-account-alias">{person.alias.clone()}</p>
+                                }))}
+                            </div>
                         </div>
-                    </div>
-                    // Healthy account state adds no status row; keep every pending/failure reason.
-                    <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
-                        <p id="theatre-live-account-status" class="theatre-auth-feedback"
-                            data-tone=move || session_tone(ui.get().phase).as_str()
-                            role="status" aria-live="polite" aria-atomic="true">
-                            {profile_status(ui, locale)}
-                        </p>
+                        // Healthy account state adds no status row; keep every pending/failure reason.
+                        <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
+                            <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                                data-tone=move || session_tone(ui.get().phase).as_str()
+                                role="status" aria-live="polite" aria-atomic="true">
+                                {profile_status(ui, locale)}
+                            </p>
+                        </Show>
+                        {move || profile_help(ui.get().phase).map(|key| view! {
+                            <p class="theatre-account-help">{label(locale, key)}</p>
+                        })}
+                        <Show when=move || ui.get().can_authenticate>
+                            <AuthActions state locale scope="theatre-account" on_login on_register/>
+                        </Show>
+                        <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
+                    </Surface>
+                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                        <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
+                            <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
+                            <ul class="theatre-action-rows theatre-me-shortcuts">
+                                <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                                <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
+                            </ul>
+                        </section>
                     </Show>
-                    {move || profile_help(ui.get().phase).map(|key| view! {
-                        <p class="theatre-account-help">{label(locale, key)}</p>
-                    })}
-                    <Show when=move || ui.get().can_authenticate>
-                        <AuthActions state locale scope="theatre-account" on_login on_register/>
-                    </Show>
-                    <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
-                </Surface>
-                <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                    <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
-                        <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
-                        <ul class="theatre-action-rows theatre-me-shortcuts">
-                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
-                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
-                        </ul>
-                    </section>
-                </Show>
-                    <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
-                        <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                        <PreferenceFields locale theme on_locale scope="theatre-account"/>
+                </div>
+                <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
+                    <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
+                    <PreferenceFields locale theme on_locale scope="theatre-account"/>
 
-                    </section>
+                </section>
+                <div class="theatre-account-tools">
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
                         <section aria-labelledby="theatre-account-membership-heading">
                             <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
@@ -292,6 +295,7 @@ pub(crate) fn LiveAccount(
                             </Button>
                         </div>
                     </Show>
+                </div>
             </div>
         </section>
     }

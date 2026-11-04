@@ -15,19 +15,25 @@ use leptos::prelude::*;
 pub(crate) enum PreviewActor {
     A,
     B,
+    LongAlias,
 }
+
+const LONG_ALIAS: &str = "Mây Lam — Người dẫn chuyện của những miền thanh âm";
+const ENLARGED_TEXT_STYLE: &str = include_str!("../styles/auth_preview_text.css");
 
 impl PreviewActor {
     fn scope(self) -> Result<AccountScope, AccountError> {
         let (actor, session) = match self {
             Self::A => ("auth-preview-fixture-a", 0xa1),
             Self::B => ("auth-preview-fixture-b", 0xb2),
+            Self::LongAlias => ("auth-preview-fixture-long", 0xc3),
         };
         // Explicit diagnostic identities only. Production presentation comes from the Server;
         // these samples let the actual Me/nav components exercise their personalized branch.
         let (alias, seed) = match self {
             Self::A => ("Mây Lam", "a"),
             Self::B => ("Gió Bạc", "b"),
+            Self::LongAlias => (LONG_ALIAS, "c"),
         };
         AccountScope::from_session(actor.to_owned(), uuid::Uuid::from_u128(session).to_string())
             .map(|scope| {
@@ -178,14 +184,21 @@ pub(crate) fn AuthPreviewControls(
     on_cancel: Callback<()>,
 ) -> impl IntoView {
     let status = RwSignal::new(Outcome::Ready);
+    let text200 = RwSignal::new(false);
     let delayed = RwSignal::new(None::<AccountGeneration>);
     view! {
+        // Explicit diagnostic scaling; not browser zoom. Removed with the preview owner.
+        <style id="theatre-preview-text-scale">{move || if text200.get() { ENLARGED_TEXT_STYLE } else { "" }}</style>
         <aside class="theatre-auth-preview theatre-panel" aria-labelledby="theatre-auth-preview-heading">
             <h2 id="theatre-auth-preview-heading">{move || text(Key::AuthPreviewHeading, locale.get())}</h2>
             <p>{move || text(Key::AuthPreviewNotice, locale.get())}</p>
             <details>
                 <summary>{move || text(Key::AuthPreviewReady, locale.get())}</summary>
+                <button id="theatre-preview-text200" type="button" class="theatre-action"
+                    aria-pressed=move || text200.get().to_string()
+                    on:click=move |_| text200.update(|large| *large = !*large)>{move || text(Key::AuthPreviewTextScale200, locale.get())}</button>
                 <div class="theatre-actions">
+                    <button id="theatre-preview-long-alias" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::LongAlias)))>{LONG_ALIAS}</button>
                     <button id="theatre-preview-guest" type="button" class="theatre-action" on:click=move |_| status.set(outcome(guest(state)))>{move || text(Key::AuthPreviewGuest, locale.get())}</button>
                     <button id="theatre-preview-signed-a" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::A)))>{move || text(Key::AuthPreviewSignedA, locale.get())}</button>
                     <button id="theatre-preview-signed-b" type="button" class="theatre-action" on:click=move |_| status.set(outcome(signed_in(state, PreviewActor::B)))>{move || text(Key::AuthPreviewSignedB, locale.get())}</button>
@@ -274,6 +287,20 @@ mod tests {
                 );
             }
             assert!(state.get_untracked().library().unwrap().saved.is_empty());
+        });
+    }
+
+    #[test]
+    fn long_alias_fixture_survives_the_production_presentation_boundary() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            signed_in(state, PreviewActor::LongAlias).unwrap();
+            state.with(|s| {
+                let person = s.presentation().expect("valid long diagnostic identity");
+                assert_eq!(person.alias, LONG_ALIAS);
+                assert!(person.valid());
+                assert!(person.alias.chars().count() > 40);
+            });
         });
     }
 
