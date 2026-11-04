@@ -7,6 +7,9 @@ use leptos::prelude::*;
 pub const SCENARIOS: &[(Stage, &str)] = &[
     (Stage::Empty, "empty"),
     (Stage::Current, "current"),
+    (Stage::Current, "preview-loading"),
+    (Stage::Current, "preview-unavailable"),
+    (Stage::Saved, "selected"),
     (Stage::Replacement, "replacement"),
     (Stage::Validating, "validating"),
     (Stage::Preparing, "preparing"),
@@ -15,18 +18,20 @@ pub const SCENARIOS: &[(Stage, &str)] = &[
     (Stage::AwaitingAcknowledgement, "awaiting-acknowledgement"),
     (Stage::Admitted, "admitted"),
     (Stage::Failed, "failed"),
+    (Stage::Failed, "invalid-file"),
     (Stage::Expired, "expired"),
     (Stage::Unknown, "unknown"),
     (Stage::Conflict, "conflict"),
     (Stage::Loading, "loading"),
     (Stage::Forbidden, "unreadable"),
+    (Stage::Forbidden, "non-owner"),
 ];
 const IMAGE: &str="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%238472a0'/%3E%3Ctext x='25' y='130' fill='white' font-size='24'%3ECantos fixture%3C/text%3E%3C/svg%3E";
 fn fixture(stage: Stage) -> Projection {
     // A cover that has not been read (or could not be) is not a confirmed empty cover.
     let unread = matches!(stage, Stage::Loading | Stage::Forbidden);
     let has_current = !matches!(stage, Stage::Empty) && !unread;
-    let local = !matches!(stage, Stage::Empty | Stage::Current) && !unread;
+    let local = !matches!(stage, Stage::Empty | Stage::Current | Stage::Saved) && !unread;
     let declarations = ImageDeclarations {
         provenance: "Synthetic fixture".into(),
         rights_refs: vec!["rights_fixture".into()],
@@ -107,7 +112,7 @@ fn fixture(stage: Stage) -> Projection {
         }),
         current_url: has_current.then(|| IMAGE.into()),
         local: local.then(|| LocalImage {
-            name: "anh_den_cuoi_san_khau.png".into(),
+            name: "anh_den_cuoi_san_khau.avif".into(),
             bytes: Arc::new(vec![0; 128]),
             sha256: "ab".repeat(32),
             mime: ImageMime::Avif,
@@ -120,6 +125,18 @@ fn fixture(stage: Stage) -> Projection {
         ..Projection::default()
     }
 }
+/// Explicit scenario reset only; these injected facts establish no server or upload result.
+fn scenario(stage: Stage, id: &str) -> Projection {
+    let mut model = fixture(stage);
+    if matches!(id, "preview-loading" | "preview-unavailable") {
+        model.current_url = None;
+        model.preview_failed = id == "preview-unavailable";
+    }
+    if id == "invalid-file" {
+        model.problem = Some(Problem::File);
+    }
+    model
+}
 pub fn requested() -> bool {
     web_sys::window()
         .and_then(|w| w.location().search().ok())
@@ -128,6 +145,7 @@ pub fn requested() -> bool {
 #[component]
 pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
     let model = RwSignal::new(fixture(Stage::Empty));
+    let selected = RwSignal::new("empty".to_owned());
     let draft = RwSignal::new(Draft {
         alt: "Núi non trong sương dưới ánh trăng, minh họa Ánh đèn cuối sân khấu".into(),
         provenance: "Bản minh họa gốc do họa sĩ bàn giao; fixture không phải chứng nhận quyền."
@@ -147,11 +165,11 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
     });
     view! {
     <main class="studio-workspace" lang=move ||locale.get().lang()><h1>{move ||label(Key::PreviewTitle)}</h1><p>{move ||label(Key::PreviewHelp)}</p>
-        <label for="preview-stage">{move ||label(Key::PreviewScenario)}</label><select id="preview-stage" on:change=move |e|{let value=event_target_value(&e);if let Some((stage,_))=SCENARIOS.iter().find(|(_,s)|*s==value){model.set(fixture(*stage));}}>{SCENARIOS.iter().map(|(stage,id)|{let stage=*stage;view!{<option value=*id>{move ||copy::stage(stage,locale.get())}</option>}}).collect_view()}</select>
+        <label for="preview-stage">{move ||label(Key::PreviewScenario)}</label><select id="preview-stage" on:change=move |e|{let value=event_target_value(&e);if let Some((stage,_))=SCENARIOS.iter().find(|(_,s)|*s==value){selected.set(value.clone());clear_open.set(false);model.set(scenario(*stage,&value));}}>{SCENARIOS.iter().map(|(stage,id)|{let stage=*stage;let id=*id;view!{<option value=id>{move ||format!("{} · {id}",copy::stage(stage,locale.get()))}</option>}}).collect_view()}</select>
         <label for="preview-theme">{move ||label(Key::PreviewTheme)}</label><select id="preview-theme" on:change=move |e|if let Some(t)=Theme::from_attribute(&event_target_value(&e)){theme.set(t);}>
             <option value="light">{move ||label(Key::PreviewLight)}</option><option value="dark">{move ||label(Key::PreviewDark)}</option></select>
         <label for="preview-locale">{move ||label(Key::PreviewLocale)}</label><select id="preview-locale" on:change=move |e|if let Some(l)=Locale::from_lang(&event_target_value(&e)){locale.set(l);}>{Locale::supported().map(|l|view!{<option value=l.lang() lang=l.lang()>{l.autonym()}</option>}).collect_view()}</select>
-        <form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft locale=Signal::derive(move ||locale.get()) owner=Signal::derive(||true)
+        <form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft locale=Signal::derive(move ||locale.get()) owner=Signal::derive(move ||selected.with(|s|s!="non-owner"))
             blocked=Signal::derive(move ||matches!(model.with(|m|m.stage),Stage::Validating|Stage::Preparing|Stage::Uploading|Stage::AwaitingAcknowledgement|Stage::Unknown))
             clear_open=clear_open can_reconcile=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) can_replay=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) on_file=Callback::new(|_|{}) on_intent=Callback::new(move |intent|match intent {
                 Intent::Clear=>clear_open.set(true),Intent::ConfirmClear|Intent::CancelClear=>clear_open.set(false),_=>{},

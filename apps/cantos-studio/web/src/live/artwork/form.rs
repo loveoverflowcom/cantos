@@ -29,6 +29,22 @@ pub fn ArtworkForm(
             FieldState::Editable
         }
     });
+    // This is emphasis only; each action keeps its existing guard and typed intent.
+    let next = Memo::new(move |_| {
+        model.with(|m| {
+            if locked.get() {
+                None
+            } else if m.asset.is_some() && m.current.is_some() {
+                Some(Intent::Select)
+            } else if m.can_upload() {
+                Some(Intent::Upload)
+            } else if m.can_prepare() {
+                Some(Intent::Prepare)
+            } else {
+                None
+            }
+        })
+    });
     let declarations = Signal::derive(move || {
         if locked.get() || model.with(|m| m.intent.is_some()) {
             FieldState::ReadOnly
@@ -53,7 +69,8 @@ pub fn ArtworkForm(
         <header class="artwork-heading"><div><h3 id="artwork-title">{move ||label(Key::Title)}</h3><p>{move ||label(Key::Private)}</p></div></header>
         <div id="artwork-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true"><Badge>{move ||copy::stage(model.with(|m|m.status_stage(owner.get())),locale.get())}</Badge></div>
         <Show when=move ||!owner.get()><p>{move ||label(Key::Owner)}</p></Show>
-        <div class="artwork-columns">
+        <p class="artwork-workflow">{move ||label(Key::Workflow)}</p>
+        <div class="artwork-columns" data-cover=move ||model.with(|m|m.cover_view(owner.get()).name())>
             <figure class="artwork-current"><figcaption>{move ||label(Key::Current)}</figcaption>
                 {move ||model.with(|m| {
                     let view = m.cover_view(owner.get());
@@ -63,8 +80,10 @@ pub fn ArtworkForm(
                             let (art, url) = (m.current.as_ref().and_then(|r| r.artwork.as_ref()), m.current_url.clone());
                             art.zip(url).map(|(art, url)| view! { <div data-state=view.name()>
                                 <img class="artwork-image" src=url alt=art.alt_text.clone()/><p>{art.alt_text.clone()}</p>
-                                {m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}
-                                <small>{format!("{} · {}",revision.clone().unwrap_or_default(),art.image_asset_id)}</small></div> }.into_any())
+                                <details class="artwork-metadata"><summary>{label(Key::Details)}</summary>
+                                    {m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),locale.get())}</p>})}
+                                    <small>{format!("{} · {}",revision.clone().unwrap_or_default(),art.image_asset_id)}</small>
+                                </details></div> }.into_any())
                         }
                         CoverView::PreviewLoading => Some(view!{<div class="artwork-placeholder" data-state=view.name()><SurfacePulse/><p>{label(Key::PreviewLoading)}</p></div><small>{revision}</small>}.into_any()),
                         CoverView::PreviewUnavailable => Some(view!{<p class="artwork-placeholder" data-state=view.name()>{label(Key::UnavailablePreview)}</p><small>{revision}</small>}.into_any()),
@@ -75,7 +94,7 @@ pub fn ArtworkForm(
                 })}
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>
-                <label class="cui-field-label" for="artwork-file">{move ||label(Key::File)}</label>
+                <label class="cui-field-label artwork-file-label" for="artwork-file">{move ||label(Key::File)}</label>
                 <input id="artwork-file" type="file" accept="image/avif" disabled=move ||locked.get()
                     aria-describedby="artwork-bounds artwork-file-error" aria-invalid=move ||model.with(|m|matches!(m.problem,Some(super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)))
                     on:change=move |e|on_file.run(e)/>
@@ -86,8 +105,8 @@ pub fn ArtworkForm(
                     <p class="artwork-file-facts">{copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),locale.get())}</p>
                 })}
                 <Show when=move ||model.with(|m|m.transferred.is_some())><p>{move ||model.with(|m|m.transferred.zip(m.local.as_ref()).map(|(bytes,f)|copy::transferred_bytes(bytes,f.bytes.len() as u64,locale.get())))}</p></Show>
-                <ActionButton id="artwork-discard" locale=locale reason=BlockReason::Artwork(Key::NeedLocal) blocked=Signal::derive(move ||locked.get()||model.with(|m|m.local.is_none())) variant=ButtonVariant::Text
-                    on_press=Callback::new(move |_|on_intent.run(Intent::DiscardLocal))>{move ||label(Key::Discard)}</ActionButton>
+                <Show when=move ||model.with(|m|m.local.is_some())><ActionButton id="artwork-discard" locale=locale reason=BlockReason::Artwork(Key::NeedLocal) blocked=Signal::derive(move ||locked.get()||model.with(|m|m.local.is_none())) variant=ButtonVariant::Text
+                    on_press=Callback::new(move |_|on_intent.run(Intent::DiscardLocal))>{move ||label(Key::Discard)}</ActionButton></Show>
             </div>
         </div>
         <div class="artwork-fields">
@@ -103,10 +122,22 @@ pub fn ArtworkForm(
         </div>
         <Show when=move ||model.with(|m|m.intent.is_some())><p>{move ||label(Key::PreparedHelp)}</p><details><summary>{move ||label(Key::IntentReceipt)}</summary><small>{move ||model.with(|m|m.intent.as_ref().map(|i|i.operation_id.clone()))}</small></details></Show>
         <Show when=move ||model.with(|m|m.compared_revision.is_some())><p>{move ||label(Key::Compare)}{move ||model.with(|m|format!(" · r{} / r{}",m.compared_revision.unwrap_or_default(),m.reported_revision.or_else(||m.current.as_ref().map(|r|r.work_revision)).unwrap_or_default()))}</p></Show>
-        <div class="toolbar artwork-actions">
-            <ActionButton id="artwork-prepare" locale=locale reason=BlockReason::Artwork(Key::NeedFile) blocked=Signal::derive(move ||locked.get()||model.with(|m|!m.can_prepare())) on_press=Callback::new(move |_|on_intent.run(Intent::Prepare))>{move ||label(Key::Prepare)}</ActionButton>
-            <ActionButton id="artwork-upload" locale=locale reason=BlockReason::Artwork(Key::NeedIntent) blocked=Signal::derive(move ||locked.get()||model.with(|m|!m.can_upload())) on_press=Callback::new(move |_|on_intent.run(Intent::Upload))>{move ||label(Key::Upload)}</ActionButton>
-            <ActionButton id="artwork-select" locale=locale reason=BlockReason::Artwork(Key::NeedAsset) blocked=Signal::derive(move ||locked.get()||model.with(|m|m.asset.is_none()||m.current.is_none())) on_press=Callback::new(move |_|on_intent.run(Intent::Select))>{move ||label(Key::Select)}</ActionButton>
+        <Show when=move ||model.with(|m|m.asset.is_some())><p class="artwork-selection-context">{move ||label(Key::SelectHelp)}{move ||model.with(|m|m.current.as_ref().map(|r|format!(" · r{}",r.work_revision)))}</p></Show>
+        <div class="artwork-actions">
+            <ActionButton id="artwork-prepare" locale=locale reason=BlockReason::Artwork(Key::NeedFile)
+                variant=Signal::derive(move ||if next.get()==Some(Intent::Prepare) {ButtonVariant::Primary} else {ButtonVariant::Tonal})
+                blocked=Signal::derive(move ||locked.get()||model.with(|m|!m.can_prepare()))
+                on_press=Callback::new(move |_|on_intent.run(Intent::Prepare))>{move ||label(Key::Prepare)}</ActionButton>
+            <ActionButton id="artwork-upload" locale=locale reason=BlockReason::Artwork(Key::NeedIntent)
+                variant=Signal::derive(move ||if next.get()==Some(Intent::Upload) {ButtonVariant::Primary} else {ButtonVariant::Tonal})
+                blocked=Signal::derive(move ||locked.get()||model.with(|m|!m.can_upload()))
+                on_press=Callback::new(move |_|on_intent.run(Intent::Upload))>{move ||label(Key::Upload)}</ActionButton>
+            <ActionButton id="artwork-select" locale=locale reason=BlockReason::Artwork(Key::NeedAsset)
+                variant=Signal::derive(move ||if next.get()==Some(Intent::Select) {ButtonVariant::Primary} else {ButtonVariant::Tonal})
+                blocked=Signal::derive(move ||locked.get()||model.with(|m|m.asset.is_none()||m.current.is_none()))
+                on_press=Callback::new(move |_|on_intent.run(Intent::Select))>{move ||label(Key::Select)}</ActionButton>
+        </div>
+        <div class="toolbar artwork-maintenance">
             <ActionButton id="artwork-refresh" locale=locale reason=BlockReason::Artwork(Key::NeedOwner) blocked=locked variant=ButtonVariant::Tonal on_press=Callback::new(move |_|on_intent.run(Intent::Refresh))>{move ||label(Key::Refresh)}</ActionButton>
             <ActionButton id="artwork-clear" locale=locale reason=BlockReason::Artwork(Key::NeedCurrent) focus_on_press=true blocked=Signal::derive(move ||locked.get()||model.with(|m|m.current.as_ref().is_none_or(|r|r.artwork.is_none()))) variant=ButtonVariant::Text on_press=Callback::new(move |_|on_intent.run(Intent::Clear))>{move ||label(Key::Clear)}</ActionButton>
         </div>

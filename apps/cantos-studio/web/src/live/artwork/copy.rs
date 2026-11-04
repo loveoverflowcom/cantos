@@ -3,6 +3,9 @@ use super::{Problem, Stage};
 use crate::localization::generated::artwork as resources;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
+    Workflow,
+    Details,
+    SelectHelp,
     NeedFile,
     NeedIntent,
     NeedAsset,
@@ -53,6 +56,9 @@ pub enum Key {
 }
 pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
     match key {
+        Key::Workflow => resources::text(resources::Key::Workflow, locale),
+        Key::Details => resources::text(resources::Key::Details, locale),
+        Key::SelectHelp => resources::text(resources::Key::SelectHelp, locale),
         Key::PreviewTitle => resources::text(resources::Key::PreviewTitle, locale),
         Key::PreviewHelp => resources::text(resources::Key::PreviewHelp, locale),
         Key::PreviewScenario => resources::text(resources::Key::PreviewScenario, locale),
@@ -198,6 +204,9 @@ mod tests {
     #[test]
     fn every_artwork_label_stage_and_problem_has_both_locales() {
         for key in [
+            Key::Workflow,
+            Key::Details,
+            Key::SelectHelp,
             Key::NeedFile,
             Key::NeedIntent,
             Key::NeedAsset,

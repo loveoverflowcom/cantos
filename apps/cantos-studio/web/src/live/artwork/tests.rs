@@ -996,3 +996,56 @@ fn current_cover_figure_renders_one_distinct_state_per_view() {
         }
     });
 }
+
+#[test]
+fn artwork_highlights_only_the_next_explicit_action_and_preserves_blockers() {
+    use leptos::prelude::*;
+    let owner = Owner::new();
+    owner.with(|| {
+        let empty = Projection { stage: Stage::Empty, ..with_selection(None) };
+        let local = Projection { local: Some(local_image()), stage: Stage::Replacement, ..empty.clone() };
+        let prepared = local.apply(&Reply::ImagePrepared(intent()));
+        let admitted = prepared.apply(&Reply::ImageAdmitted(asset()));
+        for (model, blocked, is_owner, primary) in [
+            (empty.clone(), false, true, None),
+            (local.clone(), false, true, Some("artwork-prepare")),
+            (prepared.clone(), false, true, Some("artwork-upload")),
+            (admitted.clone(), false, true, Some("artwork-select")),
+            (admitted.clone(), true, true, None),
+            (admitted, false, false, None),
+            (Projection { stage: Stage::Unknown, ..prepared.clone() }, true, true, None),
+            (Projection { intent_state: Some(ImageIntentState::Expired), stage: Stage::Expired, ..prepared }, false, true, Some("artwork-prepare")),
+        ] {
+            let html = view! { <form::ArtworkForm model=Signal::stored(model) draft=RwSignal::new(Draft::default())
+                locale=Signal::stored(crate::localization::Locale::English) owner=Signal::stored(is_owner) blocked=Signal::stored(blocked)
+                on_intent=Callback::new(|_|{}) on_file=Callback::new(|_|{}) clear_open=RwSignal::new(false)/>
+            }.to_html();
+            for id in ["artwork-prepare", "artwork-upload", "artwork-select"] {
+                let button = html.split(&format!("id=\"{id}\"")).nth(1).unwrap().split('>').next().unwrap();
+                let expected = if primary == Some(id) { "primary" } else { "tonal" };
+                assert!(button.contains(&format!("data-variant=\"{expected}\"")), "{id}: {html}");
+                if blocked || !is_owner { assert!(button.contains("disabled"), "{id}: {html}"); }
+            }
+            assert!(html.contains("for=\"artwork-file\""), "{html}");
+            assert!(html.contains("aria-describedby=\"artwork-bounds artwork-file-error\""), "{html}");
+        }
+    });
+}
+
+#[test]
+fn confirmed_empty_is_said_once_and_required_declarations_stay_outside_details() {
+    use leptos::prelude::*;
+    let owner = Owner::new();
+    owner.with(|| {
+        let model = Projection { stage: Stage::Empty, ..with_selection(None) };
+        let html = view! { <form::ArtworkForm model=Signal::stored(model) draft=RwSignal::new(Draft::default())
+            locale=Signal::stored(crate::localization::Locale::English) owner=Signal::stored(true) blocked=Signal::stored(false)
+            on_intent=Callback::new(|_|{}) on_file=Callback::new(|_|{}) clear_open=RwSignal::new(false)/>
+        }.to_html();
+        assert_eq!(html.matches("No cover selected").count(), 1, "{html}");
+        for id in ["artwork-alt", "artwork-provenance", "artwork-rights"] {
+            let prefix = html.split(&format!("id=\"{id}\"")).next().unwrap();
+            assert_eq!(prefix.matches("<details").count(), prefix.matches("</details>").count(), "{id} must stay visible: {html}");
+        }
+    });
+}
