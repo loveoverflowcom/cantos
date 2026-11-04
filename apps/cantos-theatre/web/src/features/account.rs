@@ -14,8 +14,8 @@ use crate::{
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    Button, ButtonVariant, Icon, IconName, Select, SelectDensity, SelectLabelPlacement, Space,
-    Surface, SurfaceTone, SurfaceVariant, Theme,
+    Button, ButtonVariant, IconName, Select, SelectDensity, SelectLabelPlacement, Space, Surface,
+    SurfaceTone, SurfaceVariant, Theme,
 };
 use leptos::prelude::*;
 
