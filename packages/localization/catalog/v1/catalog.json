@@ -27871,6 +27871,18 @@
           "text": "The uploaded image is private and is not the cover yet. Selecting it uses the displayed Work revision"
         }
       }
+    },
+    "studio.artwork.preview_scale": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Cỡ chữ"
+        },
+        "en": {
+          "text": "Text size"
+        }
+      }
     }
   }
 }

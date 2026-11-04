@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "0019b24f6386926ea9e9400c09befba38022731d041e505f8b43bd3e75a53af8",
+  "catalogSha256": "40279af02b9f526ed5d2202579ffad74754a3cb93a37a54e3b0ab04d73a358fe",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -186,6 +186,7 @@
     "studio.artwork.preview_light": {},
     "studio.artwork.preview_loading": {},
     "studio.artwork.preview_locale": {},
+    "studio.artwork.preview_scale": {},
     "studio.artwork.preview_scenario": {},
     "studio.artwork.preview_theme": {},
     "studio.artwork.preview_title": {},

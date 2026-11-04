@@ -153,6 +153,7 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
         rights: "rights_fixture".into(),
     });
     let locale = RwSignal::new(Locale::default());
+    let scale = RwSignal::new("100%".to_owned());
     let clear_open = RwSignal::new(false);
     let label = move |key| copy::text(key, locale.get());
     Effect::new(move |_| {
@@ -161,6 +162,7 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
             .and_then(|d| d.document_element())
         {
             let _ = root.set_attribute("lang", locale.get().lang());
+            let _ = root.set_attribute("style", &format!("font-size: {}", scale.get()));
         }
     });
     view! {
@@ -169,6 +171,7 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
         <label for="preview-theme">{move ||label(Key::PreviewTheme)}</label><select id="preview-theme" on:change=move |e|if let Some(t)=Theme::from_attribute(&event_target_value(&e)){theme.set(t);}>
             <option value="light">{move ||label(Key::PreviewLight)}</option><option value="dark">{move ||label(Key::PreviewDark)}</option></select>
         <label for="preview-locale">{move ||label(Key::PreviewLocale)}</label><select id="preview-locale" on:change=move |e|if let Some(l)=Locale::from_lang(&event_target_value(&e)){locale.set(l);}>{Locale::supported().map(|l|view!{<option value=l.lang() lang=l.lang()>{l.autonym()}</option>}).collect_view()}</select>
+        <label for="preview-scale">{move ||label(Key::PreviewScale)}</label><select id="preview-scale" on:change=move |e|{let value=event_target_value(&e);if matches!(value.as_str(),"100%"|"200%") {scale.set(value);}}><option value="100%">"100%"</option><option value="200%">"200%"</option></select>
         <form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft locale=Signal::derive(move ||locale.get()) owner=Signal::derive(move ||selected.with(|s|s!="non-owner"))
             blocked=Signal::derive(move ||matches!(model.with(|m|m.stage),Stage::Validating|Stage::Preparing|Stage::Uploading|Stage::AwaitingAcknowledgement|Stage::Unknown))
             clear_open=clear_open can_reconcile=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) can_replay=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) on_file=Callback::new(|_|{}) on_intent=Callback::new(move |intent|match intent {
