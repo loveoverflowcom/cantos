@@ -14,6 +14,51 @@ export async function guestChrome(tab) {
   return { ...facts, url: await tab.url() };
 }
 
+/** #691 header placement: actual selectors/callbacks, popup dismissal and stable hero bounds. */
+export async function guestHeaderPreferences(tab) {
+  await tab.getAXState({ emit: false });
+  await tab.playwright.locator('#theatre-guest-theme').waitFor({ state: 'visible', timeoutMs: 20000 });
+  const inspect = () => tab.playwright.evaluate(() => {
+    const box = selector => document.querySelector(selector)?.getBoundingClientRect().toJSON();
+    return {
+      headerPreferences: document.querySelectorAll('header .theatre-guest-preferences').length,
+      mainPreferences: document.querySelectorAll('main .theatre-guest-preferences').length,
+      hero: box('#theatre-landing-heading'),
+      locale: box('#theatre-guest-locale-trigger'),
+      theme: box('#theatre-guest-theme'),
+      ctas: [...document.querySelectorAll('.theatre-home-auth-actions button')].map(e => e.getBoundingClientRect().toJSON()),
+      active: document.activeElement?.id,
+      viewport: document.documentElement.clientWidth,
+      scroll: document.documentElement.scrollWidth,
+    };
+  });
+  const before = await inspect();
+  const address = await tab.url();
+  if (before.headerPreferences !== 1 || before.mainPreferences !== 0) {
+    throw Object.assign(new Error('Preferences must be in the trailing header only'), { before });
+  }
+  for (const target of [before.locale, before.theme]) {
+    if (!target || target.width < 47.5 || target.height < 47.5) throw new Error('Preference target smaller than 48 CSS px');
+    if (target.left < 0 || target.right > before.viewport + .5) throw new Error('Header control exceeds the viewport');
+  }
+  await tab.playwright.locator('#theatre-guest-locale-trigger').click();
+  await tab.getAXState({ emit: false });
+  const opened = await inspect();
+  if (before.hero && opened.hero?.y !== before.hero.y) throw new Error('Opening preferences shifted the hero');
+  await tab.playwright.locator('#theatre-guest-locale-trigger').press('Escape');
+  await tab.getAXState({ emit: false });
+  const dismissed = await inspect();
+  if (await tab.url() !== address) throw new Error('Chooser Escape cancelled the enclosing route');
+  if (dismissed.active !== 'theatre-guest-locale-trigger') throw new Error('Escape lost the chooser focus');
+  // Retain whole-page overflow as a separate observation: unchanged catalog content can
+  // overflow at 200% root font even while every header target remains within the viewport.
+  if (before.ctas.length === 2 && Math.abs(before.ctas[0].height - before.ctas[1].height) > .5) {
+    throw Object.assign(new Error('Hero auth pair has unequal heights'), { before });
+  }
+  return { scenario: 'cantos.presentation.guest-navigation.run.preferences-player',
+    before, opened, dismissed, chrome: await guestChrome(tab), status: 'PASS' };
+}
+
 // Shared scenario: cantos.presentation.guest-navigation.run.session-root
 export async function guestPrivateEntry(tab, { origin }) {
   await tab.goto(`${origin}#library`);

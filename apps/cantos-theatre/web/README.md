@@ -79,11 +79,15 @@ separate Landing composition over the existing search, catalog and card owners. 
 SignedIn normalizes it to Discover; Guest private Library/History/Me URLs replace to Landing
 with an allowlisted auth return. Unresolved session phases retain destination and recovery;
 only SignedIn mounts navigation. Public Work/shared/auth/proof links keep their existing gates.
-Landing/auth expose a compact locale/theme disclosure with the same Me chooser and root signals.
+Guest/public/auth entries expose compact locale/theme controls in the trailing header, using
+the same root preference signals and persistence callback as Me. The locale menu overlays content;
+there is no preferences disclosure in main. Unresolved/failed/logout-cleanup phases retain local
+preferences and their actual recovery state. SignedIn preferences stay only in Me, including on
+auth routes. Landing's tonal Sign in and filled Register share the existing primary capsule height.
 One player remains outside route/navigation mounts; route/session changes never autoplay.
 
 The [shared guest-navigation inventory](../behavior/guest_navigation.md) names the scenario IDs,
-finite model assumptions and pending CMP #692 bindings. Quint, host tests, compiled-browser
+finite model assumptions and CMP #692 bindings delivered by #697. Quint, host tests, compiled-browser
 observations and native device evidence are separate; a model PASS does not establish parity.
 
 ## Discover layout

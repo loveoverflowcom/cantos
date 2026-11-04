@@ -47,3 +47,13 @@ uses real compiled Leptos inputs. Start `repeatedGuestAddress(tab, {workId})` at
 Use the shared `cantos.presentation.guest-navigation.run.*` IDs in observations. Session
 checking/failure/logout and stale callbacks require controlled HTTP timing; never substitute
 an injected DOM event, native string render or model result for these browser observations.
+
+`guestHeaderPreferences(tab)` checks the trailing header controls, absence of preferences in
+main, 48 CSS px targets, overlay bounds, Escape/focus return, header fit and equal hero CTA
+heights. Repeat it across the declared viewport/locale/theme matrix on the compiled app.
+SignedIn (including auth routes), checking/failure/logout transitions and actual locale/theme
+persistence require separate controlled-session observations. A disabled/pending hero auth pair
+is not a product state: the session owner replaces that pair with status/recovery when auth
+is unavailable; no CSS-only fixture can establish its admission semantics.
+Whole-page scroll width is retained separately from header fit; an overflowing unchanged catalog
+card must not be reported as caused by header controls or silently treated as a passing page.

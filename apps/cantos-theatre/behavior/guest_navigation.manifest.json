@@ -14,6 +14,8 @@
   "ownedSources": [
     "apps/cantos-theatre/web/src/app/routes.rs",
     "apps/cantos-theatre/web/src/app/live_navigation.rs",
+    "apps/cantos-theatre/web/src/application/auth_navigation.rs",
+    "apps/cantos-theatre/web/src/platform/signup_browser.rs",
     "apps/cantos-theatre/web/src/view/live_shell.rs",
     "apps/cantos-theatre/web/src/platform/navigation_drawer.rs",
     "apps/cantos-theatre/web/src/features/landing.rs",
@@ -28,6 +30,7 @@
   "implementationTests": [
     "apps/cantos-theatre/web/src/app/routes.rs",
     "apps/cantos-theatre/web/src/app/live_navigation.rs",
+    "apps/cantos-theatre/web/src/application/auth_navigation.rs",
     "apps/cantos-theatre/web/tests/guest-entry.cua.mjs",
     "apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/app/NavigationTest.kt",
     "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/com/cantos/theatre/app/TheatreShellTest.kt",

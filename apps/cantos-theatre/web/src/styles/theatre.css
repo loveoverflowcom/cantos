@@ -497,6 +497,16 @@ body { margin: 0; }
 /* The one guest cluster: capsule CTAs keep icon and label centered and wrap as whole buttons.
    The session slot takes its place for every other phase, with the same wrapping. */
 .theatre-home-auth-actions, .theatre-home-session { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+/* Equal tracks preserve peer height even when enlarged labels wrap into stacked rows.
+   This app-owned group reuses the existing capsules and their tonal/filled hierarchy. */
+.theatre-home-auth-actions {
+  --cantos-size-auth-secondary: var(--cantos-size-auth-primary);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  grid-auto-rows: 1fr; inline-size: 18rem; min-inline-size: 0; max-inline-size: 100%;
+}
+.theatre-home-auth-actions > .cui-button-field { align-self: stretch; justify-items: stretch; }
+.theatre-home-auth-actions .cui-button { inline-size: 100%; block-size: 100%; }
+.theatre-public-home { container: theatre-home / inline-size; }
 .theatre-discover-intro .theatre-home-session .theatre-auth-feedback { margin: 0; }
 /* Discover (live): topbar, intro, hero and shelf share the container's one inline axis. */
 .theatre-live-app .theatre-main { padding-inline: 0; padding-block-start: 0; }
@@ -573,8 +583,13 @@ body { margin: 0; }
 .theatre-public-search { display: grid; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
 .theatre-public-search .theatre-filters { margin-block: 0; }
 /* Dedicated Theatre hero roles are an app composition, without remapping the shared root. */
-.theatre-discovery-search-hero { display: grid; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
+.theatre-discovery-search-hero { display: grid; min-inline-size: 0; grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-lg); padding: var(--cantos-space-lg) var(--cantos-space-xl); border-radius: var(--cantos-web-shape-overlay); background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); }
 .theatre-discovery-search-hero .theatre-discover-intro { margin: 0; align-items: flex-start; }
+/* Preserve readable capsule labels when the available space is narrow relative to text. */
+@container theatre-home (max-width: 20rem) {
+  .theatre-public-home .theatre-discovery-search-hero { padding-inline: var(--cantos-space-sm); }
+  .theatre-home-auth-actions { --cantos-space-control-inline: var(--cantos-space-sm); }
+}
 .theatre-discovery-search-hero .theatre-muted { color: inherit; }
 /* The eyebrow keeps its gold role on the lilac/plum hero: a dedicated pair, never the headline's color. */
 .theatre-discovery-search-hero .theatre-eyebrow { color: var(--cantos-color-theatre-hero-accent); }
@@ -666,7 +681,7 @@ body { margin: 0; }
 }
 
 .theatre-live-app[data-auth="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-.theatre-live-app[data-auth="true"] :is(.theatre-rail, .theatre-header) { display: none; }
+.theatre-live-app[data-auth="true"] .theatre-rail { display: none; }
 .theatre-live-app[data-auth="true"] > .theatre-content { grid-column: 1; grid-row: 1; }
 .theatre-live-app[data-auth="true"] .theatre-main { padding-block-start: var(--cantos-space-xl); }
 .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
@@ -894,7 +909,9 @@ body { margin: 0; }
 .theatre-live-app[data-navigation="none"] > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
 .theatre-live-app[data-navigation="none"] .theatre-topbar .theatre-brand { padding: 0; }
 .theatre-live-app[data-navigation="none"] .theatre-mini-player { inset-inline: var(--cantos-space-lg); }
-.theatre-guest-preferences { max-inline-size: 26rem; margin-block: var(--cantos-space-md); container-type: inline-size; }
-.theatre-guest-preferences > summary { cursor: pointer; width: fit-content; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); color: var(--cantos-color-on-surface-variant); font-weight: var(--cantos-type-label-weight); }
-.theatre-guest-preferences > summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: 0; border-radius: var(--cantos-web-shape-control); }
-.theatre-guest-preferences .theatre-pref-row { display: grid; }
+.theatre-guest-preferences { margin-inline-start: auto; min-inline-size: 0; max-inline-size: 100%; }
+/* The trailing utility anchors its existing tooltip inward, including with enlarged text. */
+.theatre-guest-preferences .cui-tooltip {
+  inset-inline-start: auto; inset-inline-end: 0; transform: none;
+  inline-size: max-content; max-inline-size: calc(100vw - 2 * var(--cantos-space-lg)); white-space: normal;
+}

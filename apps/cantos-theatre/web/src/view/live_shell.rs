@@ -53,6 +53,28 @@ pub(crate) fn LiveBrand() -> impl IntoView {
     }
 }
 
+/// Local preferences remain reachable during lookup/recovery; only SignedIn moves them to Me.
+#[component]
+fn EntryHeader(
+    phase: Memo<SessionPhase>,
+    locale: RwSignal<Locale>,
+    theme: RwSignal<Theme>,
+    on_locale: Callback<String>,
+) -> impl IntoView {
+    view! {
+        <div class="theatre-header">
+            <super::LiveContainer>
+                <header class="theatre-topbar">
+                    <LiveBrand/>
+                    <Show when=move || phase.get() != SessionPhase::SignedIn>
+                        <crate::features::account::PreferenceFields locale theme on_locale scope="theatre-guest" compact=true/>
+                    </Show>
+                </header>
+            </super::LiveContainer>
+        </div>
+    }
+}
+
 /// One route projection reused in the wide rail and the browser-native modal drawer.
 /// Me and navigation borrow the same session-bound generated identity.
 #[component]
@@ -1308,7 +1330,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             <div class="theatre-app theatre-live-app" node_ref=shell data-navigation=move || if navigation_visible.get() { "drawer" } else { "none" } data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang() dir=move || locale.get().dir()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <Show when=move || navigation_visible.get() fallback=move || view! {
-                    <div class="theatre-header"><super::LiveContainer><header class="theatre-topbar"><LiveBrand/></header></super::LiveContainer></div>
+                    <EntryHeader phase=session_phase locale theme on_locale/>
                 }>
                     <NavigationChrome route=nav.route locale state=shared_account shell/>
                 </Show>
@@ -1316,12 +1338,6 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <super::LiveContainer>
 
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
-                            <Show when=move || session_phase.get() != SessionPhase::SignedIn || matches!(nav.route.get(), Route::Auth(_))>
-                                <details class="theatre-guest-preferences">
-                                    <summary>{move || messages::text(Key::Settings, locale.get())}</summary>
-                                    <crate::features::account::PreferenceFields locale theme on_locale scope="theatre-guest"/>
-                                </details>
-                            </Show>
                             <p role="status" hidden=move ||locale_warning.get().is_none()>{move ||crate::localization::preference_warning(locale_warning.get(),locale.get())}</p>
                             {move || if !configuration_valid {
                                 view! { <LiveRecovery locale heading=Key::ErrorDialogTitle help=Key::ErrorConfiguration/> }.into_any()
@@ -1518,6 +1534,49 @@ fn LiveMembership(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn entry_header_keeps_local_preferences_in_every_unresolved_phase_but_never_signed_in() {
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                for mode in [Theme::Light, Theme::Dark, Theme::System] {
+                    for current in [
+                        SessionPhase::Idle,
+                        SessionPhase::Checking,
+                        SessionPhase::Guest,
+                        SessionPhase::Failed(
+                            crate::application::account_view::AccountFailure::Unavailable,
+                        ),
+                        SessionPhase::LogoutPending,
+                        SessionPhase::SignedIn,
+                    ] {
+                        let phase = RwSignal::new(current);
+                        let html = view! {
+                            <EntryHeader phase=Memo::new(move |_| phase.get())
+                                locale=RwSignal::new(language) theme=RwSignal::new(mode)
+                                on_locale=Callback::new(|_: String| ())/>
+                        }
+                        .to_html();
+                        let preferences = current != SessionPhase::SignedIn;
+                        assert_eq!(
+                            html.matches("class=\"cui-topbar-actions theatre-guest-preferences\"")
+                                .count(),
+                            usize::from(preferences)
+                        );
+                        assert_eq!(html.contains("id=\"theatre-guest-locale\""), preferences);
+                        assert_eq!(html.contains("id=\"theatre-guest-theme\""), preferences);
+                        if preferences {
+                            assert!(html
+                                .contains(&crate::localization::theme_labels(language).text(mode)));
+                        }
+                        assert!(html.contains("<header class=\"theatre-topbar\">"));
+                        assert!(!html.contains("<details"));
+                        assert!(!html.contains("theatre-navigation-menu"));
+                    }
+                }
+            }
+        });
+    }
 
     fn membership_html(
         state: ReadSignal<AccountViewState>,

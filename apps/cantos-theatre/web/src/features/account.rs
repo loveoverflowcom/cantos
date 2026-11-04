@@ -169,23 +169,19 @@ const fn theme_value_key(theme: Theme) -> Key {
     }
 }
 
-fn theme_options(locale: Locale, compact_me: bool) -> Vec<cantos_ui::SelectOption> {
+fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
     [Theme::Light, Theme::Dark, Theme::System]
         .into_iter()
         .map(|theme| {
-            let option = cantos_ui::SelectOption::new(
+            cantos_ui::SelectOption::new(
                 theme.as_str(),
                 messages::text(theme_value_key(theme), locale),
-            );
-            if compact_me {
-                option.with_icon(match theme {
-                    Theme::Light => IconName::LightMode,
-                    Theme::Dark => IconName::DarkMode,
-                    Theme::System => IconName::ThemeSystem,
-                })
-            } else {
-                option
-            }
+            )
+            .with_icon(match theme {
+                Theme::Light => IconName::LightMode,
+                Theme::Dark => IconName::DarkMode,
+                Theme::System => IconName::ThemeSystem,
+            })
         })
         .collect()
 }
@@ -272,7 +268,7 @@ pub(crate) fn LiveAccount(
                 </Surface>
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
                         <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                        <PreferenceFields locale theme on_locale scope="theatre-account" compact_me=true/>
+                        <PreferenceFields locale theme on_locale scope="theatre-account"/>
 
                     </section>
                     <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
@@ -300,38 +296,42 @@ pub(crate) fn PreferenceFields(
     theme: RwSignal<Theme>,
     on_locale: Callback<String>,
     scope: &'static str,
-    #[prop(optional)] compact_me: bool,
+    #[prop(optional)] compact: bool,
 ) -> impl IntoView {
+    if compact {
+        return view! {
+            <div class="cui-topbar-actions theatre-guest-preferences">
+                <Select id=format!("{scope}-locale") class="theatre-locale-field"
+                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
+                    value=Signal::derive(move || locale.get().lang().to_owned())
+                    options=crate::localization::locale_options()
+                    short_label=Callback::new(|value: String| value.split('-').next().map(str::to_owned))
+                    on_input=on_locale/>
+                <cantos_ui::ThemeCycleButton id=format!("{scope}-theme") theme
+                    labels=Signal::derive(move || crate::localization::theme_labels(locale.get()))/>
+            </div>
+        }.into_any();
+    }
     view! {
                         <div class="theatre-pref-row">
                             <div class="theatre-pref-tile theatre-pref-theme">
-                                {(!compact_me).then(|| view! { <label class="theatre-pref-icon" for=format!("{scope}-theme-trigger") aria-hidden="true">
-                                    {move || view! { <Icon name=match theme.get() {
-                                        Theme::Light => IconName::LightMode,
-                                        Theme::Dark => IconName::DarkMode,
-                                        Theme::System => IconName::ThemeSystem,
-                                    }/> }}
-                                </label> })}
                                 <Select id=format!("{scope}-theme") class="theatre-pref-select"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
                                     value=Signal::derive(move || theme.get().as_str().to_owned())
-                                    options=Signal::derive(move || theme_options(locale.get(), compact_me))
+                                    options=Signal::derive(move || theme_options(locale.get()))
                                     on_input=Callback::new(move |value: String| {
                                         if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
                                     })/>
                             </div>
                             <div class="theatre-pref-tile theatre-pref-language">
-                                {(!compact_me).then(|| view! { <label class="theatre-pref-icon" for=format!("{scope}-locale-trigger") aria-hidden="true">
-                                    <Icon name=IconName::Language/>
-                                </label> })}
                                 <Select id=format!("{scope}-locale") class="theatre-pref-locale"
                                     density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
                                     label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
                                     value=Signal::derive(move || locale.get().lang().to_owned())
                                     options=crate::localization::locale_options()
-                                    short_label=Callback::new(move |tag: String| {
-                                        if !compact_me { return None; }
+                                    short_label=Callback::new(|tag: String| {
                                         let language = tag.split('-').next()?;
                                         let mut letters = language.chars();
                                         let first = letters.next()?.to_uppercase().collect::<String>();
@@ -340,7 +340,7 @@ pub(crate) fn PreferenceFields(
                                     on_input=on_locale/>
                             </div>
                         </div>
-    }
+    }.into_any()
 }
 
 #[cfg(test)]

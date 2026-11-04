@@ -46,8 +46,17 @@ current admission instead of restoring an old account.
 
 ## Preferences, player and presentation
 
-Landing/auth offer a compact preferences disclosure using the existing owner/chooser for
-VI/EN and Light/Dark/System; signed-in Me retains its preferences. This is a local utility.
+The owner amendment of 3 November 2026 in #691 places Web guest preferences in the trailing
+header on Landing and public/auth entries, rather than a disclosure in main. Reuse the existing
+locale chooser and theme control with the root preference signals and persistence callback;
+opening a chooser must not shift the hero, search or form. These are local utilities, never
+application navigation. Idle, Checking, Failed and LogoutPending retain local preferences
+without changing admission or recovery. SignedIn has preferences only in Me, including during
+auth-route transitions; hiding navigation never makes a confirmed session a guest.
+On auth routes, Escape consumed by a chooser or tooltip must not also cancel authentication
+or verification state; only an unhandled Escape reaches page-level cancellation.
+The Landing Sign in/Register pair uses equal capsule height and alignment while preserving
+its existing tonal/filled hierarchy. This Web placement amendment does not change CMP placement.
 One shell-owned player/media session survives navigation visibility. Public mini-player and
 playback are independent of primary navigation; route/session/preferences changes never start
 audio or replace a public source. Private teardown retains its existing access/session fences.
@@ -62,4 +71,6 @@ provides shared `run.session-root`, `run.unresolved-session`, `run.auth-return`,
 and `run.preferences-player` IDs. It is an expectation, not another router.
 Model runs/properties/witnesses/negative controls, Web unit/string-render/build, compiled Leptos
 browser interaction, CMP common/JVM/build and Android/iOS runtime are independent evidence.
-Parity requires matching observations at compatible source revisions.
+Parity requires matching observations at compatible source revisions. #697 supplies native
+scenario bindings and bounded JVM observations; Android/iOS and complete cross-renderer runtime
+acceptance remain separate. Header placement changes do not change the finite navigation model.
