@@ -17235,10 +17235,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Hoàn tác chỉnh sửa"
+          "text": "Hoàn tác"
         },
         "en": {
-          "text": "Undo edit"
+          "text": "Undo"
         }
       }
     },
@@ -17247,10 +17247,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Làm lại chỉnh sửa"
+          "text": "Làm lại"
         },
         "en": {
-          "text": "Redo edit"
+          "text": "Redo"
         }
       }
     },
@@ -27761,6 +27761,78 @@
         },
         "en": {
           "text": "Back"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_label": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lịch sử chỉnh sửa"
+        },
+        "en": {
+          "text": "Edit history"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có chỉnh sửa đã ghi để hoàn tác hoặc làm lại."
+        },
+        "en": {
+          "text": "No committed edits to undo or redo yet."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_no_undo": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không còn bước để hoàn tác."
+        },
+        "en": {
+          "text": "No earlier edit to undo."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_history_no_redo": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Không còn bước để làm lại."
+        },
+        "en": {
+          "text": "No later edit to redo."
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_identity": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mã tham chiếu"
+        },
+        "en": {
+          "text": "Reference details"
+        }
+      }
+    },
+    "studio.authoring.authoring_copy_review_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Về kiểm tra và đối chiếu"
+        },
+        "en": {
+          "text": "About validation and comparison"
         }
       }
     }
