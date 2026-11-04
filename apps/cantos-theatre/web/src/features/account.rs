@@ -186,8 +186,8 @@ fn theme_options(locale: Locale) -> Vec<cantos_ui::SelectOption> {
         .collect()
 }
 
-/// A navigation row: leading icon, one label, trailing chevron. The whole row is the target and
-/// keeps the route's own hash, so history and Back behave as for any other link.
+/// A Me shortcut keeps the existing native route link. Its supporting copy explains the
+/// destination without inventing a library count or an account capability.
 #[component]
 fn ActionRow(
     id: &'static str,
@@ -195,13 +195,16 @@ fn ActionRow(
     asset: &'static str,
     locale: RwSignal<Locale>,
     label: Key,
+    help: CopyKey,
 ) -> impl IntoView {
     view! {
         <li>
-            <a id=id class="theatre-action-row" href=route.hash()>
-                {icon(asset)}
-                <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
-                <ChevronGlyph/>
+            <a id=id class="theatre-action-row theatre-me-shortcut" href=route.hash()>
+                <span class="theatre-me-shortcut-icon">{icon(asset)}</span>
+                <span class="theatre-me-shortcut-copy">
+                    <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
+                    <span class="theatre-me-shortcut-help">{super::auth::label(locale, help)}</span>
+                </span>
             </a>
         </li>
     }
@@ -251,21 +254,17 @@ pub(crate) fn LiveAccount(
                     <Show when=move || ui.get().can_authenticate>
                         <AuthActions state locale scope="theatre-account" on_login on_register/>
                     </Show>
-                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                        <ul class="theatre-action-rows theatre-me-shortcuts">
-                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved/>
-                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History/>
-                        </ul>
-                        <div class="theatre-account-signout-row">
-                            <Button id="theatre-account-logout" class="theatre-account-signout"
-                                icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
-                                on_press=Callback::new(move |_| on_logout.run(()))>
-                                {move || messages::text(Key::SignOut, locale.get())}
-                            </Button>
-                        </div>
-                    </Show>
                     <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
                 </Surface>
+                <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                    <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
+                        <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
+                        <ul class="theatre-action-rows theatre-me-shortcuts">
+                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
+                        </ul>
+                    </section>
+                </Show>
                     <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
                         <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
                         <PreferenceFields locale theme on_locale scope="theatre-account"/>
@@ -275,15 +274,24 @@ pub(crate) fn LiveAccount(
                         <section aria-labelledby="theatre-account-membership-heading">
                             <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
                             <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
-                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
-                            <p id="theatre-account-membership-status" class="theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
                             <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
                                 icon=IconName::Star focus_on_press=true
                                 on_press=Callback::new(move |_| on_membership.run(()))>
                                 {label(locale, CopyKey::MembershipLearn)}
                             </Button>
+                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
+                            <p id="theatre-account-membership-status" class="theatre-membership-note theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
                         </section>
                     </Surface>
+                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                        <div class="theatre-account-signout-row">
+                            <Button id="theatre-account-logout" class="theatre-account-signout"
+                                icon=IconName::Logout variant=ButtonVariant::Text focus_on_press=true
+                                on_press=Callback::new(move |_| on_logout.run(()))>
+                                {move || messages::text(Key::SignOut, locale.get())}
+                            </Button>
+                        </div>
+                    </Show>
             </div>
         </section>
     }
@@ -346,6 +354,46 @@ pub(crate) fn PreferenceFields(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn me_orders_identity_listening_preferences_membership_then_signout() {
+        use crate::features::auth_preview::{signed_in, PreviewActor};
+        Owner::new().with(|| {
+            for language in [Locale::Vietnamese, Locale::English] {
+                let state = RwSignal::new(AccountViewState::default());
+                signed_in(state, PreviewActor::A).unwrap();
+                let html = render_live(state.read_only(), RwSignal::new(language));
+                assert!(html.contains(super::super::auth_copy::text(
+                    CopyKey::ListeningHeading,
+                    language
+                )));
+                for help in [CopyKey::SavedShortcutHelp, CopyKey::HistoryShortcutHelp] {
+                    assert!(html.contains(super::super::auth_copy::text(help, language)));
+                }
+                let positions = [
+                    "id=\"theatre-live-account-heading\"",
+                    "theatre-account-profile-heading",
+                    "id=\"theatre-account-activity-heading\"",
+                    "id=\"theatre-account-open-saved\"",
+                    "id=\"theatre-account-open-history\"",
+                    "id=\"theatre-account-preferences-heading\"",
+                    "id=\"theatre-account-membership-heading\"",
+                    "id=\"theatre-account-membership\"",
+                    "id=\"theatre-account-membership-status\"",
+                    "id=\"theatre-account-logout\"",
+                ]
+                .map(|marker| html.find(marker).unwrap_or_else(|| panic!("{marker}")));
+                assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+                for id in [
+                    "theatre-account-open-saved",
+                    "theatre-account-open-history",
+                    "theatre-account-logout",
+                ] {
+                    assert_eq!(html.matches(&format!("id=\"{id}\"")).count(), 1);
+                }
+            }
+        });
+    }
 
     #[test]
     fn signed_in_header_groups_the_current_monogram_greeting_and_alias_and_clears_on_refresh() {

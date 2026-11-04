@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "386a770cddd1f9e6ba98cfa75294db50e4a5ca36324abbf784ca24175bb9192f",
+  "catalogSha256": "3eaea25536e588ac01f253f0e13a092b6b45e321a69b5e9396185c942f07f19d",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -1399,6 +1399,8 @@
     "theatre.auth.brand_help": {},
     "theatre.auth.guest_heading": {},
     "theatre.auth.guest_help": {},
+    "theatre.auth.history_shortcut_help": {},
+    "theatre.auth.listening_heading": {},
     "theatre.auth.login_email": {},
     "theatre.auth.login_eyebrow": {},
     "theatre.auth.login_heading": {},
@@ -1429,6 +1431,7 @@
     "theatre.auth.return_library": {},
     "theatre.auth.return_login": {},
     "theatre.auth.return_membership": {},
+    "theatre.auth.saved_shortcut_help": {},
     "theatre.auth.settings_help": {},
     "theatre.auth.signed_heading": {},
     "theatre.auth.signed_help": {},
