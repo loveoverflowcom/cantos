@@ -11,9 +11,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
@@ -26,9 +30,14 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.application.catalog.PublicCatalogController
 import com.cantos.theatre.application.catalog.PublicCatalogIntent
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.StubIdentityV1Api
+import com.cantos.theatre.application.identity.v1Grant
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.preferences.PreferencesController
+import com.cantos.theatre.application.preferences.PreferencesUpdate
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.domain.catalog.CatalogCursor
@@ -46,6 +55,15 @@ import com.cantos.theatre.ports.PlaybackAccessPort
 import com.cantos.theatre.ports.PlaybackAccessResult
 import com.cantos.theatre.ports.PlaybackGrant
 import com.cantos.theatre.ports.PlaybackLocation
+import com.cantos.theatre.ports.CredentialFailure
+import com.cantos.theatre.ports.LocalePreferenceRead
+import com.cantos.theatre.ports.LocalePreferenceStore
+import com.cantos.theatre.ports.LocalePreferenceWrite
+import com.cantos.theatre.ports.LogoutBarrier
+import com.cantos.theatre.ports.LogoutBarrierRead
+import com.cantos.theatre.ports.NativeCredentialJournal
+import com.cantos.theatre.ports.NativeCredentialRecord
+import com.cantos.theatre.ports.NativeJournalRead
 import com.cantos.theatre.ports.PublicCatalogPort
 import com.cantos.theatre.ports.PublicCatalogRead
 import com.cantos.theatre.ports.StreamingMediaEngine
@@ -74,6 +92,8 @@ class CantosTheatreAppTest {
             PublicCatalogRead.Ready(PublicCatalogSamples.worksPage(works))
         },
         val workReply: (PublicWorkId) -> PublicCatalogRead<PublicWork>? = { null },
+        localeStore: LocalePreferenceStore? = null,
+        account: NativeAccountController? = null,
     ) {
         val work = works.first()
         val unit = units.getValue(work).first()
@@ -83,7 +103,7 @@ class CantosTheatreAppTest {
         var factories = 0
         var authorizations = 0
         var worksReads = 0
-        val preferences = PreferencesController()
+        val preferences = PreferencesController(localePreferenceStore = localeStore)
         val catalog = PublicCatalogController(scope, object : PublicCatalogPort {
             override suspend fun works(cursor: CatalogCursor?, query: PublicCatalogQuery): PublicCatalogRead<com.cantos.theatre.domain.catalog.PublicWorkPage> {
                 worksReads += 1
@@ -101,7 +121,7 @@ class CantosTheatreAppTest {
                     authorizations += 1
                     return PlaybackAccessResult.Accepted(PlaybackGrant(PlaybackLocation("https://media.invalid/test-only"), 1_000_000))
                 }
-            }, account = null, library = null,
+            }, account = account, library = null,
             newUuid = { "00000000-0000-4000-8000-000000000001" }, nowMs = { 1_000 })
         val shell = TheatreShell(scope, catalog, runtime, preferences)
         fun close() { shell.close(); runtime.close(); catalog.close() }
@@ -128,6 +148,116 @@ class CantosTheatreAppTest {
         val unit = PublicCatalogSamples.unit(1, title = "Chương 1: Người dẫn chuyện trở về", durationMs = 125_000)
         return listOf(work) to mapOf(work to listOf(unit))
     }
+
+    /** A port fake: acceptance is not a claim that a platform write reached durable storage. */
+    private class LocaleStore : LocalePreferenceStore {
+        var saved: PreferenceLocale? = null
+        var result = LocalePreferenceWrite.Accepted
+        val attempts = mutableListOf<PreferenceLocale>()
+        override fun readLocale(): LocalePreferenceRead = saved?.let(LocalePreferenceRead::Saved) ?: LocalePreferenceRead.Unset
+        override fun writeLocale(locale: PreferenceLocale): LocalePreferenceWrite {
+            attempts += locale
+            if (result == LocalePreferenceWrite.Accepted) saved = locale
+            return result
+        }
+    }
+
+    private fun signedInAccount(scope: CoroutineScope): NativeAccountController {
+        val grant = v1Grant('a', 'c', "actor-a", "00000000-0000-4000-8000-000000000001", 121, 601, 901, 1, 1)
+        val journal = object : NativeCredentialJournal {
+            override fun read() = NativeJournalRead.Found(NativeCredentialRecord.Active(grant))
+            override fun write(record: NativeCredentialRecord): CredentialFailure? = null
+            override fun clear(): CredentialFailure? = null
+        }
+        val barrier = object : LogoutBarrier {
+            override fun read() = LogoutBarrierRead.Clear
+            override fun mark(): CredentialFailure? = null
+            override fun clear(): CredentialFailure? = null
+        }
+        return NativeAccountController(scope, StubIdentityV1Api(), journal, barrier, now = { 1 })
+    }
+
+    @Test
+    fun signed_in_me_preferences_use_the_root_owner_handle_store_failure_and_keep_player() =
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            val store = LocaleStore()
+            lateinit var fixture: Fixture
+            var renderedDark = false
+            setContent {
+                val scope = rememberCoroutineScope()
+                val owner = remember {
+                    val (works, units) = single()
+                    Fixture(scope, works, units, localeStore = store, account = signedInAccount(scope)).also { fixture = it }
+                }
+                DisposableEffect(owner) { onDispose { owner.close() } }
+                CantosTheatreApp(owner.shell, systemIsDark = false, onThemeChanged = { renderedDark = it })
+            }
+            waitUntil { fixture.runtime.account?.state?.value is NativeAccountState.SignedIn }
+            onNodeWithTag("work-${fixture.work.id.value}").performScrollTo().performClick()
+            waitUntil { onAllNodesWithTagExists("episode-${fixture.unit.id.value}") }
+            onNodeWithTag("episode-${fixture.unit.id.value}").performScrollTo().performClick()
+            waitUntil { fixture.engine.starts.isNotEmpty() }
+            val command = fixture.engine.loads.single()
+            runOnIdle {
+                fixture.engine.emit(PlaybackEvent.EngineReady(command.identity))
+                fixture.engine.emit(PlaybackEvent.EngineStarted(command.identity))
+            }
+            waitForIdle()
+            assertEquals(PlaybackStatus.Playing, fixture.runtime.listening.playback.state.value.status)
+            val playerBefore = fixture.runtime.listening.playback.state.value
+            val accountBefore = fixture.runtime.account?.state?.value
+            val readsBefore = fixture.worksReads
+            val authorizationsBefore = fixture.authorizations
+            runOnIdle { fixture.shell.dispatch(ShellEvent.Navigate(ShellRoute.Account)) }
+            waitForIdle()
+            val routeBefore = fixture.shell.navigation.value
+
+            onNodeWithTag("setting-Theme").performScrollTo().performClick()
+            onNodeWithTag("theme-Dark").performClick()
+            waitForIdle()
+            assertEquals(PreferenceTheme.Dark, fixture.preferences.state.value.theme)
+            assertTrue(renderedDark)
+            assertTrue(store.attempts.isEmpty(), "Theme changes must not write the locale store")
+            onNodeWithTag("setting-Theme").assertIsFocused()
+
+            runOnIdle { store.result = LocalePreferenceWrite.Unavailable }
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("locale-English").performClick()
+            waitForIdle()
+            assertEquals(PreferenceLocale.Vietnamese, fixture.preferences.state.value.locale)
+            assertEquals(PreferencesUpdate.LocaleStoreUnavailable, fixture.preferences.localeUpdate.value)
+            assertEquals(null, store.saved)
+            onNodeWithTag("locale-save-failure").performScrollTo().assertIsDisplayed()
+            onNodeWithTag("setting-Language")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, PreferenceLocale.Vietnamese.autonym))
+                .performScrollTo().performClick()
+            onNodeWithTag("locale-Vietnamese").assertIsSelected()
+            onNodeWithTag("preference-close").performClick()
+            onNodeWithTag("setting-Language").assertIsFocused()
+
+            runOnIdle { store.result = LocalePreferenceWrite.Accepted }
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("locale-English").performClick()
+            waitForIdle()
+            assertEquals(PreferenceLocale.English, fixture.preferences.state.value.locale)
+            assertEquals(PreferencesUpdate.Applied, fixture.preferences.localeUpdate.value)
+            assertEquals(listOf(PreferenceLocale.English, PreferenceLocale.English), store.attempts)
+            val restarted = PreferencesController(localePreferenceStore = store).state.value
+            assertEquals(PreferenceLocale.English, restarted.locale)
+            assertEquals(PreferenceTheme.Light, restarted.theme, "Theme remains memory-only")
+            onNodeWithTag("locale-save-failure").assertDoesNotExist()
+            onNodeWithTag("setting-Language")
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, PreferenceLocale.English.autonym))
+                .assertIsFocused()
+            assertEquals(routeBefore, fixture.shell.navigation.value)
+            assertEquals(playerBefore, fixture.runtime.listening.playback.state.value)
+            assertEquals(accountBefore, fixture.runtime.account?.state?.value)
+            assertEquals(1, fixture.factories)
+            assertEquals(1, fixture.engine.loads.size)
+            assertEquals(1, fixture.engine.starts.size)
+            assertEquals(readsBefore, fixture.worksReads)
+            assertEquals(authorizationsBefore, fixture.authorizations)
+        }
 
     @Test
     fun guest_preferences_keep_system_selected_while_the_host_appearance_changes() =
