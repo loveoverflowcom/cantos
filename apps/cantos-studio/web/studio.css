@@ -128,8 +128,8 @@ body { margin: 0; }
 .studio-shell .authoring-pronunciation > .cui-field { grid-row: span 3; grid-template-rows: subgrid; }
 .studio-shell .authoring-pronunciation > button { grid-row: 2; align-self: center; justify-self: start; width: auto; }
 .studio-shell .authoring-id { display: block; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); line-height: 1.5; }
-.studio-shell .authoring-row-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--cantos-space-sm); }
-.studio-shell .authoring-row-heading h4 { margin: 0; }
+.studio-shell .authoring-row-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); }
+.studio-shell .authoring-row-heading :is(h3, h4) { margin: 0; }
 @container studio (max-width: 45rem) { .studio-shell .authoring-pronunciation { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; } .studio-shell .authoring-pronunciation > * { grid-row: auto; } .studio-shell .authoring-pronunciation > .cui-field { grid-template-rows: none; } }
 
 /* Long localized actions and immutable identifiers must reflow at browser zoom. */

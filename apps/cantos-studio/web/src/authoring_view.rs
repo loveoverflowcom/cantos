@@ -935,7 +935,7 @@ fn CharacterEditor(id: String) -> impl IntoView {
     let copy = move || authoring_copy(ctx.locale.get());
     let target = Target::Character(id.clone());
     view! {
-        <h3>{move || copy().characters}</h3><ItemIdentity id=id />
+        <div class="authoring-row-heading"><h3>{move || copy().characters}</h3><ItemIdentity id=id /></div>
         <TextField target=target.clone() field=Field::Name label=Signal::derive(move || copy().character_name) />
         <ChoiceField target=target.clone() field=Field::Role label=Signal::derive(move || copy().role) options=choices(&["narrator", "character"], ctx.locale) />
         <TextField target=target.clone() field=Field::Personality label=Signal::derive(move || copy().personality) multiline=true />
@@ -949,7 +949,7 @@ fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
     let copy = move || authoring_copy(ctx.locale.get());
     let saved_id = StoredValue::new(id.clone());
     view! {
-        <h3>{move || copy().act}</h3><ItemIdentity id=id.clone() />
+        <div class="authoring-row-heading"><h3>{move || copy().act}</h3><ItemIdentity id=id.clone() /></div>
         <TextField target=Target::Act(id.clone()) field=Field::Title label=Signal::derive(move || copy().act_title) />
         <ItemActions target=Target::Act(id) />
         <ActionButton id=format!("{}-{}-add-scene", ctx.namespace, saved_id.get_value()) locale=ctx.locale variant=ButtonVariant::Tonal blocked=ctx.readonly reason=BlockReason::ScriptReadOnly on_press=Callback::new(move |_| {
@@ -980,7 +980,7 @@ fn SceneEditor(id: String) -> impl IntoView {
         }
     };
     view! {
-        <h3>{move || copy().scene}</h3><ItemIdentity id=id.clone() />
+        <div class="authoring-row-heading"><h3>{move || copy().scene}</h3><ItemIdentity id=id.clone() /></div>
         <TextField target=Target::Scene(id.clone()) field=Field::Title label=Signal::derive(move || copy().scene_title) />
         <ItemActions target=Target::Scene(id) />
         <div class="authoring-dialogues">
