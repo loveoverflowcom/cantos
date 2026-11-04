@@ -1145,10 +1145,17 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chương đã công bố: {count}"
+          "plural": "count",
+          "forms": {
+            "other": "{count} chương đã công bố"
+          }
         },
         "en": {
-          "text": "Published chapters: {count}"
+          "plural": "count",
+          "forms": {
+            "one": "{count} published chapter",
+            "other": "{count} published chapters"
+          }
         }
       }
     },
@@ -1159,10 +1166,17 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Tập đã công bố: {count}"
+          "plural": "count",
+          "forms": {
+            "other": "{count} tập đã công bố"
+          }
         },
         "en": {
-          "text": "Published episodes: {count}"
+          "plural": "count",
+          "forms": {
+            "one": "{count} published episode",
+            "other": "{count} published episodes"
+          }
         }
       }
     },

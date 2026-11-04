@@ -669,7 +669,7 @@ fn ReadyWork(
                 <p class="theatre-eyebrow">{move || text(messages::work_kind_key(kind), locale.get())}</p>
                 <h1 id=HEADING_ID tabindex="-1" lang=lang.clone()>{work.title.clone()}</h1>
                 {description.map(|text| view! { <p class="theatre-synopsis" lang=lang.clone()>{text}</p> })}
-                <p class="theatre-muted theatre-public-work-count" data-unit-count=unit_count.to_string()>
+                <p class="theatre-public-work-count" data-unit-count=unit_count.to_string()>
                     {move || messages::public_unit_count(kind, locale.get(), unit_count)}
                 </p>
                 <div class="theatre-actions">
@@ -1556,6 +1556,12 @@ mod tests {
                 "{html}"
             );
             assert!(html.contains("aria-describedby=\"theatre-work-listen-feedback theatre-public-work-listen-reason\""));
+            // Issue 665: the reason is the hero's adjacent sibling, so the shared listen-hero
+            // rule presents it as a status chip directly below Listen; it is not a control.
+            assert!(
+                html.contains("</button><span id=\"theatre-public-work-listen-reason\" class=\"cui-button-reason\""),
+                "{html}"
+            );
             // The row repeats only the short phrase, never the long copy.
             assert!(html.contains(text(Key::PublicWorkListenUnavailable, locale)));
             assert!(!html.contains("theatre-work-listen-help-trigger"));
@@ -1753,7 +1759,7 @@ mod tests {
         state.finish_page(&first, Ok(page(vec![seventh, eighth], Some("lc1_opaque"))));
         let vi = render(state.clone(), Locale::Vietnamese);
         for expected in [
-            "Chương đã công bố: 40",
+            "40 chương đã công bố",
             "data-unit-count=\"40\"",
             "Vị trí 7",
             "data-ordinal=\"7\"",
@@ -1762,7 +1768,7 @@ mod tests {
             assert!(vi.contains(expected), "{expected}");
         }
         for absent in [
-            "Chương đã công bố: 2",
+            "2 chương đã công bố",
             "Vị trí 1",
             "Vị trí 2",
             "Chương 7",
@@ -1771,7 +1777,34 @@ mod tests {
             assert!(!vi.contains(absent), "{absent}");
         }
         let en = render(state, Locale::English);
-        assert!(en.contains("Published chapters: 40") && en.contains("Position 7"));
+        assert!(en.contains("40 published chapters") && en.contains("Position 7"));
+    }
+
+    #[test]
+    fn published_count_is_a_non_interactive_metadata_chip_with_plural_copy() {
+        let mut work = fixture_work();
+        work.unit_count = 1;
+        let (state, _) = opened(work);
+        let en = render(state.clone(), Locale::English);
+        // A plain paragraph styled as a chip: no button, link, tab stop or muted helper class.
+        let chip = en
+            .split("class=\"theatre-public-work-count\"")
+            .nth(1)
+            .and_then(|rest| rest.split("</p>").next())
+            .expect("count chip");
+        assert!(
+            chip.contains("1 published chapter") && !chip.contains("chapters"),
+            "{chip}"
+        );
+        for absent in ["<button", "<a ", "tabindex", "role="] {
+            assert!(!chip.contains(absent), "{absent}: {chip}");
+        }
+        assert!(!en.contains("theatre-muted theatre-public-work-count"));
+        assert!(render(state, Locale::Vietnamese).contains("1 chương đã công bố"));
+        let mut zero = fixture_work();
+        zero.unit_count = 0;
+        let (zero, _) = opened(zero);
+        assert!(render(zero, Locale::Vietnamese).contains("0 chương đã công bố"));
     }
 
     #[test]

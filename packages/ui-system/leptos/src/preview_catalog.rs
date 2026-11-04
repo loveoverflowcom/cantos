@@ -504,7 +504,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.13.0";
+pub const TOKEN_VERSION: &str = "0.14.0";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -820,8 +820,8 @@ pub const TOKENS: &[TokenRegistration] = &[
         name: "color.savedWork",
         css_variable: "--cantos-color-saved-work",
         kind: "color",
-        light: "#b77c17",
-        dark: "#d6a23f",
+        light: "#f3c75b",
+        dark: "#e6b94b",
         compact: None,
         comfortable: None,
         alias_of: None,

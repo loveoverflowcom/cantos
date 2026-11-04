@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.13.0 sha256:f8f55689c0f42c22303463b4f11c5d12e8018d5c7409b448b1438e9d13daa45e
+// Generated from Cantos UI tokens v0.14.0 sha256:79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.13.0"
+    const val version: String = "0.14.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -42,7 +42,7 @@ object CantosTokens {
         TokenValue("color.playerSurface", "color", "#34283f", "#34283f", null, null, null),
         TokenValue("color.primary", "color", "#675080", "#d9bdf1", null, null, null),
         TokenValue("color.primaryContainer", "color", "#e6d9f1", "#513b63", null, null, null),
-        TokenValue("color.savedWork", "color", "#b77c17", "#d6a23f", null, null, null),
+        TokenValue("color.savedWork", "color", "#f3c75b", "#e6b94b", null, null, null),
         TokenValue("color.success", "color", "#375e4b", "#b7d6ba", null, null, null),
         TokenValue("color.successContainer", "color", "#dfeadf", "#293f33", null, null, null),
         TokenValue("color.surface", "color", "#fffcf7", "#2c2631", null, null, null),

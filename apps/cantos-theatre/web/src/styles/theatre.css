@@ -606,6 +606,20 @@ body { margin: 0; }
 .theatre-live-recovery { max-inline-size: 40rem; margin-inline: auto; display: grid; gap: var(--cantos-space-md); justify-items: start; }
 .theatre-public-work-detail { display: grid; gap: var(--cantos-space-md); }
 .theatre-public-work-intro { align-items: start; }
+/* Issue 665: the published-unit count is a flat, non-interactive tonal metadata chip between the
+   synopsis and the actions. No border, shadow or gradient; it wraps rather than clips. */
+.theatre-public-work-intro .theatre-public-work-count {
+  display: inline-block;
+  max-inline-size: 100%;
+  margin-block: var(--cantos-space-inset) 0;
+  border-radius: var(--cantos-shape-pill);
+  padding: var(--cantos-space-sm) var(--cantos-space-inset);
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-body-weight);
+}
 /* Work detail actions share one face band, the hero's height. A button's visible reason or a
    sibling's status line sits below its band, so it never moves another action's face; each face
    is centered in the band and keeps its own density. A bare field has no definite track width,

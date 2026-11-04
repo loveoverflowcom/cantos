@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -802,7 +803,7 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         Text(work.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
         Text(work.description)
-        UnitCount(work, copy)
+        UnitCountChip(work, copy)
     }
     when (work.detailPhase) {
         ShellDetailPhase.Ready -> Unit
@@ -818,7 +819,8 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
         }
     }
     if (work.detailPhase != ShellDetailPhase.Ready) return
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset")),
+        verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         val listen = workListenProjection(work, state.workListenRelease)
         val reason = listen.status?.let(copy::text)
         val availability = when (listen.phase) {
@@ -840,7 +842,8 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
                     modifier = Modifier.testTag("work-listen-status").semantics { liveRegion = LiveRegionMode.Polite })
             }
         }
-        SaveWorkButton(work, state, copy, dispatch, "save-work")
+        // Save shares the hero's face band; a reason chip or status below either never moves it.
+        SaveWorkButton(work, state, copy, dispatch, "save-work", faceBand = tokenDp("size.listenHero"))
     }
     Text(copy.text(CopyKey.SavedOnlyHere), style = MaterialTheme.typography.bodySmall)
     Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) CopyKey.Chapters else CopyKey.Episodes),
@@ -850,6 +853,22 @@ private fun WorkScreen(work: ShellWork, state: ShellState, copy: ShellCopy, disp
     }
     work.episodes.forEach { episode -> key(episode.id) { EpisodeSelection(episode, state, copy, dispatch) } }
     ListFooter(work.unitsPhase, copy, dispatch, first = work.episodes.isEmpty())
+}
+
+/**
+ * Issue 665: Work detail presents the same complete-list count as a flat, non-interactive tonal
+ * metadata chip. It is absent while the list is loading or partial, so a zero is never a guess.
+ */
+@Composable
+private fun UnitCountChip(work: ShellWork, copy: ShellCopy) {
+    if (work.unitsPhase != ShellListPhase.Complete) return
+    Text(copy.text(if (work.unitKind == ShellUnitKind.Chapter) LegacyCopyKey.ChaptersCount else LegacyCopyKey.EpisodesCount,
+        "count" to work.episodes.size.toString()),
+        Modifier.testTag("work-unit-count")
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(tokenDp("shape.pill")))
+            .padding(horizontal = tokenDp("space.inset"), vertical = tokenDp("space.sm")),
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = MaterialTheme.typography.bodyMedium.fontWeight),
+        color = MaterialTheme.colorScheme.onSurface)
 }
 
 /** The episode or chapter count, shown only when the list is complete so it is never a partial total. */
@@ -890,29 +909,32 @@ internal fun EpisodeSelection(episode: ShellEpisode, state: ShellState, copy: Sh
 }
 
 @Composable
-internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String) {
+internal fun SaveWorkButton(work: ShellWork, state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, tag: String,
+    faceBand: androidx.compose.ui.unit.Dp? = null) {
     val saved = work.id in state.confirmedSavedWorks
     val pending = work.id in state.pendingSavedWorks
     val failed = work.id in state.failedSavedWorks
     val desiredSaved = work.id in state.savedWorks
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        FilledTonalButton(shape = RoundedCornerShape(tokenDp("shape.pill")),
-            enabled = !pending && !failed,
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = if (saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = if (saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
-                disabledContainerColor = if (failed && saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
-                disabledContentColor = if (failed && saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
-            ),
-            onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
-            modifier = Modifier.heightIn(min = tokenDp("size.control")).widthIn(min = tokenDp("size.savedWork")).testTag(tag).semantics {
-                contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
-                stateDescription = copy.text(if (pending) CopyKey.SavePending else if (saved) CopyKey.SavedTab else CopyKey.Save)
-            },
-        ) {
-            Icon(rememberCantosIconVector(if (saved) "bookmark" else "bookmark_border"), null, Modifier.size(tokenDp("size.iconCompact")))
-            Spacer(Modifier.width(tokenDp("space.sm")))
-            Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+        Box(if (faceBand != null) Modifier.heightIn(min = faceBand) else Modifier, contentAlignment = Alignment.CenterStart) {
+            FilledTonalButton(shape = RoundedCornerShape(tokenDp("shape.pill")),
+                enabled = !pending && !failed,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = if (saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+                    disabledContainerColor = if (failed && saved && !pending) tokenColor("color.savedWork") else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContentColor = if (failed && saved && !pending) tokenColor("color.onSavedWork") else MaterialTheme.colorScheme.onSurface,
+                ),
+                onClick = { dispatch(ShellEvent.SetSaved(work.id, saved = !saved)) },
+                modifier = Modifier.heightIn(min = tokenDp("size.control")).widthIn(min = tokenDp("size.savedWork")).testTag(tag).semantics {
+                    contentDescription = copy.text(if (saved) ShellMessage.UnsaveName(title = work.title) else ShellMessage.SaveName(title = work.title))
+                    stateDescription = copy.text(if (pending) CopyKey.SavePending else if (saved) CopyKey.SavedTab else CopyKey.Save)
+                },
+            ) {
+                Icon(rememberCantosIconVector(if (saved) "bookmark" else "bookmark_border"), null, Modifier.size(tokenDp("size.iconCompact")))
+                Spacer(Modifier.width(tokenDp("space.sm")))
+                Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+            }
         }
         if (pending || failed) {
             Text(copy.text(if (failed) CopyKey.SyncFailed else CopyKey.SavePending),
