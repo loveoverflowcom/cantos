@@ -3,6 +3,9 @@ use super::{Problem, Stage};
 use crate::localization::generated::artwork as resources;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
+    Workflow,
+    Details,
+    SelectHelp,
     NeedFile,
     NeedIntent,
     NeedAsset,
@@ -47,15 +50,24 @@ pub enum Key {
     PreviewHelp,
     PreviewScenario,
     PreviewTheme,
+    PreviewScale,
+    PreviewScale100,
+    PreviewScale200,
     PreviewLocale,
     PreviewLight,
     PreviewDark,
 }
 pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
     match key {
+        Key::Workflow => resources::text(resources::Key::Workflow, locale),
+        Key::Details => resources::text(resources::Key::Details, locale),
+        Key::SelectHelp => resources::text(resources::Key::SelectHelp, locale),
         Key::PreviewTitle => resources::text(resources::Key::PreviewTitle, locale),
         Key::PreviewHelp => resources::text(resources::Key::PreviewHelp, locale),
         Key::PreviewScenario => resources::text(resources::Key::PreviewScenario, locale),
+        Key::PreviewScale100 => resources::text(resources::Key::PreviewScale100, locale),
+        Key::PreviewScale200 => resources::text(resources::Key::PreviewScale200, locale),
+        Key::PreviewScale => resources::text(resources::Key::PreviewScale, locale),
         Key::PreviewTheme => resources::text(resources::Key::PreviewTheme, locale),
         Key::PreviewLocale => resources::text(resources::Key::PreviewLocale, locale),
         Key::PreviewLight => resources::text(resources::Key::PreviewLight, locale),
@@ -191,6 +203,37 @@ pub fn transferred_bytes(
     )
 }
 
+pub fn image_identity(revision: &str, asset: &str, locale: crate::localization::Locale) -> String {
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkImageIdentity {
+            arg_revision: revision,
+            arg_asset: asset,
+        }
+        .render(locale),
+        locale,
+    )
+}
+pub fn selection_revision(revision: u64, locale: crate::localization::Locale) -> String {
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkSelectionRevision {
+            arg_revision: revision,
+        }
+        .render(locale),
+        locale,
+    )
+}
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
+pub fn preview_option(stage: Stage, id: &str, locale: crate::localization::Locale) -> String {
+    crate::localization::present(
+        crate::localization::generated::Message::StudioArtworkPreviewOption {
+            arg_label: self::stage(stage, locale),
+            arg_id: id,
+        }
+        .render(locale),
+        locale,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,6 +241,9 @@ mod tests {
     #[test]
     fn every_artwork_label_stage_and_problem_has_both_locales() {
         for key in [
+            Key::Workflow,
+            Key::Details,
+            Key::SelectHelp,
             Key::NeedFile,
             Key::NeedIntent,
             Key::NeedAsset,
@@ -242,6 +288,9 @@ mod tests {
             Key::PreviewHelp,
             Key::PreviewScenario,
             Key::PreviewTheme,
+            Key::PreviewScale,
+            Key::PreviewScale100,
+            Key::PreviewScale200,
             Key::PreviewLocale,
             Key::PreviewLight,
             Key::PreviewDark,

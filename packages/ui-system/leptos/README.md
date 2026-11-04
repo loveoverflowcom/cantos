@@ -9,7 +9,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | API | Contract |
 | --- | --- |
 | `UiRoot` | Reactive `Theme` and `Density`; one scoped boundary, optional class and children |
-| `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive `ButtonState`, `on_press`, label children and optional decorative `icon` |
+| `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive variant (stable native control) and `ButtonState`, `on_press`, label children and optional decorative `icon` |
 | `BackButton` | Typed localized name + required host callback; native non-submit contextual return, visible or icon-only label; no route/history ownership |
 | `IconButton` | Same action state with an official `IconName` and nonempty `AccessibleName`; label remains in accessible text |
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
@@ -26,6 +26,10 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | `Icon`, `tokens::Token` | Offline decorative official outlined subset, generated closed token roles/static lookup |
 | `Avatar` | [Shared avatar contract](../shared/README.md#avatar): Google-style single initial (or first+last pair), FNV-1a identity tone from a caller stable ID, caller-authorized picture over initials with failure fallback; decorative unless given `AccessibleName` |
 | `TOKEN_CSS`, `FOUNDATION_CSS` | Compile-time CSS inclusion; Trunk hosts can link the same files directly |
+
+Regular action variant changes retain the mounted native button and focus. Auth geometry binding
+is selected at mount; auth/account callers keep their static scoped variants. CMP already
+receives its variant as a recomposable value; no variant, style or semantic role is added.
 
 Apps own localized strings, unique stable IDs, values, routes, async effects, validation and permission
 explanations. No primitive computes approval, revision, production, QC or publication eligibility.

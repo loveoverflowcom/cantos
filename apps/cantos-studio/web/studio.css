@@ -70,7 +70,17 @@ body { margin: 0; }
 .studio-shell .authoring-nav ul { list-style: none; margin: 0; padding-inline-start: var(--cantos-space-sm); }
 .studio-shell .authoring-nav h3 { margin-block: var(--cantos-space-sm); }
 .studio-shell .authoring-canvas > h3, .studio-shell .authoring-inspector > h3 { margin-block-start: 0; }
-.studio-shell .authoring-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
+.studio-shell .authoring-inspector { padding-inline-start: var(--cantos-space-md); overflow-wrap: anywhere; }
+.studio-shell .authoring-inspector[data-state="attention"] { border-inline-start: var(--cantos-size-border) solid var(--cantos-color-outline); }
+.studio-shell .authoring-inspector h3 { font-size: var(--cantos-type-label-size); margin-block: var(--cantos-space-md) var(--cantos-space-xs); }
+.studio-shell .authoring-inspector p { margin-block: var(--cantos-space-xs) var(--cantos-space-sm); }
+.studio-shell .authoring-help, .studio-shell .authoring-identity { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); margin-block: var(--cantos-space-xs); }
+.studio-shell .authoring-identity code { display: block; overflow-wrap: anywhere; }
+.studio-shell :is(.authoring-help, .authoring-identity) > summary { min-block-size: var(--cantos-size-control); align-content: center; cursor: pointer; }
+.studio-shell .authoring-history { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-xs); }
+.studio-shell .authoring-history > .cui-button { flex: 0 1 auto; }
+.studio-shell .authoring-history-status { margin-block: var(--cantos-space-xs); }
+.studio-shell .authoring-history-status:empty, .studio-shell .authoring-action-status:empty { display: none; }
 .studio-shell .authoring-inspector pre { max-height: 18rem; font-size: var(--cantos-type-metadata-size); }
 .studio-shell .authoring-inspector .source-identity { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-sm); }
 .studio-shell .authoring-inspector .source-identity dd { margin-block-end: var(--cantos-space-sm); }
@@ -118,8 +128,8 @@ body { margin: 0; }
 .studio-shell .authoring-pronunciation > .cui-field { grid-row: span 3; grid-template-rows: subgrid; }
 .studio-shell .authoring-pronunciation > button { grid-row: 2; align-self: center; justify-self: start; width: auto; }
 .studio-shell .authoring-id { display: block; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); line-height: 1.5; }
-.studio-shell .authoring-row-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--cantos-space-sm); }
-.studio-shell .authoring-row-heading h4 { margin: 0; }
+.studio-shell .authoring-row-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); }
+.studio-shell .authoring-row-heading :is(h3, h4) { margin: 0; }
 @container studio (max-width: 45rem) { .studio-shell .authoring-pronunciation { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; } .studio-shell .authoring-pronunciation > * { grid-row: auto; } .studio-shell .authoring-pronunciation > .cui-field { grid-template-rows: none; } }
 
 /* Long localized actions and immutable identifiers must reflow at browser zoom. */
@@ -306,7 +316,7 @@ body { margin: 0; }
   inset-block-start: calc(100% + var(--cantos-space-sm));
   inset-inline-end: 0;
   box-sizing: border-box;
-  inline-size: min(24rem, calc(100vw - 2 * var(--cantos-space-lg)));
+  inline-size: min(20.5rem, calc(100vw - 2 * var(--cantos-space-lg)));
   max-block-size: calc(100dvh - 6rem);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -319,21 +329,29 @@ body { margin: 0; }
   box-shadow: var(--cantos-elevation-overlay);
 }
 .studio-shell .studio-account-menu p { margin: 0; }
+.studio-shell .studio-account-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--cantos-space-sm); }
 .studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
-.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; }
-.studio-shell .studio-account-close { justify-self: end; }
+.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; font-weight: var(--cantos-type-label-weight); }
+.studio-shell .studio-account-close { inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border-radius: var(--cantos-shape-pill); color: inherit; }
+.studio-shell .studio-account-close:hover { background: var(--cantos-color-surface-container); }
+.studio-shell .studio-account-close:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); }
+.studio-shell #account-logout[data-variant="text"]:not(:disabled) { color: var(--cantos-color-error); }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
-.studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
+.studio-shell .studio-account-actions .cui-button { justify-content: flex-start; text-align: start; }
+.studio-shell .studio-account-actions .cui-control-label { text-align: start; }
+.studio-shell .studio-account-help { padding-inline: var(--cantos-space-control-inline); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 /* The art panel is the Expressive hero surface (Theatre's auth art uses the same pair); under the expression primaryContainer is selection ink, not a brand block. */
 .studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-theatre-hero); color: var(--cantos-color-theatre-on-hero); padding: var(--cantos-space-xl); }
 .studio-shell .entry-artwork .cui-logo { inline-size: 11rem; block-size: auto; }
 .studio-shell .entry-story-copy { padding: var(--cantos-space-xl); }
 .studio-shell .entry-story-copy h2 { max-inline-size: 16ch; margin-block: var(--cantos-space-sm); font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); }
-.studio-shell .entry-eyebrow, .studio-shell .dashboard-eyebrow { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); font-weight: 600; letter-spacing: .08em; }
-.studio-shell .entry-form { min-inline-size: 0; padding: var(--cantos-space-lg); }
+.studio-shell .dashboard-eyebrow { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); font-weight: 600; letter-spacing: .08em; }
+.studio-shell .entry-form { box-sizing: border-box; min-inline-size: 0; inline-size: 100%; max-inline-size: 32rem; justify-self: center; padding: var(--cantos-space-lg); }
 .studio-shell .entry-form h1 { margin-block: var(--cantos-space-md); }
+.studio-shell .entry-form :where(h1, p) { overflow-wrap: anywhere; }
 .studio-shell .entry-form > .cui-button-field { inline-size: 100%; margin-block: var(--cantos-space-lg); }
 .studio-shell .entry-form .cui-button[data-variant="auth-primary"] { inline-size: 100%; }
 .studio-shell .entry-form .session-controls { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -371,15 +389,18 @@ body { margin: 0; }
 .studio-shell .dashboard-pages { margin-block-end: 0; }
 .studio-shell .studio-dashboard :where(h2, h3, p, code, button) { overflow-wrap: anywhere; }
 .studio-shell .studio-dashboard .cui-button { max-inline-size: 100%; white-space: normal; }
+/* A two-column entry needs room for the form, its insets and the optional hero. At tablet
+   and large text sizes, give the task the full column instead of squeezing both regions. */
 @container studio (max-width: 64rem) {
+  .studio-shell .studio-entry { grid-template-columns: minmax(0, 1fr); min-block-size: auto; padding-block: var(--cantos-space-md); }
+  .studio-shell .entry-story { display: none; }
   .studio-shell .studio-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
   .studio-shell .studio-workbench > .workspace-nav { flex-direction: row; flex-wrap: wrap; position: static; }
   .studio-shell .studio-workbench > .workspace-nav > * { flex: 1 1 9rem; }
 }
 @container studio (max-width: 45rem) {
-  .studio-shell .studio-entry { grid-template-columns: minmax(0, 1fr); min-block-size: auto; padding-block: var(--cantos-space-md); }
-  .studio-shell .entry-story { display: none; }
-  .studio-shell .entry-form { padding: var(--cantos-space-sm); }
+  .studio-shell .entry-form { padding: var(--cantos-space-sm) 0; }
+  .studio-shell .studio-entry .entry-form h1 { font-size: var(--cantos-type-title-size); line-height: var(--cantos-type-title-line-height); }
   .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .studio-shell .studio-header { align-items: center; margin-block-end: var(--cantos-space-lg); gap: var(--cantos-space-sm); }
   .studio-shell .studio-header > .toolbar { flex: 0 0 auto; gap: var(--cantos-space-xs); }
