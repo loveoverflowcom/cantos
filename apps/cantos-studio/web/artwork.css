@@ -39,8 +39,8 @@
   cursor: pointer;
 }
 .artwork-file-label[data-tone="tonal"] {
-  --artwork-picker-bg: var(--cantos-color-primary-container);
-  --artwork-picker-fg: var(--cantos-color-on-primary-container);
+  --artwork-picker-bg: var(--cantos-color-surface-container-high);
+  --artwork-picker-fg: var(--cantos-color-on-surface);
 }
 .artwork-file-input:not(:disabled) + .artwork-file-label:hover {
   background-color: color-mix(in srgb, var(--artwork-picker-fg) calc(var(--cantos-state-hover-opacity) * 100%), var(--artwork-picker-bg));
