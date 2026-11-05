@@ -1,0 +1,31 @@
+{
+  "component_id": "loading-state",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-11-05; one automated reviewer; bounded current browser/JVM requalification",
+  "reference": "Current renderer suites, trusted browser input and opened current captures; source-attributable unchanged reference observations retained. See docs/evidence/ui-requalification-615.md for per-layer scope and limitations.",
+  "tokens_sha256": "79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218",
+  "source_sha256": "646ddccb291020483eab15d22410ed54816107f3e5a2ed6f78e4d1d8f69181fe",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; actual current renderer suite, no qualification bypass",
+      "artifact": "docs/evidence/ui-requalification-615.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "Actual compiled Leptos gallery trusted input, edit retention and dialog focus/Escape; see report",
+      "artifact": "docs/evidence/ui-requalification-615.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Native browser control semantics, focus containment and Escape/return observed; no screen-reader claim",
+      "artifact": "docs/evidence/ui-requalification-615.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened current renderer captures for affected controls and representative groups; retained unchanged reference judgments explicitly attributed in report; no every-state/pixel-match/device claim",
+      "artifact": "docs/evidence/ui-requalification-615.md"
+    }
+  }
+}

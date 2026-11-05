@@ -88,16 +88,11 @@ Initial preflight probes selected Apple's Python 3.9, which lacks the bounded ru
 selects the already-installed Python 3.14.8 and isolated pinned Node 24.19.0/npm 11.9.0.
 No runner guard or tool source was changed; the PR reports the resulting full preflight.
 
-The repository gate **FAILS** on stale Leptos qualification hashes for all twenty registered
-components. A clean detached checkout of the same `origin/develop` SHA reproduces those
-twenty failures and the existing application-adoption failures. Shared UI, token, workspace
-manifest and qualification inputs are unchanged in this PR. This diff also adds `LoadingState`
-to the Theatre auth consumer, so its fresh two-renderer admission remains owed while that
-qualification drift exists. No qualification hash or acceptance record was refreshed to hide
-the failure. The PR reports the independent gates run with `--skip repository`, retaining
-the repository result as FAIL. The unassigned UI System qualification owner must restore
-attributable Leptos/CMP evidence through `cargo xtask ui-preview leptos verify|run` and
-`cargo xtask ui-preview cmp verify|run`, then rerun the unskipped handoff before merge.
+The initial repository gate failed on the integration base's stale paired UI qualifications.
+The user subsequently authorized requalification and an unskipped preflight before merging
+PR #723. [The new shared UI evidence](ui-requalification-615.md) preserves the original records,
+records current renderer checks and opened observations, and admits LoadingState's new import.
+The final unskipped gate ledger is recorded in the PR; the earlier skipped run is historical.
 
 The full locale/theme/viewport cross-product, 200% text, reduced motion, screen-reader output,
 OS IME, BFCache and other browser engines are **NOT_RUN**. Complete those scenarios with the
