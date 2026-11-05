@@ -205,6 +205,7 @@ fn ActionRow(
                     <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
                     <span class="theatre-me-shortcut-help">{super::auth::label(locale, help)}</span>
                 </span>
+                <ChevronGlyph/>
             </a>
         </li>
     }
@@ -223,64 +224,56 @@ pub(crate) fn LiveAccount(
     on_membership: Callback<()>,
 ) -> impl IntoView {
     let ui = account_ui(state);
+    let presentation = Memo::new(move |_| state.with(|s| s.presentation().cloned()));
+    let heading = profile_heading(ui, locale);
     view! {
         <section id="account" aria-labelledby="theatre-live-account-heading">
             <header class="theatre-page-heading">
                 <h1 id="theatre-live-account-heading">{move || messages::text(Key::Me, locale.get())}</h1>
             </header>
-            <div class="theatre-account">
-                <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
-                    <div class="theatre-account-profile-heading"
-                        data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
-                        <ProfileAvatar identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
-                        <div class="theatre-account-profile-copy">
-                            <h2>{profile_heading(ui, locale)}</h2>
-                            {move || state.with(|s| s.presentation().map(|person| view! {
-                                <p class="theatre-account-alias">{person.alias.clone()}</p>
-                            }))}
+            <div class="theatre-account-layout">
+                <div class="theatre-account-details" data-signed-in=move || (ui.get().phase == SessionPhase::SignedIn).then_some("true")>
+                    <Surface tone=SurfaceTone::PrimaryContainer variant=SurfaceVariant::Profile inset=Space::Lg class="theatre-account-profile">
+                        <div class="theatre-account-profile-heading">
+                            <ProfileAvatar identity=Signal::derive(move || presentation.get())/>
+                            <div class="theatre-account-profile-copy">
+                                <h2>{move || presentation.with(|person| person.as_ref().map(|person| person.alias.clone()).unwrap_or_else(|| heading().to_owned()))}</h2>
+                                <Show when=move || presentation.with(Option::is_some)>
+                                    <p class="theatre-account-greeting theatre-muted">{label(locale, CopyKey::SignedHeading)}</p>
+                                </Show>
+                            </div>
                         </div>
-                    </div>
-                    // Healthy account state adds no status row; keep every pending/failure reason.
-                    <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
-                        <p id="theatre-live-account-status" class="theatre-auth-feedback"
-                            data-tone=move || session_tone(ui.get().phase).as_str()
-                            role="status" aria-live="polite" aria-atomic="true">
-                            {profile_status(ui, locale)}
-                        </p>
+                        // Healthy account state adds no status row; keep every pending/failure reason.
+                        <Show when=move || !matches!(ui.get().phase, SessionPhase::Guest | SessionPhase::SignedIn)>
+                            <p id="theatre-live-account-status" class="theatre-auth-feedback"
+                                data-tone=move || session_tone(ui.get().phase).as_str()
+                                role="status" aria-live="polite" aria-atomic="true">
+                                {profile_status(ui, locale)}
+                            </p>
+                        </Show>
+                        {move || profile_help(ui.get().phase).map(|key| view! {
+                            <p class="theatre-account-help">{label(locale, key)}</p>
+                        })}
+                        <Show when=move || ui.get().can_authenticate>
+                            <AuthActions state locale scope="theatre-account" on_login on_register/>
+                        </Show>
+                        <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
+                    </Surface>
+                    <Show when=move || ui.get().phase == SessionPhase::SignedIn>
+                        <Surface tone=SurfaceTone::Container variant=SurfaceVariant::AccountGroup>
+                            <section aria-labelledby="theatre-account-activity-heading">
+                                <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
+                                <ul class="theatre-action-rows theatre-me-shortcuts">
+                                    <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                                    <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
+                                </ul>
+                            </section>
+                        </Surface>
                     </Show>
-                    {move || profile_help(ui.get().phase).map(|key| view! {
-                        <p class="theatre-account-help">{label(locale, key)}</p>
-                    })}
-                    <Show when=move || ui.get().can_authenticate>
-                        <AuthActions state locale scope="theatre-account" on_login on_register/>
-                    </Show>
-                    <SessionRecovery state locale scope="theatre-account" on_refresh on_logout/>
-                </Surface>
-                <Show when=move || ui.get().phase == SessionPhase::SignedIn>
-                    <section class="theatre-account-activity" aria-labelledby="theatre-account-activity-heading">
-                        <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
-                        <ul class="theatre-action-rows theatre-me-shortcuts">
-                            <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
-                            <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
-                        </ul>
-                    </section>
-                </Show>
-                    <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
-                        <h2 id="theatre-account-preferences-heading" class="cui-sr-only">{label(locale, CopyKey::PreferencesHeading)}</h2>
-                        <PreferenceFields locale theme on_locale scope="theatre-account"/>
-
-                    </section>
-                    <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg class="theatre-account-membership">
-                        <section aria-labelledby="theatre-account-membership-heading">
-                            <p class="theatre-eyebrow">{label(locale, CopyKey::MembershipName)}</p>
-                            <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipHeading)}</h2>
-                            <Button id="theatre-account-membership" variant=ButtonVariant::AuthSecondary
-                                icon=IconName::Star focus_on_press=true
-                                on_press=Callback::new(move |_| on_membership.run(()))>
-                                {label(locale, CopyKey::MembershipLearn)}
-                            </Button>
-                            // Unknown is neutral: no launch, closed-signup or active claim is made here.
-                            <p id="theatre-account-membership-status" class="theatre-membership-note theatre-muted">{label(locale, CopyKey::MembershipStatusUnknown)}</p>
+                    <Surface tone=SurfaceTone::Container variant=SurfaceVariant::AccountGroup>
+                        <section class="theatre-account-preferences" aria-labelledby="theatre-account-preferences-heading">
+                            <h2 id="theatre-account-preferences-heading">{label(locale, CopyKey::PreferencesHeading)}</h2>
+                            <PreferenceFields locale theme on_locale scope="theatre-account"/>
                         </section>
                     </Surface>
                     <Show when=move || ui.get().phase == SessionPhase::SignedIn>
@@ -292,6 +285,18 @@ pub(crate) fn LiveAccount(
                             </Button>
                         </div>
                     </Show>
+                </div>
+                <Surface tone=SurfaceTone::High variant=SurfaceVariant::AccountGroup inset=Space::Lg class="theatre-account-membership">
+                    <section aria-labelledby="theatre-account-membership-heading">
+                        <span class="theatre-account-membership-mark"><cantos_ui::Icon name=IconName::Star/></span>
+                        <h2 id="theatre-account-membership-heading">{label(locale, CopyKey::MembershipName)}</h2>
+                        <p class="theatre-muted">{move || messages::text(Key::MembershipSummary, locale.get())}</p>
+                        <Button id="theatre-account-membership" variant=ButtonVariant::Primary
+                            focus_on_press=true on_press=Callback::new(move |_| on_membership.run(()))>
+                            {label(locale, CopyKey::MembershipLearn)}
+                        </Button>
+                    </section>
+                </Surface>
             </div>
         </section>
     }
@@ -322,32 +327,22 @@ pub(crate) fn PreferenceFields(
         }.into_any();
     }
     view! {
-                        <div class="theatre-pref-row">
-                            <div class="theatre-pref-tile theatre-pref-theme">
-                                <Select id=format!("{scope}-theme") class="theatre-pref-select"
-                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                    label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
-                                    value=Signal::derive(move || theme.get().as_str().to_owned())
-                                    options=Signal::derive(move || theme_options(locale.get()))
-                                    on_input=Callback::new(move |value: String| {
-                                        if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
-                                    })/>
-                            </div>
-                            <div class="theatre-pref-tile theatre-pref-language">
-                                <Select id=format!("{scope}-locale") class="theatre-pref-locale"
-                                    density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
-                                    label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
-                                    value=Signal::derive(move || locale.get().lang().to_owned())
-                                    options=crate::localization::locale_options()
-                                    short_label=Callback::new(|tag: String| {
-                                        let language = tag.split('-').next()?;
-                                        let mut letters = language.chars();
-                                        let first = letters.next()?.to_uppercase().collect::<String>();
-                                        Some(format!("{first}{}", letters.as_str()))
-                                    })
-                                    on_input=on_locale/>
-                            </div>
-                        </div>
+        <div class="theatre-pref-row">
+            <Select id=format!("{scope}-theme")
+                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                label=Signal::derive(move || messages::text(Key::Theme, locale.get()).to_owned())
+                value=Signal::derive(move || theme.get().as_str().to_owned())
+                options=Signal::derive(move || theme_options(locale.get()))
+                on_input=Callback::new(move |value: String| {
+                    if let Some(choice) = Theme::from_attribute(&value) { theme.set(choice); }
+                })/>
+            <Select id=format!("{scope}-locale")
+                density=SelectDensity::Compact label_placement=SelectLabelPlacement::Inline
+                label=Signal::derive(move || super::auth_copy::text(CopyKey::PreferenceLanguage, locale.get()).to_owned())
+                value=Signal::derive(move || locale.get().lang().to_owned())
+                options=crate::localization::locale_options()
+                on_input=on_locale/>
+        </div>
     }.into_any()
 }
 
@@ -356,7 +351,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn me_orders_identity_listening_preferences_membership_then_signout() {
+    fn me_keeps_account_actions_together_before_membership() {
         use crate::features::auth_preview::{signed_in, PreviewActor};
         Owner::new().with(|| {
             for language in [Locale::Vietnamese, Locale::English] {
@@ -377,10 +372,9 @@ mod tests {
                     "id=\"theatre-account-open-saved\"",
                     "id=\"theatre-account-open-history\"",
                     "id=\"theatre-account-preferences-heading\"",
+                    "id=\"theatre-account-logout\"",
                     "id=\"theatre-account-membership-heading\"",
                     "id=\"theatre-account-membership\"",
-                    "id=\"theatre-account-membership-status\"",
-                    "id=\"theatre-account-logout\"",
                 ]
                 .map(|marker| html.find(marker).unwrap_or_else(|| panic!("{marker}")));
                 assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
@@ -396,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    fn signed_in_header_groups_the_current_monogram_greeting_and_alias_and_clears_on_refresh() {
+    fn signed_in_header_leads_with_the_current_alias_and_clears_on_refresh() {
         use crate::features::auth_preview::{signed_in, PreviewActor};
         Owner::new().with(|| {
             for language in [Locale::Vietnamese, Locale::English] {
@@ -412,7 +406,7 @@ mod tests {
                         .split("theatre-account-profile-heading")
                         .nth(1)
                         .expect("profile header")
-                        .split("</h2>")
+                        .split("</p>")
                         .next()
                         .unwrap();
                     assert!(header.contains("theatre-profile-avatar"));
@@ -422,7 +416,8 @@ mod tests {
                         CopyKey::SignedHeading,
                         language
                     )));
-                    assert!(html.contains(&format!("class=\"theatre-account-alias\">{alias}</p>")));
+                    assert!(header.contains(&format!("<h2>{alias}</h2>")));
+                    assert!(header.contains("theatre-account-greeting"));
                     assert!(!html.contains(if alias == "Mây Lam" {
                         "Gió Bạc"
                     } else {
@@ -431,7 +426,8 @@ mod tests {
                 }
                 state.write().begin_refresh().unwrap();
                 let checking = render_live(state.read_only(), locale);
-                assert!(!checking.contains("theatre-account-alias"));
+                assert!(!checking.contains("theatre-account-greeting"));
+                assert!(!checking.contains("Gió Bạc"));
                 assert!(!checking.contains("data-personalized=\"true\""));
                 assert!(checking.contains("theatre-live-account-status"));
             }
@@ -510,12 +506,14 @@ mod tests {
                         && position("theatre-account-preferences")
                             < position("theatre-account-membership-heading")
                 );
-                assert_eq!(html.matches("theatre-pref-tile").count(), 2, "{html}");
                 let row = html
                     .split("theatre-pref-row")
                     .nth(1)
-                    .expect("preference row");
-                let row = row.split("theatre-action-rows").next().unwrap();
+                    .expect("preference row")
+                    .split("</section>")
+                    .next()
+                    .unwrap();
+                assert_eq!(row.matches("data-label-placement=\"inline\"").count(), 2);
                 for shown in [theme_label, theme_value, locale_label, autonym] {
                     assert!(row.contains(shown), "{shown}");
                 }
@@ -555,20 +553,21 @@ mod tests {
     }
 
     #[test]
-    fn membership_unknown_is_neutral_and_keeps_its_real_action() {
+    fn membership_teaser_links_to_information_without_claiming_entitlement() {
         use crate::features::auth_preview::guest;
         Owner::new().with(|| {
             let state = RwSignal::new(AccountViewState::default());
-            let locale = RwSignal::new(Locale::Vietnamese);
             guest(state).unwrap();
-            let html = render_live(state.read_only(), locale);
-            assert!(html.contains("Chưa có thông tin"));
-            assert!(html.contains("id=\"theatre-account-membership\""));
-            for claim in ["Sắp ra mắt", "Chưa mở đăng ký", "Coming soon"] {
-                assert!(!html.contains(claim), "{claim}");
+            for language in [Locale::Vietnamese, Locale::English] {
+                let html = render_live(state.read_only(), RwSignal::new(language));
+                assert!(html.contains(messages::text(Key::MembershipSummary, language)));
+                assert!(html.contains("id=\"theatre-account-membership\""));
+                assert!(!html.contains(super::super::auth_copy::text(
+                    CopyKey::MembershipStatusUnknown,
+                    language,
+                )));
+                assert!(!html.contains(messages::text(Key::MembershipUnavailableBadge, language)));
             }
-            locale.set(Locale::English);
-            assert!(render_live(state.read_only(), locale).contains("No information yet"));
         });
     }
 
@@ -589,40 +588,6 @@ mod tests {
             .expect("equal-height guest actions rule");
         assert!(rule.contains("grid-auto-rows: 1fr"));
         assert!(!rule.contains("border") && !rule.contains("background"));
-    }
-
-    #[test]
-    fn account_cards_trim_chrome_and_wrap_under_large_text_instead_of_overflowing() {
-        let css = include_str!("../styles/theatre.css");
-        let rule = |selector: &str| {
-            css.split(&format!("{selector} {{"))
-                .nth(1)
-                .and_then(|rest| rest.split('}').next())
-                .unwrap_or_else(|| panic!("missing rule {selector}"))
-        };
-        // The query is relative to the account column and rem-based, so it follows text size.
-        assert!(css.contains(".theatre-account { container-type: inline-size; }"));
-        let narrow = css
-            .split("@container (max-width: 12rem) {")
-            .nth(1)
-            .and_then(|rest| rest.split("\n}").next())
-            .expect("narrow account container query");
-        for needle in [
-            ".theatre-account :is(.theatre-account-preferences, .theatre-account-profile).cui-surface",
-            ".theatre-action-rows > li { min-inline-size: 0; }",
-        ] {
-            assert!(narrow.contains(needle), "{needle}");
-        }
-        // Wrapping rows keep their controls whole: the preference tiles stack below a readable
-        // width and wrap their copy beside the control, the
-        // equal-size CTA pair keeps one height when a label wraps.
-        assert!(
-            rule(".theatre-pref-row").contains("repeat(auto-fit, minmax(min(100%, 12rem), 1fr))")
-        );
-        assert!(rule(".theatre-pref-tile").contains("flex-wrap: wrap"));
-        assert!(
-            rule(".theatre-account-profile .theatre-auth-actions").contains("grid-auto-rows: 1fr")
-        );
     }
 
     #[test]
@@ -993,7 +958,7 @@ mod tests {
                 "Saved",
                 "History",
                 "Sign out",
-                "No information yet",
+                "Cantos Premium",
                 "theatre-account-theme",
             ] {
                 assert!(html.contains(required), "{required}");

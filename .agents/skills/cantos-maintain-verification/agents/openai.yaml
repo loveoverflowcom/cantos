@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Maintain Verification"
+  short_description: "Reconcile verification guidance, gates and evidence with current code"
+  default_prompt: "Use $cantos-maintain-verification to reconcile the Cantos verification surface (AGENTS.md table, xtask contract, gate/preflight/CI catalogs, assurance and evidence indexes) with the current code, classify each drift and fix only its owning layer."
