@@ -363,6 +363,13 @@ impl LiveNavigation {
         };
         browser::back(self.route, destination);
     }
+    /// Reuse the navigation intent to distinguish explicit sign-in from a session observation.
+    pub fn login_pending(self) -> Signal<bool> {
+        Signal::derive(move || {
+            self.pending.get().is_some() && self.phase.get() == SessionPhase::Checking
+        })
+    }
+
     /// Start one email/password attempt on the open login route. The credentials are moved to
     /// the account owner's typed intent and are never kept here.
     pub fn login(self, state: RwSignal<AccountViewState>, email: String, password: String) {
@@ -556,6 +563,48 @@ mod tests {
         let nav = LiveNavigation::new(state, NodeRef::new(), preview);
         nav.open_auth(AuthRoute::login(ReturnDestination::Account));
         (nav, state)
+    }
+
+    #[test]
+    fn login_progress_requires_the_current_explicit_intent_and_ends_on_cancel_or_refusal() {
+        Owner::new().with(|| {
+            let (nav, state) = guest_on_login(false);
+            let pending = nav.login_pending();
+            assert!(!pending.get());
+            let observation = state.write().begin_refresh().unwrap();
+            assert!(!pending.get(), "bootstrap is not a submitted login");
+            state
+                .write()
+                .finish_session(
+                    observation,
+                    Err(AccountFailure::LoginRefused(
+                        crate::application::account_view::LoginRefusal::Credentials,
+                    )),
+                    || uuid::Uuid::from_u128(100).to_string(),
+                )
+                .unwrap();
+            for cancel in [false, true] {
+                login(nav, state);
+                let issued = state.write().begin_refresh().unwrap();
+                assert!(pending.get());
+                if cancel {
+                    nav.cancel();
+                    assert!(!pending.get(), "route exit releases progress immediately");
+                }
+                state
+                    .write()
+                    .finish_session(
+                        issued,
+                        Err(AccountFailure::LoginRefused(
+                            crate::application::account_view::LoginRefusal::Credentials,
+                        )),
+                        || uuid::Uuid::from_u128(100).to_string(),
+                    )
+                    .unwrap();
+                nav.observe_session(state.with_untracked(AccountViewState::phase));
+                assert!(!pending.get());
+            }
+        });
     }
     fn login(nav: LiveNavigation, state: RwSignal<AccountViewState>) {
         nav.login(state, EMAIL.to_owned(), PASSWORD.to_owned());

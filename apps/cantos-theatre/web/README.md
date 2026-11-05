@@ -211,6 +211,13 @@ without Identity answers the attempt with a clear `404`-based message instead of
 browser keeps the API-issued HttpOnly cookie; this app only holds nonsecret session facts
 (actor, session id, deadlines) in RAM under [the shared owner](../../../packages/web-auth/README.md).
 
+Explicit sign-in keeps the form and primary CTA mounted, with one spinner and localized
+`Signing in…` label inside that disabled button. A healthy guest has no status banner.
+Independent session observation blocks the controls with a separate spinner and accessible
+checking description; refusals, failures and cleanup recovery retain their feedback.
+[The #615 record](../../../docs/evidence/web-auth-pending-615.md) separates local controlled
+transport observations from real authentication and deployed acceptance.
+
 The live **Thư viện** reads Continue, Saved and History with `presentation=1`, limit20 and independent
 opaque cursors. It renders released Work/unit titles and canonical UUID Work links directly from
 `Presented*Page` DTOs, retaining exact audio identities, progress revisions, history state and

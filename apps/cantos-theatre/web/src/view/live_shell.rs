@@ -1347,7 +1347,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     <public_home::HomeAccount account=shared_account locale on_login on_register on_refresh on_logout/>
                                 </section> }.into_any()
                             } else { match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state=shared_account signup locale route=auth account_created
+                                Route::Auth(auth) => view! { <AuthPage state=shared_account signup locale route=auth account_created login_pending=nav.login_pending()
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=on_login_submit
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.go_home(); })

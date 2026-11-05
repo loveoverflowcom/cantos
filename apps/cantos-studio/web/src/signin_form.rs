@@ -97,10 +97,8 @@ pub fn SignInPanel(
         })
     });
     let field_state = Signal::derive(move || {
-        if submitting.get() {
-            DisabledReason::new(text(Key::Submitting, locale.get()))
-                .map(FieldState::Loading)
-                .unwrap_or(FieldState::ReadOnly)
+        if blocked.get() || submitting.get() {
+            FieldState::ReadOnly
         } else {
             FieldState::Editable
         }
@@ -137,6 +135,7 @@ pub fn SignInPanel(
             <FormSubmit id=submit_id locale=locale variant=ButtonVariant::AuthPrimary
                 icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
                 busy=submitting
+                busy_label_only=true
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>
                 {move || text(if submitting.get() { Key::Submitting } else { Key::Submit }, locale.get())}
             </FormSubmit>
@@ -152,6 +151,22 @@ mod tests {
     use super::*;
     use crate::signin::SignInFailure;
     use cantos_web_auth::Failure;
+
+    #[test]
+    fn pending_login_marks_only_the_submit_button_busy_in_entry_and_reauthentication() {
+        for locale in crate::localization::Locale::supported() {
+            for reauth in [false, true] {
+                let mut form = SignInForm::default();
+                form.set_email("owner@example.invalid".into());
+                form.set_password("synthetic-test-input".into());
+                form.begin(None).unwrap();
+                let html = render(form, locale, true, reauth);
+                assert_eq!(html.matches("aria-busy=\"true\"").count(), 1);
+                assert_eq!(html.matches("cui-loading-indicator").count(), 1);
+                assert_eq!(html.matches("data-state=\"readonly\"").count(), 2);
+            }
+        }
+    }
 
     fn render(
         form: SignInForm,
