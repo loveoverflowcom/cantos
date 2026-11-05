@@ -254,10 +254,29 @@ mod browser {
                 let _ = dispatch.state.try_set(next);
             }
         });
+        let load_reason = Signal::derive(move || {
+            crate::live::catalog_controls::request_block_reason(
+                session_pending.get()
+                    || !active.get()
+                    || dispatch.state.with(|s| s.actor().is_empty()),
+                dispatch
+                    .state
+                    .with(|s| s.phase() == crate::live::Phase::Pending),
+                dispatch.state.with(|s| s.pending().is_some()),
+            )
+            .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+            .unwrap_or_else(|| {
+                if subject.with(Option::is_none) {
+                    BlockReason::Live(Key::AudioPreviewHelp)
+                } else {
+                    BlockReason::ContextReady
+                }
+            })
+        });
         view! {<section class="live-section" aria-labelledby="live-audio-preview-title">
             <h4 id="live-audio-preview-title">{move ||text(Key::AudioPreview,locale.get())}</h4>
             <p class="help">{move ||text(Key::AudioPreviewHelp,locale.get())}</p>
-            <ActionButton id="live-load-audio-preview" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get() || !usable.get()) on_press=Callback::new(move |_| {
+            <ActionButton id="live-load-audio-preview" locale=locale reason=load_reason blocked=Signal::derive(move ||blocked.get() || !usable.get()) on_press=Callback::new(move |_| {
                 if blocked.get_untracked() || !usable.get_untracked() { return; }
                 if let Some(subject) = subject.get_untracked() { failed.set(false); dispatch.send(Command::PreviewAudio {subject}); }
             })>{move ||text(Key::LoadAudioPreview,locale.get())}</ActionButton>

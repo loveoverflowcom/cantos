@@ -504,6 +504,21 @@ body { margin: 0; }
 .studio-shell .cw-form-stack { display: grid; gap: var(--cantos-space-md); min-inline-size: 0; }
 .studio-shell .cw-form-grid { grid-template-columns: minmax(0, 1fr); }
 .studio-shell .cw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-md); }
+.studio-shell .cw-reason { margin-block: 0 var(--cantos-space-sm); }
+/* Save controls share their visible section reason. Only in-flight requests suppress other
+   per-button copies: idle input/lifecycle blockers must remain visible beside their controls. */
+.studio-shell .cw :is(#live-patch-work-reason, #live-save-preview-work-reason, #live-patch-unit-reason):not([hidden]),
+.studio-shell .cw[data-busy="true"] .cui-button-reason:not([hidden]) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 .studio-shell .cw-manuscript textarea { min-block-size: clamp(14rem, 45dvh, 34rem); font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-editor-size); line-height: var(--cantos-type-editor-line-height); }
 .studio-shell .cw-archive { margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); max-inline-size: 40rem; }
 .studio-shell .cw-archive h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }

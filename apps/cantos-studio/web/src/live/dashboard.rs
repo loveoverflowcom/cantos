@@ -77,7 +77,8 @@ impl RequestBanner {
             (super::Phase::Idle, _) => Self::Hidden,
             (_, Some(super::Command::Works { .. })) if has_actions => Self::ActionsOnly,
             (_, Some(super::Command::Works { .. })) => Self::Hidden,
-            _ => Self::Full,
+            _ if super::feedback::shows_feedback(state) => Self::Full,
+            _ => Self::Hidden,
         }
     }
 }
@@ -315,6 +316,45 @@ mod tests {
         assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
         let units = units.finish(ticket, Err(ClientError::Transport));
         assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
+    }
+
+    #[test]
+    fn request_banner_withdraws_settled_panel_reads_but_keeps_errors_and_missing_heads() {
+        use super::super::{Command, RequestState};
+        use crate::contract::WorkArtworkResponse;
+        let idle = RequestState::default()
+            .context("alice", "workspace:4")
+            .unwrap();
+        let (reading, ticket) = idle
+            .begin(Command::MetadataArtwork {
+                work: "w".into(),
+                revision: 1,
+            })
+            .unwrap();
+        assert_eq!(RequestBanner::of(&reading), RequestBanner::Full);
+        let ready = reading.finish(
+            ticket,
+            Ok(Reply::Artwork(WorkArtworkResponse {
+                work_id: "w".into(),
+                work_revision: 1,
+                artwork: None,
+                changed_at_ms: None,
+            })),
+        );
+        assert_eq!(RequestBanner::of(&ready), RequestBanner::Hidden);
+        let failed = reading.finish(ticket, Err(ClientError::Transport));
+        assert_eq!(RequestBanner::of(&failed), RequestBanner::Full);
+        let (reading, ticket) = idle
+            .begin(Command::ContentHead { unit: "u".into() })
+            .unwrap();
+        let missing = reading.finish(
+            ticket,
+            Err(ClientError::http(
+                404,
+                br#"{"code":"not_found","current_revision":null,"issues":[]}"#,
+            )),
+        );
+        assert_eq!(RequestBanner::of(&missing), RequestBanner::Full);
     }
 
     #[test]

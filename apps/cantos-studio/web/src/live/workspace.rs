@@ -803,14 +803,18 @@ pub fn ContentWorkspace(
         let _ = activity.try_set(false);
         let _ = busy.try_set(false);
     });
-    let blocked = Signal::derive(move || {
-        session_pending.get()
-            || actor.get().is_empty()
-            || file_busy.get()
-            || artwork_unresolved.get()
-            || delegation_unresolved.get()
-            || state.with(|s| s.phase() == Phase::Pending || s.pending().is_some())
+    let request_reason = Signal::derive(move || {
+        super::catalog_controls::request_block_reason(
+            session_pending.get() || actor.get().is_empty(),
+            file_busy.get() || state.with(|s| s.phase() == Phase::Pending),
+            artwork_unresolved.get()
+                || delegation_unresolved.get()
+                || state.with(|s| s.pending().is_some()),
+        )
     });
+    let blocked_reason =
+        Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+    let blocked = Signal::derive(move || request_reason.get().is_some());
     let submit_ancillary = Callback::new(move |result: Result<Command, ClientError>| {
         if blocked.get_untracked() {
             return;
@@ -1207,6 +1211,93 @@ pub fn ContentWorkspace(
             locale,
         )
     };
+    let work_edit_reason = Signal::derive(move || {
+        super::catalog_controls::edit_block_reason(request_reason.get(), work_refusal.get())
+            .unwrap_or(BlockReason::ContextReady)
+    });
+    let unit_metadata_dirty = Signal::derive(move || {
+        facts.with(|f| {
+            drafts.with(|d| d.metadata_dirty(&f.unit_id()))
+                || f.unit.as_ref().is_some_and(|u| {
+                    unit_title.with(|t| t != &u.details.title)
+                        || description.with(|d| d != &u.details.description)
+                })
+        })
+    });
+    let unit_save_reason = Signal::derive(move || {
+        super::catalog_controls::save_metadata_block_reason(
+            request_reason.get(),
+            unit_refusal.get(),
+            unit_metadata_dirty.get(),
+        )
+    });
+    let content_save_reason = Signal::derive(move || {
+        super::catalog_controls::content_save_block_reason(
+            request_reason.get(),
+            unit_refusal.get(),
+            facts.with(|f| drafts.with(|d| d.content_base(&f.unit_id()).is_some())),
+            facts.with(|f| drafts.with(|d| d.content(&f.unit_id()).details().is_some())),
+        )
+    });
+    let brief_create_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if facts.with(|f| {
+                super::brief_controls::brief_content(
+                    f,
+                    drafts.with(|d| d.content_dirty(&f.unit_id())),
+                )
+                .is_none()
+            }) {
+                BlockReason::Live(Key::BriefHeadHelp)
+            } else {
+                BlockReason::Live(Key::SelectProfile)
+            }
+        })
+    });
+    let prepare_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if facts.with(|f| {
+                f.brief
+                    .as_ref()
+                    .is_none_or(|b| b.freshness != BriefFreshness::Current)
+            }) {
+                BlockReason::Live(Key::BriefHeadHelp)
+            } else {
+                BlockReason::Live(Key::ErrorInvalidInput)
+            }
+        })
+    });
+    let upload_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if facts.with(|f| {
+                f.submission.as_ref().is_none_or(|s| {
+                    credential.with(|c| {
+                        c.as_ref()
+                            .and_then(|c| c.for_submission(&s.submission.id))
+                            .is_none()
+                    })
+                })
+            }) {
+                BlockReason::Live(Key::CredentialMissing)
+            } else {
+                BlockReason::Live(Key::ErrorInvalidInput)
+            }
+        })
+    });
+    let review_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if !confirmed.get() {
+                BlockReason::Live(Key::ConfirmHelp)
+            } else {
+                BlockReason::Live(Key::ErrorInvalidInput)
+            }
+        })
+    });
+    let candidate_reason = Signal::derive(move || {
+        request_reason
+            .get()
+            .unwrap_or(BlockReason::Live(Key::ErrorInvalidInput))
+    });
     let field_state = Signal::derive(move || {
         if read_only.get() {
             FieldState::ReadOnly
@@ -1247,7 +1338,7 @@ pub fn ContentWorkspace(
                         on_next=Callback::new(move |()| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })
                         on_pick=dashboard_pick/>
                 </div>
-    <div class="cw" hidden=move || dashboard.get() inert=move || dashboard.get() data-pane=move ||pane.get().as_str() data-area=move ||shown.get().map(Task::as_str).unwrap_or("none")>
+    <div class="cw" hidden=move || dashboard.get() inert=move || dashboard.get() data-pane=move ||pane.get().as_str() data-area=move ||shown.get().map(Task::as_str).unwrap_or("none") data-busy=move ||state.with(|s|(s.phase()==Phase::Pending).then_some("true"))>
                 <h2 id="live-title" class="cui-sr-only" tabindex="-1">{move ||text(Key::Pane,locale.get())}</h2>
             <header id="live-context" class="cw-context" aria-label=move ||text(Key::ContextLabel,locale.get()) hidden=move ||!has_work.get()>
                     <button id="live-browse" type="button" class="cui-button cw-browse" data-variant="text" on:click=move |_| pane.set(Pane::Browse)>{move ||text(Key::BackToList,locale.get())}</button>
@@ -1278,8 +1369,8 @@ pub fn ContentWorkspace(
                     <aside id="live-nav" class="cw-nav" aria-label=move ||text(Key::NavLabel,locale.get())>
                         <section class="cw-nav-section" aria-labelledby="live-works-heading">
                             <div class="cw-nav-heading"><h3 id="live-works-heading">{move ||text(Key::Work,locale.get())}</h3>
-                                <ActionButton id="live-new-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|open_new_work.run(()))>{move ||text(Key::NewWork,locale.get())}</ActionButton></div>
-                            <div class="toolbar cw-pager"><ActionButton id="live-works" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,locale.get())}</ActionButton>
+                                <ActionButton id="live-new-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|open_new_work.run(()))>{move ||text(Key::NewWork,locale.get())}</ActionButton></div>
+                            <div class="toolbar cw-pager"><ActionButton id="live-works" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,locale.get())}</ActionButton>
                             <span hidden=move ||facts.with(|f|f.pages.previous_works().is_none())><ActionButton id="live-works-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_works().is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f|f.pages.previous_works()) { read_works.run(cursor); } })>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                             <span hidden=move ||facts.with(|f|f.works_next.is_none())><ActionButton id="live-works-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
                             <div id="live-catalog-status"><super::dashboard::CatalogStatus query=dashboard_query has_rows=Signal::derive(move ||facts.with(|f|!f.works.is_empty())) locale=locale/></div>
@@ -1294,8 +1385,8 @@ pub fn ContentWorkspace(
                         <Show when=move ||has_work.get()>
                             <section class="cw-nav-section" aria-labelledby="live-units-heading">
                                 <div class="cw-nav-heading"><h3 id="live-units-heading">{move ||text(Key::Unit,locale.get())}</h3>
-                                    <ActionButton id="live-new-unit" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| { task.set(Task::CreateUnit); pane.set(Pane::Work); focus_workspace_field("live-unit-title"); })>{move ||text(Key::NewUnit,locale.get())}</ActionButton></div>
-                                <div class="toolbar cw-pager"><ActionButton id="live-refresh-units" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| { if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send_page(Command::Units {work:work.id,cursor:None});} })>{move ||text(Key::RefreshUnits,locale.get())}</ActionButton>
+                                    <ActionButton id="live-new-unit" locale=locale variant=ButtonVariant::Tonal icon=IconName::Add reason=work_edit_reason blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| { task.set(Task::CreateUnit); pane.set(Pane::Work); focus_workspace_field("live-unit-title"); })>{move ||text(Key::NewUnit,locale.get())}</ActionButton></div>
+                                <div class="toolbar cw-pager"><ActionButton id="live-refresh-units" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| { if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send_page(Command::Units {work:work.id,cursor:None});} })>{move ||text(Key::RefreshUnits,locale.get())}</ActionButton>
                                 <span hidden=move ||facts.with(|f|f.pages.previous_units().is_none())><ActionButton id="live-units-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_units().is_none())) on_press=Callback::new(move |_| {if let Some((work,cursor))=facts.with_untracked(|f|Some((f.work.as_ref()?.id.clone(),f.pages.previous_units()?))) {dispatch.send_page(Command::Units {work,cursor});}})>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                                 <span hidden=move ||facts.with(|f|f.units_next.is_none())><ActionButton id="live-units-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.units_next.is_none())) on_press=Callback::new(move |_| {if let Some(work)=facts.with_untracked(|f|f.work.clone()) {dispatch.send_page(Command::Units {work:work.id,cursor:facts.with_untracked(|f|f.units_next.clone())});}})>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
                                 <ul id="live-units-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::UnitResults,locale.get())>
@@ -1322,7 +1413,7 @@ pub fn ContentWorkspace(
                     <TextField id="live-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=rights on_input=Callback::new(move |value|rights.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
                             </div>
                             <p class="help">{move ||text(Key::CreateKept,locale.get())}</p>
-                            <div class="cw-actions"><ActionButton id="live-create-work" locale=locale variant=ButtonVariant::Primary reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+                            <div class="cw-actions"><ActionButton id="live-create-work" locale=locale variant=ButtonVariant::Primary reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
                     if blocked.get_untracked() { return; }
                     if !confirm_context_change(true) { return; }
                     dispatch.build((||Ok(Command::CreateWork(CreateWorkRequest {operation_id:uuid()?,id:uuid()?,kind:kind.get_untracked(),details:WorkDetailsDto {title:title.get_untracked(),synopsis:synopsis.get_untracked(),language:"vi-VN".into(),visibility:"private".into(),rights_refs:refs(rights.get_untracked())}})))());
@@ -1337,7 +1428,7 @@ pub fn ContentWorkspace(
                             </div>
                             <p class="help">{move ||text(Key::CreateKept,locale.get())}</p>
                             <p class="help cw-reason" role="status" hidden=move||work_refusal.get().and_then(Refusal::reason_key).is_none()>{move||reason_text(work_refusal.get())}</p>
-                            <div class="cw-actions">                    <ActionButton id="live-create-unit" locale=locale variant=ButtonVariant::Primary reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| {
+                            <div class="cw-actions">                    <ActionButton id="live-create-unit" locale=locale variant=ButtonVariant::Primary reason=work_edit_reason blocked=Signal::derive(move ||blocked.get()||work_refusal.get().is_some()) on_press=Callback::new(move |_| {
                             if blocked.get_untracked() || work_refusal.get_untracked().is_some() { return; }
                             if !confirm_context_change(false) { return; }
                             dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:new_unit_title.get_untracked(),description:new_unit_description.get_untracked(),source:None,script:None,content_digest:None}}})})());
@@ -1348,7 +1439,7 @@ pub fn ContentWorkspace(
                         <section id="live-area-write" class="cw-panel" aria-labelledby="live-write-title" hidden=move ||hide_area(Task::Write) inert=move ||hide_area(Task::Write)>
                             <Show when=move ||has_unit.get()>
                                 <div class="cw-panel-head"><h3 id="live-write-title">{move ||text(Key::Content,locale.get())}</h3>
-                                    <div class="toolbar"><ActionButton id="live-content-head" locale=locale variant=ButtonVariant::Text icon=IconName::Refresh reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_head.run(()))>{move ||text(Key::ReadHead,locale.get())}</ActionButton>
+                                    <div class="toolbar"><ActionButton id="live-content-head" locale=locale variant=ButtonVariant::Text icon=IconName::Refresh reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|read_head.run(()))>{move ||text(Key::ReadHead,locale.get())}</ActionButton>
                                     <ActionButton id="live-open-editor" locale=locale variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=session_pending on_press=Callback::new(move |_|open_selected_editor.run(()))>{move ||text(Key::OpenEditor,locale.get())}</ActionButton></div></div>
                                 <p class="help cw-reason" id="live-content-reason" role="status" hidden=move||lifecycle_refusal.get().is_none()>{move||reason_text(lifecycle_refusal.get())}</p>
                                 <fieldset class="live-content-fields" disabled=move ||content_locked.get()><legend class="cui-sr-only">{move ||text(Key::Content,locale.get())}</legend>
@@ -1358,7 +1449,7 @@ pub fn ContentWorkspace(
                                     <div hidden=move ||body.get()!="editor-script"><p class="help">{move ||text(Key::ScriptBindingHelp,locale.get())}</p>
                                     <p><code>{move ||facts.with(|f|drafts.with(|drafts|drafts.content(&f.unit_id()).script.map(|script|copy::script_binding(&script)).unwrap_or_default()))}</code></p></div>
                                     <TextArea id="live-manuscript" label=Signal::derive(move ||text(Key::Text,locale.get()).to_owned()) value=manuscript on_input=Callback::new(move |value|manuscript.set(value)) state=field_state class="live-field cw-manuscript" rows=14/><TextArea id="live-provenance" label=Signal::derive(move ||text(Key::Provenance,locale.get()).to_owned()) value=provenance on_input=Callback::new(move |value|provenance.set(value)) state=field_state class="live-field"/><TextField id="live-content-rights" label=Signal::derive(move ||text(Key::Rights,locale.get()).to_owned()) value=content_rights on_input=Callback::new(move |value|content_rights.set(value)) state=field_state class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
-                                    <div class="cw-actions">                    <ActionButton id="live-append-content" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()||facts.with(|f|drafts.with(|drafts|drafts.content_base(&f.unit_id()).is_none()||drafts.content(&f.unit_id()).details().is_none()))) on_press=Callback::new(move |_|{
+                                    <div class="cw-actions">                    <ActionButton id="live-append-content" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=content_save_reason blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()||facts.with(|f|drafts.with(|drafts|drafts.content_base(&f.unit_id()).is_none()||drafts.content(&f.unit_id()).details().is_none()))) on_press=Callback::new(move |_|{
                                         // Admission precedes the draft's submitted-snapshot mark, so a refused press changes nothing.
                                         if blocked.get_untracked()||unit_refusal.get_untracked().is_some() {return;}
                                         dispatch.build((|| {let(w,u)=context(facts)?;let expected_revision=drafts.with_untracked(|drafts|drafts.content_base(&u.id)).ok_or(ClientError::InvalidInput)?;let details=drafts.with_untracked(|drafts|drafts.content(&u.id).details()).ok_or(ClientError::InvalidInput)?;let request=AppendContentRequest {operation_id:uuid()?,id:uuid()?,expected_revision,expected_work_revision:w.revision,details};drafts.update(|drafts|drafts.submitted_content(&u.id,&request));Ok(Command::AppendContent {unit:u.id,request})})())})>{move ||text(Key::SaveContent,locale.get())}</ActionButton></div>
@@ -1370,7 +1461,7 @@ pub fn ContentWorkspace(
                         <section id="live-area-history" class="cw-panel" aria-labelledby="live-history-title" hidden=move ||hide_area(Task::History) inert=move ||hide_area(Task::History)>
                             <Show when=move ||has_unit.get()>
                                 <h3 id="live-history-title">{move ||text(Key::TaskHistory,locale.get())}</h3>
-                                <div class="toolbar"><ActionButton id="live-content-history" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send_page(Command::ContentHistory {unit:facts.with_untracked(Facts::unit_id),after:0}))>{move ||text(Key::History,locale.get())}</ActionButton>
+                                <div class="toolbar"><ActionButton id="live-content-history" locale=locale variant=ButtonVariant::Tonal reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send_page(Command::ContentHistory {unit:facts.with_untracked(Facts::unit_id),after:0}))>{move ||text(Key::History,locale.get())}</ActionButton>
                                 <span hidden=move ||facts.with(|f|f.pages.previous_history().is_none())><ActionButton id="live-history-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_history().is_none())) on_press=Callback::new(move |_| {if let Some((unit,after))=facts.with_untracked(|f|f.pages.previous_history().map(|after|(f.unit_id(),after))) {dispatch.send_page(Command::ContentHistory {unit,after});}})>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                                 <span hidden=move ||facts.with(|f|f.history.as_ref().is_none_or(|h|h.next_after.is_none()))><ActionButton id="live-history-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.history.as_ref().is_none_or(|h|h.next_after.is_none()))) on_press=Callback::new(move |_| {if let Some((unit,after))=facts.with_untracked(|f|f.history.as_ref()?.next_after.map(|after|(f.unit_id(),after))) {dispatch.send_page(Command::ContentHistory {unit,after});}})>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
                                 <p class="help">{move ||text(Key::HistoryPageHelp,locale.get())}</p>
@@ -1402,10 +1493,10 @@ pub fn ContentWorkspace(
                                 <section class="cw-block" aria-labelledby="live-unit-details-title"><h4 id="live-unit-details-title">{move ||text(Key::UnitDetails,locale.get())}</h4>
                                     <p class="help cw-reason" id="live-unit-reason" role="status" hidden=move||lifecycle_refusal.get()!=Some(Refusal::UnitArchived)>{move||reason_text(lifecycle_refusal.get())}</p>
                                     <div class="cw-form-stack">                <TextField id="live-selected-unit-title" state=field_state label=Signal::derive(move ||text(Key::Title,locale.get()).to_owned()) value=unit_title on_input=Callback::new(move |value|unit_title.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-selected-unit-description" label=Signal::derive(move ||text(Key::Synopsis,locale.get()).to_owned()) value=description on_input=Callback::new(move |value|description.set(value)) state=field_state class="live-field"/></div>
-                                    <div class="cw-actions">                <ActionButton id="live-patch-unit" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()) on_press=Callback::new(move |_|{
-                                        if blocked.get_untracked()||unit_refusal.get_untracked().is_some() {return;}
+                                    <div class="cw-actions">                <ActionButton id="live-patch-unit" locale=locale variant=ButtonVariant::Primary icon=IconName::Save reason=unit_save_reason blocked=Signal::derive(move ||blocked.get()||unit_refusal.get().is_some()||!unit_metadata_dirty.get()) on_press=Callback::new(move |_|{
+                                        if blocked.get_untracked()||unit_refusal.get_untracked().is_some()||!unit_metadata_dirty.get_untracked() {return;}
                                         dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id.clone(),request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:drafts.with_untracked(|drafts|drafts.metadata_base(&u.id)).ok_or(ClientError::InvalidInput)?,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})())})>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
-                                                    <ActionButton id="live-reload-unit-metadata" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+                                                    <ActionButton id="live-reload-unit-metadata" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
                         if blocked.get_untracked() { return; }
                         if let Some(unit) = facts.with_untracked(|facts| facts.unit.clone()) {
                             if drafts.with_untracked(|drafts|drafts.metadata_dirty(&unit.id)) && !crate::view::confirm_discard(locale.get_untracked()) { return; }
@@ -1413,6 +1504,7 @@ pub fn ContentWorkspace(
                             unit_title.set(metadata.title); description.set(metadata.description);
                         }
                     })>{move ||text(Key::ReloadMetadata,locale.get())}</ActionButton></div>
+                                    <p class="help cw-reason" id="live-unit-save-reason" role="status" hidden=move || (unit_metadata_dirty.get() && !blocked.get() && unit_refusal.get().is_none()) || lifecycle_refusal.get() == Some(Refusal::UnitArchived)>{move || unit_save_reason.get().text(locale.get())}</p>
                                     <details><summary>{move ||text(Key::Diagnostics,locale.get())}</summary><p><code>{move ||facts.with(Facts::unit_id)}</code></p></details>
                                 </section>
                                 <section class="cw-block" aria-labelledby="live-order-title"><h4 id="live-order-title">{move ||text(Key::OrderZone,locale.get())}</h4>
@@ -1438,8 +1530,8 @@ pub fn ContentWorkspace(
                         <TextField id="live-brief-version" label=Signal::derive(move ||text(Key::Version,locale.get()).to_owned()) value=brief_version on_input=Callback::new(move |value|brief_version.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-direction" label=Signal::derive(move ||text(Key::Notes,locale.get()).to_owned()) value=notes on_input=Callback::new(move |value|notes.set(value)) class="live-field"/>
                         <Select id="live-profile" label=Signal::derive(move ||text(Key::Profile,locale.get()).to_owned()) value=profile on_input=Callback::new(move |value|{profile.set(value);track_input.run("live-profile".to_owned());}) options=Signal::derive(move ||std::iter::once(SelectOption::new("",text(Key::SelectProfile,locale.get()))).chain([20,24,32,40].map(|rate|SelectOption::new(format!("opus-mono-{rate}-v1"),format!("Ogg Opus mono · {rate} kbps")))).collect::<Vec<_>>()) class="live-field"/>
                         <TextField id="live-use" label=Signal::derive(move ||text(Key::Use,locale.get()).to_owned()) value=use_note on_input=Callback::new(move |value|use_note.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-attribution" label=Signal::derive(move ||text(Key::Attribution,locale.get()).to_owned()) value=attribution on_input=Callback::new(move |value|attribution.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-naming" label=Signal::derive(move ||text(Key::Naming,locale.get()).to_owned()) value=naming on_input=Callback::new(move |value|naming.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-qa" label=Signal::derive(move ||text(Key::Qa,locale.get()).to_owned()) value=qa on_input=Callback::new(move |value|qa.set(value)) class="live-field"/>
-                    </div><div class="toolbar"><ActionButton id="live-create-brief" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|super::brief_controls::brief_content(f,drafts.with(|d|d.content_dirty(&f.unit_id()))).is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|super::brief_controls::brief_content(f,drafts.with_untracked(|d|d.content_dirty(&f.unit_id()))).cloned()).ok_or(ClientError::InvalidInput)?;let(mode,capability)=super::brief_controls::production_mode(&c.details.body);Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![capability,ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,locale.get())}</ActionButton>
-                        <ActionButton id="live-read-brief" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,locale.get())}</ActionButton></div>
+                    </div><div class="toolbar"><ActionButton id="live-create-brief" locale=locale variant=ButtonVariant::Tonal reason=brief_create_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|super::brief_controls::brief_content(f,drafts.with(|d|d.content_dirty(&f.unit_id()))).is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|super::brief_controls::brief_content(f,drafts.with_untracked(|d|d.content_dirty(&f.unit_id()))).cloned()).ok_or(ClientError::InvalidInput)?;let(mode,capability)=super::brief_controls::production_mode(&c.details.body);Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![capability,ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,locale.get())}</ActionButton>
+                        <ActionButton id="live-read-brief" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,locale.get())}</ActionButton></div>
                         <p class="help">{move ||text(Key::BriefHeadHelp,locale.get())}</p>
                         <p><code>{move ||facts.with(|f|f.content_head.as_ref().map(copy::content_binding).unwrap_or_default())}</code></p>
                         <super::brief_controls::BriefDocument brief=Signal::derive(move ||facts.with(|f|f.brief.clone())) locale=locale blocked=blocked/>
@@ -1452,11 +1544,11 @@ pub fn ContentWorkspace(
                             if let Some(selected)=selected {file_busy.set(true);spawn_local(async move {let result=browser::read_audio(selected).await;if file_generation.try_get_untracked()==Some(generation)&&actor.try_get_untracked()==Some(actor_snapshot)&&facts.try_with_untracked(Facts::unit_id)==Some(unit_snapshot) {let _=file_busy.try_set(false);match result {Ok(value)=>{let _=file.try_set(Some(value));},Err(_)=>{let _=file_error.try_set(true);}}}});}
                         }/>
                         <p>{move ||if file.with(|f|f.is_some()) {text(Key::FileReady,locale.get())}else {""}}</p><p role="alert" hidden=move ||!file_error.get()>{move ||text(Key::FileReadFailed,locale.get())}</p><div class="live-grid"><TextField id="live-producer" label=Signal::derive(move ||text(Key::Producer,locale.get()).to_owned()) value=producer on_input=Callback::new(move |value|producer.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-method" label=Signal::derive(move ||text(Key::Method,locale.get()).to_owned()) value=method on_input=Callback::new(move |value|method.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-producer-provenance" label=Signal::derive(move ||text(Key::ProducerProvenance,locale.get()).to_owned()) value=producer_provenance on_input=Callback::new(move |value|producer_provenance.set(value)) class="live-field"/><TextArea id="live-quality" label=Signal::derive(move ||text(Key::Quality,locale.get()).to_owned()) value=quality on_input=Callback::new(move |value|quality.set(value)) class="live-field"/></div>
-                        <ActionButton id="live-prepare" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(w,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let binding=super::brief_controls::submission_binding(&b,&w.id,&u.id)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding,expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:producer_provenance.get_untracked(),rights_refs:b.brief.work.rights_refs.clone(),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,locale.get())}</ActionButton>
+                        <ActionButton id="live-prepare" locale=locale variant=ButtonVariant::Tonal reason=prepare_reason blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(w,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let binding=super::brief_controls::submission_binding(&b,&w.id,&u.id)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding,expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:producer_provenance.get_untracked(),rights_refs:b.brief.work.rights_refs.clone(),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,locale.get())}</ActionButton>
                         <TextField id="live-submission-id" label=Signal::derive(move ||text(Key::Submission,locale.get()).to_owned()) value=submission_id on_input=Callback::new(move |value|submission_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
-                        <div class="toolbar"><ActionButton id="live-read-submission" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Submission {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()}))>{move ||text(Key::ReadSubmission,locale.get())}</ActionButton>
-                        <ActionButton id="live-upload" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_none())))||file.with(|f|f.is_none())||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes))) on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};let command=Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id.clone(),credential:credential.with_untracked(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).cloned()).ok_or(ClientError::InvalidInput)?,bytes};upload_file_generation.set_value(Some(file_generation.get_untracked()));Ok(command)})()))>{move ||text(Key::Upload,locale.get())}</ActionButton>
-                        <ActionButton id="live-revoke" locale=locale variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {if crate::view::confirm_discard(locale.get_untracked()) {dispatch.send(Command::Revoke {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()});}})>{move ||text(Key::Revoke,locale.get())}</ActionButton></div>
+                        <div class="toolbar"><ActionButton id="live-read-submission" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Submission {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()}))>{move ||text(Key::ReadSubmission,locale.get())}</ActionButton>
+                        <ActionButton id="live-upload" locale=locale variant=ButtonVariant::Tonal reason=upload_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_none())))||file.with(|f|f.is_none())||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes))) on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};let command=Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id.clone(),credential:credential.with_untracked(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).cloned()).ok_or(ClientError::InvalidInput)?,bytes};upload_file_generation.set_value(Some(file_generation.get_untracked()));Ok(command)})()))>{move ||text(Key::Upload,locale.get())}</ActionButton>
+                        <ActionButton id="live-revoke" locale=locale variant=ButtonVariant::Secondary reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {if crate::view::confirm_discard(locale.get_untracked()) {dispatch.send(Command::Revoke {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()});}})>{move ||text(Key::Revoke,locale.get())}</ActionButton></div>
                         <p role="status">{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_state(s.state,locale.get())).unwrap_or_default())}</p>
                         <p class="help" hidden=move ||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes||credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_some())))>{move ||text(Key::CredentialMissing,locale.get())}</p>
                         <p><code>{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_binding(&s.submission)).unwrap_or_default())}</code></p>
@@ -1472,9 +1564,9 @@ pub fn ContentWorkspace(
                         label=Signal::derive(move ||text(Key::Confirm,locale.get()).to_owned()) checked=confirmed
                         on_change=Callback::new(move |checked|consent.set(if checked{current_review.get_untracked()}else{None}))/>
         <p>{move ||text(Key::ConfirmHelp,locale.get())}</p>
-                        <ActionButton id="live-review" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::Review,locale.get())}</ActionButton>
-                        <ActionButton id="live-candidate" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let r=s.rendition.ok_or(ClientError::InvalidInput)?;Ok(Command::Candidate {unit:u.id,submission:s.submission.id,request:CreateReleaseCandidateRequest {operation_id:uuid()?,rendition_digest:r.digest}})})()))>{move ||text(Key::CreateCandidate,locale.get())}</ActionButton>
-                        <TextField id="live-candidate-id" label=Signal::derive(move ||text(Key::Candidate,locale.get()).to_owned()) value=candidate_id on_input=Callback::new(move |value|candidate_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><ActionButton id="live-read-candidate" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::CandidateRead {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked(),candidate:candidate_id.get_untracked()}))>{move ||text(Key::ReadCandidate,locale.get())}</ActionButton>
+                        <ActionButton id="live-review" locale=locale variant=ButtonVariant::Tonal reason=review_reason blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::Review,locale.get())}</ActionButton>
+                        <ActionButton id="live-candidate" locale=locale variant=ButtonVariant::Tonal reason=candidate_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let r=s.rendition.ok_or(ClientError::InvalidInput)?;Ok(Command::Candidate {unit:u.id,submission:s.submission.id,request:CreateReleaseCandidateRequest {operation_id:uuid()?,rendition_digest:r.digest}})})()))>{move ||text(Key::CreateCandidate,locale.get())}</ActionButton>
+                        <TextField id="live-candidate-id" label=Signal::derive(move ||text(Key::Candidate,locale.get()).to_owned()) value=candidate_id on_input=Callback::new(move |value|candidate_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><ActionButton id="live-read-candidate" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::CandidateRead {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked(),candidate:candidate_id.get_untracked()}))>{move ||text(Key::ReadCandidate,locale.get())}</ActionButton>
                         <p>{move ||text(Key::Private,locale.get())}</p>
                         <ul>{move ||facts.with(|f|f.candidate.as_ref().map(|c|c.blockers.clone()).unwrap_or_default()).into_iter().map(|blocker|view!{<li>{move ||copy::audio_blocker(blocker,locale.get())}</li>}).collect_view()}</ul>
                         <p><code>{move ||facts.with(|f|f.candidate.as_ref().map(|c|copy::candidate_binding(&c.candidate)).unwrap_or_default())}</code></p>

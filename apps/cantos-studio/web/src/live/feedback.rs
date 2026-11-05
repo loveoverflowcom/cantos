@@ -25,13 +25,6 @@ pub enum Operation {
 impl Operation {
     pub fn of(command: &Command) -> Self {
         match command {
-            Command::Works { .. }
-            | Command::Work { .. }
-            | Command::Units { .. }
-            | Command::Preview { .. }
-            | Command::ContentHead { .. }
-            | Command::ContentHistory { .. }
-            | Command::ContentRevision { .. } => Self::Read,
             Command::CreateWork(_) => Self::CreateWork,
             Command::PatchWork { .. } => Self::SaveWork,
             Command::ArchiveWork { .. } => Self::ArchiveWork,
@@ -40,6 +33,7 @@ impl Operation {
             Command::ArchiveUnit { .. } => Self::ArchiveUnit,
             Command::Reorder { .. } => Self::Reorder,
             Command::AppendContent { .. } => Self::SaveContent,
+            command if !command.is_write() => Self::Read,
             _ => Self::Other,
         }
     }
@@ -93,14 +87,42 @@ impl Target {
             | Command::ArchiveWork { work, .. }
             | Command::Units { work, .. }
             | Command::Preview { work, .. }
-            | Command::Reorder { work, .. } => Self::Work(work.clone()),
+            | Command::MetadataState { work }
+            | Command::MetadataCommand { work, .. }
+            | Command::MetadataArtwork { work, .. }
+            | Command::ViewerState { work }
+            | Command::ViewerChange { work, .. }
+            | Command::ChapterMatrix { work, .. }
+            | Command::Reorder { work, .. }
+            | Command::Artwork { work }
+            | Command::PrepareImage { work, .. }
+            | Command::ImageIntent { work, .. }
+            | Command::UploadImage { work, .. }
+            | Command::SetArtwork { work, .. }
+            | Command::Delegations { work, .. }
+            | Command::IssueDelegation { work, .. }
+            | Command::RevokeDelegation { work, .. } => Self::Work(work.clone()),
             Command::CreateUnit { request, .. } => Self::Unit(request.id.clone()),
             Command::PatchUnit { unit, .. }
             | Command::ArchiveUnit { unit, .. }
             | Command::AppendContent { unit, .. }
             | Command::ContentHead { unit }
             | Command::ContentHistory { unit, .. }
-            | Command::ContentRevision { unit, .. } => Self::Unit(unit.clone()),
+            | Command::ContentRevision { unit, .. }
+            | Command::Brief { unit, .. }
+            | Command::CreateBrief { unit, .. }
+            | Command::Submission { unit, .. }
+            | Command::Prepare { unit, .. }
+            | Command::Revoke { unit, .. }
+            | Command::Review { unit, .. }
+            | Command::Candidate { unit, .. }
+            | Command::CandidateRead { unit, .. }
+            | Command::Readiness { unit, .. }
+            | Command::RecordDistributionRights { unit, .. }
+            | Command::RecordPublicationApproval { unit, .. }
+            | Command::Publish { unit, .. }
+            | Command::ActiveRelease { unit }
+            | Command::Withdraw { unit, .. } => Self::Unit(unit.clone()),
             _ => Self::None,
         }
     }
@@ -160,6 +182,18 @@ pub fn feedback(state: &RequestState) -> Feedback {
         operation: command.map_or(Operation::Other, Operation::of),
         target: command.map_or(Target::None, Target::of),
         outcome,
+    }
+}
+
+/// Routine non-empty reads settle into the view itself; `#live-status` stays visible for
+/// in-flight work, empty read results, missing heads, write acknowledgements, failures and
+/// ambiguous outcomes.
+pub fn shows_feedback(state: &RequestState) -> bool {
+    let report = feedback(state);
+    match report.outcome {
+        Outcome::Idle => false,
+        Outcome::Done => report.operation != Operation::Read || state.is_empty(),
+        Outcome::Working | Outcome::MissingHead | Outcome::Failed | Outcome::Unknown => true,
     }
 }
 
@@ -402,5 +436,72 @@ mod tests {
         let (retrying, _) = unknown.retry().unwrap();
         assert_eq!(feedback(&retrying).target, Target::Unit(UNIT.into()));
         assert_eq!(feedback(&retrying).outcome, Outcome::Working);
+    }
+
+    #[test]
+    fn routine_non_empty_reads_withdraw_the_status_banner_while_writes_and_empty_or_non_ready_states_stay_visible(
+    ) {
+        use crate::contract::{CatalogMutationResponse, CatalogPage, WorkArtworkResponse};
+        assert!(!shows_feedback(&state()));
+
+        let content = revision();
+        let (sending, ticket) = state()
+            .begin(Command::ContentHead {
+                unit: content.unit_id.clone(),
+            })
+            .unwrap();
+        assert!(shows_feedback(&sending));
+        let settled_head = sending.finish(ticket, Ok(super::super::Reply::Content(content)));
+        assert!(!shows_feedback(&settled_head));
+
+        let (sending, ticket) = state()
+            .begin(Command::MetadataArtwork {
+                work: "work".into(),
+                revision: 1,
+            })
+            .unwrap();
+        assert_eq!(feedback(&sending).operation, Operation::Read);
+        assert_eq!(feedback(&sending).target, Target::Work("work".into()));
+        assert!(shows_feedback(&sending));
+        let settled_artwork = sending.finish(
+            ticket,
+            Ok(super::super::Reply::Artwork(WorkArtworkResponse {
+                work_id: "work".into(),
+                work_revision: 1,
+                artwork: None,
+                changed_at_ms: None,
+            })),
+        );
+        assert!(!shows_feedback(&settled_artwork));
+
+        let (sending, ticket) = state().begin(Command::Works { cursor: None }).unwrap();
+        let empty_works = sending.finish(
+            ticket,
+            Ok(super::super::Reply::Works(CatalogPage {
+                items: vec![],
+                next_cursor: None,
+            })),
+        );
+        assert!(empty_works.is_empty());
+        assert!(shows_feedback(&empty_works));
+
+        let mutation: CatalogMutationResponse = serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/mutation.json"
+        ))
+        .unwrap();
+        let unit = mutation.units.first().unwrap().id.clone();
+        let (sending, ticket) = state().begin(patch(&unit)).unwrap();
+        let saved = sending.finish(ticket, Ok(super::super::Reply::Mutation(mutation)));
+        assert!(shows_feedback(&saved));
+
+        let missing = ClientError::http(
+            404,
+            br#"{"code":"not_found","current_revision":null,"issues":[]}"#,
+        );
+        let (sending, ticket) = state()
+            .begin(Command::ContentHead { unit: UNIT.into() })
+            .unwrap();
+        let missing_head = sending.finish(ticket, Err(missing));
+        assert!(shows_feedback(&missing_head));
     }
 }

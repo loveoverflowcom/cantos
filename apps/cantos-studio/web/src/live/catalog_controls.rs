@@ -146,9 +146,108 @@ pub fn reordered_ids(
     Some(ordered)
 }
 
+pub fn refusal_block_reason(refusal: super::projection::Refusal) -> crate::ui::BlockReason {
+    use super::{copy::Key, projection::Refusal};
+    use crate::ui::BlockReason;
+    match refusal {
+        Refusal::WorkArchived => BlockReason::Live(Key::ReasonWorkArchived),
+        Refusal::UnitArchived => BlockReason::Live(Key::ReasonUnitArchived),
+        Refusal::NoWork => BlockReason::Live(Key::NoWorkSelected),
+        Refusal::NoUnit => BlockReason::Live(Key::NoUnitSelected),
+        Refusal::OtherTarget => BlockReason::ContextReady,
+    }
+}
+
+pub fn request_block_reason(
+    session_blocked: bool,
+    busy: bool,
+    ambiguous: bool,
+) -> Option<crate::ui::BlockReason> {
+    use super::copy::Key;
+    use crate::ui::BlockReason;
+    if session_blocked {
+        Some(BlockReason::ContextReady)
+    } else if busy {
+        Some(BlockReason::Live(Key::Pending))
+    } else if ambiguous {
+        Some(BlockReason::Live(Key::Ambiguous))
+    } else {
+        None
+    }
+}
+
+pub fn edit_block_reason(
+    request_reason: Option<crate::ui::BlockReason>,
+    refusal: Option<super::projection::Refusal>,
+) -> Option<crate::ui::BlockReason> {
+    request_reason.or_else(|| refusal.map(refusal_block_reason))
+}
+
+pub fn save_metadata_block_reason(
+    request_reason: Option<crate::ui::BlockReason>,
+    refusal: Option<super::projection::Refusal>,
+    is_dirty: bool,
+) -> crate::ui::BlockReason {
+    use super::copy::Key;
+    use crate::ui::BlockReason;
+    edit_block_reason(request_reason, refusal).unwrap_or(if is_dirty {
+        BlockReason::ContextReady
+    } else {
+        BlockReason::Live(Key::FieldEmptyPatch)
+    })
+}
+
+pub fn archive_block_reason(
+    request_reason: Option<crate::ui::BlockReason>,
+    refusal: Option<super::projection::Refusal>,
+    unsaved: bool,
+) -> crate::ui::BlockReason {
+    use super::copy::Key;
+    use crate::ui::BlockReason;
+    edit_block_reason(request_reason, refusal).unwrap_or(if unsaved {
+        BlockReason::Live(Key::ArchiveHelp)
+    } else {
+        BlockReason::ContextReady
+    })
+}
+
+pub fn reorder_block_reason(
+    request_reason: Option<crate::ui::BlockReason>,
+    refusal: Option<super::projection::Refusal>,
+    unsaved: bool,
+) -> crate::ui::BlockReason {
+    use super::copy::Key;
+    use crate::ui::BlockReason;
+    edit_block_reason(request_reason, refusal).unwrap_or(if unsaved {
+        BlockReason::Live(Key::UnsavedDrafts)
+    } else {
+        BlockReason::Live(Key::ReorderHelp)
+    })
+}
+
+pub fn content_save_block_reason(
+    request_reason: Option<crate::ui::BlockReason>,
+    refusal: Option<super::projection::Refusal>,
+    has_base: bool,
+    has_details: bool,
+) -> crate::ui::BlockReason {
+    use super::copy::Key;
+    use crate::ui::BlockReason;
+    edit_block_reason(request_reason, refusal).unwrap_or(if !has_base {
+        BlockReason::Live(Key::StatusNotRead)
+    } else if !has_details {
+        BlockReason::Live(Key::ErrorInvalidInput)
+    } else {
+        BlockReason::ContextReady
+    })
+}
+
 #[cfg(target_arch = "wasm32")]
 mod browser {
-    use super::{reordered_ids, Direction, WorkDraft};
+    use super::{
+        archive_block_reason, reorder_block_reason, reordered_ids, request_block_reason,
+        save_metadata_block_reason, Direction, WorkDraft,
+    };
     use crate::{
         contract::{ArchiveContentUnitRequest, ArchiveWorkRequest, ReorderContentUnitsRequest},
         live::{
@@ -210,6 +309,28 @@ mod browser {
         let refusal = Signal::derive(move || {
             facts.with(|facts| projection::edit_work(facts.work.as_ref()).err())
         });
+        let request_reason = Signal::derive(move || {
+            request_block_reason(
+                dispatch.session_pending.get() || dispatch.state.with(|s| s.actor().is_empty()),
+                dispatch
+                    .state
+                    .with(|s| s.phase() == crate::live::Phase::Pending),
+                dispatch.state.with(|s| s.pending().is_some()),
+            )
+            .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+        });
+        let blocked_reason =
+            Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+        let save_reason = Signal::derive(move || {
+            save_metadata_block_reason(
+                request_reason.get(),
+                refusal.get(),
+                draft.with(WorkDraft::is_dirty),
+            )
+        });
+        let archive_reason = Signal::derive(move || {
+            archive_block_reason(request_reason.get(), refusal.get(), unsaved.get())
+        });
         let cannot_edit = Signal::derive(move || blocked.get() || refusal.get().is_some());
         let Ok(reason) = crate::ui::LocalizedReason::new(BlockReason::Busy) else {
             return ().into_any();
@@ -261,13 +382,13 @@ mod browser {
             </div>
             <p class="help cw-reason" id="live-work-reason" role="status" hidden=move||refusal.get()!=Some(Refusal::WorkArchived)>{move||text(Key::ReasonWorkArchived,locale.get())}</p>
             <div class="cw-actions">
-                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(false))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
-                <ActionButton id="live-save-preview-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(true))>{move ||text(Key::PreviewSaveOpen,locale.get())}</ActionButton>
-                <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=save_reason blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(false))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
+                <ActionButton id="live-save-preview-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility reason=save_reason blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(true))>{move ||text(Key::PreviewSaveOpen,locale.get())}</ActionButton>
+                <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) { dispatch.send(Command::Work {id:work.id}); }
             })>{move ||text(Key::ReadWork,locale.get())}</ActionButton>
-            <ActionButton id="live-reload-work-metadata" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_| {
+            <ActionButton id="live-reload-work-metadata" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {
                     if !draft.with_untracked(WorkDraft::is_dirty) || confirm(Key::ReloadWorkConfirm,&work.details.title,work.revision,locale.get_untracked()) {
@@ -276,10 +397,11 @@ mod browser {
                 }
             })>{move ||text(Key::ReloadWorkMetadata,locale.get())}</ActionButton>
             </div>
+            <p class="help cw-reason" id="live-work-save-reason" role="status" hidden=move || (draft.with(WorkDraft::is_dirty) && !cannot_edit.get()) || refusal.get() == Some(Refusal::WorkArchived)>{move || save_reason.get().text(locale.get())}</p>
             <section class="cw-archive" aria-labelledby="live-archive-work-title">
                 <h5 id="live-archive-work-title">{move ||text(Key::ArchiveZone,locale.get())}</h5>
                 <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
-                <ActionButton id="live-archive-work" locale=locale icon=IconName::Archive variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+                <ActionButton id="live-archive-work" locale=locale icon=IconName::Archive variant=ButtonVariant::Secondary reason=archive_reason blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                 if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) {
                     if confirm(Key::ArchiveWorkConfirm,&work.details.title,work.revision,locale.get_untracked()) {
@@ -300,12 +422,27 @@ mod browser {
         unsaved: Signal<bool>,
         units_complete: Signal<bool>,
     ) -> impl IntoView {
-        let cannot_edit = Signal::derive(move || {
-            blocked.get()
-                || facts.with(|facts| {
-                    projection::edit_unit(facts.work.as_ref(), facts.unit.as_ref()).is_err()
-                })
+        let refusal = Signal::derive(move || {
+            facts
+                .with(|facts| projection::edit_unit(facts.work.as_ref(), facts.unit.as_ref()).err())
         });
+        let request_reason = Signal::derive(move || {
+            request_block_reason(
+                dispatch.session_pending.get() || dispatch.state.with(|s| s.actor().is_empty()),
+                dispatch
+                    .state
+                    .with(|s| s.phase() == crate::live::Phase::Pending),
+                dispatch.state.with(|s| s.pending().is_some()),
+            )
+            .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+        });
+        let reorder_reason = Signal::derive(move || {
+            reorder_block_reason(request_reason.get(), refusal.get(), unsaved.get())
+        });
+        let archive_reason = Signal::derive(move || {
+            archive_block_reason(request_reason.get(), refusal.get(), unsaved.get())
+        });
+        let cannot_edit = Signal::derive(move || blocked.get() || refusal.get().is_some());
         let order = move |direction| {
             facts.with_untracked(|facts| {
                 let work = facts.work.as_ref()?;
@@ -340,10 +477,10 @@ mod browser {
         });
         view! {
             <div class="toolbar">
-                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                <ActionButton id="live-unit-earlier" icon=IconName::ArrowUpward locale=locale variant=ButtonVariant::Tonal reason=reorder_reason blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Earlier).is_none()
                 }) on_press=Callback::new(move |_|reorder.run(Direction::Earlier))>{move ||text(Key::MoveEarlier,locale.get())}</ActionButton>
-                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || {
+                <ActionButton id="live-unit-later" icon=IconName::ArrowDownward locale=locale variant=ButtonVariant::Tonal reason=reorder_reason blocked=Signal::derive(move || {
                     facts.with(|_| ()); let _=units_complete.get(); cannot_edit.get()||unsaved.get()||order(Direction::Later).is_none()
                 }) on_press=Callback::new(move |_|reorder.run(Direction::Later))>{move ||text(Key::MoveLater,locale.get())}</ActionButton>
             </div>
@@ -351,7 +488,7 @@ mod browser {
             <section class="cw-archive" aria-labelledby="live-archive-unit-title">
                 <h5 id="live-archive-unit-title">{move ||text(Key::ArchiveZone,locale.get())}</h5>
                 <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>
-                <ActionButton id="live-archive-unit" icon=IconName::Archive locale=locale variant=ButtonVariant::Secondary reason=BlockReason::ContextReady blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
+                <ActionButton id="live-archive-unit" icon=IconName::Archive locale=locale variant=ButtonVariant::Secondary reason=archive_reason blocked=Signal::derive(move ||cannot_edit.get()||unsaved.get()) on_press=Callback::new(move |_| {
                     if cannot_edit.get_untracked() || unsaved.get_untracked() { return; }
                     if let Some((work,unit))=facts.with_untracked(|facts|Some((facts.work.clone()?,facts.unit.clone()?))) {
                         if confirm(Key::ArchiveUnitConfirm,&unit.details.title,unit.revision,locale.get_untracked()) {
@@ -513,6 +650,92 @@ mod tests {
         assert_eq!(
             reordered_ids("work", &units, true, "b", Direction::Earlier),
             None
+        );
+    }
+
+    #[test]
+    fn metadata_and_lifecycle_block_reasons_match_the_actual_guard() {
+        use crate::{
+            live::{copy::Key, projection::Refusal},
+            ui::BlockReason,
+        };
+        assert_eq!(request_block_reason(false, false, false), None);
+        assert_eq!(
+            request_block_reason(true, true, true),
+            Some(BlockReason::ContextReady)
+        );
+        assert_eq!(
+            request_block_reason(false, true, false),
+            Some(BlockReason::Live(Key::Pending))
+        );
+        assert_eq!(
+            request_block_reason(false, false, true),
+            Some(BlockReason::Live(Key::Ambiguous))
+        );
+
+        // Clean metadata form explains that at least one field must change before saving.
+        assert_eq!(
+            save_metadata_block_reason(None, None, false),
+            BlockReason::Live(Key::FieldEmptyPatch)
+        );
+        assert_eq!(
+            save_metadata_block_reason(None, None, true),
+            BlockReason::ContextReady
+        );
+        // Lifecycle and selection refusals precede the clean-form message.
+        assert_eq!(
+            save_metadata_block_reason(None, Some(Refusal::WorkArchived), false),
+            BlockReason::Live(Key::ReasonWorkArchived)
+        );
+        assert_eq!(
+            save_metadata_block_reason(None, Some(Refusal::UnitArchived), false),
+            BlockReason::Live(Key::ReasonUnitArchived)
+        );
+        assert_eq!(
+            save_metadata_block_reason(None, Some(Refusal::NoWork), false),
+            BlockReason::Live(Key::NoWorkSelected)
+        );
+        assert_eq!(
+            save_metadata_block_reason(None, Some(Refusal::NoUnit), false),
+            BlockReason::Live(Key::NoUnitSelected)
+        );
+        // Request-level block precedes domain refusals.
+        assert_eq!(
+            save_metadata_block_reason(
+                Some(BlockReason::Live(Key::Pending)),
+                Some(Refusal::WorkArchived),
+                false,
+            ),
+            BlockReason::Live(Key::Pending)
+        );
+
+        assert_eq!(
+            archive_block_reason(None, None, true),
+            BlockReason::Live(Key::ArchiveHelp)
+        );
+        assert_eq!(
+            archive_block_reason(None, Some(Refusal::WorkArchived), true),
+            BlockReason::Live(Key::ReasonWorkArchived)
+        );
+        assert_eq!(
+            reorder_block_reason(None, None, true),
+            BlockReason::Live(Key::UnsavedDrafts)
+        );
+        assert_eq!(
+            reorder_block_reason(None, None, false),
+            BlockReason::Live(Key::ReorderHelp)
+        );
+        assert_eq!(
+            content_save_block_reason(None, None, false, true),
+            BlockReason::Live(Key::StatusNotRead)
+        );
+        assert_eq!(
+            content_save_block_reason(None, None, true, false),
+            BlockReason::Live(Key::ErrorInvalidInput)
+        );
+        assert_eq!(
+            content_save_block_reason(None, Some(Refusal::UnitArchived), true, true),
+            BlockReason::Live(Key::ReasonUnitArchived)
         );
     }
 }

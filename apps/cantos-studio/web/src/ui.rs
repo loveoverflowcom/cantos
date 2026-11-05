@@ -234,7 +234,7 @@ pub fn WorkspaceNavigation(
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BlockReason {
     #[default]
     Busy,
@@ -247,6 +247,7 @@ pub enum BlockReason {
     ScriptReadOnly,
     ProductionReview,
     Artwork(crate::live::artwork::copy::Key),
+    Live(crate::live::copy::Key),
     Metadata(crate::localization::generated::live::Key),
     #[cfg(debug_assertions)]
     Forge(crate::messages::forge::Key),
@@ -258,6 +259,7 @@ impl BlockReason {
         match self {
             #[cfg(debug_assertions)]
             Self::Forge(key) => crate::messages::forge::text(key, locale),
+            Self::Live(key) => crate::live::copy::text(key, locale),
             Self::Metadata(key) => crate::localization::generated::live::text(key, locale),
             Self::Artwork(key) => crate::live::artwork::copy::text(key, locale),
             Self::Busy => copy.busy,
@@ -306,6 +308,56 @@ pub(crate) fn action_state(blocked: bool, busy: bool, reason: DisabledReason) ->
     }
 }
 
+/// Static or reactive blocked reason for [`ActionButton`].
+#[derive(Clone, Copy)]
+pub enum ActionReason {
+    Static(BlockReason),
+    Reactive(Signal<BlockReason>),
+}
+
+impl ActionReason {
+    fn get(self) -> BlockReason {
+        match self {
+            Self::Static(reason) => reason,
+            Self::Reactive(reason) => reason.get(),
+        }
+    }
+
+    fn get_untracked(self) -> BlockReason {
+        match self {
+            Self::Static(reason) => reason,
+            Self::Reactive(reason) => reason.get_untracked(),
+        }
+    }
+}
+
+impl From<BlockReason> for ActionReason {
+    fn from(reason: BlockReason) -> Self {
+        Self::Static(reason)
+    }
+}
+
+impl From<Signal<BlockReason>> for ActionReason {
+    fn from(reason: Signal<BlockReason>) -> Self {
+        Self::Reactive(reason)
+    }
+}
+
+impl From<Memo<BlockReason>> for ActionReason {
+    fn from(reason: Memo<BlockReason>) -> Self {
+        Self::Reactive(reason.into())
+    }
+}
+
+impl<F> From<F> for ActionReason
+where
+    F: Fn() -> BlockReason + Send + Sync + 'static,
+{
+    fn from(reason: F) -> Self {
+        Self::Reactive(Signal::derive(reason))
+    }
+}
+
 /// Map existing app guards to the reusable action contract without inferring permissions.
 #[component]
 pub fn ActionButton(
@@ -318,21 +370,34 @@ pub fn ActionButton(
     #[prop(optional)] icon: Option<IconName>,
     #[prop(into, default = false.into())] blocked: Signal<bool>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
-    #[prop(default = BlockReason::ContextReady)] reason: BlockReason,
+    #[prop(into, default = ActionReason::Static(BlockReason::ContextReady))] reason: ActionReason,
     #[prop(into, default = String::new().into())] described_by: Signal<String>,
 ) -> impl IntoView {
-    let (Ok(reason), Ok(loading)) = (
-        LocalizedReason::new(reason),
+    let (Ok(initial), Ok(loading), Ok(fallback)) = (
+        LocalizedReason::new(reason.get_untracked()),
         LocalizedReason::new(BlockReason::Busy),
+        LocalizedReason::new(BlockReason::ContextReady),
     ) else {
         return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp, locale.get_untracked())}</p></ErrorState> }.into_any();
     };
-    let reasons = StoredValue::new((reason, loading));
+    let reasons = StoredValue::new((initial, loading, fallback));
     view! {
         <Button id=id variant=variant nostrip:icon=icon described_by=described_by on_press=on_press focus_on_press=focus_on_press
             state=Signal::derive(move || {
                 let busy = busy.get();
-                let reason = reasons.with_value(|(blocked, loading)| if busy { loading } else { blocked }.get(locale.get()));
+                let current = reason.get();
+                let locale = locale.get();
+                let reason = reasons.with_value(|(initial, loading, fallback)| {
+                    if busy {
+                        loading.get(locale)
+                    } else if matches!(reason, ActionReason::Static(_)) {
+                        initial.get(locale)
+                    } else {
+                        LocalizedReason::new(current)
+                            .map(|localized| localized.get(locale))
+                            .unwrap_or_else(|_| fallback.get(locale))
+                    }
+                });
                 action_state(blocked.get(), busy, reason)
             })>{children()}</Button>
     }.into_any()
@@ -737,6 +802,28 @@ mod tests {
             assert!(html.contains("revision-test-save-reason"));
             assert!(html.contains(text(Key::ValidateFirst, crate::localization::Locale::Vietnamese)));
             assert_eq!(events.get_untracked(), 0);
+        });
+    }
+
+    #[test]
+    fn reactive_action_reason_projects_the_current_blocking_condition() {
+        use crate::localization::generated::live;
+        let owner = Owner::new();
+        owner.with(|| {
+            let reason = RwSignal::new(BlockReason::Metadata(live::Key::FieldEmptyPatch));
+            let render = || {
+                view! {
+                    <ActionButton id="live-patch-work" locale=Signal::stored(crate::localization::Locale::Vietnamese)
+                        blocked=true reason=Signal::from(reason) on_press=Callback::new(|_| {})>"Lưu tiêu đề và mô tả"</ActionButton>
+                }
+                .to_html()
+            };
+            let clean = render();
+            assert!(clean.contains(live::text(live::Key::FieldEmptyPatch, crate::localization::Locale::Vietnamese)));
+            assert!(!clean.contains(text(Key::ControlBlocked, crate::localization::Locale::Vietnamese)));
+            reason.set(BlockReason::Metadata(live::Key::ReasonWorkArchived));
+            let archived = render();
+            assert!(archived.contains(live::text(live::Key::ReasonWorkArchived, crate::localization::Locale::Vietnamese)));
         });
     }
     #[test]
