@@ -239,9 +239,9 @@ mod view {
         });
         view! {
             <p role="status">{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_freshness(b.freshness.clone(),locale.get())).unwrap_or_default())}</p>
-            <p><code>{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_binding(&b.brief)).unwrap_or_default())}</code></p>
+            <div hidden=move ||brief.with(Option::is_none)>
             <p class="help">{move ||text(Key::CopyBriefHelp,locale.get())}</p>
-            <ActionButton id="live-copy-brief" locale=locale reason=copy_reason blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
+            <ActionButton id="live-copy-brief" locale=locale variant=cantos_ui::ButtonVariant::Tonal reason=copy_reason blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
                 if blocked.get_untracked() || copying.get_untracked() { return; }
                 let Some(snapshot)=brief.get_untracked() else {return;};
                 let Ok(value)=serde_json::to_string_pretty(&snapshot.brief) else {copied.set(Some(false));return;};
@@ -263,7 +263,12 @@ mod view {
                 });
             })>{move ||text(Key::CopyBrief,locale.get())}</ActionButton>
             <p role="status">{move ||copied.get().map(|success|text(if success{Key::CopiedBrief}else{Key::CopyBriefFailed},locale.get())).unwrap_or_default()}</p>
-            <details open=move ||copied.get()==Some(false)><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><textarea id="live-brief-document" class="cui-field-control" readonly aria-label=move ||text(Key::Brief,locale.get()) prop:value=move ||brief.with(|b|b.as_ref().and_then(|b|serde_json::to_string_pretty(&b.brief).ok()).unwrap_or_default())/></details>
+            <details class="cw-audio-details" open=move ||copied.get()==Some(false)>
+                <summary>{move ||text(Key::InspectDocument,locale.get())}</summary>
+                <p><code>{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_binding(&b.brief)).unwrap_or_default())}</code></p>
+                <textarea id="live-brief-document" class="cui-field-control" readonly aria-label=move ||text(Key::Brief,locale.get()) prop:value=move ||brief.with(|b|b.as_ref().and_then(|b|serde_json::to_string_pretty(&b.brief).ok()).unwrap_or_default())/>
+            </details>
+            </div>
         }
     }
 }
