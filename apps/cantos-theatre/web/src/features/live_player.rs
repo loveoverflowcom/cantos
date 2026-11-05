@@ -2,26 +2,24 @@
 //! same intents; neither owns audio, a timer or a request. Text comes from the display facts
 //! captured when the listener chose the unit, and only while they describe the session's track.
 use super::{
-    common::{clock, icon},
+    common::clock,
     player_timeline::{PlayerPanel, PlayerTimeline, TimelineCopy},
 };
-use crate::contract::library::Completion;
+use crate::contract::library::{Completion, ProgressKind};
 use crate::{
     app::routes::Route,
     application::{
+        account::RequestFence,
         account_view::{AccountViewState, SessionPhase},
         library_sync::{audio_identity_from_source, ProgressCommandPhase, ProgressConflict},
         player_session::PlayerSession,
         public_listen::NowPlaying,
     },
-    core::playback::{Event, Intent, Status},
+    core::playback::{CallbackIdentity, Event, Intent, Source, Status},
     messages::{self, Key, Locale},
 };
-use cantos_ui::{Button, ButtonVariant, IconName};
+use cantos_ui::{Button, ButtonState, ButtonVariant, DisabledReason, IconName};
 use leptos::prelude::*;
-
-const ICON_RESTART: &str = "restart_alt";
-const ICON_COMPLETED: &str = "check_circle";
 
 /// Optional authenticated progress synchronization controls for the active source.
 #[derive(Clone, Copy)]
@@ -271,6 +269,114 @@ fn clock_ms(locale: Locale, ms: u64) -> String {
     messages::clock_seconds(locale, ms / 1000)
 }
 
+/// A transient recovery action describes this exact rendered command, not a later source
+/// or conflict. The account and sync owners still admit and execute every intent.
+#[derive(Clone)]
+struct ProgressActionTarget {
+    source: Source,
+    identity: CallbackIdentity,
+    fence: RequestFence,
+    command: ProgressCommandPhase,
+}
+
+impl ProgressActionTarget {
+    fn capture(live: LivePlayer, controls: PlayerSyncControls) -> Option<Self> {
+        let source = live.player.source.get()?;
+        let identity = live.player.seek_binding.get()?.identity;
+        let audio = audio_identity_from_source(source)?;
+        controls.account.with(|account| {
+            Some(Self {
+                source,
+                identity,
+                fence: account.fence()?,
+                command: account
+                    .sync()?
+                    .progress_for(&audio.publication_id)?
+                    .command
+                    .clone(),
+            })
+        })
+    }
+
+    fn publication_if_current(
+        &self,
+        live: LivePlayer,
+        controls: PlayerSyncControls,
+    ) -> Option<String> {
+        if live.player.source.get_untracked() != Some(self.source)
+            || live
+                .player
+                .seek_binding
+                .get_untracked()
+                .map(|binding| binding.identity)
+                != Some(self.identity)
+        {
+            return None;
+        }
+        let audio = audio_identity_from_source(self.source)?;
+        controls.account.with_untracked(|account| {
+            (account.accepts(&self.fence)
+                && account
+                    .sync()
+                    .and_then(|sync| sync.progress_for(&audio.publication_id))
+                    .is_some_and(|state| state.command == self.command))
+            .then_some(audio.publication_id)
+        })
+    }
+}
+
+fn progress_action_state(
+    command: &ProgressCommandPhase,
+    completed: bool,
+    action: ProgressKind,
+    locale: Locale,
+) -> ButtonState {
+    let (reason, loading) = match command {
+        ProgressCommandPhase::Pending { write, .. } => (
+            messages::text(Key::LiveProgressPending, locale).to_owned(),
+            write.kind == action,
+        ),
+        ProgressCommandPhase::UnknownOutcome { .. } => (
+            messages::text(Key::LiveProgressUnknown, locale).to_owned(),
+            false,
+        ),
+        ProgressCommandPhase::Conflict(ProgressConflict::ListenerChooses {
+            local_position_ms,
+            server,
+            ..
+        }) => (
+            messages::message(
+                locale,
+                crate::localization::generated::Message::TheatreShellLiveProgressConflictPrompt {
+                    arg_local: &clock_ms(locale, *local_position_ms),
+                    arg_server: &clock_ms(locale, server.position_ms),
+                },
+            ),
+            false,
+        ),
+        ProgressCommandPhase::Idle
+        | ProgressCommandPhase::Failed { .. }
+        | ProgressCommandPhase::Conflict(ProgressConflict::KeepServer { .. }) => {
+            if action != ProgressKind::MarkCompleted || !completed {
+                return ButtonState::Enabled;
+            }
+            (
+                messages::text(Key::LiveResumeCompleted, locale).to_owned(),
+                false,
+            )
+        }
+    };
+    DisabledReason::new(reason)
+        .map(|reason| {
+            if loading {
+                ButtonState::Loading(reason)
+            } else {
+                ButtonState::Disabled(reason)
+            }
+        })
+        .unwrap_or_default()
+}
+
 #[component]
 fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoView {
     let signed_in = move || {
@@ -307,12 +413,22 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
             .map(|state| state.command)
             .unwrap_or(ProgressCommandPhase::Idle)
     };
-    let busy = move || {
-        matches!(
-            cmd(),
-            ProgressCommandPhase::Pending { .. } | ProgressCommandPhase::UnknownOutcome { .. }
+    let restart_state = Signal::derive(move || {
+        progress_action_state(
+            &cmd(),
+            is_completed(),
+            ProgressKind::Restart,
+            live.locale.get(),
         )
-    };
+    });
+    let completed_state = Signal::derive(move || {
+        progress_action_state(
+            &cmd(),
+            is_completed(),
+            ProgressKind::MarkCompleted,
+            live.locale.get(),
+        )
+    });
     let conflict = move || match cmd() {
         ProgressCommandPhase::Conflict(ProgressConflict::ListenerChooses {
             local_position_ms,
@@ -325,46 +441,60 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
     view! {
         <Show when=signed_in>
             <div class="theatre-player-sync">
+                // The sync owner refuses ordinary intents until this choice is resolved.
+                // Give the two admitted choices space instead of repeating their prompt.
+                <Show when=move || conflict().is_none()>
                 <div class="theatre-actions">
-                    <button type="button" id="theatre-player-restart" class="theatre-action theatre-action-tonal"
-                        disabled=busy
-                        on:click=move |_| controls.on_restart.run(())>
-                        {icon(ICON_RESTART)}
-                        <span class="cui-control-label">{move || live.text(Key::LiveRestartFromBeginning)}</span>
-                    </button>
-                    <button type="button" id="theatre-player-mark-completed" class="theatre-action theatre-action-tonal"
-                        disabled=move || busy() || is_completed()
-                        on:click=move |_| controls.on_mark_completed.run(())>
-                        {icon(ICON_COMPLETED)}
-                        <span class="cui-control-label">
-                            {move || if is_completed() {
-                                live.text(Key::LiveResumeCompleted)
-                            } else {
-                                live.text(Key::LiveMarkCompleted)
-                            }}
-                        </span>
-                    </button>
+                    <Button id="theatre-player-restart" variant=ButtonVariant::Tonal icon=IconName::Refresh
+                        state=restart_state
+                        on_press=Callback::new(move |_| {
+                            if signed_in() && restart_state.get_untracked().can_press() {
+                                controls.on_restart.run(());
+                            }
+                        })>
+                        {move || live.text(Key::LiveRestartFromBeginning)}
+                    </Button>
+                    <Button id="theatre-player-mark-completed" variant=ButtonVariant::Tonal icon=IconName::Check
+                        state=completed_state
+                        on_press=Callback::new(move |_| {
+                            if signed_in() && completed_state.get_untracked().can_press() {
+                                controls.on_mark_completed.run(());
+                            }
+                        })>
+                        {move || if is_completed() {
+                            live.text(Key::LiveResumeCompleted)
+                        } else {
+                            live.text(Key::LiveMarkCompleted)
+                        }}
+                    </Button>
                 </div>
+                </Show>
                 {move || match cmd() {
-                    ProgressCommandPhase::Pending { .. } => view! {
+                    // A direct action's shared Loading reason is the one live announcement.
+                    ProgressCommandPhase::Pending { write, .. }
+                        if !matches!(write.kind, ProgressKind::Restart | ProgressKind::MarkCompleted) => view! {
                         <p class="theatre-meta" role="status">{live.text(Key::LiveProgressPending)}</p>
                     }.into_any(),
                     ProgressCommandPhase::UnknownOutcome { .. } => view! {
                         <p class="theatre-meta" role="status">{live.text(Key::LiveProgressUnknown)}</p>
                     }.into_any(),
-                    ProgressCommandPhase::Failed { .. } => view! {
-                        <div class="theatre-inline-error" role="status">
-                            <span>{live.text(Key::LiveProgressError)}</span>
-                            <button type="button" class="theatre-action theatre-action-tonal"
-                                on:click=move |_| {
-                                    if let Some(pub_id) = publication() {
-                                        controls.on_retry_progress.run(pub_id);
-                                    }
-                                }>
-                                <span class="cui-control-label">{live.text(Key::PublicRetry)}</span>
-                            </button>
-                        </div>
-                    }.into_any(),
+                    ProgressCommandPhase::Failed { .. } => {
+                        let target = ProgressActionTarget::capture(live, controls);
+                        view! {
+                            <div class="theatre-inline-error">
+                                <span id="theatre-player-progress-error" role="status">{move || live.text(Key::LiveProgressError)}</span>
+                                <Button id="theatre-player-progress-retry" variant=ButtonVariant::Tonal
+                                    described_by="theatre-player-progress-error"
+                                    on_press=Callback::new(move |_| {
+                                        if let Some(pub_id) = target.as_ref().and_then(|target| target.publication_if_current(live, controls)) {
+                                            controls.on_retry_progress.run(pub_id);
+                                        }
+                                    })>
+                                    {move || live.text(Key::PublicRetry)}
+                                </Button>
+                            </div>
+                        }.into_any()
+                    },
                     ProgressCommandPhase::Conflict(ProgressConflict::KeepServer { server, .. }) => view! {
                         <p class="theatre-meta" role="status">
                             {messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressKeepServer { arg_time: &(clock_ms(live.locale.get(), server.position_ms)) })}
@@ -373,6 +503,8 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
                     _ => ().into_any(),
                 }}
                 {move || conflict().map(|(local_ms, server)| {
+                    let here_target = ProgressActionTarget::capture(live, controls);
+                    let other_target = here_target.clone();
                     let local_pos = clock_ms(live.locale.get(), local_ms);
                     let server_pos = clock_ms(live.locale.get(), server.position_ms);
                     let local_btn = local_pos.clone();
@@ -380,30 +512,28 @@ fn PlayerSyncPanel(live: LivePlayer, controls: PlayerSyncControls) -> impl IntoV
                     view! {
                         <div class="theatre-conflict-card theatre-panel" role="region"
                             aria-label=move || live.text(Key::LiveProgressError)>
-                            <p class="theatre-meta">
+                            <p id="theatre-player-conflict-reason" class="theatre-meta">
                                 {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressConflictPrompt { arg_local: &(local_pos.clone()), arg_server: &(server_pos.clone()) })}
                             </p>
                             <div class="theatre-actions">
-                                <button type="button" class="theatre-action theatre-action-tonal"
-                                    on:click=move |_| {
-                                        if let Some(pub_id) = publication() {
+                                <Button id="theatre-player-resolve-here" variant=ButtonVariant::Tonal
+                                    described_by="theatre-player-conflict-reason"
+                                    on_press=Callback::new(move |_| {
+                                        if let Some(pub_id) = here_target.as_ref().and_then(|target| target.publication_if_current(live, controls)) {
                                             controls.on_resolve_conflict.run((pub_id, true));
                                         }
-                                    }>
-                                    <span class="cui-control-label">
-                                        {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveHere { arg_time: &(local_btn.clone()) })}
-                                    </span>
-                                </button>
-                                <button type="button" class="theatre-action theatre-action-tonal"
-                                    on:click=move |_| {
-                                        if let Some(pub_id) = publication() {
+                                    })>
+                                    {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveHere { arg_time: &(local_btn.clone()) })}
+                                </Button>
+                                <Button id="theatre-player-resolve-other" variant=ButtonVariant::Tonal
+                                    described_by="theatre-player-conflict-reason"
+                                    on_press=Callback::new(move |_| {
+                                        if let Some(pub_id) = other_target.as_ref().and_then(|target| target.publication_if_current(live, controls)) {
                                             controls.on_resolve_conflict.run((pub_id, false));
                                         }
-                                    }>
-                                    <span class="cui-control-label">
-                                        {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveOther { arg_time: &(server_btn.clone()) })}
-                                    </span>
-                                </button>
+                                    })>
+                                    {move || messages::message(live.locale.get(), crate::localization::generated::Message::TheatreShellLiveProgressResolveOther { arg_time: &(server_btn.clone()) })}
+                                </Button>
                             </div>
                         </div>
                     }
@@ -522,6 +652,228 @@ mod tests {
     }
     fn identity(live: LivePlayer) -> crate::core::playback::CallbackIdentity {
         live.player.state.get_untracked().identity().unwrap()
+    }
+
+    fn sync_fixture(
+        live: LivePlayer,
+        kind: ProgressKind,
+    ) -> (RwSignal<AccountViewState>, PlayerSyncControls, String) {
+        use crate::application::{account::AccountScope, account_view::SessionCompletion};
+        let mut state = AccountViewState::default();
+        let refresh = state.begin_refresh().unwrap();
+        assert!(matches!(
+            state.finish_session(
+                refresh,
+                Ok(AccountScope::from_session(
+                    "listener-a".into(),
+                    uuid::Uuid::from_u128(10).to_string()
+                )
+                .unwrap()),
+                || uuid::Uuid::from_u128(100).to_string()
+            ),
+            Ok(SessionCompletion::Authenticated(_))
+        ));
+        let operation = uuid::Uuid::from_u128(501).to_string();
+        state.seed_sync(|sync, _| {
+            assert!(sync
+                .record_progress_intent(
+                    audio_identity_from_source(live.player.source.get_untracked().unwrap())
+                        .unwrap(),
+                    45_000,
+                    kind,
+                    true,
+                    1_000,
+                    || operation.clone()
+                )
+                .is_some());
+        });
+        let account = RwSignal::new(state);
+        let controls = PlayerSyncControls {
+            account: account.read_only(),
+            on_mark_completed: Callback::new(|_| {}),
+            on_restart: Callback::new(|_| {}),
+            on_resolve_conflict: Callback::new(|_| {}),
+            on_retry_progress: Callback::new(|_| {}),
+        };
+        (account, controls, operation)
+    }
+
+    fn sync_html(live: LivePlayer, controls: PlayerSyncControls) -> String {
+        view! { <PlayerSyncPanel live controls/> }.to_html()
+    }
+
+    fn button_tag<'a>(html: &'a str, id: &str) -> &'a str {
+        html.split(&format!("id=\"{id}\""))
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap()
+    }
+
+    #[test]
+    fn progress_pending_and_unknown_keep_their_reason_without_optimistic_completion_or_duplicate_announcements(
+    ) {
+        for locale in Locale::supported() {
+            for kind in [
+                ProgressKind::Restart,
+                ProgressKind::MarkCompleted,
+                ProgressKind::Checkpoint,
+            ] {
+                Owner::new().with(|| {
+                    let live = live(locale);
+                    choose(live, 1, "Chương một");
+                    let (account, controls, operation) = sync_fixture(live, kind);
+                    let html = sync_html(live, controls);
+                    for (id, own_kind) in [
+                        ("theatre-player-restart", ProgressKind::Restart),
+                        ("theatre-player-mark-completed", ProgressKind::MarkCompleted),
+                    ] {
+                        let tag = button_tag(&html, id);
+                        assert!(tag.contains("disabled"), "{tag}");
+                        assert_eq!(
+                            tag.contains("aria-busy=\"true\""),
+                            own_kind == kind,
+                            "{tag}"
+                        );
+                        assert!(
+                            tag.contains(&format!("aria-describedby=\"{id}-reason\"")),
+                            "{tag}"
+                        );
+                    }
+                    assert_eq!(html.matches("role=\"status\"").count(), 1, "{html}");
+                    assert!(html.contains(live.text(Key::LiveProgressPending)));
+                    assert!(
+                        !html.contains(live.text(Key::LiveResumeCompleted)),
+                        "unacknowledged completion: {html}"
+                    );
+                    account.update(|account| {
+                        account.seed_sync(|sync, _| {
+                            assert!(sync.record_unknown_outcome(&operation));
+                        });
+                    });
+                    let html = sync_html(live, controls);
+                    assert!(html.contains(live.text(Key::LiveProgressUnknown)));
+                    assert!(
+                        !html.contains("aria-busy"),
+                        "unknown is not a live request: {html}"
+                    );
+                    assert!(!html.contains("theatre-player-progress-retry"));
+                    assert_eq!(html.matches("role=\"status\"").count(), 1, "{html}");
+                    for id in ["theatre-player-restart", "theatre-player-mark-completed"] {
+                        assert!(button_tag(&html, id).contains("data-state=\"disabled\""));
+                    }
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn progress_retry_targets_only_the_rendered_failure_source_and_session() {
+        use crate::application::library_sync::CommandError;
+        Owner::new().with(|| {
+            let live = live(Locale::English);
+            choose(live, 1, "Chapter one");
+            let (account, controls, operation) = sync_fixture(live, ProgressKind::MarkCompleted);
+            account.update(|account| {
+                account.seed_sync(|sync, _| {
+                    assert!(
+                        sync.record_command_error(&operation, CommandError::Forbidden, || {
+                            uuid::Uuid::from_u128(700).to_string()
+                        })
+                    );
+                });
+            });
+            let target = ProgressActionTarget::capture(live, controls).unwrap();
+            let publication = target.publication_if_current(live, controls).unwrap();
+            let html = sync_html(live, controls);
+            assert!(button_tag(&html, "theatre-player-progress-retry")
+                .contains("aria-describedby=\"theatre-player-progress-error\""));
+            assert!(html.contains(live.text(Key::LiveProgressError)));
+            assert!(!html.contains(live.text(Key::LiveResumeCompleted)));
+            choose(live, 2, "Chapter two");
+            assert_eq!(target.publication_if_current(live, controls), None);
+            assert!(!sync_html(live, controls).contains("theatre-player-progress-retry"));
+            choose(live, 1, "Chapter one");
+            assert_eq!(
+                target.publication_if_current(live, controls),
+                None,
+                "A to B to A keeps a new playback binding"
+            );
+            account.update(|account| {
+                account.seed_sync(|sync, _| {
+                    assert!(sync
+                        .retry_progress(
+                            &publication,
+                            || uuid::Uuid::from_u128(502).to_string(),
+                            None
+                        )
+                        .is_some());
+                });
+            });
+            assert_eq!(
+                target.publication_if_current(live, controls),
+                None,
+                "old failure cannot retry a newer command"
+            );
+            let pending_target = ProgressActionTarget::capture(live, controls).unwrap();
+            account.update(|account| {
+                account.begin_logout().unwrap();
+            });
+            assert_eq!(pending_target.publication_if_current(live, controls), None);
+            assert!(!sync_html(live, controls).contains("theatre-player-restart"));
+        });
+    }
+
+    #[test]
+    fn only_a_confirmed_completed_record_changes_the_completion_label() {
+        use crate::contract::library::{MutationState, ProgressRecord, Receipt, WriteOutcome};
+        for locale in Locale::supported() {
+            Owner::new().with(|| {
+                let live = live(locale);
+                choose(live, 1, "Chương một");
+                let (account, controls, operation) =
+                    sync_fixture(live, ProgressKind::MarkCompleted);
+                let audio = audio_identity_from_source(live.player.source.get_untracked().unwrap())
+                    .unwrap();
+                account.update(|account| {
+                    account.seed_sync(|sync, _| {
+                        sync.apply_receipt(
+                            &operation,
+                            Receipt {
+                                operation_id: operation.clone(),
+                                outcome: WriteOutcome::Accepted,
+                                resolution: None,
+                                state: MutationState::Progress {
+                                    current: Some(ProgressRecord {
+                                        position_ms: audio.duration_ms,
+                                        audio,
+                                        completion: Completion::Completed,
+                                        kind: ProgressKind::MarkCompleted,
+                                        revision: 1,
+                                        listener_order: 1,
+                                        accepted_at_ms: 2_000,
+                                        written_by: uuid::Uuid::from_u128(100).to_string(),
+                                    }),
+                                },
+                            },
+                            false,
+                            || uuid::Uuid::from_u128(502).to_string(),
+                            None,
+                        )
+                        .unwrap();
+                    });
+                });
+                let html = sync_html(live, controls);
+                assert!(html.contains(live.text(Key::LiveResumeCompleted)));
+                assert!(button_tag(&html, "theatre-player-mark-completed")
+                    .contains("data-state=\"disabled\""));
+                assert!(
+                    button_tag(&html, "theatre-player-restart").contains("data-state=\"enabled\"")
+                );
+                assert!(!html.contains("aria-busy"));
+            });
+        }
     }
 
     #[test]
@@ -860,8 +1212,7 @@ mod tests {
     }
 
     #[test]
-    fn player_sync_panel_renders_restart_mark_completed_and_conflict_resolution_for_signed_in_listener(
-    ) {
+    fn player_sync_panel_prioritizes_qualified_conflict_choices_over_blocked_progress_intents() {
         use crate::application::{
             account::AccountScope,
             account_view::{AccountViewState, SessionCompletion},
@@ -929,18 +1280,60 @@ mod tests {
                 );
             });
 
+            let account = RwSignal::new(account);
             let sync_controls = PlayerSyncControls {
-                account: RwSignal::new(account).read_only(),
+                account: account.read_only(),
                 on_mark_completed: Callback::new(|_| {}),
                 on_restart: Callback::new(|_| {}),
                 on_resolve_conflict: Callback::new(|_| {}),
                 on_retry_progress: Callback::new(|_| {}),
             };
             let html = view! { <LivePlayerScreen live sync_controls/> }.to_html();
-            assert!(html.contains("id=\"theatre-player-restart\""));
-            assert!(html.contains("id=\"theatre-player-mark-completed\""));
+            assert!(!html.contains("id=\"theatre-player-restart\""));
+            assert!(!html.contains("id=\"theatre-player-mark-completed\""));
             assert!(html.contains("Giữ vị trí tại đây (0:45)"));
             assert!(html.contains("Theo vị trí trên máy chủ (1:30)"));
+            for id in [
+                "theatre-player-resolve-here",
+                "theatre-player-resolve-other",
+            ] {
+                let button = html.split(&format!("id=\"{id}\"")).nth(1).unwrap();
+                let anatomy = button.split('>').next().unwrap();
+                assert!(anatomy.contains("cui-button"), "{id}: {anatomy}");
+                assert!(anatomy.contains("data-variant=\"tonal\""), "{anatomy}");
+                assert!(!anatomy.contains("theatre-action"), "{anatomy}");
+            }
+            assert_eq!(
+                html.matches("Vị trí nghe khác nhau").count(),
+                1,
+                "one visible conflict prompt"
+            );
+            assert!(
+                !html.contains("aria-busy"),
+                "an unresolved choice is not a request"
+            );
+            let target = ProgressActionTarget::capture(live, sync_controls).unwrap();
+            let publication = target.publication_if_current(live, sync_controls).unwrap();
+            account.update(|account| {
+                account.seed_sync(|sync, _| {
+                    assert!(sync
+                        .resolve_progress_conflict(
+                            &publication,
+                            false,
+                            || uuid::Uuid::from_u128(503).to_string(),
+                            None
+                        )
+                        .is_some());
+                });
+            });
+            assert_eq!(
+                target.publication_if_current(live, sync_controls),
+                None,
+                "the old choice cannot resolve a pending command twice"
+            );
+            let html = sync_html(live, sync_controls);
+            assert!(!html.contains("theatre-player-resolve-here"));
+            assert_eq!(html.matches("role=\"status\"").count(), 1, "{html}");
         });
     }
 }
