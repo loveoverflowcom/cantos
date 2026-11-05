@@ -1148,6 +1148,8 @@ pub fn ContentWorkspace(
         facts.with(|f| projection::row_ids(f.units.iter().map(|unit| unit.id.as_str())))
     });
     let report = Memo::new(move |_| state.with(feedback::feedback));
+    let banner = Memo::new(move |_| state.with(super::dashboard::RequestBanner::of));
+    let banner_text = move || banner.get() == super::dashboard::RequestBanner::Full;
     // Names the operation and target a settled outcome answers; a title is looked up by ID, so a
     // removed or unlisted entity simply has none.
     let feedback_context = move || -> String {
@@ -1263,12 +1265,12 @@ pub fn ContentWorkspace(
                     <p class="cw-state" role="status" data-state=move ||editor_status.get().as_str() hidden=move ||!has_unit.get()>{move ||editor_status_text()}</p>
                 </header>
                 <p class="cw-unsaved" role="status" hidden=move ||!drafts.with(super::drafts::AuthoringDrafts::has_unsaved)>{move ||text(Key::UnsavedDrafts,locale.get())}</p>
-                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" data-outcome=move ||format!("{:?}",report.get().outcome) hidden=move ||state.with(|s|s.phase()==Phase::Idle)><p>{outcome_text}</p>
-                    <p class="cw-feedback-target" hidden=move ||feedback_context().is_empty()>{feedback_context}</p>
-                    {move ||if report.get().outcome==Outcome::MissingHead {String::new()} else {state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default()).to_owned()}}
-                    <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,locale.get())}else{""}}</p>
-                    <super::field_issues::FieldIssues locale=locale issues=Signal::derive(move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}))/>
-                    <div class="toolbar" hidden=move ||state.with(|s|s.phase()!=Phase::Pending&&!s.can_reconcile()&&!s.can_retry())><span hidden=move ||state.with(|s|s.phase()!=Phase::Pending)><ActionButton id="live-cancel" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|{cancel_request.run(());focus_workspace_field("live-status");})>{move ||text(Key::Cancel,locale.get())}</ActionButton></span>
+                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" data-outcome=move ||format!("{:?}",report.get().outcome) hidden=move ||banner.get()==super::dashboard::RequestBanner::Hidden><p hidden=move ||!banner_text()>{outcome_text}</p>
+                    <p class="cw-feedback-target" hidden=move ||!banner_text()||feedback_context().is_empty()>{feedback_context}</p>
+                    {move ||if !banner_text()||report.get().outcome==Outcome::MissingHead {String::new()} else {state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default()).to_owned()}}
+                    <p hidden=move ||!banner_text()>{move ||if state.with(RequestState::is_empty){text(Key::Empty,locale.get())}else{""}}</p>
+                    <super::field_issues::FieldIssues locale=locale issues=Signal::derive(move ||if !banner_text() {vec![]} else {state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]})})/>
+                    <div class="toolbar" hidden=move ||state.with(|s|s.phase()!=Phase::Pending&&!s.can_reconcile()&&!s.can_retry())><span hidden=move ||state.with(|s|s.phase()!=Phase::Pending)><ActionButton id="live-cancel" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|{let list_read=banner.get_untracked()==super::dashboard::RequestBanner::ActionsOnly;cancel_request.run(());focus_workspace_field(if list_read {"live-works"} else {"live-status"});})>{move ||text(Key::Cancel,locale.get())}</ActionButton></span>
                     <span hidden=move ||state.with(|s|!s.can_reconcile())><ActionButton id="live-reconcile" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|{dispatch.reconcile();focus_workspace_field("live-status");})>{move ||text(Key::Reconcile,locale.get())}</ActionButton></span>
                     <span hidden=move ||state.with(|s|!s.can_retry())><ActionButton id="live-retry" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_retry())) on_press=Callback::new(move |_|{dispatch.retry();focus_workspace_field("live-status");})>{move ||text(Key::Retry,locale.get())}</ActionButton></span></div>
                 </div>

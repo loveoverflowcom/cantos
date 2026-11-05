@@ -127,3 +127,35 @@ asserts the public phase/actor/target/result and the final focused suite passes.
 Not run: deployed production acceptance, Firefox/WebKit, screen reader, OS IME, 200% text,
 full keyboard/touch tour or playback. No production mutation, merge or deployment occurred.
 These limits do not claim acceptance outside the four issue-scoped catalog criteria.
+
+## Review follow-up: one announcer per catalog read
+
+A read-only review of PR #724 at `b47ce453` found that direct Content showed the catalog
+state twice. Observed in the real Studio CSR with an in-page synthetic `/api/*` stub
+(Trunk 0.21.14, built-in Chromium pane, vi-VN): an automatic empty read showed the generic
+request banner (`Đã nhận xác nhận từ server.` / `Trang này chưa có nội dung.`) above the new
+`Trang này chưa có tác phẩm` block; a 503 and a pending read likewise produced two polite
+status regions with overlapping text. The desk was unaffected because its banner is hidden.
+
+`RequestBanner::of` is a pure projection of `RequestState`: idle is hidden; a `Works` read
+keeps only the banner's existing cancel/reconcile/retry actions while one is available and is
+otherwise hidden; every other request keeps the full banner. Cancelling a list read focuses
+list refresh (`live-works`) instead of the now-hidden banner. The successful-empty catalog
+block gained the same `role="status"`/`aria-live="polite"` as the other catalog states, so
+the empty outcome remains announced once.
+
+Native: `request_banner_defers_list_read_state_to_catalog_status_but_keeps_its_actions`
+covers idle, pending, empty, failed and cancelled list reads and a non-list paged read; the
+locale status test now also asserts that every non-row catalog state renders a status region.
+`cargo test -p cantos-studio --locked`: 481 unit tests + 5 doctests PASS; native and WASM
+clippy (`-D warnings`) and `cargo fmt --all -- --check` PASS.
+
+Browser, synthetic API (not Server/Identity), served wasm
+`98d56fee1024e6cb8f1fe13e78b241d3fd14cb1fbba069db0bf8794f3a2c5494`; the committed sources
+differ from the served build only by `rustfmt` whitespace. Observed: cold direct Content issues
+exactly one session read and one `works?limit=20` read; empty and failed reads show one visible
+status region and no banner; pending shows `Đang đọc tác phẩm…` plus only the cancel action;
+cancel moves focus to `live-works` and shows the failed state; explicit refresh lists two rows
+with the choose-Work hint; opening a Work still shows the full banner with its failure detail;
+desk → Content navigation issues no further list read. Not run in this follow-up: narrow
+viewport, English locale, screen reader, real Server/Identity and other browsers.

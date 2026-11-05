@@ -60,6 +60,28 @@ impl DashboardQuery {
     }
 }
 
+/// What Content's request banner shows. `CatalogStatus` is the one announcer of a Work-list
+/// read, so for that read the banner keeps only its request actions (cancel, reconcile, retry).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RequestBanner {
+    Hidden,
+    ActionsOnly,
+    Full,
+}
+
+impl RequestBanner {
+    pub fn of(state: &super::RequestState) -> Self {
+        let has_actions =
+            state.phase() == super::Phase::Pending || state.can_reconcile() || state.can_retry();
+        match (state.phase(), state.command()) {
+            (super::Phase::Idle, _) => Self::Hidden,
+            (_, Some(super::Command::Works { .. })) if has_actions => Self::ActionsOnly,
+            (_, Some(super::Command::Works { .. })) => Self::Hidden,
+            _ => Self::Full,
+        }
+    }
+}
+
 /// Shared by the desk and Content: only a successful bounded page can be empty.
 #[component]
 pub fn CatalogStatus(
@@ -74,7 +96,7 @@ pub fn CatalogStatus(
             <div role="status" aria-live="polite"><h4>{move ||text(Key::ReadFailed,locale.get())}</h4><p>{move ||text(Key::RetryHelp,locale.get())}</p></div>
         </Show>
         <Show when=move || query.with(|q| q.read == CatalogRead::Ready) && !has_rows.get()>
-            <div><h4>{move ||text(Key::EmptyTitle,locale.get())}</h4><p>{move ||text(Key::EmptyHelp,locale.get())}</p></div>
+            <div role="status" aria-live="polite"><h4>{move ||text(Key::EmptyTitle,locale.get())}</h4><p>{move ||text(Key::EmptyHelp,locale.get())}</p></div>
         </Show>
     }
 }
@@ -259,6 +281,43 @@ mod tests {
     }
 
     #[test]
+    fn request_banner_defers_list_read_state_to_catalog_status_but_keeps_its_actions() {
+        use super::super::{Command, Phase, RequestState};
+        let idle = RequestState::default()
+            .context("alice", "workspace:4")
+            .unwrap();
+        assert_eq!(RequestBanner::of(&idle), RequestBanner::Hidden);
+        let page = |items| {
+            Ok(Reply::Works(CatalogPage {
+                items,
+                next_cursor: None,
+            }))
+        };
+        let (reading, ticket) = idle.begin(Command::Works { cursor: None }).unwrap();
+        assert_eq!(reading.phase(), Phase::Pending);
+        // Cancel stays reachable; CatalogStatus alone announces loading.
+        assert_eq!(RequestBanner::of(&reading), RequestBanner::ActionsOnly);
+        for settled in [
+            reading.finish(ticket, page(vec![])),
+            reading.finish(ticket, Err(ClientError::Transport)),
+            reading.cancel().unwrap(),
+        ] {
+            assert_ne!(settled.phase(), Phase::Pending);
+            assert_eq!(RequestBanner::of(&settled), RequestBanner::Hidden);
+        }
+        // Other requests keep the full banner, including other paged reads.
+        let (units, ticket) = idle
+            .begin(Command::Units {
+                work: "w".into(),
+                cursor: None,
+            })
+            .unwrap();
+        assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
+        let units = units.finish(ticket, Err(ClientError::Transport));
+        assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
+    }
+
+    #[test]
     fn catalog_read_of_old_actor_or_epoch_cannot_complete_the_current_request() {
         use super::super::{Command, RequestState};
         let current = RequestState::default()
@@ -298,6 +357,8 @@ mod tests {
                         let html = view! { <CatalogStatus query=query has_rows=Signal::stored(has_rows) locale=Signal::stored(language)/ > }.to_html();
                         let ready = read == CatalogRead::Ready;
                         assert_eq!(query.with(|q| q.has_choices(has_rows)), ready && has_rows);
+                        // Every catalog state is announced; Content's request banner defers to it.
+                        assert_eq!(html.contains("role=\"status\""), !(ready && has_rows), "{html}");
                         for key in [Key::NotRead, Key::Loading, Key::ReadFailed, Key::EmptyTitle] {
                             let expected_text = text(key, language) == text(expected, language) && !(ready && has_rows);
                             assert_eq!(html.contains(text(key, language)), expected_text, "{html}");

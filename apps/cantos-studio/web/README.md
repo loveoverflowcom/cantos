@@ -135,6 +135,8 @@ Hidden authoring panes do not start that read. Content uses the desk's catalog o
 unread, loading, failed, successful-empty and rows remain distinct, and the choose-Work hint
 appears only after a successful page containing choices. Failure waits for explicit list
 refresh; returning between the mounted desk and Content does not repeat the initial request.
+That catalog status is the only announcer of a Work-list read: Content's request banner keeps
+just its cancel/recovery actions for that read, and cancelling returns focus to list refresh.
 The [#722 evidence](../../../docs/evidence/studio-content-auto-read-722.md) separates native,
 synthetic-HTTP browser and real local Server/Identity/Turso observations from production.
 The desk is work-first: the bounded Work list follows the heading and actions, **Continue** is a
