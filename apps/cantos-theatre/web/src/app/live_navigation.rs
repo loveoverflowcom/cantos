@@ -4,6 +4,7 @@ use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthIntentState, AuthRequestFence, AuthRoute, ReturnDestination},
+        library::Section,
         public_discovery::DiscoveryQuery,
     },
     core::public_ids::PublicWorkId,
@@ -13,6 +14,15 @@ use leptos::prelude::*;
 
 fn observed_session_phase(state: ReadSignal<AccountViewState>) -> Memo<SessionPhase> {
     Memo::new(move |_| state.with(AccountViewState::phase))
+}
+
+/// History always reveals its section. Saved is specific to the shortcut's history entry.
+fn library_focus_target(route: Route, saved_entry: bool) -> Option<Section> {
+    match route {
+        Route::History => Some(Section::History),
+        Route::Library if saved_entry => Some(Section::Saved),
+        _ => None,
+    }
 }
 
 /// An older discovery link may still carry the content-language filter that was retired (#424).
@@ -75,8 +85,19 @@ impl LiveNavigation {
         let previous = StoredValue::new(navigation.route.get_untracked());
         Effect::new(move |_| {
             let current = navigation.route.get();
-            if previous.get_value() != current {
-                let old = previous.get_value();
+            let section = library_focus_target(
+                current,
+                current == Route::Library && browser::is_saved_entry(),
+            )
+            .filter(|_| phase.get() == SessionPhase::SignedIn);
+            let old = previous.get_value();
+            if old == current {
+                // A pending session or coalesced history traversal can remount this section
+                // even when the route seen by this effect is unchanged.
+                if section.is_some() {
+                    navigation.focus_after_mount(main, current, section);
+                }
+            } else {
                 previous.set_value(current);
                 navigation.intents.update(|s| {
                     let _ = s.observe_route(match current {
@@ -93,6 +114,8 @@ impl LiveNavigation {
                     {
                         let _ = destination;
                         browser::restore_return(snapshot);
+                    } else if section.is_some() {
+                        navigation.focus_after_mount(main, current, section);
                     } else {
                         platform::focus_main(main);
                     }
@@ -125,9 +148,7 @@ impl LiveNavigation {
                     if let Some(window) = web_sys::window() {
                         window.scroll_to_with_x_and_y(0.0, 0.0);
                     }
-                    leptos::leptos_dom::helpers::request_animation_frame(move || {
-                        platform::focus_main(main)
-                    });
+                    navigation.focus_after_mount(main, current, section);
                 }
             }
         });
@@ -175,6 +196,27 @@ impl LiveNavigation {
             });
         }
         navigation
+    }
+
+    fn focus_after_mount(
+        self,
+        main: NodeRef<leptos::html::Main>,
+        route: Route,
+        section: Option<Section>,
+    ) {
+        leptos::leptos_dom::helpers::request_animation_frame(move || {
+            if self.route.try_get_untracked() == Some(route) {
+                let section = section.filter(|target| {
+                    self.phase.try_get_untracked() == Some(SessionPhase::SignedIn)
+                        && (*target != Section::Saved || browser::is_saved_entry())
+                });
+                platform::focus_library_section(main, section);
+            }
+        });
+    }
+
+    pub fn open_saved(self) -> bool {
+        self.phase.get_untracked() == SessionPhase::SignedIn && browser::open_saved(self.route)
     }
 
     /// One traversal can emit both popstate and hashchange. Publish each changed fact once:
@@ -551,6 +593,21 @@ mod tests {
                 ]
             );
         });
+    }
+
+    #[test]
+    fn only_the_saved_shortcut_entry_targets_saved() {
+        assert_eq!(
+            library_focus_target(Route::Library, true),
+            Some(Section::Saved)
+        );
+        assert_eq!(library_focus_target(Route::Library, false), None);
+        assert_eq!(
+            library_focus_target(Route::History, false),
+            Some(Section::History)
+        );
+        assert_eq!(library_focus_target(Route::Account, true), None);
+        assert_eq!(Route::History.primary_navigation(), Some(Route::Library));
     }
 
     const EMAIL: &str = "listener@example.invalid";

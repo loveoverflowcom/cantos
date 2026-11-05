@@ -185,6 +185,12 @@ otherwise. Its height does not affect the spacing between account controls. The 
 links to the existing information page, which states registration availability. Native links,
 session recovery and the shell-owned sign-out confirmation retain their existing owners.
 
+Activating Saved from Me focuses and reveals the existing Saved heading at `#library`.
+That focus intent belongs to the browser history entry, so a normal Library link still opens at
+the top. History focuses its heading at `#history`, including after a pending session check.
+Section headings stay outside the Tab order. If the destination is unavailable, focus falls back
+to the main landmark.
+
 Me and navigation consume the existing session-bound Server-generated alias/seed projection
 through the shared Lavender Pair Avatar. Me uses the alias as its profile heading and the
 localized greeting as supporting text; missing presentation retains a truthful person fallback.

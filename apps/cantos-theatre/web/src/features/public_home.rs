@@ -58,13 +58,6 @@ pub(crate) fn page_focus_target(state: &PublicDiscoveryState) -> String {
         .unwrap_or_else(|| STATUS_ID.to_owned())
 }
 
-/// Plain primary activation is routed in-app; modified clicks keep native new-tab behavior.
-fn in_app_activation(event: &leptos::ev::MouseEvent) -> bool {
-    event.button() == 0
-        && !event.default_prevented()
-        && !(event.ctrl_key() || event.meta_key() || event.shift_key() || event.alt_key())
-}
-
 /// Whether the key was pressed in an `<input>`, not on a chip or a button inside the form.
 fn from_text_field(event: &leptos::ev::KeyboardEvent) -> bool {
     use leptos::wasm_bindgen::JsCast;
@@ -528,7 +521,7 @@ fn WorkCard(
                     Some(id) => view! {
                         <a id=work_link_id(id) class="theatre-public-work-link" href=Route::PublicWork(id).hash()
                             lang=move || locale.get().lang() aria-labelledby=labelled_by
-                            on:click=move |event| if in_app_activation(&event) { event.prevent_default(); on_open_work.run(id); }>
+                            on:click=move |event| if crate::platform::in_app_activation(&event) { event.prevent_default(); on_open_work.run(id); }>
                             <span id=action_id class="cui-sr-only" lang=move || locale.get().lang()>{move || text(Key::PublicHomeOpenWork, locale.get())}</span>
                             <span id=title_id class="theatre-public-work-title" lang=language>{title}</span>
                             <span class="theatre-public-work-arrow" aria-hidden="true">{arrow}</span>

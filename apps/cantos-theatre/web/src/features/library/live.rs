@@ -255,7 +255,7 @@ fn LiveSection(
     actions: Option<LibraryActions>,
     all_empty: Memo<bool>,
 ) -> impl IntoView {
-    let heading_id = format!("theatre-library-{}-heading", section.name());
+    let heading_id = crate::platform::library_heading_id(section);
     let list = NodeRef::<leptos::html::Ul>::new();
     let membership = Memo::new(move |_| state.with(|s| rows::membership(s, section)));
     let chrome = Memo::new(move |_| state.with(|s| section_ui(s, section)));
@@ -277,7 +277,7 @@ fn LiveSection(
     };
     view! {
         <section class="theatre-library-section" aria-labelledby=heading_id.clone()>
-            <h2 id=heading_id.clone() class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
+            <h2 id=heading_id.clone() tabindex="-1" class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
             <RequestEdge active=Signal::derive(move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.phase == PagePhase::Loading && ui.count > 0 && !ui.appending))) label=Key::LiveLibraryLoading locale/>
             <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| matches!(ui.phase, PagePhase::Idle | PagePhase::Loading) && ui.count == 0))><PendingRows compact=true/></Show>
             <ul node_ref=list class="theatre-rows" aria-busy=move || (phase() == Some(PagePhase::Loading)).to_string()>
@@ -463,7 +463,9 @@ mod tests {
             let html = render(s.clone(), language);
             assert_eq!(html.matches("<h1").count(), 1);
             for section in Section::ALL {
-                assert!(html.contains(&format!("theatre-library-{}-heading", section.name())));
+                let heading = format!("theatre-library-{}-heading", section.name());
+                assert!(html.contains(&format!("aria-labelledby=\"{heading}\"")));
+                assert!(html.contains(&format!("id=\"{heading}\" tabindex=\"-1\"")));
             }
             assert_eq!(
                 html.matches("Ánh đèn cuối sân khấu — Một lời hẹn chưa nói")
