@@ -738,13 +738,18 @@ Multi-step commands end with a summary:
 | --- | --- | --- |
 | `PASS` | ran and succeeded | success |
 | `FAIL` | ran, or could not start, and failed | failure |
-| `NOT_RUN` | selected but not executed: skipped with `--skip`, stopped by an earlier failure, or blocked by another step's missing prerequisite | success only when explicitly skipped and another step passed |
+| `NOT_RUN` | selected but not executed: skipped with `--skip`, or, in an ordered pipeline, stopped by an earlier failure or another step's missing prerequisite | success only when explicitly skipped and another step passed |
 | `UNSUPPORTED` | cannot run here: a tool is missing, or the target has no implementation (mobile) | failure |
 
 Prerequisites of every selected step are checked before the first one runs, so a long run never
-ends with a surprise missing tool. Execution stops at the first failure. In the engineering skill's
-reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN` is `not-run` and
-`UNSUPPORTED` is `unavailable`. Usage errors exit with status 2.
+ends with a surprise missing tool. `verify`, `preflight` and `ci` run independent gates: a
+missing tool makes only its own gate `UNSUPPORTED` (announced before anything runs) and a
+failure stops only its own gate's remaining commands, so one run reports every independent
+result; the command still fails on any `FAIL` or `UNSUPPORTED`. Ordered pipelines (`build`,
+`run`, release and the other multi-step commands) run nothing when a tool is missing and stop at
+the first failure. A successful exit with `NOT_RUN` rows covers only the steps that passed. In
+the engineering skill's reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN`
+is `not-run` and `UNSUPPORTED` is `unavailable`. Usage errors exit with status 2.
 
 ### preflight
 

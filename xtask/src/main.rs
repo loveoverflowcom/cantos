@@ -181,7 +181,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
                     return Ok(kani::configuration_refusal("verify", &steps, error));
                 }
             }
-            let report = pipeline::execute("verify", &steps, &tools, &mut runner);
+            let report = pipeline::execute_gates("verify", &steps, &tools, &mut runner);
             report.print();
             Ok(report.exit_code())
         }

@@ -200,7 +200,7 @@ pub fn run(
     } else {
         "preflight"
     };
-    let mut report = pipeline::execute(title, &steps, tools, runner);
+    let mut report = pipeline::execute_gates(title, &steps, tools, runner);
     for note in &selection.notes {
         report.note(note.clone());
     }
@@ -406,10 +406,12 @@ mod tests {
             run(&workspace, &local, &FakeTools::all(), &mut failing).unwrap(),
             ExitCode::FAILURE
         );
-        assert!(lines(&root, &failing)
-            .last()
-            .unwrap()
-            .starts_with("cargo clippy -p fixture"));
+        // The lint failure fails the run but does not hide the independent test gate.
+        let ran = lines(&root, &failing);
+        assert!(ran
+            .iter()
+            .any(|line| line.starts_with("cargo clippy -p fixture")));
+        assert_eq!(ran.last().unwrap(), "cargo test -p fixture --locked");
         fs::remove_dir_all(root).unwrap();
     }
 
