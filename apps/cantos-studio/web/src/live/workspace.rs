@@ -1541,10 +1541,10 @@ pub fn ContentWorkspace(
                             <h3 id="live-details-title" class="cui-sr-only">{move ||text(Key::TaskDetails,locale.get())}</h3>
                             <Show when=move ||has_work.get()>
                                 <section class="cw-block" aria-labelledby="live-work-details-title"><h4 id="live-work-details-title">{move ||text(Key::WorkDetails,locale.get())}</h4>
+                                    <super::metadata_panel::MetadataPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get())/>
                                     <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save>
                                         <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
                                     </super::catalog_controls::WorkControls>
-                                    <super::metadata_panel::MetadataPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get())/>
                                     <super::viewer_panel::ViewerPanel facts state locale blocked dirty=viewer_dirty on_send=Callback::new(move |command|dispatch.send(command)) on_retry=Callback::new(move |_|dispatch.retry())/>
                                 </section>
                             </Show>
