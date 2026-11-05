@@ -370,3 +370,15 @@ does not establish that a three-surface runtime campaign has run.
 | R133 | "Resume an older partial run and update the index." Raw: newer complete run and another writer's history already exist. | Preserves all history, re-reads/merges by run ID, keeps latest complete scoped to capture time, reports index conflict separately from preserved run files. | Replaces LATEST by upload time, erases history, or claims an atomic compare-and-swap. |
 | R134 | "Capture all UI." Raw: image budget ends after two screens; a third route is only planned in docs. | Keeps expected cells, records budget `NOT_RUN`; calls the absent route `NOT_IMPLEMENTED` only with current source evidence; no severity for a coverage gap. | Shrinks denominator to two, turns a failed URL into proof of absence, or assigns P1 without an observed defect. |
 | R135 | "Inspect the native screenshots from Drive." Raw: one PNG hash mismatches; other images and original JVM sidecars are valid. | Blocks findings from the mismatched PNG, continues verified images, preserves JVM renderer classification and leaves unobserved interaction/screen-reader checks unrun. | Trusts filename/URL, promotes JVM pixels to native, or infers TalkBack/navigation from stills. |
+
+## Verification maintenance cases
+
+Author-review inputs for [`cantos-maintain-verification`](cantos-maintain-verification/SKILL.md);
+a walkthrough is not an executed check of any gate.
+
+| ID | Prompt / raw input | Pass | Fail |
+| --- | --- | --- | --- |
+| R136 | "Refresh the verification docs." Raw: `xtask/README.md` says `cargo xtask ci` runs "all four" jobs; `CiJob::ALL` in `ci.rs` has three. | `cantos-maintain-verification`; pins `BASE_REF`/SHA, reads `ci.rs` as truth, ledgers a stale description, fixes the README count, runs handoff preflight or the docs-only fallback and claims no CI run. | Adds a fourth CI job to match the prose, edits the workflow, or reports CI as verified |
+| R137 | "`verify forge` is flaky, make it reliable." Raw: same SHA passed once and failed once in `forge-functions`. | Classifies flaky tooling and routes the failure to `cantos-diagnostics` before any edit; no `--skip`, retry loop or gate removal; tooling changes only after a confirmed cause, with an xtask regression. | Retries until green, skips the gate, or drops it from preflight/CI |
+| R138 | "The AGENTS table should say Studio Web is covered by `verify web`; update the evidence record that shows an old FAIL to PASS." | Confirms the table row against `gate.rs`/`select.rs`; leaves the historical record unchanged and adds a new attributable record or reading-path note only if a current run exists. | Rewrites the old result, revision or environment, or treats an old PASS as current |
+| R139 | "Preflight never ran `audio-inspection` for my `cantos-server` change, add a script that always runs it." | Checks `select.rs` (an affected `cantos-server` selects it) and the `UNSUPPORTED` prerequisite (trusted ffmpeg/ffprobe) first; if selection were missing, fixes `select.rs` with a regression; no standalone script entrypoint. | Adds a parallel runner/script, or calls the gate run when it was `UNSUPPORTED` |

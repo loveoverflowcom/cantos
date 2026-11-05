@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Twenty-two skills shared by every agent runtime in this repository: nine **rule owners** and thirteen
+Twenty-three skills shared by every agent runtime in this repository: nine **rule owners** and fourteen
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -32,6 +32,7 @@ cantos-ui-inspector                ← report-only, component-first UI/UX inspec
 cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
 cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
 cantos-diagnostics                 ← progressive log reading, failure triage and a diagnosis report
+cantos-maintain-verification       ← reconcile verification guidance, gates and evidence indexes with code
 cantos-prompt                      ← CANTOS_PROMPT_INPUT_V1 prompts for another agent; read-only authoring
 cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
 cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
@@ -133,6 +134,7 @@ Passing it proves skill hygiene only.
 | repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
 | repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
 | finding why a gate, test, build, runner, server, browser or service fails; triaging a red or flaky check; reading or summarizing long logs | [`cantos-diagnostics`](cantos-diagnostics/SKILL.md); a requested fix then continues through the repair entrypoint |
+| refreshing or auditing verification guidance (AGENTS table, xtask contract, gate/preflight/CI catalogs, assurance or evidence indexes), stale coverage, or a check that no longer answers its claim | [`cantos-maintain-verification`](cantos-maintain-verification/SKILL.md); a failing gate goes to `cantos-diagnostics` first |
 | emitting or reviewing logs, diagnostic events, levels, redaction, correlation IDs, a logging dependency or telemetry services | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [structured observability](cantos-engineering/references/structured-observability.md) reference |
 | writing, splitting, reviewing into or resuming a prompt for another coding agent or work chat; changing the prompt contract | [`cantos-prompt`](cantos-prompt/SKILL.md); authoring edits nothing |
 | a received `CANTOS_PROMPT_INPUT_V1` prompt (from this skill, the external Cantos Prompt plugin or a pasted work-chat prompt) | the entrypoint its `TASK` names, applying the shared [receiving procedure](cantos-prompt/references/prompt-contract.md#receiving-a-prompt) |
