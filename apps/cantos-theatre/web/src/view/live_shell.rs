@@ -121,16 +121,22 @@ pub(crate) fn NavigationChrome(
                             <span>{move || messages::text(Key::Menu, locale.get())}</span>
                         </button>
                         <div class="theatre-mobile-brand"><LiveBrand/></div>
-                        <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
+                        <Show when=move || !matches!(route.get(), Route::Account | Route::Settings)>
+                            <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
+                        </Show>
                     </header>
                     </super::LiveContainer>
                 </div>
                 <aside id="theatre-navigation-rail" class="theatre-rail">
                     <div class="theatre-rail-header">
                         <LiveBrand/>
-                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action theatre-action-text" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
+                        <button id="theatre-rail-toggle" node_ref=rail_toggle type="button" class="theatre-action" aria-controls="theatre-navigation-rail" aria-expanded="true" data-action="collapse">
                             <span class="theatre-menu-glyph" aria-hidden="true"></span>
-                            <span class="theatre-toggle-arrow" aria-hidden="true"><Icon name=IconName::ArrowBack/></span>
+                            <svg class="theatre-toggle-panel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                                <path d="M10 4v16"/>
+                                <path class="theatre-toggle-panel-fill" d="M5 5h4v14H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" fill="currentColor" stroke="none"/>
+                            </svg>
                             <span data-toggle-label="menu" hidden=true>{move || messages::text(Key::Menu, locale.get())}</span>
                             <span data-toggle-label="collapse">{move || messages::text(Key::CollapseNavigation, locale.get())}</span>
                             <span data-toggle-label="expand" hidden=true>{move || messages::text(Key::ExpandNavigation, locale.get())}</span>
