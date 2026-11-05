@@ -648,6 +648,13 @@ It retains draft/publication owners, confirms policy versions, distinguishes pen
 mail delivery and reloads current state after historical receipts. The current API supplies no
 share lifecycle history or complete global group impact; those UI actions remain unavailable.
 
+After a successful access read, the current audience is a checked, pressed chip with a no-change
+reason. Unread, reading, current, pending mutation, failed and unknown outcomes have separate
+feedback; opening or cancelling a review never changes selection. The recipient area renders
+an explicit empty state instead of an empty tonal list. Revoke reviews freeze an already-authorized
+group name or pending email alongside the exact command target and policy version; actors without
+display facts use an honest unnamed-recipient label. No profile lookup or extra ACL is inferred.
+
 The Work Details Access panel includes a bounded chapter matrix (#656), using the Server-owned
 viewer-access v1 schema and 20-row continuation. Rows distinguish saved/published revisions,
 current Work gate, INHERIT/restricted Unit mode and an audio association (not live readiness).

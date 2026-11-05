@@ -1,5 +1,8 @@
 //! App-owned access composition over admitted fields, buttons and Dialog. No ACL is computed here.
-use super::{viewer_access::AudienceReview, Command, Facts, Phase, RequestState};
+use super::{
+    viewer_access::{audience_reason, grant_name, revoke_label, AudienceReview, RecipientLabel},
+    Command, Facts, Phase, RequestState,
+};
 use crate::{
     contract::*,
     localization::{
@@ -8,8 +11,16 @@ use crate::{
     },
     ui::{ActionButton, BlockReason, ReviewCheckbox},
 };
-use cantos_ui::{Button, ButtonVariant, Dialog, FieldDensity, TextField, TextFieldVariant};
+use cantos_ui::{
+    Button, ButtonVariant, Dialog, FieldDensity, FilterChip, TextField, TextFieldVariant,
+};
 use leptos::prelude::*;
+
+#[derive(Clone)]
+struct Confirmation {
+    command: Command,
+    recipient: Option<RecipientLabel>,
+}
 
 pub(super) fn operation() -> Option<String> {
     #[cfg(target_arch = "wasm32")]
@@ -76,7 +87,7 @@ pub(super) fn ViewerPanel(
     let group_name = RwSignal::new(String::new());
     let invalid_expiry = RwSignal::new(false);
     let review = RwSignal::new(None::<AudienceReview>);
-    let confirmation = RwSignal::new(None::<Command>);
+    let confirmation = RwSignal::new(None::<Confirmation>);
     let confirmed = RwSignal::new(false);
     let dialog_open = RwSignal::new(false);
     let dialog_error = RwSignal::new(false);
@@ -165,7 +176,8 @@ pub(super) fn ViewerPanel(
         ) {
             review.set(None);
         }
-        confirmation.set(Some(command));
+        let recipient = facts.with_untracked(|f| revoke_label(&command, &f.viewer));
+        confirmation.set(Some(Confirmation { command, recipient }));
         confirmed.set(false);
         dialog_open.set(true);
     });
@@ -198,28 +210,7 @@ pub(super) fn ViewerPanel(
         })
     });
     let status = Signal::derive(move || {
-        if relevant.get() {
-            match state.with(|s| s.phase()) {
-                Phase::Pending => return Key::AccessLoading,
-                Phase::Ambiguous => return Key::AccessUnknown,
-                Phase::Failed => {
-                    return state.with(|s| {
-                        s.error()
-                            .map(super::viewer_access::failure_key)
-                            .unwrap_or(Key::AccessFailed)
-                    })
-                }
-                Phase::Ready if state.with(|s| s.command().is_some_and(Command::is_write)) => {
-                    return Key::AccessReceipt
-                }
-                Phase::Ready | Phase::Idle => (),
-            }
-        }
-        if current.with(Option::is_none) {
-            Key::AccessUnread
-        } else {
-            Key::AccessIndependent
-        }
+        state.with(|s| super::viewer_access::status_key(current.with(Option::is_some), s))
     });
     let request_reason = Signal::derive(move || {
         super::catalog_controls::request_block_reason(
@@ -231,10 +222,22 @@ pub(super) fn ViewerPanel(
     });
     let blocked_reason =
         Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+    let unread_reason = Signal::derive(move || {
+        if relevant.get()
+            && state.with(|s| {
+                matches!(s.phase(), Phase::Failed | Phase::Ambiguous)
+                    || s.phase() == Phase::Ready && s.command().is_some_and(Command::is_write)
+            })
+        {
+            status.get()
+        } else {
+            Key::AccessUnread
+        }
+    });
     let change_reason = Signal::derive(move || {
         request_reason.get().unwrap_or_else(|| {
             if current.with(Option::is_none) {
-                BlockReason::Metadata(Key::AccessUnread)
+                BlockReason::Metadata(unread_reason.get())
             } else {
                 BlockReason::Live(super::copy::Key::ErrorInvalidInput)
             }
@@ -249,45 +252,64 @@ pub(super) fn ViewerPanel(
         if blocked.get_untracked() || !confirmed.get_untracked() || !owner.get_untracked() {
             return;
         }
-        if let Some(command) = confirmation.get_untracked() {
+        if let Some(confirmation) = confirmation.get_untracked() {
             dialog_open.set(false);
-            on_send.run(command);
+            on_send.run(confirmation.command);
         }
     });
     view! {
       <section id="viewer-access" class="cw-access cw-block" aria-labelledby="viewer-title" hidden=move || !owner.get()>
         <div class="cw-actions"><h5 id="viewer-title">{move || text(Key::AccessTitle, locale.get())}</h5>
-          <Button id="viewer-open" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| open.set(!open.get_untracked()))>{move || text(if open.get() { Key::AccessClose } else { Key::AccessOpen }, locale.get())}</Button>
+          <Button id="viewer-open" variant=ButtonVariant::Tonal aria_controls="viewer-body" aria_expanded=Signal::derive(move || open.get()) focus_on_press=true on_press=Callback::new(move |_| open.set(!open.get_untracked()))>{move || text(if open.get() { Key::AccessClose } else { Key::AccessOpen }, locale.get())}</Button>
         </div>
-        <div hidden=move || !open.get()>
+        <div id="viewer-body" hidden=move || !open.get()>
           <p id="viewer-status" role="status" aria-live="polite">{move || text(status.get(), locale.get())}</p>
           <p class="cw-reason" hidden=move || !dialog_error.get()>{move || text(Key::AccessFailed, locale.get())}</p>
           <div class="cw-actions">
             <ActionButton id="viewer-read" locale reason=blocked_reason blocked on_press=Callback::new(move |_| { if !blocked.get_untracked() { if let Some(work) = facts.with_untracked(|f| f.work.as_ref().map(|w| w.id.clone())) { facts.update(|f| f.viewer.current = None); on_send.run(Command::ViewerState { work }); } } })>{move || text(Key::AccessLoad, locale.get())}</ActionButton>
             <Show when=move || relevant.get() && state.with(|s| s.can_retry())><ActionButton id="viewer-retry" locale reason=blocked_reason blocked=Signal::derive(move || !state.with(|s| s.can_retry())) on_press=Callback::new(move |_| on_retry.run(()))>{move || text(Key::AccessUnknown, locale.get())}</ActionButton></Show>
           </div>
-          <p>{move || current.with(|s| s.as_ref().map(|s| (text(Key::AccessWorkVersion, locale.get()), " ", s.version)))}</p>
+          <Show when=move || current.with(Option::is_some)><p class="cw-access-version">{move || current.with(|s| s.as_ref().map(|s| (text(Key::AccessWorkVersion, locale.get()), " ", s.version)))}</p></Show>
           <p>{move || text(Key::AccessAudience, locale.get())}</p>
           <div class="cw-access-audience" role="group" aria-label=move || text(Key::AccessAudience, locale.get())>
-            {[ViewerAudience::Public, ViewerAudience::Restricted].map(|audience| view! {
-              <ActionButton id=if audience == ViewerAudience::Public { "viewer-public" } else { "viewer-restricted" } locale variant=ButtonVariant::Tonal focus_on_press=true
-                blocked=Signal::derive(move || !can_change.get() || current.with(|s| s.as_ref().is_none_or(|s| s.audience == audience)) || facts.with(|f| f.metadata.current.is_none()))
-                reason=Signal::derive(move || request_reason.get().unwrap_or(BlockReason::Metadata(Key::AccessUnread))) on_press=Callback::new(move |_| {
+            {[ViewerAudience::Public, ViewerAudience::Restricted].map(|audience| {
+              let Ok(fallback) = crate::ui::LocalizedReason::new(BlockReason::ContextReady) else { return None; };
+              let fallback = StoredValue::new(fallback);
+              Some(view! {
+              <FilterChip id=if audience == ViewerAudience::Public { "viewer-public" } else { "viewer-restricted" }
+                selected=Signal::derive(move || current.with(|s| s.as_ref().is_some_and(|s| s.audience == audience)))
+                state=Signal::derive(move || {
+                    let reason = request_reason.get().or_else(|| {
+                        if current.with(Option::is_none) {
+                            Some(BlockReason::Metadata(unread_reason.get()))
+                        } else {
+                            current.with(|s| audience_reason(s.as_ref(), facts.with(|f| f.metadata.current.is_some()), audience)).map(BlockReason::Metadata)
+                        }
+                    });
+                    let is_blocked = reason.is_some() || !can_change.get();
+                    let reason = reason.unwrap_or(BlockReason::ContextReady);
+                    let reason = crate::ui::LocalizedReason::new(reason).unwrap_or_else(|_| fallback.get_value());
+                    crate::ui::action_state(is_blocked, false, reason.get(locale.get()))
+                }) on_change=Callback::new(move |selected: bool| {
+                    if !selected || !can_change.get_untracked() { return; }
                     let candidate = facts.with_untracked(|f| AudienceReview::new(f.viewer.current.as_ref()?, f.metadata.current.as_ref()?, audience));
                     if let (Some(candidate), Some(id)) = (candidate, operation()) {
                         let Some(request) = candidate.request(id, true) else { return; };
+                        // Dialog captures the focused opener; Safari pointer presses need this.
+                        #[cfg(target_arch = "wasm32")]
+                        crate::navigation::focus_heading(if audience == ViewerAudience::Public { "viewer-public" } else { "viewer-restricted" });
                         review.set(Some(candidate.clone())); prepare.run(Command::ViewerChange { work: candidate.work, request });
                     }
-                })>{move || text(if audience == ViewerAudience::Public { Key::AccessPublic } else { Key::AccessRestricted }, locale.get())}</ActionButton>
-            })}
-            <strong role="status">{move || current.with(|s| s.as_ref().map(|s| text(if s.audience == ViewerAudience::Public { Key::AccessPublic } else { Key::AccessRestricted }, locale.get())))}</strong>
+                })>{move || text(if audience == ViewerAudience::Public { Key::AccessPublic } else { Key::AccessRestricted }, locale.get())}</FilterChip>
+            })})}
           </div>
           <p>{move || text(Key::AccessIndependent, locale.get())}</p>
-          <h6>{move || text(Key::AccessPeople, locale.get())}</h6>
+          <p class="cw-access-label">{move || text(Key::AccessPeople, locale.get())}</p>
+          <Show when=move || current.with(|s| s.as_ref().is_some_and(|s| !s.grants.is_empty() || !s.pending.is_empty())) fallback=move || view! { <Show when=move || current.with(Option::is_some)><p class="cw-reason">{move || text(Key::AccessRecipientsEmpty, locale.get())}</p></Show> }>
           <ul class="cw-access-recipients">
             <For each=move || current.with(|s| s.as_ref().map(|s| s.grants.clone()).unwrap_or_default()) key=|g| g.grant_id.clone() children=move |grant| {
-                let id=grant.grant_id.clone(); let label=match grant.principal { ViewerPrincipal::Actor { actor_id } => actor_id, ViewerPrincipal::Group { group_id } => group_id };
-                view! { <li><div><strong>{label}</strong><p>{move || text(Key::AccessGranted, locale.get())}</p><small>{move || expiry_label(grant.expires_at_us, locale.get())}</small></div>
+                let id=grant.grant_id.clone(); let fallback=match &grant.principal { ViewerPrincipal::Actor { .. } => RecipientLabel::Actor, ViewerPrincipal::Group { .. } => RecipientLabel::Group }; let exact=match &grant.principal { ViewerPrincipal::Actor { actor_id } => actor_id.clone(), ViewerPrincipal::Group { group_id } => group_id.clone() }; let expiry=grant.expires_at_us; let grant_id=id.clone();
+                view! { <li><div><strong>{move || facts.with(|f| grant_name(&grant, &f.viewer)).map(RecipientLabel::Named).unwrap_or_else(||fallback.clone()).text(locale.get())}</strong><p>{move || text(Key::AccessGranted, locale.get())}</p><small>{move || expiry_label(expiry, locale.get())}</small><details><summary>{move || text(Key::AccessExactTarget,locale.get())}</summary><p>{exact}</p><p>{grant_id}</p></details></div>
                     <ActionButton id=format!("viewer-revoke-{}", id) locale reason=change_reason blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeGrant { grant_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
             }/>
             <For each=move || current.with(|s| s.as_ref().map(|s| s.pending.clone()).unwrap_or_default()) key=|s| s.share_id.clone() children=move |share| {
@@ -296,10 +318,11 @@ pub(super) fn ViewerPanel(
                   <ActionButton id=format!("viewer-revoke-share-{}",id) locale reason=change_reason blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeShare { share_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
             }/>
           </ul>
+          </Show>
           <div class="cw-access-form"><Field id="viewer-email" label=Key::AccessEmail value=email locale/>
             <ActionButton id="viewer-share" locale reason=change_reason blocked=Signal::derive(move || !can_change.get() || email.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| { review.set(None); if let Some(id)=operation() { change.run(ViewerAccessChange::ShareMailbox { share_id:id,email:email.get_untracked() }); } })>{move || text(Key::AccessShare,locale.get())}</ActionButton>
           </div>
-          <p>{move || text(Key::AccessNoMail,locale.get())}</p><p class="cw-reason">{move || text(Key::AccessHistoryMissing,locale.get())}</p>
+          <p>{move || text(Key::AccessNoMail,locale.get())}</p>
           <details><summary>{move || text(Key::AccessActorGrant,locale.get())}</summary>
             <Field id="viewer-actor" label=Key::AccessActor value=actor locale/><Field id="viewer-expiry" label=Key::AccessExpiryInput value=until locale/>
             <p role="status" hidden=move || !invalid_expiry.get()>{move || text(Key::AccessExpiryInvalid,locale.get())}</p>
@@ -323,19 +346,23 @@ pub(super) fn ViewerPanel(
             }/>
             <p class="cw-reason">{move ||text(Key::AccessGroupImpactMissing,locale.get())}</p>
           </details>
+          <details class="cw-access-details"><summary>{move || text(Key::AccessDetails,locale.get())}</summary>
+          <p class="cw-reason">{move || text(Key::AccessHistoryMissing,locale.get())}</p>
           <label for="viewer-locator">{move ||text(Key::AccessLocatorLabel,locale.get())}</label><input id="viewer-locator" readonly=true prop:value=move ||facts.with(|f|f.work.as_ref().map(|w|format!("#shared/{}",w.id)).unwrap_or_default())/>
           <p>{move ||text(Key::AccessLocator,locale.get())}</p>
+          </details>
         </div>
         <Dialog id="viewer-confirm" title=text(Key::AccessConfirm,locale.get_untracked()) close_label=text(Key::AccessClose,locale.get_untracked()) open=Signal::derive(move ||dialog_open.get()) on_close_request=Callback::new(move |_|dialog_open.set(false)) on_error=Callback::new(move |_| {dialog_error.set(true);dialog_open.set(false);})>
           <p>{move ||facts.with(|f|f.work.as_ref().map(|w|w.details.title.clone()))}</p>
           <p>{move ||text(Key::AccessScope,locale.get())}</p>
+          <Show when=move || confirmation.with(|c| c.as_ref().is_some_and(|c| c.recipient.is_some()))><p>{move || confirmation.with(|c| c.as_ref().and_then(|c| c.recipient.as_ref()).map(|label| label.text(locale.get())))}</p></Show>
+          <p>{move || confirmation.with(|c| c.as_ref().and_then(|c| match &c.command { Command::ViewerChange { request, .. } => Some(request.expected_version), Command::ViewerGroupChange { request, .. } => Some(request.expected_version), _ => None }).map(|version| (text(Key::AccessWorkVersion,locale.get()), " ", version)))}</p>
           <div hidden=move ||review.with(Option::is_none)>
-            <p>{move ||text(Key::AccessWorkVersion,locale.get())}" "{move ||review.with(|r|r.as_ref().map(|r|r.expected_version))}</p>
             <p>{move ||text(Key::MetadataVersion,locale.get())}" "{move ||review.with(|r|r.as_ref().map(|r|r.publication_version))}</p>
             <p>{move ||text(Key::MetadataHistory,locale.get())}" "{move ||review.with(|r|r.as_ref().map(|r|r.published_revision.map(super::copy::revision_label).unwrap_or_else(||text(Key::AccessNoPublication,locale.get()).into())))}</p>
           </div>
-          <p class="cw-access-exact">{move || confirmation.with(|c| c.as_ref().and_then(|c| match c { Command::ViewerChange {request,..} => Some(match &request.change { ViewerAccessChange::ShareMailbox { email,.. }=>email.clone(), ViewerAccessChange::GrantActor {actor_id,..}=>actor_id.clone(),ViewerAccessChange::GrantGroup {group_id,..}=>group_id.clone(),ViewerAccessChange::RevokeGrant {grant_id}=>grant_id.clone(),ViewerAccessChange::RevokeShare {share_id}=>share_id.clone(),ViewerAccessChange::SetUnitPolicy {unit_id,..}=>unit_id.clone(),ViewerAccessChange::SetAudience {audience,..}=>text(if *audience==ViewerAudience::Public {Key::AccessPublic}else{Key::AccessRestricted},locale.get()).into()}),Command::ViewerGroupChange {group,..}=>Some(group.clone()),_=>None }))}</p>
-          <p>{move || confirmation.with(|c| c.as_ref().map(|command| text(match command {
+          <p class="cw-access-exact">{move || confirmation.with(|c| c.as_ref().map(|c| &c.command).and_then(|c| match c { Command::ViewerChange {request,..} => Some(match &request.change { ViewerAccessChange::ShareMailbox { email,.. }=>email.clone(), ViewerAccessChange::GrantActor {actor_id,..}=>actor_id.clone(),ViewerAccessChange::GrantGroup {group_id,..}=>group_id.clone(),ViewerAccessChange::RevokeGrant {grant_id}=>grant_id.clone(),ViewerAccessChange::RevokeShare {share_id}=>share_id.clone(),ViewerAccessChange::SetUnitPolicy {unit_id,..}=>unit_id.clone(),ViewerAccessChange::SetAudience {audience,..}=>text(if *audience==ViewerAudience::Public {Key::AccessPublic}else{Key::AccessRestricted},locale.get()).into()}),Command::ViewerGroupChange {group,..}=>Some(group.clone()),_=>None }))}</p>
+          <p>{move || confirmation.with(|c| c.as_ref().map(|c| &c.command).map(|command| text(match command {
             Command::ViewerChange { request: ViewerAccessRequest { change: ViewerAccessChange::ShareMailbox { .. }, .. }, .. } => Key::AccessNoMail,
             Command::ViewerChange { request: ViewerAccessRequest { change: ViewerAccessChange::RevokeGrant { .. } | ViewerAccessChange::RevokeShare { .. } | ViewerAccessChange::SetAudience { audience: ViewerAudience::Restricted, .. }, .. }, .. } => Key::AccessRevokeHelp,
             _ => Key::AccessIndependent,
@@ -351,6 +378,58 @@ pub(super) fn ViewerPanel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pending_policy_review_keeps_the_read_audience_and_disables_both_options() {
+        Owner::new().with(|| {
+            let work: CatalogWork = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/work.json")).unwrap();
+            let mut publication: MetadataPublicationState = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/studio/metadata-publication/v1/fixtures/active.json")).unwrap();
+            publication.work_id = work.id.clone();
+            let mut facts = Facts { work: Some(work.clone()), ..Facts::default() };
+            facts.metadata.current = Some(publication);
+            facts.viewer.current = Some(ViewerAccessState { work_id: work.id.clone(), version: 7, audience: ViewerAudience::Public, grants: vec![], pending: vec![] });
+            let state = RequestState::default().context(&work.owner_id, "workspace").unwrap();
+            let (state, _) = state.begin(Command::ViewerChange { work: work.id.clone(), request: ViewerAccessRequest { operation_id: work.id, expected_version: 7, change: ViewerAccessChange::SetAudience { audience: ViewerAudience::Restricted, confirm_metadata_rights: false } } }).unwrap();
+            let html = view! { <ViewerPanel facts=RwSignal::new(facts) state=RwSignal::new(state) locale=Signal::derive(|| Locale::Vietnamese) blocked=Signal::derive(|| false) dirty=RwSignal::new(false) on_send=Callback::new(|_| {}) on_retry=Callback::new(|_| {})/> }.to_html();
+            for id in ["viewer-public", "viewer-restricted"] {
+                let button = html.split(&format!("id=\"{id}\"")).nth(1).unwrap().split("</button>").next().unwrap();
+                assert!(button.contains(" disabled"), "{button}");
+                assert!(button.contains(if id == "viewer-public" { "aria-pressed=\"true\"" } else { "aria-pressed=\"false\"" }));
+            }
+            assert!(html.contains(text(Key::AccessChanging, Locale::Vietnamese)));
+        });
+    }
+    #[test]
+    fn a_failed_access_read_does_not_regress_to_unread_control_reasons() {
+        for locale in Locale::supported() {
+            Owner::new().with(|| {
+                let work: CatalogWork = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/work.json")).unwrap();
+                let state = RequestState::default().context(&work.owner_id, "workspace").unwrap();
+                let (state, ticket) = state.begin(Command::ViewerState { work: work.id.clone() }).unwrap();
+                let state = state.finish(ticket, Err(super::super::ClientError::Transport));
+                let facts = Facts { work: Some(work), ..Facts::default() };
+                let html = view! { <ViewerPanel facts=RwSignal::new(facts) state=RwSignal::new(state) locale=Signal::derive(move || locale) blocked=Signal::derive(|| false) dirty=RwSignal::new(false) on_send=Callback::new(|_| {}) on_retry=Callback::new(|_| {})/> }.to_html();
+                assert!(html.contains(text(Key::AccessFailed, locale)));
+                assert!(!html.contains(text(Key::AccessUnread, locale)), "{html}");
+            });
+        }
+    }
+    #[test]
+    fn successful_access_read_marks_the_current_audience_without_an_unread_reason() {
+        for locale in Locale::supported() {
+            Owner::new().with(|| {
+                let work: CatalogWork = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/studio/catalog/v1/fixtures/work.json")).unwrap();
+                let mut facts = Facts { work: Some(work.clone()), ..Facts::default() };
+                facts.viewer.current = Some(ViewerAccessState { work_id: work.id.clone(), version: 7, audience: ViewerAudience::Public, grants: vec![], pending: vec![] });
+                let state = RequestState::default().context(&work.owner_id, "workspace").unwrap();
+                let html = view! { <ViewerPanel facts=RwSignal::new(facts) state=RwSignal::new(state) locale=Signal::derive(move || locale) blocked=Signal::derive(|| false) dirty=RwSignal::new(false) on_send=Callback::new(|_| {}) on_retry=Callback::new(|_| {})/> }.to_html();
+                let public = html.split("id=\"viewer-public\"").nth(1).unwrap().split("</button>").next().unwrap();
+                assert!(public.contains("aria-pressed=\"true\""), "{public}");
+                assert!(!html.contains(text(Key::AccessUnread, locale)), "{html}");
+                assert_eq!(html.matches(text(Key::AccessIndependent, locale)).count(), 1);
+                assert!(!html.contains("<ul class=\"cw-access-recipients\"></ul>"));
+            });
+        }
+    }
     #[test]
     fn access_composition_uses_paired_copy_and_no_fake_delivery_or_global_group_removal() {
         for locale in Locale::supported() {
