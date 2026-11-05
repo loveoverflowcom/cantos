@@ -8,6 +8,34 @@ Related: [#423](https://github.com/loveoverflowcom/cantos/issues/423) (shared co
 open), [#424](https://github.com/loveoverflowcom/cantos/issues/424) (Theatre consumer),
 [package README](../../packages/ui-system/leptos/README.md#web-floating-fields-fields-v3--preview-only).
 
+## Production-brief composition refinement
+
+The 5 November review found a Studio composition collision: the shared Theatre expression
+intentionally paints Floating fields with `surface-container`, while Studio's `.live-section`
+uses that same role. Editable `#live-use`, `#live-attribution`, `#live-naming` and the version
+field therefore disappear into the section at rest. The existing textarea and Select use
+`surface-container-high` instead.
+
+Studio now selects `surface-container-high` for editable Floating shells within
+`#live-audio-brief-stage`, including their existing semantic hover mix. The section retains
+`surface-container`; other Studio surfaces and shared foundation/token definitions are unchanged.
+Readonly, disabled, error and focus remain owned by the existing shared field anatomy. This
+changes no native input, label, value, callback, IME/composition or `BufferedText` ownership.
+
+The workspace grid also declares one `minmax(0, 1fr)` column. Its former implicit auto minimum
+could grow the whole audio panel beyond a 320px viewport at 200% root text after selecting a
+delivery profile. This is a composition sizing constraint, without clipping, fixed heights or
+new responsive breakpoints.
+
+The local replay uses Chrome 156 with production Studio CSR, synthetic intercepted Studio HTTP
+and the existing debug-only authoring fixture. Before/after share the same source baseline
+`develop@3b14d33e46cbbfd36c02187582e04554793d5539`, fixture and browser inputs; an additional
+baseline stylesheet replay isolates the 320px/200% selected-option overflow. Captures, measured
+roles and replay drivers live under ignored `artifacts/ui-evidence/425/` and
+`artifacts/agent-runs/425/` in the implementation checkout. Native OS IME, autofill, screen readers
+and real authenticated failed-save/reauthentication journeys remain separate acceptance; this
+bounded refinement does not close the original auth/metadata/editor scope.
+
 ## Slice 2 — structured editor fields, script choices and CTA
 
 Base `develop` @ `e082d2d8df51056678611361d0c39b590e650acf`.
