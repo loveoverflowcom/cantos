@@ -63,8 +63,9 @@ cargo xtask preflight --profile local --changed-only --base "$BASE_REF"   # DEV/
 
 `verify repository` validates documents, links, JSON syntax, text hygiene and skill structure; it
 does not build, test or run any application. `doctor` and the gate prerequisites are the
-"executable is available here" source in the table above; a missing tool is `UNSUPPORTED` and
-the command fails before running anything.
+"executable is available here" source in the table above; a missing tool makes its gate
+`UNSUPPORTED` and the command fails, while `verify`, `preflight` and `ci` still run the other
+independent gates. Ordered pipelines such as `build` and `run` refuse before running anything.
 
 ## Focused first, proportionate after
 
@@ -89,7 +90,8 @@ require installing or starting the full stack to accept a pure-domain change.
 
 Open the requested PR and return its link and local evidence without waiting for GitHub
 Actions. Do not poll, wait for, dispatch or re-run remote workflows to supply missing local
-evidence. Required tests, merge protection, CI and production acceptance retain their gates.
+evidence. Configured branch protection, required tests and production acceptance retain their
+gates; remote CI is not a default merge prerequisite ([merge decision](#merge-decision)).
 
 | Change or claim | Local evidence |
 |---|---|
@@ -117,10 +119,11 @@ record it as deferred acceptance rather than claiming it from mocks.
 - `FAIL` blocks a clean handoff and a core-verified claim for the affected scope: fix it or
   report the actual failure. Never disguise it as an environment gap or use `--skip` to hide it.
   `NOT_RUN`, `UNSUPPORTED` and zero selected tests do not satisfy required checks.
-- Run all applicable checks that can run. xtask prechecks all selected prerequisites, so one
-  missing tool can leave independent gates `NOT_RUN`. Record that original summary, then use
-  a reasoned `--skip <gate>` or an existing focused suite to run the available gates. Keep the
-  skipped gate `NOT_RUN` and retain the blocker; a successful exit is not full acceptance.
+- Run all applicable checks that can run. `verify`, `preflight` and `ci` already run every
+  gate whose tools are present and continue past a failing gate, so one summary carries every
+  independent result; do not rerun the whole plan to discover the next failure, rerun only the
+  gates whose inputs your fix changed. Use `--skip <gate>` only with a reason, keep it `NOT_RUN`
+  and retain the blocker; a successful exit is not full acceptance.
 - List every outstanding check in the PR with why it is missing (environment, dependency or
   outside this PR's scope), prerequisites, exact command, acceptance criteria, residual risk
   and next owner. If no owner is assigned, state `unassigned — assignment required before
@@ -135,6 +138,22 @@ L1–L3 obligations passed**. This is implementation progress, not a new evidenc
 status, merge authorization or production-ready claim. Do not apply it to unverified SQL
 transaction semantics. A passed layer never accepts the whole feature; DB/API/runtime and
 production/phase-exit acceptance stay explicit until actually exercised.
+
+### Merge decision
+
+Merge only when the user asks. Decide from a review of the final diff and the local evidence for
+its changed scope, read from the summary rows rather than the exit code:
+
+- The evidence covers the content that lands. After a rebase or base merge, rerun only the gates
+  whose inputs changed, under the [reuse rules](verification-cadence.md).
+- Every gate the changed scope requires reports `PASS`. Name each `NOT_RUN` or `UNSUPPORTED`
+  gate; merge with one only when it is outside the changed scope or the user accepts it as owed.
+- A changed high-risk invariant (transactions, migrations, sessions, authority, publication,
+  native playback) keeps its CRITICAL evidence; a test that does not exercise it never substitutes.
+- Do not wait for, poll or re-run GitHub Actions before merging unless repository rules require
+  that check; never bypass configured protection. A CI failure that was read is real evidence:
+  fix or revert it on the base rather than discounting it because local checks passed.
+- Merging is not release. Deployment stays its own explicit command with its artifact checks.
 
 ### Docs-only fallback when xtask cannot start
 

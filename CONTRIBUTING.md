@@ -72,8 +72,9 @@ Implementation handoff and PR creation use the foundation's [local handoff polic
 verify the pure core first, record independent layer results and deliver verified layers when
 requested even if infrastructure acceptance is pending. Record deferred checks with their
 reason, next command, criteria and owner; keep mocked and real evidence separate. Do not wait
-or poll for GitHub Actions. Required checks, repository merge protection and production,
-publication and phase-exit acceptance keep their existing meaning.
+or poll for GitHub Actions, including before merging: the [merge decision](.agents/skills/cantos-engineering/references/local-execution.md#merge-decision)
+rests on reviewed local evidence. Configured required checks, repository merge protection and
+production, publication and phase-exit acceptance keep their existing meaning.
 
 Repository-level build, run and verification commands go through [`cargo xtask`](xtask/README.md).
 Scripts in `scripts/` and raw Cargo/Trunk commands are its primitives; do not add a parallel
@@ -89,7 +90,8 @@ the gates they affect and broadens to every gate when the impact is uncertain. U
 see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
 (`repository`, `rust`, `contracts`, `web`, `turso`, `mutation`) and `cargo xtask ci`, which
 runs the same jobs as GitHub Actions. If a gate cannot run on your machine, it is reported as
-`UNSUPPORTED` and preflight fails; `--skip <gate>` records it as `NOT_RUN`. State every skipped or
+`UNSUPPORTED` and preflight fails while the other independent gates still run; a failing gate
+does not stop them either. `--skip <gate>` records a gate as `NOT_RUN`. State every skipped or
 unsupported gate in the pull request. On affected macOS temporary-path setups, run with
 `TMPDIR=/private/tmp`.
 

@@ -1,4 +1,4 @@
-//! External tool detection. A missing tool makes a step UNSUPPORTED before anything runs;
+//! External tool detection. A missing tool makes a step UNSUPPORTED before it runs;
 //! Detection never installs tools. Only explicit behavior --setup installs its locked npm dev tool.
 
 use std::{

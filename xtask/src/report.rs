@@ -1,10 +1,11 @@
 //! Outcome vocabulary and the summary every multi-step command prints.
 //!
 //! `PASS` ran and succeeded. `FAIL` ran (or could not start) and failed. `NOT_RUN` was selected
-//! but not executed: explicitly skipped, or stopped by an earlier failure or missing
-//! prerequisite. `UNSUPPORTED` cannot run here: a required tool is missing, or the target has no
-//! implementation (for example a mobile surface without a Gradle project). Only `PASS` and
-//! explicitly skipped `NOT_RUN` steps let a command exit successfully.
+//! but not executed: explicitly skipped, or (in an ordered pipeline) stopped by an earlier failure
+//! or another step's missing prerequisite. `UNSUPPORTED` cannot run here: a required tool is
+//! missing, or the target has no implementation (for example a mobile surface without a Gradle
+//! project). Only `PASS` and explicitly skipped `NOT_RUN` steps let a command exit successfully,
+//! and a successful exit covers only the steps that passed: skipped steps stay unverified.
 
 use std::{fmt, process::ExitCode};
 
@@ -93,15 +94,16 @@ impl Report {
             if skipped == 0 {
                 "PASS".to_owned()
             } else {
-                format!("PASS with {skipped} explicitly skipped (NOT_RUN) step(s)")
+                format!(
+                    "PASS with {skipped} explicitly skipped (NOT_RUN) step(s); skipped steps are not verified"
+                )
             }
         } else if self.outcomes.iter().any(|o| o.status == Status::Fail) {
             "FAILED: a required step did not pass".to_owned()
         } else if self.outcomes.iter().all(|o| o.status == Status::NotRun) {
             "NOT_RUN: every step was skipped, so nothing was verified".to_owned()
         } else {
-            "UNSUPPORTED: a required step cannot run here; nothing was reported as passing"
-                .to_owned()
+            "UNSUPPORTED: a required step cannot run here; this run is not a pass".to_owned()
         };
         text.push_str(&format!("{}: {verdict}\n", self.title));
         text
@@ -149,6 +151,7 @@ mod tests {
         report.record("a", Status::Pass, "");
         assert!(report.succeeded());
         assert!(report.render().contains("PASS with 1 explicitly skipped"));
+        assert!(report.render().contains("not verified"));
         report.record("c", Status::Unsupported, "missing trunk");
         assert!(!report.succeeded());
         assert!(report.render().contains("UNSUPPORTED  c"));

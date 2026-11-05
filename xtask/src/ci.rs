@@ -79,7 +79,7 @@ pub fn run(
         println!("\nDry run: nothing was executed (every step is NOT_RUN).");
         return ExitCode::SUCCESS;
     }
-    let report = pipeline::execute("ci", &steps, tools, runner);
+    let report = pipeline::execute_gates("ci", &steps, tools, runner);
     report.print();
     report.exit_code()
 }
