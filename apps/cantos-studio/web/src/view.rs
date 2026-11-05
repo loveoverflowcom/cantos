@@ -1,8 +1,8 @@
 use crate::account_menu::AccountEntry;
 use crate::contract::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use crate::ui::{
-    ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigation, WorkspacePane,
-    STUDIO_EXPRESSION,
+    ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigationShell,
+    WorkspacePane, STUDIO_EXPRESSION,
 };
 use crate::{
     adaptation::ScriptAdaptation,
@@ -309,12 +309,6 @@ pub fn Studio() -> impl IntoView {
                 }
             }
         }
-    });
-    Effect::new(move |_| {
-        let id = format!("{}-control", panel.get().id());
-        leptos::leptos_dom::helpers::request_animation_frame(move || {
-            crate::navigation::reveal_in_strip(&id)
-        });
     });
     let pane_history =
         leptos::leptos_dom::helpers::window_event_listener_untyped("popstate", move |_| {
@@ -855,7 +849,7 @@ pub fn Studio() -> impl IntoView {
             </section>
             <div id="studio-private-workspaces" hidden=move ||session_pending.get() inert=move ||session_pending.get()>
             <div class="studio-workbench">
-            <WorkspaceNavigation panel=panel locale=locale/>
+            <WorkspaceNavigationShell panel=panel locale=locale available=Signal::derive(move || !session_pending.get())/>
             <div class="studio-workbench-content">
             <div class="studio-pane-heading" hidden=move ||panel.get()==WorkspacePane::Dashboard>
                 <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(locale.get())}</h2>
