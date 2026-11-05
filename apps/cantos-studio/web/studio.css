@@ -12,8 +12,9 @@ body { margin: 0; }
 .studio-shell .session-controls > .cui-field, .studio-shell .toolbar > input { flex: 1 1 18rem; }
 .studio-shell :where(label):not(:where(.cui-choice-label, .cui-field > .cui-field-label, .cui-field-shell > .cui-field-label)) { display: block; margin-block: var(--cantos-space-sm); }
 .studio-shell textarea { inline-size: 100%; min-block-size: 23rem; resize: vertical; }
-/* Fields retain their shared shell perimeter; other controls keep one flush inset indicator. */
-.studio-shell :where(a, summary, button, input, textarea, select):not(.cui-field-control):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
+/* Native fallback stays inset at pane edges. A zero-specificity selector lets shared
+   controls keep their own perimeter; fields retain their single shared shell indicator. */
+:where(.studio-shell :is(a, summary, button, input, textarea, select):not(.cui-field-control):focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell output { display: inline-block; margin-inline-start: var(--cantos-space-sm); font-variant-numeric: tabular-nums; }
 .studio-shell .mode { color: var(--cantos-color-on-surface-variant); }
 .studio-shell pre { background: var(--cantos-color-surface-container); padding: var(--cantos-space-md); white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 30rem; overflow: auto; }
@@ -195,7 +196,6 @@ body { margin: 0; }
 .studio-shell .delegation-panel .live-status, .studio-shell .delegation-grant { background: var(--cantos-color-surface); }
 .studio-shell .delegation-panel .live-status { margin-block: var(--cantos-space-md); }
 .studio-shell .delegation-panel h4 { margin-block: var(--cantos-space-lg) var(--cantos-space-sm); }
-.studio-shell .delegation-panel [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell .delegation-problems { margin: 0; padding-inline-start: var(--cantos-space-lg); }
 .studio-shell .delegation-problems:empty { display: none; }
 .studio-shell :is(.delegation-reveal, .delegation-unrecoverable) { margin-block: var(--cantos-space-md); }
@@ -426,8 +426,8 @@ body { margin: 0; }
 .studio-shell .cw-audio-stage input[type="file"]::file-selector-button { font: inherit; }
 .studio-shell .cw-audio-details { margin-block: var(--cantos-space-sm); }
 .studio-shell .cw-audio-stage summary { padding-block: var(--cantos-space-sm); cursor: pointer; }
-.studio-shell .cw-audio-stage summary:focus-visible,
-.studio-shell #live-audio-stages-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
+/* Operable disclosures have room inside the padded stage for the canonical outset ring. */
+.studio-shell .cw-audio-stage summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 /* Save controls share their visible section reason. Only in-flight requests suppress other
    per-button copies: idle input/lifecycle blockers must remain visible beside their controls. */
 .studio-shell .cw :is(#live-patch-work-reason, #live-save-preview-work-reason, #live-patch-unit-reason):not([hidden]),
@@ -451,7 +451,6 @@ body { margin: 0; }
 .studio-shell .cw-preview-zone { margin-block-start: var(--cantos-space-lg); min-inline-size: 0; max-inline-size: 40rem; }
 .studio-shell .cw-preview { min-inline-size: 0; }
 .studio-shell .cw-preview-zone h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); }
-.studio-shell .cw-preview-zone h5:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
 .studio-shell .cw-preview-banner { margin-block: 0 var(--cantos-space-sm); padding: var(--cantos-space-sm) var(--cantos-space-md); background: var(--cantos-color-warning-container); color: var(--cantos-color-on-surface); border-inline-start: 4px solid var(--cantos-color-warning); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
 .studio-shell .cw-preview-revision { font-weight: var(--cantos-type-label-weight); white-space: nowrap; }
 .studio-shell .cw-preview-surface { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-container); min-inline-size: 0; overflow-wrap: anywhere; }
@@ -498,7 +497,6 @@ html:has(.cw-context) { scroll-padding-block-start: 5rem; }
 .studio-shell .cw-metadata-order li { padding-block: var(--cantos-space-sm); }
 .studio-shell .cw-metadata-candidate { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--cantos-space-sm); }
 .studio-shell .cw-metadata code, .studio-shell .cw-metadata-pin { overflow-wrap: anywhere; white-space: normal; }
-.studio-shell #metadata-review-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
 .studio-shell .cw-metadata[hidden], .studio-shell .cw-metadata [hidden] { display: none; }
 .studio-shell #metadata-review { display: flex; flex-direction: column; max-block-size: 85dvh; margin-block: var(--cantos-space-md); padding: 0; background: var(--cantos-color-surface-container); }
 .studio-shell .cw-metadata-review-header, .studio-shell .cw-metadata-review-body, .studio-shell .cw-metadata-confirm { padding: var(--cantos-space-md); }

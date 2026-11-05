@@ -60,7 +60,7 @@
 }
 .artwork-workflow, .artwork-metadata { color: var(--cantos-color-on-surface-variant); }
 .artwork-metadata summary { cursor: pointer; min-block-size: var(--cantos-size-control); align-content: center; overflow-wrap: anywhere; }
-.artwork-metadata summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-space-xs); }
+.artwork-metadata summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 .artwork-fields { display: grid; gap: var(--cantos-space-md); }
 .studio-artwork p, .studio-artwork small { overflow-wrap: anywhere; }
 .artwork-actions { display: grid; align-items: start; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }

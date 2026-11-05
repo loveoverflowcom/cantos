@@ -25,6 +25,46 @@ def ratio(a, b):
 
 
 class ComponentStates(unittest.TestCase):
+    def test_studio_focus_rules_preserve_shared_anatomy_and_heading_policy(self):
+        css = (ROOT / "apps/cantos-studio/web/studio.css").read_text()
+        css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        rules = [(selector.strip(), dict(re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", body)))
+                 for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css)]
+        focus_rules = {selector: declarations for selector, declarations in rules
+                       if ":focus-visible" in selector and "outline" in declarations}
+        # A low-specificity fallback must lose to the shared button/choice/link rules.
+        # Exclude fields: the shared shell already draws their single inset perimeter.
+        fallback = (":where(.studio-shell :is(a, summary, button, input, textarea, select)"
+                    ":not(.cui-field-control):focus-visible)")
+        heading = '.studio-shell :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible'
+        inset = '.studio-shell [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible'
+        disclosure = ".studio-shell .cw-audio-stage summary:focus-visible"
+        self.assertEqual(set(focus_rules), {fallback, heading, inset, disclosure})
+        for selector in (fallback, inset, disclosure):
+            self.assertEqual(focus_rules[selector]["outline"].strip(),
+                             "var(--cantos-size-focus-width) solid var(--cantos-color-focus)")
+        for selector in (fallback, inset):
+            self.assertEqual(focus_rules[selector]["outline-offset"].strip(),
+                             "calc(-1 * var(--cantos-size-focus-width))")
+        self.assertEqual(focus_rules[disclosure]["outline-offset"].strip(),
+                         "var(--cantos-size-focus-offset)")
+        self.assertEqual(focus_rules[heading]["outline"].strip(), "none")
+
+    def test_artwork_focus_consumers_use_focus_roles_for_both_dimensions(self):
+        css = (ROOT / "apps/cantos-studio/web/artwork.css").read_text()
+        css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        rules = {selector.strip(): body for selector, body in
+                 re.findall(r"([^{}]+)\{([^{}]*)\}", css) if ":focus-visible" in selector}
+        self.assertEqual(set(rules), {".artwork-file-input:focus-visible + .artwork-file-label",
+                                     ".artwork-metadata summary:focus-visible"})
+        for selector, body in rules.items():
+            with self.subTest(selector=selector):
+                declarations = dict(re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", body))
+                self.assertEqual(declarations["outline"].strip(),
+                                 "var(--cantos-size-focus-width) solid var(--cantos-color-focus)")
+                self.assertEqual(declarations["outline-offset"].strip(),
+                                 "var(--cantos-size-focus-offset)")
+
     def test_supporting_text_role_is_scoped_to_the_nearest_root_or_surface(self):
         # Source contract, not a browser/cascade emulator. Every containment boundary
         # must specify its own inherited role; an ancestor descendant-color override
