@@ -180,13 +180,30 @@ class RegistryContracts(unittest.TestCase):
         features = identity["features"]
         for name in ("serde", "serde_json"):
             self.assertIn(name, identity["dev-dependencies"])
-            # The executable's Firebase adapter may use JSON; the default/Kani pure core and
-            # the persistence shell must never link it.
+            # The service adapter and explicit disposable recovery fixture may use JSON;
+            # the default/Kani core and persistence shell must never link it.
             if name in identity["dependencies"]:
                 self.assertIs(identity["dependencies"][name].get("optional"), True, name)
+                allowed = ["service"] if name == "serde" else ["recovery-testing", "service"]
                 self.assertEqual([feature for feature, enabled in features.items() if "dep:" + name in enabled],
-                                 ["service"], name)
-                self.assertNotIn("service", features.get("default", []) + features["persistence"])
+                                 allowed, name)
+
+        def enabled_features(selected):
+            reached = set()
+            pending = list(selected)
+            while pending:
+                feature = pending.pop()
+                if feature not in reached:
+                    reached.add(feature)
+                    pending.extend(features.get(feature, []))
+            return reached
+
+        for selected in (features.get("default", []), ["persistence"]):
+            self.assertTrue({"service", "recovery-testing", "dep:serde", "dep:serde_json"}.isdisjoint(
+                enabled_features(selected)), selected)
+        self.assertNotIn("recovery-testing", enabled_features(["service"]))
+        fixture = next(binary for binary in identity["bin"] if binary["name"] == "cantos-identity-recovery-fixture")
+        self.assertEqual(fixture["required-features"], ["recovery-testing"])
         for relative, parent in (("services/cantos-identity/src/lib.rs", "mod quint_conformance_tests;"),
                                  ("services/cantos-server/src/platform/identity_auth/decision.rs", "mod quint_conformance_tests;")):
             lines = (ROOT / relative).read_text().splitlines()

@@ -354,6 +354,13 @@ pub fn Studio() -> impl IntoView {
             state.with(|editor| entry::presentation(session, editor.actor(), editor.status()))
         })
     });
+    let auth_display = Memo::new(move |_| {
+        entry::auth_display(
+            entry_state.get(),
+            entry_form.with(SignInForm::phase),
+            account_form.with(SignInForm::phase),
+        )
+    });
     let on_denial = Callback::new(move |error: ApiError| {
         // StudioHttp already checked the immutable request UUID and observation epoch. Preserve
         // the draft owner while a new API observation hides every private workspace.
@@ -458,9 +465,13 @@ pub fn Studio() -> impl IntoView {
         });
     on_cleanup(move || focusout.remove());
     let focus_owner = StoredValue::new(String::new());
-    let focus_context = Memo::new(move |_| (entry_state.get(), panel.get()));
+    let focus_context = Memo::new(move |_| (auth_display.get(), panel.get()));
     Effect::new(move |_| {
-        let (entry, pane) = focus_context.get();
+        let (display, pane) = focus_context.get();
+        if display.reauthenticating {
+            return;
+        }
+        let entry = display.entry;
         let owner = actor.get_untracked();
         if focus_owner.get_value() != owner {
             field_returns.set_value(vec![]);
@@ -470,7 +481,7 @@ pub fn Studio() -> impl IntoView {
         leptos::leptos_dom::helpers::request_animation_frame(move || {
             if session_epoch.try_get_untracked() != Some(epoch)
                 || panel.try_get_untracked() != Some(pane)
-                || entry_state.try_get_untracked() != Some(entry)
+                || auth_display.try_get_untracked() != Some(display)
             {
                 return;
             }
@@ -645,6 +656,14 @@ pub fn Studio() -> impl IntoView {
         let typed_email = intent.email.clone();
         spawn_local(async move {
             let result = api.sign_in(intent).await;
+            // Cancellation owns the session ticket as well as the form epoch. An older reply
+            // must not clear a newer form or close its reauthentication popover.
+            if !session
+                .try_with_untracked(|s| s.accepts(ticket))
+                .unwrap_or(false)
+            {
+                return;
+            }
             let outcome = result.as_ref().map(|_| ()).map_err(|failure| *failure);
             let _ = form.try_update(|f| {
                 f.finish(issued, outcome);
@@ -684,6 +703,9 @@ pub fn Studio() -> impl IntoView {
         };
         let _ = auth.cancel_authorization();
         let _ = auth.invalidate();
+        entry_form.update(SignInForm::clear);
+        account_form.update(SignInForm::clear);
+        reauth_open.set(false);
         let invalidated = session.get_untracked().invalidated();
         let Some((waiting, ticket)) = invalidated.begin() else {
             return;
@@ -786,7 +808,7 @@ pub fn Studio() -> impl IntoView {
                     </span>
                     <ThemeCycleButton id="theme-select" theme=theme variant=ButtonVariant::Tonal labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
                     <AccountEntry actor=authenticated_actor
-                        available=Signal::derive(move || entry_state.get() == Entry::Workspace)
+                        available=Signal::derive(move || entry_state.get() == Entry::Workspace || auth_display.get().reauthenticating)
                         open=account_menu_open
                         label=Signal::derive(move || entry_text(EntryKey::Session, locale.get()).to_owned())
                         close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, locale.get()).to_owned())>
@@ -800,7 +822,7 @@ pub fn Studio() -> impl IntoView {
                     </AccountEntry>
                 </div>
             </header>
-            <section class="studio-entry" hidden=move ||entry_state.get()==Entry::Workspace aria-labelledby="studio-entry-title" aria-busy=move ||session.with(SessionState::pending)>
+            <section class="studio-entry" hidden=move ||entry_state.get()==Entry::Workspace || auth_display.get().reauthenticating aria-labelledby="studio-entry-title" aria-busy=move ||auth_display.get().checking.then_some("true")>
                 <aside class="entry-story" aria-labelledby="entry-story-title">
                     <div class="entry-artwork" aria-hidden="true">
                         <Logo variant=LogoVariant::Symbol tone=LogoTone::Light class="studio-logo-light"/>
@@ -811,13 +833,12 @@ pub fn Studio() -> impl IntoView {
                     </div>
                 </aside>
                 <div class="entry-form">
-                <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(entry_state.get()),locale.get())}</h1>
-                {move ||crate::messages::entry::help(entry_state.get()).map(|key|view!{<p class="help">{entry_text(key,locale.get())}</p>})}
-                <div hidden=move ||!session.with(SessionState::pending) inert=move ||!session.with(SessionState::pending)>
+                <h1 id="studio-entry-title" tabindex="-1">{move ||entry_text(crate::messages::entry::title(auth_display.get().entry),locale.get())}</h1>
+                {move ||crate::messages::entry::help(auth_display.get().entry).map(|key|view!{<p class="help">{entry_text(key,locale.get())}</p>})}
+                <div hidden=move ||!auth_display.get().checking inert=move ||!auth_display.get().checking>
                     <LoadingState announcement=Announcement::Polite>{move ||if cancelling.get(){entry_text(EntryKey::CleanupPending,locale.get())}else{text(Key::SessionChecking,locale.get())}}</LoadingState>
-                    <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,locale.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,locale.get())}</Button>
                 </div>
-                <div hidden=move ||session.with(SessionState::pending) inert=move ||session.with(SessionState::pending)>
+                <div hidden=move ||auth_display.get().checking inert=move ||auth_display.get().checking>
                 <Show when=move ||entry_state.get()!=Entry::SignInUnavailable>
                     <SignInPanel id="session" form=entry_form locale=locale blocked=auth_blocked on_submit=submit_entry/>
                 </Show>
@@ -825,6 +846,9 @@ pub fn Studio() -> impl IntoView {
                 <div class="entry-recovery" hidden=move ||authenticated_actor.get().is_none()>
                     <ActionButton id="session-logout" locale=locale variant=ButtonVariant::Text blocked=auth_blocked on_press=logout>{move ||text(Key::SessionLogout,locale.get())}</ActionButton>
                 </div>
+                </div>
+                <div class="studio-entry-cancel" data-pending=move ||session.with(SessionState::pending).to_string() inert=move ||!session.with(SessionState::pending)>
+                    <Button id="session-cancel" variant=ButtonVariant::Text state=Signal::derive(move ||if cancelling.get(){cantos_ui::DisabledReason::new(entry_text(EntryKey::CleanupPending,locale.get())).map(cantos_ui::ButtonState::Disabled).unwrap_or(cantos_ui::ButtonState::Enabled)}else{cantos_ui::ButtonState::Enabled}) on_press=cancel_check>{move ||entry_text(EntryKey::Cancel,locale.get())}</Button>
                 </div>
                 <p class="help" hidden=move || !unsaved.get()>{move ||text(Key::SessionRetained,locale.get())}</p>
                 </div>
