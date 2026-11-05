@@ -49,14 +49,55 @@ pub(crate) fn restore_return(snapshot: ReturnSnapshot) {
     let _ = (snapshot.scroll_y, snapshot.focus_id);
 }
 
+#[cfg(target_arch = "wasm32")]
+const SAVED_ENTRY: &str = "theatre:library:saved";
+
+pub(crate) fn is_saved_entry() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .and_then(|window| window.history().ok())
+            .and_then(|history| history.state().ok())
+            .and_then(|state| state.as_string())
+            .as_deref()
+            == Some(SAVED_ENTRY)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    false
+}
+
+/// Preserve the canonical Library address and associate the focus intent with this entry.
+pub(crate) fn open_saved(route: RwSignal<Route>) -> bool {
+    #[cfg(target_arch = "wasm32")]
+    {
+        navigate(route, Route::Library, false, Some(SAVED_ENTRY))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = route;
+        false
+    }
+}
+
 pub(crate) fn go(route: RwSignal<Route>, destination: Route, replace: bool) {
-    if route.get_untracked() == destination {
-        return;
+    navigate(route, destination, replace, None);
+}
+
+fn navigate(
+    route: RwSignal<Route>,
+    destination: Route,
+    replace: bool,
+    marker: Option<&str>,
+) -> bool {
+    let current = route.get_untracked();
+    if current == destination {
+        return false;
     }
     #[cfg(target_arch = "wasm32")]
     if let Some(window) = web_sys::window() {
         if let Ok(history) = window.history() {
-            let previous = web_sys::wasm_bindgen::JsValue::from_str(&route.get_untracked().hash());
+            let previous = current.hash();
+            let state = web_sys::wasm_bindgen::JsValue::from_str(marker.unwrap_or(&previous));
             let result = if replace {
                 history.replace_state_with_url(
                     &web_sys::wasm_bindgen::JsValue::NULL,
@@ -64,16 +105,21 @@ pub(crate) fn go(route: RwSignal<Route>, destination: Route, replace: bool) {
                     Some(&destination.hash()),
                 )
             } else {
-                history.push_state_with_url(&previous, "", Some(&destination.hash()))
+                history.push_state_with_url(&state, "", Some(&destination.hash()))
             };
             if result.is_err() {
-                return;
+                return false;
             }
+        } else if marker.is_some() {
+            return false;
         }
+    } else if marker.is_some() {
+        return false;
     }
     #[cfg(not(target_arch = "wasm32"))]
-    let _ = replace;
+    let _ = (replace, marker);
     route.set(destination);
+    true
 }
 
 /// Push a discovery link carrying `query`. The entry is skipped when the address already is that

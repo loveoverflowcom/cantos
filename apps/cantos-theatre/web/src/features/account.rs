@@ -196,10 +196,18 @@ fn ActionRow(
     locale: RwSignal<Locale>,
     label: Key,
     help: CopyKey,
+    #[prop(optional)] on_open: Option<Callback<(), bool>>,
 ) -> impl IntoView {
     view! {
         <li>
-            <a id=id class="theatre-action-row theatre-me-shortcut" href=route.hash()>
+            <a id=id class="theatre-action-row theatre-me-shortcut" href=route.hash()
+                on:click=move |event| {
+                    if crate::platform::in_app_activation(&event)
+                        && on_open.is_some_and(|open| open.run(()))
+                    {
+                        event.prevent_default();
+                    }
+                }>
                 <span class="theatre-me-shortcut-icon">{icon(asset)}</span>
                 <span class="theatre-me-shortcut-copy">
                     <span class="theatre-action-row-label">{move || messages::text(label, locale.get())}</span>
@@ -222,6 +230,7 @@ pub(crate) fn LiveAccount(
     on_logout: Callback<()>,
     on_refresh: Callback<()>,
     on_membership: Callback<()>,
+    on_open_saved: Callback<(), bool>,
 ) -> impl IntoView {
     let ui = account_ui(state);
     let presentation = Memo::new(move |_| state.with(|s| s.presentation().cloned()));
@@ -264,7 +273,7 @@ pub(crate) fn LiveAccount(
                             <section aria-labelledby="theatre-account-activity-heading">
                                 <h2 id="theatre-account-activity-heading">{label(locale, CopyKey::ListeningHeading)}</h2>
                                 <ul class="theatre-action-rows theatre-me-shortcuts">
-                                    <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp/>
+                                    <ActionRow id="theatre-account-open-saved" route=Route::Library asset="bookmark_border" locale label=Key::Saved help=CopyKey::SavedShortcutHelp on_open=on_open_saved/>
                                     <ActionRow id="theatre-account-open-history" route=Route::History asset="replay" locale label=Key::History help=CopyKey::HistoryShortcutHelp/>
                                 </ul>
                             </section>
@@ -602,7 +611,8 @@ mod tests {
         let noop = Callback::new(|()| {});
         let on_locale = Callback::new(|_: String| {});
         view! { <LiveAccount state locale theme on_locale on_login=noop on_register=noop
-        on_logout=noop on_refresh=noop on_membership=noop/> }
+        on_logout=noop on_refresh=noop on_membership=noop
+        on_open_saved=Callback::new(|()| false)/> }
         .to_html()
     }
 

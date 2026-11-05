@@ -15,6 +15,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | --- | --- |
 | Localization integration | [PRs #511/#512/#513 review](localization-review-511-513.md); generator regressions, stacked fix dependency and separate Web/CMP/native acceptance |
 | Theatre expressive foundation | [#452 Drive comparison and Web/CMP checks](theatre-expressive-foundation-452.md); opt-in tokens/components, browser and JVM observations; qualification, mobile and downstream app acceptance remain separate |
+| Theatre Web Me harmonization | [UI-REVIEW-716 findings and fixture QA](theatre-me-visual-harmonization.md); independent content stacks, existing Library section focus, actual CSS viewport/text-scale matrix and explicit real-account/player/zoom gaps |
 | Studio Expressive parity | [#559 expression audit and entry observations](studio-expressive-parity-559.md); Studio selects the Theatre expression, actual-build entry captures; authenticated workspace surfaces and accessibility matrix remain separate |
 | Post-merge UI review | [#461/#459/#457 and Select repair](ui-review-20261025-select.md); fresh base, reproduced CMP invalid-perimeter defect, current JVM tests/captures and bounded requalification; product/device acceptance remains separate |
 | Sixteen-commit Theatre UI review | [26 October manifest and repairs](ui-sixteen-commit-review-20261026.md); public-cover revalidation/lifetime and Login keyboard regressions, scoped model/mock evidence, with stale admission and runtime acceptance explicit |

@@ -730,6 +730,13 @@ body { margin: 0; }
 .theatre-public-empty > .theatre-empty-artwork { flex: 0 0 auto; margin-block-end: var(--cantos-space-sm); }
 .theatre-public-empty :where(h3, p) { margin: 0; max-inline-size: 60ch; }
 .theatre-public-empty > .cui-button { margin-block-start: var(--cantos-space-sm); }
+/* Shortcut destinations take programmatic focus while staying outside the Tab order. */
+.theatre-live-app .theatre-library-section > .theatre-section-heading { scroll-margin-block-start: var(--cantos-space-lg); }
+.theatre-live-app .theatre-library-section > .theatre-section-heading:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: 0;
+}
+
 /* Live Library composition; one global illustration, with quiet completed-empty summaries. */
 .theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
 .theatre-library-tools p { margin: 0; }

@@ -1359,7 +1359,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.go_home(); })
                                     on_refresh on_logout
                                     on_signup_submit on_signup_confirm on_signup_retry on_signup_new on_signup_login/> }.into_any(),
-                                Route::Account | Route::Settings => view! { <LiveAccount state=shared_account locale theme on_locale on_login on_register on_logout on_refresh on_membership/> }.into_any(),
+                                Route::Account | Route::Settings => view! { <LiveAccount state=shared_account locale theme on_locale on_login on_register on_logout on_refresh on_membership
+                                    on_open_saved=Callback::new(move |()| nav.open_saved())/> }.into_any(),
                                 Route::Library | Route::History => view! {
                                     <LiveLibrary state=state.read_only() locale actions=library_actions shared_section=ViewFn::from(move ||view!{<crate::features::shared_access::SharedLibrary account=shared_account state=shared locale
                                         on_reload=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.begin(DiscoveryQuery::default())).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })

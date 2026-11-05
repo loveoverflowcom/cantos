@@ -127,6 +127,46 @@ pub fn focus_main(main: NodeRef<leptos::html::Main>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_main(_main: NodeRef<leptos::html::Main>) {}
 
+/// Let ordinary activations use in-app navigation and keep native modified-click behavior.
+pub(crate) fn in_app_activation(event: &leptos::ev::MouseEvent) -> bool {
+    event.button() == 0
+        && !event.default_prevented()
+        && !(event.ctrl_key() || event.meta_key() || event.shift_key() || event.alt_key())
+}
+
+pub(crate) fn library_heading_id(section: crate::application::library::Section) -> String {
+    format!("theatre-library-{}-heading", section.name())
+}
+
+/// A session gate or an empty-section policy may remove the heading. Fall back to main.
+pub(crate) fn focus_library_section(
+    main: NodeRef<leptos::html::Main>,
+    section: Option<crate::application::library::Section>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use web_sys::wasm_bindgen::JsCast;
+        if let Some(section) = section {
+            if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+                let target = document
+                    .get_element_by_id(&library_heading_id(section))
+                    .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok());
+                if let Some(target) = target {
+                    if target.focus().is_ok()
+                        && document.active_element().as_ref() == Some(target.as_ref())
+                    {
+                        target.scroll_into_view_with_bool(true);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = section;
+    focus_main(main);
+}
+
 #[cfg(feature = "preview")]
 #[cfg(target_arch = "wasm32")]
 pub fn focus_input(input: NodeRef<leptos::html::Input>) {
