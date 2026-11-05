@@ -129,6 +129,14 @@ controls in both locales and all three modes at 320/390/1280px, with remaining a
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
 request authority. No summary endpoint, portfolio total, QC count or demo record is added.
+Both the desk and a direct `#workspace-content` entry automatically read the first bounded
+Work page after a matching owner session is confirmed, once per actor/observation epoch.
+Hidden authoring panes do not start that read. Content uses the desk's catalog observation:
+unread, loading, failed, successful-empty and rows remain distinct, and the choose-Work hint
+appears only after a successful page containing choices. Failure waits for explicit list
+refresh; returning between the mounted desk and Content does not repeat the initial request.
+The [#722 evidence](../../../docs/evidence/studio-content-auto-read-722.md) separates native,
+synthetic-HTTP browser and real local Server/Identity/Turso observations from production.
 The desk is work-first: the bounded Work list follows the heading and actions, **Continue** is a
 short block shown only for a selected Work (and its selected unit), and the audio and script tools
 form a secondary column. Audio status, the private-review explanation and the candidate line

@@ -868,15 +868,17 @@ pub fn ContentWorkspace(
         let owner = actor.get();
         let epoch = session_epoch.get();
         let target = format!("workspace:{epoch}");
-        if dashboard.get()
-            && active.get()
-            && !session_pending.get()
-            && !owner.is_empty()
-            && !blocked.get()
+        if dashboard_query.with(|query| {
+            query.should_read(
+                pane_shown.get(),
+                active.get() && !session_pending.get(),
+                &owner,
+                epoch,
+            )
+        }) && !blocked.get()
             && state.with(|s| s.actor() == owner && s.target() == target && s.pending().is_none())
             && !file_busy.get()
             && !delegation_unresolved.get()
-            && !dashboard_query.with(|query| query.attempted(&owner, epoch))
         {
             dashboard_query.update(|query| *query = query.start(&owner, epoch));
             dispatch.send(Command::Works { cursor: None });
@@ -1278,6 +1280,7 @@ pub fn ContentWorkspace(
                             <div class="toolbar cw-pager"><ActionButton id="live-works" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,locale.get())}</ActionButton>
                             <span hidden=move ||facts.with(|f|f.pages.previous_works().is_none())><ActionButton id="live-works-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_works().is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f|f.pages.previous_works()) { read_works.run(cursor); } })>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                             <span hidden=move ||facts.with(|f|f.works_next.is_none())><ActionButton id="live-works-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
+                            <div id="live-catalog-status"><super::dashboard::CatalogStatus query=dashboard_query has_rows=Signal::derive(move ||facts.with(|f|!f.works.is_empty())) locale=locale/></div>
                             <ul id="live-works-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::WorkResults,locale.get())>
                                 <For each=move||work_ids.get() key=|id|id.clone() children=move |id| {
                                     let row=Memo::new({let id=id.clone();move |_|facts.with(|f|f.works.iter().find(|work|work.id==id).cloned())});
@@ -1307,7 +1310,7 @@ pub fn ContentWorkspace(
                         <div class="cw-tabs" role="group" aria-label=move ||text(Key::TasksLabel,locale.get()) hidden=move ||!has_work.get()>
                             {Task::AREAS.into_iter().map(|area| view! {<button id=area.chip_id() type="button" class="cui-button" data-variant=move ||if shown.get()==Some(area) {"tonal"} else {"text"} aria-pressed=move ||(shown.get()==Some(area)).to_string() hidden=move ||!area.available(has_work.get(),has_unit.get()) on:click=move |_|{task.set(area);pane.set(Pane::Work);}>{move ||text(task_label(area),locale.get())}</button>}).collect_view()}
                         </div>
-                        <p class="help cw-empty" hidden=move ||shown.get().is_some()>{move ||text(Key::NoWorkSelected,locale.get())}</p>
+                        <p class="help cw-empty" hidden=move ||shown.get().is_some() || !dashboard_query.with(|query|query.has_choices(facts.with(|f|!f.works.is_empty())))>{move ||text(Key::NoWorkSelected,locale.get())}</p>
 
                         <section id="live-create-work-form" class="cw-panel cw-form" aria-labelledby="live-create-work-title" hidden=move ||hide_area(Task::CreateWork) inert=move ||hide_area(Task::CreateWork)>
                             <h3 id="live-create-work-title">{move ||text(Key::CreateWork,locale.get())}</h3>
