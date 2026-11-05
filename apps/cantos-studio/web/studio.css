@@ -465,7 +465,8 @@ body { margin: 0; }
 /* Content workspace (#571): the selected Work and chapter stay in view, the chapter list sits
    beside a calm writing area and one task area is shown at a time. Geometry only: control
    anatomy and every colour are shared roles; all areas stay mounted, so hiding never drops a draft. */
-.studio-shell .cw { display: grid; gap: var(--cantos-space-md); min-inline-size: 0; }
+/* Keep the workspace column within its pane even when a selected option has wide text. */
+.studio-shell .cw { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); min-inline-size: 0; }
 .studio-shell .cw-context { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-xs) var(--cantos-space-md); padding-block: var(--cantos-space-sm); background: var(--cantos-color-surface); }
 .studio-shell .cw-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cantos-space-xs) var(--cantos-space-md); min-inline-size: 0; flex: 1 1 18rem; }
 .studio-shell .cw-heading h2 { margin: 0; font-size: var(--cantos-type-label-size); font-weight: var(--cantos-type-label-weight); color: var(--cantos-color-on-surface-variant); }
@@ -515,6 +516,15 @@ body { margin: 0; }
 /* Keep space for field labels when text is enlarged in a narrow container. */
 .studio-shell .cw-audio-stage.live-section,
 .studio-shell .cw-audio-stage > .live-section { padding-inline: min(var(--cantos-space-md), 5cqi); }
+/* The Theatre Floating fill equals this section's container role. Match the brief's
+   editable textarea/Select surfaces without changing shared state chrome or text ownership. */
+.studio-shell #live-audio-brief-stage .live-field[data-variant="floating"][data-state="editable"] .cui-field-shell {
+  background: var(--cantos-color-surface-container-high);
+}
+/* Mix toward the section tone so the floating label keeps its contrast in Light. */
+.studio-shell #live-audio-brief-stage .live-field[data-variant="floating"][data-state="editable"] .cui-field-shell:hover {
+  background: color-mix(in srgb, var(--cantos-color-surface-container) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
+}
 .studio-shell .cw-audio-stage .live-section h4:first-child,
 .studio-shell .cw-audio-stage.live-section h4:first-child { margin-block-start: 0; }
 .studio-shell .cw-audio-stage pre { white-space: pre-wrap; overflow-wrap: anywhere; }

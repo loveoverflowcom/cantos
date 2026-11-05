@@ -1002,10 +1002,31 @@ mod expression_tests {
             !css.contains("--cantos-web-field-"),
             "local field geometry override"
         );
-        assert!(
-            !css.contains(".cui-field-shell {") && !css.contains("cui-field-shell, "),
-            "local field shell override"
-        );
+        // A composition may select a semantic fill, but never change shared shell geometry.
+        // The existing label rule only excludes shared labels from Studio's global margins.
+        for (selector, declarations) in css
+            .split('}')
+            .filter_map(|rule| rule.rsplit_once('{'))
+            .filter(|(selector, _)| {
+                selector.contains(".cui-field-shell") && !selector.contains(":where(label)")
+            })
+        {
+            assert!(
+                selector.contains("#live-audio-brief-stage"),
+                "field fill escaped its composition: {selector}"
+            );
+            for declaration in declarations
+                .split(';')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                assert!(
+                    declaration.starts_with("background:")
+                        && declaration.contains("var(--cantos-color-surface-container-high)"),
+                    "local field shell geometry or nonsemantic fill: {declaration}"
+                );
+            }
+        }
     }
 
     #[test]
