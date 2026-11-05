@@ -376,6 +376,9 @@ pub fn FormSubmit(
     children: Children,
     #[prop(optional)] icon: Option<ViewFn>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
+    /// Sign-in already names progress in its button; retain a single offscreen announcement.
+    #[prop(optional)]
+    busy_label_only: bool,
     #[prop(default = ButtonVariant::Tonal)] variant: ButtonVariant,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
@@ -395,6 +398,7 @@ pub fn FormSubmit(
                 <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get() && !busy.get()
+                class:cui-sr-only=move || busy_label_only && busy.get()
                 role=move || busy.get().then_some("status")>{move || if busy.get() {
                     BlockReason::Busy.text(locale.get()).to_owned()
                 } else { reason.with_value(|r| r.get(locale.get()).as_str().to_owned()) }}</span>

@@ -266,6 +266,13 @@ receipt. Revision conflicts require a new reviewed run against the current base.
 
 ## Tokens and evidence
 
+Explicit entry sign-in and account-menu reauthentication retain their credential form while
+the primary CTA shows one spinner, disabled tone and localized `Signing in…` label. Independent
+bootstrap and cleanup checks keep their blocking presentation and cancellation action. Private
+workspaces still use `SessionState` admission directly and remain hidden/inert during either
+request. [The #615 record](../../../docs/evidence/web-auth-pending-615.md) documents the scoped
+local renderer evidence and outstanding authentication/accessibility acceptance.
+
 [`packages/ui-system/shared/tokens.json`](../../../packages/ui-system/shared/tokens.json) is the
 canonical v0.2.0 light/dark source. Studio links generated shared token CSS directly and uses
 `cantos_ui::Theme` under `.studio-shell.cantos-ui`; system/light/dark selection stays scoped.

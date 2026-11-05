@@ -1,4 +1,5 @@
 //! Presentation only: current-cookie authority and retained draft ownership stay in SessionState.
+use crate::signin::SignInPhase;
 use crate::{editor::Status, session::SessionState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -13,6 +14,24 @@ pub enum Entry {
     /// The API confirmed a session but its protected routes keep denying it: sign in again.
     SessionRefused,
     Workspace,
+}
+
+/// Display facts only. Private workspace admission continues to use `SessionState` directly.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AuthDisplay {
+    pub entry: Entry,
+    pub checking: bool,
+    pub reauthenticating: bool,
+}
+
+pub fn auth_display(entry: Entry, sign_in: SignInPhase, account: SignInPhase) -> AuthDisplay {
+    let submitting = entry == Entry::Checking && sign_in == SignInPhase::Submitting;
+    let reauthenticating = entry == Entry::Checking && account == SignInPhase::Submitting;
+    AuthDisplay {
+        entry: if submitting { Entry::Login } else { entry },
+        checking: entry == Entry::Checking && !submitting && !reauthenticating,
+        reauthenticating,
+    }
 }
 
 pub fn presentation(session: &SessionState, owner: &str, status: Status) -> Entry {
@@ -37,6 +56,46 @@ pub fn presentation(session: &SessionState, owner: &str, status: Status) -> Entr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_sign_in_keeps_its_form_while_session_observation_blocks_private_work() {
+        use SignInPhase::{Editing, Submitting};
+        let (checking, _) = SessionState::default().begin().unwrap();
+        let entry = presentation(&checking, "alice", Status::SignedIn);
+        for (sign_in, account, shown, loader, reauthenticating) in [
+            (Editing, Editing, Entry::Checking, true, false),
+            (Submitting, Editing, Entry::Login, false, false),
+            (Editing, Submitting, Entry::Checking, false, true),
+        ] {
+            assert_eq!(
+                auth_display(entry, sign_in, account),
+                AuthDisplay {
+                    entry: shown,
+                    checking: loader,
+                    reauthenticating
+                }
+            );
+            assert!(!checking.projects_owner("alice"));
+        }
+        for entry in [
+            Entry::Login,
+            Entry::Denied,
+            Entry::Unavailable,
+            Entry::SignInUnavailable,
+            Entry::RetainedOwner,
+            Entry::SessionRefused,
+            Entry::Workspace,
+        ] {
+            assert_eq!(
+                auth_display(entry, Editing, Editing),
+                AuthDisplay {
+                    entry,
+                    checking: false,
+                    reauthenticating: false
+                }
+            );
+        }
+    }
 
     #[test]
     fn checking_and_late_callbacks_never_open_a_private_workspace() {

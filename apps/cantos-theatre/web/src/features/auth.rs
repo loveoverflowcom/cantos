@@ -16,9 +16,9 @@ use crate::{
     messages::{self, Key, Locale},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, FieldState,
-    IconButton, IconName, Logo, LogoTone, LogoVariant, Space, StatusTone, Surface, SurfaceTone,
-    SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
+    AccessibleName, Announcement, BackButton, Button, ButtonState, ButtonVariant, DisabledReason,
+    FieldState, IconButton, IconName, LoadingState, Logo, LogoTone, LogoVariant, Space, StatusTone,
+    Surface, SurfaceTone, SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -61,6 +61,14 @@ fn status_tone(state: &AccountUi) -> StatusTone {
     }
 }
 
+fn has_feedback(state: &AccountUi) -> bool {
+    match state.phase {
+        SessionPhase::Idle | SessionPhase::Checking => false,
+        SessionPhase::Guest => state.login_refusal.is_some(),
+        SessionPhase::SignedIn | SessionPhase::Failed(_) | SessionPhase::LogoutPending => true,
+    }
+}
+
 fn refusal_key(refusal: LoginRefusal) -> CopyKey {
     match refusal {
         LoginRefusal::Credentials => CopyKey::LoginRefusedCredentials,
@@ -90,11 +98,7 @@ fn auth_action_state(
     Memo::new(move |_| {
         let current = ui.get();
         let reason = messages::text(blocked_login_key(&current), locale.get());
-        action_state(
-            current.can_authenticate,
-            matches!(current.phase, SessionPhase::Idle | SessionPhase::Checking),
-            reason,
-        )
+        action_state(current.can_authenticate, false, reason)
     })
 }
 
@@ -210,6 +214,7 @@ fn LoginForm(
     state: ReadSignal<AccountViewState>,
     locale: RwSignal<Locale>,
     availability: Memo<Option<ButtonState>>,
+    submitting: Memo<bool>,
     on_submit: Callback<(String, String)>,
 ) -> impl IntoView {
     let ui = account_ui(state);
@@ -217,6 +222,17 @@ fn LoginForm(
     let password = RwSignal::new(String::new());
     // The eye only swaps the native `type` of the same input; it owns no secret.
     let revealed = RwSignal::new(false);
+    let submit_state = Memo::new(move |_| {
+        if submitting.get() {
+            action_state(
+                false,
+                true,
+                auth_copy::text(CopyKey::LoginSubmitting, locale.get()),
+            )
+        } else {
+            availability.get()
+        }
+    });
     let field_state = Signal::derive(move || {
         if ui.get().can_authenticate {
             FieldState::Editable
@@ -269,11 +285,12 @@ fn LoginForm(
                 trailing=move || view! {
                     <PasswordEye id="theatre-login-password-eye" locale revealed/>
                 }/>
-            {move || availability.get().map(|availability| view! {
-                <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login state=availability
+            {submit_state.get_untracked().map(|initial| view! {
+                <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login
+                    state=Signal::derive(move || submit_state.get().unwrap_or_else(|| initial.clone()))
                     on_press=Callback::new(move |_| submit())>
                     {move || auth_copy::text(
-                        if ui.get().phase == SessionPhase::Checking { CopyKey::LoginSubmitting } else { CopyKey::LoginSubmit },
+                        if submitting.get() { CopyKey::LoginSubmitting } else { CopyKey::LoginSubmit },
                         locale.get())}
                 </Button>
             })}
@@ -289,6 +306,7 @@ pub(crate) fn AuthPage(
     route: AuthRoute,
     /// RAM-only: a finished signup sends the owner here to sign in. It is never a session.
     account_created: RwSignal<bool>,
+    #[prop(into, default = false.into())] login_pending: Signal<bool>,
     on_back: Callback<()>,
     on_register: Callback<()>,
     on_login: Callback<(String, String)>,
@@ -305,8 +323,12 @@ pub(crate) fn AuthPage(
     let availability = auth_action_state(state, locale);
     let register_availability = secondary_action_state(availability);
     let is_login = route.step == AuthStep::Login;
+    let submitting =
+        Memo::new(move |_| login_pending.get() && ui.get().phase == SessionPhase::Checking);
+    let checking =
+        Memo::new(move |_| matches!(ui.get().phase, SessionPhase::Idle | SessionPhase::Checking));
     view! {
-        <section class="theatre-auth" aria-labelledby="theatre-auth-heading">
+        <section class="theatre-auth" aria-labelledby="theatre-auth-heading" data-checking=move || (is_login && checking.get()).to_string()>
             <div class="theatre-auth-top">
                 {move || AccessibleName::new(auth_copy::text(back_key(route), locale.get())).ok().map(|name| view! {
                     <BackButton id="theatre-auth-back" name=name
@@ -344,12 +366,17 @@ pub(crate) fn AuthPage(
                         CopyKey::RegisterHeading
                     }, locale.get())}</h1>
                     <Show when=move || is_login><p class="theatre-muted">{label(locale, CopyKey::LoginHelp)}</p></Show>
-                    <Show when=move || is_login || ui.get().phase == SessionPhase::LogoutPending>
+                    <Show when=move || (is_login || ui.get().phase == SessionPhase::LogoutPending) && has_feedback(&ui.get())>
                         <p id="theatre-auth-status" class="theatre-auth-feedback"
                             data-tone=move || status_tone(&ui.get()).as_str()
                             role="status" aria-live="polite" aria-atomic="true">
                             {move || status_text(&ui.get(), locale.get())}
                         </p>
+                    </Show>
+                    <Show when=move || is_login && checking.get() && !submitting.get()>
+                        <LoadingState class="theatre-auth-checking" announcement=Announcement::Polite>
+                            <span class="cui-sr-only">{move || messages::text(Key::AccountChecking, locale.get())}</span>
+                        </LoadingState>
                     </Show>
                     {if is_login {
                         view! {
@@ -357,11 +384,11 @@ pub(crate) fn AuthPage(
                                 <p id="theatre-auth-created" class="theatre-auth-feedback" data-tone="info" role="status">{label(locale, CopyKey::AccountCreatedNotice)}</p>
                             </Show>
                             <Show when=move || ui.get().phase != SessionPhase::SignedIn>
-                                <LoginForm state locale availability on_submit=on_login/>
-                                {move || register_availability.get().map(|availability| view! {
+                                <LoginForm state locale availability submitting on_submit=on_login/>
+                                {register_availability.get_untracked().map(|initial| view! {
                                     <Button id="theatre-auth-register" variant=ButtonVariant::AuthSecondary
                                         icon=IconName::PersonAdd
-                                        state=availability focus_on_press=true
+                                        state=Signal::derive(move || register_availability.get().unwrap_or_else(|| initial.clone())) focus_on_press=true
                                         on_press=Callback::new(move |_| on_register.run(()))>
                                         {label(locale, CopyKey::RegisterAction)}
                                     </Button>
@@ -393,6 +420,31 @@ mod tests {
     use super::*;
     use crate::application::account_view::{AccountFailure, SessionCompletion};
     use crate::application::signup::ProofLink;
+
+    #[test]
+    fn pending_login_feedback_is_absent_for_healthy_guests_and_bootstrap_is_not_submit() {
+        for locale in [Locale::Vietnamese, Locale::English] {
+            for state in [guest(), AccountViewState::default()] {
+                let html = render(AuthRoute::login(ReturnDestination::Home), state, locale);
+                assert!(!html.contains("id=\"theatre-auth-status\""));
+                assert_busy(&html, "theatre-auth-login", false);
+                assert_busy(&html, "theatre-auth-register", false);
+                assert_eq!(
+                    native_button_name(&html, "theatre-auth-login"),
+                    auth_copy::text(CopyKey::LoginSubmit, locale)
+                );
+            }
+            let register = render(
+                AuthRoute::register(ReturnDestination::Home),
+                AccountViewState::default(),
+                locale,
+            );
+            assert!(
+                register.contains("data-checking=\"false\""),
+                "signup keeps its own visible blocking reasons"
+            );
+        }
+    }
 
     #[test]
     fn failed_session_has_one_read_retry_and_registration_owns_its_feedback() {
@@ -453,18 +505,23 @@ mod tests {
     }
 
     #[test]
-    fn login_refusal_is_error_but_an_ordinary_guest_is_neutral() {
-        for (state, expected) in [
-            (guest(), "neutral"),
-            (refused(LoginRefusal::Credentials), "error"),
-            (refused(LoginRefusal::Invalid), "error"),
+    fn login_refusal_remains_an_error_while_a_healthy_guest_needs_no_notice() {
+        assert!(!render(
+            AuthRoute::login(ReturnDestination::Home),
+            guest(),
+            Locale::English
+        )
+        .contains("theatre-auth-status"));
+        for state in [
+            refused(LoginRefusal::Credentials),
+            refused(LoginRefusal::Invalid),
         ] {
             let html = render(
                 AuthRoute::login(ReturnDestination::Home),
                 state,
                 Locale::English,
             );
-            assert!(html.contains(&format!("data-tone=\"{expected}\"")));
+            assert!(html.contains("data-tone=\"error\""));
             assert_eq!(html.matches("role=\"status\"").count(), 1);
         }
     }
@@ -506,6 +563,17 @@ mod tests {
         enrollment: SignupState,
         created: bool,
     ) -> String {
+        render_auth(route, initial, language, enrollment, created, false)
+    }
+
+    fn render_auth(
+        route: AuthRoute,
+        initial: AccountViewState,
+        language: Locale,
+        enrollment: SignupState,
+        created: bool,
+        submitting: bool,
+    ) -> String {
         Owner::new().with(|| {
             let state = RwSignal::new(initial);
             let locale = RwSignal::new(language);
@@ -513,7 +581,7 @@ mod tests {
             let account_created = RwSignal::new(created);
             let noop = Callback::new(|()| {});
             let login = Callback::new(|_: (String, String)| {});
-            view! { <AuthPage state=state.read_only() signup locale route account_created on_back=noop on_register=noop on_login=login
+            view! { <AuthPage state=state.read_only() signup locale route account_created login_pending=Signal::stored(submitting) on_back=noop on_register=noop on_login=login
             on_home=noop on_refresh=noop on_logout=noop
             on_signup_submit=noop on_signup_confirm=noop on_signup_retry=noop on_signup_new=noop on_signup_login=noop/> }
             .to_html()
@@ -721,7 +789,8 @@ mod tests {
         );
         assert!(control(&html, "theatre-login-email").contains("readonly"));
         assert!(control(&html, "theatre-login-password").contains("readonly"));
-        assert!(html.contains("Signing in"));
+        assert!(!html.contains("Signing in"));
+        assert_busy(&html, "theatre-auth-login", false);
         let mut state = guest();
         let cleanup = state.begin_logout().unwrap();
         state.finish_logout(cleanup, Err(AccountFailure::Unavailable));
@@ -771,30 +840,44 @@ mod tests {
     }
 
     #[test]
-    fn only_the_sign_in_action_is_busy_while_the_session_is_checking() {
+    fn only_an_explicit_sign_in_intent_makes_the_primary_button_busy() {
         let mut checking = guest();
         checking.begin_refresh().unwrap();
-        for (state, name) in [
-            (checking, "checking"),
-            (AccountViewState::default(), "idle"),
+        for (state, submitting) in [
+            (checking.clone(), true),
+            (checking, false),
+            (AccountViewState::default(), false),
         ] {
             for language in [Locale::Vietnamese, Locale::English] {
-                let html = render(
+                let html = render_auth(
                     AuthRoute::login(ReturnDestination::Home),
                     state.clone(),
                     language,
+                    SignupState::default(),
+                    false,
+                    submitting,
                 );
-                assert_busy(&html, "theatre-auth-login", true);
+                assert_busy(&html, "theatre-auth-login", submitting);
                 assert_busy(&html, "theatre-auth-register", false);
-                let (opening, _) = button_markup(&html, "theatre-auth-register");
-                assert!(
-                    opening.contains("disabled"),
-                    "{name}: registration is blocked"
+                assert_eq!(html.matches("cui-loading-indicator").count(), 1);
+                assert!(!html.contains("id=\"theatre-auth-status\""));
+                assert_eq!(
+                    native_button_name(&html, "theatre-auth-login"),
+                    auth_copy::text(
+                        if submitting {
+                            CopyKey::LoginSubmitting
+                        } else {
+                            CopyKey::LoginSubmit
+                        },
+                        language
+                    )
                 );
+                let (opening, _) = button_markup(&html, "theatre-auth-register");
+                assert!(opening.contains("disabled"), "registration is blocked");
                 assert_eq!(
                     native_button_name(&html, "theatre-auth-register"),
                     auth_copy::text(CopyKey::RegisterAction, language),
-                    "{name}: the label stays readable"
+                    "the label stays readable"
                 );
             }
         }
