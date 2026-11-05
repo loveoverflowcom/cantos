@@ -65,6 +65,24 @@ impl SharedAccess {
             &[]
         }
     }
+    /// A receipt is history, never current entitlement. Only an accepted successful claim
+    /// starts a fresh catalog read; errors and stale callbacks produce no read effect.
+    pub fn finish_claim_read(
+        &mut self,
+        fence: &RequestFence,
+        operation: &str,
+        result: Result<ClaimReceipt, bool>,
+    ) -> Option<super::public_discovery::DiscoveryTicket> {
+        if !self.finish_claim(fence, operation, result)
+            || !matches!(self.claim, ClaimPhase::Done(_))
+        {
+            return None;
+        }
+        self.catalog.clear_shared();
+        self.catalog
+            .begin(super::public_discovery::DiscoveryQuery::default())
+    }
+
     pub fn begin_claim(&mut self, operation: String) -> Option<(RequestFence, String)> {
         let fence = self.fence.clone()?;
         let operation = match &self.claim {
@@ -345,5 +363,72 @@ mod refusal_tests {
         assert!(!refusal_stops_source(Some(work(WORK)), &left, shared));
         // The refusal must be for the Work the route names.
         assert!(!refusal_stops_source(Some(work(OTHER)), &refused, shared));
+    }
+}
+
+#[cfg(test)]
+mod fresh_claim_tests {
+    use super::*;
+    use crate::application::{
+        account::{AccountScope, AccountState},
+        public_discovery::{DiscoveryQuery, DiscoveryReadError, Step},
+    };
+    #[test]
+    fn accepted_receipt_replaces_an_inflight_catalog_read_but_unknown_or_stale_does_not() {
+        let mut account = AccountState::default();
+        account
+            .enter(
+                AccountScope::from_session("a".into(), uuid::Uuid::from_u128(1).to_string())
+                    .unwrap(),
+            )
+            .unwrap();
+        let fence = account.fence().unwrap();
+        let op = uuid::Uuid::from_u128(2).to_string();
+        let mut shared = SharedAccess::default();
+        shared.observe(Some(fence.clone()));
+        let old = shared.catalog.begin(DiscoveryQuery::default()).unwrap();
+        shared.begin_claim(op.clone()).unwrap();
+        assert_eq!(shared.finish_claim_read(&fence, &op, Err(true)), None);
+        assert_eq!(shared.claim, ClaimPhase::Unknown(op.clone()));
+        assert_eq!(
+            shared
+                .begin_claim(uuid::Uuid::from_u128(3).to_string())
+                .unwrap()
+                .1,
+            op
+        );
+        let fresh = shared
+            .finish_claim_read(
+                &fence,
+                &op,
+                Ok(ClaimReceipt {
+                    operation_id: op.clone(),
+                    grants: vec![],
+                    replayed: false,
+                }),
+            )
+            .unwrap();
+        assert!(matches!(shared.claim, ClaimPhase::Done(_)));
+        assert_eq!(fresh.cursor(), None);
+        assert_eq!(
+            shared
+                .catalog
+                .finish(&old, Err(DiscoveryReadError::Unavailable)),
+            Step::Ignored
+        );
+        // A duplicate success does not issue another read.
+        assert!(shared
+            .finish_claim_read(
+                &fence,
+                &op,
+                Ok(ClaimReceipt {
+                    operation_id: op.clone(),
+                    grants: vec![],
+                    replayed: true
+                })
+            )
+            .is_none());
+        shared.observe(None);
+        assert!(shared.finish_claim_read(&fence, &op, Err(true)).is_none());
     }
 }

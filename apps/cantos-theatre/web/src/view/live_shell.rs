@@ -121,7 +121,7 @@ pub(crate) fn NavigationChrome(
                             <span>{move || messages::text(Key::Menu, locale.get())}</span>
                         </button>
                         <div class="theatre-mobile-brand"><LiveBrand/></div>
-                        <Show when=move || !matches!(route.get(), Route::Account | Route::Settings)>
+                        <Show when=move || !matches!(route.get(), Route::Account | Route::Settings | Route::Library | Route::History)>
                             <p class="theatre-topbar-context">{move || messages::text(messages::route_key(route.get()), locale.get())}</p>
                         </Show>
                     </header>
@@ -282,6 +282,12 @@ fn run_work_request(
     }
     #[cfg(not(target_arch = "wasm32"))]
     let _ = (state, request, focus, account, fence, requests);
+}
+
+// Library and History share one read owner. Switching the focus within it is not re-entry.
+fn library_entry_refresh(previous: Option<Route>, route: Route) -> bool {
+    previous.is_some_and(|old| !matches!(old, Route::Library | Route::History))
+        && matches!(route, Route::Library | Route::History)
 }
 
 /// The single player of the live shell. Native builds have no audio element and use an inert
@@ -649,6 +655,16 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                         s.leave();
                     });
                     work_scope.set(None);
+                }
+            }
+            if library_entry_refresh(previous.as_ref().map(|(route, _)| *route), route)
+                && !preview
+                && network_allowed.get_untracked()
+                && fence.is_some()
+            {
+                #[cfg(target_arch = "wasm32")]
+                for section in crate::application::library::Section::ALL {
+                    crate::live::runtime::load_library(state, section, true, 1, false);
                 }
             }
             if matches!(route, Route::Library | Route::History)
@@ -1324,6 +1340,36 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     });
     let shell = NodeRef::<leptos::html::Div>::new();
     let session_phase = Memo::new(move |_| state.with(AccountViewState::phase));
+    let on_shared_reload = Callback::new(move |_| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let Some(fence) = state.with_untracked(AccountViewState::fence) else {
+            return;
+        };
+        if let Some(ticket) = shared
+            .try_update(|s| s.catalog.begin(DiscoveryQuery::default()))
+            .flatten()
+        {
+            super::shared_runtime::run_catalog(shared, state, ticket, fence, shared_requests);
+        }
+    });
+    let on_shared_more = Callback::new(move |_| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let Some(fence) = state.with_untracked(AccountViewState::fence) else {
+            return;
+        };
+        if let Some(ticket) = shared.try_update(|s| s.catalog.load_more()).flatten() {
+            super::shared_runtime::run_catalog(shared, state, ticket, fence, shared_requests);
+        }
+    });
+    let on_shared_claim = Callback::new(move |_| {
+        if !preview && network_allowed.get_untracked() {
+            super::shared_runtime::claim(shared, state, shared_requests);
+        }
+    });
     let navigation_visible = Memo::new(move |_| {
         nav.route
             .get()
@@ -1362,10 +1408,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                 Route::Account | Route::Settings => view! { <LiveAccount state=shared_account locale theme on_locale on_login on_register on_logout on_refresh on_membership
                                     on_open_saved=Callback::new(move |()| nav.open_saved())/> }.into_any(),
                                 Route::Library | Route::History => view! {
-                                    <LiveLibrary state=state.read_only() locale actions=library_actions shared_section=ViewFn::from(move ||view!{<crate::features::shared_access::SharedLibrary account=shared_account state=shared locale
-                                        on_reload=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.begin(DiscoveryQuery::default())).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })
-                                        on_more=Callback::new(move |_| { if let Some(fence)=state.with_untracked(|a|a.fence()) { if let Some(ticket)=shared.try_update(|s|s.catalog.load_more()).flatten() {super::shared_runtime::run_catalog(shared,state,ticket,fence,shared_requests);} } })
-                                        on_claim=Callback::new(move |_|super::shared_runtime::claim(shared,state,shared_requests))/>}) on_page=Callback::new(move |(section, restart, focus)| {
+                                    <LiveLibrary state=state.read_only() locale actions=library_actions shared_has_rows=Signal::derive(move || shared.with(|s| state.with(|a| !s.visible_rows(a).is_empty()))) shared_section=ViewFn::from(move ||view!{<crate::features::shared_access::SharedLibrary account=shared_account state=shared locale
+                                        on_reload=on_shared_reload on_more=on_shared_more on_claim=on_shared_claim/>}) on_page=Callback::new(move |(section, restart, focus)| {
                                         if preview || !network_allowed.get_untracked() { return; }
                                         #[cfg(target_arch = "wasm32")]
                                         crate::live::runtime::load_library(state, section, restart, 1, focus);
@@ -1832,5 +1876,21 @@ mod tests {
             assert!(html.contains("cui-theme-cycle-button"));
             assert!(!html.contains("<select"));
         });
+    }
+}
+
+#[cfg(test)]
+mod library_entry_tests {
+    use super::*;
+    #[test]
+    fn library_reentry_refreshes_once_but_focus_navigation_does_not_restart_paging() {
+        for entry in [Route::Library, Route::History] {
+            assert!(library_entry_refresh(Some(Route::Account), entry));
+            assert!(library_entry_refresh(Some(Route::Discover), entry));
+            assert!(!library_entry_refresh(None, entry));
+            assert!(!library_entry_refresh(Some(Route::Library), entry));
+            assert!(!library_entry_refresh(Some(Route::History), entry));
+        }
+        assert!(!library_entry_refresh(Some(Route::Library), Route::Account));
     }
 }

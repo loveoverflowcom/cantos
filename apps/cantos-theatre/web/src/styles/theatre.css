@@ -738,15 +738,35 @@ body { margin: 0; }
 }
 
 /* Live Library composition; one global illustration, with quiet completed-empty summaries. */
-.theatre-library-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); margin-block-end: var(--cantos-space-lg); }
-.theatre-library-tools p { margin: 0; }
-.theatre-library-invitation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-lg); }
+/* Library composition: quiet terminal sections retain keyboard shortcut targets. Focus
+   reveals their compact summary without repeating three discovery invitations. */
+.theatre-library-deck { margin-block-end: var(--cantos-space-xl); }
+.theatre-library-section[data-empty="true"]:not(:focus-within),
+.theatre-visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; margin: 0; }
+.theatre-library-section[data-empty="true"]:focus-within { margin-block: var(--cantos-space-md); }
+.theatre-library-invitation { display: flex; align-items: center; gap: var(--cantos-space-lg); padding: clamp(var(--cantos-space-lg), 4vw, var(--cantos-space-xl)); }
+.theatre-library-invitation > .theatre-empty-artwork { order: 2; flex: 0 1 10rem; inline-size: min(28%, 10rem); }
 .theatre-library-invitation > div:last-child { flex: 1 1 16rem; min-inline-size: 0; }
 .theatre-library-invitation h2 { margin-block-end: var(--cantos-space-sm); }
 .theatre-library-invitation p { max-inline-size: 55ch; }
-.theatre-library-sections[data-empty="true"] { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cantos-space-lg); margin-block-start: var(--cantos-space-lg); }
-.theatre-library-sections[data-empty="true"] .theatre-library-section { margin-block: 0; }
-.theatre-library-sections[data-empty="true"] .theatre-section-heading { margin-block: 0 var(--cantos-space-md); }
+.theatre-library-invitation .theatre-action { min-block-size: 3rem; gap: var(--cantos-space-sm); }
+.theatre-shared-library { margin-block-start: var(--cantos-space-lg); }
+.theatre-shared-feedback { display: flex; align-items: center; gap: var(--cantos-space-sm); padding-block: var(--cantos-space-sm); }
+.theatre-shared-feedback > .cui-icon { flex: none; color: var(--cantos-color-on-surface-variant); }
+.theatre-shared-feedback p { flex: 1; min-inline-size: 0; margin: 0; }
+.theatre-shared-feedback .cui-button { flex: none; }
+.theatre-shared-disclosure { border-block-start: 1px solid var(--cantos-color-outline-variant); padding-block: var(--cantos-space-sm); }
+.theatre-shared-disclosure summary { cursor: pointer; min-block-size: 3rem; display: list-item; align-content: center; font-weight: 600; padding-inline: var(--cantos-space-sm); }
+.theatre-shared-disclosure summary:focus-visible { outline: 2px solid var(--cantos-color-primary); outline-offset: 0; border-radius: var(--cantos-web-shape-control); }
+.theatre-shared-disclosure summary:hover { background: var(--cantos-color-surface-container); }
+.theatre-shared-disclosure summary:active { background: var(--cantos-color-surface-container-high); }
+.theatre-shared-disclosure > p { margin-block: var(--cantos-space-sm); }
+@media (max-width: 40rem) {
+  .theatre-library-invitation { flex-direction: column; align-items: flex-start; }
+  .theatre-library-invitation > .theatre-empty-artwork { order: 0; flex: none; inline-size: 6rem; align-self: center; }
+  .theatre-library-invitation > div:last-child { flex: none; }
+  .theatre-library-invitation .theatre-action { inline-size: 100%; }
+}
 .theatre-library-feedback[data-empty="true"] { display: flex; align-items: flex-start; gap: var(--cantos-space-inset); }
 .theatre-library-feedback[data-empty="true"] > .theatre-icon { margin-block-start: var(--cantos-space-xs); color: var(--cantos-color-primary); }
 .theatre-library-feedback > .theatre-empty-artwork { inline-size: min(35%, 8rem); flex-basis: 8rem; }

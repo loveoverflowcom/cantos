@@ -78,7 +78,12 @@ pub(crate) fn claim(
             if !account.with_untracked(|a| a.accepts(&fence)) {
                 return;
             }
-            let _ = state.try_update(|s| s.finish_claim(&fence, &operation, result));
+            if let Some(ticket) = state
+                .try_update(|s| s.finish_claim_read(&fence, &operation, result))
+                .flatten()
+            {
+                run_catalog(state, account, ticket, fence, requests);
+            }
         });
     }
     #[cfg(not(target_arch = "wasm32"))]

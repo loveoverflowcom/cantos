@@ -4286,10 +4286,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Câu chuyện tiếp theo đang chờ bạn"
+          "text": "Một câu chuyện hay đang chờ bạn"
         },
         "en": {
-          "text": "Your next story is waiting"
+          "text": "A good story is waiting for you"
         }
       }
     },
@@ -4298,10 +4298,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Khám phá một tác phẩm để bắt đầu nghe, hoặc lưu lại cho một lúc thảnh thơi."
+          "text": "Truyện bạn lưu và những lần nghe gần đây sẽ xuất hiện tại đây."
         },
         "en": {
-          "text": "Discover a story to start listening, or save it for a quieter moment."
+          "text": "Your saved stories and recent listening will appear here."
         }
       }
     },
@@ -27135,10 +27135,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Nhận quyền đang chờ"
+          "text": "Nhận tác phẩm được chia sẻ"
         },
         "en": {
-          "text": "Claim pending access"
+          "text": "Receive shared stories"
         }
       }
     },
@@ -27147,10 +27147,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chỉ nhận quyền của email đã xác minh thuộc tài khoản này. Không gửi email."
+          "text": "Nếu được chia sẻ qua email, bạn có thể nhận tác phẩm bằng email đã xác minh của tài khoản này."
         },
         "en": {
-          "text": "Claim only access for this account’s verified email. No email is sent."
+          "text": "If someone shared a story by email, receive it using this account’s verified email."
         }
       }
     },
@@ -27183,10 +27183,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đã nhận biên nhận; tải lại danh sách để kiểm tra quyền hiện tại."
+          "text": "Đã nhận biên nhận. Danh sách được cập nhật bằng lần đọc mới."
         },
         "en": {
-          "text": "Receipt received; reload the list to check current access."
+          "text": "Receipt received. A fresh read updates the shared list."
         }
       }
     },
@@ -28395,6 +28395,18 @@
         },
         "en": {
           "text": "Selected revision"
+        }
+      }
+    },
+    "theatre.shell.live_library_browse": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Khám phá truyện"
+        },
+        "en": {
+          "text": "Explore stories"
         }
       }
     }

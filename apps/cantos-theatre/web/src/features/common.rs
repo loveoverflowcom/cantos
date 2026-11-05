@@ -14,7 +14,6 @@ use leptos::prelude::*;
 pub(crate) enum EmptyArtworkKind {
     Library,
     Works,
-    History,
 }
 
 #[component]
@@ -29,7 +28,6 @@ pub(crate) fn EmptyArtwork(kind: EmptyArtworkKind) -> impl IntoView {
             </div>
         }.into_any() }).into_any(),
         EmptyArtworkKind::Works => paired_empty_artwork("works").into_any(),
-        EmptyArtworkKind::History => paired_empty_artwork("history").into_any(),
     }
 }
 
