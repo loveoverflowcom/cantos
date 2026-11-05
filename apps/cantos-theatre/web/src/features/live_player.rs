@@ -17,10 +17,9 @@ use crate::{
     core::playback::{Event, Intent, Status},
     messages::{self, Key, Locale},
 };
+use cantos_ui::{Button, ButtonVariant, IconName};
 use leptos::prelude::*;
 
-const ICON_PLAY: &str = "play_arrow";
-const ICON_PAUSE: &str = "pause";
 const ICON_RESTART: &str = "restart_alt";
 const ICON_COMPLETED: &str = "check_circle";
 
@@ -143,33 +142,49 @@ fn Transport(live: LivePlayer, #[prop(optional)] compact: bool) -> impl IntoView
     };
     let asset = move || {
         if live.transport_key() == Key::ListenPause {
-            ICON_PAUSE
+            IconName::Pause
         } else {
-            ICON_PLAY
+            IconName::PlayArrow
         }
     };
     view! {
-        <button type="button" class="theatre-action theatre-transport" data-compact=compact
-            id=move_id aria-label=name
-            on:click=move |_| live.press_transport()>
-            {move || icon(asset())}
-            <span class="cui-control-label">{move || live.text(live.transport_key())}</span>
-        </button>
+        <div class="theatre-transport-slot" data-compact=compact.to_string()>
+            // Loading/buffering describe the engine, not a blocked action: Pause must work.
+            <Button id=move_id class="theatre-transport" icon_signal=Signal::derive(asset)
+                on_press=Callback::new(move |_| live.press_transport())>
+                // Reserve the localized action envelope without duplicating accessible text.
+                <span class="theatre-transport-label" aria-hidden="true">
+                    {[Key::ListenPlay, Key::ListenPause, Key::ListenReplay, Key::PublicRetry]
+                        .into_iter().map(|key| view! {
+                            <span data-current=move || (live.transport_key() == key).to_string()>{move || live.text(key)}</span>
+                        }).collect_view()}
+                </span>
+                <span class="cui-sr-only">{name}</span>
+            </Button>
+        </div>
     }
 }
 
 #[component]
 fn Skip(live: LivePlayer, delta_ms: i32) -> impl IntoView {
-    let (asset, label) = if delta_ms < 0 {
-        ("replay", Key::ListenBack15)
+    let (id, asset, label) = if delta_ms < 0 {
+        (
+            "theatre-listen-back",
+            IconName::FastRewind,
+            Key::ListenBack15,
+        )
     } else {
-        ("rotate_right", Key::ListenForward15)
+        (
+            "theatre-listen-forward",
+            IconName::FastForward,
+            Key::ListenForward15,
+        )
     };
     view! {
-        <button type="button" class="theatre-action theatre-action-tonal"
-            on:click=move |_| live.player.dispatch(Event::SkipRequested { delta_ms })>
-            {icon(asset)}<span class="cui-control-label">{move || live.text(label)}</span>
-        </button>
+        <Button id variant=ButtonVariant::Tonal icon=asset
+            on_press=Callback::new(move |_| live.player.dispatch(Event::SkipRequested { delta_ms }))>
+            {move || live.text(label)}
+        </Button>
     }
 }
 
@@ -507,6 +522,87 @@ mod tests {
     }
     fn identity(live: LivePlayer) -> crate::core::playback::CallbackIdentity {
         live.player.state.get_untracked().identity().unwrap()
+    }
+
+    #[test]
+    fn shared_transport_stays_enabled_for_pause_and_retry_in_both_players() {
+        for compact in [false, true] {
+            for locale in Locale::supported() {
+                Owner::new().with(|| {
+                    let live = live(locale);
+                    choose(live, 1, "Chương một");
+                    let assert_action = |key| {
+                        assert_eq!(live.transport_key(), key);
+                        let html = view! { <Transport live compact/> }.to_html();
+                        let button = html.split("<button ").nth(1).unwrap();
+                        let tag = button.split('>').next().unwrap();
+                        assert!(tag.contains("cui-button"), "shared anatomy: {tag}");
+                        assert!(tag.contains("data-state=\"enabled\""), "{tag}");
+                        assert!(
+                            !tag.contains("disabled") && !tag.contains("aria-busy"),
+                            "{tag}"
+                        );
+                        assert!(!tag.contains("aria-pressed"), "changing action, not toggle");
+                        assert!(html.contains("Chương một"));
+                        assert!(html.contains("aria-hidden=\"true\""));
+                        assert!(
+                            html.contains(&format!("data-current=\"true\">{}", live.text(key))),
+                            "visible current label: {html}"
+                        );
+                    };
+                    assert_action(Key::ListenPlay);
+                    live.press_transport();
+                    assert_eq!(live.player.status.get_untracked(), Status::Loading);
+                    assert_action(Key::ListenPause);
+                    live.press_transport();
+                    assert_action(Key::ListenPlay);
+                    live.press_transport();
+                    let id = identity(live);
+                    live.player.dispatch(Event::EngineStarted { identity: id });
+                    assert_action(Key::ListenPause);
+                    live.player
+                        .dispatch(Event::EngineBuffering { identity: id });
+                    assert_action(Key::ListenPause);
+                    live.press_transport();
+                    assert_action(Key::ListenPlay);
+                    for failure in [Failure::Network, Failure::Unavailable, Failure::PlayRefused] {
+                        live.press_transport();
+                        let id = identity(live);
+                        live.player.dispatch(Event::EngineFailed {
+                            identity: id,
+                            failure,
+                        });
+                        assert_action(Key::PublicRetry);
+                    }
+                    live.press_transport();
+                    let id = identity(live);
+                    live.player.dispatch(Event::EngineStarted { identity: id });
+                    live.player.dispatch(Event::EngineEnded { identity: id });
+                    assert_action(Key::ListenReplay);
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn skip_actions_use_shared_tonal_anatomy_with_distinct_native_ids() {
+        Owner::new().with(|| {
+            let live = live(Locale::English);
+            choose(live, 1, "Chapter one");
+            for (delta_ms, id) in [
+                (-15_000, "theatre-listen-back"),
+                (15_000, "theatre-listen-forward"),
+            ] {
+                let html = view! { <Skip live delta_ms/> }.to_html();
+                assert!(html.contains(&format!("id=\"{id}\"")), "{html}");
+                assert!(
+                    html.contains("cui-button") && html.contains("data-variant=\"tonal\""),
+                    "{html}"
+                );
+                assert!(html.contains("data-state=\"enabled\""));
+                assert!(!html.contains("theatre-action"));
+            }
+        });
     }
 
     #[test]

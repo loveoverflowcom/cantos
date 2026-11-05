@@ -249,6 +249,12 @@ body { margin: 0; }
 .theatre-player-cover .theatre-cover { aspect-ratio: 1; }
 .theatre-player-body h2 { margin-block-end: var(--cantos-space-sm); }
 .theatre-player-body > p { margin-block: var(--cantos-space-md); }
+/* Layout belongs to the player; shared Button owns target, icon gap and state/focus paint. */
+.theatre-transport-slot { display: grid; min-inline-size: 0; max-inline-size: 100%; }
+.theatre-transport-slot > .cui-button-field { justify-items: stretch; }
+.theatre-transport-label { display: grid; grid-template-columns: minmax(0, 1fr); }
+.theatre-transport-label > span { grid-area: 1 / 1; align-self: center; visibility: hidden; }
+.theatre-transport-label > span[data-current="true"] { visibility: visible; }
 .theatre-range-field { display: grid; gap: var(--cantos-space-sm); margin-block-start: var(--cantos-space-lg); }
 .theatre-range-field input { inline-size: 100%; min-block-size: var(--cantos-size-control); accent-color: var(--cantos-color-primary); cursor: pointer; }
 .theatre-player-facts { margin-block: var(--cantos-space-lg); }
@@ -280,7 +286,7 @@ body { margin: 0; }
 .theatre-mini-cover .theatre-cover { inline-size: 100%; block-size: 100%; min-block-size: 0; padding: 0; }
 .theatre-mini-cover .theatre-cover :is(strong, small, .theatre-cover-index) { display: none; }
 .theatre-mini-player .theatre-time { grid-column: 1 / -1; grid-row: 2; margin: 0; }
-.theatre-mini-player .theatre-transport { grid-column: 2; grid-row: 1; }
+.theatre-mini-player .theatre-transport-slot { grid-column: 2; grid-row: 1; }
 .theatre-mini-progress { grid-column: 1 / -1; inline-size: 100%; block-size: var(--cantos-space-xs); accent-color: var(--cantos-color-primary); }
 .theatre-demo-tools { margin-block-start: var(--cantos-space-xl); }
 .theatre-unsupported { display: flex; align-items: center; flex-wrap: wrap; gap: var(--cantos-space-md); margin-block: var(--cantos-space-md); }
@@ -303,6 +309,8 @@ body { margin: 0; }
   .theatre-feature-copy { padding: var(--cantos-space-lg); }
   .theatre-feature-cover { display: none; }
   .theatre-mini-player { inset-inline: var(--cantos-space-sm); padding: var(--cantos-space-md); }
+  .theatre-live-app .theatre-mini-player { grid-template-columns: minmax(0, 1fr); }
+  .theatre-live-app .theatre-mini-player .theatre-transport-slot { grid-column: 1; grid-row: auto; justify-self: start; }
   .theatre-mini-title { flex-basis: 100%; }
   .theatre-mini-player .theatre-time { margin-inline-start: 0; }
   .theatre-episode-row { padding-inline: 0; }
@@ -386,7 +394,7 @@ body { margin: 0; }
   .theatre-live-app .theatre-mini-player { grid-template-columns: minmax(0, 1fr); }
   .theatre-live-app .theatre-mini-player .theatre-mini-title { flex-basis: 100%; }
   .theatre-live-app .theatre-mini-player .theatre-time { grid-row: auto; }
-  .theatre-live-app .theatre-mini-player .theatre-transport { grid-column: 1; grid-row: auto; justify-self: start; }
+  .theatre-live-app .theatre-mini-player .theatre-transport-slot { grid-column: 1; grid-row: auto; justify-self: start; }
 }
 .theatre-listen-speed select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
@@ -937,6 +945,13 @@ body { margin: 0; }
 .theatre-live-app[data-navigation="none"] > :is(.theatre-header, .theatre-content) > .cui-container { padding-inline: 0; }
 .theatre-live-app[data-navigation="none"] .theatre-topbar .theatre-brand { padding: 0; }
 .theatre-live-app[data-navigation="none"] .theatre-mini-player { inset-inline: var(--cantos-space-lg); }
+/* Keep the control's label room at narrow widths and large text. Navigation-specific insets
+   above otherwise consume it; the decorative thumbnail must not squeeze the title to letters. */
+@media (max-width: 43.75rem) {
+  .theatre-live-app[data-navigation] .theatre-mini-player { inset-inline: var(--cantos-space-sm); padding: var(--cantos-space-sm); }
+  .theatre-live-app .theatre-mini-player .theatre-mini-cover { display: none; }
+  .theatre-live-app .theatre-mini-player .theatre-transport-slot { justify-self: stretch; }
+}
 .theatre-guest-preferences { margin-inline-start: auto; min-inline-size: 0; max-inline-size: 100%; }
 /* The trailing utility anchors its existing tooltip inward, including with enlarged text. */
 .theatre-guest-preferences .cui-tooltip {
