@@ -26907,10 +26907,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đang kiểm tra hoặc thay đổi quyền…"
+          "text": "Đang đọc quyền…"
         },
         "en": {
-          "text": "Checking or changing access…"
+          "text": "Reading access…"
         }
       }
     },
@@ -27963,6 +27963,102 @@
         },
         "en": {
           "text": "200%"
+        }
+      }
+    },
+    "studio.live.access_current": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đọc quyền hiện tại."
+        },
+        "en": {
+          "text": "Current access loaded."
+        }
+      }
+    },
+    "studio.live.access_unchanged": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang áp dụng · Không có thay đổi."
+        },
+        "en": {
+          "text": "Current audience · No change."
+        }
+      }
+    },
+    "studio.live.access_changing": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang cập nhật quyền…"
+        },
+        "en": {
+          "text": "Updating access…"
+        }
+      }
+    },
+    "studio.live.access_recipients_empty": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa có người, nhóm hoặc email được cấp quyền riêng."
+        },
+        "en": {
+          "text": "No individual, group or pending email access."
+        }
+      }
+    },
+    "studio.live.access_actor_unnamed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Người nhận chưa có tên hiển thị"
+        },
+        "en": {
+          "text": "Recipient without a display name"
+        }
+      }
+    },
+    "studio.live.access_group_unnamed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nhóm chưa có tên hiển thị"
+        },
+        "en": {
+          "text": "Group without a display name"
+        }
+      }
+    },
+    "studio.live.access_exact_target": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Định danh chính xác"
+        },
+        "en": {
+          "text": "Exact identifiers"
+        }
+      }
+    },
+    "studio.live.access_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Liên kết và giới hạn chia sẻ"
+        },
+        "en": {
+          "text": "Link and sharing limits"
         }
       }
     }
