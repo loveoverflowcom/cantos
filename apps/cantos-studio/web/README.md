@@ -108,23 +108,26 @@ root text scaling collapses the layout before the hero can squeeze the fields. S
 guidance names the existing sign-in form or administrator/configuration recovery. Draft
 memory warnings appear only when the shell actually holds unsaved content.
 
-The header toolbar uses a compact tonal language pill (short code and chevron, with full
-registry autonyms in the menu) and a separate tonal, icon-only theme-cycle button. Full localized
-accessible names and the Dark → Light → System cycle remain available. Once the workspace is
-confirmed, it shows a round avatar with a localized generic account initial. The opaque actor
-key selects its tone but is never displayed as a name; the current session contract does not
-provide an authorized display name or email. The login entry has no placeholder identity. The
-avatar opens a floating account group on wide screens and a bottom sheet on narrow screens. Opening
-focuses its close button; Tab and Shift+Tab follow the document order and leaving the group closes
-it. Escape or the close button restores focus to the trigger; a press outside or focus leaving also closes it. Closing disposes the reauthentication
-form, clears its typed credentials and rejects late updates to that form. Session authority
-stays in the session owner; closing the group does not assert cancellation of an in-flight server
-operation. This is not an aria-modal dialog and does not establish background inertness or
-screen-reader acceptance. See the [six-issue review evidence](../../../docs/evidence/studio-six-issue-review-20261026.md).
-The [topbar v7/v8 observations](../../../docs/evidence/studio-topbar-582.md) record the compact
-presentation, keyboard/contrast checks and remaining browser acceptance.
-The [joint v8 continuation](../../../docs/evidence/topbar-582-583.md) rechecks the retained Studio
-controls in both locales and all three modes at 320/390/1280px, with remaining acceptance explicit.
+Authenticated utilities live in the navigation footer in Appearance → Language → Account order.
+Rail and drawer use the same shell-owned theme and locale values. Appearance is a direct
+Light / Dark / System selector; System follows the shared `UiRoot` CSS media contract. Theme
+still initializes to System on reload: this change adds no preference store or theme storage key.
+Language choices come from the registry, show their full autonyms, persist canonical tags and
+retain the existing localized storage-refusal notice. The signed-out entry keeps the same
+preference controls in its header; the authenticated header contains brand/context only.
+
+Account has neutral person artwork, with no invented profile facts from the opaque actor key.
+One `AccountEntry` outside navigation uses the shared native modal `Dialog` and the existing
+refresh, reauthenticate and logout callbacks. The drawer closes before Account opens; closing
+Account returns to the rail trigger or Menu. A resize can select the currently visible fallback.
+Closing clears typed reauthentication credentials through the existing shell effect; session
+and operation authority remain unchanged. Source-bound checks and remaining real-auth/AT
+acceptance are in the [v3 footer record](../../../docs/evidence/studio-preferences-footer-582.md).
+
+The footer and direct selector supersede the v7/v8 topbar placement and cycle presentation.
+Historical [topbar v7/v8](../../../docs/evidence/studio-topbar-582.md) and
+[joint v8 continuation](../../../docs/evidence/topbar-582-583.md) evidence remains attributed to
+its original source and does not qualify the new footer.
 
 A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
 Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and

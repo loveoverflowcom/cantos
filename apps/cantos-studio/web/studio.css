@@ -232,115 +232,21 @@ body { margin: 0; }
   .studio-shell[data-theme="system"] .studio-logo-light { display: none; }
   .studio-shell[data-theme="system"] .studio-logo-dark { display: block; }
 }
-/* Header toolbar: compact fields and the avatar share one 48-unit interaction row (40-unit painted
-   fields and avatar), so the brand, selects and account entry sit on a single centered baseline. */
-.studio-shell .studio-header > .toolbar { gap: var(--cantos-space-sm); align-items: center; margin-inline-start: auto; }
-.studio-shell .studio-language-button {
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
-  min-inline-size: 2.75rem;
-  min-block-size: 2.75rem;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: var(--cantos-shape-pill);
-  background: transparent;
-  color: var(--cantos-color-on-surface);
-  font-family: var(--cantos-type-family-ui);
-  font-weight: 700;
-  font-size: var(--cantos-type-label-size);
-  cursor: pointer;
-}
-.studio-shell .studio-language-badge {
-  display: inline-block;
-  text-align: center;
-  line-height: 1;
-}
-/* The topbar language selector is named by its tooltip and accessible name, not a visible label.
-   The label stays in the DOM (the combobox is labelled by it), clipped like .cui-sr-only. */
-/* The topbar's icon-only theme cycle keeps its shared 44x44 target in narrow containers, where
-   generic toolbar buttons go full width (it would wrap under the language selector at 320px). */
-.studio-shell .studio-topbar > .cui-button-field { inline-size: auto; }
-/* This is the rightmost anonymous control. Keep its tooltip inside the viewport even when
-   the header wraps or its localized text grows. */
-.studio-shell .studio-topbar > .cui-theme-cycle-field > .cui-tooltip {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  transform: none;
-  inline-size: max-content;
-  max-inline-size: calc(100vw - 2 * var(--cantos-space-md));
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-/* Topbar v7/v8 (#582). Language is a compact tonal pill: the short code (the full autonym stays the
-   accessible name) and a chevron, with no language icon and trimmed inline padding so the pill hugs
-   its content while the 44px block target and the visible focus ring are kept. Theme is the shared
-   icon-only tonal action (a rounded square, no label); the avatar stays a circle. Both tonal fills
-   read the semantic container/on-surface roles, so Light, Dark and System keep their paired contrast.
-   The selector outranks the shared Theatre compact-select fill, and focus keeps the shared ring. */
-.studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
-  background-color: var(--cantos-color-surface-container-high);
-  color: var(--cantos-color-on-surface);
-}
-.studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density="compact"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
-  background-color: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
-}
-.studio-shell .studio-language-field .cui-icon { color: var(--cantos-color-on-surface); }
-.studio-shell .studio-language-field .cui-select-trigger { padding-inline: var(--cantos-space-sm); }
-.studio-shell .studio-language-field .cui-field-control { border-radius: var(--cantos-shape-pill); }
-.studio-shell .studio-language-field .cui-select-value { flex: 0 1 auto; }
-.studio-shell .studio-language-field .cui-select-short { font-weight: var(--cantos-type-label-weight); text-transform: capitalize; }
-.studio-shell .studio-language-tip { display: contents; }
-.studio-shell .studio-language-field.cui-select-field { grid-template-columns: minmax(0, 1fr); }
-.studio-shell .studio-language-field > .cui-field-label { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-.studio-shell .studio-account { position: relative; }
-.studio-shell .studio-account[hidden] { display: none; }
-.studio-shell .studio-account-scrim { display: none; }
-.studio-shell .studio-account-trigger { display: inline-grid; place-items: center; inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border: 0; border-radius: var(--cantos-shape-pill); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.studio-shell .studio-account-trigger[aria-expanded="true"] { background: var(--cantos-color-surface-container); }
-/* Identity badge: shared initials and tone contracts (avatar tokens) with Studio-owned geometry. */
-.studio-shell .studio-avatar { display: inline-grid; place-items: center; flex-shrink: 0; overflow: hidden; border-radius: var(--cantos-shape-pill); font-family: var(--cantos-type-family-ui); font-weight: var(--cantos-type-label-weight); line-height: 1; white-space: nowrap; user-select: none; --studio-avatar-size: var(--cantos-size-avatar-medium); inline-size: var(--studio-avatar-size); block-size: var(--studio-avatar-size); font-size: calc(var(--studio-avatar-size) * 0.44); }
-.studio-shell .studio-avatar[data-size="large"] { --studio-avatar-size: var(--cantos-size-avatar-large); }
-.studio-shell .studio-avatar[data-tone="lavender"] { background: var(--cantos-color-avatar-lavender); color: var(--cantos-color-on-avatar-lavender); }
-.studio-shell .studio-avatar[data-tone="gold"] { background: var(--cantos-color-avatar-gold); color: var(--cantos-color-on-avatar-gold); }
-.studio-shell .studio-avatar[data-tone="sage"] { background: var(--cantos-color-avatar-sage); color: var(--cantos-color-on-avatar-sage); }
-.studio-shell .studio-avatar[data-tone="rose"] { background: var(--cantos-color-avatar-rose); color: var(--cantos-color-on-avatar-rose); }
-.studio-shell .studio-avatar[data-tone="sky"] { background: var(--cantos-color-avatar-sky); color: var(--cantos-color-on-avatar-sky); }
-.studio-shell .studio-avatar[data-tone="clay"] { background: var(--cantos-color-avatar-clay); color: var(--cantos-color-on-avatar-clay); }
-@media (forced-colors: active) { .studio-shell .studio-avatar { border: var(--cantos-size-border) solid CanvasText; } }
-/* Floating popover: out of flow, so opening it never moves the header or the content below. */
-.studio-shell .studio-account-menu {
-  position: absolute;
-  z-index: 41;
-  inset-block-start: calc(100% + var(--cantos-space-sm));
-  inset-inline-end: 0;
-  box-sizing: border-box;
-  inline-size: min(20.5rem, calc(100vw - 2 * var(--cantos-space-lg)));
-  max-block-size: calc(100dvh - 6rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: grid;
-  gap: var(--cantos-space-md);
-  padding: var(--cantos-space-md);
-  border-radius: var(--cantos-web-shape-overlay);
-  background: var(--cantos-color-surface-container-high);
-  color: var(--cantos-color-on-surface);
-  box-shadow: var(--cantos-elevation-overlay);
-}
-.studio-shell .studio-account-menu p { margin: 0; }
-.studio-shell .studio-account-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--cantos-space-sm); }
-.studio-shell .studio-account-identity { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--cantos-space-md); }
-.studio-shell .studio-account-name .identity { overflow-wrap: anywhere; word-break: break-word; font-weight: var(--cantos-type-label-weight); }
-.studio-shell .studio-account-close { inline-size: var(--cantos-size-control); block-size: var(--cantos-size-control); padding: 0; border-radius: var(--cantos-shape-pill); color: inherit; }
-.studio-shell .studio-account-close:hover { background: var(--cantos-color-surface-container); }
-.studio-shell .studio-account-close:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); }
-.studio-shell #account-logout[data-variant="text"]:not(:disabled) { color: var(--cantos-color-error); }
+/* Utilities share the shell's preference owners. Compact Select keeps a visible label and
+   full autonym; long localized values wrap within the rail or enlarged-text drawer. */
+.studio-shell .studio-preferences { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.studio-shell .studio-preferences .cui-select-field { min-inline-size: 0; max-inline-size: 100%; }
+.studio-shell .studio-preferences .cui-field-control { inline-size: 100%; min-inline-size: 0; }
+.studio-shell .studio-header .studio-preferences { grid-template-columns: repeat(2, minmax(0, 1fr)); max-inline-size: 30rem; }
+.studio-shell .workspace-nav-footer { display: grid; gap: var(--cantos-space-sm); }
+.studio-shell .workspace-navigation-rail .workspace-nav { min-block-size: calc(100dvh - 8rem); box-sizing: border-box; }
+.studio-shell .workspace-nav-footer .studio-account-trigger { inline-size: 100%; justify-content: start; text-align: start; }
+.studio-shell .studio-account-dialog { inline-size: min(28rem, calc(100% - 2 * var(--cantos-space-md))); box-shadow: none; }
 .studio-shell .studio-account-actions { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-account-actions :is(.cui-button-field, .cui-button) { inline-size: 100%; }
-.studio-shell .studio-account-actions .cui-button { justify-content: flex-start; text-align: start; }
-.studio-shell .studio-account-actions .cui-control-label { text-align: start; }
+.studio-shell .studio-account-actions .cui-button { justify-content: start; text-align: start; }
 .studio-shell .studio-account-help { padding-inline: var(--cantos-space-control-inline); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell #account-logout[data-variant="text"]:not(:disabled) { color: var(--cantos-color-error); }
 .studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
 .studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
 /* The art panel is the Expressive hero surface (Theatre's auth art uses the same pair); under the expression primaryContainer is selection ink, not a brand block. */
@@ -363,7 +269,7 @@ body { margin: 0; }
 .studio-shell .studio-entry-cancel[data-pending="false"] { visibility: hidden; }
 /* These actions share the submitting form's barrier. Repeating their transient reasons would
    push reauthentication down the popover; descriptions remain available to assistive tools. */
-.studio-shell .studio-account-menu:has(#account-submit[aria-busy="true"]) .cui-button-reason {
+.studio-shell .studio-account-dialog:has(#account-submit[aria-busy="true"]) .cui-button-reason {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
@@ -377,7 +283,7 @@ body { margin: 0; }
 /* A 15rem rail leaves a 50rem task region before switching at 68rem of available
    container space. This geometry is Studio-owned; shared NavItem anatomy is unchanged. */
 .studio-shell .workspace-navigation { position: sticky; inset-block-start: var(--cantos-space-md); min-inline-size: 0; }
-.studio-shell .workspace-navigation-rail { max-block-size: calc(100dvh - 2 * var(--cantos-space-md)); overflow-y: auto; }
+.studio-shell .workspace-navigation-rail { max-block-size: calc(100dvh - 8rem); overflow-y: auto; }
 .studio-shell .workspace-nav { display: flex; flex-direction: column; gap: var(--cantos-space-lg); min-inline-size: 0; padding: var(--cantos-space-sm); }
 .studio-shell .workspace-nav-list { display: grid; gap: var(--cantos-space-lg); min-inline-size: 0; }
 .studio-shell .workspace-nav-group { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
@@ -437,25 +343,6 @@ body { margin: 0; }
   .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .studio-shell .studio-header { align-items: center; margin-block-end: var(--cantos-space-lg); gap: var(--cantos-space-sm); }
   .studio-shell .studio-header > .toolbar { flex: 0 0 auto; gap: var(--cantos-space-xs); }
-  .studio-shell .studio-account { position: static; }
-  .studio-shell .studio-account-scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: rgba(0, 0, 0, 0.4);
-  }
-  .studio-shell .studio-account-menu {
-    position: fixed;
-    z-index: 41;
-    inset-block-start: auto;
-    inset-block-end: 0;
-    inset-inline: 0;
-    inline-size: 100%;
-    max-block-size: 85vh;
-    border-radius: var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0 0;
-    box-shadow: var(--cantos-elevation-overlay);
-  }
   .studio-shell .dashboard-actions > * { flex: 1 1 auto; }
 }
 
@@ -651,3 +538,9 @@ html:has(.cw-context) { scroll-padding-block-start: 5rem; }
 .studio-shell .cw-access input[readonly] { inline-size: 100%; box-sizing: border-box; }
 .studio-shell .cw-access-exact { overflow-wrap: anywhere; }
 .studio-shell .cw-access[hidden], .studio-shell .cw-access [hidden] { display: none; }
+/* At short heights and large text, the Account heading must scroll with its actions;
+   a fixed header otherwise leaves less space than one full keyboard target. */
+@media (max-height: 32rem) {
+  .studio-shell .studio-account-dialog[open] { display: block; overflow-y: auto; }
+  .studio-shell .studio-account-dialog .cui-dialog-body { overflow: visible; }
+}

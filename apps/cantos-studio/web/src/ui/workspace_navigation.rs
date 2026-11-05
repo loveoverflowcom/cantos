@@ -9,12 +9,36 @@ pub fn WorkspaceNavigationShell(
     panel: RwSignal<WorkspacePane>,
     locale: Signal<crate::localization::Locale>,
     available: Signal<bool>,
+    open: RwSignal<bool>,
     /// #582 can inject one preferences/account composition into both presentations.
     #[prop(optional_no_strip)]
     footer: Option<Callback<&'static str, AnyView>>,
 ) -> impl IntoView {
-    let open = RwSignal::new(false);
     let failure = RwSignal::new(false);
+    let generation = StoredValue::new(0_u64);
+    let chrome_locale = RwSignal::new(locale.get_untracked());
+    Effect::new(move |_| {
+        let next = locale.get();
+        if chrome_locale.get_untracked() != next {
+            let reopen = open.get_untracked();
+            open.set(false);
+            chrome_locale.set(next);
+            // New static-label chrome must mount closed. showModal on the replacing node
+            // before it is connected is rejected by the shared Dialog's safety contract.
+            #[cfg(target_arch = "wasm32")]
+            if reopen {
+                leptos::leptos_dom::helpers::request_animation_frame(move || {
+                    if available.try_get_untracked() == Some(true)
+                        && chrome_locale.try_get_untracked() == Some(next)
+                    {
+                        let _ = open.try_set(true);
+                    }
+                });
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = reopen;
+        }
+    });
     let menu = NodeRef::<leptos::html::Div>::new();
     #[cfg(target_arch = "wasm32")]
     platform::close_at_rail(menu, open, panel);
@@ -43,14 +67,22 @@ pub fn WorkspaceNavigationShell(
             <p role="alert" hidden=move || !failure.get()>{move || text(Key::DialogFailure, locale.get())}</p>
             // Only modal chrome is recreated for translated static Dialog labels, never workspaces.
             {move || {
-                let language = locale.get();
+                let language = chrome_locale.get();
+                // Replacing localized Dialog chrome closes its old native element. Ignore that
+                // disposed instance's deferred close/error callbacks; they do not dismiss the
+                // new drawer or reset its root-owned preferences.
+                generation.update_value(|value| *value += 1);
+                let current = generation.get_value();
                 let drawer_footer = footer;
                 view! {
                     <Dialog id="studio-navigation-drawer" class="workspace-navigation-drawer"
                         title=text(Key::Workspace, language) close_label=text(Key::CloseNavigation, language)
                         open=Signal::derive(move || open.get())
-                        on_close_request=Callback::new(move |_| open.set(false))
+                        on_close_request=Callback::new(move |_| {
+                            if generation.get_value() == current { open.set(false); }
+                        })
                         on_error=Callback::new(move |error: DialogError| {
+                            if generation.get_value() != current { return; }
                             open.set(false);
                             // Crossing to the rail hides the old opener; the resize helper places
                             // focus on the equivalent rail link after the shared dialog closes.
