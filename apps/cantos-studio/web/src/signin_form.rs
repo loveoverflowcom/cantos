@@ -6,7 +6,7 @@ use crate::{
     ui::{BlockReason, FormSubmit},
 };
 use cantos_ui::{
-    AccessibleName, Announcement, ButtonState, ButtonVariant, DisabledReason, FieldState, Icon,
+    AccessibleName, Announcement, ButtonState, ButtonVariant, DisabledReason, FieldState,
     IconButton, IconName, Status, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::{ev::SubmitEvent, prelude::*};
@@ -133,7 +133,7 @@ pub fn SignInPanel(
                 autocomplete="current-password"
                 trailing=move || password_eye.as_ref().map(ViewFn::run)/>
             <FormSubmit id=submit_id locale=locale variant=ButtonVariant::AuthPrimary
-                icon=ViewFn::from(|| view! { <Icon name=IconName::Login/> })
+                icon=IconName::Login
                 busy=submitting
                 busy_label_only=true
                 blocked=Signal::derive(move || blocked.get() || submitting.get())>

@@ -494,8 +494,8 @@ pub fn ReviewCheckbox(
 }
 
 /// Real form submission stays native (including Enter); the form owns the submit guard/effect.
-/// The optional decorative slot takes a caller-owned view; adopting Icon at a new product site
-/// still requires its two-renderer qualification. No interactive content belongs in this slot.
+/// Button owns the native control, icon/loading anatomy and descriptions. Studio retains
+/// locale/block-reason mapping; no permission decision enters the shared UI crate.
 /// Tonal by default; the form that is the screen's current task passes `Primary`.
 #[component]
 pub fn FormSubmit(
@@ -503,36 +503,34 @@ pub fn FormSubmit(
     locale: Signal<crate::localization::Locale>,
     blocked: Signal<bool>,
     children: Children,
-    #[prop(optional)] icon: Option<ViewFn>,
+    #[prop(optional)] icon: Option<IconName>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
     /// Sign-in already names progress in its button; retain a single offscreen announcement.
     #[prop(optional)]
     busy_label_only: bool,
     #[prop(default = ButtonVariant::Tonal)] variant: ButtonVariant,
 ) -> impl IntoView {
-    let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
+    let (Ok(reason), Ok(busy_reason)) = (
+        LocalizedReason::new(BlockReason::ContextReady),
+        LocalizedReason::new(BlockReason::Busy),
+    ) else {
         return view! { <ErrorState title=text(Key::ControlUnavailable, locale.get_untracked())><p>{text(Key::PermissionHelp, locale.get_untracked())}</p></ErrorState> }.into_any();
     };
     let reason = StoredValue::new(reason);
-    let reason_id = format!("{id}-reason");
-    let described_by = reason_id.clone();
+    let busy_reason = StoredValue::new(busy_reason);
     view! {
-        <div class="cui-button-field">
-            <button id=id class="cui-button" data-variant=variant.as_str() type="submit" disabled=move || blocked.get() || busy.get()
-                aria-busy=move || busy.get().then_some("true")
-                aria-describedby=move || (blocked.get() || busy.get()).then(|| described_by.clone())>
-                {move || if busy.get() {
-                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-loading-indicator"></span></span> }.into_any())
-                } else { icon.clone().map(|icon| view! { <span class="cui-button-icon" aria-hidden="true">{icon.run()}</span> }.into_any()) }}
-                <span class="cui-control-label">{children()}</span>
-            </button>
-            <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get() && !busy.get()
-                class:cui-sr-only=move || busy_label_only && busy.get()
-                role=move || busy.get().then_some("status")>{move || if busy.get() {
-                    BlockReason::Busy.text(locale.get()).to_owned()
-                } else { reason.with_value(|r| r.get(locale.get()).as_str().to_owned()) }}</span>
-        </div>
-    }.into_any()
+        <Button id variant submit=true busy_label_only nostrip:icon=icon
+            state=Signal::derive(move || {
+                let busy = busy.get();
+                let reason = if busy {
+                    busy_reason.with_value(|reason| reason.get(locale.get()))
+                } else {
+                    reason.with_value(|reason| reason.get(locale.get()))
+                };
+                action_state(blocked.get(), busy, reason)
+            })>{children()}</Button>
+    }
+    .into_any()
 }
 
 fn confirm_discard_request(blocked: bool, open: RwSignal<bool>, confirm: Callback<(), bool>) {
@@ -713,6 +711,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn form_submit_projects_shared_states_and_retains_studio_reasons_in_both_locales() {
+        Owner::new().with(|| {
+            for locale in crate::localization::Locale::supported() {
+                for (blocked, busy, state) in [(false, false, "enabled"), (true, false, "disabled"), (false, true, "loading"), (true, true, "loading")] {
+                    let html = view! {
+                        <FormSubmit id="read" locale=Signal::stored(locale)
+                            blocked=Signal::stored(blocked) busy=Signal::stored(busy) busy_label_only=true>
+                            "Ánh đèn cuối sân khấu"
+                        </FormSubmit>
+                    }.to_html();
+                    assert!(html.contains(&format!("data-state=\"{state}\"")), "{html}");
+                    assert!(html.contains("type=\"submit\""), "{html}");
+                    assert_eq!(html.matches("cui-loading-indicator").count(), usize::from(busy), "{html}");
+                    let reason = html.split("id=\"read-reason\"").nth(1).unwrap();
+                    assert_eq!(reason.split('>').next().unwrap().contains("cui-sr-only"), busy, "{html}");
+                    if blocked || busy {
+                        let reason = if busy { BlockReason::Busy } else { BlockReason::ContextReady };
+                        assert!(html.contains(reason.text(locale)), "{html}");
+                        assert!(html.contains("aria-describedby=\"read-reason\""), "{html}");
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
     fn native_submit_and_action_adapters_keep_one_label_and_decorative_icon_without_render_effects()
     {
         let owner = Owner::new();
@@ -725,7 +749,7 @@ mod tests {
                         <form>
                             <FormSubmit id="login-fixture" locale=Signal::stored(locale)
                                 blocked=Signal::stored(blocked)
-                                icon=ViewFn::from(|| view! { <span data-fixture="decorative-slot"></span> })>{label}</FormSubmit>
+                                icon=IconName::Login>{label}</FormSubmit>
                         </form>
                     }.to_html();
                     assert_eq!(html.matches("<button ").count(), 1);
@@ -994,7 +1018,8 @@ mod tests {
                 assert!(html.contains("data-variant=\"tonal\""), "secondary forms stay tonal: {html}");
                 assert_eq!(html.contains(" disabled"), blocked);
                 assert_eq!(html.contains("aria-describedby=\"session-submit-reason\""), blocked);
-                assert!(html.contains(text(Key::ControlBlocked, crate::localization::Locale::Vietnamese)));
+                assert_eq!(html.contains(text(Key::ControlBlocked, crate::localization::Locale::Vietnamese)), blocked,
+                    "only blocked controls carry the current reason: {html}");
             });
         }
     }

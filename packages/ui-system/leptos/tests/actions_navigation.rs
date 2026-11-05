@@ -6,6 +6,79 @@ use cantos_ui::{
 use leptos::prelude::*;
 
 #[test]
+fn native_submit_is_explicit_and_keeps_the_action_anatomy_and_blocked_description() {
+    Owner::new().with(|| {
+        for state in [
+            ButtonState::Enabled,
+            ButtonState::Disabled(DisabledReason::new("Chọn bản thảo trước").unwrap()),
+            ButtonState::Loading(DisabledReason::new("Đang đọc bản thảo").unwrap()),
+        ] {
+            let html = view! {
+                <form>
+                    <Button id="read" submit=true icon=IconName::Refresh state=state.clone()
+                        described_by="read-context">"Đọc bản thảo"</Button>
+                </form>
+            }
+            .to_html();
+            assert_eq!(html.matches("<button ").count(), 1, "{html}");
+            assert!(html.contains("type=\"submit\""), "{html}");
+            assert_eq!(html.contains(" disabled"), !state.can_press(), "{html}");
+            assert_eq!(
+                html.matches("cui-loading-indicator").count(),
+                usize::from(state.is_busy()),
+                "{html}"
+            );
+            assert!(
+                html.contains(if state.can_press() {
+                    "aria-describedby=\"read-context\""
+                } else {
+                    "aria-describedby=\"read-context read-reason\""
+                }),
+                "{html}"
+            );
+        }
+        let action = view! { <Button id="action">"Giữ bản thảo"</Button> }.to_html();
+        assert!(action.contains("type=\"button\""), "{action}");
+    });
+}
+
+#[test]
+fn busy_label_policy_hides_only_the_busy_reason_and_keeps_its_live_description() {
+    Owner::new().with(|| {
+        for (state, offscreen) in [
+            (ButtonState::Enabled, false),
+            (
+                ButtonState::Disabled(DisabledReason::new("Cần đăng nhập").unwrap()),
+                false,
+            ),
+            (
+                ButtonState::Loading(DisabledReason::new("Đang đăng nhập").unwrap()),
+                true,
+            ),
+        ] {
+            let html = view! {
+                <Button id="session" submit=true busy_label_only=true state=state.clone()
+                    variant=ButtonVariant::AuthPrimary>"Đăng nhập Cantos Studio"</Button>
+            }
+            .to_html();
+            let reason = html.split("id=\"session-reason\"").nth(1).unwrap();
+            let opening = reason.split('>').next().unwrap();
+            assert_eq!(opening.contains("cui-sr-only"), offscreen, "{html}");
+            assert_eq!(
+                opening.contains("role=\"status\""),
+                state.is_busy(),
+                "{html}"
+            );
+            assert_eq!(
+                html.matches("session-reason").count(),
+                if state.can_press() { 1 } else { 2 },
+                "{html}"
+            );
+        }
+    });
+}
+
+#[test]
 fn listen_hero_retains_one_native_action_and_pending_focus_without_claiming_playback() {
     let owner = Owner::new();
     owner.with(|| {

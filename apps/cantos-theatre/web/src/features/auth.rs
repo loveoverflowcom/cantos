@@ -287,6 +287,7 @@ fn LoginForm(
                 }/>
             {submit_state.get_untracked().map(|initial| view! {
                 <Button id="theatre-auth-login" variant=ButtonVariant::AuthPrimary icon=IconName::Login
+                    busy_label_only=true
                     state=Signal::derive(move || submit_state.get().unwrap_or_else(|| initial.clone()))
                     on_press=Callback::new(move |_| submit())>
                     {move || auth_copy::text(
@@ -859,6 +860,27 @@ mod tests {
                 );
                 assert_busy(&html, "theatre-auth-login", submitting);
                 assert_busy(&html, "theatre-auth-register", false);
+                let reason = html
+                    .split("id=\"theatre-auth-login-reason\"")
+                    .nth(1)
+                    .unwrap();
+                assert_eq!(
+                    reason.split('>').next().unwrap().contains("cui-sr-only"),
+                    submitting,
+                    "only the explicit login's busy reason is offscreen: {html}"
+                );
+                let secondary_reason = html
+                    .split("id=\"theatre-auth-register-reason\"")
+                    .nth(1)
+                    .unwrap();
+                assert!(
+                    !secondary_reason
+                        .split('>')
+                        .next()
+                        .unwrap()
+                        .contains("cui-sr-only"),
+                    "secondary blocking explanations stay visible: {html}"
+                );
                 assert_eq!(html.matches("cui-loading-indicator").count(), 1);
                 assert!(!html.contains("id=\"theatre-auth-status\""));
                 assert_eq!(

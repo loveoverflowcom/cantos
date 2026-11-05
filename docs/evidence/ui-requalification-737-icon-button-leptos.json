@@ -1,0 +1,31 @@
+{
+  "component_id": "icon-button",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-11-05; one automated reviewer; bounded Web renewal for #737",
+  "reference": "Current compiled gallery, native component suites, driven input and opened attributed captures; unchanged source-bound reference observations retained. Scope and limitations: docs/evidence/web-native-submit-737.md. No every-state, native/device or screen-reader claim.",
+  "tokens_sha256": "79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218",
+  "source_sha256": "e92cc3969ad8f6b2dd7947917bb21ab48c01e63fab2fdb078428c0bf8053590b",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; final changed-only preflight; current native component and WASM checks",
+      "artifact": "docs/evidence/web-native-submit-737.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; node artifacts/agent-runs/issue737/gallery-check.mjs; node artifacts/agent-runs/issue737/requal-check.mjs; actual compiled controls, bounded scope in record",
+      "artifact": "docs/evidence/web-native-submit-737.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Current DOM descriptions and native disabled/default semantics; trusted keyboard, stable nodes and dialog Escape/focus return; no screen reader",
+      "artifact": "docs/evidence/web-native-submit-737.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Opened current submit Light/Dark VI/EN 320px text100/200 and representative current fields/actions/feedback/layout/logo/Avatar/dialog/AuthPrimary/Select/ListenHero/EdgeProgress captures; retained unchanged reference observations; see record",
+      "artifact": "docs/evidence/web-native-submit-737.md"
+    }
+  }
+}

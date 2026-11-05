@@ -25,6 +25,11 @@ pub mod pulse {
 }
 
 pub mod tool {
+    pub const NATIVE_SUBMIT_DIAGNOSTIC: &str = "Native form submit — local diagnostic";
+    pub const NATIVE_SUBMIT_STORY: &str = "Ánh đèn cuối sân khấu";
+    pub fn native_submissions(submissions: u32, actions: u32) -> String {
+        format!("Submissions: {submissions} · Actions: {actions}")
+    }
     pub const AVATAR_LAVENDER: &str = "A · Lavender Monogram";
     pub const AVATAR_GOLD: &str = "B · Golden Editorial";
     pub const AVATAR_PERSONAL: &str = "C · Personal Tonal";
@@ -320,6 +325,7 @@ pub enum SpecimenKey {
     PreservedText,
     SaveDraft,
     SignInTitle,
+    Submitting,
 }
 
 impl SpecimenKey {
@@ -346,6 +352,7 @@ impl SpecimenKey {
         Self::PreservedText,
         Self::SaveDraft,
         Self::SignInTitle,
+        Self::Submitting,
     ];
 }
 
@@ -417,6 +424,8 @@ pub const fn specimen(locale: Locale, key: SpecimenKey) -> &'static str {
         (Locale::En, SpecimenKey::SaveDraft) => "Save draft: {title}",
         (Locale::Vi, SpecimenKey::SignInTitle) => "Đăng nhập Cantos: {title}",
         (Locale::En, SpecimenKey::SignInTitle) => "Sign in to Cantos: {title}",
+        (Locale::Vi, SpecimenKey::Submitting) => "Đang đăng nhập…",
+        (Locale::En, SpecimenKey::Submitting) => "Signing in…",
     }
 }
 
