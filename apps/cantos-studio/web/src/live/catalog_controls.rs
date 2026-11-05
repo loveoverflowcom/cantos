@@ -278,6 +278,7 @@ mod browser {
         unsaved: Signal<bool>,
         dirty: RwSignal<bool>,
         after_save: RwSignal<Option<crate::live::preview::AfterSave>>,
+        children: Children,
     ) -> impl IntoView {
         let draft = RwSignal::new(WorkDraft::default());
         Effect::new(move |_| {
@@ -381,10 +382,20 @@ mod browser {
                         on_input=Callback::new(move |value|draft.update(|draft|draft.synopsis=value))/>
             </div>
             <p class="help cw-reason" id="live-work-reason" role="status" hidden=move||refusal.get()!=Some(Refusal::WorkArchived)>{move||text(Key::ReasonWorkArchived,locale.get())}</p>
-            <div class="cw-actions">
-                <ActionButton id="live-patch-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Save reason=save_reason blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(false))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
+            <section class="cw-work-actions" aria-labelledby="live-work-save-title">
+                <h5 id="live-work-save-title">{move ||text(Key::WorkSaveActions,locale.get())}</h5>
+                <div class="cw-actions">
+                <ActionButton id="live-patch-work" locale=locale variant=Signal::derive(move || if draft.with(WorkDraft::is_dirty) { ButtonVariant::Primary } else { ButtonVariant::Tonal }) icon=IconName::Save reason=save_reason blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(false))>{move ||text(Key::SaveMetadata,locale.get())}</ActionButton>
                 <ActionButton id="live-save-preview-work" locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility reason=save_reason blocked=Signal::derive(move ||cannot_edit.get()||!draft.with(WorkDraft::is_dirty)) on_press=Callback::new(move |_| save(true))>{move ||text(Key::PreviewSaveOpen,locale.get())}</ActionButton>
-                <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
+                </div>
+                <p class="help cw-reason" id="live-work-save-reason" role="status" hidden=move || (draft.with(WorkDraft::is_dirty) && !cannot_edit.get()) || refusal.get() == Some(Refusal::WorkArchived)>{move || save_reason.get().text(locale.get())}</p>
+                {children()}
+            </section>
+            <section class="cw-work-actions" aria-labelledby="live-work-read-title">
+                <h5 id="live-work-read-title">{move ||text(Key::WorkReadActions,locale.get())}</h5>
+                <p class="help">{move ||text(Key::WorkReadActionsHelp,locale.get())}</p>
+                <div class="cw-actions">
+                <ActionButton id="live-read-work" locale=locale variant=ButtonVariant::Tonal reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {
                 if blocked.get_untracked() { return; }
                 if let Some(work)=facts.with_untracked(|facts|facts.work.clone()) { dispatch.send(Command::Work {id:work.id}); }
             })>{move ||text(Key::ReadWork,locale.get())}</ActionButton>
@@ -396,8 +407,8 @@ mod browser {
                     }
                 }
             })>{move ||text(Key::ReloadWorkMetadata,locale.get())}</ActionButton>
-            </div>
-            <p class="help cw-reason" id="live-work-save-reason" role="status" hidden=move || (draft.with(WorkDraft::is_dirty) && !cannot_edit.get()) || refusal.get() == Some(Refusal::WorkArchived)>{move || save_reason.get().text(locale.get())}</p>
+                </div>
+            </section>
             <section class="cw-archive" aria-labelledby="live-archive-work-title">
                 <h5 id="live-archive-work-title">{move ||text(Key::ArchiveZone,locale.get())}</h5>
                 <p class="help">{move ||text(Key::ArchiveHelp,locale.get())}</p>

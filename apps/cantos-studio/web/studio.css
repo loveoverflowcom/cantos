@@ -505,6 +505,22 @@ body { margin: 0; }
 .studio-shell .cw-form-grid { grid-template-columns: minmax(0, 1fr); }
 .studio-shell .cw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-md); }
 .studio-shell .cw-reason { margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .cw-work-actions { margin-block-start: var(--cantos-space-lg); max-inline-size: 40rem; }
+.studio-shell .cw-work-actions h5 { margin: 0 0 var(--cantos-space-xs); font-size: var(--cantos-type-label-size); }
+.studio-shell .cw-work-actions .cw-actions { margin-block: var(--cantos-space-sm); }
+.studio-shell .cw-work-actions .cw-preview-zone { margin-block-start: var(--cantos-space-md); }
+.studio-shell .cw-audio-stages { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs); }
+.studio-shell .cw-audio-stages > .cui-button { min-inline-size: 0; max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
+.studio-shell .cw-audio-stage[hidden] { display: none; }
+.studio-shell .cw-audio-stage .live-section h4:first-child,
+.studio-shell .cw-audio-stage.live-section h4:first-child { margin-block-start: 0; }
+.studio-shell .cw-audio-stage pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.studio-shell .cw-audio-stage input[type="file"] { max-inline-size: 100%; }
+.studio-shell .cw-audio-stage input[type="file"]::file-selector-button { font: inherit; }
+.studio-shell .cw-audio-details { margin-block: var(--cantos-space-sm); }
+.studio-shell .cw-audio-stage summary { padding-block: var(--cantos-space-sm); cursor: pointer; }
+.studio-shell .cw-audio-stage summary:focus-visible,
+.studio-shell #live-audio-stages-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
 /* Save controls share their visible section reason. Only in-flight requests suppress other
    per-button copies: idle input/lifecycle blockers must remain visible beside their controls. */
 .studio-shell .cw :is(#live-patch-work-reason, #live-save-preview-work-reason, #live-patch-unit-reason):not([hidden]),

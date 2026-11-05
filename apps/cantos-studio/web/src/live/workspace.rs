@@ -18,6 +18,46 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::AbortController;
 
+// Presentation only: selection never dispatches a request or implies stage completion.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AudioStage {
+    Brief,
+    Intake,
+    Listen,
+    Review,
+    Release,
+}
+
+impl AudioStage {
+    const ALL: [Self; 5] = [
+        Self::Brief,
+        Self::Intake,
+        Self::Listen,
+        Self::Review,
+        Self::Release,
+    ];
+
+    fn panel_id(self) -> &'static str {
+        match self {
+            Self::Brief => "live-audio-brief-stage",
+            Self::Intake => "live-audio-section",
+            Self::Listen => "live-audio-listen-stage",
+            Self::Review => "live-audio-review-stage",
+            Self::Release => "live-audio-release-stage",
+        }
+    }
+
+    fn label(self) -> Key {
+        match self {
+            Self::Brief => Key::Brief,
+            Self::Intake => Key::Audio,
+            Self::Listen => Key::AudioListenStage,
+            Self::Review => Key::AudioReviewStage,
+            Self::Release => Key::Publication,
+        }
+    }
+}
+
 /// One request authority per panel: session fence, deadline, abort and exact retry.
 #[derive(Clone, Copy)]
 pub(super) struct Dispatch {
@@ -347,6 +387,7 @@ pub fn ContentWorkspace(
     // View-only: which task area and (on narrow layouts) which pane is shown. Neither carries a
     // draft or an authority; every area stays mounted, so hiding one never discards its inputs.
     let task = RwSignal::new(Task::default());
+    let audio_stage = RwSignal::new(AudioStage::Brief);
     let pane = RwSignal::new(Pane::default());
     let dashboard_query = RwSignal::new(super::dashboard::DashboardQuery::default());
     let file = RwSignal::new(None::<(Arc<Vec<u8>>, String)>);
@@ -1045,7 +1086,7 @@ pub fn ContentWorkspace(
         on_open_content.run(());
         task.set(Task::Audio);
         pane.set(Pane::Work);
-        focus_workspace_field("live-audio-section");
+        focus_workspace_field("live-audio-stages-title");
     });
     let track_input = Callback::new(move |id: String| {
         match id.as_str() {
@@ -1152,6 +1193,24 @@ pub fn ContentWorkspace(
         facts.with(|f| projection::row_ids(f.units.iter().map(|unit| unit.id.as_str())))
     });
     let report = Memo::new(move |_| state.with(feedback::feedback));
+    let upload_blocked = Signal::derive(move || {
+        blocked.get()
+            || facts.with(|f| {
+                f.submission.as_ref().is_none_or(|s| {
+                    credential.with(|c| {
+                        c.as_ref()
+                            .and_then(|c| c.for_submission(&s.submission.id))
+                            .is_none()
+                    })
+                })
+            })
+            || file.with(|f| f.is_none())
+            || facts.with(|f| {
+                f.submission
+                    .as_ref()
+                    .is_none_or(|s| s.state != AudioSubmissionState::AwaitingBytes)
+            })
+    });
     let banner = Memo::new(move |_| state.with(super::dashboard::RequestBanner::of));
     let banner_text = move || banner.get() == super::dashboard::RequestBanner::Full;
     // Names the operation and target a settled outcome answers; a title is looked up by ID, so a
@@ -1482,10 +1541,11 @@ pub fn ContentWorkspace(
                             <h3 id="live-details-title" class="cui-sr-only">{move ||text(Key::TaskDetails,locale.get())}</h3>
                             <Show when=move ||has_work.get()>
                                 <section class="cw-block" aria-labelledby="live-work-details-title"><h4 id="live-work-details-title">{move ||text(Key::WorkDetails,locale.get())}</h4>
-                                    <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save/>
+                                    <super::catalog_controls::WorkControls facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) dirty=catalog_dirty after_save=preview_after_save>
+                                        <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
+                                    </super::catalog_controls::WorkControls>
                                     <super::metadata_panel::MetadataPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get())/>
                                     <super::viewer_panel::ViewerPanel facts state locale blocked dirty=viewer_dirty on_send=Callback::new(move |command|dispatch.send(command)) on_retry=Callback::new(move |_|dispatch.retry())/>
-                                    <super::preview_panel::PreviewPanel facts=facts dispatch=dispatch locale=locale blocked=blocked unsaved=Signal::derive(move ||dirty.get()) active=Signal::derive(move ||active.get()&&pane_shown.get()) after_save=preview_after_save/>
                                 </section>
                             </Show>
                             <p class="help" hidden=move ||has_unit.get()||!has_work.get()>{move ||text(Key::NoUnitSelected,locale.get())}</p>
@@ -1524,55 +1584,123 @@ pub fn ContentWorkspace(
                     session_pending=session_pending unresolved=delegation_unresolved busy=delegation_busy dirty=delegation_dirty/>
                         </section>
 
-                        <section id="live-area-audio" class="cw-panel" aria-label=move ||text(Key::TaskAudio,locale.get()) hidden=move ||hide_area(Task::Audio) inert=move ||hide_area(Task::Audio)>
+                        <section id="live-area-audio" class="cw-panel" aria-labelledby="live-audio-stages-title" hidden=move ||hide_area(Task::Audio) inert=move ||hide_area(Task::Audio)>
                             <Show when=move ||has_unit.get()>
-                                                <section class="live-section"><h3>{move ||text(Key::Brief,locale.get())}</h3><div class="live-grid">
-                        <TextField id="live-brief-version" label=Signal::derive(move ||text(Key::Version,locale.get()).to_owned()) value=brief_version on_input=Callback::new(move |value|brief_version.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-direction" label=Signal::derive(move ||text(Key::Notes,locale.get()).to_owned()) value=notes on_input=Callback::new(move |value|notes.set(value)) class="live-field"/>
-                        <Select id="live-profile" label=Signal::derive(move ||text(Key::Profile,locale.get()).to_owned()) value=profile on_input=Callback::new(move |value|{profile.set(value);track_input.run("live-profile".to_owned());}) options=Signal::derive(move ||std::iter::once(SelectOption::new("",text(Key::SelectProfile,locale.get()))).chain([20,24,32,40].map(|rate|SelectOption::new(format!("opus-mono-{rate}-v1"),format!("Ogg Opus mono · {rate} kbps")))).collect::<Vec<_>>()) class="live-field"/>
-                        <TextField id="live-use" label=Signal::derive(move ||text(Key::Use,locale.get()).to_owned()) value=use_note on_input=Callback::new(move |value|use_note.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-attribution" label=Signal::derive(move ||text(Key::Attribution,locale.get()).to_owned()) value=attribution on_input=Callback::new(move |value|attribution.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-naming" label=Signal::derive(move ||text(Key::Naming,locale.get()).to_owned()) value=naming on_input=Callback::new(move |value|naming.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-qa" label=Signal::derive(move ||text(Key::Qa,locale.get()).to_owned()) value=qa on_input=Callback::new(move |value|qa.set(value)) class="live-field"/>
-                    </div><div class="toolbar"><ActionButton id="live-create-brief" locale=locale variant=ButtonVariant::Tonal reason=brief_create_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|super::brief_controls::brief_content(f,drafts.with(|d|d.content_dirty(&f.unit_id()))).is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|super::brief_controls::brief_content(f,drafts.with_untracked(|d|d.content_dirty(&f.unit_id()))).cloned()).ok_or(ClientError::InvalidInput)?;let(mode,capability)=super::brief_controls::production_mode(&c.details.body);Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![capability,ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,locale.get())}</ActionButton>
-                        <ActionButton id="live-read-brief" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,locale.get())}</ActionButton></div>
-                        <p class="help">{move ||text(Key::BriefHeadHelp,locale.get())}</p>
-                        <p><code>{move ||facts.with(|f|f.content_head.as_ref().map(copy::content_binding).unwrap_or_default())}</code></p>
-                        <super::brief_controls::BriefDocument brief=Signal::derive(move ||facts.with(|f|f.brief.clone())) locale=locale blocked=blocked/>
-                    </section>
-                    <section id="live-audio-section" class="live-section" tabindex="-1" aria-labelledby="live-audio-title"><h3 id="live-audio-title">{move ||text(Key::Audio,locale.get())}</h3><label for="live-audio-file">{move ||text(Key::File,locale.get())}</label>
-                        <input id="live-audio-file" type="file" accept=".ogg,audio/ogg" disabled=move ||blocked.get() on:change=move |event| {
-                            file.set(None);file_error.set(false);let Some(generation)=file_generation.get_untracked().checked_add(1) else {dispatch.input_error();return;};file_generation.set(generation);
-                            let actor_snapshot=actor.get_untracked();let unit_snapshot=facts.with_untracked(Facts::unit_id);
-                            let selected=event.target().and_then(|t|t.dyn_into::<web_sys::HtmlInputElement>().ok()).and_then(|i|i.files()).and_then(|f|f.get(0));
-                            if let Some(selected)=selected {file_busy.set(true);spawn_local(async move {let result=browser::read_audio(selected).await;if file_generation.try_get_untracked()==Some(generation)&&actor.try_get_untracked()==Some(actor_snapshot)&&facts.try_with_untracked(Facts::unit_id)==Some(unit_snapshot) {let _=file_busy.try_set(false);match result {Ok(value)=>{let _=file.try_set(Some(value));},Err(_)=>{let _=file_error.try_set(true);}}}});}
-                        }/>
-                        <p>{move ||if file.with(|f|f.is_some()) {text(Key::FileReady,locale.get())}else {""}}</p><p role="alert" hidden=move ||!file_error.get()>{move ||text(Key::FileReadFailed,locale.get())}</p><div class="live-grid"><TextField id="live-producer" label=Signal::derive(move ||text(Key::Producer,locale.get()).to_owned()) value=producer on_input=Callback::new(move |value|producer.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextField id="live-method" label=Signal::derive(move ||text(Key::Method,locale.get()).to_owned()) value=method on_input=Callback::new(move |value|method.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><TextArea id="live-producer-provenance" label=Signal::derive(move ||text(Key::ProducerProvenance,locale.get()).to_owned()) value=producer_provenance on_input=Callback::new(move |value|producer_provenance.set(value)) class="live-field"/><TextArea id="live-quality" label=Signal::derive(move ||text(Key::Quality,locale.get()).to_owned()) value=quality on_input=Callback::new(move |value|quality.set(value)) class="live-field"/></div>
-                        <ActionButton id="live-prepare" locale=locale variant=ButtonVariant::Tonal reason=prepare_reason blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(w,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let binding=super::brief_controls::submission_binding(&b,&w.id,&u.id)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding,expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:producer_provenance.get_untracked(),rights_refs:b.brief.work.rights_refs.clone(),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,locale.get())}</ActionButton>
-                        <TextField id="live-submission-id" label=Signal::derive(move ||text(Key::Submission,locale.get()).to_owned()) value=submission_id on_input=Callback::new(move |value|submission_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
-                        <div class="toolbar"><ActionButton id="live-read-submission" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Submission {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()}))>{move ||text(Key::ReadSubmission,locale.get())}</ActionButton>
-                        <ActionButton id="live-upload" locale=locale variant=ButtonVariant::Tonal reason=upload_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_none())))||file.with(|f|f.is_none())||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes))) on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};let command=Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id.clone(),credential:credential.with_untracked(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).cloned()).ok_or(ClientError::InvalidInput)?,bytes};upload_file_generation.set_value(Some(file_generation.get_untracked()));Ok(command)})()))>{move ||text(Key::Upload,locale.get())}</ActionButton>
-                        <ActionButton id="live-revoke" locale=locale variant=ButtonVariant::Secondary reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {if crate::view::confirm_discard(locale.get_untracked()) {dispatch.send(Command::Revoke {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()});}})>{move ||text(Key::Revoke,locale.get())}</ActionButton></div>
-                        <p role="status">{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_state(s.state,locale.get())).unwrap_or_default())}</p>
-                        <p class="help" hidden=move ||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes||credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_some())))>{move ||text(Key::CredentialMissing,locale.get())}</p>
-                        <p><code>{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_binding(&s.submission)).unwrap_or_default())}</code></p>
-                        <p><code>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|s.rendition.as_ref()).map(copy::rendition_summary).unwrap_or_default())}</code></p>
-                        <details><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|serde_json::to_string_pretty(s).ok()).unwrap_or_default())}</pre></details>
-                    </section>
-                    <super::audio_preview::AudioPreview facts=facts dispatch=dispatch actor=actor active=active session_pending=session_pending locale=locale blocked=blocked/>
-                    <section class="live-section"><h3>{move ||text(Key::Review,locale.get())}</h3><div class="live-grid">
-                        <Select id="live-review-kind" label=Signal::derive(move ||text(Key::ReviewKind,locale.get()).to_owned()) value=review_kind on_input=Callback::new(move |value|{review_kind.set(value);track_input.run("live-review-kind".to_owned());}) options=Signal::derive(move ||[("qc",AudioReviewKind::Qc),("rights",AudioReviewKind::Rights),("editorial",AudioReviewKind::Editorial)].map(|(value,kind)|SelectOption::new(value,copy::review_kind(kind,locale.get()))).to_vec()) class="live-field"/>
-                        <Select id="live-decision" label=Signal::derive(move ||text(Key::Decision,locale.get()).to_owned()) value=decision on_input=Callback::new(move |value|{decision.set(value);track_input.run("live-decision".to_owned());}) options=Signal::derive(move ||[("rejected",AudioReviewDecision::Rejected),("approved",AudioReviewDecision::Approved),("withdrawn",AudioReviewDecision::Withdrawn)].map(|(value,decision)|SelectOption::new(value,copy::review_decision(decision,locale.get()))).to_vec()) class="live-field"/>
-                        <TextArea id="live-review-notes" label=Signal::derive(move ||text(Key::Notes,locale.get()).to_owned()) value=review_notes on_input=Callback::new(move |value|review_notes.set(value)) class="live-field"/><TextField id="live-evidence" label=Signal::derive(move ||text(Key::Evidence,locale.get()).to_owned()) value=evidence on_input=Callback::new(move |value|evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
-                    </div><crate::ui::ReviewCheckbox id="live-review-confirm" locale=locale
-                        label=Signal::derive(move ||text(Key::Confirm,locale.get()).to_owned()) checked=confirmed
-                        on_change=Callback::new(move |checked|consent.set(if checked{current_review.get_untracked()}else{None}))/>
-        <p>{move ||text(Key::ConfirmHelp,locale.get())}</p>
-                        <ActionButton id="live-review" locale=locale variant=ButtonVariant::Tonal reason=review_reason blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::Review,locale.get())}</ActionButton>
-                        <ActionButton id="live-candidate" locale=locale variant=ButtonVariant::Tonal reason=candidate_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let r=s.rendition.ok_or(ClientError::InvalidInput)?;Ok(Command::Candidate {unit:u.id,submission:s.submission.id,request:CreateReleaseCandidateRequest {operation_id:uuid()?,rendition_digest:r.digest}})})()))>{move ||text(Key::CreateCandidate,locale.get())}</ActionButton>
-                        <TextField id="live-candidate-id" label=Signal::derive(move ||text(Key::Candidate,locale.get()).to_owned()) value=candidate_id on_input=Callback::new(move |value|candidate_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/><ActionButton id="live-read-candidate" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::CandidateRead {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked(),candidate:candidate_id.get_untracked()}))>{move ||text(Key::ReadCandidate,locale.get())}</ActionButton>
-                        <p>{move ||text(Key::Private,locale.get())}</p>
-                        <ul>{move ||facts.with(|f|f.candidate.as_ref().map(|c|c.blockers.clone()).unwrap_or_default()).into_iter().map(|blocker|view!{<li>{move ||copy::audio_blocker(blocker,locale.get())}</li>}).collect_view()}</ul>
-                        <p><code>{move ||facts.with(|f|f.candidate.as_ref().map(|c|copy::candidate_binding(&c.candidate)).unwrap_or_default())}</code></p>
-                        <details><summary>{move ||text(Key::InspectDocument,locale.get())}</summary><pre>{move ||facts.with(|f|f.candidate.as_ref().and_then(|c|serde_json::to_string_pretty(c).ok()).unwrap_or_default())}</pre></details>
-                    </section>
-                    <super::publication::PublicationPanel facts=facts dispatch=dispatch locale=locale blocked=blocked dirty=publication_dirty/>
+                                                <h3 id="live-audio-stages-title" tabindex="-1">{move ||text(Key::TaskAudio,locale.get())}</h3>
+                                <p class="help">{move ||text(Key::AudioStagesHelp,locale.get())}</p>
+                                <div class="cw-audio-stages" role="group" aria-label=move ||text(Key::AudioStages,locale.get())>
+                                    {AudioStage::ALL.into_iter().map(|stage| view! {
+                                        <button type="button" class="cui-button" aria-controls=stage.panel_id()
+                                            aria-pressed=move ||(audio_stage.get()==stage).to_string()
+                                            data-variant=move ||if audio_stage.get()==stage {"tonal"}else{"text"}
+                                            on:click=move |event: web_sys::MouseEvent| {
+                                                if let Some(trigger)=event.current_target().and_then(|node|node.dyn_into::<web_sys::HtmlElement>().ok()) {
+                                                    let _=trigger.focus();
+                                                }
+                                                audio_stage.set(stage);
+                                            }>
+                                            {move ||text(stage.label(),locale.get())}
+                                        </button>
+                                    }).collect_view()}
+                                </div>
+                                // Hide stages instead of remounting their inputs, file selection or consent.
+                                <section id=AudioStage::Brief.panel_id() class="live-section cw-audio-stage" aria-labelledby="live-audio-brief-title"
+                                    hidden=move ||audio_stage.get()!=AudioStage::Brief inert=move ||audio_stage.get()!=AudioStage::Brief>
+                                    <h4 id="live-audio-brief-title">{move ||text(Key::Brief,locale.get())}</h4>
+                                    <p class="help">{move ||text(Key::BriefHeadHelp,locale.get())}</p>
+                                    <div class="live-grid">
+                                        <TextArea id="live-direction" label=Signal::derive(move ||text(Key::Notes,locale.get()).to_owned()) value=notes on_input=Callback::new(move |value|notes.set(value)) class="live-field"/>
+                                        <Select id="live-profile" label=Signal::derive(move ||text(Key::Profile,locale.get()).to_owned()) value=profile on_input=Callback::new(move |value|{profile.set(value);track_input.run("live-profile".to_owned());}) options=Signal::derive(move ||std::iter::once(SelectOption::new("",text(Key::SelectProfile,locale.get()))).chain([20,24,32,40].map(|rate|SelectOption::new(format!("opus-mono-{rate}-v1"),format!("Ogg Opus mono · {rate} kbps")))).collect::<Vec<_>>()) class="live-field"/>
+                                        <TextField id="live-use" label=Signal::derive(move ||text(Key::Use,locale.get()).to_owned()) value=use_note on_input=Callback::new(move |value|use_note.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                        <TextField id="live-attribution" label=Signal::derive(move ||text(Key::Attribution,locale.get()).to_owned()) value=attribution on_input=Callback::new(move |value|attribution.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                        <TextField id="live-naming" label=Signal::derive(move ||text(Key::Naming,locale.get()).to_owned()) value=naming on_input=Callback::new(move |value|naming.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                        <TextArea id="live-qa" label=Signal::derive(move ||text(Key::Qa,locale.get()).to_owned()) value=qa on_input=Callback::new(move |value|qa.set(value)) class="live-field"/>
+                                    </div>
+                                    <details class="cw-audio-details"><summary>{move ||text(Key::BriefVersionDetails,locale.get())}</summary>
+                                        <p class="help">{move ||text(Key::BriefVersionHelp,locale.get())}</p>
+                                        <TextField id="live-brief-version" label=Signal::derive(move ||text(Key::Version,locale.get()).to_owned()) value=brief_version on_input=Callback::new(move |value|brief_version.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                        <div class="cw-actions"><ActionButton id="live-read-brief" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,locale.get())}</ActionButton></div>
+                                        <p><code>{move ||facts.with(|f|f.content_head.as_ref().map(copy::content_binding).unwrap_or_default())}</code></p>
+                                    </details>
+                                    <div class="cw-actions"><ActionButton id="live-create-brief" locale=locale variant=ButtonVariant::Primary reason=brief_create_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|super::brief_controls::brief_content(f,drafts.with(|d|d.content_dirty(&f.unit_id()))).is_none())||!valid_profile(&profile.get())) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(_,u)=context(facts)?;let c=facts.with_untracked(|f|super::brief_controls::brief_content(f,drafts.with_untracked(|d|d.content_dirty(&f.unit_id()))).cloned()).ok_or(ClientError::InvalidInput)?;let(mode,capability)=super::brief_controls::production_mode(&c.details.body);Ok(Command::CreateBrief {unit:u.id,request:CreateProductionBriefRequest {operation_id:uuid()?,id:uuid()?,expected_version:brief_version.get_untracked().parse().map_err(|_|ClientError::InvalidInput)?,content_revision_id:c.id,content_revision_digest:c.revision_digest,guidance:BriefGuidance {editorial:EditorialIntent {mode,notes:notes.get_untracked()},voice:None,sound_design:None,required_capabilities:vec![capability,ProducerCapability::OggOpusMono],delivery:DeliveryConstraints {profile_id:profile.get_untracked(),permitted_use:use_note.get_untracked(),attribution:attribution.get_untracked(),naming:naming.get_untracked(),qa_instructions:qa.get_untracked()}}}})})()))>{move ||text(Key::CreateBrief,locale.get())}</ActionButton></div>
+                                    <super::brief_controls::BriefDocument brief=Signal::derive(move ||facts.with(|f|f.brief.clone())) locale=locale blocked=blocked/>
+                                </section>
+                                <section id=AudioStage::Intake.panel_id() class="live-section cw-audio-stage" aria-labelledby="live-audio-title"
+                                    hidden=move ||audio_stage.get()!=AudioStage::Intake inert=move ||audio_stage.get()!=AudioStage::Intake>
+                                    <h4 id="live-audio-title">{move ||text(Key::Audio,locale.get())}</h4>
+                                    <p class="help">{move ||text(Key::AudioIntakeHelp,locale.get())}</p>
+                                    <label for="live-audio-file">{move ||text(Key::File,locale.get())}</label>
+                                    <input id="live-audio-file" type="file" accept=".ogg,audio/ogg" disabled=move ||blocked.get() on:change=move |event| {
+                                        file.set(None);file_error.set(false);let Some(generation)=file_generation.get_untracked().checked_add(1) else {dispatch.input_error();return;};file_generation.set(generation);
+                                        let actor_snapshot=actor.get_untracked();let unit_snapshot=facts.with_untracked(Facts::unit_id);
+                                        let selected=event.target().and_then(|t|t.dyn_into::<web_sys::HtmlInputElement>().ok()).and_then(|i|i.files()).and_then(|f|f.get(0));
+                                        if let Some(selected)=selected {file_busy.set(true);spawn_local(async move {let result=browser::read_audio(selected).await;if file_generation.try_get_untracked()==Some(generation)&&actor.try_get_untracked()==Some(actor_snapshot)&&facts.try_with_untracked(Facts::unit_id)==Some(unit_snapshot) {let _=file_busy.try_set(false);match result {Ok(value)=>{let _=file.try_set(Some(value));},Err(_)=>{let _=file_error.try_set(true);}}}});}
+                                    }/>
+                                    <p>{move ||if file.with(|f|f.is_some()) {text(Key::FileReady,locale.get())}else {""}}</p><p role="alert" hidden=move ||!file_error.get()>{move ||text(Key::FileReadFailed,locale.get())}</p><div class="live-grid"><TextField id="live-producer" label=Signal::derive(move ||text(Key::Producer,locale.get()).to_owned()) value=producer on_input=Callback::new(move |value|producer.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                    <TextField id="live-method" label=Signal::derive(move ||text(Key::Method,locale.get()).to_owned()) value=method on_input=Callback::new(move |value|method.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                    <TextArea id="live-producer-provenance" label=Signal::derive(move ||text(Key::ProducerProvenance,locale.get()).to_owned()) value=producer_provenance on_input=Callback::new(move |value|producer_provenance.set(value)) class="live-field"/>
+                                    <TextArea id="live-quality" label=Signal::derive(move ||text(Key::Quality,locale.get()).to_owned()) value=quality on_input=Callback::new(move |value|quality.set(value)) class="live-field"/></div>
+                                    <div class="cw-actions">
+                                        <ActionButton id="live-prepare" locale=locale variant=Signal::derive(move || if upload_blocked.get() { ButtonVariant::Primary } else { ButtonVariant::Tonal }) reason=prepare_reason blocked=Signal::derive(move ||blocked.get()||file.with(|f|f.is_none())||facts.with(|f|f.brief.as_ref().is_none_or(|b|b.freshness!=BriefFreshness::Current))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let(w,u)=context(facts)?;let b=facts.with_untracked(|f|f.brief.clone()).ok_or(ClientError::InvalidInput)?;let binding=super::brief_controls::submission_binding(&b,&w.id,&u.id)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;let expires_at=(js_sys::Date::now() as i64).checked_add(3_600_000).ok_or(ClientError::InvalidInput)?;Ok(Command::Prepare {unit:u.id.clone(),request:CreateAudioSubmissionRequest {operation_id:uuid()?,id:uuid()?,binding,expected_sha256:sha,expected_byte_length:bytes.len() as u64,declarations:ProducerDeclarations {producer:producer.get_untracked(),method:method.get_untracked(),provenance:producer_provenance.get_untracked(),rights_refs:b.brief.work.rights_refs.clone(),quality_report:quality.get_untracked()},upload_token:browser::upload_token()?,expires_at}})})()))>{move ||text(Key::Prepare,locale.get())}</ActionButton>
+                                        <ActionButton id="live-upload" locale=locale variant=Signal::derive(move || if upload_blocked.get() { ButtonVariant::Tonal } else { ButtonVariant::Primary }) reason=upload_reason blocked=upload_blocked on_press=Callback::new(move |_|dispatch.build((|| {let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let(bytes,sha)=file.get_untracked().ok_or(ClientError::InvalidInput)?;if sha!=s.submission.expected_sha256 || bytes.len() as u64!=s.submission.expected_byte_length {return Err(ClientError::InvalidInput)};let command=Command::Upload {binding:s.submission.binding,sha256:sha,submission:s.submission.id.clone(),credential:credential.with_untracked(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).cloned()).ok_or(ClientError::InvalidInput)?,bytes};upload_file_generation.set_value(Some(file_generation.get_untracked()));Ok(command)})()))>{move ||text(Key::Upload,locale.get())}</ActionButton>
+                                    </div>
+                                    <p role="status">{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_state(s.state,locale.get())).unwrap_or_default())}</p>
+                                    <p class="help" hidden=move ||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.state!=AudioSubmissionState::AwaitingBytes||credential.with(|c|c.as_ref().and_then(|c|c.for_submission(&s.submission.id)).is_some())))>{move ||text(Key::CredentialMissing,locale.get())}</p>
+                                    <details class="cw-audio-details">
+                                        <summary>{move ||text(Key::SubmissionDetails,locale.get())}</summary>
+                                        <TextField id="live-submission-id" label=Signal::derive(move ||text(Key::Submission,locale.get()).to_owned()) value=submission_id on_input=Callback::new(move |value|submission_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                        <div class="cw-actions">
+                                            <ActionButton id="live-read-submission" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Submission {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()}))>{move ||text(Key::ReadSubmission,locale.get())}</ActionButton>
+                                            <ActionButton id="live-revoke" locale=locale variant=ButtonVariant::Secondary reason=blocked_reason blocked=blocked on_press=Callback::new(move |_| {if crate::view::confirm_discard(locale.get_untracked()) {dispatch.send(Command::Revoke {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked()});}})>{move ||text(Key::Revoke,locale.get())}</ActionButton>
+                                        </div>
+                                        <p><code>{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_binding(&s.submission)).unwrap_or_default())}</code></p>
+                                        <p><code>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|s.rendition.as_ref()).map(copy::rendition_summary).unwrap_or_default())}</code></p>
+                                        <pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|serde_json::to_string_pretty(s).ok()).unwrap_or_default())}</pre>
+                                    </details>
+                                </section>
+                                <div id=AudioStage::Listen.panel_id() class="cw-audio-stage"
+                                    hidden=move ||audio_stage.get()!=AudioStage::Listen inert=move ||audio_stage.get()!=AudioStage::Listen>
+                                    <super::audio_preview::AudioPreview facts=facts dispatch=dispatch actor=actor active=active session_pending=session_pending locale=locale blocked=blocked/>
+                                </div>
+                                <section id=AudioStage::Review.panel_id() class="live-section cw-audio-stage" aria-labelledby="live-audio-review-title"
+                                    hidden=move ||audio_stage.get()!=AudioStage::Review inert=move ||audio_stage.get()!=AudioStage::Review>
+                                    <h4 id="live-audio-review-title">{move ||text(Key::AudioReviewStage,locale.get())}</h4>
+                                    <div class="live-grid">
+                                        <Select id="live-review-kind" label=Signal::derive(move ||text(Key::ReviewKind,locale.get()).to_owned()) value=review_kind on_input=Callback::new(move |value|{review_kind.set(value);track_input.run("live-review-kind".to_owned());}) options=Signal::derive(move ||[("qc",AudioReviewKind::Qc),("rights",AudioReviewKind::Rights),("editorial",AudioReviewKind::Editorial)].map(|(value,kind)|SelectOption::new(value,copy::review_kind(kind,locale.get()))).to_vec()) class="live-field"/>
+                                        <Select id="live-decision" label=Signal::derive(move ||text(Key::Decision,locale.get()).to_owned()) value=decision on_input=Callback::new(move |value|{decision.set(value);track_input.run("live-decision".to_owned());}) options=Signal::derive(move ||[("rejected",AudioReviewDecision::Rejected),("approved",AudioReviewDecision::Approved),("withdrawn",AudioReviewDecision::Withdrawn)].map(|(value,decision)|SelectOption::new(value,copy::review_decision(decision,locale.get()))).to_vec()) class="live-field"/>
+                                        <TextArea id="live-review-notes" label=Signal::derive(move ||text(Key::Notes,locale.get()).to_owned()) value=review_notes on_input=Callback::new(move |value|review_notes.set(value)) class="live-field"/>
+                                        <TextField id="live-evidence" label=Signal::derive(move ||text(Key::Evidence,locale.get()).to_owned()) value=evidence on_input=Callback::new(move |value|evidence.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                    </div>
+                                    <details class="cw-audio-details" hidden=move ||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))>
+                                        <summary>{move ||text(Key::ReviewAudioDetails,locale.get())}</summary>
+                                        <p><code>{move ||facts.with(|f|f.submission.as_ref().map(|s|copy::submission_binding(&s.submission)).unwrap_or_default())}</code></p>
+                                        <pre>{move ||facts.with(|f|f.submission.as_ref().and_then(|s|s.rendition.as_ref()).and_then(|r|serde_json::to_string_pretty(r).ok()).unwrap_or_default())}</pre>
+                                    </details>
+                                    <crate::ui::ReviewCheckbox id="live-review-confirm" locale=locale
+                                        label=Signal::derive(move ||text(Key::Confirm,locale.get()).to_owned()) checked=confirmed
+                                        described_by=Some("live-review-confirm-help".to_owned())
+                                        on_change=Callback::new(move |checked|consent.set(if checked{current_review.get_untracked()}else{None}))/>
+                                    <p id="live-review-confirm-help">{move ||text(Key::ConfirmHelp,locale.get())}</p>
+                                    <ActionButton id="live-review" locale=locale variant=ButtonVariant::Primary reason=review_reason blocked=Signal::derive(move ||blocked.get()||!confirmed.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|submit_ancillary.run((|| {let current=current_review.get_untracked().ok_or(ClientError::InvalidInput)?;if !consent.with_untracked(|c|c.as_ref().is_some_and(|c|c.authorizes(&current))) {return Err(ClientError::InvalidInput)};Ok(Command::Review {unit:current.unit.clone(),submission:current.submission.clone(),request:current.request(uuid()?)})})()))>{move ||text(Key::RecordAudioReview,locale.get())}</ActionButton>
+                                </section>
+                                <div id=AudioStage::Release.panel_id() class="cw-audio-stage"
+                                    hidden=move ||audio_stage.get()!=AudioStage::Release inert=move ||audio_stage.get()!=AudioStage::Release>
+                                    <section class="live-section" aria-labelledby="live-candidate-title">
+                                        <h4 id="live-candidate-title">{move ||text(Key::ReleaseCandidate,locale.get())}</h4>
+                                        <p>{move ||text(Key::Private,locale.get())}</p>
+                                        <ActionButton id="live-candidate" locale=locale variant=Signal::derive(move || if facts.with(|f|f.candidate.is_none()) { ButtonVariant::Primary } else { ButtonVariant::Tonal }) reason=candidate_reason blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.submission.as_ref().is_none_or(|s|s.rendition.is_none()))) on_press=Callback::new(move |_|dispatch.build((|| {let(_,u)=context(facts)?;let s=facts.with_untracked(|f|f.submission.clone()).ok_or(ClientError::InvalidInput)?;let r=s.rendition.ok_or(ClientError::InvalidInput)?;Ok(Command::Candidate {unit:u.id,submission:s.submission.id,request:CreateReleaseCandidateRequest {operation_id:uuid()?,rendition_digest:r.digest}})})()))>{move ||text(Key::CreateCandidate,locale.get())}</ActionButton>
+                                        <ul>{move ||facts.with(|f|f.candidate.as_ref().map(|c|c.blockers.clone()).unwrap_or_default()).into_iter().map(|blocker|view!{<li>{move ||copy::audio_blocker(blocker,locale.get())}</li>}).collect_view()}</ul>
+                                        <details class="cw-audio-details">
+                                            <summary>{move ||text(Key::CandidateDetails,locale.get())}</summary>
+                                            <TextField id="live-candidate-submission-id" label=Signal::derive(move ||text(Key::Submission,locale.get()).to_owned()) value=submission_id on_input=Callback::new(move |value|submission_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                            <TextField id="live-candidate-id" label=Signal::derive(move ||text(Key::Candidate,locale.get()).to_owned()) value=candidate_id on_input=Callback::new(move |value|candidate_id.set(value)) class="live-field" variant=TextFieldVariant::Floating density=EDITOR_FIELD_DENSITY autocomplete="off"/>
+                                            <div class="cw-actions"><ActionButton id="live-read-candidate" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::CandidateRead {unit:facts.with_untracked(Facts::unit_id),submission:submission_id.get_untracked(),candidate:candidate_id.get_untracked()}))>{move ||text(Key::ReadCandidate,locale.get())}</ActionButton></div>
+                                            <p><code>{move ||facts.with(|f|f.candidate.as_ref().map(|c|copy::candidate_binding(&c.candidate)).unwrap_or_default())}</code></p>
+                                            <pre>{move ||facts.with(|f|f.candidate.as_ref().and_then(|c|serde_json::to_string_pretty(c).ok()).unwrap_or_default())}</pre>
+                                        </details>
+                                    </section>
+                                    <super::publication::PublicationPanel facts=facts dispatch=dispatch locale=locale blocked=blocked dirty=publication_dirty/>
+                                </div>
                             </Show>
                         </section>
                     </div>
