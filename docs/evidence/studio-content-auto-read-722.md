@@ -159,3 +159,16 @@ cancel moves focus to `live-works` and shows the failed state; explicit refresh 
 with the choose-Work hint; opening a Work still shows the full banner with its failure detail;
 desk → Content navigation issues no further list read. Not run in this follow-up: narrow
 viewport, English locale, screen reader, real Server/Identity and other browsers.
+
+## Merge-readiness after develop moved
+
+The two repository blockers recorded above were resolved on `develop` by PR #723
+(`919852be`: renderer requalification and the Identity dependency assertion). After merging
+`origin/develop@1b885b7c` into this branch,
+`cargo xtask preflight --changed-only --base origin/develop` reported **PASS** for
+`repository`, `rust-format`, `rust-lint`, `rust-tests`, `web-lint` and `web-build`
+(`cantos-studio`), with no registered assurance obligation. The run used `TMPDIR=/private/tmp`
+and a scratch `PATH` directory whose `python3` and `bash` link to Homebrew Python 3.14 and
+Bash 5, because macOS Python 3.9 lacks `tomllib` and Bash 3.2 cannot run the VPS shell
+fixtures; under the same shims the scripts suite ran 1,384 tests, OK (16 skipped). Remote CI
+was not consulted for this local merge decision.
