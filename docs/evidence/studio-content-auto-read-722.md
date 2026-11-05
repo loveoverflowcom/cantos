@@ -93,6 +93,16 @@ to the base. Logs are `preflight.log`, `clean-baseline-catalog.log` and
 through actual renderer evidence; editing hashes alone would not qualify it. This remains a
 required repository/merge blocker, separate from the passing issue-scoped local behavior.
 
+The separately executed repository Python suite initially reported 14 failures and 88 errors
+because the default macOS `/var` temporary path crosses a symlink. With the documented
+`TMPDIR=/private/tmp`, it ran 1,384 tests with **one failure and 20 skips**. The remaining
+`RegistryContracts.test_release_builds_carry_no_observer_or_test_dependency` assertion expects
+`serde_json` to be enabled only by `service`, while the current Identity manifest also enables
+it through `recovery-testing`. The exact test fails identically in the clean base. This is a
+second pre-existing repository blocker, not a passing full-suite claim; no Identity manifest
+or test expectation is changed here. Logs are `python-tests-private-tmp.log` and
+`clean-baseline-python-failure.log`.
+
 Drivers, build/test logs, reports, capture hashes and original PNGs are retained under ignored
 `artifacts/agent-runs/issue-722/`. Commands were `node .../browser.cjs --baseline`,
 `node .../browser.cjs`, and `node .../real-browser.cjs`; the full relative directory above
