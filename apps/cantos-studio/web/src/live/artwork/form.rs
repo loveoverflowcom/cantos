@@ -140,15 +140,8 @@ pub fn ArtworkForm(
                 state=declarations required=true help=Signal::derive(move ||Some(label(Key::RightsHelp))) error=Signal::derive(move ||problem(super::Problem::Rights))
                 on_input=Callback::new(move |v|draft.update(|d|d.rights=v))/>
         </div>
-        <details class="artwork-metadata">
-            <summary>{move ||label(Key::ValidationDetails)}</summary>
-            <p>{move ||label(Key::FileDetails)}</p>
-            <p>{move ||label(Key::AltDetails)}</p>
-            <p>{move ||label(Key::ProvenanceDetails)}</p>
-            <p>{move ||label(Key::RightsDetails)}</p>
-        </details>
         <p class="artwork-workflow">{move ||label(Key::Workflow)}</p>
-        <Show when=move ||model.with(|m|m.intent.is_some())><p>{move ||label(Key::PreparedHelp)}</p><details><summary>{move ||label(Key::IntentReceipt)}</summary><small>{move ||model.with(|m|m.intent.as_ref().map(|i|i.operation_id.clone()))}</small></details></Show>
+        <Show when=move ||model.with(|m|m.intent.is_some())><p>{move ||label(Key::PreparedHelp)}</p></Show>
         <Show when=move ||model.with(|m|m.compared_revision.is_some())><p>{move ||label(Key::Compare)}{move ||model.with(|m|format!(" · r{} / r{}",m.compared_revision.unwrap_or_default(),m.reported_revision.or_else(||m.current.as_ref().map(|r|r.work_revision)).unwrap_or_default()))}</p></Show>
         <Show when=move ||model.with(|m|m.asset.is_some())><p class="artwork-selection-context">{move ||label(Key::SelectHelp)}{move ||model.with(|m|m.current.as_ref().map(|r|copy::selection_revision(r.work_revision,locale.get())))}</p></Show>
         <div class="artwork-actions">
@@ -165,6 +158,18 @@ pub fn ArtworkForm(
                 blocked=Signal::derive(move ||locked.get()||model.with(|m|m.asset.is_none()||m.current.is_none()))
                 on_press=Callback::new(move |_|on_intent.run(Intent::Select))>{move ||label(Key::Select)}</ActionButton>
         </div>
+        <details class="artwork-metadata">
+            <summary>{move ||label(Key::ValidationDetails)}</summary>
+            <p>{move ||label(Key::FileDetails)}</p>
+            <p>{move ||label(Key::AltDetails)}</p>
+            <p>{move ||label(Key::ProvenanceDetails)}</p>
+            <p>{move ||label(Key::RightsDetails)}</p>
+        </details>
+        <Show when=move ||model.with(|m|m.intent.is_some())>
+            <details class="artwork-metadata"><summary>{move ||label(Key::IntentReceipt)}</summary>
+                <small>{move ||model.with(|m|m.intent.as_ref().map(|i|i.operation_id.clone()))}</small>
+            </details>
+        </Show>
         <div class="toolbar artwork-maintenance">
             <ActionButton id="artwork-refresh" locale=locale reason=BlockReason::Artwork(Key::NeedOwner) blocked=locked variant=ButtonVariant::Tonal on_press=Callback::new(move |_|on_intent.run(Intent::Refresh))>{move ||label(Key::Refresh)}</ActionButton>
             <ActionButton id="artwork-clear" locale=locale reason=BlockReason::Artwork(Key::NeedCurrent) focus_on_press=true blocked=Signal::derive(move ||locked.get()||model.with(|m|m.current.as_ref().is_none_or(|r|r.artwork.is_none()))) variant=ButtonVariant::Text on_press=Callback::new(move |_|on_intent.run(Intent::Clear))>{move ||label(Key::Clear)}</ActionButton>
