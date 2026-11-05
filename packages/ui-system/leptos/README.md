@@ -9,7 +9,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | API | Contract |
 | --- | --- |
 | `UiRoot` | Reactive `Theme` and `Density`; one scoped boundary, optional class and children |
-| `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive variant (stable native control) and `ButtonState`, `on_press`, label children and optional decorative `icon` |
+| `Button` | Native `type="button"` by default, explicit `submit=true` for an app-owned form; primary/tonal/secondary/text/danger; reactive variant (stable native control) and `ButtonState`, `on_press`, label children and optional decorative `icon` |
 | `BackButton` | Typed localized name + required host callback; native non-submit contextual return, visible or icon-only label; no route/history ownership |
 | `IconButton` | Same action state with an official `IconName` and nonempty `AccessibleName`; label remains in accessible text |
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
@@ -43,6 +43,21 @@ putting a second interactive element inside Link/NavItem/FilterChip/Button.
 and visible reason. Both native disabled and the dispatch guard block repeated activation. A loading
 reason uses a polite status region. `DisabledReason::new` and `AccessibleName::new` reject blank text.
 The same state is used by IconButton and FilterChip; selected state stays caller-owned.
+
+`Button submit=true` reuses that anatomy, including auth capsule measurement, while the browser
+retains Enter/click submission and native validation. The form owns its submit handler and the
+synchronous duplicate guard; it must not dispatch the same command through `on_press` as well.
+Disabled/loading controls cancel the default action of synthetic clicks too. Default actions
+remain non-submit; pending ListenHero actions retain their existing focus behavior, while a
+submit control is always natively disabled during loading.
+
+`busy_label_only=true` is an explicit presentation policy for a caller that already puts progress
+in its visible label. Only the busy reason becomes offscreen; its stable description/live region
+remains, and disabled reasons remain visible. No error or reason is suppressed by a global CSS
+selector. The `native-submit-sample` in the existing gallery Actions section exercises native
+validation, guarded submission, the default non-submit action, busy/disabled state and reactive
+VI/EN labels without credentials or network calls. These are Web-specific form semantics over
+the existing `button` catalog API; they add no CMP product or semantic-token requirement.
 
 `SurfacePulse` (issue #585) is the shared placeholder fill for a cover frame, title bar or list row: one
 decorative `span.cui-surface-pulse` (`aria-hidden`) that takes its parent's box and radius, so the caller owns

@@ -8,7 +8,7 @@ use cantos_ui::{
     DisabledReason, FieldState, IconName, Select, Space, Stack, Status, Surface, SurfaceTone,
     SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
 };
-use leptos::prelude::*;
+use leptos::{ev::SubmitEvent, prelude::*};
 
 fn reason(text: &str) -> DisabledReason {
     DisabledReason::new(text).expect("nonblank diagnostic reason")
@@ -59,8 +59,74 @@ pub fn AuthActionSamples(
                 </div>
                 <p lang=tool::LANGUAGE_TAG id="auth-action-output" class="cui-gallery-output">{move || tool::received_intents(presses.get())}</p>
                 <Button id="auth-regular-control" on_press=press>"Hành động thường không đổi hình/kích thước"</Button>
+                <NativeSubmitSample/>
             </Stack>
         </Surface>
+    }
+}
+
+/// Web-only form semantics over the existing Button anatomy; no authentication effects.
+#[component]
+fn NativeSubmitSample() -> impl IntoView {
+    let locale = RwSignal::new("vi".to_owned());
+    let language = move || {
+        if locale.get() == "en" {
+            Locale::En
+        } else {
+            Locale::Vi
+        }
+    };
+    let mode = RwSignal::new("enabled".to_owned());
+    let value = RwSignal::new("nguyen-thi-anh-nguyet@example.test".to_owned());
+    let submissions = RwSignal::new(0u32);
+    let actions = RwSignal::new(0u32);
+    let state = Signal::derive(move || match mode.get().as_str() {
+        "disabled" => ButtonState::Disabled(reason(specimen(language(), SpecimenKey::Blocked))),
+        "loading" => ButtonState::Loading(reason(specimen(language(), SpecimenKey::Submitting))),
+        _ => ButtonState::Enabled,
+    });
+    view! {
+        <section id="native-submit-sample" lang=tool::LANGUAGE_TAG data-preview-scenario="native-submit native-submit-repeat native-submit-label">
+            <h4 lang=tool::LANGUAGE_TAG>{tool::NATIVE_SUBMIT_DIAGNOSTIC}</h4>
+            <Select id="native-submit-locale" label=tool::SPECIMEN_LANGUAGE value=locale
+                on_input=Callback::new(move |next| locale.set(next))>
+                <option value="vi">{super::messages::VIETNAMESE_AUTONYM}</option>
+                <option value="en">{super::messages::ENGLISH_AUTONYM}</option>
+            </Select>
+            <Select id="native-submit-state" label=tool::ACTION_STATE value=mode
+                on_input=Callback::new(move |next| mode.set(next))>
+                <option value="enabled">{tool::READY}</option>
+                <option value="disabled">{tool::DISABLED}</option>
+                <option value="loading">{tool::WAITING}</option>
+            </Select>
+            <form id="native-submit-form" lang=move || language().as_str() on:submit=move |event: SubmitEvent| {
+                event.prevent_default();
+                if state.get_untracked().can_press() {
+                    submissions.update(|count| *count += 1);
+                    mode.set("loading".to_owned());
+                }
+            }>
+                <TextField id="native-submit-email" kind=TextFieldKind::Email required=true
+                    label=Signal::derive(move || specimen(language(), SpecimenKey::Email).to_owned())
+                    value=value on_input=Callback::new(move |next| value.set(next))/>
+                <Button id="native-submit" submit=true busy_label_only=true
+                    variant=ButtonVariant::AuthPrimary icon=IconName::Login state=state>
+                    {move || if state.get().is_busy() {
+                        specimen(language(), SpecimenKey::Submitting).to_owned()
+                    } else {
+                        super::messages::format_specimen(language(), SpecimenKey::SignInTitle,
+                            &[("title", tool::NATIVE_SUBMIT_STORY)])
+                    }}
+                </Button>
+                <Button id="native-submit-action" variant=ButtonVariant::Text
+                    on_press=Callback::new(move |_| actions.update(|count| *count += 1))>
+                    {move || specimen(language(), SpecimenKey::Continue)}
+                </Button>
+            </form>
+            <output id="native-submit-output" lang=tool::LANGUAGE_TAG>
+                {move || tool::native_submissions(submissions.get(), actions.get())}
+            </output>
+        </section>
     }
 }
 

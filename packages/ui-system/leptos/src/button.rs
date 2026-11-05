@@ -146,9 +146,10 @@ pub(crate) fn description_ids(extra: &str, reason_id: Option<&str>) -> Option<St
     (!ids.is_empty()).then(|| ids.join(" "))
 }
 
-/// Native non-submit action. Caller supplies a unique stable ID and visible localized children.
+/// Native action, non-submit by default. Caller supplies a stable ID and localized children.
 /// Children provide the label; use `icon` for a decorative leading icon outside its text box.
-/// State/effects remain owned by the caller.
+/// State/effects remain owned by the caller. With `submit`, the form owns validation and dispatch;
+/// do not also dispatch the same command from `on_press`.
 #[component]
 pub fn Button(
     #[prop(into)] id: String,
@@ -161,6 +162,14 @@ pub fn Button(
     icon_signal: Option<Signal<IconName>>,
     #[prop(into, default = ButtonState::Enabled.into())] state: Signal<ButtonState>,
     #[prop(optional)] on_press: Option<Callback<MouseEvent>>,
+    /// Opt in to native form submission, including Enter and browser validation.
+    /// Disabled/loading states also cancel synthetic clicks' default submission.
+    #[prop(optional)]
+    submit: bool,
+    /// The caller already shows progress in the label. Only the busy reason is offscreen;
+    /// its live description remains, and disabled/error explanations stay visible.
+    #[prop(optional)]
+    busy_label_only: bool,
     #[prop(into, default = String::new().into())] class: Signal<String>,
     /// Additional description IDs. The visible reason is appended automatically when blocked.
     #[prop(into, default = String::new().into())]
@@ -195,7 +204,7 @@ pub fn Button(
         move || {
             let state = state.get();
             matches!(state, ButtonState::Disabled(_))
-                || (variant.get() != ButtonVariant::ListenHero && state.is_busy())
+                || ((submit || variant.get() != ButtonVariant::ListenHero) && state.is_busy())
         }
     };
     let aria_disabled = {
@@ -237,6 +246,10 @@ pub fn Button(
         let state = state.clone();
         move || state.get().is_busy().then_some("status")
     };
+    let reason_offscreen = {
+        let state = state.clone();
+        move || busy_label_only && state.get().is_busy()
+    };
     let button_ref = NodeRef::<leptos::html::Button>::new();
     #[cfg(target_arch = "wasm32")]
     if matches!(
@@ -247,7 +260,7 @@ pub fn Button(
     }
     view! {
         <div class="cui-button-field">
-            <button id=id node_ref=button_ref type="button" class=move || component_class("cui-button", &class.get())
+            <button id=id node_ref=button_ref type=if submit { "submit" } else { "button" } class=move || component_class("cui-button", &class.get())
                 data-variant=move ||variant.get().as_str() data-state=data_state
                 disabled=disabled
                 aria-disabled=aria_disabled
@@ -268,12 +281,15 @@ pub fn Button(
                         #[cfg(not(target_arch = "wasm32"))]
                         let _ = focus_on_press;
                         if let Some(callback) = on_press { callback.run(event); }
+                    } else {
+                        // dispatchEvent bypasses the native disabled interaction.
+                        event.prevent_default();
                     }
                 }>
                 {glyph}
                 <span class="cui-control-label">{children()}</span>
             </button>
-            <span id=reason_id class="cui-button-reason" hidden=reason_hidden role=reason_role>
+            <span id=reason_id class="cui-button-reason" class:cui-sr-only=reason_offscreen hidden=reason_hidden role=reason_role>
                 {move || state.get().reason().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
             </span>
         </div>
