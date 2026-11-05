@@ -10349,10 +10349,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đọc và kiểm tra đúng bytes để nghe thử"
+          "text": "Tải bản âm thanh để nghe thử"
         },
         "en": {
-          "text": "Load exact verified bytes for preview"
+          "text": "Load verified audio for preview"
         }
       }
     },
@@ -11033,10 +11033,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Dùng thông tin tác phẩm vừa đọc"
+          "text": "Áp dụng thông tin vừa đọc"
         },
         "en": {
-          "text": "Use last-read work metadata"
+          "text": "Apply to draft"
         }
       }
     },
@@ -11057,10 +11057,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đọc lại tác phẩm đã chọn"
+          "text": "Đọc lại từ máy chủ"
         },
         "en": {
-          "text": "Refresh selected work"
+          "text": "Refresh from server"
         }
       }
     },
@@ -12185,10 +12185,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Gửi bytes đã chuẩn bị"
+          "text": "Gửi tệp đã chuẩn bị"
         },
         "en": {
-          "text": "Upload prepared bytes"
+          "text": "Upload prepared file"
         }
       }
     },
@@ -28059,6 +28059,210 @@
         },
         "en": {
           "text": "Link and sharing limits"
+        }
+      }
+    },
+    "studio.live.work_save_actions": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu và xem trước"
+        },
+        "en": {
+          "text": "Save and preview"
+        }
+      }
+    },
+    "studio.live.work_read_actions": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Thông tin trên máy chủ"
+        },
+        "en": {
+          "text": "Metadata on the server"
+        }
+      }
+    },
+    "studio.live.work_read_actions_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc lại để lấy thông tin đã lưu. Chọn áp dụng nếu muốn thay tiêu đề và mô tả trong bản nháp."
+        },
+        "en": {
+          "text": "Refresh to read the saved details. Apply them if you want to replace the title and synopsis in your draft."
+        }
+      }
+    },
+    "studio.live.audio_stages": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Các giai đoạn âm thanh"
+        },
+        "en": {
+          "text": "Audio stages"
+        }
+      }
+    },
+    "studio.live.audio_stages_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chọn phần bạn muốn làm. Nội dung đang nhập được giữ khi chuyển phần."
+        },
+        "en": {
+          "text": "Choose a stage to work in. Your inputs stay in place as you switch stages."
+        }
+      }
+    },
+    "studio.live.audio_listen_stage": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nghe thử"
+        },
+        "en": {
+          "text": "Listen"
+        }
+      }
+    },
+    "studio.live.audio_review_stage": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "QC và đánh giá"
+        },
+        "en": {
+          "text": "QC and review"
+        }
+      }
+    },
+    "studio.live.brief_version_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Phiên bản và đọc đúng chỉ dẫn"
+        },
+        "en": {
+          "text": "Brief version and exact lookup"
+        }
+      }
+    },
+    "studio.live.brief_version_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Khi lưu, đây là phiên bản bạn đang dựa vào (0 nếu tạo lần đầu). Khi đọc, Studio chỉ mở phiên bản đã nhập."
+        },
+        "en": {
+          "text": "When saving, this is the version you are starting from (0 for the first brief). When reading, Studio opens only the version entered here."
+        }
+      }
+    },
+    "studio.live.audio_intake_help": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tệp tiếp nhận ở chế độ riêng tư. Chọn tệp được sản xuất bên ngoài và ghi nguồn gốc trước khi chuẩn bị gửi."
+        },
+        "en": {
+          "text": "Audio submissions stay private. Select the externally produced file and record its provenance before preparing the upload."
+        }
+      }
+    },
+    "studio.live.submission_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc bản tiếp nhận và xem chi tiết"
+        },
+        "en": {
+          "text": "Look up a submission and view details"
+        }
+      }
+    },
+    "studio.live.review_audio_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản âm thanh dùng cho đánh giá này"
+        },
+        "en": {
+          "text": "Exact audio for this review"
+        }
+      }
+    },
+    "studio.live.release_candidate": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ứng viên phát hành"
+        },
+        "en": {
+          "text": "Release candidate"
+        }
+      }
+    },
+    "studio.live.candidate_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đọc đúng ứng viên và xem chi tiết"
+        },
+        "en": {
+          "text": "Look up a candidate and view details"
+        }
+      }
+    },
+    "studio.live.record_audio_review": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Lưu đánh giá"
+        },
+        "en": {
+          "text": "Save review"
+        }
+      }
+    },
+    "studio.live.active_audio_release_found": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đã đọc bản phát hành đang hoạt động."
+        },
+        "en": {
+          "text": "Active release loaded."
+        }
+      }
+    },
+    "studio.live.release_readiness_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chi tiết ứng viên và điều kiện phát hành"
+        },
+        "en": {
+          "text": "Candidate and readiness details"
         }
       }
     },

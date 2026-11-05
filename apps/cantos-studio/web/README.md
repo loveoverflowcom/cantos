@@ -441,6 +441,13 @@ container width of 45 rem the rail and the work area become two panes with an ex
 back control; `live/layout.rs` holds the pure task/pane resolution, the editor-status rule and
 the head-versus-historical-revision rule, and none of them keeps state or grants a capability.
 
+In **Details**, save and exact saved preview sit with the draft. Refresh reads server metadata;
+applying it to the draft is a separate action that still confirms replacement of unsaved edits.
+In **Audio**, the stage selector opens Production brief, Private audio, Listen, QC and review, or
+Release without remounting their controls or starting a request. Exact version/ID lookups and
+receipt documents are available in labelled disclosures. Current content, private access, review
+consent, rights and release readiness remain visible at their respective decisions.
+
 The editor status says *not read*, *no saved content*, *saved revision rN*, *unsaved changes*,
 *saving* or *archived — read only* from the draft owner's save base, the selected parents'
 lifecycle and the pending request. It never reports a save the Server has not acknowledged, and a

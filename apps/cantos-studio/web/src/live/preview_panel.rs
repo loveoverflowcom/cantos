@@ -116,7 +116,7 @@ pub(in crate::live) fn PreviewPanel(
         <section class="cw-preview-zone" aria-labelledby=TITLE_ID>
         <h5 id=TITLE_ID tabindex="-1">{move || text(Key::PreviewTitle, locale.get())}</h5>
         <div class="cw-actions">
-            <ActionButton id=OPEN_ID locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility
+            <ActionButton id=OPEN_ID locale=locale variant=Signal::derive(move || if unsaved.get() { ButtonVariant::Tonal } else { ButtonVariant::Primary }) icon=IconName::Visibility
                 reason=open_reason
                 blocked=Signal::derive(move || blocked.get() || unsaved.get() || !has_work.get())
                 on_press=Callback::new(move |_| {
@@ -126,9 +126,6 @@ pub(in crate::live) fn PreviewPanel(
                     }
                 })>{move || text(Key::PreviewOpen, locale.get())}</ActionButton>
         </div>
-        <p class="help cw-reason" id="live-preview-unsaved" role="status" hidden=move || !unsaved.get()>
-            {move || text(Key::PreviewUnsaved, locale.get())}
-        </p>
         <p class="help" id="live-preview-loading" role="status" hidden=move || !loading.get()>
             {move || text(Key::PreviewLoading, locale.get())}
         </p>

@@ -129,6 +129,23 @@ pub fn work_visibility(value: &str, locale: crate::localization::Locale) -> &'st
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
+    ActiveAudioReleaseFound,
+    AudioIntakeHelp,
+    AudioListenStage,
+    AudioReviewStage,
+    AudioStages,
+    AudioStagesHelp,
+    BriefVersionDetails,
+    BriefVersionHelp,
+    CandidateDetails,
+    RecordAudioReview,
+    ReleaseCandidate,
+    ReleaseReadinessDetails,
+    ReviewAudioDetails,
+    SubmissionDetails,
+    WorkReadActions,
+    WorkReadActionsHelp,
+    WorkSaveActions,
     DistributionRevoked,
     AudioPreview,
     LoadAudioPreview,
@@ -371,6 +388,27 @@ pub enum Key {
 }
 pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
     match key {
+        Key::ActiveAudioReleaseFound => {
+            resources::text(resources::Key::ActiveAudioReleaseFound, locale)
+        }
+        Key::AudioIntakeHelp => resources::text(resources::Key::AudioIntakeHelp, locale),
+        Key::AudioListenStage => resources::text(resources::Key::AudioListenStage, locale),
+        Key::AudioReviewStage => resources::text(resources::Key::AudioReviewStage, locale),
+        Key::AudioStages => resources::text(resources::Key::AudioStages, locale),
+        Key::AudioStagesHelp => resources::text(resources::Key::AudioStagesHelp, locale),
+        Key::BriefVersionDetails => resources::text(resources::Key::BriefVersionDetails, locale),
+        Key::BriefVersionHelp => resources::text(resources::Key::BriefVersionHelp, locale),
+        Key::CandidateDetails => resources::text(resources::Key::CandidateDetails, locale),
+        Key::RecordAudioReview => resources::text(resources::Key::RecordAudioReview, locale),
+        Key::ReleaseCandidate => resources::text(resources::Key::ReleaseCandidate, locale),
+        Key::ReleaseReadinessDetails => {
+            resources::text(resources::Key::ReleaseReadinessDetails, locale)
+        }
+        Key::ReviewAudioDetails => resources::text(resources::Key::ReviewAudioDetails, locale),
+        Key::SubmissionDetails => resources::text(resources::Key::SubmissionDetails, locale),
+        Key::WorkReadActions => resources::text(resources::Key::WorkReadActions, locale),
+        Key::WorkReadActionsHelp => resources::text(resources::Key::WorkReadActionsHelp, locale),
+        Key::WorkSaveActions => resources::text(resources::Key::WorkSaveActions, locale),
         Key::DistributionRevoked => resources::text(resources::Key::DistributionRevoked, locale),
         Key::AudioPreview => resources::text(resources::Key::AudioPreview, locale),
         Key::LoadAudioPreview => resources::text(resources::Key::LoadAudioPreview, locale),

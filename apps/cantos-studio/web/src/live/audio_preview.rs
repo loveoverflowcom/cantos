@@ -282,7 +282,7 @@ mod browser {
             })>{move ||text(Key::LoadAudioPreview,locale.get())}</ActionButton>
             <Show when=move || usable.get() && loaded.with(Option::is_some)>
                 <audio node_ref=audio controls preload="none" src=move ||loaded.with(|value|value.as_ref().map(|value|value.url.clone())) aria-label=move ||text(Key::AudioPreview,locale.get()) on:error=move |_|failed.set(true)/>
-                <ActionButton id="live-clear-audio-preview" locale=locale on_press=Callback::new(move |_|clear())>{move ||text(Key::ClearAudioPreview,locale.get())}</ActionButton>
+                <ActionButton id="live-clear-audio-preview" locale=locale variant=cantos_ui::ButtonVariant::Text on_press=Callback::new(move |_|clear())>{move ||text(Key::ClearAudioPreview,locale.get())}</ActionButton>
             </Show>
             <p role="status">{move ||if failed.get() {text(Key::AudioPreviewFailed,locale.get())} else {""}}</p>
         </section>}
