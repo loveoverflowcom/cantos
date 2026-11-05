@@ -1,8 +1,8 @@
-use crate::account_menu::AccountEntry;
+use crate::account_menu::{AccountEntry, AccountTrigger};
 use crate::contract::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
 use crate::ui::{
-    ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigationShell,
-    WorkspacePane, STUDIO_EXPRESSION,
+    ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, Preferences,
+    WorkspaceNavigationShell, WorkspacePane, STUDIO_EXPRESSION,
 };
 use crate::{
     adaptation::ScriptAdaptation,
@@ -26,7 +26,7 @@ use crate::{
 use cantos_ui::{
     AccessibleName, Announcement, BackButton, Button, ButtonVariant, Container, ContainerWidth,
     Density, FieldLabel, IconName, LoadingState, Logo, LogoTone, LogoVariant, Status as UiStatus,
-    Theme, ThemeCycleButton, UiRoot,
+    Theme, UiRoot,
 };
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
@@ -774,6 +774,34 @@ pub fn Studio() -> impl IntoView {
         });
     });
     let open_content = Callback::new(move |()| panel.set(WorkspacePane::Content));
+    let navigation_open = RwSignal::new(false);
+    let account_available = Signal::derive(move || {
+        entry_state.get() == Entry::Workspace || auth_display.get().reauthenticating
+    });
+    let account_label =
+        Signal::derive(move || entry_text(EntryKey::Account, locale.get()).to_owned());
+    let select_locale = Callback::new(move |tag: String| {
+        if let Some(selected) = Locale::from_lang(&tag) {
+            locale_choice.set(selected);
+            locale_warning.set(crate::localization::save_preference(selected).err());
+        } else {
+            locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported));
+        }
+    });
+    let open_account = Callback::new(move |scope| {
+        if !account_available.get_untracked() {
+            return;
+        }
+        if scope == "drawer" {
+            crate::account_menu::open_after_navigation(
+                navigation_open,
+                account_menu_open,
+                account_available,
+            );
+        } else {
+            account_menu_open.set(true);
+        }
+    });
 
     view! {
         <UiRoot class="studio-shell" theme=theme density=Density::Comfortable expression=STUDIO_EXPRESSION>
@@ -785,26 +813,15 @@ pub fn Studio() -> impl IntoView {
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Light class="studio-logo-light"/>
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
-                <div class="toolbar studio-topbar">
-                    <span class="studio-language-tip" title=move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get())>
-                    <cantos_ui::Select id="studio-language" class="studio-language-field"
-                        density=cantos_ui::SelectDensity::Compact label_placement=cantos_ui::SelectLabelPlacement::Inline
-                        label=Signal::derive(move ||crate::localization::generated::locale::text(crate::localization::generated::locale::Key::Language,locale.get()).to_owned())
-                        value=Signal::derive(move ||locale.get().lang().to_owned())
-                        short_label=Callback::new(|tag:String| tag.split('-').next().map(str::to_owned))
-                        options={Locale::supported().map(|option|cantos_ui::SelectOption { lang: Some(option.lang().to_owned()), ..cantos_ui::SelectOption::new(option.lang(),option.autonym()) }).collect::<Vec<_>>()}
-                        on_input=Callback::new(move |tag:String| {
-                            if let Some(selected)=Locale::from_lang(&tag) {
-                                locale_choice.set(selected);
-                                locale_warning.set(crate::localization::save_preference(selected).err());
-                            } else { locale_warning.set(Some(cantos_localization::PreferenceWarning::Unsupported)); }
-                        })/>
-                    </span>
-                    <ThemeCycleButton id="theme-select" theme=theme variant=ButtonVariant::Tonal labels=Signal::derive(move ||crate::localization::theme_labels(locale.get()))/>
-                    <AccountEntry actor=authenticated_actor
+                <Show when=move ||entry_state.get()!=Entry::Workspace && !auth_display.get().reauthenticating>
+                    <Preferences scope="entry" theme locale on_locale=select_locale/>
+                </Show>
+            </header>
+                    <AccountEntry
                         available=Signal::derive(move || entry_state.get() == Entry::Workspace || auth_display.get().reauthenticating)
+                        failure_label=Signal::derive(move ||text(Key::DialogFailure,locale.get()).to_owned())
                         open=account_menu_open
-                        label=Signal::derive(move || entry_text(EntryKey::Session, locale.get()).to_owned())
+                        label=Signal::derive(move || entry_text(EntryKey::Account, locale.get()).to_owned())
                         close_label=Signal::derive(move || entry_text(EntryKey::CloseAccount, locale.get()).to_owned())>
                         <ActionButton id="account-refresh" icon=IconName::Refresh locale=locale variant=ButtonVariant::Tonal blocked=auth_blocked on_press=refresh>{move || text(Key::SessionRefresh,locale.get())}</ActionButton>
                         <ActionButton id="account-reauthenticate" icon=IconName::Login locale=locale variant=ButtonVariant::Text described_by="account-reauth-help" blocked=auth_blocked on_press=Callback::new(move |_| reauth_open.update(|open| *open = !*open))>{move ||entry_text(EntryKey::Reauthenticate,locale.get())}</ActionButton>
@@ -814,8 +831,7 @@ pub fn Studio() -> impl IntoView {
                         </Show>
                         <ActionButton id="account-logout" icon=IconName::Logout locale=locale variant=ButtonVariant::Text blocked=logout_blocked on_press=logout>{move || text(Key::SessionLogout,locale.get())}</ActionButton>
                     </AccountEntry>
-                </div>
-            </header>
+
             <section class="studio-entry" hidden=move ||entry_state.get()==Entry::Workspace || auth_display.get().reauthenticating aria-labelledby="studio-entry-title" aria-busy=move ||auth_display.get().checking.then_some("true")>
                 <aside class="entry-story" aria-labelledby="entry-story-title">
                     <div class="entry-artwork" aria-hidden="true">
@@ -849,7 +865,12 @@ pub fn Studio() -> impl IntoView {
             </section>
             <div id="studio-private-workspaces" hidden=move ||session_pending.get() inert=move ||session_pending.get()>
             <div class="studio-workbench">
-            <WorkspaceNavigationShell panel=panel locale=locale available=Signal::derive(move || !session_pending.get())/>
+            <WorkspaceNavigationShell panel=panel locale=locale open=navigation_open
+                available=Signal::derive(move || !session_pending.get())
+                footer=Some(Callback::new(move |scope| view! {
+                    <Preferences scope theme locale on_locale=select_locale/>
+                    <AccountTrigger scope label=account_label open=account_menu_open.into() on_open=open_account/>
+                }.into_any()))/>
             <div class="studio-workbench-content">
             <div class="studio-pane-heading" hidden=move ||panel.get()==WorkspacePane::Dashboard>
                 <h2 id="studio-pane-title" tabindex="-1">{move ||panel.get().label(locale.get())}</h2>

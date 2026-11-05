@@ -28481,6 +28481,18 @@
           "text": "Close navigation"
         }
       }
+    },
+    "studio.entry.account": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tài khoản"
+        },
+        "en": {
+          "text": "Account"
+        }
+      }
     }
   }
 }

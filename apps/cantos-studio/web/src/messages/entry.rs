@@ -4,6 +4,7 @@ use crate::localization::generated::entry as resources;
 
 #[derive(Clone, Copy)]
 pub enum Key {
+    Account,
     LoginTitle,
     Welcome,
     WelcomeHelp,
@@ -81,6 +82,7 @@ pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
         Key::Import => resources::text(resources::Key::Import, locale),
         Key::Back => resources::text(resources::Key::Back, locale),
         Key::Cancel => resources::text(resources::Key::Cancel, locale),
+        Key::Account => resources::text(resources::Key::Account, locale),
         Key::Session => resources::text(resources::Key::Session, locale),
         Key::CloseAccount => resources::text(resources::Key::CloseAccount, locale),
     }
@@ -158,68 +160,5 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn studio_css_hides_only_the_language_label_visually() {
-        let css = include_str!("../../studio.css");
-        let rule = css
-            .lines()
-            .find(|line| line.contains(".studio-language-field > .cui-field-label"))
-            .expect("the language label has a visual-hide rule");
-        assert!(rule.contains("clip-path: inset(50%)"), "{rule}");
-        assert!(!rule.contains("display: none"), "{rule}");
-        assert!(!rule.contains("visibility: hidden"), "{rule}");
-    }
-
-    /// The language fill rule, matched by its exact selector so a hover rule cannot satisfy it.
-    fn language_fill_rule(css: &str) -> &str {
-        css.split(".studio-shell[data-expression] .studio-language-field.cui-select-field[data-select-density=\"compact\"] .cui-field-control:not(:disabled):not([readonly]):not([aria-invalid=\"true\"]) {")
-            .nth(1)
-            .and_then(|rest| rest.split('}').next())
-            .expect("the language pill fill rule exists")
-    }
-
-    #[test]
-    fn studio_topbar_v7_language_pill_is_tonal_semantic_and_compact() {
-        let css = include_str!("../../studio.css");
-        let fill = language_fill_rule(css);
-        assert!(
-            fill.contains("background-color: var(--cantos-color-surface-container-high)"),
-            "{fill}"
-        );
-        assert!(
-            fill.contains("color: var(--cantos-color-on-surface)"),
-            "{fill}"
-        );
-        // v6 filled the pill with the account-control hue and painted a ring in its ink.
-        assert!(
-            !css.contains("account-control"),
-            "v6 account-control hue was retired"
-        );
-        // v8: the trigger's inline padding is the small step, not the medium one.
-        assert!(css.lines().any(|line| line
-            .contains(".studio-language-field .cui-select-trigger")
-            && line.contains("padding-inline: var(--cantos-space-sm)")));
-        // The shared focus ring stays: no local outline override on the language control.
-        assert!(!css
-            .lines()
-            .any(|line| line.contains(".studio-language-field") && line.contains("outline")));
-    }
-
-    #[test]
-    fn studio_topbar_v7_theme_is_the_shared_icon_only_tonal_action() {
-        let css = include_str!("../../studio.css");
-        // The v6 outlined, labelled theme pill is gone; the shared 44x44 tonal rounded square applies.
-        assert!(
-            !css.contains(".cui-theme-cycle-button"),
-            "no local theme-pill override"
-        );
-        let view = include_str!("../view.rs");
-        let theme = view
-            .split("<ThemeCycleButton")
-            .nth(1)
-            .and_then(|rest| rest.split("/>").next())
-            .expect("the topbar renders the theme cycle");
-        assert!(theme.contains("variant=ButtonVariant::Tonal"), "{theme}");
-        assert!(!theme.contains("show_label"), "{theme}");
-    }
+    // v7/v8 presentation checks were superseded by the v3 Preferences composition (#582).
 }
