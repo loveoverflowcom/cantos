@@ -112,7 +112,6 @@ cargo xtask secrets inventory                                  # offline: valida
 cargo xtask secrets status --project PROJECT_ID --account EMAIL [--environment dev|prod|ops] [--dry-run]  # version metadata only
 cargo xtask secrets import --project PROJECT_ID --account EMAIL --secret ID (--file PATH | --stdin) \
   --expect-latest none|N [--dry-run]                           # operator-only remote write: create-if-absent + one version
-  [--smoke-origin https://API_HOST] [--dry-run]               # explicit API deploy to the production VPS
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 cargo xtask visual-compare --reference PNG --actual PNG --scenario ID \
@@ -162,10 +161,11 @@ inherited `NO_COLOR=1`).
 
 ### Release artifacts and promotion
 
-`cargo xtask release-build <api|theatre-web|studio-web|android> [--api-origin ORIGIN] [--dry-run]`
+`cargo xtask release-build <theatre-web|studio-web|android> [--api-origin ORIGIN] [--dry-run]`
 packages clean HEAD into version-2 manifests beneath
 `artifacts/release-build/COMPONENT/SHA/CONFIG_DIGEST/ATTEMPT`. Web requires an explicit HTTPS
-origin via flag or `CANTOS_API_ORIGIN`. API includes the matching host/runtime bundle; Android
+origin via flag or `CANTOS_API_ORIGIN`. The legacy `api` component is a retired refusal; the
+native Server/Identity pair uses `release oci-build`. Android
 retains its fixed origin and unsigned optimized production APK/AAB plus separate unshrunk audit and bound mapping/report hashes. No build command publishes.
 `cargo xtask release-build --self-test` runs packaging, Android inspector and focused host/distribution Rust regressions;
 `cargo xtask release self-test` also covers artifact validation, workflow DAG and mocked promotion.
@@ -193,13 +193,12 @@ freshness, context prerequisites, additive-workspace rerun refusal and component
 Cross-pipeline promotion is unsupported. No cache supplies a release or a deploy binary.
 
 `deploy firebase APP --web --project ID --channel CHANNEL`
-accept `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
+accepts `--release-manifest PATH --release-digest SHA256 --release-sha FULL_SHA`, together with
 `--release-request PATH` in CircleCI or `--local-artifact` outside CI. The latter is the operator's
 explicit acknowledgement of independently verified local provenance, not proof supplied by a
 hash. V1, arbitrary dist/no-build inputs, missing/wrong digests/source/origin, foreign/stale runs,
 malformed archives and unexpected files fail before activation/publish. Artifact mode extracts
-fresh validated bytes instead of building the product. VPS artifact deploy requires
-`--smoke-origin ORIGIN` and cannot combine with bootstrap/status/rollback/reload/cutover.
+fresh validated bytes instead of building the product.
 Local build-and-deploy commands remain available when no artifact input is supplied.
 
 ### Existing native host upgrade
@@ -592,7 +591,8 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-lint` | `cargo clippy <workspace or -p …> [--features cantos-theatre/preview] --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | when `cantos-server` is selected, first `cargo build --locked -p cantos-identity --features service --bin cantos-identity --target-dir target`; then `cargo test <workspace or -p …> [--features cantos-theatre/preview] --locked` with that executable's absolute path as `CANTOS_TEST_IDENTITY_BINARY` (the candidate journey never builds it) | cargo |
 | `forge-functions` | `node --check functions.mjs`, `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
-| `contract-tests` | `cantos-server` `contract_conformance` (its own representation against the schemas/fixtures it owns), Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets; then each client's own representation (`cantos-studio`, `cantos-theatre`, `cantos-web-auth` lib tests filtered to `contract::`/`wire::`) | cargo |
+| `turso` | `cantos-identity` clippy/tests with `--features persistence`, then with `--features service`; `cantos-store-turso` clippy/tests with `--features testing`; then `cargo run -p cantos-store-turso --features testing --bin cantos-turso-capability -- report` | cargo, clippy |
+| `contract-tests` | `cantos-server` `contract_conformance` (its own representation against the schemas/fixtures it owns), Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV, ordinary audio-intake, publication, listener Library and Admin test targets ([`API_CONTRACT_TESTS`](src/gate.rs)); then each client's own representation (`cantos-studio`, `cantos-theatre`, `cantos-web-auth` lib tests filtered to `contract::`/`wire::`) | cargo |
 | `wav-reference` | `cargo build -p cantos-server --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `audio-inspection` | `cargo test -p cantos-server --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview,cantos-theatre/preview --locked -- -D warnings`, then the production lane `cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
@@ -601,6 +601,8 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `theatre-cmp-preview` (formerly `theatre-cmp-demo`, still accepted by `--skip`) | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` for the Theatre Desktop Preview | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
+| `behavior` | `scripts/verify_behavior.py` over the locked model tool, optionally per capability and with `--conformance`; see [executable behavior models](#executable-behavior-models) | python3, git, Quint (or the `--setup` runtime), cargo with `--conformance` |
+| `kani` | one exact registered kernel per gate, or a read-only `kani-receipt` re-validation named by an assurance decision; see [targeted Kani proofs](#optional-targeted-kani-proofs) | cargo, python3, git, Kani (receipt: python3 only) |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -608,7 +610,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `behavior` | behavior (locked model tool, named runs/properties/witnesses/controls; optional pure-core conformance) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `forge` | rust-lint (cantos-forge), rust-tests (cantos-forge), forge-functions |
-| `turso` | turso (Identity persistence clippy/tests, shared-store tests and capability report) |
+| `turso` | turso (Identity persistence and service clippy/tests, shared-store tests and capability report) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
@@ -690,7 +692,8 @@ operator phase. No Hosting/Distribution or production state is changed.
 `verify turso` first lints/tests the `cantos-identity` service's opt-in `persistence` feature
 against run-owned real files, then checks the embedded foundation in `packages/store-turso` and
 prints its engine capability report. It also lints/tests Identity's `service` feature (including
-its own RPC server binding and wire-golden tests), and lints ordinary `cantos-server` targets. The former `turso-candidate`
+its own RPC server binding and wire-golden tests). Ordinary `cantos-server` targets are linted
+and tested by `rust-lint`/`rust-tests`, not by this gate. The former `turso-candidate`
 feature no longer exists; the real Identity journey still requires a prebuilt executable.
 The foundation commands enable its `testing` feature
 (run-owned temporary directories and a deterministic clock), then run the
@@ -782,7 +785,8 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   `cmp-ui-preview` and `theatre-cmp-preview`. Package-local CMP source, Gradle and resource changes
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
-  An affected `cantos-server` selects `turso`, `wav-reference` and `audio-inspection`.
+  An affected `cantos-server` selects `wav-reference` and `audio-inspection`; an affected
+  `cantos-store-turso` or `cantos-identity` selects `turso`.
 - Non-document inputs beneath `services/cantos-forge-functions` select its Rust lint/tests and
   `forge-functions`; they do not select the API, database or Web clients.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-preview` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
@@ -1054,9 +1058,9 @@ evidence, and receipts made from fake bundles in tests are synthetic, never Kani
 | --- | --- |
 | `repository` | repository, script-ir-reference |
 | `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), forge-functions, turso, wav-reference, audio-inspection |
-| `web` | web-lint, web-build (Studio and Theatre) |
+| `web` | web-lint, web-build (Studio and Theatre), ui-preview |
 
-`cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
+`cargo xtask ci` runs all three locally; [the workflow](../.github/workflows/repository-checks.yml)
 runs one per GitHub job after `rustup show active-toolchain` selects the exact
 [`rust-toolchain.toml`](../rust-toolchain.toml) pin. CI has no `--skip`. Every full-preflight gate
 runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-preview`. Mutation stays opt-in through
@@ -1068,6 +1072,13 @@ The repository job checks out full history so manual feature-branch dispatch can
 against `origin/develop`; checkout credentials remain disabled and a missing base still fails closed.
 The Rust CI job also provisions Node 22 through a SHA-pinned `actions/setup-node` with package
 manager caching disabled, then runs the same offline wrapper gate. xtask itself installs nothing.
+
+The same workflow has three independent lanes outside `CiJob`, each pinned by a `ci.rs` regression:
+`recovery-owner-linux` runs `verify turso` plus the opt-in `recovery-testing` clippy of
+`cantos-identity` on Ubuntu 24.04, so an earlier workspace failure cannot hide owner recovery
+regressions; `forge-probe-linux` runs the read-only [Forge smoke package](#forge-smoke-package-explicit-local-only)
+self-test/package/inspect/qualify chain; and the dispatch-only `native-auth-qualification` job
+runs `verify native-auth-qualification --kani`. None deploys, publishes or accepts `--skip`.
 
 ### doctor
 
