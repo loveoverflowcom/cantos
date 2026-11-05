@@ -70,12 +70,16 @@ activation, restore confirmation and browser/device qualification remain separat
 
 ## Web consumer boundary (#654)
 
-The Web Library places Shared after Continue and scopes every cursor, response and claim receipt
+The Web Library places Shared after the personal Continue, Saved and History sections and scopes every cursor, response and claim receipt
 in RAM to the current account/session generation. An internal login return contains only a
 canonical Work ID, never a title, cover or token. Each shared request uses the Theatre lease,
 exact session fence and current response check. A changed account/route aborts pending private
 reads and suppresses late successes and failures. A claim retry after an unknown acknowledgement
-reuses the same operation; the receipt is history, so a fresh catalog read is explicit.
+reuses the same operation; the receipt is history, so an accepted successful claim starts a fresh
+catalog read under the same session fence. Library entry and opening the optional claim
+disclosure never submit a claim. There is no approved read-only pending-summary contract; the
+manual disclosure makes no claim about pending counts. Root/tail failures have one compact
+feedback and one recovery action; expired cursors restart, failed continuations retry their page.
 
 Restricted Web listen controls and their imperative selection entrypoint remain unavailable.
 A real local browser campaign found a teardown panic when an active private source lost its

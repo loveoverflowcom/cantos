@@ -50,12 +50,12 @@ fn render(state: AccountViewState, locale: Locale) -> String {
 }
 
 #[test]
-fn terminal_empty_library_has_one_expressive_illustration_quiet_summaries_and_one_refresh() {
+fn terminal_empty_library_has_one_invitation_no_technical_controls_and_keeps_focus_targets() {
     for locale in Locale::supported() {
         let html = render(ready_empty(), locale);
         assert_eq!(html.matches("href=\"#discover\"").count(), 1);
         assert!(html.contains("theatre-library-empty-title"));
-        assert_eq!(html.matches("id=\"theatre-library-refresh\"").count(), 1);
+        assert!(!html.contains("theatre-library-refresh"));
         for section in Section::ALL {
             assert!(html.contains(&format!("id=\"theatre-library-{}-status\"", section.name())));
             assert!(html.contains(messages::text(empty(section), locale)));
@@ -72,7 +72,7 @@ fn terminal_empty_library_has_one_expressive_illustration_quiet_summaries_and_on
             .collect::<Vec<_>>();
         assert!(
             icons.is_empty(),
-            "global emptiness keeps section summaries quiet"
+            "section summaries have no decorative icons"
         );
         assert_eq!(html.matches("data-artwork=\"library\"").count(), 1);
         assert_eq!(html.matches("<img ").count(), 1);
@@ -101,11 +101,11 @@ fn empty_is_section_local_while_rows_and_failures_keep_their_meaning() {
     assert!(html.contains("You have no saved stories yet."));
     assert!(html.contains("theatre-library-history-retry"));
     assert!(!html.contains("No listening history in this account yet."));
-    assert_eq!(html.matches("href=\"#discover\"").count(), 1);
+    assert_eq!(html.matches("href=\"#discover\"").count(), 0);
 }
 
 #[test]
-fn contextual_history_art_requires_its_own_completed_read_and_keeps_other_rows() {
+fn terminal_history_is_quiet_and_retains_its_shortcut_heading() {
     let mut state = super::tests::signed_in();
     let continuing = state.begin_library(Section::Continue, false).unwrap();
     state.finish_page(&continuing, crate::live::library::decode_page(Section::Continue,
@@ -123,9 +123,9 @@ fn contextual_history_art_requires_its_own_completed_read_and_keeps_other_rows()
     for locale in Locale::supported() {
         let html = render(state.clone(), locale);
         assert!(html.contains("Ánh đèn cuối sân khấu"));
-        assert_eq!(html.matches("data-artwork=\"history\"").count(), 1);
-        assert!(html.contains("assets/empty/light/cantos-empty-history.svg"));
-        assert!(html.contains("assets/empty/dark/cantos-empty-history.svg"));
+        assert_eq!(html.matches("data-artwork=\"history\"").count(), 0);
+        assert!(html.contains("id=\"theatre-library-history-heading\" tabindex=\"-1\""));
+        assert!(html.contains(messages::text(Key::LiveLibraryEmptyHistory, locale)));
         assert!(!html.contains("library-expressive.avif"));
     }
 }
@@ -191,51 +191,62 @@ fn retained_rows_survive_next_page_loading_and_failure_without_empty_feedback() 
 }
 
 #[test]
-fn refresh_plans_one_restart_per_section_and_refuses_pending_or_signed_out() {
-    let mut state = ready_empty();
-    assert_eq!(
-        refresh_intents(&state),
-        Some([
-            (Section::Continue, true, false),
-            (Section::Saved, true, false),
-            (Section::History, true, false),
-        ])
-    );
-    let request = state.begin_library(Section::Saved, true).unwrap();
-    assert_eq!(refresh_intents(&state), None);
-    state
-        .finish_page(&request, Ok(empty_page(Section::Saved, false)))
-        .unwrap();
-    assert!(refresh_intents(&state).is_some());
-    state.begin_logout().unwrap();
-    assert_eq!(refresh_intents(&state), None);
-    assert_eq!(refresh_intents(&AccountViewState::default()), None);
-    assert_eq!(
-        crate::app::routes::Route::from_live_hash("#discover"),
-        crate::app::routes::Route::Discover
-    );
-}
-
-#[test]
-fn pending_refresh_is_focusable_and_exposes_its_busy_reason() {
+fn background_refresh_has_section_busy_feedback_without_a_header_button() {
     let mut state = ready_empty();
     state.begin_library(Section::Continue, true).unwrap();
     for locale in Locale::supported() {
         let html = render(state.clone(), locale);
-        let trigger = html
-            .split("id=\"theatre-library-refresh\"")
-            .nth(1)
-            .unwrap()
-            .split('>')
-            .next()
-            .unwrap();
-        assert!(
-            !trigger.contains(" disabled"),
-            "pending native disable would discard keyboard focus: {trigger}"
-        );
-        assert!(trigger.contains("aria-disabled=\"true\""));
-        assert!(trigger.contains("aria-busy=\"true\""));
-        assert!(trigger.contains("aria-describedby=\"theatre-library-refresh-status\""));
-        assert!(html.contains(messages::text(Key::LiveLibraryRefreshing, locale)));
+        assert!(!html.contains("theatre-library-refresh"));
+        assert!(html.contains("aria-busy=\"true\""));
+        assert!(html.contains(messages::text(Key::LiveLibraryLoading, locale)));
+        assert!(!html.contains(messages::text(Key::LiveLibraryPageHelp, locale)));
     }
+}
+
+#[test]
+fn actual_shared_rows_suppress_the_personal_hero_but_not_the_shared_content() {
+    use crate::application::{public_discovery::DiscoveryQuery, shared_access::SharedAccess};
+    for locale in Locale::supported() {
+        Owner::new().with(|| {
+            let account = RwSignal::new(ready_empty());
+            let mut access = SharedAccess::default();
+            access.observe(account.with_untracked(AccountViewState::fence));
+            let ticket = access.catalog.begin(DiscoveryQuery::default()).unwrap();
+            let page: crate::contract::discovery::MetadataWorkPage = serde_json::from_str(include_str!(
+                "../../../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+            )).unwrap();
+            let title = page.items[0].title.clone();
+            let link = format!("href=\"#shared/{}\"", page.items[0].work_id);
+            access.catalog.finish(&ticket, Ok(page));
+            let shared = RwSignal::new(access);
+            let locale = RwSignal::new(locale);
+            let view = view! {
+                <LiveLibrary state=account.read_only() locale on_page=Callback::new(|_| {})
+                    shared_has_rows=Signal::derive(move || shared.with(|s| account.with(|a| !s.visible_rows(a).is_empty())))
+                    shared_section=ViewFn::from(move || view! {
+                        <crate::features::shared_access::SharedLibrary account=account.read_only() state=shared locale
+                            on_reload=Callback::new(|_| {}) on_more=Callback::new(|_| {}) on_claim=Callback::new(|_| {})/>
+                    })/>
+            };
+            let html = view.to_html();
+            assert!(!html.contains("theatre-library-empty-title"));
+            assert!(html.contains(&title) && html.contains(&link));
+            assert!(!html.contains("href=\"#discover\""));
+        });
+    }
+}
+
+#[test]
+fn shared_component_presence_does_not_suppress_personal_invitation() {
+    Owner::new().with(|| {
+        let html = view! {
+            <LiveLibrary state=RwSignal::new(ready_empty()).read_only()
+                locale=RwSignal::new(Locale::English) on_page=Callback::new(|_| {})
+                shared_section=ViewFn::from(|| view! { <div id="shared-fixture"/> })/>
+        }
+        .to_html();
+        assert!(html.contains("theatre-library-empty-title"));
+        assert_eq!(html.matches("href=\"#discover\"").count(), 1);
+        assert!(html.contains("shared-fixture"));
+    });
 }

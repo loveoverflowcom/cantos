@@ -1,5 +1,5 @@
 //! Web-owned Library composition over the full presented read model, separate from demo data.
-use super::super::common::{icon, EmptyArtwork, EmptyArtworkKind};
+use super::super::common::{EmptyArtwork, EmptyArtworkKind};
 use crate::contract::library::{
     AudioIdentity, AudioPresentation, Completion, ResumeStatus, WorkPresentation,
 };
@@ -50,20 +50,6 @@ fn empty(section: Section) -> Key {
         Section::History => Key::LiveLibraryEmptyHistory,
     }
 }
-fn empty_help(section: Section) -> Key {
-    match section {
-        Section::Continue => Key::LiveLibraryEmptyContinueHelp,
-        Section::Saved => Key::LiveLibraryEmptySavedHelp,
-        Section::History => Key::LiveLibraryEmptyHistoryHelp,
-    }
-}
-fn empty_icon(section: Section) -> &'static str {
-    match section {
-        Section::Continue => "headphones",
-        Section::Saved => "bookmark_border",
-        Section::History => "replay",
-    }
-}
 fn availability(resume: ResumeStatus) -> Key {
     match resume {
         ResumeStatus::ExactAvailable => Key::LiveResumeExact,
@@ -98,21 +84,6 @@ fn all_empty(state: &AccountViewState) -> bool {
     Section::ALL
         .into_iter()
         .all(|section| section_ui(state, section).is_some_and(|ui| ui.is_empty()))
-}
-
-fn library_loading(state: &AccountViewState) -> bool {
-    state.library().is_some_and(|library| {
-        Section::ALL
-            .into_iter()
-            .any(|section| library.phase(section) == PagePhase::Loading)
-    })
-}
-
-// Compute the batch before dispatch so the state borrow ends before the shell publishes Loading.
-// A pending refresh remains focusable; this guard, rather than native disabled, suppresses repeats.
-fn refresh_intents(state: &AccountViewState) -> Option<[(Section, bool, bool); 3]> {
-    (state.phase() == SessionPhase::SignedIn && !library_loading(state))
-        .then(|| Section::ALL.map(|section| (section, true, false)))
 }
 
 fn section_ui(state: &AccountViewState, section: Section) -> Option<SectionUi> {
@@ -253,7 +224,6 @@ fn LiveSection(
     section: Section,
     on_page: Callback<(Section, bool, bool)>,
     actions: Option<LibraryActions>,
-    all_empty: Memo<bool>,
 ) -> impl IntoView {
     let heading_id = crate::platform::library_heading_id(section);
     let list = NodeRef::<leptos::html::Ul>::new();
@@ -276,7 +246,9 @@ fn LiveSection(
         )
     };
     view! {
-        <section class="theatre-library-section" aria-labelledby=heading_id.clone()>
+        <section class="theatre-library-section" aria-labelledby=heading_id.clone()
+            data-empty=move || (chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))
+                && history.with(|h| h.as_ref().is_none_or(|h| !h.confirming && matches!(h.command, HistoryCommandPhase::Idle)))).to_string()>
             <h2 id=heading_id.clone() tabindex="-1" class="theatre-section-heading">{move || messages::text(heading(section), locale.get())}</h2>
             <RequestEdge active=Signal::derive(move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.phase == PagePhase::Loading && ui.count > 0 && !ui.appending))) label=Key::LiveLibraryLoading locale/>
             <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| matches!(ui.phase, PagePhase::Idle | PagePhase::Loading) && ui.count == 0))><PendingRows compact=true/></Show>
@@ -291,27 +263,14 @@ fn LiveSection(
             <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(|ui| ui.appending))><LoadingState>{move || messages::text(Key::DiscoveryLoadingMore, locale.get())}</LoadingState></Show>
             <div id=status_id(section) tabindex="-1" role="status" aria-live="polite"
                 class="theatre-library-feedback" data-empty=move || chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty)).to_string()>
-                <Show when=move || !all_empty.get() && chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
-                    {if section == Section::History {
-                        view! { <EmptyArtwork kind=EmptyArtworkKind::History/> }.into_any()
-                    } else {
-                        icon(empty_icon(section)).into_any()
-                    }}
-                </Show>
                 <div>
                     <p>{move || chrome.with(|ui| status(ui.as_ref(), section, locale.get()))}</p>
-                    <Show when=move || chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
-                        <p class="theatre-muted">{move || messages::text(empty_help(section), locale.get())}</p>
-                    </Show>
                 </div>
             </div>
-            <Show when=move || !all_empty.get() && chrome.with(|ui| ui.as_ref().is_some_and(SectionUi::is_empty))>
-                <a class="theatre-text-link" href="#discover">{move || messages::text(Key::BrowseStories, locale.get())}</a>
-            </Show>
             {move || history.with(|h| h.as_ref().map(|h| history_clear_controls(h, actions, locale.get())))}
             <div class="theatre-actions">
                 <Show when=move || matches!(phase(), Some(PagePhase::Failed(_)))>
-                    <Button id=format!("theatre-library-{}-retry", section.name()) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| on_page.run((section, restart(), true)))>
+                    <Button id=format!("theatre-library-{}-retry", section.name()) variant=ButtonVariant::Text on_press=Callback::new(move |_| on_page.run((section, restart(), true)))>
                         {move || messages::text(if restart() { Key::LiveLibraryRestart } else { Key::LiveLibraryRetry }, locale.get())}
                     </Button>
                 </Show>
@@ -332,11 +291,10 @@ pub(crate) fn LiveLibrary(
     on_page: Callback<(Section, bool, bool)>,
     #[prop(optional)] actions: Option<LibraryActions>,
     #[prop(optional, into)] shared_section: Option<ViewFn>,
+    #[prop(default = Signal::derive(|| false), into)] shared_has_rows: Signal<bool>,
 ) -> impl IntoView {
     let phase = Memo::new(move |_| state.with(AccountViewState::phase));
-    let has_shared = shared_section.is_some();
-    let all_empty = Memo::new(move |_| !has_shared && state.with(all_empty));
-    let refreshing = Memo::new(move |_| state.with(library_loading));
+    let invitation = Memo::new(move |_| state.with(all_empty) && !shared_has_rows.get());
     view! {
         <section id="library" aria-labelledby="theatre-live-library-heading">
             <h1 id="theatre-live-library-heading">{move || messages::text(Key::Library, locale.get())}</h1>
@@ -348,43 +306,21 @@ pub(crate) fn LiveLibrary(
                     SessionPhase::Guest | SessionPhase::SignedIn => Key::LiveLibrarySignedOut,
                 }, locale.get())}</p>
             }>
-                <div class="theatre-library-tools">
-                    <p class="theatre-muted">{move || messages::text(Key::LibraryDeck, locale.get())}</p>
-                    <div>
-                        <button id="theatre-library-refresh" type="button" class="theatre-action theatre-action-text"
-                            aria-disabled=move || refreshing.get().to_string()
-                            aria-busy=move || refreshing.get().then_some("true")
-                            aria-describedby=move || refreshing.get().then_some("theatre-library-refresh-status")
-                            on:click=move |_| {
-                                let intents = state.with_untracked(refresh_intents);
-                                if let Some(intents) = intents {
-                                    for intent in intents { on_page.run(intent); }
-                                }
-                            }>
-                            <span class="cui-control-label">{move || messages::text(Key::LiveLibraryRefresh, locale.get())}</span>
-                        </button>
-                        <p id="theatre-library-refresh-status" class="theatre-muted theatre-hint" role="status">
-                            {move || refreshing.get().then(|| messages::text(Key::LiveLibraryRefreshing, locale.get()))}
-                        </p>
-                    </div>
-                </div>
-                <Show when=move || !all_empty.get()>
-                    <p class="theatre-muted">{move || messages::text(Key::LiveLibraryPageHelp, locale.get())}</p>
-                </Show>
-                <Show when=move || all_empty.get()>
+                <p class="theatre-muted theatre-library-deck">{move || messages::text(Key::LibraryDeck, locale.get())}</p>
+                <Show when=move || invitation.get()>
                     <div class="theatre-panel theatre-library-invitation" aria-labelledby="theatre-library-empty-title">
                         <EmptyArtwork kind=EmptyArtworkKind::Library/>
                         <div>
                             <h2 id="theatre-library-empty-title">{move || messages::text(Key::LiveLibraryEmptyTitle, locale.get())}</h2>
                             <p class="theatre-muted">{move || messages::text(Key::LiveLibraryEmptyHelp, locale.get())}</p>
-                            <a class="theatre-action" href="#discover">{move || messages::text(Key::BrowseStories, locale.get())}</a>
+                            <a class="theatre-action" href="#discover"><cantos_ui::Icon name=cantos_ui::IconName::Search/>{move || messages::text(Key::LiveLibraryBrowse, locale.get())}</a>
                         </div>
                     </div>
                 </Show>
-                <div class="theatre-library-sections" data-empty=move || all_empty.get().to_string()>
-                    {Section::ALL.into_iter().map(|section| view! { <LiveSection state locale section on_page actions all_empty/>
-                    {(section == Section::Continue).then(|| shared_section.as_ref().map(ViewFn::run))} }).collect_view()}
+                <div class="theatre-library-sections">
+                    {Section::ALL.into_iter().map(|section| view! { <LiveSection state locale section on_page actions/> }).collect_view()}
                 </div>
+                {shared_section.as_ref().map(ViewFn::run)}
             </Show>
         </section>
     }

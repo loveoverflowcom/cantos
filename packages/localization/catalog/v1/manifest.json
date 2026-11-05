@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "280ca9028ea83b8526daa8a372bda0db24cda5cf9381834c2ad941eb16cb9f69",
+  "catalogSha256": "2a9d2795506c5f5cfd7dea6c0ebf5e2c8b8ccd1146f6f92aeec54f557adf2f59",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -2247,6 +2247,7 @@
     "theatre.shell.live_guest_status": {},
     "theatre.shell.live_history_command_error": {},
     "theatre.shell.live_history_command_unknown": {},
+    "theatre.shell.live_library_browse": {},
     "theatre.shell.live_library_cursor_expired": {},
     "theatre.shell.live_library_empty": {},
     "theatre.shell.live_library_empty_continue": {},
