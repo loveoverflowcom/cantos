@@ -1,119 +1,67 @@
-/* Me owns account composition. The admitted Select keeps its native fallback,
-   value, keyboard/popover/focus state and accessible label; no second chooser is introduced. */
-.theatre-live-app #account .theatre-account-profile-heading {
+/* The account and Premium start together, but Premium never sizes a row inside the account. */
+.theatre-live-app #account { container-type: inline-size; }
+.theatre-live-app #account > .theatre-page-heading {
+  margin-block: 0 var(--cantos-space-lg);
+}
+.theatre-live-app #account > .theatre-page-heading h1 { margin: 0; }
+.theatre-account-layout,
+.theatre-account-details {
+  display: grid;
+  align-content: start;
+  gap: var(--cantos-space-md);
+  min-inline-size: 0;
+}
+.theatre-account-layout { gap: var(--cantos-space-lg); }
+.theatre-account-details { container: theatre-account-details / inline-size; }
+@container (min-width: 46rem) {
+  .theatre-account-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.theatre-account-layout :is(.theatre-account-membership, .theatre-account-details section) h2 {
+  margin-block: 0 var(--cantos-space-sm);
+}
+.theatre-account-profile-heading {
   display: grid;
   gap: var(--cantos-space-md);
 }
-.theatre-live-app #account .theatre-account-profile-heading[data-signed-in] {
+.theatre-account-details[data-signed-in] .theatre-account-profile {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+  border-radius: var(--cantos-shape-account-group);
+}
+.theatre-account-details[data-signed-in] .theatre-account-profile-heading {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
 }
-.theatre-live-app #account .theatre-account-profile-heading:not([data-signed-in]) {
+.theatre-account-details:not([data-signed-in]) .theatre-account-profile-heading {
   margin-block-end: var(--cantos-space-md);
 }
-.theatre-live-app #account .theatre-account-profile-heading .theatre-avatar {
-  margin-block-end: 0;
-}
-.theatre-live-app #account .theatre-account-profile-copy { min-inline-size: 0; }
-.theatre-live-app #account .theatre-account-profile-copy h2 {
-  margin-block-end: var(--cantos-space-xs);
+.theatre-account-details .theatre-account-profile-heading .theatre-avatar { margin-block-end: 0; }
+.theatre-account-profile-copy { min-inline-size: 0; }
+.theatre-account-profile-copy h2 {
+  margin-block: 0 var(--cantos-space-xs);
   font-weight: var(--cantos-type-theatre-heading-weight);
 }
-.theatre-live-app #account .theatre-account-alias {
-  margin: 0;
-  font-weight: var(--cantos-type-label-weight);
+.theatre-account-details[data-signed-in] .theatre-account-profile-copy h2 {
+  font-size: var(--cantos-type-headline-size);
 }
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-row {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cantos-space-sm);
-  margin-block: 0;
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
-  padding: 0;
-  border-radius: var(--cantos-web-shape-control);
-  background: var(--cantos-color-surface-container);
-}
-/* The wrapper is not a semantic node. Its existing label and field share the app row's grid;
-   both labels activate the same real trigger, so decorative icons add no focus stop. */
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select-field {
-  display: contents;
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-icon {
-  grid-column: 1;
-  display: grid;
-  place-items: center;
-  align-self: stretch;
-  min-inline-size: var(--cantos-size-control);
-  min-block-size: var(--cantos-size-control);
-  margin: 0;
-  padding: var(--cantos-space-xs);
-  cursor: pointer;
-  color: var(--cantos-color-on-primary-container);
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-icon .cui-icon {
-  box-sizing: content-box;
-  inline-size: var(--cantos-size-icon);
-  block-size: var(--cantos-size-icon);
-  padding: var(--cantos-space-xs);
-  border-radius: var(--cantos-shape-pill);
-  background: var(--cantos-color-primary-container);
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-field-label {
-  grid-column: 2;
-  display: flex;
-  align-items: center;
-  align-self: stretch;
-  min-inline-size: 0;
-  padding: var(--cantos-space-sm);
-  color: var(--cantos-color-on-surface);
-  font-size: var(--cantos-type-label-size);
-  font-weight: var(--cantos-type-label-weight);
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select {
-  grid-column: 3;
-  min-inline-size: 0;
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select-trigger {
-  justify-content: flex-end;
-  padding-inline: var(--cantos-space-sm);
-  background: transparent;
-}
-.theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select-value {
-  flex: 1 1 auto;
-  text-align: end;
-}
-.theatre-live-app #account .theatre-me-shortcuts {
-  /* Two compact destinations when their text fits; enlarged text stacks whole cards. */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
-  gap: var(--cantos-space-sm);
-  margin-block-start: var(--cantos-space-md);
-}
-.theatre-live-app #account .theatre-me-shortcuts .theatre-action-row {
-  flex-direction: column;
-  align-items: flex-start;
-  block-size: 100%;
-  padding: var(--cantos-space-md);
-  border-radius: var(--cantos-web-shape-container);
+.theatre-account-greeting { margin: 0; }
+.theatre-me-shortcuts { gap: var(--cantos-space-sm); }
+.theatre-me-shortcuts > li { min-inline-size: 0; }
+.theatre-account-layout .theatre-me-shortcut {
   background: var(--cantos-color-surface);
   color: var(--cantos-color-on-surface);
+  border-radius: var(--cantos-web-shape-container);
 }
-.theatre-me-shortcuts > li { min-inline-size: 0; }
 .theatre-me-shortcut-icon {
   display: grid;
   place-items: center;
-  inline-size: var(--cantos-size-control);
-  block-size: var(--cantos-size-control);
-  border-radius: var(--cantos-shape-pill);
-  background: var(--cantos-color-surface-container);
-  color: var(--cantos-color-on-surface);
+  flex: none;
+  color: var(--cantos-color-on-surface-variant);
 }
-.theatre-me-shortcut-copy { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
+.theatre-me-shortcut-copy { display: grid; flex: 1; gap: var(--cantos-space-xs); min-inline-size: 0; }
 .theatre-me-shortcut-copy .theatre-action-row-label { font-weight: var(--cantos-type-label-weight); }
 .theatre-me-shortcut-help {
   color: var(--cantos-color-on-surface-variant);
@@ -121,105 +69,74 @@
   line-height: var(--cantos-type-label-line-height);
   overflow-wrap: anywhere;
 }
-/* Cards retain paired text roles in every state; decorative icon circles keep their own pair. */
-.theatre-live-app #account .theatre-me-shortcuts .theatre-action-row:is(:focus-visible, :active) {
-  background: var(--cantos-color-surface-container);
-  color: var(--cantos-color-on-surface);
-}
+.theatre-account-layout .theatre-me-shortcut:active { background: var(--cantos-color-surface-container-high); }
 @media (hover: hover) {
-  .theatre-live-app #account .theatre-me-shortcuts .theatre-action-row:hover {
-    background: var(--cantos-color-surface-container);
-    color: var(--cantos-color-on-surface);
-  }
+  .theatre-account-layout .theatre-me-shortcut:hover { background: var(--cantos-color-surface-container-high); }
 }
-.theatre-live-app #account .theatre-account-signout-row .cui-button-field { display: grid; }
-.theatre-live-app #account .theatre-account-signout {
+.theatre-account-layout .theatre-pref-row { display: grid; gap: var(--cantos-space-sm); }
+.theatre-account-preferences .cui-select-field[data-select-density="compact"] {
+  inline-size: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.theatre-account-preferences .cui-field-label { overflow-wrap: anywhere; }
+.theatre-account-preferences .cui-select {
+  justify-self: end;
+  inline-size: min(100%, 18rem);
+}
+.theatre-account-preferences .cui-select-field[data-select-density="compact"] .cui-field-control {
+  background-color: var(--cantos-color-surface);
+}
+.theatre-account-preferences .cui-select-trigger { padding-inline: var(--cantos-space-sm); }
+.theatre-account-preferences .cui-select-field[data-select-density="compact"] .cui-select-value {
+  flex: 1;
+  text-align: start;
+}
+.theatre-account-signout-row .cui-button-field { display: grid; }
+.theatre-account-layout .theatre-account-signout {
   inline-size: 100%;
   justify-content: flex-start;
-  gap: var(--cantos-space-md);
   padding-inline: var(--cantos-space-md);
+  background: var(--cantos-color-surface-container);
   color: var(--cantos-color-on-surface);
-  font-weight: var(--cantos-type-body-weight);
+  border-radius: var(--cantos-shape-account-group);
 }
-.theatre-live-app #account .theatre-account-signout .cui-control-label { text-align: start; }
-.theatre-live-app #account .theatre-account-membership .cui-button {
-  max-inline-size: 100%;
+.theatre-account-signout .cui-control-label { text-align: start; }
+.theatre-account-layout .theatre-account-signout:active { background: var(--cantos-color-surface-container-high); }
+@media (hover: hover) {
+  .theatre-account-layout .theatre-account-signout:hover { background: var(--cantos-color-surface-container-high); }
 }
-.theatre-live-app #account .theatre-membership-note {
-  margin-block: var(--cantos-space-md) 0;
-  font-size: var(--cantos-type-metadata-size);
+.theatre-account-membership-mark {
+  display: grid;
+  place-items: center;
+  inline-size: var(--cantos-size-control);
+  block-size: var(--cantos-size-control);
+  margin-block-end: var(--cantos-space-md);
+  border-radius: var(--cantos-web-shape-container);
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
 }
-/* Text expansion follows available content space, rather than a device guess. Keep the
-   current value whole on a second line; icon + label remain the first line of the same row. */
-@container (max-width: 18rem) {
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile {
-    grid-template-columns: auto minmax(0, 1fr);
+.theatre-account-membership .cui-button { max-inline-size: 100%; }
+
+/* Prefer whole field values below the label when inline text has too little room. */
+@container theatre-account-details (max-width: 21rem) {
+  .theatre-account-preferences .cui-select-field[data-select-density="compact"] {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-icon {
-    grid-column: 1;
-    grid-row: 1;
-    min-inline-size: 0;
-    min-block-size: 0;
-  }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-field-label {
-    grid-column: 2;
-    grid-row: 1;
-    padding-inline: var(--cantos-space-xs);
-  }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select-trigger {
-    padding-inline: var(--cantos-space-xs);
-    gap: var(--cantos-space-xs);
-  }
-}
-/* At the smallest enlarged-text capacity, preserve the icon and whole label on separate lines. */
-@container (max-width: 10rem) {
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile { grid-template-columns: minmax(0, 1fr); }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-icon { grid-column: 1; grid-row: 1; justify-self: start; }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-field-label { grid-column: 1; grid-row: 2; }
-  .theatre-live-app :is(#account, .theatre-guest-preferences) .theatre-pref-tile .cui-select { grid-column: 1; grid-row: 3; }
+  .theatre-account-preferences .cui-select { justify-self: start; }
 }
 @container (max-width: 12rem) {
-  .theatre-live-app #account .theatre-account-membership.cui-surface {
-    padding-inline: var(--cantos-space-sm);
+  .theatre-account-layout .theatre-account-membership { padding-inline: var(--cantos-space-sm); }
+  .theatre-account-membership .cui-button { padding-inline: var(--cantos-space-xs); }
+}
+@container theatre-account-details (max-width: 12rem) {
+  .theatre-account-details .cui-surface { padding-inline: var(--cantos-space-sm); }
+  .theatre-account-details[data-signed-in] .theatre-account-profile-heading {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
   }
-  .theatre-live-app #account .theatre-account-membership .cui-button {
-    padding-inline: var(--cantos-space-xs);
-  }
-}
-
-/* One set of Me controls: beside the heading when wide, after the profile when narrow.
-   Listening shortcuts follow the profile; Sign out follows Premium in visual and reading order. */
-.theatre-live-app #account {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  grid-template-areas: "heading preferences" "profile membership" "activity signout";
-  gap: var(--cantos-space-lg);
-  align-items: start;
-  container-type: inline-size;
-}
-.theatre-live-app #account > .theatre-account { display: contents; }
-.theatre-live-app #account > .theatre-page-heading { grid-area: heading; }
-.theatre-live-app #account .theatre-account-profile { grid-area: profile; }
-.theatre-live-app #account .theatre-account-preferences { grid-area: preferences; justify-self: end; align-self: center; min-inline-size: 0; max-inline-size: 100%; }
-.theatre-live-app #account .theatre-account-membership { grid-area: membership; }
-.theatre-live-app #account .theatre-account-activity { grid-area: activity; min-inline-size: 0; }
-.theatre-live-app #account .theatre-account-signout-row { grid-area: signout; min-inline-size: 0; }
-.theatre-live-app #account .theatre-pref-row { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin: 0; }
-.theatre-live-app #account .theatre-pref-tile { display: block; flex: 0 1 auto; max-inline-size: 100%; }
-.theatre-live-app #account .theatre-pref-tile .cui-select-field { display: block; min-inline-size: 0; }
-.theatre-live-app #account .theatre-pref-tile .cui-field-label {
-  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; overflow: hidden;
-  clip-path: inset(50%); white-space: nowrap;
-}
-.theatre-live-app #account .theatre-pref-tile .cui-select { min-inline-size: 0; }
-.theatre-live-app #account .theatre-pref-tile .cui-field-control { min-block-size: var(--cantos-size-control); }
-.theatre-live-app #account .theatre-pref-tile .cui-select-trigger { justify-content: flex-start; gap: var(--cantos-space-xs); padding-inline: var(--cantos-space-sm); }
-.theatre-live-app #account .theatre-pref-tile .cui-select-value { flex: 0 1 auto; text-align: start; }
-@media (max-width: 960px) {
-  .theatre-live-app #account { grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "profile" "activity" "preferences" "membership" "signout"; }
-  .theatre-live-app #account .theatre-account-preferences { justify-self: start; }
+  .theatre-account-layout .theatre-me-shortcut { padding-inline: var(--cantos-space-sm); gap: var(--cantos-space-sm); }
+  .theatre-me-shortcut-icon .theatre-icon { inline-size: var(--cantos-size-icon-compact); block-size: var(--cantos-size-icon-compact); }
+  .theatre-me-shortcut .theatre-chevron,
+  .theatre-account-preferences .cui-select-trigger .cui-select-leading { display: none; }
+  .theatre-account-preferences .cui-select-trigger { padding-inline: var(--cantos-space-xs); }
 }

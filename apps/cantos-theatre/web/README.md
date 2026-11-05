@@ -148,7 +148,8 @@ The default entrypoint opens public Landing without a login wall. It reads actua
 summaries anonymously, independently of session availability. The live Web shell follows
 [#641 v9.2](https://github.com/loveoverflowcom/cantos/issues/641): exactly **Khám phá / Thư viện / Me**, mounted only for a confirmed SignedIn account.
 At 1200 CSS px and above it defaults to a 216px labelled rail; the local toggle collapses it to
-96px without a route/history change. At 600–1199px the default is a 96px icon/caption rail;
+96px without a route/history change. The panel toggle keeps its 48 CSS px target beside the brand
+in both rail widths. At 600–1199px the default is a 96px icon/caption rail;
 Menu opens the same destinations in a modal drawer without shifting content. Below 600px only
 the header Menu remains. Actual localized text measurements fall back to the drawer when labels
 cannot fit. The drawer is `min(320px, viewport − 32px)` wide; Web has no bottom bar.
@@ -160,10 +161,8 @@ one flush perimeter with no gap. The account destination is localized as Tôi/Me
 remains on the account card.
 
 Me (`#account`) contains one locale and one explicit Light/Dark/System selector as compact
-tonal controls. The theme's icon and both current values sit inside their existing chooser;
-the locale trigger shows a short code while retaining its full accessible name and menu options.
-They sit beside the heading when wide and after the profile when narrow, with room to reflow.
-The labelled group has no additional card. The earlier
+tonal controls under Preferences. Each has a visible label and shows the current value in full.
+Labels and values reflow onto separate lines when they need more room. The earlier
 [Web self-audit](../../../docs/evidence/theatre-preferences-self-audit-646.md) records its own
 source-bound observations, not acceptance of this newer layout.
 Account recovery/logout and truthful Cantos Premium information remain present. The signed-in header has no locale/theme/avatar
@@ -180,17 +179,15 @@ The same shell-owned player, account and preference signals survive navigation a
 Healthy signed-in status captions are absent from Me. The isolated mock retains its earlier two-destination
 layout and remains outside live acceptance.
 
-Signed-in Me follows the compact profile card with a localized listening group of Saved/History
-shortcut cards and supporting copy; Sign out follows Premium in both visual and reading order.
-When wide, the shortcuts sit under the profile and Sign out under Premium; narrow layouts stack
-heading, profile, shortcuts, preferences, Premium and Sign out. The shortcut cards stack when
-enlarged text needs more room. Native links, session recovery and the shell-owned sign-out
-confirmation retain their existing owners. The shortcut presentation follows the account content
-in the external Navigation & Me v9.2 design; navigation and auth pending presentation remain separate work.
+Signed-in Me groups profile, Saved/History, Preferences and Sign out in a single column. Premium
+sits in a narrower column when the available content width permits, or below the account group
+otherwise. Its height does not affect the spacing between account controls. The Premium card
+links to the existing information page, which states registration availability. Native links,
+session recovery and the shell-owned sign-out confirmation retain their existing owners.
 
 Me and navigation consume the existing session-bound Server-generated alias/seed projection
-through the shared Lavender Pair Avatar. Me groups its avatar, localized bold serif greeting
-and supplied alias horizontally; missing presentation retains a truthful person fallback.
+through the shared Lavender Pair Avatar. Me uses the alias as its profile heading and the
+localized greeting as supporting text; missing presentation retains a truthful person fallback.
 Shortcuts share paired foregrounds in normal, hover, focus and pressed states, and logout keeps
 their keyline with readable secondary emphasis. The [account-card record](../../../docs/evidence/theatre-account-card-689.md)
 separates this presentation repair and synthetic preview identities from real-account/device
