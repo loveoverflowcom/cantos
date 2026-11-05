@@ -25935,7 +25935,7 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Đang công bố"
+          "text": "Đã công bố · đang hiển thị"
         },
         "en": {
           "text": "Published"
@@ -28059,6 +28059,66 @@
         },
         "en": {
           "text": "Link and sharing limits"
+        }
+      }
+    },
+    "studio.live.metadata_reading": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đang đọc trạng thái công bố…"
+        },
+        "en": {
+          "text": "Reading publication state…"
+        }
+      }
+    },
+    "studio.live.metadata_read_failed": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa đọc được trạng thái công bố. Bản chọn được giữ; hãy đọc lại."
+        },
+        "en": {
+          "text": "Publication state could not be read. Selection retained; read again."
+        }
+      }
+    },
+    "studio.live.metadata_current": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đang hiển thị"
+        },
+        "en": {
+          "text": "Currently visible revision"
+        }
+      }
+    },
+    "studio.live.metadata_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Định danh và phiên bản"
+        },
+        "en": {
+          "text": "Exact identities and version"
+        }
+      }
+    },
+    "studio.live.metadata_selected": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bản đang chọn"
+        },
+        "en": {
+          "text": "Selected revision"
         }
       }
     }

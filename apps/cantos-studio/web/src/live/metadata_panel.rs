@@ -19,7 +19,14 @@ fn focus(id: &str) {
         .and_then(|d| d.get_element_by_id(id))
         .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
     {
+        if node.has_attribute("disabled") && id == "metadata-review-open" {
+            focus("metadata-read");
+            return;
+        }
         let _ = node.focus();
+        if id == "metadata-review-title" {
+            node.scroll_into_view();
+        }
     }
 }
 
@@ -130,32 +137,12 @@ pub(super) fn MetadataPanel(
         request_animation_frame(move || focus("metadata-review-open"));
     });
     let status = Signal::derive(move || {
-        if relevant.get() {
-            match dispatch.state.with(|s| s.phase()) {
-                Phase::Pending => return Key::MetadataPending,
-                Phase::Ambiguous => return Key::MetadataUnknown,
-                Phase::Failed => {
-                    return if dispatch.state.with(|s| {
-                        s.error().is_some_and(|e| {
-                            matches!(e, super::ClientError::Http { status: 409, .. })
-                        })
-                    }) {
-                        Key::MetadataConflict
-                    } else {
-                        Key::MetadataFailed
-                    }
-                }
-                Phase::Idle | Phase::Ready => {}
-            }
-        }
-        if archived.get() {
-            return Key::MetadataArchived;
-        }
-        current.with(|s| match s.as_ref().map(|s| s.lifecycle) {
-            Some(Lifecycle::NeverPublished) => Key::MetadataNever,
-            Some(Lifecycle::Active) => Key::MetadataActive,
-            Some(Lifecycle::Withdrawn) => Key::MetadataWithdrawn,
-            None => Key::MetadataUnread,
+        dispatch.state.with(|request| {
+            super::metadata_presentation::status(
+                request,
+                archived.get(),
+                current.with(|s| s.as_ref().map(|s| s.lifecycle)),
+            )
         })
     });
     let request_reason = Signal::derive(move || {
@@ -211,16 +198,15 @@ pub(super) fn MetadataPanel(
     view! {
       <section class="cw-metadata cw-block" aria-labelledby="metadata-title" hidden=move || !owner.get()>
         <h5 id="metadata-title">{move || text(Key::MetadataPublication, locale.get())}</h5>
-        <div class="cw-publication-strip" aria-live="polite">
+        <div class="cw-publication-strip">
           <p id="metadata-status" role="status">{move || text(status.get(), locale.get())}</p>
           <p>{move || text(Key::MetadataSaved, locale.get())}" "{move || facts.with(|f| f.work.as_ref().map(|w| super::copy::revision_label(w.revision)))}</p>
-          <p hidden=move || current.with(|s| s.as_ref().and_then(|s| s.generation.as_ref()).is_none())>{move || text(Key::MetadataHistory, locale.get())}" "{move || current.with(|s| s.as_ref().and_then(|s| s.generation.as_ref()).map(|g| super::copy::revision_label(g.work_revision)))}</p>
-          <p hidden=move || current.with(Option::is_none)>{move || text(Key::MetadataVersion, locale.get())}" "{move || current.with(|s| s.as_ref().map(|s| s.version))}</p>
+          <p hidden=move || current.with(|s| s.as_ref().and_then(|s| s.generation.as_ref()).is_none())>{move || text(if current.with(|s|s.as_ref().is_some_and(|s|s.lifecycle==Lifecycle::Active)){Key::MetadataCurrent}else{Key::MetadataHistory}, locale.get())}" "{move || current.with(|s| s.as_ref().and_then(|s| s.generation.as_ref()).map(|g| super::copy::revision_label(g.work_revision)))}</p>
         </div>
         <p role="status" class="cw-reason" hidden=move || !unsaved.get()>{move || text(Key::MetadataDirty, locale.get())}</p>
         <div class="cw-actions">
           <ActionButton id="metadata-read" locale reason=blocked_reason blocked on_press=read variant=ButtonVariant::Text>{move || text(Key::MetadataLoad, locale.get())}</ActionButton>
-          <ActionButton id="metadata-review-open" locale reason=review_open_reason blocked=Signal::derive(move || blocked.get() || archived.get() || unsaved.get() || current.with(Option::is_none) || review.with(Option::is_some)) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
+          <span hidden=move ||review.with(Option::is_some)><ActionButton id="metadata-review-open" locale reason=review_open_reason blocked=Signal::derive(move || blocked.get() || archived.get() || unsaved.get() || current.with(Option::is_none) || review.with(Option::is_some)) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
               if blocked.get_untracked() || unsaved.get_untracked() { return; }
               let candidate = facts.with_untracked(|f| MetadataReview::new(f.work.as_ref()?, f.metadata.current.as_ref()?).ok());
               if let Some(candidate) = candidate {
@@ -228,7 +214,7 @@ pub(super) fn MetadataPanel(
                   review.set(Some(candidate)); confirmed.set(false); selection_error.set(false); dispatch.send(command);
                   request_animation_frame(move || focus("metadata-review-title"));
               }
-          })>{move || text(Key::MetadataReview, locale.get())}</ActionButton>
+          })>{move || text(Key::MetadataReview, locale.get())}</ActionButton></span>
           <ActionButton id="metadata-withdraw" locale reason=withdraw_reason blocked=Signal::derive(move || blocked.get() || archived.get() || current.with(|s| s.as_ref().is_none_or(|s| s.lifecycle != Lifecycle::Active))) variant=ButtonVariant::Text on_press=Callback::new(move |_| {
               if blocked.get_untracked() { return; }
               if let Some(state) = current.get_untracked().filter(|s| s.lifecycle == Lifecycle::Active) {
@@ -264,14 +250,19 @@ pub(super) fn MetadataPanel(
         </div>
         <Show when=move || review.with(Option::is_some)>
           <section id="metadata-review" class="cw-metadata-review" aria-labelledby="metadata-review-title">
-            <h6 id="metadata-review-title" tabindex="-1">{move || text(Key::MetadataSelection, locale.get())}</h6>
-            <p class="cw-metadata-pin">{move || review.with(|r| r.as_ref().map(|r| super::copy::metadata_identity(r.work(),r.expected_version(),r.work_revision())))}</p>
-            <p>{move || text(Key::MetadataPublicAudience, locale.get())}</p>
-            <h6>{move ||text(Key::MetadataWorkText,locale.get())}</h6>
-            <p>{move ||review.with(|r|r.as_ref().map(|r|r.saved().details.title.clone()))}</p>
+            <header class="cw-metadata-review-header">
+              <p class="help">{move || text(Key::MetadataReview, locale.get())}</p>
+              <h6 id="metadata-review-title" tabindex="-1">{move ||review.with(|r|r.as_ref().map(|r|r.saved().details.title.clone()))}</h6>
+              <dl class="cw-metadata-revisions">
+                <div><dt>{move ||text(Key::MetadataSelected,locale.get())}</dt><dd>{move ||review.with(|r|r.as_ref().map(|r|super::copy::revision_label(r.work_revision())))}</dd></div>
+                <div><dt>{move ||text(if current.with(|s|s.as_ref().is_some_and(|s|s.lifecycle==Lifecycle::Active)){Key::MetadataCurrent}else{Key::MetadataHistory},locale.get())}</dt><dd>{move ||comparison.with(|s|s.as_ref().and_then(|s|s.generation.as_ref()).map(|g|super::copy::revision_label(g.work_revision))).unwrap_or_else(||text(Key::MetadataNever,locale.get()).into())}</dd></div>
+              </dl>
+              <details><summary>{move ||text(Key::MetadataDetails,locale.get())}</summary><code>{move || review.with(|r| r.as_ref().map(|r| super::copy::metadata_identity(r.work(),r.expected_version(),r.work_revision())))}</code></details>
+            </header>
+            <div class="cw-metadata-review-body">
+            <p>{move ||text(Key::AccessAudience,locale.get())}" "{move ||facts.with(|f|text(match f.viewer.current.as_ref().map(|s|s.audience){Some(crate::contract::ViewerAudience::Public)=>Key::AccessPublic,Some(crate::contract::ViewerAudience::Restricted)=>Key::AccessRestricted,None=>Key::AccessUnread},locale.get()))}</p>
             <p>{move ||review.with(|r|r.as_ref().map(|r|r.saved().details.synopsis.clone()))}</p>
-            <p class="help">{move ||text(Key::MetadataDiff,locale.get())}</p>
-            <p><code>{move ||review.with(|r|r.as_ref().map(|r|super::copy::revision_transition(comparison.with(|s|s.as_ref().and_then(|s|s.generation.as_ref()).map(|g|g.work_revision)),r.work_revision())))}</code></p>
+            <details class="cw-metadata-add"><summary>{move ||text(Key::MetadataSelectSaved,locale.get())}</summary>
             <p class="help">{move || text(Key::MetadataNoAutoSelect, locale.get())}</p>
             <div class="cw-metadata-candidates">
               <For each=move || facts.with(|f| f.units.iter().filter(|u| u.lifecycle == "draft").cloned().collect::<Vec<_>>()) key=|u| (u.id.clone(), u.revision) children=move |unit| {
@@ -283,19 +274,22 @@ pub(super) fn MetadataPanel(
                     })>{move || text(Key::MetadataSelectSaved, locale.get())}</ActionButton></div> }
               }/>
             </div>
+            </details>
             <div class="cw-actions" hidden=move ||review.with(|r|r.as_ref().is_none_or(|r|current.with(|s|s.as_ref().is_none_or(|s|s.version==r.expected_version()))))>
               <ActionButton id="metadata-rebase" locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                 if blocked.get_untracked(){return;}
                 if let Some(state)=current.get_untracked(){review.update(|r|if let Some(old)=r {if let Ok(next)=old.rebase(&state){*old=next;confirmed.set(false);}});}
               })>{move ||text(Key::MetadataRebase,locale.get())}</ActionButton>
             </div>
+            <h6>{move ||text(Key::MetadataSelection,locale.get())}</h6>
             <p class="help">{move || text(Key::MetadataBounds, locale.get())}</p>
             <p role="alert" hidden=move || !selection_error.get()>{move ||text(Key::MetadataBounds,locale.get())}</p>
             <ol id="metadata-final-order" class="cw-metadata-order">
               <For each=move || review.with(|r| r.as_ref().map(|r| r.units().to_vec()).unwrap_or_default()) key=|u| (u.unit_id.clone(), u.revision) children=move |unit| {
                   let unit = StoredValue::new(unit);
                   let associated = Signal::derive(move || comparison.with(|s| s.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e| unit.with_value(|u|e.unit_id==u.unit_id && e.revision==u.revision))).and_then(|e|e.audio.clone())));
-                  view! { <li><p>{move || facts.with(|f| f.units.iter().find(|candidate| unit.with_value(|u| candidate.id==u.unit_id && candidate.revision==u.revision)).map(|u|u.details.title.clone())).unwrap_or_else(||text(Key::MetadataOldTextUnavailable,locale.get()).into())}</p><code>{move || unit.with_value(|u| super::copy::revision_identity(u.revision,&u.unit_id))}</code>
+                  view! { <li><p>{move || facts.with(|f| f.units.iter().find(|candidate| unit.with_value(|u| candidate.id==u.unit_id && candidate.revision==u.revision)).map(|u|u.details.title.clone())).unwrap_or_else(||text(Key::MetadataOldTextUnavailable,locale.get()).into())}</p><span>{move ||unit.with_value(|u|super::copy::revision_label(u.revision))}</span>
+                    <details><summary>{move ||text(Key::MetadataDetails,locale.get())}</summary><code>{move || unit.with_value(|u| super::copy::revision_identity(u.revision,&u.unit_id))}</code></details>
                     <p class="help"><code>{move ||review.with(|r|r.as_ref().and_then(|r|r.units().iter().position(|e|unit.with_value(|u|e.unit_id==u.unit_id))).map(|i|super::copy::metadata_order_transition(comparison.with(|s|s.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e|unit.with_value(|u|e.unit_id==u.unit_id))).map(|e|(e.position,e.revision))),(i+1,unit.with_value(|u|u.revision)))))}</code></p>
                     <p class="help">{move || text(if associated.with(Option::is_some) {Key::MetadataAudioLinked} else {Key::MetadataAudioNone},locale.get())}</p>
                     <div class="cw-actions">
@@ -314,7 +308,7 @@ pub(super) fn MetadataPanel(
                 <div class="cw-metadata-asset">
                   <p><code>{super::copy::revision_label(revision)}</code></p>
                   <p>{move ||facts.with(|f|match f.metadata.artwork.get(&revision){None=>text(Key::MetadataArtworkUnread,locale.get()).into(),Some(pin)=>pin.artwork.as_ref().map(|a|a.alt_text.clone()).unwrap_or_else(||text(Key::MetadataArtworkNone,locale.get()).into())})}</p>
-                  <code>{move ||facts.with(|f|f.metadata.artwork.get(&revision).and_then(|p|p.artwork.as_ref()).map(|a|super::copy::asset_identity(&a.image_asset_id,&a.image_asset_digest)))}</code>
+                  <details hidden=move ||facts.with(|f|f.metadata.artwork.get(&revision).and_then(|p|p.artwork.as_ref()).is_none())><summary>{move ||text(Key::MetadataDetails,locale.get())}</summary><code>{move ||facts.with(|f|f.metadata.artwork.get(&revision).and_then(|p|p.artwork.as_ref()).map(|a|super::copy::asset_identity(&a.image_asset_id,&a.image_asset_digest)))}</code></details>
                   <ActionButton id=format!("metadata-artwork-{revision}") locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                       if blocked.get_untracked() { return; }
                       if let Some(selection) = review.get_untracked() {
@@ -324,6 +318,8 @@ pub(super) fn MetadataPanel(
                 </div>
             }/>
             <p class="help">{move || text(Key::MetadataPinAssets, locale.get())}</p>
+            </div>
+            <footer class="cw-metadata-confirm">
             <ReviewCheckbox id="metadata-rights" locale label=Signal::derive(move ||text(Key::MetadataRights,locale.get()).to_owned()) checked=confirmed blocked on_change=Callback::new(move |value|confirmed.set(value))/>
             <div class="cw-actions">
               <ActionButton id="metadata-publish" locale reason=publish_reason variant=ButtonVariant::Primary blocked=Signal::derive(move || !can_publish.get()) on_press=Callback::new(move |_| {
@@ -332,6 +328,7 @@ pub(super) fn MetadataPanel(
               })>{move ||text(Key::MetadataPublish,locale.get())}</ActionButton>
               <ActionButton id="metadata-review-close" locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=close>{move || text(Key::MetadataClose,locale.get())}</ActionButton>
             </div>
+            </footer>
           </section>
         </Show>
       </section>

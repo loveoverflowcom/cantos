@@ -632,7 +632,12 @@ records the actual local/native/browser boundaries and remaining production acce
 The Details task composes a generation publication strip and in-place review over the existing
 mounted Catalog draft. Read publication state before choosing saved Work/Unit revisions; the
 review preserves existing published pins and never selects an unloaded draft page. Confirm the
-complete final order once. Draft Save and private Studio Preview remain independent.
+complete final order once. The review leads with the frozen Work title and selected/current
+revisions; exact IDs and CAS version remain available in disclosures. Its final rights/action
+area stays outside the scrolling selection at ordinary window sizes, with normal document flow
+for short or very narrow windows. Read pending, write pending and stable publication have
+distinct labels. Audience is shown only from a successful access read. Draft Save and private
+Studio Preview remain independent.
 
 Metadata withdrawal, Catalog archive and audio withdrawal are separate actions. Audio linking
 names the currently read exact release; display-only drift has its own owner confirmation.

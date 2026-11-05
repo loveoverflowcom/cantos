@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "a01f6b26c1bb633f15405a7efe722b52ad937f574688de081f8fd25ca54c4da2",
+  "catalogSha256": "8790463eca557e0c238839ea24096a6f7bc77a8247de6d1cb88af9a7aa29bc62",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -864,6 +864,8 @@
     "studio.live.metadata_close": {},
     "studio.live.metadata_confirm_withdraw": {},
     "studio.live.metadata_conflict": {},
+    "studio.live.metadata_current": {},
+    "studio.live.metadata_details": {},
     "studio.live.metadata_diff": {},
     "studio.live.metadata_dirty": {},
     "studio.live.metadata_display_only": {},
@@ -879,6 +881,8 @@
     "studio.live.metadata_publication": {},
     "studio.live.metadata_publish": {},
     "studio.live.metadata_publish_blocked": {},
+    "studio.live.metadata_read_failed": {},
+    "studio.live.metadata_reading": {},
     "studio.live.metadata_rebase": {},
     "studio.live.metadata_receipt": {},
     "studio.live.metadata_remove": {},
@@ -888,6 +892,7 @@
     "studio.live.metadata_rights": {},
     "studio.live.metadata_saved": {},
     "studio.live.metadata_select_saved": {},
+    "studio.live.metadata_selected": {},
     "studio.live.metadata_selection": {},
     "studio.live.metadata_unknown": {},
     "studio.live.metadata_unread": {},

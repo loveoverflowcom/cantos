@@ -46,6 +46,8 @@ pub mod chapter_matrix;
 mod chapter_panel;
 #[cfg(target_arch = "wasm32")]
 mod metadata_panel;
+#[cfg(any(target_arch = "wasm32", test))]
+mod metadata_presentation;
 pub mod metadata_publication;
 pub mod publication;
 #[cfg(test)]

@@ -577,6 +577,25 @@ html:has(.cw-context) { scroll-padding-block-start: 5rem; }
 .studio-shell .cw-metadata code, .studio-shell .cw-metadata-pin { overflow-wrap: anywhere; white-space: normal; }
 .studio-shell #metadata-review-title:focus-visible { outline: 2px solid var(--cantos-color-focus); outline-offset: 2px; }
 .studio-shell .cw-metadata[hidden], .studio-shell .cw-metadata [hidden] { display: none; }
+.studio-shell #metadata-review { display: flex; flex-direction: column; max-block-size: 85dvh; margin-block: var(--cantos-space-md); padding: 0; background: var(--cantos-color-surface-container); }
+.studio-shell .cw-metadata-review-header, .studio-shell .cw-metadata-review-body, .studio-shell .cw-metadata-confirm { padding: var(--cantos-space-md); }
+.studio-shell .cw-metadata-review-header { flex: none; }
+.studio-shell #metadata-review-title { font-size: var(--cantos-type-title-size); line-height: var(--cantos-type-title-line-height); }
+.studio-shell .cw-metadata-review-header > p { margin-block: 0 var(--cantos-space-xs); }
+.studio-shell .cw-metadata-revisions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm) var(--cantos-space-lg); margin-block: var(--cantos-space-sm); }
+.studio-shell .cw-metadata-revisions dt { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-label-size); }
+.studio-shell .cw-metadata-revisions dd { margin: 0; font-weight: var(--cantos-type-label-weight); }
+.studio-shell .cw-metadata-review-body { min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.studio-shell .cw-metadata-review-body > :first-child { margin-block-start: 0; }
+.studio-shell .cw-metadata-review-body summary, .studio-shell .cw-metadata-review-header summary { cursor: pointer; padding-block: var(--cantos-space-xs); }
+.studio-shell .cw-metadata-add { margin-block: var(--cantos-space-md); }
+.studio-shell .cw-metadata-confirm { flex: none; background: var(--cantos-color-surface-container-high); border-radius: 0 0 var(--cantos-web-shape-container) var(--cantos-web-shape-container); }
+.studio-shell .cw-metadata-confirm .cw-actions { margin-block-end: 0; }
+.studio-shell .cw-metadata-review-body :focus-visible { scroll-margin-block: var(--cantos-space-md); }
+@media (max-width: 24rem), (max-height: 40rem) {
+  .studio-shell #metadata-review { max-block-size: none; }
+  .studio-shell .cw-metadata-review-body { overflow-y: visible; }
+}
 
 /* Access is an app-owned composition over shared controls; no new token or global role. */
 .studio-shell .cw-access { max-inline-size: 44rem; margin-block-start: var(--cantos-space-lg); padding: var(--cantos-space-md); background: var(--cantos-color-surface); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
