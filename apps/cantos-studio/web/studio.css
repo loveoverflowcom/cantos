@@ -512,6 +512,9 @@ body { margin: 0; }
 .studio-shell .cw-audio-stages { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs); }
 .studio-shell .cw-audio-stages > .cui-button { min-inline-size: 0; max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
 .studio-shell .cw-audio-stage[hidden] { display: none; }
+/* Keep space for field labels when text is enlarged in a narrow container. */
+.studio-shell .cw-audio-stage.live-section,
+.studio-shell .cw-audio-stage > .live-section { padding-inline: min(var(--cantos-space-md), 5cqi); }
 .studio-shell .cw-audio-stage .live-section h4:first-child,
 .studio-shell .cw-audio-stage.live-section h4:first-child { margin-block-start: 0; }
 .studio-shell .cw-audio-stage pre { white-space: pre-wrap; overflow-wrap: anywhere; }
