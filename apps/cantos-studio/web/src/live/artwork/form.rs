@@ -57,6 +57,16 @@ pub fn ArtworkForm(
             .with(|m| m.problem.filter(|v| *v == p))
             .map(|p| copy::problem(p, locale.get()).to_owned())
     };
+    let file_problem = move || {
+        model.with(|m| {
+            m.problem.filter(|p| {
+                matches!(
+                    p,
+                    super::Problem::File | super::Problem::Dimensions | super::Problem::Decode
+                )
+            })
+        })
+    };
     let discard_target = Memo::new(move |_| {
         DiscardTarget::Artwork(model.with(|m| {
             m.current
@@ -69,7 +79,6 @@ pub fn ArtworkForm(
         <header class="artwork-heading"><div><h3 id="artwork-title">{move ||label(Key::Title)}</h3><p>{move ||label(Key::Private)}</p></div></header>
         <div id="artwork-status" tabindex="-1" role="status" aria-live="polite" aria-atomic="true"><Badge>{move ||copy::stage(model.with(|m|m.status_stage(owner.get())),locale.get())}</Badge></div>
         <Show when=move ||!owner.get()><p>{move ||label(Key::Owner)}</p></Show>
-        <p class="artwork-workflow">{move ||label(Key::Workflow)}</p>
         <div class="artwork-columns" data-cover=move ||model.with(|m|m.cover_view(owner.get()).name())>
             <figure class="artwork-current"><figcaption>{move ||label(Key::Current)}</figcaption>
                 {move ||model.with(|m| {
@@ -94,15 +103,26 @@ pub fn ArtworkForm(
                 })}
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>
-                <label class="cui-field-label artwork-file-label" for="artwork-file">{move ||label(Key::File)}</label>
-                <input id="artwork-file" type="file" accept="image/avif" disabled=move ||locked.get()
-                    aria-describedby="artwork-bounds artwork-file-error" aria-invalid=move ||model.with(|m|matches!(m.problem,Some(super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)))
-                    on:change=move |e|on_file.run(e)/>
-                <p id="artwork-bounds" class="cui-field-help">{move ||label(Key::Bounds)}</p>
-                <p id="artwork-file-error" class="cui-field-error" role="alert" hidden=move ||!model.with(|m|matches!(m.problem,Some(super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)))>{move ||model.with(|m|m.problem).filter(|p|matches!(p,super::Problem::File|super::Problem::Dimensions|super::Problem::Decode)).map(|p|copy::problem(p,locale.get()))}</p>
-                {move ||model.with(|m|m.local.clone()).map(|file|view!{
-                    <img class="artwork-image" src=file.url alt=""/>
-                    <p class="artwork-file-facts">{copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),locale.get())}</p>
+                <div class="artwork-picker">
+                    <input id="artwork-file" class="artwork-file-input" type="file" accept="image/avif" disabled=move ||locked.get()
+                        aria-describedby="artwork-bounds artwork-file-error artwork-file-status"
+                        aria-invalid=move ||if file_problem().is_some() {"true"} else {"false"}
+                        on:change=move |e|on_file.run(e)/>
+                    <label class="artwork-file-label" for="artwork-file" data-tone=move ||if next.get().is_some() {"tonal"} else {"primary"}>
+                        {move ||label(Key::File)}
+                    </label>
+                    <p id="artwork-bounds" class="cui-field-help">{move ||label(Key::Bounds)}</p>
+                    <p id="artwork-file-error" class="cui-field-error" role="alert" hidden=move ||file_problem().is_none()>
+                        {move ||file_problem().map(|p|copy::problem(p,locale.get()))}
+                    </p>
+                    <p id="artwork-file-status" class="artwork-file-facts" role="status" aria-atomic="true">
+                        {move ||model.with(|m|m.local.as_ref().map(|file|
+                            copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),locale.get())
+                        )).unwrap_or_else(||label(Key::NoFile))}
+                    </p>
+                </div>
+                {move ||model.with(|m|m.local.as_ref().map(|file|file.url.clone())).map(|url|view!{
+                    <img class="artwork-image" src=url alt=""/>
                 })}
                 <Show when=move ||model.with(|m|m.transferred.is_some())><p>{move ||model.with(|m|m.transferred.zip(m.local.as_ref()).map(|(bytes,f)|copy::transferred_bytes(bytes,f.bytes.len() as u64,locale.get())))}</p></Show>
                 <Show when=move ||model.with(|m|m.local.is_some())><ActionButton id="artwork-discard" locale=locale reason=BlockReason::Artwork(Key::NeedLocal) blocked=Signal::derive(move ||locked.get()||model.with(|m|m.local.is_none())) variant=ButtonVariant::Text
@@ -120,6 +140,14 @@ pub fn ArtworkForm(
                 state=declarations required=true help=Signal::derive(move ||Some(label(Key::RightsHelp))) error=Signal::derive(move ||problem(super::Problem::Rights))
                 on_input=Callback::new(move |v|draft.update(|d|d.rights=v))/>
         </div>
+        <details class="artwork-metadata">
+            <summary>{move ||label(Key::ValidationDetails)}</summary>
+            <p>{move ||label(Key::FileDetails)}</p>
+            <p>{move ||label(Key::AltDetails)}</p>
+            <p>{move ||label(Key::ProvenanceDetails)}</p>
+            <p>{move ||label(Key::RightsDetails)}</p>
+        </details>
+        <p class="artwork-workflow">{move ||label(Key::Workflow)}</p>
         <Show when=move ||model.with(|m|m.intent.is_some())><p>{move ||label(Key::PreparedHelp)}</p><details><summary>{move ||label(Key::IntentReceipt)}</summary><small>{move ||model.with(|m|m.intent.as_ref().map(|i|i.operation_id.clone()))}</small></details></Show>
         <Show when=move ||model.with(|m|m.compared_revision.is_some())><p>{move ||label(Key::Compare)}{move ||model.with(|m|format!(" · r{} / r{}",m.compared_revision.unwrap_or_default(),m.reported_revision.or_else(||m.current.as_ref().map(|r|r.work_revision)).unwrap_or_default()))}</p></Show>
         <Show when=move ||model.with(|m|m.asset.is_some())><p class="artwork-selection-context">{move ||label(Key::SelectHelp)}{move ||model.with(|m|m.current.as_ref().map(|r|copy::selection_revision(r.work_revision,locale.get())))}</p></Show>
