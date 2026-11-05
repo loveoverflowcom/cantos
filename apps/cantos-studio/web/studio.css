@@ -60,7 +60,7 @@ body { margin: 0; }
 .studio-shell .studio-header small { display: block; font-size: var(--cantos-type-metadata-size); font-weight: 400; color: var(--cantos-color-on-surface-variant); }
 .studio-shell .studio-header .toolbar { margin: 0; }
 .studio-shell .studio-header label { font-weight: 400; }
-.studio-shell .workspace-nav { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); padding-block: var(--cantos-space-md); margin-block-end: var(--cantos-space-md); }
+
 .studio-shell .authoring-nav button[aria-pressed="true"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
 .studio-shell .revision-strip { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cantos-space-sm); }
 .studio-shell .authoring-workspace { display: grid; grid-template-columns: minmax(11rem, .75fr) minmax(0, 2.4fr) minmax(16rem, 1fr); gap: var(--cantos-space-lg); margin-block: var(--cantos-space-md); align-items: start; }
@@ -373,10 +373,32 @@ body { margin: 0; }
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.studio-shell .studio-workbench { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: var(--cantos-space-lg); align-items: start; }
-.studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-sm); margin: 0; position: sticky; inset-block-start: var(--cantos-space-md); }
-.studio-shell .workspace-nav .cui-nav-item { inline-size: 100%; box-sizing: border-box; justify-content: start; text-align: start; }
+.studio-shell .studio-workbench { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: var(--cantos-space-lg); align-items: start; }
+/* A 15rem rail leaves a 50rem task region before switching at 68rem of available
+   container space. This geometry is Studio-owned; shared NavItem anatomy is unchanged. */
+.studio-shell .workspace-navigation { position: sticky; inset-block-start: var(--cantos-space-md); min-inline-size: 0; }
+.studio-shell .workspace-navigation-rail { max-block-size: calc(100dvh - 2 * var(--cantos-space-md)); overflow-y: auto; }
+.studio-shell .workspace-nav { display: flex; flex-direction: column; gap: var(--cantos-space-lg); min-inline-size: 0; padding: var(--cantos-space-sm); }
+.studio-shell .workspace-nav-list { display: grid; gap: var(--cantos-space-lg); min-inline-size: 0; }
+.studio-shell .workspace-nav-group { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
+.studio-shell .workspace-nav-group h3 { margin: 0; padding: var(--cantos-space-xs) var(--cantos-space-sm); font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); color: var(--cantos-color-on-surface-variant); }
+.studio-shell .workspace-nav-group[data-current="true"] h3 { color: var(--cantos-color-primary); }
+.studio-shell .workspace-nav .cui-nav-item { inline-size: 100%; min-inline-size: 0; box-sizing: border-box; justify-content: start; text-align: start; white-space: normal; }
+.studio-shell .workspace-nav .cui-nav-label { overflow-wrap: anywhere; }
 .studio-shell .workspace-nav .cui-nav-item[aria-current="page"] { text-decoration: none; }
+.studio-shell .workspace-nav-footer { margin-block-start: auto; min-inline-size: 0; }
+.studio-shell .workspace-nav-footer:empty { display: none; }
+.studio-shell .workspace-navigation-menu { display: none; align-items: center; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.studio-shell .workspace-navigation-context { color: var(--cantos-color-on-surface-variant); overflow-wrap: anywhere; }
+.studio-shell .workspace-navigation-drawer { margin: 0; inset: 0 auto 0 0; inline-size: min(24rem, 100%); max-inline-size: 100%; block-size: 100dvh; max-block-size: 100dvh; border-radius: 0 var(--cantos-web-shape-overlay) var(--cantos-web-shape-overlay) 0; box-shadow: none; }
+.studio-shell .workspace-navigation-drawer .cui-dialog-body { display: flex; flex-direction: column; }
+.studio-shell .workspace-navigation-drawer .workspace-nav { flex: 1; }
+@container studio (max-width: 68rem) {
+  .studio-shell .studio-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
+  .studio-shell .workspace-navigation { position: static; }
+  .studio-shell .workspace-navigation-rail { display: none; }
+  .studio-shell .workspace-navigation-menu { display: flex; }
+}
 .studio-shell .studio-workbench-content { min-inline-size: 0; }
 .studio-shell .studio-pane-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); }
 .studio-shell .studio-pane-heading h2 { margin-block: 0; }
@@ -408,9 +430,6 @@ body { margin: 0; }
 @container studio (max-width: 64rem) {
   .studio-shell .studio-entry { grid-template-columns: minmax(0, 1fr); min-block-size: auto; padding-block: var(--cantos-space-md); }
   .studio-shell .entry-story { display: none; }
-  .studio-shell .studio-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
-  .studio-shell .studio-workbench > .workspace-nav { flex-direction: row; flex-wrap: wrap; position: static; }
-  .studio-shell .studio-workbench > .workspace-nav > * { flex: 1 1 9rem; }
 }
 @container studio (max-width: 45rem) {
   .studio-shell .entry-form { padding: var(--cantos-space-sm) 0; }
@@ -440,24 +459,12 @@ body { margin: 0; }
   .studio-shell .dashboard-actions > * { flex: 1 1 auto; }
 }
 
-/* One set of links serves every width; narrow containers turn the rail into a scrollable tab strip. */
-.studio-shell .workspace-nav-list { display: flex; flex-direction: column; gap: var(--cantos-space-xs); min-inline-size: 0; }
 .studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
 .studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
 /* Programmatic focus targets keep their ring, except headings: they are not operable, so the route
    announcement (focus_heading) must not paint a frame around the title. Operable controls keep theirs. */
 .studio-shell [tabindex="-1"]:not(:is(h1, h2, h3, h4, h5, h6)):focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: calc(-1 * var(--cantos-size-focus-width)); }
 .studio-shell :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible { outline: none; }
-@container studio (max-width: 64rem) {
-  .studio-shell .workspace-nav-list { flex-direction: row; flex-wrap: wrap; }
-  .studio-shell .workspace-nav-list > * { flex: 1 1 9rem; }
-}
-@container studio (max-width: 45rem) {
-  .studio-shell .studio-workbench > .workspace-nav { padding: var(--cantos-space-sm); }
-  .studio-shell .workspace-nav-list { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: thin; padding-block-end: var(--cantos-space-xs); }
-  .studio-shell .workspace-nav-list > .cui-nav-item { flex: 0 0 auto; inline-size: auto; scroll-snap-align: center; white-space: nowrap; }
-}
-
 /* Exact production identifiers and native media controls stay inside narrow Studio sections. */
 .studio-shell .live-section :where(p, code) { min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; }
 .studio-shell .live-section audio { display: block; inline-size: 100%; max-inline-size: 100%; }

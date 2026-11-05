@@ -28409,6 +28409,78 @@
           "text": "Explore stories"
         }
       }
+    },
+    "studio.workspace.desk_group": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Bàn viết"
+        },
+        "en": {
+          "text": "Desk"
+        }
+      }
+    },
+    "studio.workspace.editing_group": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Biên tập"
+        },
+        "en": {
+          "text": "Editing"
+        }
+      }
+    },
+    "studio.workspace.production_group": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Sản xuất"
+        },
+        "en": {
+          "text": "Production"
+        }
+      }
+    },
+    "studio.workspace.overview": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Tổng quan"
+        },
+        "en": {
+          "text": "Overview"
+        }
+      }
+    },
+    "studio.workspace.open_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Menu"
+        },
+        "en": {
+          "text": "Menu"
+        }
+      }
+    },
+    "studio.workspace.close_navigation": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Đóng điều hướng"
+        },
+        "en": {
+          "text": "Close navigation"
+        }
+      }
     }
   }
 }

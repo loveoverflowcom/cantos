@@ -19,6 +19,9 @@ pub const STUDIO_EXPRESSION: Expression = Expression::Theatre;
 /// expression's comfortable auth geometry. One constant, never a per-field override (#559).
 pub const EDITOR_FIELD_DENSITY: FieldDensity = FieldDensity::Compact;
 
+mod workspace_navigation;
+pub use workspace_navigation::WorkspaceNavigationShell;
+
 /// Authored content keeps its declared language; this adapter has no interface-locale input.
 #[component]
 pub fn ContentText(language: Signal<Option<String>>, text: Signal<String>) -> impl IntoView {
@@ -206,30 +209,89 @@ fn pane_href(pane: WorkspacePane) -> Option<LinkHref> {
     LinkHref::new(format!("#{}", pane.id())).ok()
 }
 
-/// This changes visibility only. All four app panels stay mounted with their draft state.
-/// One set of links serves every width: a column in the rail, a wrapped row below 64rem and a
-/// horizontally scrollable strip below 45rem, always with icon and label.
+/// Presentation groups never replace the six pane identities or their mounted owners.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkspaceGroup {
+    Desk,
+    Editing,
+    Production,
+}
+
+impl WorkspaceGroup {
+    pub const ALL: [Self; 3] = [Self::Desk, Self::Editing, Self::Production];
+
+    pub const fn panes(self) -> &'static [WorkspacePane] {
+        match self {
+            Self::Desk => &[WorkspacePane::Dashboard, WorkspacePane::Content],
+            Self::Editing => &[
+                WorkspacePane::Import,
+                WorkspacePane::Proposal,
+                WorkspacePane::Revisions,
+            ],
+            Self::Production => &[WorkspacePane::Production],
+        }
+    }
+
+    fn id(self) -> &'static str {
+        match self {
+            Self::Desk => "desk",
+            Self::Editing => "editing",
+            Self::Production => "production",
+        }
+    }
+
+    fn heading_id(self, scope: &str) -> String {
+        format!("workspace-{scope}-{}-heading", self.id())
+    }
+
+    fn label(self, locale: crate::localization::Locale) -> &'static str {
+        text(
+            match self {
+                Self::Desk => Key::DeskGroup,
+                Self::Editing => Key::EditingGroup,
+                Self::Production => Key::ProductionGroup,
+            },
+            locale,
+        )
+    }
+}
+
+/// The same grouped links serve the rail and drawer; only IDs are scoped per presentation.
 #[component]
 pub fn WorkspaceNavigation(
     panel: RwSignal<WorkspacePane>,
     locale: Signal<crate::localization::Locale>,
+    #[prop(default = "rail")] scope: &'static str,
+    #[prop(optional)] on_select: Option<Callback<()>>,
+    #[prop(optional_no_strip)] footer: Option<Callback<&'static str, AnyView>>,
 ) -> impl IntoView {
     view! {
         <nav class="workspace-nav" aria-label=move || text(Key::Workspace, locale.get())>
             <div class="workspace-nav-list">
-            {WorkspacePane::ALL.into_iter().filter_map(|pane| pane_href(pane).map(|href| view! {
-                <NavItem id=format!("{}-control", pane.id()) href=href
+            {WorkspaceGroup::ALL.into_iter().map(|group| {
+                let heading_id = group.heading_id(scope);
+                view! {
+                <section class="workspace-nav-group" aria-labelledby=heading_id.clone()
+                    data-current=move || group.panes().contains(&panel.get()).to_string()>
+                <h3 id=heading_id.clone()>{move || group.label(locale.get())}</h3>
+                {group.panes().iter().copied().filter_map(|pane| pane_href(pane).map(|href| view! {
+                <NavItem id=if scope == "rail" { format!("{}-control", pane.id()) } else { format!("{}-{scope}-control", pane.id()) } href=href
                     icon=pane.icon() current=Signal::derive(move || panel.get() == pane)
                     on_press=Callback::new(move |event: MouseEvent| {
                         if switches_in_place(event.button(), event.ctrl_key(), event.meta_key(), event.shift_key(), event.alt_key()) {
                             event.prevent_default();
                             pane_selection(panel, pane).run(true);
+                            if let Some(selected) = on_select { selected.run(()); }
                         }
                     })>
-                    {move || pane.label(locale.get())}
+                    {move || if pane == WorkspacePane::Dashboard { text(Key::Overview, locale.get()) } else { pane.label(locale.get()) }}
                 </NavItem>
-            })).collect_view()}
+                })).collect_view()}
+                </section>
+                }
+            }).collect_view()}
             </div>
+            <div class="workspace-nav-footer">{footer.map(|render| render.run(scope))}</div>
         </nav>
     }
 }
@@ -731,6 +793,54 @@ mod tests {
                 assert_eq!(panel.get_untracked(), pane);
                 pane_selection(panel, pane).run(false);
                 assert_eq!(panel.get_untracked(), pane);
+            }
+        });
+    }
+
+    #[test]
+    fn groups_partition_all_six_stable_panes_without_changing_hashes() {
+        let grouped: Vec<_> = WorkspaceGroup::ALL
+            .into_iter()
+            .flat_map(|group| group.panes().iter().copied())
+            .collect();
+        assert_eq!(grouped.len(), 6);
+        for pane in WorkspacePane::ALL {
+            assert_eq!(grouped.iter().filter(|item| **item == pane).count(), 1);
+            assert_eq!(WorkspacePane::from_hash(&format!("#{}", pane.id())), pane);
+        }
+        assert_eq!(
+            WorkspaceGroup::Desk.panes(),
+            &[WorkspacePane::Dashboard, WorkspacePane::Content]
+        );
+        assert_eq!(
+            WorkspaceGroup::Editing.panes(),
+            &[
+                WorkspacePane::Import,
+                WorkspacePane::Proposal,
+                WorkspacePane::Revisions
+            ]
+        );
+        assert_eq!(
+            WorkspaceGroup::Production.panes(),
+            &[WorkspacePane::Production]
+        );
+    }
+
+    #[test]
+    fn drawer_links_have_unique_ids_and_the_same_destinations_and_current_group() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let panel = RwSignal::new(WorkspacePane::Content);
+            for language in crate::localization::Locale::supported() {
+                let locale = Signal::stored(language);
+                let html = view! { <WorkspaceNavigation panel locale scope="drawer"/> }.to_html();
+                assert_eq!(html.matches("data-current=\"true\"").count(), 1);
+                assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
+                assert_eq!(html.matches("<section ").count(), 3);
+                for pane in WorkspacePane::ALL {
+                    assert!(html.contains(&format!("id=\"{}-drawer-control\"", pane.id())));
+                    assert!(html.contains(&format!("href=\"#{}\"", pane.id())));
+                }
             }
         });
     }

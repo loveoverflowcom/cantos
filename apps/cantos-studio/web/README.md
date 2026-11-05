@@ -146,6 +146,13 @@ appear only from facts actually read; pagination offers only the directions that
 Import, new Work, current Work, audio and script-editor actions open the existing mounted
 workspaces. Returning to the desk preserves authoring text and request snapshots; pane return
 retains native caret/selection/scroll without copying manuscript text into navigation state.
+The shell groups the same six hash destinations into Desk (Dashboard and Content), Editing
+(Import, Proposal and Revisions), and Production. A 15 rem rail changes to Menu and the shared
+native modal Dialog at 68 rem of available container width. Groups remain expanded in both
+presentations. Opening, closing or resizing navigation changes chrome only; workspace and
+session owners remain mounted. The shared footer callback receives a rail/drawer scope for
+unique control IDs; preferences/account placement remains owned by #582. See the
+[source-bound navigation evidence](../../../docs/evidence/studio-navigation-groups-131.md).
 In-flight requests block sign-in, refresh and reauthentication, but **never logout**: logout
 (`session::admits`) closes local authority synchronously, before its first await. The session
 owner fences every lease (a late reply of the account being left is an unknown outcome, never an

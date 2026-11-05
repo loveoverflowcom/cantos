@@ -2,6 +2,13 @@
 use crate::localization::generated::workspace as resources;
 #[derive(Clone, Copy)]
 pub enum Key {
+    DeskGroup,
+    EditingGroup,
+    ProductionGroup,
+    Overview,
+    OpenNavigation,
+    CloseNavigation,
+
     Import,
     Proposal,
     Revisions,
@@ -49,6 +56,13 @@ pub enum Key {
 
 pub fn text(key: Key, locale: crate::localization::Locale) -> &'static str {
     match key {
+        Key::DeskGroup => resources::text(resources::Key::DeskGroup, locale),
+        Key::EditingGroup => resources::text(resources::Key::EditingGroup, locale),
+        Key::ProductionGroup => resources::text(resources::Key::ProductionGroup, locale),
+        Key::Overview => resources::text(resources::Key::Overview, locale),
+        Key::OpenNavigation => resources::text(resources::Key::OpenNavigation, locale),
+        Key::CloseNavigation => resources::text(resources::Key::CloseNavigation, locale),
+
         Key::ControlBlocked => resources::text(resources::Key::ControlBlocked, locale),
         Key::ControlReadOnly => resources::text(resources::Key::ControlReadOnly, locale),
         Key::ControlUnavailable => resources::text(resources::Key::ControlUnavailable, locale),
