@@ -1,5 +1,5 @@
 {
-  "catalogSha256": "6b733104a5259d88d5b0e1197ae68c84bef548b9b695f095cfb340b0c1068acc",
+  "catalogSha256": "280ca9028ea83b8526daa8a372bda0db24cda5cf9381834c2ad941eb16cb9f69",
   "cldr": "48.2.1",
   "icu4x": "2.3",
   "locales": [
@@ -143,6 +143,7 @@
       "output": "text"
     },
     "studio.artwork.alt": {},
+    "studio.artwork.alt_details": {},
     "studio.artwork.alt_help": {},
     "studio.artwork.bounds": {},
     "studio.artwork.cancel": {},
@@ -155,6 +156,7 @@
     "studio.artwork.discard": {},
     "studio.artwork.empty": {},
     "studio.artwork.file": {},
+    "studio.artwork.file_details": {},
     "studio.artwork.file_facts": {
       "byte_length": "count",
       "height": "count",
@@ -180,6 +182,7 @@
     "studio.artwork.need_local": {},
     "studio.artwork.need_owner": {},
     "studio.artwork.need_recovery": {},
+    "studio.artwork.no_file": {},
     "studio.artwork.operation": {},
     "studio.artwork.owner": {},
     "studio.artwork.pending_help": {},
@@ -208,12 +211,14 @@
     "studio.artwork.problem_provenance": {},
     "studio.artwork.problem_rights": {},
     "studio.artwork.provenance": {},
+    "studio.artwork.provenance_details": {},
     "studio.artwork.provenance_help": {},
     "studio.artwork.reconcile": {},
     "studio.artwork.refresh": {},
     "studio.artwork.replacement": {},
     "studio.artwork.replay": {},
     "studio.artwork.rights": {},
+    "studio.artwork.rights_details": {},
     "studio.artwork.rights_help": {},
     "studio.artwork.select": {},
     "studio.artwork.select_help": {},
@@ -244,6 +249,7 @@
     "studio.artwork.unavailable_preview": {},
     "studio.artwork.unverified": {},
     "studio.artwork.upload": {},
+    "studio.artwork.validation_details": {},
     "studio.artwork.workflow": {},
     "studio.authoring.authoring_copy_act": {},
     "studio.authoring.authoring_copy_act_title": {},

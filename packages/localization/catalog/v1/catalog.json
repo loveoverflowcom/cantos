@@ -13049,10 +13049,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Ảnh đã được máy chủ nhận vẫn riêng tư. Chọn ảnh bìa không xuất bản tác phẩm lên Cantos. Tệp gốc và lịch sử được giữ bất biến."
+          "text": "Ảnh tải lên vẫn riêng tư. Chọn bìa không công bố tác phẩm."
         },
         "en": {
-          "text": "Images the server has accepted stay private. Selecting a cover does not publish the Work to Cantos. Original bytes and history are preserved."
+          "text": "Uploaded images stay private. Selecting a cover does not publish the work."
         }
       }
     },
@@ -13104,15 +13104,27 @@
         }
       }
     },
+    "studio.artwork.no_file": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chưa chọn tệp"
+        },
+        "en": {
+          "text": "No file selected"
+        }
+      }
+    },
     "studio.artwork.bounds": {
       "args": {},
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px. Xem trước để nhận diện; không cắt hay thay đổi tệp. Máy chủ kiểm tra và quyết định có nhận ảnh hay không."
+          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px."
         },
         "en": {
-          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px. Preview is for identification; source bytes are unchanged. The server checks the file and decides whether to accept it."
+          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px."
         }
       }
     },
@@ -13133,10 +13145,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Bắt buộc khi chọn ảnh · tối đa 1024 byte UTF-8 · không có ký tự điều khiển hoặc ngắt dòng."
+          "text": "Mô tả ngắn nội dung ảnh. Bắt buộc khi chọn làm bìa."
         },
         "en": {
-          "text": "Required when selecting · up to 1024 UTF-8 bytes · no control characters or line separators."
+          "text": "Briefly describe the image. Required when selecting it as the cover."
         }
       }
     },
@@ -13145,10 +13157,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Nguồn / lịch sử tạo ảnh"
+          "text": "Nguồn ảnh"
         },
         "en": {
-          "text": "Image provenance"
+          "text": "Image source"
         }
       }
     },
@@ -13157,10 +13169,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Bắt buộc · tối đa 4096 byte UTF-8. Khai báo nguồn không đồng nghĩa quyền đã được xác minh."
+          "text": "Bắt buộc. Ghi ảnh đến từ đâu hoặc do ai tạo. Khai báo nguồn không xác nhận quyền sử dụng."
         },
         "en": {
-          "text": "Required · up to 4096 UTF-8 bytes. A provenance claim is not verified rights."
+          "text": "Required. Say where the image came from or who made it. Declaring a source does not verify usage rights."
         }
       }
     },
@@ -13181,10 +13193,70 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "1–64 ID phân biệt, cách nhau bằng dấu phẩy; a–z, 0–9, _ hoặc -, tối đa 64 byte mỗi ID. Server kiểm tra cùng owner."
+          "text": "Bắt buộc. Nhập 1–64 mã bằng chứng quyền sử dụng khác nhau, cách nhau bằng dấu phẩy."
         },
         "en": {
-          "text": "1–64 distinct IDs, comma separated; a–z, 0–9, _ or -, at most 64 bytes per ID. The server checks ownership."
+          "text": "Required. Enter 1–64 different rights evidence references, separated by commas."
+        }
+      }
+    },
+    "studio.artwork.validation_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Chi tiết kiểm tra tệp và khai báo"
+        },
+        "en": {
+          "text": "File and declaration checks"
+        }
+      }
+    },
+    "studio.artwork.file_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Ảnh tối đa 16.777.216 pixel. Bản xem trước không cắt hay chỉnh sửa tệp. Máy chủ kiểm tra ảnh trước khi nhận; tệp gốc và lịch sử được giữ nguyên."
+        },
+        "en": {
+          "text": "Images may contain at most 16,777,216 pixels. Previewing does not crop or edit the file. The server validates the image before accepting it and preserves the original file and history."
+        }
+      }
+    },
+    "studio.artwork.alt_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Mô tả thay thế: tối đa 1024 byte UTF-8, không có ký tự điều khiển hoặc ngắt dòng."
+        },
+        "en": {
+          "text": "Alt text: up to 1024 UTF-8 bytes, without control characters or line breaks."
+        }
+      }
+    },
+    "studio.artwork.provenance_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Nguồn ảnh: tối đa 4096 byte UTF-8. Trong các ký tự điều khiển, chỉ chấp nhận tab và xuống dòng."
+        },
+        "en": {
+          "text": "Image source: up to 4096 UTF-8 bytes. Tab and newline are the only allowed control characters."
+        }
+      }
+    },
+    "studio.artwork.rights_details": {
+      "args": {},
+      "exposure": "production",
+      "translations": {
+        "vi-VN": {
+          "text": "Quyền sử dụng: mỗi ID dài tối đa 64 byte, chỉ gồm a–z, 0–9, _ hoặc -. Máy chủ kiểm tra quyền sở hữu của từng tham chiếu."
+        },
+        "en": {
+          "text": "Usage rights: each ID can be up to 64 bytes and contain only a–z, 0–9, _ or -. The server checks ownership of each reference."
         }
       }
     },
@@ -27855,10 +27927,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn tệp từ máy → Chuẩn bị → Tải lên → Chọn làm bìa. Mỗi bước cần bạn xác nhận."
+          "text": "Bước tiếp theo: chuẩn bị ảnh, tải lên rồi chọn làm bìa. Xác nhận từng bước."
         },
         "en": {
-          "text": "Choose a local file → Prepare → Upload → Select as cover. Confirm each step separately."
+          "text": "Next: prepare the image, upload it, then select it as the cover. Confirm each step separately."
         }
       }
     },
