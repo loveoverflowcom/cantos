@@ -65,8 +65,8 @@ pub enum Task {
     HostingReport(crate::hosting_report::HostingReportArgs),
     /// Read-only HTTPS comparison with one verified Web release; never publishes or logs in.
     HostingSmoke(crate::deploy::inspect::HostingSmokeArgs),
-    /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote
-    /// write; never invoked by build, run, verify, preflight or ci.
+    /// Explicit static Web deployment of one app to Firebase Hosting or Cloudflare Pages (preview
+    /// or live). A remote write; never invoked by build, run, verify, preflight or ci.
     Deploy(crate::deploy::DeployArgs),
     /// Explicit remote tester distribution (Firebase App Distribution, selected Theatre QA APK). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
@@ -229,7 +229,7 @@ pub enum VerifySuite {
         #[arg(long)]
         conformance: bool,
     },
-    /// Exact registered API bounded proofs; no normal build or CI requirement.
+    /// Exact registered Server, Identity and Forge bounded proofs; no normal build or CI requirement.
     Kani {
         /// Select a registered proposition (repeatable); omission selects all registered kernels.
         #[arg(long, value_enum)]
@@ -241,11 +241,13 @@ pub enum VerifySuite {
     Rust,
     /// Forge Rust lint/tests and offline Firebase Functions wrapper tests (Node 22+).
     Forge,
-    /// Embedded Turso store foundation: lint, file-backed tests and the engine capability report.
+    /// Identity persistence/service and the embedded Turso store: lint, file-backed tests and the
+    /// engine capability report.
     Turso,
-    /// WASM clippy and Trunk builds for Studio and Theatre Web.
+    /// WASM clippy and Trunk builds for Studio and Theatre Web and the UI gallery.
     Web,
-    /// Script IR goldens, wire/media contract tests, WAV oracle and actual Opus intake inspection.
+    /// Script IR and Protobuf goldens, wire/media contract tests, WAV oracle and actual Opus intake
+    /// inspection.
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,

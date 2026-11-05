@@ -57,3 +57,19 @@ is not a product state: the session owner replaces that pair with status/recover
 is unavailable; no CSS-only fixture can establish its admission semantics.
 Whole-page scroll width is retained separately from header fit; an overflowing unchanged catalog
 card must not be reported as caused by header controls or silently treated as a passing page.
+
+## Me shortcuts
+
+`me-harmonization.cua.mjs` uses the same CUA tab API on the compiled Theatre Web with a mounted
+signed-in fixture; it does not create a session. Start both helpers on the Me page (`#account`).
+`meLayout(tab)` requires the profile and Listening groups to be separated by the details
+column's own row gap, two preference choosers and no page-level horizontal overflow; it returns
+the measured facts. `meShortcuts(tab)` presses Enter on the Saved and History shortcuts and
+requires keyboard focus on the matching `theatre-library-*-heading` with the canonical
+`#library`/`#history` address, again after Back to Me and Forward. Both throw on a regression;
+layout and focus failures carry the observed `facts`.
+
+These are browser-only observations of a synthetic account. A real session reload, playback
+overlap, browser zoom and assistive-technology acceptance stay separate; the
+[UI-REVIEW-716 record](../../../../docs/evidence/theatre-me-visual-harmonization.md) lists the
+observed matrix and the remaining gaps.
