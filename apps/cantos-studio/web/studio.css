@@ -505,11 +505,9 @@ body { margin: 0; }
 .studio-shell .cw-form-grid { grid-template-columns: minmax(0, 1fr); }
 .studio-shell .cw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-md); }
 .studio-shell .cw-reason { margin-block: 0 var(--cantos-space-sm); }
-/* Each section's `.cw-reason` / `.help` / `#live-status` line renders the active blocking or
-   request state once in-flow; per-button `.cui-button-reason` spans inside workspace action groups
-   and during in-flight requests stay in the accessibility tree for `aria-describedby` without
-   expanding duplicate helper paragraphs under every button and shifting the layout (#570). */
-.studio-shell .cw :is(.cw-nav, .cw-actions, .toolbar, .cw-access, .cw-access-audience, .cw-metadata-candidate, .cw-metadata-asset, .cw-metadata-order, .cw-metadata-review) .cui-button-reason:not([hidden]),
+/* Save controls share their visible section reason. Only in-flight requests suppress other
+   per-button copies: idle input/lifecycle blockers must remain visible beside their controls. */
+.studio-shell .cw :is(#live-patch-work-reason, #live-save-preview-work-reason, #live-patch-unit-reason):not([hidden]),
 .studio-shell .cw[data-busy="true"] .cui-button-reason:not([hidden]) {
   position: absolute;
   inline-size: 1px;

@@ -27,6 +27,14 @@ pub struct DashboardQuery {
 }
 
 impl DashboardQuery {
+    pub fn should_read(&self, visible: bool, session_ready: bool, actor: &str, epoch: u64) -> bool {
+        visible && session_ready && !actor.is_empty() && !self.attempted(actor, epoch)
+    }
+
+    pub fn has_choices(&self, has_rows: bool) -> bool {
+        self.read == CatalogRead::Ready && has_rows
+    }
+
     pub fn attempted(&self, actor: &str, epoch: u64) -> bool {
         self.context
             .as_ref()
@@ -49,6 +57,48 @@ impl DashboardQuery {
             },
             ..self.clone()
         }
+    }
+}
+
+/// What Content's request banner shows. `CatalogStatus` is the one announcer of a Work-list
+/// read, so for that read the banner keeps only its request actions (cancel, reconcile, retry).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RequestBanner {
+    Hidden,
+    ActionsOnly,
+    Full,
+}
+
+impl RequestBanner {
+    pub fn of(state: &super::RequestState) -> Self {
+        let has_actions =
+            state.phase() == super::Phase::Pending || state.can_reconcile() || state.can_retry();
+        match (state.phase(), state.command()) {
+            (super::Phase::Idle, _) => Self::Hidden,
+            (_, Some(super::Command::Works { .. })) if has_actions => Self::ActionsOnly,
+            (_, Some(super::Command::Works { .. })) => Self::Hidden,
+            _ if super::feedback::shows_feedback(state) => Self::Full,
+            _ => Self::Hidden,
+        }
+    }
+}
+
+/// Shared by the desk and Content: only a successful bounded page can be empty.
+#[component]
+pub fn CatalogStatus(
+    #[prop(into)] query: Signal<DashboardQuery>,
+    #[prop(into)] has_rows: Signal<bool>,
+    locale: Signal<crate::localization::Locale>,
+) -> impl IntoView {
+    view! {
+        <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, locale.get())}</p></Show>
+        <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><LoadingState announcement=Announcement::Polite>{move || text(Key::Loading, locale.get())}</LoadingState></Show>
+        <Show when=move || query.with(|q| matches!(q.read, CatalogRead::Failed(_)))>
+            <div role="status" aria-live="polite"><h4>{move ||text(Key::ReadFailed,locale.get())}</h4><p>{move ||text(Key::RetryHelp,locale.get())}</p></div>
+        </Show>
+        <Show when=move || query.with(|q| q.read == CatalogRead::Ready) && !has_rows.get()>
+            <div role="status" aria-live="polite"><h4>{move ||text(Key::EmptyTitle,locale.get())}</h4><p>{move ||text(Key::EmptyHelp,locale.get())}</p></div>
+        </Show>
     }
 }
 
@@ -139,18 +189,11 @@ pub fn Dashboard(
                     <section aria-labelledby="dashboard-works-title">
                         <div class="dashboard-section-heading"><h3 id="dashboard-works-title" tabindex="-1">{move || text(Key::Works, locale.get())}</h3>
                             <ActionButton id="dashboard-refresh" locale=locale variant=ButtonVariant::Text blocked=blocked on_press=Callback::new(move |_| on_refresh.run(()))>{move || text(Key::Refresh, locale.get())}</ActionButton></div>
-                        <Show when=move || query.with(|q| q.read == CatalogRead::Ready) && !has_selection.get() && facts.with(|f| !f.works.is_empty())>
+                        <Show when=move || query.with(|q| q.has_choices(facts.with(|f| !f.works.is_empty()))) && !has_selection.get()>
                             <p class="help dashboard-hint">{move || text(Key::NoSelection, locale.get())}</p>
                         </Show>
                         <div id="dashboard-status" class="dashboard-status" tabindex="-1">
-                            <Show when=move || query.with(|q| q.read == CatalogRead::NotRead)><p role="status" aria-live="polite">{move || text(Key::NotRead, locale.get())}</p></Show>
-                            <Show when=move || query.with(|q| q.read == CatalogRead::Loading)><LoadingState announcement=Announcement::Polite>{move || text(Key::Loading, locale.get())}</LoadingState></Show>
-                            <Show when=move || query.with(|q| matches!(q.read, CatalogRead::Failed(_)))>
-                                <div role="status" aria-live="polite"><h4>{move ||text(Key::ReadFailed,locale.get())}</h4><p>{move ||text(Key::RetryHelp,locale.get())}</p></div>
-                            </Show>
-                            <Show when=move || query.with(|q| q.read == CatalogRead::Ready) && facts.with(|f| f.works.is_empty())>
-                                <div><h4>{move ||text(Key::EmptyTitle,locale.get())}</h4><p>{move ||text(Key::EmptyHelp,locale.get())}</p></div>
-                            </Show>
+                            <CatalogStatus query=query has_rows=Signal::derive(move || facts.with(|f| !f.works.is_empty())) locale=locale/>
                         </div>
                         <ul class="dashboard-work-list">
                             <For each=move || work_ids.get() key=|id| id.clone() children=move |id| {
@@ -209,6 +252,162 @@ pub fn Dashboard(
 mod tests {
     use super::*;
     use crate::contract::{CatalogPage, CatalogWork, CreateWorkRequest};
+
+    #[test]
+    fn catalog_activation_waits_for_visible_confirmed_owner_and_rearms_for_new_observations() {
+        let query = DashboardQuery::default();
+        for (visible, ready, actor, expected) in [
+            (false, true, "alice", false),
+            (true, false, "alice", false),
+            (true, true, "", false),
+            (true, true, "alice", true),
+        ] {
+            assert_eq!(query.should_read(visible, ready, actor, 4), expected);
+        }
+        let loading = query.start("alice", 4);
+        let failed = loading.finish(&Err(ClientError::Transport));
+        let ready = loading.finish(&Ok(Reply::Works(CatalogPage {
+            items: vec![],
+            next_cursor: None,
+        })));
+        for observed in [loading, failed, ready] {
+            // Content → desk → Content shares the same single attempt, even after failure.
+            for visible in [true, false, true] {
+                assert!(!observed.should_read(visible, true, "alice", 4));
+            }
+            assert!(!observed.should_read(true, false, "alice", 5));
+            assert!(observed.should_read(true, true, "alice", 5));
+            assert!(observed.should_read(true, true, "bob", 4));
+        }
+    }
+
+    #[test]
+    fn request_banner_defers_list_read_state_to_catalog_status_but_keeps_its_actions() {
+        use super::super::{Command, Phase, RequestState};
+        let idle = RequestState::default()
+            .context("alice", "workspace:4")
+            .unwrap();
+        assert_eq!(RequestBanner::of(&idle), RequestBanner::Hidden);
+        let page = |items| {
+            Ok(Reply::Works(CatalogPage {
+                items,
+                next_cursor: None,
+            }))
+        };
+        let (reading, ticket) = idle.begin(Command::Works { cursor: None }).unwrap();
+        assert_eq!(reading.phase(), Phase::Pending);
+        // Cancel stays reachable; CatalogStatus alone announces loading.
+        assert_eq!(RequestBanner::of(&reading), RequestBanner::ActionsOnly);
+        for settled in [
+            reading.finish(ticket, page(vec![])),
+            reading.finish(ticket, Err(ClientError::Transport)),
+            reading.cancel().unwrap(),
+        ] {
+            assert_ne!(settled.phase(), Phase::Pending);
+            assert_eq!(RequestBanner::of(&settled), RequestBanner::Hidden);
+        }
+        // Other requests keep the full banner, including other paged reads.
+        let (units, ticket) = idle
+            .begin(Command::Units {
+                work: "w".into(),
+                cursor: None,
+            })
+            .unwrap();
+        assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
+        let units = units.finish(ticket, Err(ClientError::Transport));
+        assert_eq!(RequestBanner::of(&units), RequestBanner::Full);
+    }
+
+    #[test]
+    fn request_banner_withdraws_settled_panel_reads_but_keeps_errors_and_missing_heads() {
+        use super::super::{Command, RequestState};
+        use crate::contract::WorkArtworkResponse;
+        let idle = RequestState::default()
+            .context("alice", "workspace:4")
+            .unwrap();
+        let (reading, ticket) = idle
+            .begin(Command::MetadataArtwork {
+                work: "w".into(),
+                revision: 1,
+            })
+            .unwrap();
+        assert_eq!(RequestBanner::of(&reading), RequestBanner::Full);
+        let ready = reading.finish(
+            ticket,
+            Ok(Reply::Artwork(WorkArtworkResponse {
+                work_id: "w".into(),
+                work_revision: 1,
+                artwork: None,
+                changed_at_ms: None,
+            })),
+        );
+        assert_eq!(RequestBanner::of(&ready), RequestBanner::Hidden);
+        let failed = reading.finish(ticket, Err(ClientError::Transport));
+        assert_eq!(RequestBanner::of(&failed), RequestBanner::Full);
+        let (reading, ticket) = idle
+            .begin(Command::ContentHead { unit: "u".into() })
+            .unwrap();
+        let missing = reading.finish(
+            ticket,
+            Err(ClientError::http(
+                404,
+                br#"{"code":"not_found","current_revision":null,"issues":[]}"#,
+            )),
+        );
+        assert_eq!(RequestBanner::of(&missing), RequestBanner::Full);
+    }
+
+    #[test]
+    fn catalog_read_of_old_actor_or_epoch_cannot_complete_the_current_request() {
+        use super::super::{Command, RequestState};
+        let current = RequestState::default()
+            .context("alice", "workspace:4")
+            .unwrap();
+        let command = Command::Works { cursor: None };
+        assert_eq!(command.path().unwrap(), "/api/v1/studio/works?limit=20");
+        let (pending, ticket) = current.begin(command).unwrap();
+        let reply = Ok(Reply::Works(CatalogPage {
+            items: vec![],
+            next_cursor: None,
+        }));
+        for (actor, target) in [("alice", "workspace:5"), ("bob", "workspace:4")] {
+            let next = pending.context(actor, target).unwrap();
+            assert!(!next.accepts(ticket));
+            let ignored = next.finish(ticket, reply.clone());
+            assert_eq!(ignored.phase(), super::super::Phase::Idle);
+            assert_eq!(ignored.actor(), actor);
+            assert_eq!(ignored.target(), target);
+            assert!(ignored.result().is_none());
+        }
+    }
+
+    #[test]
+    fn catalog_status_distinguishes_unread_loading_failed_empty_and_rows_in_both_locales() {
+        let owner = Owner::new();
+        owner.with(|| {
+            for language in [crate::localization::Locale::Vietnamese, crate::localization::Locale::English] {
+                for (read, expected) in [
+                    (CatalogRead::NotRead, Key::NotRead),
+                    (CatalogRead::Loading, Key::Loading),
+                    (CatalogRead::Failed(ClientError::Transport), Key::ReadFailed),
+                    (CatalogRead::Ready, Key::EmptyTitle),
+                ] {
+                    for has_rows in [false, true] {
+                        let query = RwSignal::new(DashboardQuery { context: None, read: read.clone() });
+                        let html = view! { <CatalogStatus query=query has_rows=Signal::stored(has_rows) locale=Signal::stored(language)/ > }.to_html();
+                        let ready = read == CatalogRead::Ready;
+                        assert_eq!(query.with(|q| q.has_choices(has_rows)), ready && has_rows);
+                        // Every catalog state is announced; Content's request banner defers to it.
+                        assert_eq!(html.contains("role=\"status\""), !(ready && has_rows), "{html}");
+                        for key in [Key::NotRead, Key::Loading, Key::ReadFailed, Key::EmptyTitle] {
+                            let expected_text = text(key, language) == text(expected, language) && !(ready && has_rows);
+                            assert_eq!(html.contains(text(key, language)), expected_text, "{html}");
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     #[test]
     fn failed_initial_read_stays_attempted_until_explicit_refresh_or_new_context() {

@@ -872,15 +872,17 @@ pub fn ContentWorkspace(
         let owner = actor.get();
         let epoch = session_epoch.get();
         let target = format!("workspace:{epoch}");
-        if dashboard.get()
-            && active.get()
-            && !session_pending.get()
-            && !owner.is_empty()
-            && !blocked.get()
+        if dashboard_query.with(|query| {
+            query.should_read(
+                pane_shown.get(),
+                active.get() && !session_pending.get(),
+                &owner,
+                epoch,
+            )
+        }) && !blocked.get()
             && state.with(|s| s.actor() == owner && s.target() == target && s.pending().is_none())
             && !file_busy.get()
             && !delegation_unresolved.get()
-            && !dashboard_query.with(|query| query.attempted(&owner, epoch))
         {
             dashboard_query.update(|query| *query = query.start(&owner, epoch));
             dispatch.send(Command::Works { cursor: None });
@@ -1150,6 +1152,8 @@ pub fn ContentWorkspace(
         facts.with(|f| projection::row_ids(f.units.iter().map(|unit| unit.id.as_str())))
     });
     let report = Memo::new(move |_| state.with(feedback::feedback));
+    let banner = Memo::new(move |_| state.with(super::dashboard::RequestBanner::of));
+    let banner_text = move || banner.get() == super::dashboard::RequestBanner::Full;
     // Names the operation and target a settled outcome answers; a title is looked up by ID, so a
     // removed or unlisted entity simply has none.
     let feedback_context = move || -> String {
@@ -1192,11 +1196,7 @@ pub fn ContentWorkspace(
             .collect::<Vec<_>>()
             .join(" · ")
     };
-    let show_feedback = Signal::derive(move || state.with(feedback::shows_feedback));
     let outcome_text = move || -> &'static str {
-        if !show_feedback.get() {
-            return "";
-        }
         let report = report.get();
         let locale = locale.get();
         text(
@@ -1338,7 +1338,7 @@ pub fn ContentWorkspace(
                         on_next=Callback::new(move |()| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })
                         on_pick=dashboard_pick/>
                 </div>
-    <div class="cw" hidden=move || dashboard.get() inert=move || dashboard.get() data-pane=move ||pane.get().as_str() data-area=move ||shown.get().map(Task::as_str).unwrap_or("none") data-busy=move ||blocked.get().then_some("true")>
+    <div class="cw" hidden=move || dashboard.get() inert=move || dashboard.get() data-pane=move ||pane.get().as_str() data-area=move ||shown.get().map(Task::as_str).unwrap_or("none") data-busy=move ||state.with(|s|(s.phase()==Phase::Pending).then_some("true"))>
                 <h2 id="live-title" class="cui-sr-only" tabindex="-1">{move ||text(Key::Pane,locale.get())}</h2>
             <header id="live-context" class="cw-context" aria-label=move ||text(Key::ContextLabel,locale.get()) hidden=move ||!has_work.get()>
                     <button id="live-browse" type="button" class="cui-button cw-browse" data-variant="text" on:click=move |_| pane.set(Pane::Browse)>{move ||text(Key::BackToList,locale.get())}</button>
@@ -1356,12 +1356,12 @@ pub fn ContentWorkspace(
                     <p class="cw-state" role="status" data-state=move ||editor_status.get().as_str() hidden=move ||!has_unit.get()>{move ||editor_status_text()}</p>
                 </header>
                 <p class="cw-unsaved" role="status" hidden=move ||!drafts.with(super::drafts::AuthoringDrafts::has_unsaved)>{move ||text(Key::UnsavedDrafts,locale.get())}</p>
-                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" data-outcome=move ||format!("{:?}",report.get().outcome) hidden=move ||!show_feedback.get()><p>{outcome_text}</p>
-                    <p class="cw-feedback-target" hidden=move ||feedback_context().is_empty()>{feedback_context}</p>
-                    {move ||if report.get().outcome==Outcome::MissingHead {String::new()} else {state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default()).to_owned()}}
-                    <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,locale.get())}else{""}}</p>
-                    <super::field_issues::FieldIssues locale=locale issues=Signal::derive(move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}))/>
-                    <div class="toolbar" hidden=move ||state.with(|s|s.phase()!=Phase::Pending&&!s.can_reconcile()&&!s.can_retry())><span hidden=move ||state.with(|s|s.phase()!=Phase::Pending)><ActionButton id="live-cancel" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|{cancel_request.run(());focus_workspace_field("live-status");})>{move ||text(Key::Cancel,locale.get())}</ActionButton></span>
+                <div id="live-status" class="live-status cw-feedback" tabindex="-1" role="status" aria-live="polite" data-outcome=move ||format!("{:?}",report.get().outcome) hidden=move ||banner.get()==super::dashboard::RequestBanner::Hidden><p hidden=move ||!banner_text()>{outcome_text}</p>
+                    <p class="cw-feedback-target" hidden=move ||!banner_text()||feedback_context().is_empty()>{feedback_context}</p>
+                    {move ||if !banner_text()||report.get().outcome==Outcome::MissingHead {String::new()} else {state.with(|s|s.error().map(|error|text(copy::error_key(error),locale.get())).unwrap_or_default()).to_owned()}}
+                    <p hidden=move ||!banner_text()>{move ||if state.with(RequestState::is_empty){text(Key::Empty,locale.get())}else{""}}</p>
+                    <super::field_issues::FieldIssues locale=locale issues=Signal::derive(move ||if !banner_text() {vec![]} else {state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]})})/>
+                    <div class="toolbar" hidden=move ||state.with(|s|s.phase()!=Phase::Pending&&!s.can_reconcile()&&!s.can_retry())><span hidden=move ||state.with(|s|s.phase()!=Phase::Pending)><ActionButton id="live-cancel" locale=locale variant=ButtonVariant::Text reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|{let list_read=banner.get_untracked()==super::dashboard::RequestBanner::ActionsOnly;cancel_request.run(());focus_workspace_field(if list_read {"live-works"} else {"live-status"});})>{move ||text(Key::Cancel,locale.get())}</ActionButton></span>
                     <span hidden=move ||state.with(|s|!s.can_reconcile())><ActionButton id="live-reconcile" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|{dispatch.reconcile();focus_workspace_field("live-status");})>{move ||text(Key::Reconcile,locale.get())}</ActionButton></span>
                     <span hidden=move ||state.with(|s|!s.can_retry())><ActionButton id="live-retry" locale=locale variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_retry())) on_press=Callback::new(move |_|{dispatch.retry();focus_workspace_field("live-status");})>{move ||text(Key::Retry,locale.get())}</ActionButton></span></div>
                 </div>
@@ -1373,6 +1373,7 @@ pub fn ContentWorkspace(
                             <div class="toolbar cw-pager"><ActionButton id="live-works" locale=locale variant=ButtonVariant::Text reason=blocked_reason blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,locale.get())}</ActionButton>
                             <span hidden=move ||facts.with(|f|f.pages.previous_works().is_none())><ActionButton id="live-works-previous" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.pages.previous_works().is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f|f.pages.previous_works()) { read_works.run(cursor); } })>{move ||text(Key::Previous,locale.get())}</ActionButton></span>
                             <span hidden=move ||facts.with(|f|f.works_next.is_none())><ActionButton id="live-works-next" locale=locale variant=ButtonVariant::Text reason=BlockReason::PageNavigation blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,locale.get())}</ActionButton></span></div>
+                            <div id="live-catalog-status"><super::dashboard::CatalogStatus query=dashboard_query has_rows=Signal::derive(move ||facts.with(|f|!f.works.is_empty())) locale=locale/></div>
                             <ul id="live-works-list" class="live-list cw-list" tabindex="-1" aria-label=move ||text(Key::WorkResults,locale.get())>
                                 <For each=move||work_ids.get() key=|id|id.clone() children=move |id| {
                                     let row=Memo::new({let id=id.clone();move |_|facts.with(|f|f.works.iter().find(|work|work.id==id).cloned())});
@@ -1402,7 +1403,7 @@ pub fn ContentWorkspace(
                         <div class="cw-tabs" role="group" aria-label=move ||text(Key::TasksLabel,locale.get()) hidden=move ||!has_work.get()>
                             {Task::AREAS.into_iter().map(|area| view! {<button id=area.chip_id() type="button" class="cui-button" data-variant=move ||if shown.get()==Some(area) {"tonal"} else {"text"} aria-pressed=move ||(shown.get()==Some(area)).to_string() hidden=move ||!area.available(has_work.get(),has_unit.get()) on:click=move |_|{task.set(area);pane.set(Pane::Work);}>{move ||text(task_label(area),locale.get())}</button>}).collect_view()}
                         </div>
-                        <p class="help cw-empty" hidden=move ||shown.get().is_some()>{move ||text(Key::NoWorkSelected,locale.get())}</p>
+                        <p class="help cw-empty" hidden=move ||shown.get().is_some() || !dashboard_query.with(|query|query.has_choices(facts.with(|f|!f.works.is_empty())))>{move ||text(Key::NoWorkSelected,locale.get())}</p>
 
                         <section id="live-create-work-form" class="cw-panel cw-form" aria-labelledby="live-create-work-title" hidden=move ||hide_area(Task::CreateWork) inert=move ||hide_area(Task::CreateWork)>
                             <h3 id="live-create-work-title">{move ||text(Key::CreateWork,locale.get())}</h3>

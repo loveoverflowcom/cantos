@@ -17,7 +17,8 @@ mod content_kind;
 pub mod copy;
 pub mod dashboard;
 mod dashboard_copy;
-#[cfg(any(target_arch = "wasm32", test))]
+// The dashboard uses feedback visibility on every target; task labels are workspace-only.
+#[cfg_attr(not(any(target_arch = "wasm32", test)), allow(dead_code))]
 mod feedback;
 #[cfg(any(target_arch = "wasm32", test))]
 mod field_issues;
