@@ -17,10 +17,13 @@ field therefore disappear into the section at rest. The existing textarea and Se
 `surface-container-high` instead.
 
 Studio now selects `surface-container-high` for editable Floating shells within
-`#live-audio-brief-stage`, including their existing semantic hover mix. The section retains
+`#live-audio-brief-stage`, with a semantic hover mix toward the section tone to preserve the
+floating label's Light contrast. The section retains
 `surface-container`; other Studio surfaces and shared foundation/token definitions are unchanged.
 Readonly, disabled, error and focus remain owned by the existing shared field anatomy. This
 changes no native input, label, value, callback, IME/composition or `BufferedText` ownership.
+The compact-density regression continues to reject local shell geometry and confines the
+semantic background exception to this production-brief composition.
 
 The workspace grid also declares one `minmax(0, 1fr)` column. Its former implicit auto minimum
 could grow the whole audio panel beyond a 320px viewport at 200% root text after selecting a

@@ -521,8 +521,9 @@ body { margin: 0; }
 .studio-shell #live-audio-brief-stage .live-field[data-variant="floating"][data-state="editable"] .cui-field-shell {
   background: var(--cantos-color-surface-container-high);
 }
+/* Mix toward the section tone so the floating label keeps its contrast in Light. */
 .studio-shell #live-audio-brief-stage .live-field[data-variant="floating"][data-state="editable"] .cui-field-shell:hover {
-  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
+  background: color-mix(in srgb, var(--cantos-color-surface-container) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
 .studio-shell .cw-audio-stage .live-section h4:first-child,
 .studio-shell .cw-audio-stage.live-section h4:first-child { margin-block-start: 0; }
