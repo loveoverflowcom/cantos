@@ -221,6 +221,30 @@ pub(super) fn ViewerPanel(
             Key::AccessIndependent
         }
     });
+    let request_reason = Signal::derive(move || {
+        super::catalog_controls::request_block_reason(
+            state.with(|s| s.actor().is_empty()),
+            state.with(|s| s.phase() == Phase::Pending),
+            state.with(|s| s.pending().is_some()),
+        )
+        .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+    });
+    let blocked_reason =
+        Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+    let change_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if current.with(Option::is_none) {
+                BlockReason::Metadata(Key::AccessUnread)
+            } else {
+                BlockReason::Live(super::copy::Key::ErrorInvalidInput)
+            }
+        })
+    });
+    let confirm_reason = Signal::derive(move || {
+        request_reason
+            .get()
+            .unwrap_or(BlockReason::Metadata(Key::AccessConfirm))
+    });
     let submit = Callback::new(move |_| {
         if blocked.get_untracked() || !confirmed.get_untracked() || !owner.get_untracked() {
             return;
@@ -239,8 +263,8 @@ pub(super) fn ViewerPanel(
           <p id="viewer-status" role="status" aria-live="polite">{move || text(status.get(), locale.get())}</p>
           <p class="cw-reason" hidden=move || !dialog_error.get()>{move || text(Key::AccessFailed, locale.get())}</p>
           <div class="cw-actions">
-            <ActionButton id="viewer-read" locale blocked on_press=Callback::new(move |_| { if !blocked.get_untracked() { if let Some(work) = facts.with_untracked(|f| f.work.as_ref().map(|w| w.id.clone())) { facts.update(|f| f.viewer.current = None); on_send.run(Command::ViewerState { work }); } } })>{move || text(Key::AccessLoad, locale.get())}</ActionButton>
-            <Show when=move || relevant.get() && state.with(|s| s.can_retry())><ActionButton id="viewer-retry" locale blocked=Signal::derive(move || !state.with(|s| s.can_retry())) on_press=Callback::new(move |_| on_retry.run(()))>{move || text(Key::AccessUnknown, locale.get())}</ActionButton></Show>
+            <ActionButton id="viewer-read" locale reason=blocked_reason blocked on_press=Callback::new(move |_| { if !blocked.get_untracked() { if let Some(work) = facts.with_untracked(|f| f.work.as_ref().map(|w| w.id.clone())) { facts.update(|f| f.viewer.current = None); on_send.run(Command::ViewerState { work }); } } })>{move || text(Key::AccessLoad, locale.get())}</ActionButton>
+            <Show when=move || relevant.get() && state.with(|s| s.can_retry())><ActionButton id="viewer-retry" locale reason=blocked_reason blocked=Signal::derive(move || !state.with(|s| s.can_retry())) on_press=Callback::new(move |_| on_retry.run(()))>{move || text(Key::AccessUnknown, locale.get())}</ActionButton></Show>
           </div>
           <p>{move || current.with(|s| s.as_ref().map(|s| (text(Key::AccessWorkVersion, locale.get()), " ", s.version)))}</p>
           <p>{move || text(Key::AccessAudience, locale.get())}</p>
@@ -248,7 +272,7 @@ pub(super) fn ViewerPanel(
             {[ViewerAudience::Public, ViewerAudience::Restricted].map(|audience| view! {
               <ActionButton id=if audience == ViewerAudience::Public { "viewer-public" } else { "viewer-restricted" } locale variant=ButtonVariant::Tonal focus_on_press=true
                 blocked=Signal::derive(move || !can_change.get() || current.with(|s| s.as_ref().is_none_or(|s| s.audience == audience)) || facts.with(|f| f.metadata.current.is_none()))
-                reason=BlockReason::Metadata(Key::AccessUnread) on_press=Callback::new(move |_| {
+                reason=Signal::derive(move || request_reason.get().unwrap_or(BlockReason::Metadata(Key::AccessUnread))) on_press=Callback::new(move |_| {
                     let candidate = facts.with_untracked(|f| AudienceReview::new(f.viewer.current.as_ref()?, f.metadata.current.as_ref()?, audience));
                     if let (Some(candidate), Some(id)) = (candidate, operation()) {
                         let Some(request) = candidate.request(id, true) else { return; };
@@ -264,36 +288,36 @@ pub(super) fn ViewerPanel(
             <For each=move || current.with(|s| s.as_ref().map(|s| s.grants.clone()).unwrap_or_default()) key=|g| g.grant_id.clone() children=move |grant| {
                 let id=grant.grant_id.clone(); let label=match grant.principal { ViewerPrincipal::Actor { actor_id } => actor_id, ViewerPrincipal::Group { group_id } => group_id };
                 view! { <li><div><strong>{label}</strong><p>{move || text(Key::AccessGranted, locale.get())}</p><small>{move || expiry_label(grant.expires_at_us, locale.get())}</small></div>
-                    <ActionButton id=format!("viewer-revoke-{}", id) locale blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeGrant { grant_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
+                    <ActionButton id=format!("viewer-revoke-{}", id) locale reason=change_reason blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeGrant { grant_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
             }/>
             <For each=move || current.with(|s| s.as_ref().map(|s| s.pending.clone()).unwrap_or_default()) key=|s| s.share_id.clone() children=move |share| {
                 let id=share.share_id.clone();
                 view! { <li><div><strong>{share.email}</strong><p>{move || text(Key::AccessPending,locale.get())}</p><small>{move || expiry_label(Some(share.expires_at_us),locale.get())}</small></div>
-                  <ActionButton id=format!("viewer-revoke-share-{}",id) locale blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeShare { share_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
+                  <ActionButton id=format!("viewer-revoke-share-{}",id) locale reason=change_reason blocked=Signal::derive(move || !can_change.get()) variant=ButtonVariant::Text focus_on_press=true on_press=Callback::new(move |_| change.run(ViewerAccessChange::RevokeShare { share_id:id.clone() }))>{move || text(Key::AccessRevoke,locale.get())}</ActionButton></li> }
             }/>
           </ul>
           <div class="cw-access-form"><Field id="viewer-email" label=Key::AccessEmail value=email locale/>
-            <ActionButton id="viewer-share" locale blocked=Signal::derive(move || !can_change.get() || email.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| { review.set(None); if let Some(id)=operation() { change.run(ViewerAccessChange::ShareMailbox { share_id:id,email:email.get_untracked() }); } })>{move || text(Key::AccessShare,locale.get())}</ActionButton>
+            <ActionButton id="viewer-share" locale reason=change_reason blocked=Signal::derive(move || !can_change.get() || email.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| { review.set(None); if let Some(id)=operation() { change.run(ViewerAccessChange::ShareMailbox { share_id:id,email:email.get_untracked() }); } })>{move || text(Key::AccessShare,locale.get())}</ActionButton>
           </div>
           <p>{move || text(Key::AccessNoMail,locale.get())}</p><p class="cw-reason">{move || text(Key::AccessHistoryMissing,locale.get())}</p>
           <details><summary>{move || text(Key::AccessActorGrant,locale.get())}</summary>
             <Field id="viewer-actor" label=Key::AccessActor value=actor locale/><Field id="viewer-expiry" label=Key::AccessExpiryInput value=until locale/>
             <p role="status" hidden=move || !invalid_expiry.get()>{move || text(Key::AccessExpiryInvalid,locale.get())}</p>
-            <ActionButton id="viewer-grant-actor" locale blocked=Signal::derive(move || !can_change.get() || actor.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| {
+            <ActionButton id="viewer-grant-actor" locale reason=change_reason blocked=Signal::derive(move || !can_change.get() || actor.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| {
                 review.set(None); match expiry(&until.get_untracked()) { Ok(expires_at_us) => { invalid_expiry.set(false); if let Some(id)=operation() { change.run(ViewerAccessChange::GrantActor { grant_id:id, actor_id:actor.get_untracked(),expires_at_us }); } }, Err(())=>invalid_expiry.set(true) }
             })>{move || text(Key::AccessActorGrant,locale.get())}</ActionButton>
           </details>
           <details><summary>{move || text(Key::AccessGroups,locale.get())}</summary>
-            <ActionButton id="viewer-groups-read" locale blocked on_press=Callback::new(move |_| on_send.run(Command::ViewerGroups))>{move || text(Key::AccessGroupsLoad,locale.get())}</ActionButton>
+            <ActionButton id="viewer-groups-read" locale reason=blocked_reason blocked on_press=Callback::new(move |_| on_send.run(Command::ViewerGroups))>{move || text(Key::AccessGroupsLoad,locale.get())}</ActionButton>
             <Field id="viewer-group-name" label=Key::AccessGroupName value=group_name locale/>
-            <ActionButton id="viewer-group-create" locale blocked=Signal::derive(move || blocked.get() || group_name.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| {
+            <ActionButton id="viewer-group-create" locale reason=change_reason blocked=Signal::derive(move || blocked.get() || group_name.with(String::is_empty)) focus_on_press=true on_press=Callback::new(move |_| {
                 review.set(None); if let (Some(group),Some(operation_id))=(operation(),operation()) { prepare.run(Command::ViewerGroupChange { group,request:ViewerGroupRequest { operation_id,expected_version:0,change:ViewerGroupChange::Create { name:group_name.get_untracked() } } }); }
             })>{move || text(Key::AccessGroupCreate,locale.get())}</ActionButton>
             <For each=move || facts.with(|f| f.viewer.groups.as_ref().map(|g| g.items.clone()).unwrap_or_default()) key=|g| g.group_id.clone() children=move |group| {
               let id=group.group_id.clone(); let grant_group=id.clone(); let version=group.version;
               view! { <section class="cw-access-group"><h6>{group.name}</h6><p>{group.group_id}</p><p>{move || text(Key::AccessWorkVersion,locale.get())}" "{version}</p>
                 <ul>{group.members.into_iter().map(|m| view!{<li><span>{m.actor_id}</span><small>{move ||expiry_label(m.expires_at_us,locale.get())}</small></li>}).collect_view()}</ul>
-                <ActionButton id=format!("viewer-group-grant-{id}") locale blocked=Signal::derive(move || !can_change.get()) focus_on_press=true on_press=Callback::new(move |_| { review.set(None); if let Some(id)=operation() { change.run(ViewerAccessChange::GrantGroup { grant_id:id,group_id:grant_group.clone(),expires_at_us:None }); } })>{move ||text(Key::AccessGroupGrant,locale.get())}</ActionButton>
+                <ActionButton id=format!("viewer-group-grant-{id}") locale reason=change_reason blocked=Signal::derive(move || !can_change.get()) focus_on_press=true on_press=Callback::new(move |_| { review.set(None); if let Some(id)=operation() { change.run(ViewerAccessChange::GrantGroup { grant_id:id,group_id:grant_group.clone(),expires_at_us:None }); } })>{move ||text(Key::AccessGroupGrant,locale.get())}</ActionButton>
 
               </section> }
             }/>
@@ -317,7 +341,7 @@ pub(super) fn ViewerPanel(
             _ => Key::AccessIndependent,
           }, locale.get())))}</p>
           <ReviewCheckbox id="viewer-confirm-checkbox" locale label=Signal::derive(move ||text(if review.with(|r|r.as_ref().is_some_and(|r|r.audience==ViewerAudience::Public)){Key::AccessConfirmRights}else{Key::AccessConfirm},locale.get()).to_owned()) checked=Signal::derive(move ||confirmed.get()) on_change=Callback::new(move |v|confirmed.set(v))/>
-          <ActionButton id="viewer-confirm-apply" locale blocked=Signal::derive(move ||blocked.get() || !confirmed.get()) on_press=submit>{move ||text(Key::AccessApply,locale.get())}</ActionButton>
+          <ActionButton id="viewer-confirm-apply" locale reason=confirm_reason blocked=Signal::derive(move ||blocked.get() || !confirmed.get()) on_press=submit>{move ||text(Key::AccessApply,locale.get())}</ActionButton>
         </Dialog>
         <super::chapter_panel::ChapterPanel facts state locale blocked dirty=chapter_dirty on_send on_retry/>
       </section>

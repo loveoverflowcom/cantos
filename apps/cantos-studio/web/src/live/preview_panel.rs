@@ -88,12 +88,36 @@ pub(in crate::live) fn PreviewPanel(
         open
     });
     let has_work = Signal::derive(move || facts.with(|facts| facts.work.is_some()));
+    let request_reason = Signal::derive(move || {
+        super::catalog_controls::request_block_reason(
+            dispatch.session_pending.get() || dispatch.state.with(|s| s.actor().is_empty()),
+            dispatch.state.with(|s| s.phase() == Phase::Pending),
+            dispatch.state.with(|s| s.pending().is_some()),
+        )
+        .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+    });
+    let open_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if !has_work.get() {
+                BlockReason::Live(Key::NoWorkSelected)
+            } else if unsaved.get() {
+                BlockReason::Live(Key::PreviewUnsaved)
+            } else {
+                BlockReason::ContextReady
+            }
+        })
+    });
+    let reload_reason = Signal::derive(move || {
+        request_reason
+            .get()
+            .unwrap_or(BlockReason::Live(Key::PreviewStale))
+    });
     view! {
         <section class="cw-preview-zone" aria-labelledby=TITLE_ID>
         <h5 id=TITLE_ID tabindex="-1">{move || text(Key::PreviewTitle, locale.get())}</h5>
         <div class="cw-actions">
             <ActionButton id=OPEN_ID locale=locale variant=ButtonVariant::Tonal icon=IconName::Visibility
-                reason=BlockReason::ContextReady
+                reason=open_reason
                 blocked=Signal::derive(move || blocked.get() || unsaved.get() || !has_work.get())
                 on_press=Callback::new(move |_| {
                     if blocked.get_untracked() || unsaved.get_untracked() { return; }
@@ -116,7 +140,7 @@ pub(in crate::live) fn PreviewPanel(
                 _ => Key::PreviewFailed,
             }, locale.get())}</p>
             <ActionButton id="live-preview-reload" locale=locale variant=ButtonVariant::Text
-                reason=BlockReason::ContextReady
+                reason=reload_reason
                 blocked=Signal::derive(move || blocked.get() || problem.get() != Some(Problem::Stale))
                 on_press=Callback::new(move |_| {
                     if blocked.get_untracked() { return; }

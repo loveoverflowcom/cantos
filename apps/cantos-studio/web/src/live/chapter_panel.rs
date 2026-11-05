@@ -6,7 +6,7 @@ use crate::{
         generated::live::{text, Key},
         Locale,
     },
-    ui::{ActionButton, ReviewCheckbox},
+    ui::{ActionButton, BlockReason, ReviewCheckbox},
 };
 use cantos_ui::{ButtonVariant, FieldDensity, Select, SelectOption, TextField, TextFieldVariant};
 use leptos::prelude::*;
@@ -189,13 +189,83 @@ pub(super) fn ChapterPanel(
             }
         }
     });
+    let request_reason = Signal::derive(move || {
+        super::catalog_controls::request_block_reason(
+            state.with(|s| s.actor().is_empty()),
+            state.with(|s| s.phase() == Phase::Pending),
+            state.with(|s| s.pending().is_some()),
+        )
+        .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+        .or_else(|| {
+            facts.with(|f| match f.work.as_ref() {
+                None => Some(BlockReason::Live(super::copy::Key::NoWorkSelected)),
+                Some(w) if w.lifecycle == "archived" => {
+                    Some(BlockReason::Metadata(Key::ReasonWorkArchived))
+                }
+                _ => None,
+            })
+        })
+    });
+    let unavailable_reason =
+        Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+    let edit_reason = Signal::derive(move || {
+        request_reason
+            .get()
+            .unwrap_or(BlockReason::Live(super::copy::Key::UnsavedDrafts))
+    });
+    let input_reason = Signal::derive(move || {
+        request_reason
+            .get()
+            .unwrap_or(BlockReason::Metadata(Key::ChapterPolicyInvalid))
+    });
+    let apply_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if stale.get() {
+                BlockReason::Metadata(Key::ChapterPolicyConflict)
+            } else if !review.with(|r| r.as_ref().is_some_and(UnitPolicyReview::dirty)) {
+                BlockReason::Live(super::copy::Key::FieldEmptyPatch)
+            } else {
+                BlockReason::Metadata(Key::ChapterPolicyConfirm)
+            }
+        })
+    });
+    let publish_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if page.with(|p| {
+                p.as_ref()
+                    .is_none_or(|p| p.publication_lifecycle != MetadataPublicationLifecycle::Active)
+            }) {
+                BlockReason::Metadata(Key::ChapterWorkActiveRequired)
+            } else if position.with(|p| {
+                p.parse::<u32>()
+                    .ok()
+                    .is_none_or(|p| !(1..=1000).contains(&p))
+            }) {
+                BlockReason::Metadata(Key::ChapterPolicyInvalid)
+            } else {
+                BlockReason::Metadata(Key::ChapterPublicationConfirm)
+            }
+        })
+    });
+    let withdraw_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if review.with(|r| {
+                r.as_ref()
+                    .is_none_or(|r| r.row.published_revision.is_none())
+            }) {
+                BlockReason::Metadata(Key::ChapterMatrixUnpublished)
+            } else {
+                BlockReason::Metadata(Key::ChapterPublicationConfirm)
+            }
+        })
+    });
     view! {
       <section id="chapter-matrix" class="cw-block" aria-labelledby="chapter-matrix-title">
         <h5 id="chapter-matrix-title">{move ||text(Key::ChapterMatrix,locale.get())}</h5>
         <div class="cw-actions">
-          <ActionButton id="chapter-matrix-load" locale blocked=unavailable on_press=Callback::new(move |_|load.run(None))>{move ||text(Key::ChapterMatrixLoad,locale.get())}</ActionButton>
-          <ActionButton id="chapter-matrix-next" locale variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||page.with(|p|p.as_ref().is_none_or(|p|p.next_cursor.is_none()))) on_press=Callback::new(move |_|{if let Some(cursor)=page.with_untracked(|p|p.as_ref().and_then(|p|p.next_cursor.clone())){load.run(Some(cursor));}})>{move ||text(Key::ChapterMatrixNext,locale.get())}</ActionButton>
-          <Show when=move ||state.with(|s|matches!(s.command(),Some(Command::ChapterMatrix {..}|Command::ViewerChange {..}|Command::MetadataCommand {..}))&&s.can_retry())><ActionButton id="chapter-matrix-retry" locale blocked=Signal::derive(move ||!state.with(|s|s.can_retry())) on_press=Callback::new(move |_|on_retry.run(()))>{move ||text(Key::AccessUnknown,locale.get())}</ActionButton></Show>
+          <ActionButton id="chapter-matrix-load" locale reason=unavailable_reason blocked=unavailable on_press=Callback::new(move |_|load.run(None))>{move ||text(Key::ChapterMatrixLoad,locale.get())}</ActionButton>
+          <ActionButton id="chapter-matrix-next" locale reason=Signal::derive(move || request_reason.get().unwrap_or(BlockReason::PageNavigation)) variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||page.with(|p|p.as_ref().is_none_or(|p|p.next_cursor.is_none()))) on_press=Callback::new(move |_|{if let Some(cursor)=page.with_untracked(|p|p.as_ref().and_then(|p|p.next_cursor.clone())){load.run(Some(cursor));}})>{move ||text(Key::ChapterMatrixNext,locale.get())}</ActionButton>
+          <Show when=move ||state.with(|s|matches!(s.command(),Some(Command::ChapterMatrix {..}|Command::ViewerChange {..}|Command::MetadataCommand {..}))&&s.can_retry())><ActionButton id="chapter-matrix-retry" locale reason=unavailable_reason blocked=Signal::derive(move ||!state.with(|s|s.can_retry())) on_press=Callback::new(move |_|on_retry.run(()))>{move ||text(Key::AccessUnknown,locale.get())}</ActionButton></Show>
         </div>
         <p role="status" hidden=move ||page.with(Option::is_some)>{move ||text(Key::ChapterMatrixUnread,locale.get())}</p>
         <p>{move ||page.with(|p|p.as_ref().map(|p|text(if p.work_audience==ViewerAudience::Public {Key::AccessPublic}else{Key::AccessRestricted},locale.get())))}</p>
@@ -210,7 +280,7 @@ pub(super) fn ChapterPanel(
               <p>{move ||text(Key::ChapterMatrixPublished,locale.get())}" "{move ||row.with(|r|r.as_ref().map(|r|r.published_revision.map(super::copy::revision_label).unwrap_or_else(||text(Key::ChapterMatrixUnpublished,locale.get()).into())))}</p>
               <p>{move ||row.with(|r|r.as_ref().map(|r|text(if matches!(r.policy,UnitViewerPolicy::Inherit){Key::ChapterPolicyInherit}else{Key::ChapterPolicyRestricted},locale.get())))}</p>
               <p>{move ||row.with(|r|r.as_ref().map(|r|text(if r.audio.is_some(){Key::ChapterMatrixAssociated}else{Key::ChapterMatrixNoAudio},locale.get())))}</p>
-              <ActionButton id=id.with_value(|id|format!("chapter-edit-{id}")) locale variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||dirty.get()) on_press=Callback::new(move |_| {
+              <ActionButton id=id.with_value(|id|format!("chapter-edit-{id}")) locale reason=edit_reason variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||dirty.get()) on_press=Callback::new(move |_| {
                 if unavailable.get_untracked()||dirty.get_untracked(){return;}
                 let next=page.with_untracked(|p|p.as_ref().and_then(|p|id.with_value(|id|UnitPolicyReview::select(p,id))));review.set(next);confirmed.set(false);invalid.set(false);
               })>{move ||text(Key::ChapterMatrixEdit,locale.get())}</ActionButton>
@@ -228,33 +298,33 @@ pub(super) fn ChapterPanel(
             <ul><For each=move ||review.with(|r|match r.as_ref().map(|r|&r.policy){Some(UnitViewerPolicy::Restricted {grants})=>grants.clone(),_=>vec![]}) key=|g|match &g.principal {ViewerPrincipal::Actor {actor_id}=>format!("actor:{actor_id}"),ViewerPrincipal::Group {group_id}=>format!("group:{group_id}")} children=move |grant| {
               let principal=StoredValue::new(grant.principal);
               view! {<li><span>{move ||principal.with_value(|p|match p {ViewerPrincipal::Actor {actor_id}=>actor_id.clone(),ViewerPrincipal::Group {group_id}=>group_id.clone()})}</span>
-                <ActionButton id=principal.with_value(|p|match p {ViewerPrincipal::Actor {actor_id}=>format!("chapter-remove-actor-{actor_id}"),ViewerPrincipal::Group {group_id}=>format!("chapter-remove-group-{group_id}")}) locale variant=ButtonVariant::Text blocked=unavailable on_press=Callback::new(move |_|{if unavailable.get_untracked(){return;}review.update(|r|if let Some(old)=r {*old=principal.with_value(|p|old.remove(p));});confirmed.set(false);})>{move ||text(Key::ChapterPolicyRemove,locale.get())}</ActionButton>
+                <ActionButton id=principal.with_value(|p|match p {ViewerPrincipal::Actor {actor_id}=>format!("chapter-remove-actor-{actor_id}"),ViewerPrincipal::Group {group_id}=>format!("chapter-remove-group-{group_id}")}) locale reason=unavailable_reason variant=ButtonVariant::Text blocked=unavailable on_press=Callback::new(move |_|{if unavailable.get_untracked(){return;}review.update(|r|if let Some(old)=r {*old=principal.with_value(|p|old.remove(p));});confirmed.set(false);})>{move ||text(Key::ChapterPolicyRemove,locale.get())}</ActionButton>
               </li>}
             }/></ul>
             <TextField id="chapter-viewer-actor" label=Signal::derive(move ||text(Key::AccessActor,locale.get()).to_owned()) value=actor on_input=Callback::new(move |v|{actor.set(v);confirmed.set(false);}) variant=TextFieldVariant::Floating density=FieldDensity::Compact/>
             <TextField id="chapter-viewer-expiry" label=Signal::derive(move ||text(Key::AccessExpiryInput,locale.get()).to_owned()) value=until on_input=Callback::new(move |v|{until.set(v);confirmed.set(false);}) variant=TextFieldVariant::Floating density=FieldDensity::Compact/>
-            <ActionButton id="chapter-add-actor" locale blocked=Signal::derive(move ||unavailable.get()||actor.with(|a|a.is_empty()||a.len()>64||!a.bytes().all(|b|b.is_ascii_lowercase()||b.is_ascii_digit()||b==b'_'||b==b'-'))) on_press=Callback::new(move |_|add.run(ViewerPrincipal::Actor {actor_id:actor.get_untracked()}))>{move ||text(Key::ChapterPolicyAddActor,locale.get())}</ActionButton>
+            <ActionButton id="chapter-add-actor" locale reason=input_reason blocked=Signal::derive(move ||unavailable.get()||actor.with(|a|a.is_empty()||a.len()>64||!a.bytes().all(|b|b.is_ascii_lowercase()||b.is_ascii_digit()||b==b'_'||b==b'-'))) on_press=Callback::new(move |_|add.run(ViewerPrincipal::Actor {actor_id:actor.get_untracked()}))>{move ||text(Key::ChapterPolicyAddActor,locale.get())}</ActionButton>
             <Select id="chapter-viewer-group" label=Signal::derive(move ||text(Key::AccessGroupGrant,locale.get()).to_owned()) value=group options=Signal::derive(move ||{
               let mut rows=vec![SelectOption::new("",text(Key::AccessGroupGrant,locale.get()))];
               facts.with(|f|if let Some(groups)=&f.viewer.groups {rows.extend(groups.items.iter().map(|g|SelectOption::new(g.group_id.clone(),g.name.clone())));});rows
             }) on_input=Callback::new(move |v|{group.set(v);confirmed.set(false);})/>
-            <ActionButton id="chapter-add-group" locale blocked=Signal::derive(move ||unavailable.get()||group.with(String::is_empty)) on_press=Callback::new(move |_|add.run(ViewerPrincipal::Group {group_id:group.get_untracked()}))>{move ||text(Key::ChapterPolicyAddGroup,locale.get())}</ActionButton>
+            <ActionButton id="chapter-add-group" locale reason=input_reason blocked=Signal::derive(move ||unavailable.get()||group.with(String::is_empty)) on_press=Callback::new(move |_|add.run(ViewerPrincipal::Group {group_id:group.get_untracked()}))>{move ||text(Key::ChapterPolicyAddGroup,locale.get())}</ActionButton>
             <p role="alert" hidden=move ||!invalid.get()>{move ||text(Key::ChapterPolicyInvalid,locale.get())}</p>
             <p role="status" hidden=move ||!stale.get()>{move ||text(Key::ChapterPolicyConflict,locale.get())}</p>
-            <ActionButton id="chapter-policy-compare" locale blocked=Signal::derive(move ||unavailable.get()||page.with(Option::is_none)) on_press=Callback::new(move |_|{
+            <ActionButton id="chapter-policy-compare" locale reason=Signal::derive(move || request_reason.get().unwrap_or(BlockReason::Metadata(Key::ChapterMatrixUnread))) blocked=Signal::derive(move ||unavailable.get()||page.with(Option::is_none)) on_press=Callback::new(move |_|{
               if unavailable.get_untracked(){return;}let next=review.with_untracked(|r|r.as_ref().and_then(|r|page.with_untracked(|p|p.as_ref().and_then(|p|r.rebase(p)))));if let Some(next)=next{review.set(Some(next));confirmed.set(false);}
             })>{move ||text(Key::ChapterPolicyCompare,locale.get())}</ActionButton>
             <ReviewCheckbox id="chapter-policy-confirm" locale label=Signal::derive(move ||text(Key::ChapterPolicyConfirm,locale.get()).to_owned()) checked=confirmed on_change=Callback::new(move |v|confirmed.set(v))/>
-            <ActionButton id="chapter-policy-apply" locale blocked=Signal::derive(move ||unavailable.get()||stale.get()||!confirmed.get()||!review.with(|r|r.as_ref().is_some_and(UnitPolicyReview::dirty))) on_press=Callback::new(move |_|{
+            <ActionButton id="chapter-policy-apply" locale reason=apply_reason blocked=Signal::derive(move ||unavailable.get()||stale.get()||!confirmed.get()||!review.with(|r|r.as_ref().is_some_and(UnitPolicyReview::dirty))) on_press=Callback::new(move |_|{
               if unavailable.get_untracked(){return;}
               if let Some(operation_id)=super::viewer_panel::operation(){if let Some(request)=review.with_untracked(|r|r.as_ref().and_then(|r|page.with_untracked(|p|p.as_ref().and_then(|p|r.request(p,operation_id,confirmed.get_untracked()))))){confirmed.set(false);on_send.run(Command::ViewerChange {work:review.with_untracked(|r|r.as_ref().map(|r|r.work.clone()).unwrap_or_default()),request});}}
             })>{move ||text(Key::ChapterPolicyApply,locale.get())}</ActionButton>
             <p class="cw-reason" hidden=move ||page.with(|p|p.as_ref().is_some_and(|p|p.publication_lifecycle==MetadataPublicationLifecycle::Active))>{move ||text(Key::ChapterWorkActiveRequired,locale.get())}</p>
             <TextField id="chapter-publish-position" label=Signal::derive(move ||text(Key::ChapterPublishPosition,locale.get()).to_owned()) value=position on_input=Callback::new(move |v|{position.set(v);publication_confirmed.set(false);}) variant=TextFieldVariant::Floating density=FieldDensity::Compact/>
             <ReviewCheckbox id="chapter-publication-confirm" locale label=Signal::derive(move ||text(Key::ChapterPublicationConfirm,locale.get()).to_owned()) checked=publication_confirmed on_change=Callback::new(move |v|publication_confirmed.set(v))/>
-            <ActionButton id="chapter-publish-saved" locale blocked=Signal::derive(move ||unavailable.get()||!publication_confirmed.get()||page.with(|p|p.as_ref().is_none_or(|p|p.publication_lifecycle!=MetadataPublicationLifecycle::Active))||position.with(|p|p.parse::<u32>().ok().is_none_or(|p|!(1..=1000).contains(&p)))) on_press=Callback::new(move |_|publish.run(false))>{move ||text(Key::ChapterPublishSaved,locale.get())}</ActionButton>
-            <ActionButton id="chapter-withdraw" locale variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||!publication_confirmed.get()||review.with(|r|r.as_ref().is_none_or(|r|r.row.published_revision.is_none()))) on_press=Callback::new(move |_|publish.run(true))>{move ||text(Key::ChapterWithdraw,locale.get())}</ActionButton>
-            <ActionButton id="chapter-policy-discard" locale variant=ButtonVariant::Text blocked=unavailable on_press=Callback::new(move |_|{if unavailable.get_untracked(){return;}review.set(None);actor.set(String::new());group.set(String::new());until.set(String::new());confirmed.set(false);publication_confirmed.set(false);position.set(String::new());invalid.set(false);})>{move ||text(Key::ChapterPolicyDiscard,locale.get())}</ActionButton>
+            <ActionButton id="chapter-publish-saved" locale reason=publish_reason blocked=Signal::derive(move ||unavailable.get()||!publication_confirmed.get()||page.with(|p|p.as_ref().is_none_or(|p|p.publication_lifecycle!=MetadataPublicationLifecycle::Active))||position.with(|p|p.parse::<u32>().ok().is_none_or(|p|!(1..=1000).contains(&p)))) on_press=Callback::new(move |_|publish.run(false))>{move ||text(Key::ChapterPublishSaved,locale.get())}</ActionButton>
+            <ActionButton id="chapter-withdraw" locale reason=withdraw_reason variant=ButtonVariant::Text blocked=Signal::derive(move ||unavailable.get()||!publication_confirmed.get()||review.with(|r|r.as_ref().is_none_or(|r|r.row.published_revision.is_none()))) on_press=Callback::new(move |_|publish.run(true))>{move ||text(Key::ChapterWithdraw,locale.get())}</ActionButton>
+            <ActionButton id="chapter-policy-discard" locale reason=unavailable_reason variant=ButtonVariant::Text blocked=unavailable on_press=Callback::new(move |_|{if unavailable.get_untracked(){return;}review.set(None);actor.set(String::new());group.set(String::new());until.set(String::new());confirmed.set(false);publication_confirmed.set(false);position.set(String::new());invalid.set(false);})>{move ||text(Key::ChapterPolicyDiscard,locale.get())}</ActionButton>
           </section>
         </Show>
       </section>

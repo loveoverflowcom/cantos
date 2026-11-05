@@ -226,11 +226,22 @@ mod view {
             let _ = brief.with(|b| b.as_ref().map(|b| b.brief.digest.clone()));
             copied.set(None);
         });
+        let copy_reason = Signal::derive(move || {
+            if copying.get() {
+                BlockReason::Busy
+            } else if blocked.get() {
+                BlockReason::ContextReady
+            } else if brief.with(|b| b.is_none()) {
+                BlockReason::Live(Key::CopyBriefHelp)
+            } else {
+                BlockReason::ContextReady
+            }
+        });
         view! {
             <p role="status">{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_freshness(b.freshness.clone(),locale.get())).unwrap_or_default())}</p>
             <p><code>{move ||brief.with(|b|b.as_ref().map(|b|copy::brief_binding(&b.brief)).unwrap_or_default())}</code></p>
             <p class="help">{move ||text(Key::CopyBriefHelp,locale.get())}</p>
-            <ActionButton id="live-copy-brief" locale=locale reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
+            <ActionButton id="live-copy-brief" locale=locale reason=copy_reason blocked=Signal::derive(move ||blocked.get()||copying.get()||brief.with(|b|b.is_none())) on_press=Callback::new(move |_| {
                 if blocked.get_untracked() || copying.get_untracked() { return; }
                 let Some(snapshot)=brief.get_untracked() else {return;};
                 let Ok(value)=serde_json::to_string_pretty(&snapshot.brief) else {copied.set(Some(false));return;};

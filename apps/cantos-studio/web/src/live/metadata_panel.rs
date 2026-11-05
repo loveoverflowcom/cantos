@@ -158,6 +158,56 @@ pub(super) fn MetadataPanel(
             None => Key::MetadataUnread,
         })
     });
+    let request_reason = Signal::derive(move || {
+        super::catalog_controls::request_block_reason(
+            dispatch.session_pending.get() || dispatch.state.with(|s| s.actor().is_empty()),
+            dispatch.state.with(|s| s.phase() == Phase::Pending),
+            dispatch.state.with(|s| s.pending().is_some()),
+        )
+        .or_else(|| blocked.get().then_some(BlockReason::ContextReady))
+    });
+    let blocked_reason =
+        Signal::derive(move || request_reason.get().unwrap_or(BlockReason::ContextReady));
+    let review_open_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if archived.get() {
+                BlockReason::Metadata(Key::ReasonWorkArchived)
+            } else if unsaved.get() {
+                BlockReason::Metadata(Key::MetadataDirty)
+            } else {
+                BlockReason::Metadata(Key::MetadataReviewBlocked)
+            }
+        })
+    });
+    let withdraw_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if archived.get() {
+                BlockReason::Metadata(Key::ReasonWorkArchived)
+            } else {
+                BlockReason::Metadata(Key::MetadataActiveRequired)
+            }
+        })
+    });
+    let associate_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if archived.get() {
+                BlockReason::Metadata(Key::ReasonWorkArchived)
+            } else {
+                BlockReason::Metadata(Key::MetadataAudioRequired)
+            }
+        })
+    });
+    let publish_reason = Signal::derive(move || {
+        request_reason.get().unwrap_or_else(|| {
+            if archived.get() {
+                BlockReason::Metadata(Key::ReasonWorkArchived)
+            } else if unsaved.get() {
+                BlockReason::Metadata(Key::MetadataDirty)
+            } else {
+                BlockReason::Metadata(Key::MetadataPublishBlocked)
+            }
+        })
+    });
     view! {
       <section class="cw-metadata cw-block" aria-labelledby="metadata-title" hidden=move || !owner.get()>
         <h5 id="metadata-title">{move || text(Key::MetadataPublication, locale.get())}</h5>
@@ -169,8 +219,8 @@ pub(super) fn MetadataPanel(
         </div>
         <p role="status" class="cw-reason" hidden=move || !unsaved.get()>{move || text(Key::MetadataDirty, locale.get())}</p>
         <div class="cw-actions">
-          <ActionButton id="metadata-read" locale blocked on_press=read variant=ButtonVariant::Text>{move || text(Key::MetadataLoad, locale.get())}</ActionButton>
-          <ActionButton id="metadata-review-open" locale reason=BlockReason::Metadata(Key::MetadataReviewBlocked) blocked=Signal::derive(move || blocked.get() || archived.get() || unsaved.get() || current.with(Option::is_none) || review.with(Option::is_some)) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
+          <ActionButton id="metadata-read" locale reason=blocked_reason blocked on_press=read variant=ButtonVariant::Text>{move || text(Key::MetadataLoad, locale.get())}</ActionButton>
+          <ActionButton id="metadata-review-open" locale reason=review_open_reason blocked=Signal::derive(move || blocked.get() || archived.get() || unsaved.get() || current.with(Option::is_none) || review.with(Option::is_some)) variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
               if blocked.get_untracked() || unsaved.get_untracked() { return; }
               let candidate = facts.with_untracked(|f| MetadataReview::new(f.work.as_ref()?, f.metadata.current.as_ref()?).ok());
               if let Some(candidate) = candidate {
@@ -179,7 +229,7 @@ pub(super) fn MetadataPanel(
                   request_animation_frame(move || focus("metadata-review-title"));
               }
           })>{move || text(Key::MetadataReview, locale.get())}</ActionButton>
-          <ActionButton id="metadata-withdraw" locale reason=BlockReason::Metadata(Key::MetadataActiveRequired) blocked=Signal::derive(move || blocked.get() || archived.get() || current.with(|s| s.as_ref().is_none_or(|s| s.lifecycle != Lifecycle::Active))) variant=ButtonVariant::Text on_press=Callback::new(move |_| {
+          <ActionButton id="metadata-withdraw" locale reason=withdraw_reason blocked=Signal::derive(move || blocked.get() || archived.get() || current.with(|s| s.as_ref().is_none_or(|s| s.lifecycle != Lifecycle::Active))) variant=ButtonVariant::Text on_press=Callback::new(move |_| {
               if blocked.get_untracked() { return; }
               if let Some(state) = current.get_untracked().filter(|s| s.lifecycle == Lifecycle::Active) {
                   let prompt = format!("{}\n{} · v{} · {}", text(Key::MetadataConfirmWithdraw,locale.get_untracked()), state.work_id, state.version, state.generation.as_ref().map(|g| super::copy::revision_label(g.work_revision)).unwrap_or_default());
@@ -201,7 +251,7 @@ pub(super) fn MetadataPanel(
           <p>{move ||text(if facts.with(|f| f.unit.as_ref().is_some_and(|u| f.metadata.current.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e|e.unit_id==u.id)).is_some_and(|e|e.audio.is_some()))) {Key::MetadataAudioLinked} else if facts.with(|f|f.unit.as_ref().is_some_and(|u|f.publication.active.as_ref().and_then(|a|a.release.as_ref()).is_some_and(|r|r.manifest.unit_id==u.id))) {Key::MetadataAudioReady} else {Key::MetadataAudioNone},locale.get())}</p>
           <p><code>{move ||facts.with(|f|f.publication.active.as_ref().and_then(|a|a.release.as_ref()).map(|r|super::copy::revision_identity(r.manifest.unit_metadata_revision,&r.id)))}</code></p>
           <ReviewCheckbox id="metadata-display-only" locale checked=display_only label=Signal::derive(move ||text(Key::MetadataDisplayOnly,locale.get()).to_owned()) blocked on_change=Callback::new(move |value|display_only.set(value))/>
-          <ActionButton id="metadata-associate" locale reason=BlockReason::Metadata(Key::MetadataAudioRequired) variant=ButtonVariant::Text blocked=Signal::derive(move ||blocked.get() ||archived.get() ||current.with(Option::is_none) || facts.with(|f|f.unit.as_ref().is_none_or(|u| f.publication.active.as_ref().and_then(|a|a.release.as_ref()).is_none_or(|r|r.manifest.unit_id!=u.id || f.metadata.current.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e|e.unit_id==u.id)).and_then(|e|e.audio.as_ref()).is_some_and(|a|a.release_id==r.id))))) on_press=Callback::new(move |_| {
+          <ActionButton id="metadata-associate" locale reason=associate_reason variant=ButtonVariant::Text blocked=Signal::derive(move ||blocked.get() ||archived.get() ||current.with(Option::is_none) || facts.with(|f|f.unit.as_ref().is_none_or(|u| f.publication.active.as_ref().and_then(|a|a.release.as_ref()).is_none_or(|r|r.manifest.unit_id!=u.id || f.metadata.current.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e|e.unit_id==u.id)).and_then(|e|e.audio.as_ref()).is_some_and(|a|a.release_id==r.id))))) on_press=Callback::new(move |_| {
             if blocked.get_untracked(){return;}
             let choice=facts.with_untracked(|f|{let u=f.unit.as_ref()?;let s=f.metadata.current.as_ref()?;let entry=s.generation.as_ref()?.entries.iter().find(|e|e.unit_id==u.id)?;let r=f.publication.active.as_ref()?.release.as_ref()?;if r.manifest.unit_id!=u.id{return None;}Some((s.clone(),entry.clone(),r.id.clone()))});
             if let Some((state,entry,release))=choice {
@@ -227,14 +277,14 @@ pub(super) fn MetadataPanel(
               <For each=move || facts.with(|f| f.units.iter().filter(|u| u.lifecycle == "draft").cloned().collect::<Vec<_>>()) key=|u| (u.id.clone(), u.revision) children=move |unit| {
                   let unit = StoredValue::new(unit);
                   view! { <div class="cw-metadata-candidate"><span>{move || unit.with_value(|u| super::copy::labelled_revision(&u.details.title,u.revision))}</span>
-                    <ActionButton id=unit.with_value(|u| format!("metadata-select-{}",u.id)) locale variant=ButtonVariant::Text blocked on_press=Callback::new(move |_| {
+                    <ActionButton id=unit.with_value(|u| format!("metadata-select-{}",u.id)) locale reason=blocked_reason variant=ButtonVariant::Text blocked on_press=Callback::new(move |_| {
                         if blocked.get_untracked() { return; }
                         review.update(|r| { if let Some(old) = r { match unit.with_value(|u| old.select(u)) { Ok(next) => { *old = next; confirmed.set(false); selection_error.set(false); }, Err(_) => selection_error.set(true) } } });
                     })>{move || text(Key::MetadataSelectSaved, locale.get())}</ActionButton></div> }
               }/>
             </div>
             <div class="cw-actions" hidden=move ||review.with(|r|r.as_ref().is_none_or(|r|current.with(|s|s.as_ref().is_none_or(|s|s.version==r.expected_version()))))>
-              <ActionButton id="metadata-rebase" locale blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
+              <ActionButton id="metadata-rebase" locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                 if blocked.get_untracked(){return;}
                 if let Some(state)=current.get_untracked(){review.update(|r|if let Some(old)=r {if let Ok(next)=old.rebase(&state){*old=next;confirmed.set(false);}});}
               })>{move ||text(Key::MetadataRebase,locale.get())}</ActionButton>
@@ -249,9 +299,9 @@ pub(super) fn MetadataPanel(
                     <p class="help"><code>{move ||review.with(|r|r.as_ref().and_then(|r|r.units().iter().position(|e|unit.with_value(|u|e.unit_id==u.unit_id))).map(|i|super::copy::metadata_order_transition(comparison.with(|s|s.as_ref().and_then(|s|s.generation.as_ref()).and_then(|g|g.entries.iter().find(|e|unit.with_value(|u|e.unit_id==u.unit_id))).map(|e|(e.position,e.revision))),(i+1,unit.with_value(|u|u.revision)))))}</code></p>
                     <p class="help">{move || text(if associated.with(Option::is_some) {Key::MetadataAudioLinked} else {Key::MetadataAudioNone},locale.get())}</p>
                     <div class="cw-actions">
-                      <ActionButton id=unit.with_value(|u|format!("metadata-up-{}",u.unit_id)) locale variant=ButtonVariant::Text icon=IconName::ArrowUpward blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r { if let Ok(next)=unit.with_value(|u|old.move_unit(&u.unit_id,true)){*old=next;confirmed.set(false);} }); })>{move || text(Key::MoveEarlier, locale.get())}</ActionButton>
-                      <ActionButton id=unit.with_value(|u|format!("metadata-down-{}",u.unit_id)) locale variant=ButtonVariant::Text icon=IconName::ArrowDownward blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r {if let Ok(next)=unit.with_value(|u|old.move_unit(&u.unit_id,false)){*old=next;confirmed.set(false);} }); })>{move || text(Key::MoveLater, locale.get())}</ActionButton>
-                      <ActionButton id=unit.with_value(|u|format!("metadata-remove-{}",u.unit_id)) locale variant=ButtonVariant::Text blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r {*old=unit.with_value(|u|old.remove(&u.unit_id));confirmed.set(false);}); })>{move || text(Key::MetadataRemove, locale.get())}</ActionButton>
+                      <ActionButton id=unit.with_value(|u|format!("metadata-up-{}",u.unit_id)) locale reason=blocked_reason variant=ButtonVariant::Text icon=IconName::ArrowUpward blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r { if let Ok(next)=unit.with_value(|u|old.move_unit(&u.unit_id,true)){*old=next;confirmed.set(false);} }); })>{move || text(Key::MoveEarlier, locale.get())}</ActionButton>
+                      <ActionButton id=unit.with_value(|u|format!("metadata-down-{}",u.unit_id)) locale reason=blocked_reason variant=ButtonVariant::Text icon=IconName::ArrowDownward blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r {if let Ok(next)=unit.with_value(|u|old.move_unit(&u.unit_id,false)){*old=next;confirmed.set(false);} }); })>{move || text(Key::MoveLater, locale.get())}</ActionButton>
+                      <ActionButton id=unit.with_value(|u|format!("metadata-remove-{}",u.unit_id)) locale reason=blocked_reason variant=ButtonVariant::Text blocked on_press=Callback::new(move |_| { if blocked.get_untracked(){return;} review.update(|r|if let Some(old)=r {*old=unit.with_value(|u|old.remove(&u.unit_id));confirmed.set(false);}); })>{move || text(Key::MetadataRemove, locale.get())}</ActionButton>
                     </div></li> }
               }/>
             </ol>
@@ -265,7 +315,7 @@ pub(super) fn MetadataPanel(
                   <p><code>{super::copy::revision_label(revision)}</code></p>
                   <p>{move ||facts.with(|f|match f.metadata.artwork.get(&revision){None=>text(Key::MetadataArtworkUnread,locale.get()).into(),Some(pin)=>pin.artwork.as_ref().map(|a|a.alt_text.clone()).unwrap_or_else(||text(Key::MetadataArtworkNone,locale.get()).into())})}</p>
                   <code>{move ||facts.with(|f|f.metadata.artwork.get(&revision).and_then(|p|p.artwork.as_ref()).map(|a|super::copy::asset_identity(&a.image_asset_id,&a.image_asset_digest)))}</code>
-                  <ActionButton id=format!("metadata-artwork-{revision}") locale blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
+                  <ActionButton id=format!("metadata-artwork-{revision}") locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                       if blocked.get_untracked() { return; }
                       if let Some(selection) = review.get_untracked() {
                           dispatch.send(Command::MetadataArtwork { work: selection.work().into(), revision });
@@ -276,11 +326,11 @@ pub(super) fn MetadataPanel(
             <p class="help">{move || text(Key::MetadataPinAssets, locale.get())}</p>
             <ReviewCheckbox id="metadata-rights" locale label=Signal::derive(move ||text(Key::MetadataRights,locale.get()).to_owned()) checked=confirmed blocked on_change=Callback::new(move |value|confirmed.set(value))/>
             <div class="cw-actions">
-              <ActionButton id="metadata-publish" locale reason=BlockReason::Metadata(Key::MetadataPublishBlocked) variant=ButtonVariant::Primary blocked=Signal::derive(move || !can_publish.get()) on_press=Callback::new(move |_| {
+              <ActionButton id="metadata-publish" locale reason=publish_reason variant=ButtonVariant::Primary blocked=Signal::derive(move || !can_publish.get()) on_press=Callback::new(move |_| {
                   if !can_publish.get_untracked(){return;}
                   if let Some(selection)=review.get_untracked(){dispatch.build(uuid().and_then(|id|selection.request(id,confirmed.get_untracked()).map(|request|Command::MetadataCommand{work:selection.work().into(),request}).map_err(|_|super::ClientError::InvalidInput)));}
               })>{move ||text(Key::MetadataPublish,locale.get())}</ActionButton>
-              <ActionButton id="metadata-review-close" locale blocked variant=ButtonVariant::Text on_press=close>{move || text(Key::MetadataClose,locale.get())}</ActionButton>
+              <ActionButton id="metadata-review-close" locale reason=blocked_reason blocked variant=ButtonVariant::Text on_press=close>{move || text(Key::MetadataClose,locale.get())}</ActionButton>
             </div>
           </section>
         </Show>
