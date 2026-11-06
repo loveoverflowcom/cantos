@@ -5,6 +5,8 @@ use leptos::prelude::*;
 pub const MENU_ID: &str = "studio-account-menu";
 
 /// One footer trigger per presentation; the shell closes navigation before opening Account.
+/// The label names the Account action, never a person. The neutral shared Person icon needs
+/// no actor, initials, tone or picture; the former ActorBadge was retired by the footer layout.
 #[component]
 pub fn AccountTrigger(
     scope: &'static str,
@@ -112,6 +114,10 @@ pub fn open_after_navigation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::messages::{
+        entry::{text, Key},
+        Locale,
+    };
 
     #[test]
     fn scoped_triggers_control_exactly_one_named_dialog() {
@@ -134,5 +140,57 @@ mod tests {
             assert!(html.contains("probe-action"), "{html}");
             assert!(!html.contains("studio-avatar"), "{html}");
         });
+    }
+
+    #[test]
+    fn account_chrome_names_the_action_in_both_locales_without_a_profile() {
+        for (locale, account, close) in [
+            (Locale::Vietnamese, "Tài khoản", "Đóng menu tài khoản"),
+            (Locale::English, "Account", "Close account menu"),
+        ] {
+            for expanded in [false, true] {
+                Owner::new().with(|| {
+                    let open = RwSignal::new(expanded);
+                    let label = Signal::derive(move || text(Key::Account, locale).to_owned());
+                    let close_label = text(Key::CloseAccount, locale);
+                    assert_eq!(label.get(), account);
+                    assert_eq!(close_label, close);
+                    let html = view! {
+                        <AccountTrigger scope="rail" label open=open.into()
+                            on_open=Callback::new(|_| {})/>
+                        <AccountEntry available=true open label close_label
+                            failure_label="dialog failure">
+                            <span>"action slot"</span>
+                        </AccountEntry>
+                    }
+                    .to_html();
+                    assert!(
+                        html.contains(&format!("aria-expanded=\"{expanded}\"")),
+                        "{html}"
+                    );
+                    assert!(
+                        html.contains("aria-controls=\"studio-account-menu\""),
+                        "{html}"
+                    );
+                    assert!(
+                        html.contains("aria-labelledby=\"studio-account-menu-title\""),
+                        "{html}"
+                    );
+                    assert!(html.contains(&format!(">{account}</h2>")), "{html}");
+                    assert!(html.contains(&format!("{close}</button>")), "{html}");
+                    assert!(html.contains("aria-hidden=\"true\""), "{html}");
+                    for profile_markup in [
+                        "studio-avatar",
+                        "cui-avatar",
+                        "data-tone",
+                        "data-initials",
+                        "<img",
+                        "role=\"img\"",
+                    ] {
+                        assert!(!html.contains(profile_markup), "{profile_markup}: {html}");
+                    }
+                });
+            }
+        }
     }
 }

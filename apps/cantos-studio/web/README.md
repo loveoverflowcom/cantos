@@ -123,6 +123,9 @@ Account returns to the rail trigger or Menu. A resize can select the currently v
 Closing clears typed reauthentication credentials through the existing shell effect; session
 and operation authority remain unchanged. Source-bound checks and remaining real-auth/AT
 acceptance are in the [v3 footer record](../../../docs/evidence/studio-preferences-footer-582.md).
+The [ActorBadge review](../../../docs/evidence/studio-actor-badge-742.md) records that the
+footer retired the local avatar renderer and duplicate palette. Shared Avatar admission is
+currently available; the neutral Account action has no remaining badge to migrate.
 
 The footer and direct selector supersede the v7/v8 topbar placement and cycle presentation.
 Historical [topbar v7/v8](../../../docs/evidence/studio-topbar-582.md) and
