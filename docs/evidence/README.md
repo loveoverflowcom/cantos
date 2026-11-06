@@ -48,6 +48,9 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 [Locale/appearance consumer review #741](locale-theme-recipe-741.md) records Theatre guest topbar reuse,
 Studio full-label entry/footer differences, narrow enlarged-text repair and browser/zoom limits.
 
+[Studio ActorBadge review #742](studio-actor-badge-742.md) records the retired local badge,
+current two-renderer Avatar admission, generic account regression and remaining acceptance.
+
 ## Retired backend experiments
 
 [ADR 0018](../decisions/0018-external-audio-production.md) supersedes backend TTS/provider/job
