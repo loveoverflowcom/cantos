@@ -285,7 +285,8 @@ fun CantosPresentation(
                 }
                 val scroll = rememberRouteScroll(state.stack, membershipScreen)
                 val framed = state.route == ShellRoute.MembershipPreview || state.route.isAccountTask()
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    val contentHeight = maxHeight
                     if (state.route == ShellRoute.Search) Column(
                         Modifier.widthIn(max = tokenDp("breakpoint.expanded")).fillMaxSize().padding(tokenDp("space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
@@ -308,7 +309,7 @@ fun CantosPresentation(
                             ShellRoute.Landing -> LandingScreen(state, catalog, copy, dispatch) { guestEntry(entryFocus.login) }
                             ShellRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
                             ShellRoute.Search -> Unit // Fullscreen: rendered above, outside the scrolling column.
-                            ShellRoute.Library -> LibraryScreen(state, catalog, copy, dispatch)
+                            ShellRoute.Library -> LibraryScreen(state, catalog, copy, dispatch, contentHeight)
                             is ShellRoute.SharedWork -> LocalShellSharedDetail.current?.invoke() ?: SelectionUnavailable(copy, dispatch)
                             is ShellRoute.Work -> {
                                 val work = catalog.work(route.id)

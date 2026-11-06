@@ -48,13 +48,30 @@ class LibraryEmptyCaptureTest {
     }
 
     @Test
+    fun completed_empty_mobile_matrix_keeps_the_invitation_scrollable() {
+        for (width in listOf(320, 390)) {
+            for (scale in listOf(1f, 2f)) {
+                for (theme in listOf(ThemeMode.Light, ThemeMode.Dark)) {
+                    for (locale in PreviewLocale.entries) {
+                        val settings = PreviewSettings(themeMode = theme, locale = locale, fontScale = scale,
+                            constraints = ConstraintFrame(width, if (width == 320) 800 else 844),
+                            density = Density.Comfortable, reducedMotion = true)
+                        capture(TheatreFixture.LibraryEmpty, settings)
+                        capture(TheatreFixture.LibraryEmpty, settings, "library-empty-discover")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun narrow_long_copy_at_double_text_scale_scrolls_to_the_primary_action_and_last_section() {
         listOf(ThemeMode.Light, ThemeMode.Dark).forEach { theme ->
             PreviewLocale.entries.forEach { locale ->
                 val settings = PreviewSettings(themeMode = theme, locale = locale, fontScale = 2f,
                     constraints = ConstraintFrame(320, 800), density = Density.Comfortable, reducedMotion = true)
                 capture(TheatreFixture.LibraryEmpty, settings, "library-empty-discover")
-                capture(TheatreFixture.LibraryEmpty, settings, "library-history")
+                capture(TheatreFixture.LibraryPartial, settings, "library-history")
                 capture(TheatreFixture.HistoryEmpty, settings, "library-empty-discover")
             }
         }

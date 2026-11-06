@@ -1,8 +1,8 @@
 package com.cantos.theatre.features.shell.presentation
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.LibraryEmptyKind
@@ -41,6 +42,7 @@ internal fun LibraryEmpty(
     discover: Boolean = false,
     compact: Boolean = false,
     illustrated: Boolean = false,
+    artworkMaxWidth: Dp = 240.dp,
 ) {
     val hero = kind == LibraryEmptyKind.Library
     val foreground = if (hero) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
@@ -59,7 +61,7 @@ internal fun LibraryEmpty(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TheatreEmptyArtwork(TheatreEmptyArtworkKind.Library, theme,
-                    Modifier.width(224.dp).aspectRatio(1.2f).testTag("library-empty-artwork"))
+                    Modifier.width(minOf(224.dp, artworkMaxWidth)).aspectRatio(1.2f).testTag("library-empty-artwork"))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
                     LibraryEmptyText(kind, copy, compact)
                     if (discover) DiscoverEmptyAction(copy, dispatch)
@@ -69,7 +71,7 @@ internal fun LibraryEmpty(
             ) {
                 if (hero || illustrated) TheatreEmptyArtwork(
                     if (hero) TheatreEmptyArtworkKind.Library else TheatreEmptyArtworkKind.History,
-                    theme, Modifier.widthIn(max = 240.dp).fillMaxWidth().aspectRatio(1.2f)
+                    theme, Modifier.widthIn(max = artworkMaxWidth).fillMaxWidth().aspectRatio(1.2f)
                         .align(Alignment.CenterHorizontally).testTag(if (hero) "library-empty-artwork" else "history-empty-artwork"),
                 )
                 LibraryEmptyText(kind, copy, compact)

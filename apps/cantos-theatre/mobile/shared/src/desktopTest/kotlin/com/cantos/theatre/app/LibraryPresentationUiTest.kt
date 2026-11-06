@@ -109,9 +109,9 @@ class LibraryPresentationUiTest {
         render(library(), events) {
             onNodeWithTag("library-empty-hero").performScrollTo().assertIsDisplayed()
             onNodeWithText(copy.text(CopyKey.LibraryEmpty)).assertExists()
-            onNodeWithTag("library-continue-empty").assertExists()
-            onNodeWithTag("library-saved-empty").assertExists()
-            onNodeWithTag("library-history-empty").assertExists()
+            onNodeWithTag("library-continue-empty").assertDoesNotExist()
+            onNodeWithTag("library-saved-empty").assertDoesNotExist()
+            onNodeWithTag("library-history-empty").assertDoesNotExist()
             assertEquals(1, onAllNodesWithTag("library-empty-discover").fetchSemanticsNodes().size)
             onNodeWithTag("history-all").assertDoesNotExist()
             assertEquals(0, onAllNodesWithTag("library-continue-loading").fetchSemanticsNodes().size)

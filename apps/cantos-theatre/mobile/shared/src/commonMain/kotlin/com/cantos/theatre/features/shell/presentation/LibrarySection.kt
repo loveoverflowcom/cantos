@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -27,6 +28,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.LibraryEmptyKind
 import com.cantos.theatre.presentation.model.ShellCatalogView
@@ -49,7 +52,7 @@ import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit, contentHeight: Dp) {
     Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
@@ -59,29 +62,34 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
     val allEmpty = isLibraryCompletelyEmpty(state, catalog.library, capabilities) && !LocalShellSharedLibraryHasItems.current
     val discoverSection = if (allEmpty) null else listOf(ShellLibrarySection.Continue, ShellLibrarySection.Saved,
         ShellLibrarySection.Bookmarks, ShellLibrarySection.History).firstOrNull { it in empty }
-    if (allEmpty) LibraryEmpty(LibraryEmptyKind.Library, copy, dispatch, state.theme, Modifier.testTag("library-empty-hero"), discover = true)
-    Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        if (!allEmpty) SectionHeading(CopyKey.Continuing, copy)
+    if (allEmpty) LibraryEmpty(
+        LibraryEmptyKind.Library, copy, dispatch, state.theme, Modifier.testTag("library-empty-hero"), discover = true,
+        // This is the scroll viewport after header/player/navigation insets, not the unbounded column.
+        // Keep decorative art subordinate as the viewport shrinks or readable text grows.
+        artworkMaxWidth = minOf(224.dp, contentHeight / 3f / LocalDensity.current.fontScale.coerceAtLeast(1f)),
+    )
+    if (!allEmpty) Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.Continuing, copy)
         val points = continuingProgress(state)
         val phase = catalog.library.continuing
         LibraryPending(phase, points.isNotEmpty(), "library-continue", copy)
         if (ShellLibrarySection.Continue in empty) LibraryEmpty(
             LibraryEmptyKind.Continue, copy, dispatch, state.theme, Modifier.testTag("library-continue-empty"),
-            discover = discoverSection == ShellLibrarySection.Continue, compact = allEmpty,
+            discover = discoverSection == ShellLibrarySection.Continue,
         )
         points.forEach { point -> key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "resume-${point.episodeId}") } }
         LibraryFooter(phase, ShellLibrarySection.Continue, "library-continue", copy, dispatch)
     }
     LocalShellSharedLibrary.current?.invoke()
-    Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        if (!allEmpty) SectionHeading(CopyKey.SavedTab, copy)
+    if (!allEmpty) Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.SavedTab, copy)
         // The API's order (newest save first), not the browsing catalog's.
         val works = state.savedWorks.mapNotNull { catalog.work(it) }
         val phase = catalog.library.saved
         LibraryPending(phase, works.isNotEmpty(), "library-saved", copy)
         if (ShellLibrarySection.Saved in empty) LibraryEmpty(
             LibraryEmptyKind.Saved, copy, dispatch, state.theme, Modifier.testTag("library-saved-empty"),
-            discover = discoverSection == ShellLibrarySection.Saved, compact = allEmpty,
+            discover = discoverSection == ShellLibrarySection.Saved,
         )
         else {
             val (bare, described) = works.partition { it.unavailable }
@@ -91,23 +99,22 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
         if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
         LibraryFooter(phase, ShellLibrarySection.Saved, "library-saved", copy, dispatch)
     }
-    Column(Modifier.testTag("library-bookmarks"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        if (!allEmpty) SectionHeading(CopyKey.Bookmarks, copy)
+    if (!allEmpty || !capabilities.bookmarks) Column(Modifier.testTag("library-bookmarks"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.Bookmarks, copy)
         val phase = catalog.library.bookmarks
         if (!capabilities.bookmarks) {
-            if (allEmpty) SectionHeading(CopyKey.Bookmarks, copy)
             Text(copy.text(CopyKey.BookmarksUnavailable), Modifier.testTag("library-bookmarks-unavailable"))
         }
         else {
             LibraryPending(phase, state.bookmarks.isNotEmpty(), "library-bookmarks", copy)
             if (ShellLibrarySection.Bookmarks in empty) LibraryEmpty(LibraryEmptyKind.Bookmarks, copy, dispatch, state.theme,
-                Modifier.testTag("library-bookmarks-empty"), discover = discoverSection == ShellLibrarySection.Bookmarks, compact = allEmpty)
+                Modifier.testTag("library-bookmarks-empty"), discover = discoverSection == ShellLibrarySection.Bookmarks)
             BookmarkRows(state, catalog, copy, dispatch, "library-bookmark")
             LibraryFooter(phase, ShellLibrarySection.Bookmarks, "library-bookmarks", copy, dispatch)
         }
     }
-    Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        if (!allEmpty) SectionHeading(CopyKey.History, copy)
+    if (!allEmpty) Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.History, copy)
         val phase = catalog.library.history
         LibraryPending(phase, state.history.isNotEmpty(), "library-history", copy)
         if (ShellLibrarySection.History !in empty) TextButton(shape = MaterialTheme.shapes.small,
@@ -115,7 +122,7 @@ internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: S
             Text(copy.text(CopyKey.ViewAllHistory))
         }
         if (ShellLibrarySection.History in empty) LibraryEmpty(LibraryEmptyKind.History, copy, dispatch, state.theme,
-            Modifier.testTag("library-history-empty"), discover = discoverSection == ShellLibrarySection.History, compact = allEmpty)
+            Modifier.testTag("library-history-empty"), discover = discoverSection == ShellLibrarySection.History)
         state.history.take(3).forEach { point ->
             key(point.episodeId) { ListeningPoint(point, catalog, copy, dispatch, fromHistory = true, tag = "recent-${point.episodeId}") }
         }
