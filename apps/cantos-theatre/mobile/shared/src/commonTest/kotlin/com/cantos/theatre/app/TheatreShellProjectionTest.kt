@@ -33,6 +33,9 @@ import com.cantos.theatre.domain.library.LibraryWorkKind
 import com.cantos.theatre.domain.library.LibrarySync
 import com.cantos.theatre.domain.library.SavedEntry
 import com.cantos.theatre.domain.playback.AudioIdentity
+import com.cantos.theatre.domain.playback.PlaybackEvent
+import com.cantos.theatre.domain.playback.PlaybackPauseCause
+import com.cantos.theatre.domain.playback.reducePlayback
 import com.cantos.theatre.domain.playback.PlaybackEngine
 import com.cantos.theatre.domain.playback.PlaybackInterruption
 import com.cantos.theatre.domain.playback.PlaybackIntent
@@ -155,6 +158,31 @@ class TheatreShellProjectionTest {
     private fun session(audio: AudioIdentity, positionMs: Long = 5_000, intent: PlaybackIntent = PlaybackIntent.Play) = PlaybackState(
         generation = 1, session = PlaybackSession(PlaybackSource.streaming(audio), positionMs, 1000, intent,
             PlaybackEngine.Running, PlaybackInterruption.None))
+
+    @Test
+    fun pending_seek_and_generation_project_without_claiming_an_engine_ack_or_resuming() {
+        val before = session(audio(1, 1), intent = PlaybackIntent.Pause(PlaybackPauseCause.User))
+        val pending = reducePlayback(before, PlaybackEvent.SeekRequested(18_000)).nextState
+        val view = projectTheatreShell(inputs(playback = pending)).state
+        assertEquals(pending.generation, view.playbackGeneration)
+        assertEquals(5, view.positionSeconds)
+        assertEquals(18, view.pendingSeekSeconds)
+        assertEquals(false, view.transportRequested)
+        assertEquals(view, view.copy())
+        assertEquals(view.hashCode(), view.copy().hashCode())
+        val stale = reducePlayback(pending, PlaybackEvent.EnginePosition(requireNotNull(before.identity), 6_000)).nextState
+        assertEquals(view, projectTheatreShell(inputs(playback = stale)).state)
+        val acknowledged = reducePlayback(pending, PlaybackEvent.EnginePosition(requireNotNull(pending.identity), 17_980)).nextState
+        val observed = projectTheatreShell(inputs(playback = acknowledged)).state
+        assertEquals(17, observed.positionSeconds)
+        assertNull(observed.pendingSeekSeconds)
+        assertEquals(false, observed.transportRequested)
+        assertTrue(view != view.copy(playbackGeneration = view.playbackGeneration + 1))
+        assertTrue(view != view.copy(pendingSeekSeconds = null))
+        val switched = projectTheatreShell(inputs(playback = pending,
+            requested = UnitRequest(work(2).id.value, unit(2).id.value, unit(2).publicationId!!.value, "Other", "Other"))).state
+        assertNull(switched.pendingSeekSeconds)
+    }
 
     @Test
     fun work_hero_keeps_pending_play_cancellable_and_never_claims_engine_ack_from_intent() {

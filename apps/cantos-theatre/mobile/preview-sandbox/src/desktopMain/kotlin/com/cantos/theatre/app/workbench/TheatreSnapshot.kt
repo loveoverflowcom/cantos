@@ -108,7 +108,8 @@ fun encodeTheatreSnapshot(snapshot: TheatreSnapshot): TheatreSnapshotExport {
     val settings = recipe.settings
     val queryId = syntheticQueries.entries.firstOrNull { it.value == state.query }?.key
         ?: return TheatreSnapshotExport.UnsupportedState("Export supports declared synthetic queries only; clear the search first")
-    if (!snapshot.settled || state.listeningFailure != null || ShellRoute.MembershipPreview in state.stack ||
+    if (!snapshot.settled || state.pendingSeekSeconds != null || state.playbackGeneration != 0L ||
+        state.listeningFailure != null || ShellRoute.MembershipPreview in state.stack ||
         state.playbackStatus !in setOf(PlaybackUiStatus.Idle, PlaybackUiStatus.Paused, PlaybackUiStatus.Playing) ||
         (state.playbackStatus == PlaybackUiStatus.Playing) != state.transportRequested) {
         return TheatreSnapshotExport.UnsupportedState("Settle or reset transient playback/storage and membership state before export")

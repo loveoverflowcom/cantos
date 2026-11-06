@@ -193,9 +193,11 @@ class TheatreWorkbenchController(
         val projected = owners.projection()
         // Snapshots carry positions only. Row titles and durations are re-derived from the API values
         // on restore, and a row that cannot resume has no wire form, so it is never exported.
-        val state = projected.copy(progress = projected.progress.map(ShellProgress::positionOnly), history = projected.history.map(ShellProgress::positionOnly), savedAccount = null)
+        // Controller epochs are mount-local, never a restorable snapshot fact.
+        val state = projected.copy(progress = projected.progress.map(ShellProgress::positionOnly), history = projected.history.map(ShellProgress::positionOnly),
+            savedAccount = null, playbackGeneration = 0, pendingSeekSeconds = null)
         val exportable = (projected.progress + projected.history).all { it.resume == ShellResume.Available }
-        val settled = exportable && library.pending == 0 && library.failure == null && library.failures.isEmpty() && !library.refreshing
+        val settled = exportable && projected.pendingSeekSeconds == null && library.pending == 0 && library.failure == null && library.failures.isEmpty() && !library.refreshing
         return TheatreSnapshot(selectedRecipe, state, owners.account.state.value is NativeAccountState.SignedIn, settled)
     }
 

@@ -486,7 +486,22 @@ device gaps](../../../docs/evidence/listen-hero-595.md).
   Resume opens the same release at its saved position, paused. History records starts the player
   acknowledged; opening a page creates none.
 - Mini/full player: bounded manual seek, speed, a sleep timer that pauses the real player and the
-  episode queue.
+  episode queue. The app-owned timeline keeps a local draft while dragging or holding a seek key;
+  pointer release/key release commits one `SeekTo`, while Material drag cancellation, focus loss,
+  route disposal or a changed source/controller generation discard the draft. Engine ticks do not
+  replace an active draft. Accessibility `SetProgress` commits once through the same completion
+  path; arrow keys step by one percent (at least one second), Page keys by ten steps, Home/End
+  select the bounds, and horizontal arrows respect RTL. The controller remains the only playback
+  authority: its pending seek target is displayed until a matching engine observation replaces it,
+  and seek never changes paused intent. A draft's generation travels through `TheatreShell` into
+  the existing reducer, which ignores stale seeks at the ordered write boundary even if the UI
+  has not received the newest source/intent frame. Workbench snapshots omit the mount-local
+  generation and refuse pending seeks until they are acknowledged; a remount always uses its
+  newly constructed controller's fence. `PlayerScrubTest` and `PlayerResponsiveTest` exercise the
+  production composables on JVM. Skiko 1.9.0 does not dispatch touch `cancel()`, so the cancellation
+  contract test injects Material `DragInteraction.Cancel`; actual native cancellation, safe areas,
+  TalkBack/VoiceOver and performance remain separate device acceptance. The shell lays out the
+  scroll viewport above the mini-player/tab row rather than overlaying them or padding each route.
 - **Release-bound bookmarks** ([Library v1.2](../../../services/cantos-server/contracts/theatre/library/v1/README.md#release-bound-bookmarks-v120), #299).
   The player's *Bookmark this moment* control takes the exact audio identity and the position from **one
   snapshot of the player owner**, records both in the existing SQLite store with its outbox intent in one local

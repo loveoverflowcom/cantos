@@ -2,6 +2,7 @@ package com.cantos.theatre.presentation.model
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ShellStateTest {
@@ -22,4 +23,15 @@ class ShellStateTest {
         assertEquals(episode, view.episode(episode)?.id)
         assertEquals(work, filteredWorks(state, view).single().id)
     }
+    @Test
+    fun playback_projection_refuses_negative_fences_and_pending_targets_on_construction_or_copy() {
+        val episode = ShellEpisodeId("episode", ShellWorkId("work"))
+        assertFailsWith<IllegalArgumentException> { ShellState(selectedEpisode = episode, playbackGeneration = -1) }
+        assertFailsWith<IllegalArgumentException> { ShellState(selectedEpisode = episode, pendingSeekSeconds = -1) }
+        val valid = ShellState(selectedEpisode = episode, playbackGeneration = 2, pendingSeekSeconds = 12)
+        assertEquals(valid, valid.copy())
+        assertFailsWith<IllegalArgumentException> { valid.copy(playbackGeneration = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(pendingSeekSeconds = -1) }
+    }
+
 }
