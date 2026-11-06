@@ -1,4 +1,4 @@
 interface:
   display_name: "Cantos UI Capture"
-  short_description: "Capture attributable Web and native UI evidence"
-  default_prompt: "Use $cantos-ui-capture to record the current Cantos UI across the requested surfaces with per-runtime build provenance, screenshots, navigation and honest coverage; upload or audit only when requested."
+  short_description: "Capture and report Web and native UI evidence"
+  default_prompt: "Use $cantos-ui-capture to report the current UI across the requested surfaces with screenshots, build provenance, navigation, component and token evidence, and coverage gaps."

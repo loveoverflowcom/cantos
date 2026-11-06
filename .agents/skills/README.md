@@ -128,7 +128,7 @@ Passing it proves skill hygiene only.
 | light source/score/audio artifact audit and handoff integrity | [`cantos-story-audit`](cantos-story-audit/SKILL.md) |
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
-| capturing current Theatre Web, Theatre CMP or Studio Web UI without an audit | [`cantos-ui-capture`](cantos-ui-capture/SKILL.md) |
+| capturing or reporting the current Theatre Web, Theatre CMP or Studio Web UI, including component and token evidence | [`cantos-ui-capture`](cantos-ui-capture/SKILL.md) |
 | uploading/resuming a UI evidence bundle on Drive, maintaining its screen index or retrieving a pinned run | [`cantos-ui-evidence-drive`](cantos-ui-evidence-drive/SKILL.md) |
 | auditing UI/UX, inspecting components or comparing them with a requested design, and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |

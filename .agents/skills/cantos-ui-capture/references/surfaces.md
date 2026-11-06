@@ -28,6 +28,11 @@ replaced by a resized Web or desktop screenshot.
 
 ## Reuse existing hosts without promoting their evidence
 
+- `cargo xtask ui-preview leptos run` serves the [Leptos gallery](../../../../packages/ui-system/leptos/README.md#styling-and-gallery).
+  Use its selected registration and state, or a supported workbench recipe. Save the exact recipe
+  URL and observed metadata when available. Use `cargo xtask ui-preview cmp run` for the
+  [CMP Desktop gallery](../../../../packages/ui-system/cmp/README.md#preview-contents) and record
+  the component/state and selected settings. Both galleries are `component-preview` targets.
 - `cargo xtask theatre-preview verify` exercises the common/JVM desktop suites. Discover the
   current `DemoCaptureTest` in `preview-sandbox` and its `CANTOS_THEATRE_DEMO_CAPTURE_DIR`
   output, then preserve PNGs and sidecars. It is a mock desktop composition, not the APK.
@@ -44,13 +49,43 @@ replaced by a resized Web or desktop screenshot.
   `mock-app` or `host-preview` and the exact renderer. Synthetic account text is not real auth.
   Dumped semantics are not asserted semantics; preview images never satisfy native coverage.
 
+## Component and token evidence
+
+Look up shared components and scenarios in the [preview catalog](../../../../packages/ui-system/shared/preview-catalog.json).
+For a broad capture, inventory the supported scenarios by renderer, then choose variants for the
+requested scope and budget. A proposed entry from a design gallery belongs to reference coverage.
+Record each component's source owner, observed app uses and source-only uses separately. Give an
+app-local component a stable source-based ID when it has no catalog registration.
+
+Use the [canonical token source](../../../../packages/ui-system/shared/tokens.json) and
+[renderer mappings](../../cantos-ui-design/references/tokens.md#3-names-and-mapping).
+Record path, version and SHA-256 for the token source and catalog used for lookup. Keep that
+checkout provenance separate from any digest the target actually reports. Choose roles that
+matter to the captured component and state, such as a foreground/background pair, type scale,
+control shape or reduced-motion override.
+
+- **Leptos.** Inspect the exact element's computed property and trace it through the applicable
+  declaration and generated CSS variable, including nested theme, density, local overrides and
+  pseudo-element if relevant. A resolved custom property alone shows availability in that scope.
+  Record usage only after tracing the property the component actually consumes.
+- **CMP.** Trace the semantic role through the generated `CantosTokens` mapping and the local
+  `CantosTheme` or Material role. Use values exposed by the selected runtime or existing
+  diagnostic output for that component and scope. A preview swatch or a sidecar's token digest
+  does not measure the native product component. Use source-only or unmeasured rows when the
+  running target cannot expose a value.
+
+For example, a Web button row may link the scoped `color.onPrimaryContainer` role to the
+element's computed `color` after the matching rule is traced. A color sampled from the screenshot
+alone establishes neither the role nor the active theme override. If the browser exposes the
+computed `color` but the active rule cannot be traced, report the color as a renderer observation
+and keep the semantic role unmeasured.
+
 ## Coverage and navigation
 
 Choose a complete representative journey first, then distinct navigation/overlay/state and
 responsive variants. For “all UI”, keep every discovered in-scope screen/state in the expected
 set even when it cannot run. Include component/catalog/scenario IDs where the repo defines
-them; record source-only components separately from observed ones. Token provenance can link
-the existing token owner/version/hash; do not infer effective token values from image colors.
+them; record source-only components separately from observed ones.
 
 `NOT_IMPLEMENTED` needs current source evidence of absence, rather than a failed URL or missing
 login. Keep a reproducible app error as `CAPTURED` with state `error`. Blocked coverage is not
@@ -59,4 +94,5 @@ a P0–P3 finding. Preserve unknowns instead of inventing fixture accounts or ro
 Method references inspected on 2026-11-04:
 [Vink capture](https://github.com/loveoverflowcom/vink/blob/develop/.agents/skills/vink-ui-capture/SKILL.md)
 and [Vink Drive evidence](https://github.com/loveoverflowcom/vink/blob/develop/.agents/skills/vink-ui-evidence-drive/SKILL.md).
+The report's component and token evidence adapts the [Vink bundle contract](https://github.com/loveoverflowcom/vink/blob/136c1fdfe5399436bbe02e653a29b7e797d6b155/.agents/skills/vink-ui-capture/references/evidence-contract.md).
 Cantos source and owning docs determine its commands and platform scope.
