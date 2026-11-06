@@ -360,6 +360,44 @@ mod tests {
     use super::*;
 
     #[test]
+    fn guest_topbar_keeps_short_codes_full_names_and_one_theme_action_without_changing_me() {
+        Owner::new().with(|| {
+            for language in Locale::supported() {
+                for mode in [Theme::Light, Theme::Dark, Theme::System] {
+                    for compact in [false, true] {
+                        let locale = RwSignal::new(language);
+                        let theme = RwSignal::new(mode);
+                        let html = view! {
+                            <PreferenceFields locale theme compact scope="recipe"
+                                on_locale=Callback::new(|_: String| panic!("render must not change preferences"))/>
+                        }.to_html();
+                        assert_eq!(theme.get_untracked(), mode);
+                        assert_eq!(locale.get_untracked(), language);
+                        assert!(html.contains(&format!("value=\"{}\" selected", language.lang())), "{html}");
+                        for option in Locale::supported() {
+                            assert!(html.contains(option.autonym()), "{html}");
+                        }
+                        if compact {
+                            assert!(html.contains("class=\"cui-topbar-actions theatre-guest-preferences\""), "{html}");
+                            assert!(html.contains("aria-labelledby=\"recipe-locale-label recipe-locale-value\""), "{html}");
+                            assert!(html.contains(&format!("<span class=\"cui-sr-only\">{}</span>", language.autonym())), "{html}");
+                            assert!(html.contains(&format!("<span aria-hidden=\"true\" class=\"cui-select-short\">{}</span>", language.lang().split('-').next().unwrap())), "{html}");
+                            assert_eq!(html.matches("class=\"cui-button-field cui-theme-cycle-field\"").count(), 1, "{html}");
+                            assert!(html.contains(&format!("aria-label=\"{}\"", crate::localization::theme_labels(language).text(mode))), "{html}");
+                        } else {
+                            assert!(html.contains("class=\"theatre-pref-row\""), "{html}");
+                            assert!(html.contains(&format!("value=\"{}\" selected", mode.as_str())), "{html}");
+                            for absent in ["cui-topbar-actions", "theatre-locale-field", "cui-select-short", "cui-theme-cycle"] {
+                                assert!(!html.contains(absent), "{absent}: {html}");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
     fn me_keeps_account_actions_together_before_membership() {
         use crate::features::auth_preview::{signed_in, PreviewActor};
         Owner::new().with(|| {

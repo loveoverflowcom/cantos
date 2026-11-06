@@ -814,7 +814,7 @@ pub fn Studio() -> impl IntoView {
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
                 <Show when=move ||entry_state.get()!=Entry::Workspace && !auth_display.get().reauthenticating>
-                    <Preferences scope="entry" theme locale on_locale=select_locale/>
+                    <Preferences scope="entry" theme locale wrap_values=true on_locale=select_locale/>
                 </Show>
             </header>
                     <AccountEntry

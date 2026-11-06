@@ -1737,7 +1737,17 @@ mod tests {
         // The app no longer restyles the select control, size, radius or fill.
         assert!(!css.contains(".theatre-locale-field.cui-select-field .cui-field-control"));
         assert!(!css.contains(".theatre-locale-field.cui-select-field .cui-select-trigger"));
-        assert!(include_str!("live_shell.rs").contains("theatre-topbar-actions cui-topbar-actions"));
+        assert!(!css.contains(".theatre-locale-field.cui-select-field .cui-select-value"));
+        // Inspect the rendered consumer, rather than a source string that can match this test.
+        Owner::new().with(|| {
+            let html = view! {
+                <crate::features::account::PreferenceFields
+                    locale=RwSignal::new(Locale::English) theme=RwSignal::new(Theme::System)
+                    on_locale=Callback::new(|_: String| {}) scope="recipe" compact=true/>
+            }
+            .to_html();
+            assert!(html.contains("class=\"cui-topbar-actions theatre-guest-preferences\""));
+        });
     }
 
     #[test]
