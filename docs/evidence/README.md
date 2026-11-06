@@ -45,6 +45,9 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Runtime cleanup | [Current/retired SQL caller inventory](legacy-runtime-inventory.md); `a1` routes/DTOs are removed together with their Studio branch, while controlled schema cutover and live acceptance remain separate |
 | Deployment tooling | [Historical Hosting tool evidence](issue199-firebase-hosting.md); current topology/operations live only in the [production runbook](../deployment/vps-production.md), never a dated deployment diary |
 
+[Locale/appearance consumer review #741](locale-theme-recipe-741.md) records Theatre guest topbar reuse,
+Studio full-label entry/footer differences, narrow enlarged-text repair and browser/zoom limits.
+
 ## Retired backend experiments
 
 [ADR 0018](../decisions/0018-external-audio-production.md) supersedes backend TTS/provider/job

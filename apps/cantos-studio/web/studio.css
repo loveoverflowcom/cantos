@@ -237,7 +237,9 @@ body { margin: 0; }
 .studio-shell .studio-preferences { display: grid; gap: var(--cantos-space-sm); min-inline-size: 0; }
 .studio-shell .studio-preferences .cui-select-field { min-inline-size: 0; max-inline-size: 100%; }
 .studio-shell .studio-preferences .cui-field-control { inline-size: 100%; min-inline-size: 0; }
-.studio-shell .studio-header .studio-preferences { grid-template-columns: repeat(2, minmax(0, 1fr)); max-inline-size: 30rem; }
+/* Entry utilities retain their full names. A 12rem reading column follows text size;
+   auto-fit stacks the pair when two values cannot fit, including enlarged text. */
+.studio-shell .studio-header .studio-preferences { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); inline-size: min(100%, 30rem); }
 .studio-shell .workspace-nav-footer { display: grid; gap: var(--cantos-space-sm); }
 .studio-shell .workspace-navigation-rail .workspace-nav { min-block-size: calc(100dvh - 8rem); box-sizing: border-box; }
 .studio-shell .workspace-nav-footer .studio-account-trigger { inline-size: 100%; justify-content: start; text-align: start; }
