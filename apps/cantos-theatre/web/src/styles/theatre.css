@@ -81,8 +81,14 @@ body { margin: 0; }
   text-decoration: none;
   color: var(--cantos-color-on-surface-variant) !important;
 }
+/* NavItem owns the native anchor/name/current/focus contract. Flatten only its
+   neutral label span so the app-owned decorative leading and text keep rail geometry. */
+.theatre-nav-link > .cui-nav-label { display: contents; }
+.theatre-nav-leading { display: inline-flex; align-items: center; justify-content: center; inline-size: var(--cantos-size-avatar-small); flex-shrink: 0; }
+.theatre-nav-label { min-inline-size: 0; }
 /* Keep the selected destination's foreground and background as a pair. */
-.theatre-nav-link[aria-current="page"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container) !important; font-weight: var(--cantos-type-label-weight); }
+.theatre-nav-link[aria-current="page"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container) !important; font-weight: var(--cantos-type-label-weight); text-decoration: none; }
+.theatre-nav-link[aria-current="page"] .theatre-nav-label { text-decoration: underline; }
 /* A state layer preserves the current destination's paired background and foreground. */
 .theatre-nav-link:hover { background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent)); }
 .theatre-quote { padding: var(--cantos-space-md); font-family: var(--cantos-type-family-editorial); color: var(--cantos-color-on-surface-variant); }
@@ -904,8 +910,9 @@ body { margin: 0; }
 .theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link:last-child { padding-block-start: 16px; min-block-size: 88px; }
 .theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link:last-child::before { block-size: 48px; }
 .theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link[aria-current="page"]::before { background: var(--cantos-color-primary-container); }
-.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link > :is(.theatre-icon, .cui-icon, .theatre-profile-avatar) { position: relative; }
-.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link[aria-current="page"] > :is(.theatre-icon, .cui-icon) { color: var(--cantos-color-on-primary-container); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link:hover::before { background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent)); }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link .theatre-nav-leading { position: relative; }
+.theatre-live-app[data-navigation="compact"] > .theatre-rail .theatre-nav-link[aria-current="page"] .theatre-nav-leading { color: var(--cantos-color-on-primary-container); }
 .theatre-live-app[data-navigation="drawer"] { padding-inline: 16px; }
 .theatre-mobile-brand .theatre-live-brand, .theatre-drawer-header .theatre-live-brand { gap: 8px; }
 .theatre-mobile-brand .cui-logo, .theatre-drawer-header .cui-logo { inline-size: 44px; block-size: 44px; }
@@ -930,7 +937,7 @@ body { margin: 0; }
 /* Keep navigation chrome bounded while text grows; the drawer preserves whole words at 200%. */
 .theatre-navigation-drawer { padding: 16px; }
 .theatre-navigation-drawer .theatre-nav-link { padding: 12px 16px; gap: 12px; min-block-size: 56px; }
-.theatre-live-app .theatre-nav-link > :is(.theatre-icon, .cui-icon) { inline-size: 24px; block-size: 24px; flex-shrink: 0; }
+.theatre-live-app .theatre-nav-link .theatre-nav-leading > :is(.theatre-icon, .cui-icon) { inline-size: 24px; block-size: 24px; flex-shrink: 0; }
 
 .theatre-live-app:not([data-navigation="drawer"]) .theatre-mini-player { inset-inline-start: calc(var(--theatre-rail-size) + var(--cantos-space-lg)); inset-inline-end: var(--cantos-space-lg); }
 

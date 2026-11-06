@@ -160,6 +160,15 @@ a filled indicator, bold label and `aria-current` without a decorative check; ke
 one flush perimeter with no gap. The account destination is localized as Tôi/Me; a person's alias
 remains on the account card.
 
+`PrimaryNavigation` composes the admitted shared `NavItem` native anchor for all three
+destinations. Its existing children contain a decorative, non-interactive leading span
+(Home, Library, or the session-bound `ProfileAvatar`) and the visible localized label.
+Only this composition flattens NavItem's neutral label box with `display: contents`;
+the rail/drawer layout and focus/history owners remain app-owned. IDs are scoped to
+rail or drawer. No shared API or Studio/CMP navigation contract changes.
+See the [#740 source-bound record](../../../docs/evidence/theatre-navigation-740.md)
+for admission, token mapping, local/browser coverage and remaining acceptance.
+
 Me (`#account`) contains one locale and one explicit Light/Dark/System selector as compact
 tonal controls under Preferences. Each has a visible label and shows the current value in full.
 Labels and values reflow onto separate lines when they need more room. The earlier
