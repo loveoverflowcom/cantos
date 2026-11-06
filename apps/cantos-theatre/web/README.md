@@ -466,6 +466,57 @@ PR 02 adds inspected app captures and keyboard/focus observations at named viewp
 The library MVP has its own [observations and limitations](../../../docs/evidence/theatre-web-library-mvp.md);
 earlier captures do not establish its changed navigation or library behavior.
 
+### Bounded icon overlap (#745)
+
+Source inventory pinned to `develop@1ed57a9c050cb337f6786dbf0cd4cc5e7ac104f3` after
+#738/#740 and #743. `features/common.rs::icon` now delegates only the six exact equivalents
+below to the existing shared `Icon`/`IconName` owner, inside the unchanged `.theatre-icon`
+size wrapper. All routes, action labels, selected/disabled state and player decisions remain
+host-owned. This presentation-only migration changes no behavior SSOT state/guard/outcome.
+
+Each row names `<id>.svg`: app paths are relative to `assets/icons/`, canonical paths to
+`packages/ui-system/shared/icons/material-outlined/` at the repository root. Both manifests
+pin Google Material Design Icons revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`,
+Apache-2.0, and the same upstream `sourcePath`/`path`. App bytes add only root currentColor,
+decorative/focus attributes; child SVG trees (including non-painted paths) are equal. The
+canonical hash binds the upstream bytes; the app hash binds the adapted file, not a name match.
+
+| ID / decision | App SHA256 | Canonical SHA256 | Meaning / consumers |
+| --- | --- | --- | --- |
+| `home` — migrate | `72eaca5313ed30a9284cf7504bf6375f7822e1ba6357b74f384c129ffdd6cd90` | `6f5d2c85c8d60a818c3d6011e7cf1b981bc7c7ba5a7ced3664c6c0b6d42c9d69` | Home/discovery navigation; live_shell.rs primary navigation; view.rs mock navigation |
+| `search` — migrate | `8d919c8fa4fc353e93612b855a50cd43a7c6a70f156ce291686a116b9319696f` | `4679a3ccd253f707eeacf7edbb2fb3e395174b690a9ca55ab5fe8a3826002625` | Search; retained string entry (no current common::icon caller); public_home.rs already uses IconButton |
+| `settings` — migrate | `f5d116cb0bf1db3a0276b67125d6ba6342d5e3fa07746474bbc064edc651ad64` | `814b7a6eea050c073d4a8d7b1f72512b0bd4f71b33beb584c8063fb0bfa78d41` | Settings navigation; account.rs mock LinkRow; player.rs mock settings link |
+| `arrow_back` — migrate | `277b20506863941393c9c3c724d1275d56777a1db8eb61cf95b5552ea3b65771` | `5eab5a4557e97143f2166479366672a76bbc31d805be62efa75c7d1a10e13cf2` | Contextual return; public_home.rs genre return; library.rs, work_detail.rs, queue.rs mock return links |
+| `play_arrow` — migrate | `38c15a320df84be25aa10592ed0520ec4ccba3c50b1bd044813b24a4e886a326` | `d9a74a4c94f74d39adb1b519afe7e3569c59c72eacd56817644f691a9c68449a` | Start/continue playback; player.rs, discovery.rs, work_detail.rs, library.rs, queue.rs mock controls; live_player.rs/public_work.rs already shared |
+| `pause` — migrate | `749c3fa4472b037bcc33e2bfe73ac81a4a0a62626a3fc52f41bf2535113148d5` | `777f7140fb9403ece787bdbf37e1ef5d91908bb5c9ed5428949d607e51aec3ae` | Pause playback; player.rs mock transport; live_player.rs/public_work.rs already shared |
+
+Admission reuses the catalog's current `icon` qualification pair:
+[`ui-requalification-737-icon-leptos.json`](../../../docs/evidence/ui-requalification-737-icon-leptos.json)
+and [`ui-requalification-615-icon-cmp.json`](../../../docs/evidence/ui-requalification-615-icon-cmp.json).
+`python3 scripts/ui_preview_catalog.py --check` checks their current source/token digests and
+new adoption; no baseline or qualification record is widened. Shared geometry, generator,
+tokens and CMP product code are unchanged. #738/#740 already moved live transport and search
+to typed shared controls; this slice reuses those results instead of changing their semantics.
+
+Retained/deferred: `library_books` (Library redesign belongs to #613), `headphones`, `smartphone`,
+`bookmark_border`, `check`, `queue_music`, `replay`, `rotate_right`, `delete_outline`, `add` stay
+in the app-private static map. The custom Person/PersonOutline/Chevron and rail toggle keep
+their owners and geometry. Even a further byte-equivalent icon needs its own meaning/consumer
+and role review before migration. All app SVG files, provenance manifest and size classes stay:
+originals remain the overlap regression oracle and other preview/dynamic consumers still exist.
+Unknown legacy names retain the existing empty fallback; the migrated six are explicitly tested
+for nonempty, correct canonical geometry and decorative wrapper semantics.
+
+Focused regression: `cargo test --locked -p cantos-theatre --features preview icon_tests` from
+the repository root compares actual string-rendered shared paths against both retained original
+and canonical geometry, including representative retained exceptions. Existing icon/codegen tests
+remain in the repository gate; final changed-only preflight covers the Theatre consumer.
+Browser evidence is recorded separately in #745; byte equality and these tests do not establish
+Light/Dark, scaling, alignment, optical weight or full app-flow acceptance. Further role/browser
+coverage belongs to Theatre Web QA (unassigned); resume with
+`TRUNK_BUILD_FEATURES=preview cargo xtask app cantos-theatre --web` and the existing mock/auth
+recipes before accepting an unobserved role. Native/device and real media acceptance stay separate.
+
 ## Build, run and checks
 
 Use the existing [xtask commands](../../../xtask/README.md), Rust 1.99.1,
