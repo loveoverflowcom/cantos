@@ -3,7 +3,9 @@ use super::{
     copy::{self, Key},
     CoverView, Draft, Intent, Projection, Stage,
 };
-use crate::ui::{ActionButton, BlockReason, DiscardDraftDialog, DiscardTarget};
+use crate::ui::{
+    ActionButton, BlockReason, DiscardDraftDialog, DiscardTarget, FilePickerTone, NativeFilePicker,
+};
 use cantos_ui::{Badge, ButtonVariant, FieldState, SurfacePulse, TextField};
 use leptos::{ev::Event, prelude::*};
 
@@ -103,24 +105,14 @@ pub fn ArtworkForm(
                 })}
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>
-                <div class="artwork-picker">
-                    <input id="artwork-file" class="artwork-file-input" type="file" accept="image/avif" disabled=move ||locked.get()
-                        aria-describedby="artwork-bounds artwork-file-error artwork-file-status"
-                        aria-invalid=move ||if file_problem().is_some() {"true"} else {"false"}
-                        on:change=move |e|on_file.run(e)/>
-                    <label class="artwork-file-label" for="artwork-file" data-tone=move ||if next.get().is_some() {"tonal"} else {"primary"}>
-                        {move ||label(Key::File)}
-                    </label>
-                    <p id="artwork-bounds" class="cui-field-help">{move ||label(Key::Bounds)}</p>
-                    <p id="artwork-file-error" class="cui-field-error" role="alert" hidden=move ||file_problem().is_none()>
-                        {move ||file_problem().map(|p|copy::problem(p,locale.get()))}
-                    </p>
-                    <p id="artwork-file-status" class="artwork-file-facts" role="status" aria-atomic="true">
-                        {move ||model.with(|m|m.local.as_ref().map(|file|
-                            copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),locale.get())
-                        )).unwrap_or_else(||label(Key::NoFile))}
-                    </p>
-                </div>
+                <NativeFilePicker id="artwork-file" accept="image/avif"
+                    label=Signal::derive(move ||label(Key::File)) help=Signal::derive(move ||label(Key::Bounds))
+                    error=Signal::derive(move ||file_problem().map(|p|copy::problem(p,locale.get()).to_owned()))
+                    status=Signal::derive(move ||model.with(|m|m.local.as_ref().map(|file|
+                        copy::file_facts(&file.name,file.bytes.len() as u64,file.width,file.height,super::mime_name(file.mime),locale.get())
+                    )).unwrap_or_else(||label(Key::NoFile)))
+                    disabled=locked tone=Signal::derive(move ||if next.get().is_some() {FilePickerTone::Tonal} else {FilePickerTone::Primary})
+                    on_change=on_file/>
                 {move ||model.with(|m|m.local.as_ref().map(|file|file.url.clone())).map(|url|view!{
                     <img class="artwork-image" src=url alt=""/>
                 })}

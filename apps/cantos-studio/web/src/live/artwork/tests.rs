@@ -1034,7 +1034,7 @@ fn artwork_highlights_only_the_next_explicit_action_and_preserves_blockers() {
                 if blocked || !is_owner { assert!(button.contains("disabled"), "{id}: {html}"); }
             }
             assert!(html.contains("for=\"artwork-file\""), "{html}");
-            assert!(html.contains("aria-describedby=\"artwork-bounds artwork-file-error artwork-file-status\""), "{html}");
+            assert!(html.contains("aria-describedby=\"artwork-file-help artwork-file-error artwork-file-status\""), "{html}");
         }
     });
 }
