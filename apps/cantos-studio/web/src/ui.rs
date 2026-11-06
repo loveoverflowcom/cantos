@@ -23,6 +23,8 @@ mod workspace_navigation;
 pub use workspace_navigation::WorkspaceNavigationShell;
 mod preferences;
 pub use preferences::Preferences;
+mod native_file_picker;
+pub use native_file_picker::{FilePickerTone, NativeFilePicker};
 
 /// Authored content keeps its declared language; this adapter has no interface-locale input.
 #[component]

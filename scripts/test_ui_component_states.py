@@ -51,11 +51,13 @@ class ComponentStates(unittest.TestCase):
         self.assertEqual(focus_rules[heading]["outline"].strip(), "none")
 
     def test_artwork_focus_consumers_use_focus_roles_for_both_dimensions(self):
-        css = (ROOT / "apps/cantos-studio/web/artwork.css").read_text()
+        # The input's visible focus target now belongs to the Studio native picker recipe.
+        css = "\n".join((ROOT / "apps/cantos-studio/web" / name).read_text()
+                        for name in ("artwork.css", "file-picker.css"))
         css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
         rules = {selector.strip(): body for selector, body in
                  re.findall(r"([^{}]+)\{([^{}]*)\}", css) if ":focus-visible" in selector}
-        self.assertEqual(set(rules), {".artwork-file-input:focus-visible + .artwork-file-label",
+        self.assertEqual(set(rules), {".studio-file-picker-input:focus-visible + .studio-file-picker-label",
                                      ".artwork-metadata summary:focus-visible"})
         for selector, body in rules.items():
             with self.subTest(selector=selector):

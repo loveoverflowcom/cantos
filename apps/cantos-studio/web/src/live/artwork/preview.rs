@@ -11,6 +11,7 @@ pub const SCENARIOS: &[(Stage, &str)] = &[
     (Stage::Current, "preview-unavailable"),
     (Stage::Saved, "selected"),
     (Stage::Replacement, "replacement"),
+    (Stage::Replacement, "long-filename"),
     (Stage::Validating, "validating"),
     (Stage::Preparing, "preparing"),
     (Stage::Prepared, "prepared"),
@@ -134,6 +135,11 @@ fn scenario(stage: Stage, id: &str) -> Projection {
     }
     if id == "invalid-file" {
         model.problem = Some(Problem::File);
+    }
+    if id == "long-filename" {
+        if let Some(local) = &mut model.local {
+            local.name = "Ánh_đèn_cuối_sân_khấu—bản_minh_họa_gốc_được_họa_sĩ_bàn_giao_cho_tác_phẩm_Lời_hẹn_{time}—phiên_bản_chưa_đăng_công_khai.avif".into();
+        }
     }
     model
 }

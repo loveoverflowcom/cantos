@@ -14,50 +14,6 @@
 .artwork-placeholder[data-state="empty"] { min-block-size: 0; display: block; padding: 0; background: transparent; text-align: start; }
 .artwork-columns[data-cover="empty"] { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-sm); }
 .artwork-columns[data-cover="empty"] .artwork-current { padding-block: 0; }
-.artwork-picker { position: relative; display: grid; gap: var(--cantos-space-sm); }
-.artwork-picker > p { margin: 0; }
-/* The native input owns focus and the picker; the associated label supplies the visible target. */
-.artwork-file-input { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; clip-path: inset(50%); }
-.artwork-file-label {
-  --artwork-picker-bg: var(--cantos-color-primary);
-  --artwork-picker-fg: var(--cantos-color-on-primary);
-  box-sizing: border-box;
-  display: inline-grid;
-  place-items: center;
-  justify-self: start;
-  min-block-size: var(--cantos-size-control);
-  max-inline-size: 100%;
-  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
-  border-radius: var(--cantos-web-shape-control);
-  background: var(--artwork-picker-bg);
-  color: var(--artwork-picker-fg);
-  font-size: var(--cantos-type-label-size);
-  font-weight: var(--cantos-type-label-weight);
-  line-height: var(--cantos-type-label-line-height);
-  overflow-wrap: anywhere;
-  text-align: center;
-  cursor: pointer;
-}
-.artwork-file-label[data-tone="tonal"] {
-  --artwork-picker-bg: var(--cantos-color-surface-container-high);
-  --artwork-picker-fg: var(--cantos-color-on-surface);
-}
-.artwork-file-input:not(:disabled) + .artwork-file-label:hover {
-  background-color: color-mix(in srgb, var(--artwork-picker-fg) calc(var(--cantos-state-hover-opacity) * 100%), var(--artwork-picker-bg));
-}
-.artwork-file-input:focus-visible + .artwork-file-label {
-  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
-  outline-offset: var(--cantos-size-focus-offset);
-}
-.artwork-file-input:disabled + .artwork-file-label {
-  background: var(--cantos-color-surface-container);
-  color: var(--cantos-color-on-surface-variant);
-  cursor: default;
-}
-@media (forced-colors: active) {
-  .artwork-file-label { border: var(--cantos-size-border) solid ButtonText; }
-  .artwork-file-input:disabled + .artwork-file-label { color: GrayText; border-color: GrayText; }
-}
 .artwork-workflow, .artwork-metadata { color: var(--cantos-color-on-surface-variant); }
 .artwork-metadata summary { cursor: pointer; min-block-size: var(--cantos-size-control); align-content: center; overflow-wrap: anywhere; }
 .artwork-metadata summary:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }

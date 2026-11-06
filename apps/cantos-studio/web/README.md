@@ -594,6 +594,28 @@ This entry and its fixture module are excluded by
 `cfg(debug_assertions)` in release builds. It is a Studio-owned composition using established
 UI primitives, not a new shared component or a native Studio surface.
 
+The `studio-native-file-picker` recipe is owned by `ui/native_file_picker.rs` and
+`file-picker.css`. Inventory lookup found the shared `file-picker` specimen still proposed;
+`Button` owns button activation and `TextField` owns text entry, neither owns a native file
+input. This small Web-owned label/input composition therefore extracts the existing artwork
+recipe without exporting a shared API or copying Button's loading/icon/event implementation.
+No shared admission or CMP qualification is claimed. Its existing-preview scenarios are
+`empty` (primary target), `replacement`/`prepared` (tonal target), `invalid-file` (rejection),
+`long-filename` (Vietnamese filename wrapping), and `validating`/`unknown`/`non-owner`
+(disabled). These scenarios inject facts, not upload results.
+
+The caller supplies one stable ID, accepted MIME hints, localized label/help/error/status,
+disabled state, primary/tonal emphasis and the native change callback. The recipe derives
+`<id>-help`, `<id>-error` and `<id>-status`, associates every description with the input,
+and projects error presence to `aria-invalid`. Visual inputs update attributes/text without
+replacing the native input; only it receives keyboard focus. The visible label opens the
+browser picker directly, with no programmatic click or additional button. Disabled native
+selection also rejects synthetic change callbacks. Existing semantic color, control, focus,
+type and spacing roles are unchanged; the CSS moves from artwork to this recipe's owner.
+The app retains file validation, selection/cancel handling, explicit discard/reset, object-URL
+lifetime and every staged operation. Audio adoption is deferred: its separate selector and
+validation/workflow need their own review; this recipe adds no uploader or upload state model.
+
 See the [implementation/evidence record](../../../docs/evidence/studio-private-artwork-ui.md)
 for browser fixtures, commands and unrun API/storage acceptance. The normal app launcher still
 requires its documented local API; mock-browser observations do not waive that prerequisite.

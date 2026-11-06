@@ -1,0 +1,46 @@
+/* Studio Web native label/input recipe; existing semantic roles, no Button internals. */
+.studio-file-picker { position: relative; display: grid; gap: var(--cantos-space-sm); }
+.studio-file-picker > p { margin: 0; }
+/* The native input owns focus and the picker; the associated label supplies the visible target. */
+.studio-file-picker-input { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; clip-path: inset(50%); }
+.studio-file-picker-label {
+  --studio-picker-bg: var(--cantos-color-primary);
+  --studio-picker-fg: var(--cantos-color-on-primary);
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  justify-self: start;
+  min-block-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border-radius: var(--cantos-web-shape-control);
+  background: var(--studio-picker-bg);
+  color: var(--studio-picker-fg);
+  font-size: var(--cantos-type-label-size);
+  font-weight: var(--cantos-type-label-weight);
+  line-height: var(--cantos-type-label-line-height);
+  overflow-wrap: anywhere;
+  text-align: center;
+  cursor: pointer;
+}
+.studio-file-picker-label[data-tone="tonal"] {
+  --studio-picker-bg: var(--cantos-color-surface-container-high);
+  --studio-picker-fg: var(--cantos-color-on-surface);
+}
+.studio-file-picker-input:not(:disabled) + .studio-file-picker-label:hover {
+  background-color: color-mix(in srgb, var(--studio-picker-fg) calc(var(--cantos-state-hover-opacity) * 100%), var(--studio-picker-bg));
+}
+.studio-file-picker-input:focus-visible + .studio-file-picker-label {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+.studio-file-picker-input:disabled + .studio-file-picker-label {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+@media (forced-colors: active) {
+  .studio-file-picker-label { border: var(--cantos-size-border) solid ButtonText; }
+  .studio-file-picker-input:disabled + .studio-file-picker-label { color: GrayText; border-color: GrayText; }
+}
+.studio-file-picker-status { overflow-wrap: anywhere; }
