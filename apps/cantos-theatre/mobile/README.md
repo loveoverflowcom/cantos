@@ -346,6 +346,9 @@ production release artifact isolation (#122) are separate acceptance work; the i
 composition (#130) is the [guest-first account slice](#guest-first-account-and-auth) below.
 This launcher change does not complete production mobile or those issues.
 
+For a missing splash or blank installed app, follow the [Android startup diagnosis](docs/android-startup.md)
+to identify the actual APK and capture launcher/first-frame evidence before changing readiness.
+
 ## Application UI language
 
 `PreferencesController` owns the selected UI language: valid saved canonical tag (`vi-VN` or
