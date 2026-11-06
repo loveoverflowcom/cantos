@@ -40,18 +40,29 @@ fn paired_empty_artwork(name: &'static str) -> impl IntoView {
     }
 }
 
-// Official licensed static markup, never user content. This is app chrome, not a shared API.
+// Only the source/meaning-equivalent subset in the app README uses the admitted shared owner.
+// Keep the app size wrapper: navigation, empty states and compact account rows size it locally.
 pub(crate) fn icon(asset: &'static str) -> impl IntoView {
+    let shared = match asset {
+        "home" => Some(cantos_ui::IconName::Home),
+        "search" => Some(cantos_ui::IconName::Search),
+        "settings" => Some(cantos_ui::IconName::Settings),
+        "arrow_back" => Some(cantos_ui::IconName::ArrowBack),
+        "play_arrow" => Some(cantos_ui::IconName::PlayArrow),
+        "pause" => Some(cantos_ui::IconName::Pause),
+        _ => None,
+    };
+    if let Some(name) = shared {
+        return view! {
+            <span class="theatre-icon" aria-hidden="true"><cantos_ui::Icon name/></span>
+        }
+        .into_any();
+    }
+    // Retained app-owned assets are licensed static markup, never user content.
     let markup = match asset {
-        "home" => include_str!("../../assets/icons/home.svg"),
-        "search" => include_str!("../../assets/icons/search.svg"),
         "library_books" => include_str!("../../assets/icons/library_books.svg"),
         "headphones" => include_str!("../../assets/icons/headphones.svg"),
-        "settings" => include_str!("../../assets/icons/settings.svg"),
         "smartphone" => include_str!("../../assets/icons/smartphone.svg"),
-        "arrow_back" => include_str!("../../assets/icons/arrow_back.svg"),
-        "play_arrow" => include_str!("../../assets/icons/play_arrow.svg"),
-        "pause" => include_str!("../../assets/icons/pause.svg"),
         "bookmark_border" => include_str!("../../assets/icons/bookmark_border.svg"),
         "check" => include_str!("../../assets/icons/check.svg"),
         "queue_music" => include_str!("../../assets/icons/queue_music.svg"),
@@ -61,7 +72,7 @@ pub(crate) fn icon(asset: &'static str) -> impl IntoView {
         "add" => include_str!("../../assets/icons/add.svg"),
         _ => "",
     };
-    view! { <span class="theatre-icon" aria-hidden="true" inner_html=markup></span> }
+    view! { <span class="theatre-icon" aria-hidden="true" inner_html=markup></span> }.into_any()
 }
 
 /// The one app-private listener glyph (guest). The shared `Avatar` is not admitted for Theatre yet:
@@ -244,5 +255,76 @@ pub(crate) fn UnsupportedAction(ctx: TheatreContext, label: Key) -> impl IntoVie
             <button type="button" class="theatre-action theatre-action-tonal" disabled aria-describedby=reason_id><span class="cui-control-label">{move || ctx.text(label)}</span></button>
             <p id=reason_id class="theatre-muted">{move || ctx.text(Key::Unsupported)}</p>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod icon_tests {
+    use super::*;
+
+    fn paths(svg: &str) -> Vec<&str> {
+        svg.split("<path ")
+            .skip(1)
+            .map(|path| {
+                path.split("d=\"")
+                    .nth(1)
+                    .unwrap()
+                    .split('"')
+                    .next()
+                    .unwrap()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn shared_subset_keeps_original_geometry_and_decorative_size_wrapper() {
+        Owner::new().with(|| {
+            for (name, original, canonical) in [
+                ("home", include_str!("../../assets/icons/home.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/home.svg")),
+                ("search", include_str!("../../assets/icons/search.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/search.svg")),
+                ("settings", include_str!("../../assets/icons/settings.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/settings.svg")),
+                ("arrow_back", include_str!("../../assets/icons/arrow_back.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/arrow_back.svg")),
+                ("play_arrow", include_str!("../../assets/icons/play_arrow.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/play_arrow.svg")),
+                ("pause", include_str!("../../assets/icons/pause.svg"),
+                    include_str!("../../../../../packages/ui-system/shared/icons/material-outlined/pause.svg")),
+            ] {
+                let html = icon(name).to_html();
+                assert!(!paths(canonical).is_empty(), "{name}");
+                assert_eq!(paths(original), paths(canonical), "{name}");
+                assert_eq!(paths(&html), paths(canonical), "{name}: {html}");
+                assert!(html.contains("class=\"theatre-icon\""), "{name}: {html}");
+                assert!(html.contains("class=\"cui-icon\""), "{name}: {html}");
+                assert!(html.contains("viewBox=\"0 0 24 24\""), "{name}: {html}");
+                assert!(html.contains("fill=\"currentColor\""), "{name}: {html}");
+                assert!(html.contains("focusable=\"false\""), "{name}: {html}");
+                assert!(html.contains("aria-hidden=\"true\""), "{name}: {html}");
+            }
+        });
+    }
+
+    #[test]
+    fn retained_library_and_transport_glyphs_keep_their_app_geometry() {
+        Owner::new().with(|| {
+            for (name, original) in [
+                (
+                    "library_books",
+                    include_str!("../../assets/icons/library_books.svg"),
+                ),
+                ("replay", include_str!("../../assets/icons/replay.svg")),
+                (
+                    "rotate_right",
+                    include_str!("../../assets/icons/rotate_right.svg"),
+                ),
+            ] {
+                let html = icon(name).to_html();
+                assert_eq!(paths(&html), paths(original), "{name}: {html}");
+                assert!(!html.contains("cui-icon"), "{name}: {html}");
+            }
+        });
     }
 }
