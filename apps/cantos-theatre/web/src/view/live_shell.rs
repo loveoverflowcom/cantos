@@ -31,8 +31,8 @@ use crate::{
     platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonVariant, Icon, IconName, Logo, LogoTone, LogoVariant,
-    Theme,
+    AccessibleName, BackButton, Button, ButtonVariant, Icon, IconName, LinkHref, Logo, LogoTone,
+    LogoVariant, NavItem, Theme,
 };
 use leptos::prelude::*;
 
@@ -82,12 +82,35 @@ fn PrimaryNavigation(
     route: RwSignal<Route>,
     locale: RwSignal<Locale>,
     state: ReadSignal<AccountViewState>,
+    #[prop(default = "rail")] scope: &'static str,
 ) -> impl IntoView {
     view! {
         <nav class="theatre-nav" aria-label=move || messages::text(Key::MainNavigation, locale.get())>
-            <a class="theatre-nav-link" href="#discover" aria-current=move || (route.get().primary_navigation() == Some(Route::Discover)).then_some("page")>{icon(NAV_ICON_DISCOVER)}<span class="theatre-nav-label">{move || messages::text(Key::Discover, locale.get())}</span></a>
-            <a class="theatre-nav-link" href="#library" aria-current=move || (route.get().primary_navigation() == Some(Route::Library)).then_some("page")><Icon name=IconName::LibrarySpines/><span class="theatre-nav-label">{move || messages::text(Key::Library, locale.get())}</span></a>
-            <a class="theatre-nav-link" href="#account" aria-current=move || (route.get().primary_navigation() == Some(Route::Account)).then_some("page")><crate::features::guest_identity::ProfileAvatar navigation=true identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/><span class="theatre-nav-label">{move || messages::text(Key::Me, locale.get())}</span></a>
+            {[
+                (Route::Discover, Key::Discover),
+                (Route::Library, Key::Library),
+                (Route::Account, Key::Me),
+            ].into_iter().filter_map(|(destination, key)| {
+                LinkHref::new(destination.hash()).ok().map(|href| view! {
+                    <NavItem id=format!("theatre-{scope}-nav-{}", href.as_str().trim_start_matches('#')) href
+                        current=Signal::derive(move || route.get().primary_navigation() == Some(destination))
+                        class="theatre-nav-link">
+                        // The existing children contract supplies composed visible content. Only
+                        // decorative app-owned markup enters the leading span; no nested action.
+                        <span class="theatre-nav-leading" aria-hidden="true">
+                            {match destination {
+                                Route::Account => view! {
+                                    <crate::features::guest_identity::ProfileAvatar navigation=true
+                                        identity=Signal::derive(move || state.with(|s| s.presentation().cloned()))/>
+                                }.into_any(),
+                                Route::Library => view! { <Icon name=IconName::LibrarySpines/> }.into_any(),
+                                _ => icon(NAV_ICON_DISCOVER).into_any(),
+                            }}
+                        </span>
+                        <span class="theatre-nav-label">{move || messages::text(key, locale.get())}</span>
+                    </NavItem>
+                })
+            }).collect_view()}
         </nav>
     }
 }
@@ -149,7 +172,7 @@ pub(crate) fn NavigationChrome(
                         <div id="theatre-drawer-heading"><LiveBrand/></div>
                         <button node_ref=drawer_close type="button" class="theatre-action theatre-action-text">{move || messages::text(Key::CloseNavigation, locale.get())}</button>
                     </header>
-                    <PrimaryNavigation route=route locale state/>
+                    <PrimaryNavigation route=route locale state scope="drawer"/>
                 </dialog>
                 <div class="theatre-navigation-fit" aria-hidden="true">
                     {[Key::Discover, Key::Library, Key::Me].map(|key| view! {
@@ -1822,7 +1845,9 @@ mod tests {
                     let html = view! { <PrimaryNavigation route=RwSignal::new(route) locale=RwSignal::new(language) state=RwSignal::new(AccountViewState::default()).read_only()/> }.to_html();
                     assert_eq!(html.matches("<a ").count(), 3);
                     assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
-                    assert!(html.contains(&format!("href=\"{selected}\" aria-current=\"page\"")), "{html}");
+                    let link = html.split("<a ").find(|link| link.starts_with(&format!("id=\"theatre-rail-nav-{}\"", selected.trim_start_matches('#')))).unwrap();
+                    let opening = link.split('>').next().unwrap();
+                    assert!(opening.contains(&format!("href=\"{selected}\"")) && opening.contains("aria-current=\"page\""), "{html}");
                     assert!(html.contains(messages::text(Key::Library, language)) && html.contains(&format!(">{}</span>", messages::text(Key::Me, language))));
                     assert!(!html.contains("theatre-nav-selected"));
                 }
@@ -1844,6 +1869,87 @@ mod tests {
                 assert!(!html.contains("Mây Lam"));
                 assert_eq!(html.matches("aria-current=\"page\"").count(), 1);
                 assert!(!html.contains("theatre-nav-selected"));
+            }
+        });
+    }
+
+    #[test]
+    fn navigation_reuses_shared_links_with_decorative_leading_and_scoped_ids() {
+        use crate::features::auth_preview::{guest, signed_in, PreviewActor};
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let render = || {
+                view! {
+                    <NavigationChrome route=RwSignal::new(Route::Account)
+                        locale=RwSignal::new(Locale::Vietnamese) state=state.read_only()
+                        shell={NodeRef::<leptos::html::Div>::new()}/>
+                }
+                .to_html()
+            };
+            for personalized in [false, true, false] {
+                if personalized {
+                    signed_in(state, PreviewActor::A).unwrap();
+                } else {
+                    guest(state).unwrap();
+                }
+                let html = render();
+                assert_eq!(
+                    html.matches("class=\"cui-nav-item theatre-nav-link\"")
+                        .count(),
+                    6,
+                    "{html}"
+                );
+                for scope in ["rail", "drawer"] {
+                    for destination in ["discover", "library", "account"] {
+                        assert_eq!(
+                            html.matches(&format!("id=\"theatre-{scope}-nav-{destination}\""))
+                                .count(),
+                            1
+                        );
+                    }
+                }
+                assert_eq!(html.matches("class=\"theatre-nav-leading\"").count(), 6);
+                assert_eq!(
+                    html.matches("data-personalized=\"true\"").count(),
+                    if personalized { 2 } else { 0 }
+                );
+                assert_eq!(
+                    html.matches("theatre-profile-glyph").count(),
+                    if personalized { 0 } else { 2 }
+                );
+                assert!(!html.contains("Mây Lam"));
+                for anchor in html
+                    .split("class=\"cui-nav-item theatre-nav-link\"")
+                    .skip(1)
+                {
+                    let content = anchor.split("</a>").next().unwrap();
+                    for forbidden in [
+                        "<button",
+                        "<a ",
+                        "<input",
+                        "tabindex=",
+                        "aria-label=",
+                        "role=\"button\"",
+                    ] {
+                        assert!(!content.contains(forbidden), "{forbidden}: {content}");
+                    }
+                    assert!(content.contains("class=\"cui-nav-label\""));
+                    assert!(content.contains("class=\"theatre-nav-label\""));
+                    let leading = content
+                        .split("<span ")
+                        .find(|span| {
+                            span.split('>')
+                                .next()
+                                .unwrap()
+                                .contains("class=\"theatre-nav-leading\"")
+                        })
+                        .unwrap();
+                    assert!(leading
+                        .split('>')
+                        .next()
+                        .unwrap()
+                        .contains("aria-hidden=\"true\""));
+                }
             }
         });
     }

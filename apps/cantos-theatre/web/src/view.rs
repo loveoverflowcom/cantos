@@ -360,7 +360,7 @@ mod tests {
                 "theatre-navigation-drawer",
                 "theatre-navigation-menu",
                 "theatre-rail-toggle",
-                "class=\"theatre-nav-link\"",
+                "theatre-nav-link",
             ] {
                 assert!(!html.contains(absent), "{absent}");
             }
@@ -374,7 +374,7 @@ mod tests {
             crate::features::auth_preview::signed_in(state, crate::features::auth_preview::PreviewActor::A).unwrap();
             let html = view! { <live_shell::NavigationChrome route=RwSignal::new(Route::Discover)
                 locale=RwSignal::new(Locale::Vietnamese) state=state.read_only() shell=NodeRef::new()/> }.to_html();
-            assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 6);
+            assert_eq!(html.matches("class=\"cui-nav-item theatre-nav-link\"").count(), 6);
             assert!(!html.contains("theatre-nav-selected"));
             for present in ["theatre-navigation-menu", "theatre-navigation-drawer", "href=\"#account\""] {
                 assert!(html.contains(present), "{present}");
