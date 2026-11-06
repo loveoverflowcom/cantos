@@ -69,6 +69,21 @@ class StreamingPlaybackTest {
     }
 
     @Test
+    fun a_ui_seek_is_admitted_only_for_its_observed_generation_even_after_a_source_switch() {
+        val before = running()
+        val uiSeek = PlaybackEvent.SeekRequested(18_000, expectedGeneration = before.generation)
+        assertEquals(reducePlayback(before, PlaybackEvent.SeekRequested(18_000)), reducePlayback(before, uiSeek))
+        val interrupted = reducePlayback(before, PlaybackEvent.InterruptionBegan).nextState
+        assertEquals(PlaybackTransition(interrupted, emptyList()), reducePlayback(interrupted, uiSeek))
+        val switched = reducePlayback(before, PlaybackEvent.SourceSelected(requireNotNull(PlaybackSource.of("another", 1, 60_000)), 0)).nextState
+        assertEquals(PlaybackTransition(switched, emptyList()), reducePlayback(switched, uiSeek))
+        val cleared = reducePlayback(before, PlaybackEvent.SessionCleared).nextState
+        assertEquals(PlaybackTransition(cleared, emptyList()), reducePlayback(cleared, uiSeek))
+        val sought = reducePlayback(before, uiSeek).nextState
+        assertEquals(PlaybackTransition(sought, emptyList()), reducePlayback(sought, uiSeek), "a delayed duplicate cannot seek twice")
+    }
+
+    @Test
     fun cold_restore_offers_the_pinned_point_and_never_emits_start() {
         val snapshot = PlaybackSnapshot(source, 42_000, 1250)
         val restored = PlaybackState(1, PlaybackSession(source, 42_000, 1250,

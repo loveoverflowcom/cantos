@@ -271,7 +271,7 @@ class TheatreShell(
             ShellEvent.ToggleSimulation -> runtime.listening.playback.toggleIntent()
             is ShellEvent.Seek -> runtime.listening.playback.dispatch(PlaybackEvent.SkipRequested(
                 (event.deltaSeconds.toLong() * 1000L).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()))
-            is ShellEvent.SeekTo -> runtime.listening.playback.dispatch(PlaybackEvent.SeekRequested(event.seconds.toLong() * 1000L))
+            is ShellEvent.SeekTo -> runtime.listening.playback.dispatch(PlaybackEvent.SeekRequested(event.seconds.toLong() * 1000L, event.expectedGeneration))
             is ShellEvent.SelectLibrary -> mutableUi.update { it.copy(libraryTab = event.tab) }
             is ShellEvent.Search -> mutableUi.update { it.copy(query = event.query) }
             // A chip is a deliberate choice: it reads now, like a submit, and keeps the typed text.

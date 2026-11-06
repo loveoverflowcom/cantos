@@ -145,6 +145,9 @@ class ShellState(
     val timer: ShellTimer = ShellTimer.Off,
     val playbackStatus: PlaybackUiStatus = if (simulating) PlaybackUiStatus.Simulating else PlaybackUiStatus.Idle,
     val transportRequested: Boolean = simulating,
+    /** Read-only controller fence and unacknowledged seek target; never a second playback authority. */
+    val playbackGeneration: Long = 0,
+    val pendingSeekSeconds: Int? = null,
     val positionMs: Long = positionSeconds.toLong() * 1000L,
     progress: List<ShellProgress> = emptyList(),
     history: List<ShellProgress> = emptyList(),
@@ -179,6 +182,9 @@ class ShellState(
         require(positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
             "Presentation projection display must match its exact position"
         }
+        require(playbackGeneration >= 0 && (pendingSeekSeconds == null || pendingSeekSeconds >= 0)) {
+            "Presentation playback fence and seek target must be nonnegative"
+        }
         require(speedPercent in SupportedUiSpeedPercents) { "Unsupported demo speed" }
     }
 
@@ -207,6 +213,8 @@ class ShellState(
         timer: ShellTimer = this.timer,
         playbackStatus: PlaybackUiStatus = this.playbackStatus,
         transportRequested: Boolean = this.transportRequested,
+        playbackGeneration: Long = this.playbackGeneration,
+        pendingSeekSeconds: Int? = this.pendingSeekSeconds,
         positionMs: Long = if (positionSeconds == this.positionSeconds) this.positionMs else positionSeconds.toLong() * 1000L,
         progress: List<ShellProgress> = this.progress,
         history: List<ShellProgress> = this.history,
@@ -233,6 +241,8 @@ class ShellState(
         timer = timer,
         playbackStatus = playbackStatus,
         transportRequested = transportRequested,
+        playbackGeneration = playbackGeneration,
+        pendingSeekSeconds = pendingSeekSeconds,
         positionMs = positionMs,
         progress = progress,
         history = history,
@@ -265,7 +275,9 @@ class ShellState(
         speedPercent == other.speedPercent &&
         timer == other.timer &&
         playbackStatus == other.playbackStatus &&
-        transportRequested == other.transportRequested
+        transportRequested == other.transportRequested &&
+        playbackGeneration == other.playbackGeneration &&
+        pendingSeekSeconds == other.pendingSeekSeconds
 
     override fun hashCode(): Int {
         var result = stackSnapshot.hashCode()
@@ -293,6 +305,8 @@ class ShellState(
         result = 31 * result + timer.hashCode()
         result = 31 * result + playbackStatus.hashCode()
         result = 31 * result + transportRequested.hashCode()
+        result = 31 * result + playbackGeneration.hashCode()
+        result = 31 * result + (pendingSeekSeconds?.hashCode() ?: 0)
         return result
     }
 
@@ -301,7 +315,7 @@ class ShellState(
         "savedWorks=$savedWorks, bookmarks=$bookmarks, progress=$progress, history=$history, listeningFailure=$listeningFailure, " +
         "libraryTab=$libraryTab, query=$query, searchKind=$searchKind, catalogMode=$catalogMode, theme=$theme, " +
         "locale=$locale, speedPercent=$speedPercent, timer=$timer, " +
-        "playbackStatus=$playbackStatus, transportRequested=$transportRequested)"
+        "playbackStatus=$playbackStatus, transportRequested=$transportRequested, playbackGeneration=$playbackGeneration, pendingSeekSeconds=$pendingSeekSeconds)"
 }
 
 sealed interface ShellEvent {
@@ -322,7 +336,7 @@ sealed interface ShellEvent {
     data class DeleteBookmark(val id: String) : ShellEvent
     data object ToggleSimulation : ShellEvent
     data class Seek(val deltaSeconds: Int) : ShellEvent
-    data class SeekTo(val seconds: Int) : ShellEvent
+    data class SeekTo(val seconds: Int, val expectedGeneration: Long? = null) : ShellEvent
     data class SaveWork(val id: ShellWorkId) : ShellEvent
     data object Bookmark : ShellEvent
     data class SelectLibrary(val tab: ShellLibraryTab) : ShellEvent

@@ -204,6 +204,8 @@ class TheatreWorkbenchControllerTest {
                     host.callback()(ShellEvent.Navigate(ShellRoute.Library))
                     settle()
                     val before = host.snapshot()
+                    assertEquals(0L, before.state.playbackGeneration, "a controller generation is never exported across mounts")
+                    assertNull(before.state.pendingSeekSeconds)
                     assertEquals(PreviewEpisodeIds.SonHa03, before.state.selectedEpisode)
                     assertEquals(positionMs, before.state.positionMs)
                     assertFalse(before.state.transportRequested)
@@ -353,6 +355,8 @@ class TheatreWorkbenchControllerTest {
             ShellRoute.SharedWork(ShellWorkId("10000000-0000-4000-8000-000000000001"))))
         assertEquals(TheatreSnapshotExport.UnsupportedState("Private shared routes are never preview snapshots"),
             encodeTheatreSnapshot(TheatreSnapshot(recipe, sharedRoute)))
+        assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, seed.copy(playbackGeneration = 7))))
+        assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, seed.copy(pendingSeekSeconds = 10))))
         val transient = seed.copy(playbackStatus = com.cantos.theatre.presentation.model.PlaybackUiStatus.Buffering)
         assertIs<TheatreSnapshotExport.UnsupportedState>(encodeTheatreSnapshot(TheatreSnapshot(recipe, transient)))
     }

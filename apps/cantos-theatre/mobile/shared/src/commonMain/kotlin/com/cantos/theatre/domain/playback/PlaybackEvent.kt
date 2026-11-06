@@ -5,7 +5,8 @@ sealed interface PlaybackEvent {
     data object SessionCleared : PlaybackEvent
     data object PlayRequested : PlaybackEvent
     data object PauseRequested : PlaybackEvent
-    data class SeekRequested(val positionMs: Long) : PlaybackEvent
+    /** UI drafts carry their observed generation; current-session commands may omit it. */
+    data class SeekRequested(val positionMs: Long, val expectedGeneration: Long? = null) : PlaybackEvent
     data class SkipRequested(val deltaMs: Int) : PlaybackEvent
     data class SpeedRequested(val speedPermille: Int) : PlaybackEvent
     data class RestoreRequested(val snapshot: PlaybackSnapshot) : PlaybackEvent

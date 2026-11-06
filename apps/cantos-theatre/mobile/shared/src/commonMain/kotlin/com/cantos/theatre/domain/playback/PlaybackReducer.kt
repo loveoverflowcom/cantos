@@ -27,7 +27,9 @@ fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransiti
     }
     PlaybackEvent.PlayRequested -> requestPlay(state)
     PlaybackEvent.PauseRequested -> requestPause(state)
-    is PlaybackEvent.SeekRequested -> seek(state, event.positionMs)
+    is PlaybackEvent.SeekRequested ->
+        if (event.expectedGeneration == null || event.expectedGeneration == state.generation) seek(state, event.positionMs)
+        else unchanged(state)
     is PlaybackEvent.SkipRequested -> {
         val session = state.session
         if (session == null) {
