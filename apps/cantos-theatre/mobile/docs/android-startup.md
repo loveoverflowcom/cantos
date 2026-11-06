@@ -84,8 +84,22 @@ No production startup fix is established by this investigation.
 - The installed AVD pointer was stale. A separate task-owned AVD using installed
   API-35 default arm64 image revision 2 and emulator 35.4.9 could not reach Android:
   `Failed to read vbmeta partitions`, missing `/dev/block/by-name/super`, then
-  `InitFatalReboot`. GPT inspection found a `super` partition in the image; the mount
-  failure remains an emulator/environment blocker, before APK installation.
+  `InitFatalReboot`. That arm64 guest image does not boot on an x86_64 host. On an
+  x86_64 KVM host, use an x86_64 image instead (below). The new SDK CLI may create AVDs
+  under `~/.config/.android/avd`; set `ANDROID_AVD_HOME` to that directory for `emulator`.
+- Emulator follow-up on the same base source: emulator 37.2.13 with
+  `system-images;android-35;google_apis;x86_64` r9 (Android 15) and
+  `system-images;android-30;google_apis;x86_64` (Android 11, compat path). The rebuilt
+  diagnostic debug APK (same command, without `cantos.sourceRevision`; SHA-256
+  `a700819485ad95dba594c53687e6630c31991b82912385d4fdd90148b6436638`) was installed and
+  started via the launcher intent. On both targets, in light and dark: the branded splash
+  icon appeared on the canonical background, followed directly by guest content and the
+  expected offline recovery dialog; no crash/ANR and no persistent dark blank. Cold `am start
+  -W` TotalTime was 2.5–3.2 s (emulator, debug build; not a performance claim). The Recent
+  apps snapshot showed the real task content; warm resume kept the process with no splash
+  replay; Android 15 dark→light recreation kept the destination. **The report is not
+  reproduced on emulators**; the original phone/artifact remains UNKNOWN, and a physical
+  device, launcher-tap recordings and release builds stay NOT_RUN.
 - `ReadyLaunchPresentationTest` exercises the actual ready-handoff →
   `CantosTheatreApp` → `TheatreShell` with explicit HTTP/player doubles. It checks
   guest content while HTTP is pending, actionable recovery after failure, and
@@ -94,6 +108,6 @@ No production startup fix is established by this investigation.
   the fixture has no account or Library owner. Final gate results belong to the PR/issue
   handoff, not this source-bound investigation record.
 
-The next owner needs the original installed artifact and a booted, admitted device
-to run the matrix above. Keep #754 open until that evidence distinguishes the cause
+The next owner needs the original installed artifact and the affected physical device
+to run the matrix above; emulator targets do not reproduce the report. Keep #754 open until that evidence distinguishes the cause
 and verifies any resulting production repair.
