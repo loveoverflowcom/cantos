@@ -2,12 +2,14 @@ package com.cantos.theatre.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -16,10 +18,12 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollTo
@@ -29,7 +33,11 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.features.shell.presentation.CantosPresentation
 import com.cantos.theatre.features.shell.presentation.LocalShellCapabilities
+import com.cantos.theatre.features.shell.presentation.LocalShellLibraryHeader
+import com.cantos.theatre.features.shell.presentation.LocalShellSharedLibrary
+import com.cantos.theatre.presentation.model.CopyKey
 import com.cantos.theatre.presentation.model.ShellCapabilities
+import com.cantos.theatre.presentation.model.ShellCopy
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellLibraryPhase
@@ -41,6 +49,7 @@ import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.theatre.presentation.model.sampleState
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** JVM production-presentation semantics; supplied facts do not establish native or controller acceptance. */
 @OptIn(ExperimentalTestApi::class)
@@ -62,6 +71,55 @@ class LibraryEmptyUiTest {
             assertEquals<List<ShellEvent>>(listOf(ShellEvent.Navigate(ShellRoute.Discovery)), events)
             onNodeWithTag("history-all").assertDoesNotExist()
             onNodeWithTag("library-continue-retry").assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun completed_empty_library_has_one_invitation_without_redundant_empty_sections() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                CompositionLocalProvider(
+                    LocalShellLibraryHeader provides { Text("Sync status", Modifier.testTag("sync-status")) },
+                    LocalShellSharedLibrary provides { Text("Shared status", Modifier.testTag("shared-status")) },
+                ) {
+                    CantosPresentation(sampleState(stack = listOf(ShellRoute.Library), savedWorks = emptySet(), progress = emptyList()), ShellCatalogView(), {}, accountSignedIn = true)
+                }
+            }
+            onNodeWithTag("sync-status").assertExists()
+            onNodeWithTag("shared-status").assertExists()
+            onNodeWithTag("library-empty-hero").assertExists()
+            onAllNodesWithTag("library-empty-discover").assertCountEquals(1)
+            for (section in listOf("continue", "saved", "bookmarks", "history")) {
+                onNodeWithTag("library-$section").assertDoesNotExist()
+            }
+        }
+    }
+
+    @Test
+    fun empty_artwork_yields_to_larger_text_and_a_shorter_content_viewport() {
+        var scale by mutableStateOf(1f)
+        var height by mutableStateOf(844)
+        val copy = ShellCopy(ShellLocale.Vietnamese)
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, height.dp)) {
+                    CantosPresentation(sampleState(stack = listOf(ShellRoute.Library), savedWorks = emptySet(), progress = emptyList()), ShellCatalogView(), {},
+                        textScale = scale, accountSignedIn = true)
+                }
+            }
+            val artwork = onNodeWithTag("library-empty-artwork")
+            val heading = onNodeWithText(copy.text(CopyKey.LibraryEmpty))
+            val originalArtwork = artwork.fetchSemanticsNode().boundsInRoot.width
+            val originalHeading = heading.fetchSemanticsNode().boundsInRoot.height
+            runOnIdle { scale = 2f }
+            val largeTextArtwork = artwork.fetchSemanticsNode().boundsInRoot.width
+            assertTrue(largeTextArtwork < originalArtwork, "decorative art yields space to readable copy")
+            assertTrue(heading.fetchSemanticsNode().boundsInRoot.height > originalHeading, "copy still scales up")
+            runOnIdle { height = 600 }
+            assertTrue(artwork.fetchSemanticsNode().boundsInRoot.width < largeTextArtwork, "art uses the actual content viewport")
+            onNodeWithTag("library-empty-discover").performScrollTo().assertIsDisplayed()
+                .assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+            onNodeWithTag("nav-library").assertIsDisplayed()
         }
     }
 

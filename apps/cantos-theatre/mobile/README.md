@@ -802,13 +802,16 @@ read port; error refuses it; stale first admits real pages to the in-memory prod
 store and then fails an actual refresh. None forces a UI phase or replaces the shell/controller.
 All recipes accept the existing VI/EN, light/dark, narrow frame, text-scale and motion preferences.
 The Library capture suite exercises both languages/themes and 320dp at 200% text, including
-scrolling to Discover and the last section. These are JVM presentation observations only.
+scrolling to Discover and the last section of a partial Library. These are JVM presentation observations only.
 
-A completed empty Library uses one tonal invitation plus compact contextual summaries. A partial
-Library keeps local explanations. Only completed sections without retained rows are empty;
+A completed empty Library uses one tonal invitation and Discover action, without repeated empty
+Continue/Saved/Bookmarks/History sections. Decorative art yields space to the available scroll
+viewport and larger text; the copy keeps its full scale and scrolls. A partial Library keeps
+local explanations, and unavailable bookmarks and the host-owned shared-content/status slot remain visible. Only completed sections without retained rows are empty;
 loading, retry, paging, stale rows, missing metadata and disabled bookmarks keep their distinct
 meaning. Full History retains its own recovery actions. See the
-[bounded implementation/evidence record](../../../docs/evidence/theatre-cmp-library-empty-417.md).
+[bounded implementation/evidence record](../../../docs/evidence/theatre-cmp-library-empty-417.md)
+and the [mobile empty-layout increment](../../../docs/evidence/theatre-cmp-library-mobile-453-20261106.md).
 
 `TheatreWorkbenchController` owns one `TheatreMount` (its `PreviewOwners`, replay scope and counters)
 at a time. Select and **Reset to selected** remount that recipe with new owners and a new in-memory
