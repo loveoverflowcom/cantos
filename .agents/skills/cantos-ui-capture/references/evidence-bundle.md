@@ -73,6 +73,24 @@ reason. Opening confirms content, not a P0–P3 audit. A capture run is `COMPLET
 requested in-scope cell is captured and its cited images opened; native gaps remain gaps even
 if previews exist. Scope and deployment identity gaps stay explicit beside coverage.
 
+## Component and token records
+
+Add these sections when their subjects are in scope. A version 1 bundle without these sections
+remains readable. An omitted section in an older bundle has no recorded evidence for that subject.
+
+| Field | Content |
+| --- | --- |
+| `components[]` | `component_id`, name, source/API owner, catalog and scenario IDs when registered, and usages with `screen_id`, `target_id`, variant/state, source and capture IDs. Mark the usage `observed` or `source-only` and state any uncertain mapping. |
+| `tokens.sources[]` | Token or catalog path, version if declared, SHA-256, source/build identity and optional artifact ID for a permitted snapshot in `metadata/`. Identify checkout lookup bytes separately from runtime-reported bytes. |
+| `tokens.observations[]` | Semantic token key, `component_id`, `target_id`, `capture_id` when available, rendered element/scope, effective theme, role mapping or consuming property, source value when known, effective value and unit/format, applicable override, method, evidence status and artifact ID if measurement output was saved. |
+
+A token observation is `MEASURED` when it identifies the capture context and shows how the
+active component uses the value. A value seen only in source or generated mappings is
+`SOURCE_ONLY`. A role selected for the run with unavailable evidence is `NOT_MEASURED` with a
+reason. Leave the effective value null in the latter two cases. Preview measurements retain
+their preview target IDs. The measurement statuses do not affect screenshot totals or indicate
+contrast, design fidelity or product acceptance.
+
 ## Report, validation and sealing
 
 `REPORT.md` names scope/source/runtime provenance, exact reproduction path and fixtures,
@@ -80,6 +98,12 @@ surface-by-surface expected/captured/opened/gap counts, screen/component invento
 links, navigation and blockers with next prerequisites. State `NOT_REVIEWED` unless an inspector
 actually ran; do not manufacture severity from unavailable screens. A still image supplies no
 native playback, durability, focus traversal, motion or screen-reader acceptance.
+
+For a component or token report, link screen → component → catalog/scenario → capture where
+available, and component → semantic role → renderer observation. Use `Component | Screen or
+specimen | State | Source | Capture or gap` and `Token role | Component and target | Source
+value | Effective value and unit | Method or gap` as report columns. Group measurements and gaps
+by renderer and theme. Show source-only and unmeasured rows even if the screenshots are complete.
 
 Keep `navigation.mmd` and adjacency data from the same edge records. Use safe Mermaid aliases
 for node syntax and visible labels for stable screen IDs; label source-only edges explicitly.
@@ -89,6 +113,9 @@ and screen index. This preserves the captured bundle's hashes across upload/resu
 
 Before handoff validate file presence/MIME/size/hash and PNG dimensions against actual bytes,
 IDs/paths, totals, status reasons and image-open records. Do not count preview/product together.
+When component or token records are present, check their links and confirm that each measured
+row points to the recorded target and capture context. Check that source-only and unmeasured
+rows leave effective values null.
 The manifest does **not** list/hash itself or `upload-receipt.json`; the external receipt holds
 the final manifest's digest/remote ID. Finish and freeze the captured files before upload.
 Resume upload of identical bytes; a later capture or correction creates a new run referencing

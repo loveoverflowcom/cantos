@@ -2,9 +2,9 @@
 name: cantos-ui-capture
 description: >-
   Capture current Cantos Theatre Web, Theatre CMP Android/iOS and Studio Web UI into a
-  reproducible local evidence bundle with runtime/build provenance, screenshots, navigation,
-  component inventory and honest coverage. Use for implementation snapshots; existing-image
-  audits belong to cantos-ui-inspector and requested Drive upload to cantos-ui-evidence-drive.
+  reproducible local report with runtime/build provenance, screenshots, navigation, component
+  and token evidence, and coverage gaps. Use for implementation snapshots and UI capture reports.
+  Existing-image audits belong to cantos-ui-inspector and Drive upload to cantos-ui-evidence-drive.
 ---
 
 # Cantos UI capture
@@ -25,12 +25,13 @@ methods, not new product requirements or an implemented capture runner.
    mode, build variant, artifact digest and deployment/build evidence. Checkout SHA is not a
    deployed SHA. If a production build cannot be bound to source, record `UNKNOWN` with null
    SHA and the evidence gap; still capture the requested reachable UI. Never label it HEAD.
-3. Discover routes, navigation, shared components and reviewed
+3. Discover routes, navigation, shared components, preview registrations, token owners and reviewed
    [inspector scenarios](../cantos-ui-inspector/references/scenarios.md). Reuse their IDs and
    safe steps; capture-only work does not execute every scenario assertion or mutation.
    Planned screens from docs are candidates until current source/runtime confirms them.
 4. Write the expected matrix before driving the UI. A whole-UI request includes all three
-   surfaces and their discovered screens, overlays and states, including unavailable cells.
+   surfaces and their discovered screens, overlays, states and relevant preview scenarios,
+   including unavailable cells. Include the component inventory and relevant token roles.
    Select meaningful variants through the surface matrix, not an unbounded Cartesian product.
    Preserve the denominator when time, tools, fixtures or access run out.
 
@@ -59,6 +60,9 @@ methods, not new product requirements or an implemented capture runner.
   guard and Back/Escape/close result. Mark edges actually driven `observed`; source-derived
   edges stay `source-only`. Name visible components and trace source ownership when possible;
   otherwise mark the mapping uncertain. Do not infer permission or persistence from pixels.
+- When components or tokens are in scope, connect their source owners and stable IDs to the
+  capture that shows the relevant state. Follow the [renderer guidance](references/surfaces.md#component-and-token-evidence)
+  to record the effective value at the rendered component or label it as source-only or unmeasured.
 - Keep physical image pixels separate from CSS px/dp/pt, density, zoom and font scale. Record
   requested and effective theme, locale, role, fixture, timestamp and actual renderer. Desktop
   responsive Web, JVM/Android Studio preview and native Android/iOS are distinct evidence.
