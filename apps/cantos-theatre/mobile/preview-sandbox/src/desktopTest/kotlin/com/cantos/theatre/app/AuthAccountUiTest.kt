@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextReplacement
@@ -308,17 +309,44 @@ class AuthAccountUiTest {
         assertEquals(0, h.identity.loginRequests)
     }
 
+    // #690 / #686: the auth header owns the one guest Theme + Language pair; no second theme toggle
+    // or preferences row is rendered on Login or Register.
     @Test
-    fun large_text_on_a_narrow_screen_keeps_back_logo_theme_and_both_actions_reachable() = run(width = 320, height = 568, textScale = 2f) {
+    fun auth_routes_render_one_theme_and_one_language_control_in_the_header_row() = run { _ ->
+        openLoginFromLanding()
+        assertOneHeaderPreferencesPair()
+        onNodeWithTag("login-create").performScrollTo().performClick()
+        waitForIdle()
+        onNodeWithTag("register-email").performScrollTo().assertIsDisplayed()
+        assertOneHeaderPreferencesPair()
+    }
+
+    private fun ComposeUiTest.assertOneHeaderPreferencesPair() {
+        onAllNodesWithTag("auth-theme").assertCountEquals(0)
+        onAllNodesWithTag("guest-theme").assertCountEquals(1)
+        onAllNodesWithTag("guest-language").assertCountEquals(1)
+        val back = onNodeWithTag("back").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        for (tag in listOf("guest-theme", "guest-language")) {
+            val control = onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue(control.top < back.bottom && control.bottom > back.top, "$tag shares the Back header row")
+        }
+    }
+
+    @Test
+    fun large_text_on_a_narrow_screen_keeps_back_logo_preferences_and_both_actions_reachable() = run(width = 320, height = 568, textScale = 2f) {
         openLoginFromLanding()
         val back = onNodeWithTag("back").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val theme = onNodeWithTag("auth-theme").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val logo = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        // Back is icon-only: it keeps a 48dp touch target, and the logo sits beside it, never dropped.
+        val theme = onNodeWithTag("guest-theme").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val language = onNodeWithTag("guest-language").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        // Back is icon-only: it keeps a 48dp touch target, and the logo yields width, never dropped.
         assertTrue(back.width >= 48f * density.density - 1f && back.height >= 48f * density.density - 1f)
-        assertTrue(back.left >= 0f && back.right <= logo.left && logo.right <= theme.left)
-        assertTrue(theme.right <= 320f * density.density)
-        assertTrue(theme.width >= 48f * density.density - 1f && theme.height >= 48f * density.density - 1f)
+        assertTrue(back.left >= 0f && back.right <= logo.left && logo.right <= theme.left && theme.right <= language.left)
+        assertTrue(logo.width > 0f)
+        assertTrue(language.right <= 320f * density.density)
+        for (control in listOf(theme, language)) {
+            assertTrue(control.width >= 48f * density.density - 1f && control.height >= 48f * density.density - 1f)
+        }
         onNodeWithTag("login-primary").performScrollTo().assertIsDisplayed()
         onNodeWithTag("login-create").performScrollTo().assertIsDisplayed()
     }

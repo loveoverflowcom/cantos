@@ -194,7 +194,8 @@ fun CantosPresentation(
     accountContent: @Composable (loginFocus: FocusRequester, backOverlay: @Composable (onBack: () -> Unit) -> Unit) -> Unit = { _, _ -> },
     // Login, Register and email verification bodies; the root reads the route from its own projection.
     authContent: @Composable () -> Unit = {},
-    authHeader: (@Composable () -> Unit)? = null,
+    // Receives the guest Theme + Language controls (empty when signed in) for its one header row.
+    authHeader: (@Composable (preferences: @Composable () -> Unit) -> Unit)? = null,
     // Hosts may inject Full to observe motion; reduced motion is the default.
     motionPreference: MotionPreference = MotionPreference.Reduced,
     density: Density = Density.Comfortable,
@@ -257,17 +258,16 @@ fun CantosPresentation(
                 if (state.route == ShellRoute.MembershipPreview && membershipHeader != null) membershipHeader()
                 else if (state.route.isAccountTask() && authHeader != null) {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                        Box(Modifier.widthIn(max = AUTH_FRAME_MAX_WIDTH).fillMaxWidth()) { authHeader() }
+                        Box(Modifier.widthIn(max = AUTH_FRAME_MAX_WIDTH).fillMaxWidth()) {
+                            // One preferences authority: the guest controls live in the auth header row,
+                            // never in a second row below it. Signed-in preferences stay in Me.
+                            authHeader { if (!accountSignedIn) GuestPreferences(state, copy, dispatch, themeMode, overlays) }
+                        }
                     }
                 }
                 // Search is a fullscreen task with its own Back and input; no shared header repeats above it.
                 else if (state.route != ShellRoute.Search) ShellHeader(state, copy, dispatch, entryFocus.account, accountSignedIn, accountPresentation, guestAuthEnabled) {
                     GuestPreferences(state, copy, dispatch, themeMode, overlays)
-                }
-                if (!accountSignedIn && state.route.isAccountTask()) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm")), horizontalArrangement = Arrangement.End) {
-                        GuestPreferences(state, copy, dispatch, themeMode, overlays)
-                    }
                 }
                 state.listeningFailure?.let { failure ->
                     Column(
