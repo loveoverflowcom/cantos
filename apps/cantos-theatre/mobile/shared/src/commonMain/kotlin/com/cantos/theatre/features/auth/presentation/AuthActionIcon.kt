@@ -11,5 +11,4 @@ internal fun authActionIcon(intent: AuthIntent): String? = when (intent) {
     AuthIntent.Back -> "arrow_back"
     AuthIntent.OpenLibrary, AuthIntent.OpenMembership -> "arrow_forward"
     AuthIntent.OpenSettings -> "settings"
-    AuthIntent.ToggleTheme -> null // Existing theme glyphs retain their own Material owner.
 }

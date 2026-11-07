@@ -159,7 +159,6 @@ fun CantosTheatreApp(
             AuthIntent.OpenLibrary -> dispatch(ShellEvent.Navigate(ShellRoute.Library))
             AuthIntent.OpenMembership -> dispatch(ShellEvent.Navigate(ShellRoute.MembershipPreview))
             AuthIntent.OpenSettings -> dispatch(ShellEvent.Navigate(ShellRoute.Settings))
-            AuthIntent.ToggleTheme -> dispatch(ShellEvent.SetTheme(if (theme == ShellTheme.Dark) ShellTheme.Light else ShellTheme.Dark))
             AuthIntent.Back -> dispatch(ShellEvent.Back)
         }
     }
@@ -245,7 +244,7 @@ fun CantosTheatreApp(
                 else LoginScreen(locale, accountView, nothingSaved,
                     showStatus = submittedOnEntry || !loginAttempt.owns(accountView), onIntent = onAuth)
             },
-            authHeader = { AuthHeader(locale, theme, authReturnFor(state.stack), onAuth) },
+            authHeader = { preferences -> AuthHeader(locale, theme, authReturnFor(state.stack), onAuth, preferences = preferences) },
             density = density,
             motionPreference = motionPreference,
             localeSaveUnavailable = localeUpdate == PreferencesUpdate.LocaleStoreUnavailable,
