@@ -463,7 +463,7 @@ async fn current_backup_refuses_pre_epic_binary_and_wrong_service_without_rewrit
         (
             old,
             Refusal::NewerThanBinary {
-                applied: 36,
+                applied: schema.latest(),
                 known: 30,
             },
         ),
