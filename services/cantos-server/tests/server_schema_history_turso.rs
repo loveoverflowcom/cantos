@@ -60,6 +60,7 @@ async fn fresh_epoch_has_only_current_tables_and_replay_preserves_authoritative_
         "sample_seed_principals".into(),
         "development_sessions".into(),
         "media_cover_disclosures".into(),
+        "media_cover_variants".into(),
         "media_metadata_cover_bindings".into(),
         "catalog_metadata_generations".into(),
         "catalog_metadata_generation_entries".into(),

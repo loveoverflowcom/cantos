@@ -6,6 +6,7 @@ use futures_util::StreamExt;
 
 use super::{ImageObjectError, ImageObjectFuture, ImageObjects, OpenImage, RecordedImageLocation};
 use crate::contexts::media::{
+    domain::image::ImageMetadata,
     domain::object_storage::{
         ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageError, StorageTargetId,
     },
@@ -26,12 +27,22 @@ impl SharedImageObjects {
 }
 
 fn recorded_object(asset: &StoredImageAsset) -> Result<PrivateObjectRef, ImageObjectError> {
-    let metadata = asset.asset.metadata();
+    image_object(
+        &asset.storage_target,
+        &asset.object_key,
+        asset.asset.metadata(),
+    )
+}
+
+fn image_object(
+    target: &str,
+    key: &str,
+    metadata: &ImageMetadata,
+) -> Result<PrivateObjectRef, ImageObjectError> {
     // These are persisted accepted facts, so malformed location/integrity is corruption,
     // never bad caller input or an invitation to use the current active write target.
-    let target =
-        StorageTargetId::parse(&asset.storage_target).map_err(|_| ImageObjectError::Corrupt)?;
-    let key = ObjectKey::parse(&asset.object_key).map_err(|_| ImageObjectError::Corrupt)?;
+    let target = StorageTargetId::parse(target).map_err(|_| ImageObjectError::Corrupt)?;
+    let key = ObjectKey::parse(key).map_err(|_| ImageObjectError::Corrupt)?;
     let integrity = ObjectIntegrity::new(metadata.sha256(), metadata.byte_length())
         .map_err(|_| ImageObjectError::Corrupt)?;
     PrivateObjectRef::new(target, key, integrity).map_err(|_| ImageObjectError::Corrupt)
@@ -108,19 +119,36 @@ impl ImageObjects for SharedImageObjects {
         let registry = self.registry.clone();
         Box::pin(async move {
             let object = recorded_object(&asset)?;
-            let registry = registry.ok_or(ImageObjectError::Unavailable)?;
-            // PR90 hashes current bytes then retains the same filesystem handle or pins the
-            // S3 response by its observed version/ETag. No admission-time version is persisted.
-            let read = registry
-                .open_verified(&object, None)
-                .await
-                .map_err(registry_failure)?;
-            Ok(OpenImage {
-                stream: Box::pin(read.stream.map(|chunk| chunk.map_err(storage_failure))),
-                byte_length: read.byte_length,
-            })
+            open_image(registry, object).await
         })
     }
+}
+
+impl SharedImageObjects {
+    pub(in crate::contexts::media) async fn open_rendition(
+        &self,
+        asset: &StoredImageAsset,
+        metadata: &ImageMetadata,
+    ) -> Result<OpenImage, ImageObjectError> {
+        let object = image_object(&asset.storage_target, metadata.sha256(), metadata)?;
+        open_image(self.registry.clone(), object).await
+    }
+}
+
+async fn open_image(
+    registry: Option<Arc<StorageRegistry>>,
+    object: PrivateObjectRef,
+) -> Result<OpenImage, ImageObjectError> {
+    let registry = registry.ok_or(ImageObjectError::Unavailable)?;
+    // The registry verifies bytes on a retained filesystem handle or pins the S3 read.
+    let read = registry
+        .open_verified(&object, None)
+        .await
+        .map_err(registry_failure)?;
+    Ok(OpenImage {
+        stream: Box::pin(read.stream.map(|chunk| chunk.map_err(storage_failure))),
+        byte_length: read.byte_length,
+    })
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 //!
 //! Connects Theatre Web on localhost to the loopback `--sample-serve` host (`127.0.0.1:8080`)
 //! through Trunk's same-origin `/api/` proxy. Reads the 6 private Works, 12 draft Chapters and
-//! 6 original PNG covers from Server-owned Turso (`server.db`) without changing public discovery
+//! 6 admitted WebP covers from Server-owned Turso (`server.db`) without changing public discovery
 //! policy, fabricating release metadata or exposing Studio credentials.
 use crate::{
     app::routes::Route,
@@ -99,6 +99,7 @@ impl SampleCover {
             url: self.path.clone(),
             sha256: self.sha256.clone(),
             content_type: self.content_type,
+            variant: crate::contract::discovery::CoverVariant::Full,
             width_px: self.width_px,
             height_px: self.height_px,
             byte_length: self.byte_length,
@@ -1169,7 +1170,7 @@ mod tests {
             cover: Some(SampleCover {
                 path: sample_cover_path(id, &sha256),
                 sha256,
-                content_type: CoverMime::Avif,
+                content_type: CoverMime::Webp,
                 width_px: 1024,
                 height_px: 1536,
                 byte_length: 4096,

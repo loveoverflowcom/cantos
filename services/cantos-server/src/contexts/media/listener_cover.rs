@@ -6,18 +6,20 @@ use std::sync::Arc;
 
 use super::{
     domain::{
-        image::{sha256_valid, ImageMime},
+        image::{sha256_valid, CoverVariant},
         public_cover::{
             project_public_cover, CoverDisclosure, CoverFacts, CoverFallback, CoverProjection,
             PublicCover,
         },
     },
-    image_application::{
-        objects::SharedImageObjects, ImageByteStream, ImageObjectError, ImageObjects,
-    },
+    image_application::{objects::SharedImageObjects, ImageByteStream, ImageObjectError},
     listener_application::{ListenerError, ListenerService, PresentationLevel},
     listener_delivery::PublicMediaOrigin,
-    turso::{image::StoredImageAsset, listener::ReadItem},
+    turso::{
+        cover::PinnedCoverFacts,
+        image::{StoredCoverVariant, StoredImageAsset},
+        listener::ReadItem,
+    },
 };
 use crate::contract::theatre::discovery as dto;
 use crate::platform::store::Store;
@@ -28,7 +30,7 @@ use crate::platform::store::Store;
 #[derive(Clone)]
 pub(super) struct CoverDelivery {
     pub(super) origin: PublicMediaOrigin,
-    objects: Arc<dyn ImageObjects>,
+    objects: Arc<SharedImageObjects>,
 }
 
 /// The kernel's projection for one covered row at the read's instant. A row read without cover
@@ -60,22 +62,35 @@ pub(super) fn facts_projection(
     })
 }
 
+pub(super) fn rendition_for(
+    facts: &PinnedCoverFacts,
+    variant: CoverVariant,
+) -> Option<&StoredCoverVariant> {
+    facts
+        .variants
+        .iter()
+        .find(|stored| stored.variant == variant)
+}
+
 pub(super) fn cover_image(
     origin: &PublicMediaOrigin,
     work_id: &str,
     cover: &PublicCover,
+    rendition: &StoredCoverVariant,
 ) -> dto::CoverImage {
+    let variant = match rendition.variant {
+        CoverVariant::Thumbnail => dto::CoverVariant::Thumbnail,
+        CoverVariant::Full => dto::CoverVariant::Full,
+    };
+    let metadata = &rendition.metadata;
     dto::CoverImage {
-        url: origin.cover_url(work_id, cover.sha256()),
-        sha256: cover.sha256().into(),
-        content_type: match cover.content_type() {
-            ImageMime::Png => dto::CoverMime::Png,
-            ImageMime::Jpeg => dto::CoverMime::Jpeg,
-            ImageMime::Avif => dto::CoverMime::Avif,
-        },
-        width_px: u64::from(cover.width_px()),
-        height_px: u64::from(cover.height_px()),
-        byte_length: cover.byte_length(),
+        url: origin.cover_url(work_id, variant, metadata.sha256()),
+        sha256: metadata.sha256().into(),
+        content_type: dto::CoverMime::Webp,
+        variant,
+        width_px: u64::from(metadata.width_px()),
+        height_px: u64::from(metadata.height_px()),
+        byte_length: metadata.byte_length(),
         alt_text: cover.alt_text().into(),
     }
 }
@@ -101,16 +116,17 @@ pub struct AdmittedCover {
     pub(super) work: String,
     pub(super) cover: PublicCover,
     pub(super) asset: StoredImageAsset,
+    pub(super) rendition: StoredCoverVariant,
 }
 impl AdmittedCover {
     pub fn sha256(&self) -> &str {
-        self.cover.sha256()
+        self.rendition.metadata.sha256()
     }
     pub fn content_type(&self) -> &'static str {
-        self.cover.content_type().as_str()
+        self.rendition.metadata.content_type().as_str()
     }
     pub fn byte_length(&self) -> u64 {
-        self.cover.byte_length()
+        self.rendition.metadata.byte_length()
     }
 }
 
@@ -156,7 +172,7 @@ impl ListenerService {
                 .rows
                 .into_iter()
                 .map(|(row, summary)| {
-                    let cover = self.shown(&row, page.now);
+                    let cover = self.shown(&row, page.now, CoverVariant::Thumbnail);
                     covered(summary, cover)
                 })
                 .collect(),
@@ -166,7 +182,7 @@ impl ListenerService {
 
     pub async fn covered_work(&self, work: &str) -> Result<dto::CoveredWorkSummary, ListenerError> {
         let (row, summary, now) = self.presented_row(PresentationLevel::Covered, work).await?;
-        let cover = self.shown(&row, now);
+        let cover = self.shown(&row, now, CoverVariant::Full);
         Ok(covered(summary, cover))
     }
 
@@ -181,13 +197,20 @@ impl ListenerService {
             .await
     }
 
-    pub(super) fn shown(&self, row: &ReadItem, now: i64) -> Option<dto::CoverImage> {
+    pub(super) fn shown(
+        &self,
+        row: &ReadItem,
+        now: i64,
+        variant: CoverVariant,
+    ) -> Option<dto::CoverImage> {
         let delivery = self.covers.as_ref()?;
+        let rendition = rendition_for(row.cover.as_ref()?, variant)?;
         match cover_projection(row, now) {
             CoverProjection::Shown(cover) => Some(cover_image(
                 &delivery.origin,
                 row.publication.work().id().as_str(),
                 &cover,
+                rendition,
             )),
             CoverProjection::Fallback(_) => None,
         }
@@ -199,12 +222,14 @@ impl ListenerService {
     pub async fn admit_cover(
         &self,
         work: &str,
+        variant: &str,
         sha256: &str,
     ) -> Result<AdmittedCover, ListenerError> {
         if self.covers.is_none() || !sha256_valid(sha256) {
             return Err(ListenerError::NotFound);
         }
-        self.admit_metadata_cover(work, sha256).await
+        let variant = CoverVariant::parse(variant).ok_or(ListenerError::NotFound)?;
+        self.admit_metadata_cover(work, variant, sha256).await
     }
 
     /// Open the verified private bytes (the reader hashes the actual object before streaming),
@@ -216,14 +241,20 @@ impl ListenerService {
         let delivery = self.covers.as_ref().ok_or(ListenerError::NotFound)?;
         let opened = delivery
             .objects
-            .open(admitted.asset.clone())
+            .open_rendition(&admitted.asset, &admitted.rendition.metadata)
             .await
             .map_err(object_error)?;
-        if opened.byte_length != admitted.cover.byte_length() {
+        if opened.byte_length != admitted.byte_length() {
             return Err(ListenerError::Corrupt);
         }
-        let fresh = self.admit_cover(&admitted.work, admitted.sha256()).await?;
-        if fresh.cover != admitted.cover {
+        let fresh = self
+            .admit_cover(
+                &admitted.work,
+                admitted.rendition.variant.as_str(),
+                admitted.sha256(),
+            )
+            .await?;
+        if fresh.cover != admitted.cover || fresh.rendition != admitted.rendition {
             return Err(ListenerError::NotFound);
         }
         Ok(opened.stream)

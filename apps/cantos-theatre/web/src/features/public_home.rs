@@ -1189,7 +1189,7 @@ mod tests {
     #[test]
     fn a_card_shows_its_own_authorized_cover_and_a_null_cover_keeps_the_kind_fallback() {
         let covered: MetadataWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json"
         ))
         .unwrap();
         let cover = covered.items[0].cover.clone().unwrap();
@@ -1216,7 +1216,7 @@ mod tests {
         // and the card without a cover shows the textless celestial AVIF fallback.
         assert!(html.matches("theatre-public-work-link").count() >= 2);
         assert!(
-            html.contains("assets/artwork/cantos-cover-fallback.avif"),
+            html.contains("assets/artwork/cantos-cover-fallback.webp"),
             "{html}"
         );
         assert!(!html.contains("theatre-public-cover-glyph"), "{html}");

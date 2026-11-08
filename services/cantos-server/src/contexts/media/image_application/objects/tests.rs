@@ -10,25 +10,25 @@ use crate::contexts::{
 };
 use crate::contract::studio as dto;
 
-const AVIF_RGB: &[u8] = include_bytes!("../../image_intake/fixtures/python-rgb-2x3.avif");
-const AVIF_RGB_SHA256: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
+const WEBP_RED: &[u8] = include_bytes!("../../image_intake/fixtures/red-2x3.webp");
+const WEBP_RED_SHA256: &str = "94b66a3567ab9231ce33865038bcfb42a2d62a2add6ee871dbc4e00b77169d75";
 
 async fn fixture() -> (VerifiedImage, StoredImageAsset) {
     let image = ImageAdmission::from_test_lanes(Arc::new(tokio::sync::Semaphore::new(1)))
         .unwrap()
-        .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
+        .inspect(WEBP_RED.to_vec(), ImageMime::Webp)
         .await
         .unwrap();
-    assert_eq!(image.metadata().sha256(), AVIF_RGB_SHA256);
+    assert_eq!(image.metadata().sha256(), WEBP_RED_SHA256);
     let intent = ImageIntent::create(
         PrepareImage::admit(&dto::CreateImageIntentRequest {
             operation_id: "00000000-0000-4000-8000-000000000001".into(),
             id: "00000000-0000-4000-8000-000000000002".into(),
-            expected_sha256: AVIF_RGB_SHA256.into(),
-            expected_byte_length: AVIF_RGB.len() as u64,
-            content_type: dto::ImageMime::Avif,
+            expected_sha256: WEBP_RED_SHA256.into(),
+            expected_byte_length: WEBP_RED.len() as u64,
+            content_type: dto::ImageMime::Webp,
             declarations: dto::ImageDeclarations {
-                provenance: "Independent synthetic Python AVIF_RGB, no rights approval".into(),
+                provenance: "Independent synthetic Python WEBP_RED, no rights approval".into(),
                 rights_refs: vec!["synthetic-rights".into()],
             },
         })
@@ -45,7 +45,7 @@ async fn fixture() -> (VerifiedImage, StoredImageAsset) {
         StoredImageAsset {
             asset,
             storage_target: "legacy-filesystem".into(),
-            object_key: AVIF_RGB_SHA256.into(),
+            object_key: WEBP_RED_SHA256.into(),
             document_bytes,
         },
     )
@@ -95,10 +95,10 @@ async fn restored_location_is_exact_and_never_falls_back_to_an_active_target() {
     drop(image);
     let reference = recorded_object(&asset).unwrap();
     assert_eq!(reference.target().as_str(), "legacy-filesystem");
-    assert_eq!(reference.key().as_str(), AVIF_RGB_SHA256);
-    assert_eq!(reference.integrity().byte_length(), AVIF_RGB.len() as u64);
+    assert_eq!(reference.key().as_str(), WEBP_RED_SHA256);
+    assert_eq!(reference.integrity().byte_length(), WEBP_RED.len() as u64);
     for (target, key) in [
-        ("https://foreign.example", AVIF_RGB_SHA256.to_owned()),
+        ("https://foreign.example", WEBP_RED_SHA256.to_owned()),
         ("legacy-filesystem", "../image".into()),
         ("legacy-filesystem", "f".repeat(64)),
     ] {
@@ -158,17 +158,17 @@ async fn production_image_bridge_persists_and_reopens_exact_real_filesystem_byte
     let (image, mut asset) = fixture().await;
     let location = objects.persist(image).await.unwrap();
     assert_eq!(location.storage_target, "legacy-filesystem");
-    assert_eq!(location.object_key, AVIF_RGB_SHA256);
+    assert_eq!(location.object_key, WEBP_RED_SHA256);
     asset.storage_target = location.storage_target;
     asset.object_key = location.object_key;
     objects.verify(asset.clone()).await.unwrap();
     let mut opened = objects.open(asset.clone()).await.unwrap();
-    assert_eq!(opened.byte_length, AVIF_RGB.len() as u64);
+    assert_eq!(opened.byte_length, WEBP_RED.len() as u64);
     let mut actual = Vec::new();
     while let Some(chunk) = opened.stream.next().await {
         actual.extend_from_slice(&chunk.unwrap());
     }
-    assert_eq!(actual, AVIF_RGB);
+    assert_eq!(actual, WEBP_RED);
     drop(opened);
     drop(objects);
     let reopened = SharedImageObjects::new(Some(Arc::new(
@@ -180,7 +180,7 @@ async fn production_image_bridge_persists_and_reopens_exact_real_filesystem_byte
     while let Some(chunk) = opened.stream.next().await {
         actual.extend_from_slice(&chunk.unwrap());
     }
-    assert_eq!(actual, AVIF_RGB);
+    assert_eq!(actual, WEBP_RED);
 }
 
 #[cfg(unix)]

@@ -860,6 +860,20 @@
       },
       "application_valid": false,
       "protobuf_hex": "0a2433303030303030302d303030302d343030302d383030302d303030303030303030303031"
+    },
+    {
+      "name": "webp-mime-appended",
+      "message": "ImageVariantMetadata",
+      "value": {
+        "sha256": "94b66a3567ab9231ce33865038bcfb42a2d62a2add6ee871dbc4e00b77169d75",
+        "byte_length": 64,
+        "content_type": "image/webp",
+        "width_px": 2,
+        "height_px": 3,
+        "profile_id": "cover-image-v1"
+      },
+      "application_valid": true,
+      "protobuf_hex": "0a40393462363661333536376162393233316365333338363530333862636662343261326436326132616464366565383731646263346530306237373136396437351040180420022803320e636f7665722d696d6167652d7631"
     }
   ]
 }

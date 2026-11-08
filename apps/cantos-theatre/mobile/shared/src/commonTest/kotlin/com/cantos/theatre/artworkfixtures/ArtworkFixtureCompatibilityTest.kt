@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 class ArtworkFixtureCompatibilityTest {
     @Test
     fun independentArtworkGoldensExerciseActualEnumsOneofAndUnsignedBits() {
-        assertEquals(40, CanonicalArtworkVectors.goldens.size)
+        assertEquals(41, CanonicalArtworkVectors.goldens.size)
         for (case in CanonicalArtworkVectors.goldens) {
             case.verifySerializer()
             assertEquals(
@@ -109,7 +109,7 @@ private class ArtworkFixtureEnvelope(
             if (scalar) {
                 val value = varint(end)
                 if (field.kind == "u32" && value > 0xffffffffuL) reject("Shape")
-                if (field.kind == "mime" && value !in 1uL..3uL) reject("Shape")
+                if (field.kind == "mime" && value !in 1uL..4uL) reject("Shape")
                 if (field.kind == "state" && value !in 1uL..3uL) reject("Shape")
             } else {
                 val length = varint(end)

@@ -1,28 +1,23 @@
 # Runtime image policy
 
-Owner decision: [#607](https://github.com/loveoverflowcom/cantos/issues/607),
-29 October 2026. This document owns image format rules. Skills own the method for applying
-them. The [source audit and qualification record](../evidence/runtime-images-607/README.md)
-distinguishes implemented static assets from pending Media/contract/seed migration.
+The WebP amendment to [ADR 0033](../decisions/0033-release-pinned-public-cover.md) owns
+the runtime raster format. The [#607 record](../evidence/runtime-images-607/README.md) is
+historical AVIF evidence.
 
 ## Allowed representations
 
-- Raster resources used, loaded, packaged or delivered by Cantos use **AVIF**, `.avif`,
-  `image/avif`. Vector resources use **SVG** or supported platform-native vector/resource XML.
-  Fonts, audio, CSS, JSON and other non-image resources are outside this policy.
-- PNG/JPG/JPEG may remain in design documents, historical evidence and test screenshots under
-  `docs/design`, `docs/evidence` or `docs/archive`, provided no application consumes/packages them.
-  Classify historical source material before changing it. WebP/GIF and other raster formats
-  are not alternatives for a runtime fallback.
-- Tests may use real legacy bytes to prove rejection at a boundary. New positive fixtures,
-  preview imagery and sample/production seeds follow the same image policy as the application.
-  A mock or preview with actual image behavior is not a documentation exception.
-- Convert actual pixels. Changing a suffix, MIME label or wrapping a legacy image in SVG does
-  not convert it. Preserve aspect ratio, relevant transparency, provenance and source identity;
-  record the new bytes, size, digest and encoder. Decode and inspect the result.
-- A failed or unavailable decoder renders the existing SVG/native vector placeholder and
-  keeps text/actions accessible. Do not fetch a PNG/JPEG/WebP fallback or claim codec support
-  from compilation, an extension or an OS version alone.
+- Runtime rasters use opaque, still **lossy WebP** with an 8-bit VP8 frame, a
+  `.webp` suffix and `image/webp`. SVG and native vectors remain valid. Fonts and audio
+  are outside the image policy.
+- The artwork intake profile is one simple VP8 chunk without alpha, animation or
+  metadata. Convert actual pixels and retain source rights, aspect ratio and a
+  checksum-bound record. Use an existing vector or composite transparency against the
+  actual light and dark surface colors.
+- PNG/JPEG under `docs/design`, `docs/evidence` and `docs/archive` may remain as
+  documentation. Frozen actual-byte rejection vectors may remain at their test paths.
+  Preview assets and positive fixtures follow the runtime policy.
+- If a decoder or cover is unavailable, use the existing decorative fallback and
+  preserve text, actions and accessibility.
 
 ## Native launcher boundary
 
@@ -43,8 +38,7 @@ record device appearance acceptance separately.
    classification (`shipped-source`, preview, positive/rejection fixture, documentation,
    generated or remote storage), size/hash and consumer. A Git tree is not a bundle inventory.
 2. Check the exact browser/OS/Compose/Skia/toolchain capability before replacing a load path.
-   AVIF in a raw Compose `files/` resource needs an actual decoder; the pinned drawable
-   generator and Skia do not acquire a codec from a renamed file. Keep decoder code in adapters.
+   Keep platform-specific decode and transport in the renderer adapters.
 3. Convert authorized local static artwork, retain source provenance and update every loader,
    resource path, copy rule and assertion. Do not broaden mock artwork rights into public covers.
    Inspect transparency against both themes and retain dimensions/alt/decorative semantics.
@@ -54,60 +48,45 @@ record device appearance acceptance separately.
 
 ## Media, contracts and existing data
 
-The #607 follow-up supersedes #608's additive acceptance: new image intents, uploads,
-selection, private byte previews and public delivery are **AVIF-only**. Studio file selection
-and vi/en validation agree. Historical JSON/Protobuf enum values 1/2 are retained, and only
-AVIF uses value3; historical receipts can still restore with their original digest.
-The public projection returns fallback for legacy assets, and Web/CMP do not fetch/render
-legacy covers from an older response. No existing receipt, image object or clearance is rewritten.
+New Studio intents, uploads, selection and preview use WebP. Historical PNG, JPEG and
+AVIF JSON/Protobuf MIME values remain readable. WebP is Protobuf value 4. The original
+source is private and its bytes, object key, receipt and source digest remain exact.
 
-The inspector first bounds encoded bytes (8MiB), dimensions (4096 per edge), pixel product
-(16,777,216) and decoded layout (64MiB), rejects sequences/transforms and validates contiguous
-item extents. Then pinned `dav1d=0.11.1` decodes actual AV1 pixels with one thread, one frame
-of delay, strict standard compliance and a native frame-size limit set **before input**.
-A parsed tile/header is not a decode witness. Two admission lanes survive cancellation until
-the blocking work and original bytes exit. These limits are not a total native RSS guarantee.
-The current profile supports one primary image (8/10/12-bit subject to the output
-bound) and identity EXIF. The primary is a single `av01` item or an ImageGrid of up to 64 `av01`
-tiles of identical size and codec configuration, covering the declared output with no surplus
-tile row or column (overhang is cropped). It may carry one alpha image, itself a single item
-or a grid, linked by `auxl` with the MPEG alpha `auxC` URN and matching the color output size.
-Every AV1 item of the profile is fully decoded, one picture at a time, so tiles and planes never
-coexist in memory; the 64MiB decoded-layout bound uses the larger of the color and alpha depth.
-Overlays, thumbnails, depth, nested or shared tiles, premultiplied links, other auxiliary types
-and any extra image item stay unsupported; no plane is silently ignored. Unsupported input
-retains current artwork and returns a typed refusal. Admission proves decodability only; how a
-translucent cover is presented is not reviewed here.
+Intake caps the source at 8 MiB and 4096 pixels per edge, with at most 16,777,216 pixels.
+The RIFF, VP8 frame and dimensions are checked before decoding. Bundled libwebp decodes
+the full image to opaque RGB. RGB output is at most 48 MiB. At most two uploads hold
+decoded work and encoded payloads at once. The lane stays reserved until its blocking
+task and source and variant bodies exit. This is a payload bound and does not measure RSS.
 
-The decoder requires libdav1d>=1.3 via pkg-config on build hosts and its shared library at
-runtime. The Server OCI build/runtime and Rust CI install the corresponding Debian packages;
-macOS can use an already installed Homebrew dav1d. Real OCI qualification remains separate.
-See [dav1d settings](https://docs.rs/dav1d/0.11.1/dav1d/struct.Settings.html) and the
-[pinned wrapper](https://github.com/rust-av/dav1d-rs).
+| Variant | Maximum dimensions | Maximum encoded bytes | Encoder |
+| --- | --- | --- | --- |
+| Thumbnail | 384 × 576 | 262,144 | libwebp lossy quality 78 |
+| Full | 1200 × 1200 | 2,097,152 | libwebp lossy quality 82 |
 
-Append-only migration30 adds AVIF-only INSERT guards for intents/assets/new selections.
-It leaves v1–29 SQL, old rows, immutable triggers, receipts and historical references intact.
-New AVIF objects require a new digest/receipt and explicit owner selection/disclosure. Old
-releases remain readable as metadata, with cover fallback; no public authority is expanded.
+The Server preserves aspect ratio, rounds down and uses triangle resampling without
+upscaling. Both files carry one constant, non-identifying RIFF profile chunk after VP8.
+Its version and role distinguish source, thumbnail and full hashes even for 1 × 1
+inputs. Every encoded representation is decoded and hashed before immutable private
+storage. The source receipt and the two rendition bindings commit together. A failed
+upload may leave private content-addressed objects for a retry.
 
-Outstanding data/rollout boundary: inventory actual authorized storage before conversion;
-retain originals and old receipts; create a new asset and explicit rebind/re-clearance; qualify
-mixed clients, API MIME/cache, rights and named devices before separately authorized rollout.
-This source change performs no production conversion or deployment. The prepared six-cover
-sample's pinned PNG source identity needs a separately supplied, converted and repinned AVIF
-manifest; the old source package now fails closed instead of being relabelled or auto-converted.
-No supplied private cover corpus is available in this checkout.
+Migration 37 preserves the registered prefix and historical rows, widens the stored MIME
+constraints, and replaces the future-write guards for intents, assets and new selections.
+An existing AVIF asset is retained and yields a public fallback. Transitioning it
+requires an authorized WebP re-admission, a new selection and Work pin, and a new
+owner disclosure for that exact asset digest. Neither old bytes nor clearance are
+converted by migration.
+
+The prepared six-cover sample requires an authorized WebP source package and a manifest
+repinned to the new bytes. The earlier PNG or AVIF manifests cannot be relabelled.
+Integration order is Server and Web first, then Theatre CMP against the merged
+contract. Ship the combined change together when the applicable deployment acceptance is met.
 
 ## Guard boundary
 
-The existing repository gate calls [`scripts/runtime_images.py`](../../scripts/runtime_images.py).
-It rejects new legacy image paths, legacy byte signatures hidden under other suffixes, false
-AVIF signatures and SVG image references to legacy raster. It scans tracked and nonignored
-untracked source; ignored build outputs need their own artifact inspection. PNG/JPG screenshots
-are allowed only in the explicit documentation roots above. A lexical/signature guard cannot
-prove that a build script never copies documentation, full decoding, rights or production state.
-
-All three former positive PNG/JPEG fixtures are now AVIF, with conversion records and
-actual native-decoder/HTTP tests. Their original bytes remain only as named negative vectors.
-There is no frozen fixture permission; restoring a legacy image at those paths fails the guard.
-A source guard PASS is still not full device, delivery, rights or production acceptance.
+The existing [source guard](../../scripts/runtime_images.py) checks suffix, actual
+signature and opaque VP8 chunk shape. It also rejects legacy raster references in SVG.
+The intermediate PR permits exactly four checksum-pinned CMP resources until its WebP
+fallback is present. The actual-byte AVIF test vectors are frozen by path and hash.
+Trunk output is independently inventoried by the existing release build. Source and
+bundle checks cannot establish device decoding, delivery, rights or deployed state.

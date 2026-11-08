@@ -75,8 +75,10 @@ fn terminal_empty_library_has_one_invitation_no_technical_controls_and_keeps_foc
             "section summaries have no decorative icons"
         );
         assert_eq!(html.matches("data-artwork=\"library\"").count(), 1);
-        assert_eq!(html.matches("<img ").count(), 1);
-        assert!(html.contains("assets/empty/library-expressive.avif"));
+        assert_eq!(html.matches("<img ").count(), 2);
+        for theme in ["light", "dark"] {
+            assert!(html.contains(&format!("assets/empty/library-expressive-{theme}.webp")));
+        }
         assert!(!html.contains("data-artwork=\"history\""));
     }
 }
@@ -126,7 +128,7 @@ fn terminal_history_is_quiet_and_retains_its_shortcut_heading() {
         assert_eq!(html.matches("data-artwork=\"history\"").count(), 0);
         assert!(html.contains("id=\"theatre-library-history-heading\" tabindex=\"-1\""));
         assert!(html.contains(messages::text(Key::LiveLibraryEmptyHistory, locale)));
-        assert!(!html.contains("library-expressive.avif"));
+        assert!(!html.contains("library-expressive-light.webp"));
     }
 }
 
@@ -213,7 +215,7 @@ fn actual_shared_rows_suppress_the_personal_hero_but_not_the_shared_content() {
             access.observe(account.with_untracked(AccountViewState::fence));
             let ticket = access.catalog.begin(DiscoveryQuery::default()).unwrap();
             let page: crate::contract::discovery::MetadataWorkPage = serde_json::from_str(include_str!(
-                "../../../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+                "../../../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json"
             )).unwrap();
             let title = page.items[0].title.clone();
             let link = format!("href=\"#shared/{}\"", page.items[0].work_id);

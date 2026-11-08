@@ -26,7 +26,7 @@ const SHA: &str = "d0bca64204bebcd169752fbb325b5a79cd1314e121c6e7508db45fc8ab848
 fn metadata_wire_requires_explicit_nullable_playback_and_stays_distinct_from_v1() {
     use crate::contract::theatre::discovery::{MetadataUnitSummary, PresentedUnitSummary};
     let schema: serde_json::Value = serde_json::from_str(include_str!(
-        "../../contracts/theatre/discovery/v1/metadata.schema.json"
+        "../../contracts/theatre/discovery/v1/metadata-webp.schema.json"
     ))
     .unwrap();
     let validator = jsonschema::validator_for(&serde_json::json!({

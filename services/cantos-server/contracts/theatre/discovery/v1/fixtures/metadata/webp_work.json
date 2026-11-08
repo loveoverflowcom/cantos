@@ -1,0 +1,19 @@
+{
+  "work_id": "10000000-0000-4000-8000-000000000001",
+  "kind": "story",
+  "title": "Ánh đèn cuối sân khấu",
+  "description": "Một lời hẹn chưa bao giờ nói ra.",
+  "language": "vi-VN",
+  "unit_count": 3,
+  "cover": {
+    "url": "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/full/e76b125a28a02437ead9c4a269c61eeb4d983d688a650aac2cf624d1cef35855",
+    "sha256": "e76b125a28a02437ead9c4a269c61eeb4d983d688a650aac2cf624d1cef35855",
+    "content_type": "image/webp",
+    "variant": "full",
+    "width_px": 800,
+    "height_px": 1200,
+    "byte_length": 524288,
+    "alt_text": "Sân khấu tối, một ngọn đèn vàng chiếu xuống chiếc ghế trống."
+  },
+  "first_visible_at_ms": 5000
+}

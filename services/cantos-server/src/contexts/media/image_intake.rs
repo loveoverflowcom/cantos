@@ -1,15 +1,16 @@
-//! Bounded actual-byte PNG/JPEG/AVIF inspection. Exact encoded bytes remain private and unchanged.
+//! Bounded actual-byte WebP inspection and rendition encoding. Source bytes stay unchanged.
 //!
 //! Acquire admission after cheap authorization/intent checks and before buffering a body. A
 //! cancelled async caller cannot release the lane while its blocking decoder or bytes survive.
-mod avif;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use image::ImageFormat;
+use image::{imageops, RgbImage};
 use sha2::{Digest, Sha256};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
-use super::domain::image::{ImageMetadata, ImageMime, MAX_IMAGE_BYTES};
+use super::domain::image::{
+    CoverVariant, ImageMetadata, ImageMime, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS,
+};
 
 static IMAGE_LANES: LazyLock<std::sync::Arc<Semaphore>> =
     LazyLock::new(|| std::sync::Arc::new(Semaphore::new(2)));
@@ -82,18 +83,38 @@ impl ImageAdmission {
         bytes: Vec<u8>,
         declared_mime: ImageMime,
     ) -> impl std::future::Future<Output = Result<VerifiedImage, ImageIntakeError>> + Send {
-        self.run_blocking(bytes, move |body| inspect_body(body, declared_mime))
+        self.run_blocking(bytes, move |body| {
+            inspect_body(body, declared_mime).map(|(image, _)| image)
+        })
     }
 
-    fn run_blocking(
+    pub(super) fn inspect_cover(
         self,
         bytes: Vec<u8>,
-        inspect: impl FnOnce(AdmittedBody) -> Result<VerifiedImage, ImageIntakeError> + Send + 'static,
-    ) -> impl std::future::Future<Output = Result<VerifiedImage, ImageIntakeError>> + Send {
+        declared_mime: ImageMime,
+    ) -> impl std::future::Future<
+        Output = Result<(VerifiedImage, [VerifiedImage; 2]), ImageIntakeError>,
+    > + Send {
+        self.run_blocking(bytes, move |body| {
+            let (source, rgb) = inspect_body(body, declared_mime)?;
+            let [thumbnail, full] = CoverVariant::ALL;
+            let variants = [
+                encode_variant(&source, &rgb, thumbnail)?,
+                encode_variant(&source, &rgb, full)?,
+            ];
+            Ok((source, variants))
+        })
+    }
+
+    fn run_blocking<T: Send + 'static>(
+        self,
+        bytes: Vec<u8>,
+        inspect: impl FnOnce(AdmittedBody) -> Result<T, ImageIntakeError> + Send + 'static,
+    ) -> impl std::future::Future<Output = Result<T, ImageIntakeError>> + Send {
         // Bind the body and permit synchronously, even if the returned future is never polled.
         let body = AdmittedBody {
             bytes,
-            _admission: self,
+            admission: Arc::new(self),
         };
         async move {
             tokio::task::spawn_blocking(move || inspect(body))
@@ -106,7 +127,7 @@ impl ImageAdmission {
 // Declaration order matters: bytes are dropped before admission releases its lane.
 struct AdmittedBody {
     bytes: Vec<u8>,
-    _admission: ImageAdmission,
+    admission: Arc<ImageAdmission>,
 }
 
 impl std::fmt::Debug for AdmittedBody {
@@ -150,51 +171,151 @@ impl VerifiedImage {
 fn inspect_body(
     body: AdmittedBody,
     declared_mime: ImageMime,
-) -> Result<VerifiedImage, ImageIntakeError> {
-    let bytes = &body.bytes;
-    if bytes.is_empty() {
+) -> Result<(VerifiedImage, RgbImage), ImageIntakeError> {
+    if body.bytes.is_empty() {
         return Err(ImageIntakeError::EmptyImage);
     }
-    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+    if body.bytes.len() as u64 > MAX_IMAGE_BYTES {
         return Err(ImageIntakeError::ImageTooLarge);
     }
-    let actual_mime = match image::guess_format(bytes) {
-        Ok(ImageFormat::Png) => ImageMime::Png,
-        Ok(ImageFormat::Jpeg) => ImageMime::Jpeg,
-        Ok(ImageFormat::Avif) => ImageMime::Avif,
-        _ if is_isobmff_avif_or_avis(bytes) => ImageMime::Avif,
-        _ => return Err(ImageIntakeError::UnsupportedFormat),
-    };
-    if actual_mime != declared_mime {
-        return Err(ImageIntakeError::FormatMismatch);
-    }
-    if actual_mime != ImageMime::Avif {
+    if declared_mime != ImageMime::Webp {
         return Err(ImageIntakeError::UnsupportedFormat);
     }
-    let (width, height) = avif::inspect_avif(bytes)?;
-    let sha256 = format!("{:x}", Sha256::digest(bytes));
-    let metadata = ImageMetadata::new(sha256, bytes.len() as u64, actual_mime, width, height)
-        .map_err(|_| ImageIntakeError::MalformedImage)?;
+    let dimensions = vp8_dimensions(&body.bytes, None)?;
+    let pixels = decode(&body.bytes, dimensions)?;
+    Ok((verified(body, dimensions)?, pixels))
+}
+
+/// Admit the simple opaque VP8 container. Derivatives add one private-data-free RIFF chunk
+/// after VP8 to distinguish the two profiles even when tiny source images need no resize.
+fn vp8_dimensions(
+    bytes: &[u8],
+    variant: Option<CoverVariant>,
+) -> Result<(u32, u32), ImageIntakeError> {
+    use ImageIntakeError::{AnimatedImage, FormatMismatch, MalformedImage, UnsupportedFormat};
+    if !bytes.starts_with(b"RIFF") || bytes.get(8..12) != Some(b"WEBP") {
+        return Err(FormatMismatch);
+    }
+    let riff_len = le_u32(bytes.get(4..8))?;
+    if bytes.len().checked_sub(8) != Some(riff_len) {
+        return Err(MalformedImage);
+    }
+    match bytes.get(12..16) {
+        Some(b"VP8 ") => {}
+        Some(b"VP8X") if bytes.get(20).is_some_and(|flags| flags & 2 != 0) => {
+            return Err(AnimatedImage);
+        }
+        _ => return Err(UnsupportedFormat),
+    }
+    let chunk_len = le_u32(bytes.get(16..20))?;
+    let end = 20usize.checked_add(chunk_len).ok_or(MalformedImage)?;
+    let padded = end.checked_add(chunk_len % 2).ok_or(MalformedImage)?;
+    let frame = bytes.get(20..end).ok_or(MalformedImage)?;
+    let trailer = bytes.get(padded..).ok_or(MalformedImage)?;
+    if (end != padded && bytes.get(end) != Some(&0))
+        || trailer
+            != variant
+                .map(variant_chunk)
+                .as_ref()
+                .map_or(&[][..], |chunk| chunk.as_slice())
+        || frame.len() < 10
+        || frame[0] & 1 != 0
+        || frame[3..6] != [0x9d, 0x01, 0x2a]
+    {
+        return Err(MalformedImage);
+    }
+    let width = u32::from(u16::from_le_bytes([frame[6], frame[7]]) & 0x3fff);
+    let height = u32::from(u16::from_le_bytes([frame[8], frame[9]]) & 0x3fff);
+    if width == 0
+        || height == 0
+        || width > MAX_IMAGE_DIMENSION
+        || height > MAX_IMAGE_DIMENSION
+        || u64::from(width) * u64::from(height) > MAX_IMAGE_PIXELS
+    {
+        return Err(ImageIntakeError::ImageLimit);
+    }
+    Ok((width, height))
+}
+
+fn le_u32(bytes: Option<&[u8]>) -> Result<usize, ImageIntakeError> {
+    bytes
+        .and_then(|bytes| bytes.try_into().ok())
+        .map(|bytes| u32::from_le_bytes(bytes) as usize)
+        .ok_or(ImageIntakeError::MalformedImage)
+}
+
+fn decode(bytes: &[u8], (width, height): (u32, u32)) -> Result<RgbImage, ImageIntakeError> {
+    let image = webp::Decoder::new(bytes)
+        .decode()
+        .filter(|image| image.width() == width && image.height() == height && !image.is_alpha())
+        .ok_or(ImageIntakeError::MalformedImage)?;
+    RgbImage::from_raw(width, height, image.to_vec()).ok_or(ImageIntakeError::MalformedImage)
+}
+
+fn verified(
+    body: AdmittedBody,
+    (width, height): (u32, u32),
+) -> Result<VerifiedImage, ImageIntakeError> {
+    let bytes = &body.bytes;
+    let metadata = ImageMetadata::new(
+        format!("{:x}", Sha256::digest(bytes)),
+        bytes.len() as u64,
+        ImageMime::Webp,
+        width,
+        height,
+    )
+    .map_err(|_| ImageIntakeError::MalformedImage)?;
     Ok(VerifiedImage { body, metadata })
 }
 
-fn is_isobmff_avif_or_avis(bytes: &[u8]) -> bool {
-    if bytes.len() < 12 || &bytes[4..8] != b"ftyp" {
-        return false;
+fn variant_chunk(variant: CoverVariant) -> [u8; 10] {
+    let profile = match variant {
+        CoverVariant::Thumbnail => b'T',
+        CoverVariant::Full => b'F',
+    };
+    [b'C', b'T', b'V', b'R', 2, 0, 0, 0, 1, profile]
+}
+
+fn encode_variant(
+    source: &VerifiedImage,
+    pixels: &RgbImage,
+    variant: CoverVariant,
+) -> Result<VerifiedImage, ImageIntakeError> {
+    let (width, height) = variant.dimensions(source.metadata());
+    let resized;
+    let pixels = if pixels.dimensions() == (width, height) {
+        pixels
+    } else {
+        resized = imageops::resize(pixels, width, height, imageops::FilterType::Triangle);
+        &resized
+    };
+    let quality = match variant {
+        CoverVariant::Thumbnail => 78.0,
+        CoverVariant::Full => 82.0,
+    };
+    let mut bytes = webp::Encoder::from_rgb(pixels.as_raw(), width, height)
+        .encode_simple(false, quality)
+        .map_err(|_| ImageIntakeError::InspectionUnavailable)?
+        .to_vec();
+    bytes.extend_from_slice(&variant_chunk(variant));
+    let size = u32::try_from(bytes.len() - 8).map_err(|_| ImageIntakeError::ImageLimit)?;
+    bytes[4..8].copy_from_slice(&size.to_le_bytes());
+    if bytes.len() as u64 > variant.max_bytes() {
+        return Err(ImageIntakeError::ImageLimit);
     }
-    let size = u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;
-    let end = size.min(bytes.len());
-    if end < 12 {
-        return false;
+    let dimensions = vp8_dimensions(&bytes, Some(variant))?;
+    decode(&bytes, dimensions)?;
+    let encoded = verified(
+        AdmittedBody {
+            bytes,
+            admission: source.body.admission.clone(),
+        },
+        dimensions,
+    )?;
+    if !variant.matches(source.metadata(), encoded.metadata()) {
+        return Err(ImageIntakeError::MalformedImage);
     }
-    matches!(&bytes[8..12], b"avif" | b"avis")
-        || bytes.get(16..end).is_some_and(|brands| {
-            brands
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .any(|b| b == b"avif" || b == b"avis")
-        })
+    Ok(encoded)
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 # ADR 0052: Decode bundled AVIF artwork at renderer adapters
 
-- Status: proposed; source implementation in the #607 PR, native qualification pending
+- Status: **superseded** for runtime by the [ADR 0033 WebP amendment](0033-release-pinned-public-cover.md#decision). Historical decision follows.
 - Date: 2026-10-29
 - Decision owner: Cantos owner
 - Related issue or PR: [#607](https://github.com/loveoverflowcom/cantos/issues/607)

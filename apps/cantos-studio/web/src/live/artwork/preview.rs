@@ -42,7 +42,7 @@ fn fixture(stage: Stage) -> Projection {
         id: "00000000-0000-4000-8000-000000000002".into(),
         expected_sha256: "ab".repeat(32),
         expected_byte_length: 128,
-        content_type: ImageMime::Avif,
+        content_type: ImageMime::Webp,
         declarations: declarations.clone(),
     };
     let intent = ImageIntentDocument {
@@ -66,7 +66,7 @@ fn fixture(stage: Stage) -> Projection {
         verified_media: ImageVariantMetadata {
             sha256: "ab".repeat(32),
             byte_length: 128,
-            content_type: ImageMime::Avif,
+            content_type: ImageMime::Webp,
             width_px: 320,
             height_px: 240,
             profile_id: "cover-image-v1".into(),
@@ -113,10 +113,10 @@ fn fixture(stage: Stage) -> Projection {
         }),
         current_url: has_current.then(|| IMAGE.into()),
         local: local.then(|| LocalImage {
-            name: "anh_den_cuoi_san_khau.avif".into(),
+            name: "anh_den_cuoi_san_khau.webp".into(),
             bytes: Arc::new(vec![0; 128]),
             sha256: "ab".repeat(32),
-            mime: ImageMime::Avif,
+            mime: ImageMime::Webp,
             width: 320,
             height: 240,
             url: IMAGE.into(),
@@ -138,7 +138,7 @@ fn scenario(stage: Stage, id: &str) -> Projection {
     }
     if id == "long-filename" {
         if let Some(local) = &mut model.local {
-            local.name = "Ánh_đèn_cuối_sân_khấu—bản_minh_họa_gốc_được_họa_sĩ_bàn_giao_cho_tác_phẩm_Lời_hẹn_{time}—phiên_bản_chưa_đăng_công_khai.avif".into();
+            local.name = "Ánh_đèn_cuối_sân_khấu—bản_minh_họa_gốc_được_họa_sĩ_bàn_giao_cho_tác_phẩm_Lời_hẹn_{time}—phiên_bản_chưa_đăng_công_khai.webp".into();
         }
     }
     model

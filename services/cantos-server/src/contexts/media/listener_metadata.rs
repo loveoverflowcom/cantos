@@ -1,6 +1,6 @@
 //! The single anonymous Discovery representation: exact published generations, never heads or samples.
 use super::{
-    domain::listening::DiscoveryQuery,
+    domain::{image::CoverVariant, listening::DiscoveryQuery},
     generation_audio::playable_releases,
     listener_application::{clock, id, ListenerError, ListenerService},
     listener_cursor::Keyset,
@@ -21,6 +21,7 @@ fn summary(
     row: &catalog::PublicWork,
     facts: Option<&PinnedCoverFacts>,
     now: i64,
+    variant: CoverVariant,
 ) -> dto::MetadataWorkSummary {
     let work = &row.work;
     dto::MetadataWorkSummary {
@@ -31,7 +32,7 @@ fn summary(
         language: work.details().language.clone(),
         first_visible_at_ms: row.first_visible_at,
         unit_count: u64::from(row.unit_count),
-        cover: service.shown_generation_cover(work, facts, now),
+        cover: service.shown_generation_cover(work, facts, now, variant),
     }
 }
 
@@ -109,7 +110,15 @@ impl ListenerService {
             / 1000;
         let items = rows
             .iter()
-            .map(|row| summary(self, row, cover_facts.get(row.work.id().as_str()), now))
+            .map(|row| {
+                summary(
+                    self,
+                    row,
+                    cover_facts.get(row.work.id().as_str()),
+                    now,
+                    CoverVariant::Thumbnail,
+                )
+            })
             .collect();
         // Probe in this same snapshot; a full terminal page must not advertise a phantom continuation.
         let next_cursor =
@@ -167,7 +176,13 @@ impl ListenerService {
             .map_err(|_| ListenerError::Unavailable)?
             .get()
             / 1000;
-        let result = summary(self, &work, cover_facts.get(work.work.id().as_str()), now);
+        let result = summary(
+            self,
+            &work,
+            cover_facts.get(work.work.id().as_str()),
+            now,
+            CoverVariant::Full,
+        );
         tx.commit().await?;
         Ok(result)
     }

@@ -325,7 +325,7 @@ pub fn decide_artwork_change(
     }
     match (&request.change, resolved_asset) {
         (ArtworkChangeValue::Set(selection), Some(asset)) => {
-            asset.metadata().content_type().require_avif()?;
+            asset.metadata().content_type().require_webp()?;
             selection.require_asset(work, asset)?
         }
         (ArtworkChangeValue::Set(_), None) => return Err(ArtworkError::MissingAsset),

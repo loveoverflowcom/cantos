@@ -148,7 +148,7 @@ pub fn MembershipPreview() -> impl IntoView {
             <p class="theatre-demo-notice">{label(locale, CopyKey::PreviewNotice)}</p>
             <div class="membership-layout">
                 <aside class="membership-story theatre-panel">
-                    <img src=move || if artwork_failed.get() { "assets/empty/light/cantos-empty-works.svg" } else { "assets/artwork/son-ha-ky.avif" }
+                    <img src=move || if artwork_failed.get() { "assets/empty/light/cantos-empty-works.svg" } else { "assets/artwork/son-ha-ky.webp" }
                         alt="" on:error=move |_| {
                             if !artwork_failed.get_untracked() { artwork_failed.set(true); }
                         }/>

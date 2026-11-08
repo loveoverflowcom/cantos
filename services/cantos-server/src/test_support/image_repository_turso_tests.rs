@@ -1,6 +1,6 @@
 use crate::test_support::FixtureSql;
 // Production TursoArtworkRepository transaction methods against a disposable database. The
-// AVIF_RGB is really decoded; the recorded object location is a synthetic SQL fixture. This test
+// WEBP_RED is really decoded; the recorded object location is a synthetic SQL fixture. This test
 // does not call private storage, prove object persistence or enable image HTTP routes.
 use std::sync::Arc;
 
@@ -9,7 +9,8 @@ use tokio::sync::Barrier;
 use uuid::Uuid;
 
 use super::super::{
-    ArtworkApplicationError, ArtworkRepository, OwnerWorkScope, RecordedImageLocation,
+    ArtworkApplicationError, ArtworkRepository, OwnerWorkScope, RecordedCoverVariant,
+    RecordedImageLocation,
 };
 use super::TursoArtworkRepository;
 use crate::contexts::{
@@ -17,17 +18,16 @@ use crate::contexts::{
     media::{
         domain::{
             artwork::SetWorkArtwork,
-            image::{ImageIntentId, ImageMime, PrepareImage},
+            image::{CoverVariant, ImageIntentId, ImageMime, PrepareImage},
         },
-        image_intake::ImageAdmission,
+        image_intake::{ImageAdmission, VerifiedImage},
         turso::artwork::tests::Harness,
     },
 };
 
 const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const AVIF_RGB: &[u8] =
-    include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.avif");
-const AVIF_RGB_SHA256: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
+const WEBP_RED: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/red-2x3.webp");
+const WEBP_RED_SHA256: &str = "94b66a3567ab9231ce33865038bcfb42a2d62a2add6ee871dbc4e00b77169d75";
 
 #[tokio::test]
 async fn production_repository_prepare_finalize_select_and_catalog_cas_race_preserve_exact_receipts(
@@ -40,9 +40,9 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
     let request = PrepareImage::admit(&dto::CreateImageIntentRequest {
         operation_id: Uuid::new_v4().to_string(),
         id: Uuid::new_v4().to_string(),
-        expected_sha256: AVIF_RGB_SHA256.into(),
-        expected_byte_length: AVIF_RGB.len() as u64,
-        content_type: dto::ImageMime::Avif,
+        expected_sha256: WEBP_RED_SHA256.into(),
+        expected_byte_length: WEBP_RED.len() as u64,
+        content_type: dto::ImageMime::Webp,
         declarations: dto::ImageDeclarations {
             provenance: "Independent Python 2x3 synthetic image".into(),
             rights_refs: vec!["synthetic-rights".into()],
@@ -61,12 +61,12 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
     assert_eq!(prepared.value, prepare_replay.value);
     assert_eq!(h.store.catalog_work(TOKEN, work.id()).await.unwrap(), work);
 
-    let image = ImageAdmission::try_acquire()
+    let (image, variants) = ImageAdmission::try_acquire()
         .unwrap()
-        .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
+        .inspect_cover(WEBP_RED.to_vec(), ImageMime::Webp)
         .await
         .unwrap();
-    assert_eq!(image.metadata().sha256(), AVIF_RGB_SHA256);
+    assert_eq!(image.metadata().sha256(), WEBP_RED_SHA256);
     assert_eq!(
         (image.metadata().width_px(), image.metadata().height_px()),
         (2, 3)
@@ -79,8 +79,9 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
             image.metadata().clone(),
             RecordedImageLocation {
                 storage_target: "synthetic-sql-fixture".into(),
-                object_key: AVIF_RGB_SHA256.into(),
+                object_key: WEBP_RED_SHA256.into(),
             },
+            records(&variants, "synthetic-sql-fixture"),
         )
         .await
         .unwrap();
@@ -92,8 +93,9 @@ async fn production_repository_prepare_finalize_select_and_catalog_cas_race_pres
             image.metadata().clone(),
             RecordedImageLocation {
                 storage_target: "synthetic-other-target".into(),
-                object_key: AVIF_RGB_SHA256.into(),
+                object_key: WEBP_RED_SHA256.into(),
             },
+            records(&variants, "synthetic-other-target"),
         )
         .await
         .unwrap();
@@ -221,9 +223,9 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
         let request = PrepareImage::admit(&dto::CreateImageIntentRequest {
             operation_id: Uuid::new_v4().to_string(),
             id: Uuid::new_v4().to_string(),
-            expected_sha256: AVIF_RGB_SHA256.into(),
-            expected_byte_length: AVIF_RGB.len() as u64,
-            content_type: dto::ImageMime::Avif,
+            expected_sha256: WEBP_RED_SHA256.into(),
+            expected_byte_length: WEBP_RED.len() as u64,
+            content_type: dto::ImageMime::Webp,
             declarations: dto::ImageDeclarations {
                 provenance: "Independent Python 2x3 synthetic image".into(),
                 rights_refs: vec!["synthetic-rights".into()],
@@ -251,12 +253,12 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
         assert_eq!(prepared.value, prepare_replay.value);
         assert_eq!(h.store.catalog_work(TOKEN, work.id()).await.unwrap(), work);
 
-        let image = ImageAdmission::try_acquire()
+        let (image, variants) = ImageAdmission::try_acquire()
             .unwrap()
-            .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
+            .inspect_cover(WEBP_RED.to_vec(), ImageMime::Webp)
             .await
             .unwrap();
-        assert_eq!(image.metadata().sha256(), AVIF_RGB_SHA256);
+        assert_eq!(image.metadata().sha256(), WEBP_RED_SHA256);
         assert_eq!(
             (image.metadata().width_px(), image.metadata().height_px()),
             (2, 3)
@@ -270,8 +272,9 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                     image.metadata().clone(),
                     RecordedImageLocation {
                         storage_target: "synthetic-sql-fixture".into(),
-                        object_key: AVIF_RGB_SHA256.into()
-                    }
+                        object_key: WEBP_RED_SHA256.into()
+                    },
+                    records(&variants, "synthetic-sql-fixture"),
                 )
                 .await,
             Err(ArtworkApplicationError::Storage(
@@ -285,8 +288,9 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                 image.metadata().clone(),
                 RecordedImageLocation {
                     storage_target: "synthetic-sql-fixture".into(),
-                    object_key: AVIF_RGB_SHA256.into(),
+                    object_key: WEBP_RED_SHA256.into(),
                 },
+                records(&variants, "synthetic-sql-fixture"),
             )
             .await
             .unwrap();
@@ -298,8 +302,9 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
                 image.metadata().clone(),
                 RecordedImageLocation {
                     storage_target: "synthetic-other-target".into(),
-                    object_key: AVIF_RGB_SHA256.into(),
+                    object_key: WEBP_RED_SHA256.into(),
                 },
+                records(&variants, "synthetic-other-target"),
             )
             .await
             .unwrap();
@@ -350,4 +355,20 @@ async fn artwork_prepare_finalize_and_selection_reconcile_actual_unknown_commits
             2
         );
     }
+}
+
+fn records(variants: &[VerifiedImage; 2], target: &str) -> [RecordedCoverVariant; 2] {
+    let [thumbnail, full] = variants;
+    [
+        (CoverVariant::Thumbnail, thumbnail),
+        (CoverVariant::Full, full),
+    ]
+    .map(|(variant, image)| RecordedCoverVariant {
+        variant,
+        metadata: image.metadata().clone(),
+        location: RecordedImageLocation {
+            storage_target: target.into(),
+            object_key: image.metadata().sha256().into(),
+        },
+    })
 }

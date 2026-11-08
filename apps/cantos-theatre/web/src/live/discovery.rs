@@ -58,9 +58,13 @@ pub fn decode_response(
     let mut ids = BTreeSet::new();
     if page.items.len() > PUBLIC_WORK_PAGE_LIMIT
         || page.items.iter().any(|work| {
-            PublicWorkId::parse(&work.work_id)
-                .is_none_or(|id| !crate::application::public_cover::work_is_admitted(work, id))
-                || !ids.insert(work.work_id.as_str())
+            PublicWorkId::parse(&work.work_id).is_none_or(|id| {
+                !crate::application::public_cover::work_is_admitted(
+                    work,
+                    id,
+                    crate::contract::discovery::CoverVariant::Thumbnail,
+                )
+            }) || !ids.insert(work.work_id.as_str())
                 || work.title.trim().is_empty()
                 || work.language.trim().is_empty()
         })
@@ -96,7 +100,7 @@ mod tests {
     use crate::contract::discovery::{CoverImage, CoverMime, MetadataWorkSummary, WorkKind};
 
     const PAGE: &[u8] = include_bytes!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json"
     );
     const EMPTY: &[u8] = include_bytes!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/empty.json"
@@ -243,14 +247,14 @@ mod tests {
             (
                 "another work",
                 Box::new(|c| {
-                    c["url"] = format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000002/cover/{COVER_SHA}").into();
+                    c["url"] = format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000002/cover/thumbnail/{COVER_SHA}").into();
                 }),
             ),
             (
                 "another digest",
                 Box::new(|c| {
                     c["url"] = format!(
-                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{}",
+                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/thumbnail/{}",
                         "b".repeat(64)
                     )
                     .into();
@@ -260,7 +264,7 @@ mod tests {
                 "insecure scheme",
                 Box::new(|c| {
                     c["url"] = format!(
-                        "http://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{COVER_SHA}"
+                        "http://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/thumbnail/{COVER_SHA}"
                     )
                     .into();
                 }),
@@ -269,7 +273,7 @@ mod tests {
                 "studio route",
                 Box::new(|c| {
                     c["url"] = format!(
-                        "https://api.cantos.example/api/v1/studio/works/{COVER_WORK}/cover/{COVER_SHA}"
+                        "https://api.cantos.example/api/v1/studio/works/{COVER_WORK}/cover/thumbnail/{COVER_SHA}"
                     )
                     .into();
                 }),
@@ -278,7 +282,7 @@ mod tests {
                 "query",
                 Box::new(|c| {
                     c["url"] = format!(
-                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/{COVER_SHA}?x=1"
+                        "https://api.cantos.example/api/v1/theatre/works/{COVER_WORK}/cover/thumbnail/{COVER_SHA}?x=1"
                     )
                     .into();
                 }),
@@ -430,14 +434,15 @@ mod tests {
                     MetadataWorkSummary {
                         cover: Some(CoverImage {
                             url: format!(
-                                "https://{}.example/api/v1/theatre/works/{work_id}/cover/{sha256}",
+                                "https://{}.example/api/v1/theatre/works/{work_id}/cover/thumbnail/{sha256}",
                                 "a".repeat(200)
                             ),
                             sha256,
-                            content_type: CoverMime::Jpeg,
-                            width_px: 4096,
-                            height_px: 4096,
-                            byte_length: 8_388_608,
+                            content_type: CoverMime::Webp,
+                            variant: crate::contract::discovery::CoverVariant::Thumbnail,
+                            width_px: 384,
+                            height_px: 576,
+                            byte_length: 262_144,
                             alt_text: "\"".repeat(1024),
                         }),
                         work_id,

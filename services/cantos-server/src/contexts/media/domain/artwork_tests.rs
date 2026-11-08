@@ -34,7 +34,7 @@ fn asset() -> ImageAsset {
             id: INTENT.into(),
             expected_sha256: "a".repeat(64),
             expected_byte_length: 67,
-            content_type: dto::ImageMime::Avif,
+            content_type: dto::ImageMime::Webp,
             declarations: dto::ImageDeclarations {
                 provenance: "Prepared cover".into(),
                 rights_refs: vec!["rights-z".into(), "rights-a".into()],
@@ -48,7 +48,7 @@ fn asset() -> ImageAsset {
     .unwrap();
     ImageAsset::create(
         &intent,
-        ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap(),
+        ImageMetadata::new("a".repeat(64), 67, ImageMime::Webp, 2, 3).unwrap(),
         101,
     )
     .unwrap()
@@ -368,7 +368,7 @@ fn ordered_change_and_set_clear_operation_preimages_match_independent_python_gol
     let set = request(1, Some(selection(&asset)));
     assert_eq!(
         set.fingerprint(initial.id()).unwrap(),
-        "image-operation1:sha256:06717cc876a8fa88a91151e0e459eb5adfa06c702f5e1490ee0c8d79cf991a78"
+        "image-operation1:sha256:93d1ae7dae65c473e5181f0048dcef0972a9dbd093ffe12954bf5e36f9754da5"
     );
     assert_eq!(
         request(1, None).fingerprint(initial.id()).unwrap(),
@@ -377,7 +377,7 @@ fn ordered_change_and_set_clear_operation_preimages_match_independent_python_gol
     let applied = mutation(decide_artwork_change(&initial, &set, Some(&asset), None, 101).unwrap());
     assert_eq!(
         applied.change().document().digest,
-        "wa-r1:sha256:e991dac2780025d540181f6786fc7f6969f3cd2e60efe7e9d4584873151d78ea"
+        "wa-r1:sha256:9c500eb613110a33db1bb327097e0ad7c86e8043c3dfea0b3691ae144c723253"
     );
     assert_eq!(
         ArtworkChange::restore(applied.change().document().clone()).unwrap(),

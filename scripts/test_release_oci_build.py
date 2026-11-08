@@ -123,7 +123,7 @@ class ProducerContract(unittest.TestCase):
         git(self.root, '-c', 'user.name=Fixture', '-c', 'user.email=f@example.invalid',
             'commit', '-aqm', 'actual source and policy')
         actual = build.compatibility(self.root, git(self.root, 'rev-parse', 'HEAD'))
-        self.assertEqual(actual['server_schema'], 'server-turso-epoch-1-v36')
+        self.assertEqual(actual['server_schema'], 'server-turso-epoch-1-v37')
         self.assertEqual(actual['identity_schema'], 'identity-migrations-v7')
         self.assertEqual(actual['security_state'], 'identity-security-store-v1-recovery-fence-v1')
 

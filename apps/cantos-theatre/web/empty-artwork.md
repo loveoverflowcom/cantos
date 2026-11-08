@@ -6,7 +6,7 @@ revision `owner-feedback-2-bold-symmetry-density`, delivered by
 [`Cantos-Theatre-Redesign-v4-2026-10-25.zip`](https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view).
 The supplied asset manifest was checked against the actual downloaded bytes before packaging.
 
-`library-expressive.avif` is the AVIF derivative of the transparent ImageGen raster from that handoff,
+`library-expressive-light.webp` and `library-expressive-dark.webp` are the opaque WebP derivatives of the transparent ImageGen raster from that handoff,
 1374 × 1145; it is not SVG or compiled vector artwork. The same image is used in both
 themes without tinting. The AVIF conversion preserves dimensions and every alpha sample;
 [provenance](assets/empty/provenance.json) retains the source identity and encoding settings. It replaces the earlier Library glyph only after all Library

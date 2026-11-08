@@ -56,9 +56,8 @@ impl Schema {
             | (Self::SetArtwork, 2)
             | (Self::ArtworkResponse, 2 | 4) => Some(Field::Uint64),
             (Self::ImageVariant, 4 | 5) => Some(Field::Uint32),
-            (Self::CreateImageIntent, 5) | (Self::ImageVariant, 3) | (Self::ImageResponse, 3) => {
-                Some(Field::Enum(3))
-            }
+            (Self::CreateImageIntent, 5) | (Self::ImageVariant, 3) => Some(Field::Enum(4)),
+            (Self::ImageResponse, 3) => Some(Field::Enum(3)),
             (Self::CreateImageIntent, 6) | (Self::ImageAsset, 7) => {
                 Some(Field::Message(Self::ImageDeclarations))
             }

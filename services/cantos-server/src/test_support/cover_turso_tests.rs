@@ -12,15 +12,21 @@ use axum::{
 };
 use cantos_store_turso::testing::FixedClock;
 use http_body_util::BodyExt;
+use sha2::Digest;
 use tower::ServiceExt;
 
 use crate::{
     adapters::inbound::http::{api_router, router_with_public_media, AppState},
     application::Store,
     contexts::media::{
-        domain::playback_grant::GrantKey, ArtworkService, CoverDisclosureApplicationError,
-        CoverDisclosureService, FilesystemPublicationStorage, ListenerError, ListenerService,
-        OriginPlayback, PublicMediaOrigin, PublicationService,
+        domain::{
+            image::{CoverVariant, ImageMime},
+            playback_grant::GrantKey,
+        },
+        image_intake::ImageAdmission,
+        ArtworkService, CoverDisclosureApplicationError, CoverDisclosureService,
+        FilesystemPublicationStorage, ListenerError, ListenerService, OriginPlayback,
+        PublicMediaOrigin, PublicationService,
     },
     contract::{studio as studio_dto, theatre::discovery as dto},
     test_support::{SeededUnit, SeededWork, ServerFixture, WorkSeed},
@@ -32,15 +38,12 @@ const HOUR: i64 = 3_600_000_000;
 const TOKEN: &str = "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0";
 const ORIGIN: &str = "https://listen.example.test";
 const STUDIO: &str = "https://studio.example.test";
-const AVIF_RGB: &[u8] =
-    include_bytes!("../contexts/media/image_intake/fixtures/python-rgb-2x3.avif");
-const AVIF_RGB_SHA256: &str = "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f";
-const AVIF_FROM_JPEG: &[u8] =
-    include_bytes!("../contexts/media/image_intake/fixtures/pillow-rgb-2x3.avif");
-const AVIF_JPEG_SHA256: &str = "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3";
-const AVIF: &[u8] =
-    include_bytes!("../contexts/media/image_intake/fixtures/ffmpeg-yuv420p-2x3.avif");
-const AVIF_SHA256: &str = "7c2306b2967d74b97c08809e1aa73b4923ab830a71cdecdf7acf2f0ba6873257";
+const WEBP_RED: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/red-2x3.webp");
+const WEBP_RED_SHA256: &str = "94b66a3567ab9231ce33865038bcfb42a2d62a2add6ee871dbc4e00b77169d75";
+const WEBP_GREEN: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/green-2x3.webp");
+const WEBP_GREEN_SHA256: &str = "83a390641e504055fb756cce744a5e8416de1f27ef51f7cf104fd3a765c10ea6";
+const WEBP_BLUE: &[u8] = include_bytes!("../contexts/media/image_intake/fixtures/blue-2x3.webp");
+const WEBP_BLUE_SHA256: &str = "0469f089786f938bee9279506933b00612f56fa231bbcadd738ce8333c3e27dc";
 const PROVENANCE: &str = "private-provenance-sentinel";
 const RIGHTS: &str = "synthetic-rights";
 
@@ -230,31 +233,37 @@ impl World {
             .metadata_works("", None, None, 20, None)
             .await
             .unwrap();
-        assert_eq!(page.items, vec![detail.clone()], "list and detail agree");
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].work_id, detail.work_id);
+        match (&page.items[0].cover, &detail.cover) {
+            (None, None) => {}
+            (Some(thumb), Some(full)) => {
+                assert_eq!(thumb.variant, dto::CoverVariant::Thumbnail);
+                assert_eq!(full.variant, dto::CoverVariant::Full);
+                assert_eq!(thumb.alt_text, full.alt_text);
+                assert_ne!(thumb.sha256, full.sha256);
+            }
+            pair => panic!("variant availability differs: {pair:?}"),
+        }
         detail.cover
     }
 
-    fn expected(
-        &self,
-        sha256: &str,
-        mime: dto::CoverMime,
-        length: usize,
-        alt: &str,
-    ) -> dto::CoverImage {
+    async fn expected(&self, source: &[u8], alt: &str) -> dto::CoverImage {
+        let (sha256, bytes) = full(source).await;
         dto::CoverImage {
             url: format!(
-                "{ORIGIN}/api/v1/theatre/works/{}/cover/{sha256}",
+                "{ORIGIN}/api/v1/theatre/works/{}/cover/full/{sha256}",
                 self.work.work_id
             ),
-            sha256: sha256.into(),
-            content_type: mime,
+            sha256,
+            content_type: dto::CoverMime::Webp,
+            variant: dto::CoverVariant::Full,
             width_px: 2,
             height_px: 3,
-            byte_length: length as u64,
+            byte_length: bytes.len() as u64,
             alt_text: alt.into(),
         }
     }
-
     fn router(&self) -> Router {
         let publication = Arc::new(
             FilesystemPublicationStorage::new(&self.fixture.dir().join("publication")).unwrap(),
@@ -292,7 +301,7 @@ mod metadata;
 async fn metadata_consent_is_explicit_revision_bound_atomic_and_replay_safe() {
     let world = World::new().await;
     let image = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&image), ALT_A).await;
     let revision = world.head_revision().await;
@@ -397,7 +406,7 @@ async fn metadata_consent_is_explicit_revision_bound_atomic_and_replay_safe() {
 async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() {
     let mut world = World::new().await;
     let a = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&a), ALT_A).await;
     // The seeded release pinned the Work before any artwork: no cover, whatever is disclosed.
@@ -410,7 +419,7 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 
     world.republish().await;
     // The new release pins A and the 24h clearance is current: A shows its admitted facts.
-    let shown = world.expected(AVIF_RGB_SHA256, dto::CoverMime::Avif, AVIF_RGB.len(), ALT_A);
+    let shown = world.expected(WEBP_RED, ALT_A).await;
     assert_eq!(world.cover().await, Some(shown.clone()));
 
     // Cover delivery changes only the optional cover field of the same generation metadata.
@@ -431,11 +440,7 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 
     // Owner privately replaces A with B and even discloses B: public stays A (release-pinned).
     let b = world
-        .admit(
-            AVIF_FROM_JPEG,
-            AVIF_JPEG_SHA256,
-            studio_dto::ImageMime::Avif,
-        )
+        .admit(WEBP_GREEN, WEBP_GREEN_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&b), ALT_B).await;
     world.disclose(&b, Some(HOUR / 1000 * 24)).await.unwrap();
@@ -467,7 +472,11 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
+                .admit_cover(
+                    &world.work.work_id,
+                    CoverVariant::Full.as_str(),
+                    &full(WEBP_RED).await.0
+                )
                 .await
         ),
         ListenerError::NotFound
@@ -475,19 +484,18 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
     // Re-selecting B and republishing moves the cover to B, which is already disclosed.
     world.select(Some(&b), ALT_B).await;
     world.republish().await;
-    let shown_b = world.expected(
-        AVIF_JPEG_SHA256,
-        dto::CoverMime::Avif,
-        AVIF_FROM_JPEG.len(),
-        ALT_B,
-    );
+    let shown_b = world.expected(WEBP_GREEN, ALT_B).await;
     // The 24h clearance of B was recorded ~4h ago and is still current.
     assert_eq!(world.cover().await, Some(shown_b));
     assert_eq!(
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
+                .admit_cover(
+                    &world.work.work_id,
+                    CoverVariant::Full.as_str(),
+                    &full(WEBP_RED).await.0
+                )
                 .await
         ),
         ListenerError::NotFound,
@@ -499,11 +507,11 @@ async fn published_cover_is_pinned_disclosed_and_survives_private_replacement() 
 async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_cover() {
     let mut world = World::new().await;
     let a = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
-    let shown = world.expected(AVIF_RGB_SHA256, dto::CoverMime::Avif, AVIF_RGB.len(), ALT_A);
+    let shown = world.expected(WEBP_RED, ALT_A).await;
 
     // Published and visible, but undisclosed: no cover; title and units are unaffected.
     assert_eq!(world.cover().await, None);
@@ -535,7 +543,11 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
+                .admit_cover(
+                    &world.work.work_id,
+                    CoverVariant::Full.as_str(),
+                    &full(WEBP_RED).await.0
+                )
                 .await
         ),
         ListenerError::NotFound
@@ -556,7 +568,11 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
     assert_eq!(
         refusal(
             uncomposed
-                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
+                .admit_cover(
+                    &world.work.work_id,
+                    CoverVariant::Full.as_str(),
+                    &full(WEBP_RED).await.0
+                )
                 .await
         ),
         ListenerError::NotFound
@@ -607,7 +623,11 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
         refusal(
             world
                 .covered()
-                .admit_cover(&world.work.work_id, AVIF_RGB_SHA256)
+                .admit_cover(
+                    &world.work.work_id,
+                    CoverVariant::Full.as_str(),
+                    &full(WEBP_RED).await.0
+                )
                 .await
         ),
         ListenerError::NotFound
@@ -618,7 +638,7 @@ async fn disclosure_is_required_and_revocation_expiry_and_withdrawal_hide_the_co
 async fn studio_disclosure_is_owner_only_digest_bound_and_replayable() {
     let world = World::new().await;
     let a = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     let service = CoverDisclosureService::new(world.store.clone());
     let request = studio_dto::RecordCoverDisclosureRequest {
@@ -746,12 +766,13 @@ fn get(path: &str) -> axum::http::request::Builder {
 async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     let mut world = World::new().await;
     let a = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
     let work = world.work.work_id.clone();
-    let path = format!("/api/v1/theatre/works/{work}/cover/{AVIF_RGB_SHA256}");
+    let (full_sha, full_bytes) = full(WEBP_RED).await;
+    let path = format!("/api/v1/theatre/works/{work}/cover/full/{full_sha}");
     let app = world.router();
 
     // Before disclosure the composed route is the anonymous not_found, never cacheable.
@@ -831,7 +852,45 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     .await;
     assert_eq!(status, StatusCode::OK);
     let page: dto::MetadataWorkPage = serde_json::from_slice(&body).unwrap();
-    assert_eq!(page.items[0].cover.as_ref(), Some(&cover));
+    let thumb = page.items[0].cover.as_ref().expect("list thumbnail");
+    assert_eq!(thumb.variant, dto::CoverVariant::Thumbnail);
+    assert_ne!(thumb.sha256, cover.sha256);
+    assert_ne!(thumb.sha256, WEBP_RED_SHA256);
+    assert_eq!(thumb.alt_text, cover.alt_text);
+    let thumb_path = thumb.url.strip_prefix(ORIGIN).unwrap();
+    let (status, _, body) = send(&app, get(thumb_path).body(Body::empty()).unwrap()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(format!("{:x}", sha2::Sha256::digest(&body)), thumb.sha256);
+    assert_eq!(webp::Decoder::new(&body).decode().unwrap().width(), 2);
+    for validator in [
+        format!("\"{}\"", thumb.sha256),
+        format!("*, \"{full_sha}\""),
+        "broken".into(),
+    ] {
+        let (status, _, bytes) = send(
+            &app,
+            get(&path)
+                .header(header::IF_NONE_MATCH, validator)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(bytes, full_bytes);
+    }
+    for (wrong_variant, digest) in [
+        ("full", thumb.sha256.as_str()),
+        ("thumbnail", full_sha.as_str()),
+        ("original", full_sha.as_str()),
+    ] {
+        let request = Request::head(format!(
+            "/api/v1/theatre/works/{work}/cover/{wrong_variant}/{digest}"
+        ))
+        .header(header::IF_NONE_MATCH, format!("\"{digest}\""))
+        .body(Body::empty())
+        .unwrap();
+        assert_eq!(send(&app, request).await.0, StatusCode::NOT_FOUND);
+    }
     // Units at  answer exactly as at presentation=1, apart from cursor identity.
     let units = |level: u8| {
         get(&format!(
@@ -852,10 +911,13 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, AVIF_RGB);
-    assert_eq!(headers[header::CONTENT_TYPE], "image/avif");
-    assert_eq!(headers[header::CONTENT_LENGTH], AVIF_RGB.len().to_string());
-    assert_eq!(headers[header::ETAG], format!("\"{AVIF_RGB_SHA256}\""));
+    assert_eq!(body, full_bytes);
+    assert_eq!(headers[header::CONTENT_TYPE], "image/webp");
+    assert_eq!(
+        headers[header::CONTENT_LENGTH],
+        full_bytes.len().to_string()
+    );
+    assert_eq!(headers[header::ETAG], format!("\"{full_sha}\""));
     assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
     assert_eq!(headers[header::ACCEPT_RANGES], "none");
     assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
@@ -863,10 +925,13 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
         send(&app, Request::head(&path).body(Body::empty()).unwrap()).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.is_empty());
-    assert_eq!(headers[header::CONTENT_LENGTH], AVIF_RGB.len().to_string());
+    assert_eq!(
+        headers[header::CONTENT_LENGTH],
+        full_bytes.len().to_string()
+    );
     for tag in [
-        format!("\"{AVIF_RGB_SHA256}\""),
-        format!("W/\"{AVIF_RGB_SHA256}\""),
+        format!("\"{full_sha}\""),
+        format!("W/\"{full_sha}\""),
         "*".into(),
     ] {
         let (status, headers, body) = send(
@@ -880,21 +945,19 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
         assert_eq!(status, StatusCode::NOT_MODIFIED);
         assert!(body.is_empty());
         assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
-        assert_eq!(headers[header::ETAG], format!("\"{AVIF_RGB_SHA256}\""));
+        assert_eq!(headers[header::ETAG], format!("\"{full_sha}\""));
     }
 
     // Every denial is the same anonymous not_found: stale/malformed SHA, unknown/malformed Work.
     for denied in [
-        format!("/api/v1/theatre/works/{work}/cover/{AVIF_JPEG_SHA256}"),
+        format!("/api/v1/theatre/works/{work}/cover/full/{WEBP_GREEN_SHA256}"),
         format!(
-            "/api/v1/theatre/works/{work}/cover/{}",
-            AVIF_RGB_SHA256.to_uppercase()
+            "/api/v1/theatre/works/{work}/cover/full/{}",
+            full_sha.to_uppercase()
         ),
-        format!("/api/v1/theatre/works/{work}/cover/not-a-sha"),
-        format!(
-            "/api/v1/theatre/works/90000000-0000-4000-8000-000000000009/cover/{AVIF_RGB_SHA256}"
-        ),
-        format!("/api/v1/theatre/works/not-a-work/cover/{AVIF_RGB_SHA256}"),
+        format!("/api/v1/theatre/works/{work}/cover/full/not-a-sha"),
+        format!("/api/v1/theatre/works/90000000-0000-4000-8000-000000000009/cover/full/{full_sha}"),
+        format!("/api/v1/theatre/works/not-a-work/cover/full/{full_sha}"),
     ] {
         let (status, headers, body) = send(&app, get(&denied).body(Body::empty()).unwrap()).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{denied}");
@@ -909,7 +972,7 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
     let (status, headers, _) = send(
         &app,
         get(&path)
-            .header(header::IF_NONE_MATCH, format!("\"{AVIF_RGB_SHA256}\""))
+            .header(header::IF_NONE_MATCH, format!("\"{full_sha}\""))
             .body(Body::empty())
             .unwrap(),
     )
@@ -941,26 +1004,30 @@ async fn origin_route_serves_only_the_shown_bytes_with_revalidation_headers() {
 }
 
 #[tokio::test]
-async fn avif_cover_intake_disclosure_and_origin_delivery_preserve_avif_content_type_and_etag() {
+async fn webp_cover_intake_disclosure_and_origin_delivery_preserve_webp_content_type_and_etag() {
     let mut world = World::new().await;
-    let avif = world
-        .admit(AVIF, AVIF_SHA256, studio_dto::ImageMime::Avif)
+    let image = world
+        .admit(WEBP_BLUE, WEBP_BLUE_SHA256, studio_dto::ImageMime::Webp)
         .await;
-    world.select(Some(&avif), ALT_A).await;
+    world.select(Some(&image), ALT_A).await;
     world.republish().await;
-    world.disclose(&avif, Some(HOUR / 1000)).await.unwrap();
-    let expected = world.expected(AVIF_SHA256, dto::CoverMime::Avif, AVIF.len(), ALT_A);
+    world.disclose(&image, Some(HOUR / 1000)).await.unwrap();
+    let expected = world.expected(WEBP_BLUE, ALT_A).await;
     assert_eq!(world.cover().await, Some(expected.clone()));
 
     let work = world.work.work_id.clone();
-    let path = format!("/api/v1/theatre/works/{work}/cover/{AVIF_SHA256}");
+    let (full_sha, full_bytes) = full(WEBP_BLUE).await;
+    let path = format!("/api/v1/theatre/works/{work}/cover/full/{full_sha}");
     let app = world.router();
     let (status, headers, body) = send(&app, get(&path).body(Body::empty()).unwrap()).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, AVIF);
-    assert_eq!(headers[header::CONTENT_TYPE], "image/avif");
-    assert_eq!(headers[header::CONTENT_LENGTH], AVIF.len().to_string());
-    assert_eq!(headers[header::ETAG], format!("\"{AVIF_SHA256}\""));
+    assert_eq!(body, full_bytes);
+    assert_eq!(headers[header::CONTENT_TYPE], "image/webp");
+    assert_eq!(
+        headers[header::CONTENT_LENGTH],
+        full_bytes.len().to_string()
+    );
+    assert_eq!(headers[header::ETAG], format!("\"{full_sha}\""));
     assert_eq!(headers[header::CACHE_CONTROL], "public, no-cache");
     assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
 }
@@ -969,13 +1036,14 @@ async fn avif_cover_intake_disclosure_and_origin_delivery_preserve_avif_content_
 async fn stored_bytes_that_contradict_the_admitted_hash_are_never_served() {
     let mut world = World::new().await;
     let a = world
-        .admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif)
+        .admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp)
         .await;
     world.select(Some(&a), ALT_A).await;
     world.republish().await;
     world.disclose(&a, Some(HOUR / 1000)).await.unwrap();
+    let (full_sha, full_bytes) = full(WEBP_RED).await;
     let path = format!(
-        "/api/v1/theatre/works/{}/cover/{AVIF_RGB_SHA256}",
+        "/api/v1/theatre/works/{}/cover/full/{full_sha}",
         world.work.work_id
     );
     let app = world.router();
@@ -984,9 +1052,9 @@ async fn stored_bytes_that_contradict_the_admitted_hash_are_never_served() {
         StatusCode::OK
     );
     // Same length, different bytes, at the exact recorded private object.
-    let object = find_object(&world.fixture.dir().join("private"), AVIF_RGB_SHA256)
+    let object = find_object(&world.fixture.dir().join("private"), &full_sha)
         .expect("the admitted object is on disk");
-    let mut damaged = AVIF_RGB.to_vec();
+    let mut damaged = full_bytes;
     let last = damaged.len() - 1;
     damaged[last] ^= 0xff;
     let mut permissions = std::fs::metadata(&object).unwrap().permissions();
@@ -995,12 +1063,21 @@ async fn stored_bytes_that_contradict_the_admitted_hash_are_never_served() {
     std::fs::set_permissions(&object, permissions).unwrap();
     std::fs::write(&object, &damaged).unwrap();
     let (status, headers, body) = send(&app, get(&path).body(Body::empty()).unwrap()).await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(headers[header::CACHE_CONTROL], "no-store");
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
-        serde_json::json!({"code": "unavailable", "retryable": false})
+        serde_json::json!({"code": "not_found", "retryable": false})
     );
+    let conditional = || {
+        get(&path)
+            .header(header::IF_NONE_MATCH, format!("\"{full_sha}\""))
+            .body(Body::empty())
+            .unwrap()
+    };
+    assert_eq!(send(&app, conditional()).await.0, StatusCode::NOT_FOUND);
+    std::fs::remove_file(object).unwrap();
+    assert_eq!(send(&app, conditional()).await.0, StatusCode::NOT_FOUND);
     // The summary is metadata only: its title and cover facts are unaffected by the bytes.
     assert!(world.cover().await.is_some());
 }
@@ -1037,7 +1114,7 @@ async fn damaged_cover_rows_fall_back_without_hiding_the_title() {
         ),
     ] {
         let mut world = World::new().await;
-        let a = world.admit(AVIF_RGB, AVIF_RGB_SHA256, studio_dto::ImageMime::Avif).await;
+        let a = world.admit(WEBP_RED, WEBP_RED_SHA256, studio_dto::ImageMime::Webp).await;
         world.select(Some(&a), ALT_A).await;
         world.republish().await;
         world.disclose(&a, Some(HOUR / 1000)).await.unwrap();
@@ -1061,9 +1138,19 @@ async fn damaged_cover_rows_fall_back_without_hiding_the_title() {
             .await
             .is_ok());
         assert_eq!(
-            refusal(service.admit_cover(&world.work.work_id, AVIF_RGB_SHA256).await),
+            refusal(service.admit_cover(&world.work.work_id, CoverVariant::Full.as_str(), &full(WEBP_RED).await.0).await),
             ListenerError::NotFound,
             "{trigger}"
         );
     }
+}
+
+async fn full(bytes: &[u8]) -> (String, Vec<u8>) {
+    let (_, [_, full]) =
+        ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
+            .unwrap()
+            .inspect_cover(bytes.to_vec(), ImageMime::Webp)
+            .await
+            .unwrap();
+    (full.metadata().sha256().into(), full.bytes().to_vec())
 }

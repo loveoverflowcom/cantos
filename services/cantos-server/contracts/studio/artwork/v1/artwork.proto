@@ -9,6 +9,7 @@ enum ImageMime {
   IMAGE_MIME_PNG = 1;
   IMAGE_MIME_JPEG = 2;
   IMAGE_MIME_AVIF = 3;
+  IMAGE_MIME_WEBP = 4;
 }
 enum ImageIntentState {
   IMAGE_INTENT_STATE_UNSPECIFIED = 0;

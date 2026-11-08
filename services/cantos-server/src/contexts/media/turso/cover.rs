@@ -1,5 +1,5 @@
 //! Release-pinned public cover facts (ADR 0033) and the owner's append-only disclosure rows.
-//! A page reads its pinned artwork, assets and latest decisions in three bounded statements,
+//! A page reads its pinned artwork, assets and latest decisions in bounded statements,
 //! never one per item. Every row is restored through Media constructors; nothing is decided here.
 use std::collections::BTreeMap;
 
@@ -12,7 +12,7 @@ use crate::platform::store::{checked_number, Row, StoreError, Tx};
 
 use super::{
     artwork::change_row,
-    image::{asset_row, corrupt, StoredImageAsset},
+    image::{asset_row, corrupt, variant_row, StoredCoverVariant, StoredImageAsset},
 };
 
 /// The facts one representative release needs for `project_public_cover`, owned by the read.
@@ -22,6 +22,7 @@ pub(in crate::contexts::media) struct PinnedCoverFacts {
     pub change: Option<ArtworkChange>,
     /// The admitted asset that change selects, with its private location for the origin read.
     pub asset: Option<StoredImageAsset>,
+    pub variants: Vec<StoredCoverVariant>,
     /// The latest decision by server sequence for this Work and that asset digest.
     pub disclosure: Option<CoverDisclosureRecord>,
     /// A stored row of this Work failed admission. The cover alone falls back; the page stays.
@@ -49,7 +50,7 @@ fn json<T: serde::Serialize>(value: &T) -> Result<String, StoreError> {
     serde_json::to_string(value).map_err(|_| StoreError::CorruptRevision)
 }
 
-/// Cover facts for each distinct pinned Work of a page, keyed by Work ID. At most three
+/// Cover facts for each distinct pinned Work of a page, keyed by Work ID. At most four
 /// statements run whatever the page size; an empty page runs none.
 pub(in crate::contexts::media) async fn pinned_cover_facts(
     tx: &Tx<'_>,
@@ -97,12 +98,25 @@ pub(in crate::contexts::media) async fn pinned_cover_facts(
         return Ok(facts);
     }
     let mut assets = BTreeMap::new();
-    for row in tx.query(SELECTED_ASSETS, &[&json(&selected)?]).await? {
+    let selected = json(&selected)?;
+    for row in tx.query(SELECTED_ASSETS, &[&selected]).await? {
         let id: String = corrupt(row.try_get("id"))?;
         // A damaged asset row stays absent: the kernel turns a missing asset into Corrupt.
         if let Ok(stored) = asset_row(&row) {
             if stored.asset.id().as_str() == id {
                 assets.insert(id, stored);
+            }
+        }
+    }
+    let mut variants: BTreeMap<String, Vec<StoredCoverVariant>> = BTreeMap::new();
+    for row in tx.query(
+        "SELECT * FROM media_cover_variants WHERE asset_id IN (SELECT value FROM json_each(?1))",
+        &[&selected],
+    ).await? {
+        let id: String = corrupt(row.try_get("asset_id"))?;
+        if let Some(source) = assets.get(&id) {
+            if let Ok(variant) = variant_row(&row, source) {
+                variants.entry(id).or_default().push(variant);
             }
         }
     }
@@ -114,7 +128,9 @@ pub(in crate::contexts::media) async fn pinned_cover_facts(
         let Some(selection) = entry.change.as_ref().and_then(|c| c.change().selection()) else {
             continue;
         };
-        entry.asset = assets.get(selection.image_asset_id().as_str()).cloned();
+        let id = selection.image_asset_id().as_str();
+        entry.asset = assets.get(id).cloned();
+        entry.variants = variants.get(id).cloned().unwrap_or_default();
         wanted.push((work.clone(), selection.image_asset_digest().to_owned()));
     }
     for row in tx.query(LATEST_DISCLOSURES, &[&json(&wanted)?]).await? {

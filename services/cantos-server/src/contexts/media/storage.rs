@@ -750,12 +750,12 @@ pub(super) mod unix {
             let storage = isolated_storage(&scratch);
             for (bytes, mime) in [
                 (
-                    include_bytes!("image_intake/fixtures/python-rgb-2x3.avif").as_slice(),
-                    ImageMime::Avif,
+                    include_bytes!("image_intake/fixtures/red-2x3.webp").as_slice(),
+                    ImageMime::Webp,
                 ),
                 (
-                    include_bytes!("image_intake/fixtures/pillow-rgb-2x3.avif").as_slice(),
-                    ImageMime::Avif,
+                    include_bytes!("image_intake/fixtures/green-2x3.webp").as_slice(),
+                    ImageMime::Webp,
                 ),
             ] {
                 for _ in 0..2 {
@@ -813,14 +813,14 @@ pub(super) mod unix {
                 storage::port::VerifiedPayload,
             };
 
-            let bytes = include_bytes!("image_intake/fixtures/python-rgb-2x3.avif").as_slice();
+            let bytes = include_bytes!("image_intake/fixtures/red-2x3.webp").as_slice();
             let scratch = Scratch::new();
             let storage = isolated_storage(&scratch);
             let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
                 tokio::sync::Semaphore::new(1),
             ))
             .unwrap()
-            .inspect(bytes.to_vec(), ImageMime::Avif)
+            .inspect(bytes.to_vec(), ImageMime::Webp)
             .await
             .unwrap();
             storage
@@ -838,7 +838,7 @@ pub(super) mod unix {
                 tokio::sync::Semaphore::new(1),
             ))
             .unwrap()
-            .inspect(bytes.to_vec(), ImageMime::Avif)
+            .inspect(bytes.to_vec(), ImageMime::Webp)
             .await
             .unwrap();
             assert_eq!(

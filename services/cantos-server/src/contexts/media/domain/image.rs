@@ -91,6 +91,7 @@ pub enum ImageMime {
     Png,
     Jpeg,
     Avif,
+    Webp,
 }
 impl ImageMime {
     pub fn parse(value: &str) -> Result<Self, ImageError> {
@@ -98,12 +99,13 @@ impl ImageMime {
             "image/png" => Ok(Self::Png),
             "image/jpeg" => Ok(Self::Jpeg),
             "image/avif" => Ok(Self::Avif),
+            "image/webp" => Ok(Self::Webp),
             _ => Err(ImageError::UnsupportedMime),
         }
     }
-    /// Historical variants remain readable; only AVIF may enter active image flows.
-    pub fn require_avif(self) -> Result<(), ImageError> {
-        if self == Self::Avif {
+    /// Historical variants remain readable; only WebP may enter active image flows.
+    pub fn require_webp(self) -> Result<(), ImageError> {
+        if self == Self::Webp {
             Ok(())
         } else {
             Err(ImageError::UnsupportedMime)
@@ -114,6 +116,7 @@ impl ImageMime {
             Self::Png => "image/png",
             Self::Jpeg => "image/jpeg",
             Self::Avif => "image/avif",
+            Self::Webp => "image/webp",
         }
     }
     pub const fn document(self) -> dto::ImageMime {
@@ -121,6 +124,7 @@ impl ImageMime {
             Self::Png => dto::ImageMime::Png,
             Self::Jpeg => dto::ImageMime::Jpeg,
             Self::Avif => dto::ImageMime::Avif,
+            Self::Webp => dto::ImageMime::Webp,
         }
     }
 }
@@ -130,7 +134,62 @@ impl From<dto::ImageMime> for ImageMime {
             dto::ImageMime::Png => Self::Png,
             dto::ImageMime::Jpeg => Self::Jpeg,
             dto::ImageMime::Avif => Self::Avif,
+            dto::ImageMime::Webp => Self::Webp,
         }
+    }
+}
+
+/// Closed rendition profiles. The caps apply before resizing and on restored metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverVariant {
+    Thumbnail,
+    Full,
+}
+
+impl CoverVariant {
+    pub const ALL: [Self; 2] = [Self::Thumbnail, Self::Full];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Thumbnail => "thumbnail",
+            Self::Full => "full",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|variant| variant.as_str() == value)
+    }
+
+    pub const fn max_bytes(self) -> u64 {
+        match self {
+            Self::Thumbnail => 262_144,
+            Self::Full => 2_097_152,
+        }
+    }
+
+    pub fn dimensions(self, source: &ImageMetadata) -> (u32, u32) {
+        let (max_width, max_height) = match self {
+            Self::Thumbnail => (384, 576),
+            Self::Full => (1200, 1200),
+        };
+        let (width, height) = (source.width_px(), source.height_px());
+        if width <= max_width && height <= max_height {
+            (width, height)
+        } else if width * max_height > height * max_width {
+            (max_width, (height * max_width / width).max(1))
+        } else {
+            ((width * max_height / height).max(1), max_height)
+        }
+    }
+
+    pub fn matches(self, source: &ImageMetadata, rendition: &ImageMetadata) -> bool {
+        source.content_type() == ImageMime::Webp
+            && rendition.content_type() == ImageMime::Webp
+            && source.sha256() != rendition.sha256()
+            && rendition.byte_length() <= self.max_bytes()
+            && (rendition.width_px(), rendition.height_px()) == self.dimensions(source)
     }
 }
 
@@ -513,7 +572,7 @@ impl ImageIntent {
         owner_id: &OwnerId,
         now: i64,
     ) -> Result<Self, ImageError> {
-        request.expected.content_type.require_avif()?;
+        request.expected.content_type.require_webp()?;
         if now < 0 {
             return Err(ImageError::InvalidTimestamp);
         }

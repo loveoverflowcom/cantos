@@ -1,8 +1,8 @@
-//! Synthetic permission records, one generic owner-published metadata Work and an existing 2×3 AVIF_RGB
+//! Synthetic permission records, one generic owner-published metadata Work and an existing 2×3 WEBP_RED
 //! fixture in a real disposable Turso/private object root. No generated cover or real consent is
 //! substituted. The non-login principal is populated through checked domain/SQL fixture seams;
 //! this does not establish an operator image-intake workflow or authenticate a human owner.
-use super::{AVIF_RGB, AVIF_RGB_SHA256, ORIGIN, STUDIO};
+use super::{ORIGIN, STUDIO, WEBP_RED, WEBP_RED_SHA256};
 use crate::{
     adapters::inbound::http::{metadata_cover_test_router, AppState},
     contexts::{
@@ -14,9 +14,9 @@ use crate::{
                     decide_cover_disclosure, CoverDisclosureDecision, DisclosureFacts,
                     RecordCoverDisclosure,
                 },
-                image::{ImageAsset, ImageIntent, ImageMime, PrepareImage},
+                image::{CoverVariant, ImageAsset, ImageIntent, ImageMime, PrepareImage},
             },
-            image_application::{objects::SharedImageObjects, ImageObjects},
+            image_application::{objects::SharedImageObjects, persist_variant, ImageObjects},
             image_intake::ImageAdmission,
             turso::{artwork, cover, image},
             ListenerError, ListenerService, PublicMediaOrigin,
@@ -42,6 +42,8 @@ struct MetadataWorld {
     store: crate::application::Store,
     work: Work,
     image: ImageAsset,
+    full_sha: String,
+    full_bytes: Vec<u8>,
 }
 
 impl MetadataWorld {
@@ -73,9 +75,9 @@ impl MetadataWorld {
             PrepareImage::admit(&dto::CreateImageIntentRequest {
                 operation_id: uuid::Uuid::new_v4().to_string(),
                 id: intent_id,
-                expected_sha256: AVIF_RGB_SHA256.into(),
-                expected_byte_length: AVIF_RGB.len() as u64,
-                content_type: dto::ImageMime::Avif,
+                expected_sha256: WEBP_RED_SHA256.into(),
+                expected_byte_length: WEBP_RED.len() as u64,
+                content_type: dto::ImageMime::Webp,
                 declarations: dto::ImageDeclarations {
                     provenance: "synthetic-private-provenance".into(),
                     rights_refs: vec!["synthetic-image-rights".into()],
@@ -87,14 +89,25 @@ impl MetadataWorld {
             now,
         )
         .unwrap();
-        let verified = ImageAdmission::from_test_lanes(Arc::new(tokio::sync::Semaphore::new(1)))
-            .unwrap()
-            .inspect(AVIF_RGB.to_vec(), ImageMime::Avif)
-            .await
-            .unwrap();
+        let (verified, [thumbnail, full]) =
+            ImageAdmission::from_test_lanes(Arc::new(tokio::sync::Semaphore::new(1)))
+                .unwrap()
+                .inspect_cover(WEBP_RED.to_vec(), ImageMime::Webp)
+                .await
+                .unwrap();
         let asset = ImageAsset::create(&intent, verified.metadata().clone(), now).unwrap();
         let objects = SharedImageObjects::new(store.media_storage.clone());
         let location = objects.persist(verified).await.unwrap();
+        let full_sha = full.metadata().sha256().to_owned();
+        let full_bytes = full.bytes().to_vec();
+        let variants = [
+            persist_variant(&objects, CoverVariant::Thumbnail, thumbnail)
+                .await
+                .unwrap(),
+            persist_variant(&objects, CoverVariant::Full, full)
+                .await
+                .unwrap(),
+        ];
         let request = SetWorkArtwork::admit(&dto::SetWorkArtworkRequest {
             operation_id: uuid::Uuid::new_v4().to_string(),
             expected_work_revision: work.revision(),
@@ -118,6 +131,9 @@ impl MetadataWorld {
         image::insert_asset(&tx, &asset, &location.storage_target, &location.object_key)
             .await
             .unwrap();
+        image::insert_variants(&tx, &asset, &location.storage_target, variants)
+            .await
+            .unwrap();
         tx.execute("INSERT INTO catalog_work_revisions(work_id,revision,snapshot,snapshot_digest,recorded_by) VALUES(?1,?2,?3,?4,?5)",
             &[&WORK, &(work.revision() as i64), &bytes, &digest, &work.owner_id().as_str()]).await.unwrap();
         tx.execute(
@@ -137,6 +153,8 @@ impl MetadataWorld {
             store,
             work,
             image: asset,
+            full_sha,
+            full_bytes,
         }
     }
 
@@ -202,7 +220,7 @@ async fn generation_cover_requires_image_clearance_and_revalidates_real_bytes_af
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items.iter().filter(|w| w.cover.is_some()).count(), 1);
     let actual = enabled.metadata_work(WORK).await.unwrap().cover.unwrap();
-    assert_eq!(actual.sha256, AVIF_RGB_SHA256);
+    assert_eq!(actual.sha256, world.full_sha);
     assert!(!serde_json::to_string(&actual)
         .unwrap()
         .contains("synthetic-private-provenance"));
@@ -213,7 +231,7 @@ async fn generation_cover_requires_image_clearance_and_revalidates_real_bytes_af
         },
         enabled.clone(),
     );
-    let path = format!("/api/v1/theatre/works/{WORK}/cover/{AVIF_RGB_SHA256}");
+    let path = format!("/api/v1/theatre/works/{WORK}/cover/full/{}", world.full_sha);
     let response = app
         .clone()
         .oneshot(Request::get(&path).body(Body::empty()).unwrap())
@@ -223,7 +241,7 @@ async fn generation_cover_requires_image_clearance_and_revalidates_real_bytes_af
     assert_eq!(response.headers()["cache-control"], "public, no-cache");
     assert_eq!(
         response.into_body().collect().await.unwrap().to_bytes(),
-        AVIF_RGB
+        world.full_bytes
     );
     let old = app
         .clone()
@@ -239,7 +257,10 @@ async fn generation_cover_requires_image_clearance_and_revalidates_real_bytes_af
         StatusCode::BAD_REQUEST,
         "retired selector is rejected"
     );
-    let admitted = enabled.admit_cover(WORK, AVIF_RGB_SHA256).await.unwrap();
+    let admitted = enabled
+        .admit_cover(WORK, CoverVariant::Full.as_str(), &world.full_sha)
+        .await
+        .unwrap();
     world.consent(None, false).await;
     assert!(matches!(
         enabled.open_cover(&admitted).await,
@@ -269,7 +290,9 @@ async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_
     world.clock.advance(60_000_000);
     assert_eq!(enabled.metadata_work(WORK).await.unwrap().cover, None);
     assert!(matches!(
-        enabled.admit_cover(WORK, AVIF_RGB_SHA256).await,
+        enabled
+            .admit_cover(WORK, CoverVariant::Full.as_str(), &world.full_sha)
+            .await,
         Err(ListenerError::NotFound)
     ));
     world.consent(Some(world.work.revision()), true).await;
@@ -295,7 +318,9 @@ async fn metadata_image_expiry_is_half_open_and_metadata_withdrawal_revokes_the_
         Err(ListenerError::NotFound)
     ));
     assert!(matches!(
-        enabled.admit_cover(WORK, AVIF_RGB_SHA256).await,
+        enabled
+            .admit_cover(WORK, CoverVariant::Full.as_str(), &world.full_sha)
+            .await,
         Err(ListenerError::NotFound)
     ));
 }
@@ -337,7 +362,10 @@ async fn a_restricted_policy_closes_cached_public_cover_head_and_conditional_pat
     let world = MetadataWorld::new().await;
     let service = world.listener();
     world.consent(None, true).await;
-    let admitted = service.admit_cover(WORK, AVIF_RGB_SHA256).await.unwrap();
+    let admitted = service
+        .admit_cover(WORK, CoverVariant::Full.as_str(), &world.full_sha)
+        .await
+        .unwrap();
     let app = metadata_cover_test_router(
         AppState {
             store: world.store.clone(),
@@ -345,7 +373,7 @@ async fn a_restricted_policy_closes_cached_public_cover_head_and_conditional_pat
         },
         service.clone(),
     );
-    let path = format!("/api/v1/theatre/works/{WORK}/cover/{AVIF_RGB_SHA256}");
+    let path = format!("/api/v1/theatre/works/{WORK}/cover/full/{}", world.full_sha);
     let before = app
         .clone()
         .oneshot(Request::get(&path).body(Body::empty()).unwrap())
@@ -375,7 +403,7 @@ async fn a_restricted_policy_closes_cached_public_cover_head_and_conditional_pat
                 Request::builder()
                     .method(method)
                     .uri(&path)
-                    .header("if-none-match", format!("\"{AVIF_RGB_SHA256}\""))
+                    .header("if-none-match", format!("\"{}\"", world.full_sha))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -388,7 +416,7 @@ async fn a_restricted_policy_closes_cached_public_cover_head_and_conditional_pat
                 .headers()
                 .get("content-type")
                 .map(|v| v.to_str().unwrap()),
-            Some("image/avif")
+            Some("image/webp")
         );
     }
     assert!(matches!(

@@ -32,7 +32,7 @@ class InventoryTests(unittest.TestCase):
         self.write("app-0123456789abcdef.js", b"return WebAssembly.instantiateStreaming(module, imports)")
         self.write("app-0123456789abcdef_bg.wasm", b"\0asm\x01\0\0\0")
         self.write("assets/font.woff2", b"synthetic font")
-        self.write("assets/artwork.avif", (Path(__file__).parent / "fixtures/runtime-images/red-2x3.avif").read_bytes())
+        self.write("assets/artwork.webp", (Path(__file__).parent / "fixtures/runtime-images/red-2x3.webp").read_bytes())
 
     def test_counts_deduplicated_html_links_and_separates_css_and_other_assets(self):
         self.bundle()
@@ -40,8 +40,8 @@ class InventoryTests(unittest.TestCase):
         rows = {row["path"]: row for row in report["assets"]}
         self.assertEqual(report["totals"]["html-linked"]["files"], 4)
         self.assertEqual(rows["assets/font.woff2"]["role"], "css-referenced")
-        self.assertEqual(rows["assets/artwork.avif"]["role"], "other-output")
-        self.assertEqual(rows["assets/artwork.avif"]["expected_content_type"], "image/avif")
+        self.assertEqual(rows["assets/artwork.webp"]["role"], "other-output")
+        self.assertEqual(rows["assets/artwork.webp"]["expected_content_type"], "image/webp")
         wasm = rows["app-0123456789abcdef_bg.wasm"]
         self.assertEqual(wasm["expected_content_type"], "application/wasm")
         self.assertTrue(wasm["hash_shaped_filename"])
@@ -57,11 +57,11 @@ class InventoryTests(unittest.TestCase):
         report = inventory(self.dist, lambda data: b"fake")
         self.assertEqual(report["totals"]["all-output"]["brotli_bytes"], 6 * 4)
 
-    def test_inventory_rejects_legacy_bytes_even_with_an_avif_name(self):
+    def test_inventory_rejects_legacy_bytes_even_with_an_webp_name(self):
         self.bundle()
         png = Path(__file__).resolve().parents[1] / "services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json"
-        self.write("assets/artwork.avif", bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
-        with self.assertRaisesRegex(ValueError, "runtime image policy.*artwork.avif.*legacy"):
+        self.write("assets/artwork.webp", bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
+        with self.assertRaisesRegex(ValueError, "runtime image policy.*artwork.webp.*legacy"):
             inventory(self.dist)
 
     def test_brotli_cli_fallback_passes_bytes_and_literal_args_without_a_shell(self):
