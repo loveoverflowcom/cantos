@@ -71,8 +71,8 @@ mod tests {
                 for tone in [FilePickerTone::Primary, FilePickerTone::Tonal] {
                     for error in [None, Some("Tệp không hợp lệ".to_owned())] {
                         let html = ["first", "second"].into_iter().map(|id| view! {
-                            <NativeFilePicker id=id accept="image/avif" label="Chọn tệp ảnh".to_owned()
-                                help="AVIF · 8 MiB".to_owned() status="Lời hẹn {time}.avif".to_owned()
+                            <NativeFilePicker id=id accept="image/webp" label="Chọn tệp ảnh".to_owned()
+                                help="WebP · 8 MiB".to_owned() status="Lời hẹn {time}.webp".to_owned()
                                 error=Signal::stored(error.clone()) disabled=disabled tone=tone
                                 on_change=Callback::new(|_|panic!("render must not select or upload"))/>
                         }.to_html()).collect::<String>();
@@ -90,7 +90,7 @@ mod tests {
                         assert_eq!(html.matches(&format!("aria-invalid=\"{invalid}\"")).count(), 2, "{html}");
                         assert_eq!(html.matches("role=\"alert\" hidden").count(), if error.is_none() {2} else {0}, "{html}");
                         assert_eq!(html.matches(&format!("data-tone=\"{}\"", tone.as_str())).count(), 2, "{html}");
-                        assert_eq!(html.matches("Lời hẹn {time}.avif").count(), 2, "{html}");
+                        assert_eq!(html.matches("Lời hẹn {time}.webp").count(), 2, "{html}");
                     }
                 }
             }

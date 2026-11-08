@@ -13,29 +13,32 @@ ROOT = Path(__file__).resolve().parents[1]
 LEGACY = json.loads((ROOT / "services/cantos-server/src/contexts/media/image_intake/fixtures/legacy-rejection.json").read_text())
 PNG = bytes.fromhex(LEGACY["python-rgb-2x3.png"])
 JPEG = bytes.fromhex(LEGACY["pillow-rgb-2x3.jpg"])
+WEBP = (ROOT / "scripts/fixtures/runtime-images/red-2x3.webp").read_bytes()
 AVIF = (ROOT / "scripts/fixtures/runtime-images/red-2x3.avif").read_bytes()
 
 
 class RuntimeImagePolicy(unittest.TestCase):
-    def test_actual_avif_and_plain_svg_are_identified_without_claiming_decode(self):
+    def test_actual_webp_and_plain_svg_are_identified_without_claiming_decode(self):
         self.assertEqual(signature(AVIF), ".avif")
-        self.assertIsNone(image_failure("assets/a.avif", AVIF))
+        self.assertIn("legacy", image_failure("assets/a.avif", AVIF))
+        self.assertIsNone(image_failure("assets/a.webp", WEBP))
         self.assertIsNone(image_failure("assets/a.svg", b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z"/></svg>'))
 
     def test_real_png_jpeg_and_webp_bytes_cannot_be_renamed_or_embedded(self):
         # Independent Pillow-encoded WebP bytes are used only as rejection input.
         webp = bytes.fromhex("524946461c000000574542505650384c0f0000002f018000000710fd8ffe0722a2ff0100")
-        for data in (PNG, JPEG, webp):
-            for name in ("assets/a.avif", "assets/a.svg", "assets/a.bin"):
+        for data in (PNG, JPEG, AVIF):
+            for name in ("assets/a.webp", "assets/a.svg", "assets/a.bin"):
                 with self.subTest(name=name, kind=signature(data)):
                     self.assertIn("legacy", image_failure(name, data))
-        for href in ("data:image/png;base64,aA==", "data:image/jpeg;base64,aA==", "a.webp?hash=1"):
+        self.assertIn("opaque", image_failure("assets/a.webp", webp))
+        for href in ("data:image/png;base64,aA==", "data:image/jpeg;base64,aA==", "a.avif?hash=1"):
             self.assertIn("legacy", image_failure("a.svg", f'<svg><image href="{href}"/></svg>'.encode()))
 
-    def test_malformed_avif_sequences_and_suffix_spoofs_are_rejected(self):
+    def test_malformed_sequences_and_suffix_spoofs_are_rejected(self):
         for data in (b"", b"not avif", b"\0\0\0\x10ftypavif", b"\0\0\0\x10ftypavis\0\0\0\0"):
             self.assertIsNotNone(image_failure("a.avif", data))
-        self.assertIn("suffix", image_failure("a.bin", AVIF))
+        self.assertIn("suffix", image_failure("a.bin", WEBP))
         self.assertIn("legacy", image_failure("a.png", AVIF))
         self.assertIn("malformed", image_failure("a.svg", b"not XML"))
 

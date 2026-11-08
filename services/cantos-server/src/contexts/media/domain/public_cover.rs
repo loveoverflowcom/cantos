@@ -3,7 +3,7 @@
 //! only by the current owner's explicit public-display decision for that exact image. Private
 //! admission, Work visibility and audio publication approval are separate facts, never this one.
 //! Pure and total: every cover failure is a stable fallback, never an error that would hide the
-//! title or block listening. No production reader supplies a decision until #171 wires one.
+//! title or block listening.
 use super::{
     artwork::{artwork_at, ArtworkChange, WorkArtworkSelection},
     image::{ImageAsset, ImageMime},
@@ -14,7 +14,7 @@ use crate::contexts::catalog::domain::Work;
 /// One reviewed public-display decision, bound to an exact immutable image asset digest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoverDisclosure<'a> {
-    /// No reviewed decision exists. Today this is the only value any shell can supply.
+    /// No reviewed decision exists.
     Undecided,
     Cleared {
         image_asset_digest: &'a str,
@@ -144,7 +144,7 @@ pub(crate) fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjectio
     match (cover_outcome(pinned_state, decision, facts.now_ms), bound) {
         (Ok(()), Ok(Some((selection, asset)))) => {
             let metadata = asset.metadata();
-            if metadata.content_type() != ImageMime::Avif {
+            if metadata.content_type() != ImageMime::Webp {
                 return CoverProjection::Fallback(CoverFallback::Corrupt);
             }
             CoverProjection::Shown(PublicCover {
@@ -163,9 +163,7 @@ pub(crate) fn project_at(pinned: &Work, facts: CoverFacts<'_>) -> CoverProjectio
     }
 }
 
-/// Delivery admission for `GET|HEAD /works/{work}/cover/{sha256}`: bytes are served only while
-/// the freshly computed projection shows exactly that image. A stale URL, a fallback of any
-/// reason and a malformed identity are indistinguishable denials.
+/// Match the rendition’s source hash against the freshly computed source projection.
 pub fn admit_cover_fetch<'p>(
     projection: &'p CoverProjection,
     requested_sha256: &str,

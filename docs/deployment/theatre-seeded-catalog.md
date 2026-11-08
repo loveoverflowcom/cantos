@@ -1,7 +1,7 @@
 # Theatre development catalog seeding
 
-> AVIF-only follow-up to #607: the historical six-PNG source package described below is no
-> longer admissible. Current parsing names `.avif` sources and runs the AVIF-only inspector;
+> WebP-only intake: the historical six-PNG source package described below is no
+> longer admissible. Current parsing names `.webp` sources and runs the lossy WebP inspector;
 > its original source hashes must be replaced only after authorized conversion and independent
 > re-inventory. No source bytes/hashes are fabricated or changed automatically. Prepared-sample
 > execution remains pending that repinned corpus; preserve the original package for recovery.

@@ -97,7 +97,7 @@ pub fn file_bounds(mime: &str, size: u64) -> Result<ImageMime, Problem> {
         return Err(Problem::File);
     }
     match mime {
-        "image/avif" => Ok(ImageMime::Avif),
+        "image/webp" => Ok(ImageMime::Webp),
         _ => Err(Problem::File),
     }
 }
@@ -111,36 +111,36 @@ pub fn dimensions(width: u32, height: u32) -> Result<(), Problem> {
         Ok(())
     }
 }
-/// Identify still-AVIF before browser preview; full decode/admission remains with the Server.
-pub fn avif_bytes(bytes: &[u8]) -> Result<(), Problem> {
-    if bytes.len() < 16 || bytes.len() as u64 > MAX_BYTES || &bytes[4..8] != b"ftyp" {
+/// Verify the opaque VP8 container before preview. Browser and Server decode the pixels.
+pub fn webp_bytes(bytes: &[u8]) -> Result<(), Problem> {
+    let length = |range: std::ops::Range<usize>| {
+        let raw: [u8; 4] = bytes.get(range)?.try_into().ok()?;
+        Some(u32::from_le_bytes(raw) as usize)
+    };
+    let valid_chunk = length(16..20)
+        .filter(|len| *len >= 10)
+        .and_then(|len| 20usize.checked_add(len)?.checked_add(len % 2))
+        == Some(bytes.len());
+    if !(30..=MAX_BYTES as usize).contains(&bytes.len())
+        || bytes.get(..4) != Some(b"RIFF")
+        || bytes.get(8..16) != Some(b"WEBPVP8 ")
+        || length(4..8) != Some(bytes.len() - 8)
+        || !valid_chunk
+        || bytes[20] & 1 != 0
+        || bytes[23..26] != [0x9d, 0x01, 0x2a]
+    {
         return Err(Problem::File);
     }
-    let length = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
-    if length < 16 || length > bytes.len() || !length.is_multiple_of(4) {
-        return Err(Problem::File);
-    }
-    let compatible = bytes[16..length].as_chunks::<4>().0;
-    let brands =
-        std::iter::once(&bytes[8..12]).chain(compatible.iter().map(|brand| brand.as_slice()));
-    let mut still = false;
-    for brand in brands {
-        if brand == b"avis" {
-            return Err(Problem::File);
-        }
-        still |= brand == b"avif";
-    }
-    if still {
-        Ok(())
-    } else {
-        Err(Problem::File)
-    }
+    let width = u32::from(u16::from_le_bytes([bytes[26], bytes[27]]) & 0x3fff);
+    let height = u32::from(u16::from_le_bytes([bytes[28], bytes[29]]) & 0x3fff);
+    dimensions(width, height)
 }
 pub fn mime_name(mime: ImageMime) -> &'static str {
     match mime {
         ImageMime::Png => "image/png",
         ImageMime::Jpeg => "image/jpeg",
         ImageMime::Avif => "image/avif",
+        ImageMime::Webp => "image/webp",
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]

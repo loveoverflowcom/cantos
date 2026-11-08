@@ -130,7 +130,7 @@ const DISCOVERY: &str = include_str!(
     "../../../services/cantos-server/contracts/theatre/discovery/v1/discovery.schema.json"
 );
 const METADATA: &str = include_str!(
-    "../../../services/cantos-server/contracts/theatre/discovery/v1/metadata.schema.json"
+    "../../../services/cantos-server/contracts/theatre/discovery/v1/metadata-webp.schema.json"
 );
 const LIBRARY: &str = include_str!(
     "../../../services/cantos-server/contracts/theatre/library/v1/library.schema.json"

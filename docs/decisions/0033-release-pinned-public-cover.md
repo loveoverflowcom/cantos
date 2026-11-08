@@ -4,7 +4,7 @@
   Server backend (disclosure persistence and [Studio route](../../services/cantos-server/contracts/studio/cover-disclosure/v1/README.md),
   `presentation=2` projection and the composition-gated origin cover route) is implemented by
   [#171](https://github.com/loveoverflowcom/cantos/issues/171); Web/CMP adoption is #158/#159
-- Date: proposed 2026-10-16; accepted 2026-10-25
+- Date: proposed 2026-10-16; accepted 2026-10-25; WebP and variant amendment 2026-11-08
 - Decision owner: Cantos product owner (selected all four #157 P0 options in the delivery
   session for [#157](https://github.com/loveoverflowcom/cantos/issues/157)); deployment owner
   retains activation acceptance
@@ -58,15 +58,18 @@ claims the runtime that #171 must still build.
    dimensions, byte length and the alt text bound to the pinned selection. The image asset ID
    and asset digest stay server-side, as do rights references, provenance, owner, intent,
    receipt, disclosure history and storage key. Raw image bytes never enter a metadata envelope.
-5. **Delivery: origin, revalidated on every use.** Bytes are served by the Server at
-   `GET|HEAD /api/v1/theatre/works/{work_id}/cover/{sha256}`. Every request re-resolves the
-   representative eligible release, re-projects the cover with the current disclosure and clock,
-   and serves bytes only when the projection shows exactly that SHA-256. Responses carry a
-   strong `ETag: "{sha256}"` and `Cache-Control: public, no-cache`, so caches must revalidate
-   before each use and a revocation or withdrawal is effective on the next request. Every
-   denial reason is the same anonymous `not_found`. No grant token, CDN, purge, thumbnail,
-   resize or transcode is selected.
-6. **Wire: opt-in Discovery v1.2.** The closed `presentation` query admits a new value `2` on
+5. **Delivery: origin, revalidated on every use.** Studio admission creates two immutable
+   opaque lossy WebP derivatives, Thumbnail and Full, under the [runtime image
+   policy](../design/runtime-images.md). Both remain bound to the exact selected source asset
+   and its current disclosure. Theatre serves `GET|HEAD /api/v1/theatre/works/{work_id}/cover/{variant}/{sha256}`.
+   Lists and Search receive Thumbnail, and Work detail receives Full. Each has its own URL,
+   dimensions, byte length and byte SHA-256. The Server re-resolves the active generation
+   and its pinned Work revision, checks current disclosure and exact variant, and verifies
+   the private object before answering. A matching conditional request returns an empty 304
+   only after these checks. A denied, missing or corrupt representation gives anonymous
+   `not_found`. Successful responses retain the strong byte ETag and `public, no-cache`.
+   This amendment supersedes the earlier format and single-size policy in ADRs 0052 and 0053.
+6. **Historical wire: opt-in Discovery v1.2.** ADR 0055 supersedes these presentation selectors. The closed `presentation` query admits a new value `2` on
    `GET /works`, `GET /search` and `GET /works/{work_id}`, returning `CoveredWorkPage` /
    `CoveredWorkSummary`: every `PresentedWorkSummary` field plus a required nullable `cover`.
    `null` is the only "no cover" representation. Default v1 and `presentation=1` responses stay

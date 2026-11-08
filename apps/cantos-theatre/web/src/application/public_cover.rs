@@ -5,7 +5,7 @@
 //! the image element at another origin scheme, another Work's image, a credentialed URL or a
 //! private asset. It never builds a cover URL: the one admitted is used exactly as given. `null`
 //! is the legitimate no-cover state and is not examined here.
-use crate::contract::discovery::{CoverImage, MetadataWorkSummary};
+use crate::contract::discovery::{CoverImage, CoverVariant, MetadataWorkSummary};
 use crate::core::public_ids::PublicWorkId;
 use cantos_web_auth::address::THEATRE_BASE;
 
@@ -14,17 +14,28 @@ const MAX_ALT_BYTES: usize = 1024;
 
 /// Whether `cover` is a well-formed cover of exactly this Work.
 pub fn is_admitted(work: PublicWorkId, cover: &CoverImage) -> bool {
-    is_sha256(&cover.sha256)
+    let (width, height, length) = match cover.variant {
+        CoverVariant::Thumbnail => (384, 576, 262_144),
+        CoverVariant::Full => (1200, 1200, 2_097_152),
+    };
+    (1..=width).contains(&cover.width_px)
+        && (1..=height).contains(&cover.height_px)
+        && (1..=length).contains(&cover.byte_length)
+        && is_sha256(&cover.sha256)
         && !cover.alt_text.trim().is_empty()
         && cover.alt_text.len() <= MAX_ALT_BYTES
-        && is_delivery_url(&cover.url, work, &cover.sha256)
+        && is_delivery_url(cover, work)
 }
 
 /// A Work with no cover is admitted; one with a cover needs an admitted cover.
-pub fn work_is_admitted(work: &MetadataWorkSummary, id: PublicWorkId) -> bool {
+pub fn work_is_admitted(
+    work: &MetadataWorkSummary,
+    id: PublicWorkId,
+    variant: CoverVariant,
+) -> bool {
     work.cover
         .as_ref()
-        .is_none_or(|cover| is_admitted(id, cover))
+        .is_none_or(|cover| cover.variant == variant && is_admitted(id, cover))
 }
 
 fn is_sha256(value: &str) -> bool {
@@ -34,10 +45,10 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-/// `https://{origin}/api/v1/theatre/works/{work_id}/cover/{sha256}`: no credentials, query or
+/// `https://{origin}/api/v1/theatre/works/{work_id}/cover/{variant}/{sha256}`: no credentials, query or
 /// fragment, and the summary's own Work and digest.
-fn is_delivery_url(raw: &str, work: PublicWorkId, sha256: &str) -> bool {
-    let Ok(url) = url::Url::parse(raw) else {
+fn is_delivery_url(cover: &CoverImage, work: PublicWorkId) -> bool {
+    let Ok(url) = url::Url::parse(&cover.url) else {
         return false;
     };
     url.scheme() == "https"
@@ -46,7 +57,12 @@ fn is_delivery_url(raw: &str, work: PublicWorkId, sha256: &str) -> bool {
         && url.password().is_none()
         && url.query().is_none()
         && url.fragment().is_none()
-        && url.path() == format!("{THEATRE_BASE}/works/{work}/cover/{sha256}")
+        && url.path()
+            == format!(
+                "{THEATRE_BASE}/works/{work}/cover/{}/{}",
+                cover.variant.as_str(),
+                cover.sha256
+            )
 }
 
 #[cfg(test)]
@@ -56,7 +72,7 @@ mod tests {
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
     const COVERED: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json"
     );
 
     fn id() -> PublicWorkId {
@@ -73,9 +89,17 @@ mod tests {
         let page: MetadataWorkPage = serde_json::from_str(COVERED).unwrap();
         assert!(page.items[0].cover.is_some() && page.items[1].cover.is_none());
         assert!(is_admitted(id(), &cover()));
-        assert!(work_is_admitted(&page.items[0], id()));
+        assert!(work_is_admitted(
+            &page.items[0],
+            id(),
+            CoverVariant::Thumbnail
+        ));
         let second = PublicWorkId::parse(&page.items[1].work_id).unwrap();
-        assert!(work_is_admitted(&page.items[1], second));
+        assert!(work_is_admitted(
+            &page.items[1],
+            second,
+            CoverVariant::Thumbnail
+        ));
     }
 
     #[test]
@@ -94,7 +118,10 @@ mod tests {
             url,
             ..good.clone()
         };
-        let path = format!("/api/v1/theatre/works/{WORK}/cover/{}", good.sha256);
+        let path = format!(
+            "/api/v1/theatre/works/{WORK}/cover/thumbnail/{}",
+            good.sha256
+        );
         for refused in [
             format!("http://api.cantos.example{path}"),
             format!("//api.cantos.example{path}"),
@@ -141,16 +168,14 @@ mod tests {
     }
 
     #[test]
-    fn avif_cover_mime_deserializes_and_is_admitted_under_the_same_contract_rules() {
-        let mut avif = cover();
-        avif.content_type = crate::contract::discovery::CoverMime::Avif;
-        let encoded = serde_json::to_string(&avif).unwrap();
-        assert!(
-            encoded.contains("\"content_type\":\"image/avif\""),
-            "{encoded}"
-        );
-        let decoded: CoverImage = serde_json::from_str(&encoded).unwrap();
-        assert_eq!(decoded, avif);
-        assert!(is_admitted(id(), &decoded));
+    fn a_thumbnail_cannot_be_reused_as_the_full_rendition() {
+        let page: MetadataWorkPage = serde_json::from_str(COVERED).unwrap();
+        assert!(!work_is_admitted(&page.items[0], id(), CoverVariant::Full));
+        let mut swapped = cover();
+        swapped.variant = CoverVariant::Full;
+        assert!(!is_admitted(id(), &swapped));
+        let mut old = serde_json::to_value(cover()).unwrap();
+        old["content_type"] = "image/avif".into();
+        assert!(serde_json::from_value::<CoverImage>(old).is_err());
     }
 }

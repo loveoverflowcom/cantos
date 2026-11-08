@@ -161,7 +161,7 @@ class ProtobufReferenceTests(unittest.TestCase):
             self.assertIn('ArtworkChange.Clear(ClearArtwork)', content)
             self.assertIn('listOf(', content)
             self.assertIn('.joinToString("")', content)
-            self.assertEqual(content.count('        ArtworkGolden('), 40)
+            self.assertEqual(content.count('        ArtworkGolden('), 41)
             self.assertEqual(content.count('        ArtworkHostile('), 42)
         build = (ROOT/'apps/cantos-theatre/mobile/shared/build.gradle.kts').read_text()
         common_main = build.split('        commonMain {', 1)[1].split('        commonTest {', 1)[0]

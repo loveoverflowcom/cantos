@@ -1,9 +1,12 @@
 //! Generation-pinned covers: the current public Work pin and independent per-image display consent.
 //! The origin byte route reprojects the same selection, including after private object I/O.
 use super::{
-    domain::public_cover::{admit_cover_fetch, CoverProjection},
+    domain::{
+        image::CoverVariant,
+        public_cover::{admit_cover_fetch, CoverProjection},
+    },
     listener_application::{id, ListenerError, ListenerService},
-    listener_cover::{cover_image, facts_projection, AdmittedCover},
+    listener_cover::{cover_image, facts_projection, rendition_for, AdmittedCover},
     turso::{
         cover::{pinned_cover_facts, PinnedCoverFacts, PinnedWork},
         listener,
@@ -20,14 +23,18 @@ impl ListenerService {
         work: &crate::contexts::catalog::domain::Work,
         facts: Option<&PinnedCoverFacts>,
         now: i64,
+        variant: CoverVariant,
     ) -> Option<dto::CoverImage> {
         let origin = &self.covers.as_ref()?.origin;
+        let rendition = rendition_for(facts?, variant)?;
         match facts_projection(
             facts,
             |facts| super::domain::public_cover::project_at(work, facts),
             now,
         ) {
-            CoverProjection::Shown(cover) => Some(cover_image(origin, work.id().as_str(), &cover)),
+            CoverProjection::Shown(cover) => {
+                Some(cover_image(origin, work.id().as_str(), &cover, rendition))
+            }
             CoverProjection::Fallback(_) => None,
         }
     }
@@ -35,6 +42,7 @@ impl ListenerService {
     pub(super) async fn admit_metadata_cover(
         &self,
         work: &str,
+        variant: CoverVariant,
         sha256: &str,
     ) -> Result<AdmittedCover, ListenerError> {
         let work = id(work).map_err(|_| ListenerError::NotFound)?;
@@ -76,11 +84,20 @@ impl ListenerService {
             |facts| super::domain::public_cover::project_at(&disclosed.work, facts),
             now,
         );
-        let cover = admit_cover_fetch(&projection, sha256)
+        let rendition = rendition_for(&facts, variant)
+            .filter(|stored| stored.metadata.sha256() == sha256)
             .ok_or(ListenerError::NotFound)?
             .clone();
         let asset = facts.asset.ok_or(ListenerError::NotFound)?;
+        let cover = admit_cover_fetch(&projection, asset.asset.metadata().sha256())
+            .ok_or(ListenerError::NotFound)?
+            .clone();
         tx.commit().await?;
-        Ok(AdmittedCover { work, cover, asset })
+        Ok(AdmittedCover {
+            work,
+            cover,
+            asset,
+            rendition,
+        })
     }
 }

@@ -1,6 +1,6 @@
 # ADR 0053: Fully decode AVIF before Media admission
 
-- Status: proposed decoder integration; AVIF-only policy authorized by the owner in the #607 follow-up
+- Status: **superseded** for runtime by the [ADR 0033 WebP amendment](0033-release-pinned-public-cover.md#decision). Historical decision follows.
 - Date: 2026-10-29
 - Related: [runtime image policy](../design/runtime-images.md), #607, #608
 

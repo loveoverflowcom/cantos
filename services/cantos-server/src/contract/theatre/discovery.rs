@@ -102,12 +102,24 @@ pub struct PresentedWorkPage {
 /// Accepted Discovery v1.2 cover (ADR 0033, `presentation=2`); not served until #171.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum CoverMime {
-    #[serde(rename = "image/png")]
-    Png,
-    #[serde(rename = "image/jpeg")]
-    Jpeg,
-    #[serde(rename = "image/avif")]
-    Avif,
+    #[serde(rename = "image/webp")]
+    Webp,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CoverVariant {
+    Thumbnail,
+    Full,
+}
+
+impl CoverVariant {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Thumbnail => "thumbnail",
+            Self::Full => "full",
+        }
+    }
 }
 /// Public image facts only: no asset ID/digest, rights, provenance, owner or storage key.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -117,11 +129,12 @@ pub struct CoverImage {
     pub url: String,
     pub sha256: String,
     pub content_type: CoverMime,
-    #[serde(deserialize_with = "bounded::<_, 4096>")]
+    pub variant: CoverVariant,
+    #[serde(deserialize_with = "bounded::<_, 1200>")]
     pub width_px: u64,
-    #[serde(deserialize_with = "bounded::<_, 4096>")]
+    #[serde(deserialize_with = "bounded::<_, 1200>")]
     pub height_px: u64,
-    #[serde(deserialize_with = "bounded::<_, 8_388_608>")]
+    #[serde(deserialize_with = "bounded::<_, 2_097_152>")]
     pub byte_length: u64,
     pub alt_text: String,
 }

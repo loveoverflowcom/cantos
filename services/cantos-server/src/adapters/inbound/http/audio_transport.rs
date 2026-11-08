@@ -109,14 +109,7 @@ pub(crate) fn plan(
     )? == Some(false)
     {
         Outcome::PreconditionFailed
-    } else if entity_tag_condition(
-        headers,
-        header::IF_NONE_MATCH,
-        sha256.as_bytes(),
-        false,
-        AudioTransportError::MalformedIfNoneMatch,
-    )? == Some(true)
-    {
+    } else if if_none_match(headers, sha256)? {
         Outcome::NotModified
     } else {
         selected_range(headers, method, sha256.as_bytes(), whole_length)?
@@ -248,6 +241,19 @@ fn insert_header(
         HeaderValue::from_str(value).map_err(|_| AudioTransportError::InvalidRepresentation)?;
     headers.insert(name, value);
     Ok(())
+}
+
+pub(super) fn if_none_match(
+    headers: &HeaderMap,
+    sha256: &str,
+) -> Result<bool, AudioTransportError> {
+    Ok(entity_tag_condition(
+        headers,
+        header::IF_NONE_MATCH,
+        sha256.as_bytes(),
+        false,
+        AudioTransportError::MalformedIfNoneMatch,
+    )? == Some(true))
 }
 
 fn entity_tag_condition(

@@ -85,7 +85,7 @@ pub async fn read(file: web_sys::File) -> Result<LocalImage, Problem> {
         .map_err(|_| Problem::Decode)?;
     let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
     file_bounds(&file.type_(), bytes.len() as u64)?;
-    avif_bytes(&bytes)?;
+    webp_bytes(&bytes)?;
     let url = web_sys::Url::create_object_url_with_blob(&file).map_err(|_| Problem::Decode)?;
     let result = async {
         let image = web_sys::HtmlImageElement::new().map_err(|_| Problem::Decode)?;
@@ -446,7 +446,7 @@ pub async fn preview(
     credential
         .check()
         .map_err(crate::live::browser::auth_error)?;
-    if asset.verified_media.content_type != ImageMime::Avif
+    if asset.verified_media.content_type != ImageMime::Webp
         || asset.work_id != work
         || asset.id != selection.image_asset_id
         || asset.digest != selection.image_asset_digest
@@ -499,7 +499,7 @@ pub async fn preview(
         .binary()
         .await
         .map_err(|_| ClientError::Transport)?;
-    if avif_bytes(&bytes).is_err()
+    if webp_bytes(&bytes).is_err()
         || bytes.len() as u64 != asset.verified_media.byte_length
         || hash(&bytes).await? != asset.verified_media.sha256
     {

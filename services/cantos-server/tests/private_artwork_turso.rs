@@ -56,22 +56,22 @@ struct Fixture {
 // and Pillow; expected hashes are recorded independently of the production decoder.
 const FIXTURES: [Fixture; 3] = [
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgb-2x3.avif"),
-        sha256: "ed4244268e5d34fc1e9ed66e65822d5c58333a4de4376c0d14023ebff966891f",
-        mime: dto::ImageMime::Avif,
-        content_type: "image/avif",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/red-2x3.webp"),
+        sha256: "94b66a3567ab9231ce33865038bcfb42a2d62a2add6ee871dbc4e00b77169d75",
+        mime: dto::ImageMime::Webp,
+        content_type: "image/webp",
     },
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/python-rgba16-2x3.avif"),
-        sha256: "d200d30121283e2053867e2aa720e3b4b8e9fed50d3c006e3c893e36ed2f99d7",
-        mime: dto::ImageMime::Avif,
-        content_type: "image/avif",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/blue-2x3.webp"),
+        sha256: "0469f089786f938bee9279506933b00612f56fa231bbcadd738ce8333c3e27dc",
+        mime: dto::ImageMime::Webp,
+        content_type: "image/webp",
     },
     Fixture {
-        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/pillow-rgb-2x3.avif"),
-        sha256: "f94b8de623a2287d6f5512a30bbc3e2fbb4e2025c2e4b628918806018e16a7f3",
-        mime: dto::ImageMime::Avif,
-        content_type: "image/avif",
+        bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/green-2x3.webp"),
+        sha256: "83a390641e504055fb756cce744a5e8416de1f27ef51f7cf104fd3a765c10ea6",
+        mime: dto::ImageMime::Webp,
+        content_type: "image/webp",
     },
 ];
 
@@ -492,7 +492,7 @@ async fn set(host: &HttpHost, work: &str, body: &dto::SetWorkArtworkRequest) -> 
 }
 
 #[tokio::test]
-async fn production_http_shared_storage_preserves_three_avif_fixtures_receipts_targets_and_history_after_reopen(
+async fn production_http_shared_storage_preserves_three_webp_fixtures_receipts_targets_and_history_after_reopen(
 ) {
     let _media_lane = native_sql::media_lane().await;
     let mut h = Harness::new().await;
@@ -905,7 +905,7 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
             "unsupported_media_type",
         ),
         (
-            "image/avif",
+            "image/webp",
             vec![("content-encoding", "gzip")],
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "unsupported_media_type",
@@ -945,7 +945,7 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
         &upload_path,
         Some(ALICE),
         Some(ALICE_FENCE),
-        Some("image/avif"),
+        Some("image/webp"),
         FIXTURES[0].bytes.to_vec(),
         &[],
     )
@@ -987,7 +987,7 @@ async fn production_owner_fence_denies_member_foreign_expired_revoked_and_invali
             "PUT",
             format!("image-intents/{}/bytes", asset.intent_id),
             FIXTURES[0].bytes.to_vec(),
-            Some("image/avif"),
+            Some("image/webp"),
         ),
         (
             "PATCH",
@@ -1031,7 +1031,7 @@ async fn malformed_actual_images_and_corrupt_recorded_objects_fail_closed_withou
         .error(StatusCode::NOT_FOUND, "not_found");
     let asset = admit(&h.host, &h.work, FIXTURES[0]).await;
 
-    // Correct declarations for an actual truncated AVIF_RGB cannot substitute for a full decode.
+    // Correct declarations for an actual truncated WEBP_RED cannot substitute for a full decode.
     let malformed = FIXTURES[1].bytes[..FIXTURES[1].bytes.len() - 1].to_vec();
     let mut raw = prepare_request(FIXTURES[1]);
     raw.expected_sha256 = format!("{:x}", Sha256::digest(&malformed));
@@ -1047,7 +1047,7 @@ async fn malformed_actual_images_and_corrupt_recorded_objects_fail_closed_withou
         &path(&h.work, &format!("image-intents/{}/bytes", raw.id)),
         Some(ALICE),
         Some(ALICE_FENCE),
-        Some("image/avif"),
+        Some("image/webp"),
         malformed,
         &[],
     )

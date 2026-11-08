@@ -14,7 +14,7 @@ selector now receives `400 invalid_request`; there is no alias, backfill or old-
 | `/works/{work}` | `MetadataWorkSummary`; the exact active generation's saved Work revision |
 | `/works/{work}/units` | `MetadataUnitPage`; `limit`, `cursor`; exact generation membership and explicit published order |
 
-The canonical [metadata schema](metadata.schema.json) is versioned with the Server's
+The canonical [metadata schema](metadata-webp.schema.json) is versioned with the Server's
 [DTOs](../../../../src/contract/theatre/discovery.rs) and [fixtures](fixtures/metadata/).
 Each Web/CMP consumer owns its representation and checks it against these same schema/fixture
 bytes. Objects are closed; nullable `cover`, `playback` and `next_cursor` keys are required.
@@ -29,12 +29,24 @@ to their Work, query/limit and generation; republishing invalidates a previous w
 `400 invalid_cursor`. Hidden and absent direct IDs are indistinguishable `404 not_found`.
 Sample attestations and existing audio without a generic generation grant no visibility.
 
-Covers use the artwork effective at the generation's exact Work revision and the existing
-independent, current per-image public-display clearance. Metadata publication grants no image
-rights. The shown SHA URL is reprojected on every GET/HEAD and again after private object open;
-a private replacement never changes it. Runtime output is AVIF or null; historical PNG/JPEG
-wire enum fixtures establish no runtime fallback. Cover responses retain `public, no-cache`,
-ETag, no ranges and `nosniff`; denied/error responses are no-store.
+Covers use the artwork effective at the active generation's exact Work revision and
+independent current per-image clearance. A Work carries one nullable cover. Search and
+lists return the `thumbnail` variant (up to 384 × 576 and 256 KiB), and detail returns `full`
+(up to 1200 × 1200 and 2 MiB). The closed `variant` field must match the segment in the
+exact HTTPS URL. Both variants are opaque lossy `image/webp` with their own dimensions,
+length, digest and strong ETag. After the padded VP8 chunk, the sole trailing RIFF chunk
+is `CTVR` with a little-endian size of two, version byte `1`, and ASCII `T` (thumbnail)
+or `F` (full). The chunk carries no source or storage identity. The canonical active cover fixtures are
+[webp_works.json](fixtures/metadata/webp_works.json) and
+[webp_work.json](fixtures/metadata/webp_work.json). The earlier `covered_work*` metadata
+snapshots and the earlier metadata schema preserve the pre-WebP wire for source-bound CMP migration testing.
+
+GET and HEAD reproject the pinned source and verify the exact private rendition before
+any successful response. A valid matching `If-None-Match` returns an empty 304 with the
+same ETag and `public, no-cache`. A malformed or nonmatching validator receives 200 if
+the cover is admitted. Revocation, expiry, withdrawal, wrong binding and missing or
+damaged objects give anonymous `not_found` and `no-store`. No private source identity,
+rights or storage fields enter the wire. Image ranges are unavailable.
 
 ## Exact audio and byte delivery
 
@@ -49,7 +61,7 @@ stays metadata-only. An association does not rewrite any release or manifest.
 | `GET /publications/{publication}` | Public `PublicationManifest`, only for the current exact generation association |
 | `POST /publications/{publication}/playback-authorizations` | Empty body or `{}`; bounded authorization for that exact release |
 | `GET/HEAD /media/{grant}` | Origin bytes, sealed grant validation and current generation/association recheck before and after object open |
-| `GET/HEAD /works/{work}/cover/{sha256}` | Only the exact currently shown cover bytes |
+| `GET/HEAD /works/{work}/cover/{variant}/{sha256}` | Only the exact currently shown cover bytes |
 
 [Playback schema](discovery.schema.json) still owns `PublicationManifest`,
 `PlaybackAuthorization`, `ListenerError` and image facts. Earlier release-summary definitions

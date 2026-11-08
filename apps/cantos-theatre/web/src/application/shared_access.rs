@@ -227,7 +227,7 @@ mod projection_tests {
         let mut shared = SharedAccess::default();
         shared.observe(account.fence());
         let ticket = shared.catalog.begin(DiscoveryQuery::default()).unwrap();
-        let page=serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json")).unwrap();
+        let page=serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json")).unwrap();
         shared.catalog.finish(&ticket, Ok(page));
         assert!(!shared.visible_rows(&account).is_empty());
         account.begin_refresh().unwrap();
@@ -250,7 +250,7 @@ mod projection_tests {
 mod refusal_tests {
     use super::*;
     use crate::application::public_work::{CatalogReadError, Step, WorkDetailState};
-    use crate::contract::discovery::{MetadataWorkPage, PublicationManifest};
+    use crate::contract::discovery::PublicationManifest;
     use crate::core::{
         playback::Source,
         public_ids::PublicWorkId,
@@ -280,11 +280,10 @@ mod refusal_tests {
         Source::public(pinned.track(), pinned.duration_ms())
     }
     fn summary() -> crate::contract::discovery::MetadataWorkSummary {
-        let page: MetadataWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_work.json"
         ))
-        .unwrap();
-        page.items.into_iter().next().unwrap()
+        .unwrap()
     }
     /// The Shared Work read settled with `result`; `Ok` uses the fixture summary.
     fn detail(id: &str, result: Result<(), CatalogReadError>) -> WorkDetailState {

@@ -318,7 +318,7 @@ async fn v26_to_v27_preserves_existing_sample_actor_and_action() {
 }
 
 #[tokio::test]
-async fn v28_to_v29_preserves_existing_artwork_rows_and_admits_avif() {
+async fn v28_through_v37_preserves_png_and_avif_receipts_and_fences_new_writes() {
     let run = TestRun::new("media-avif-v28-v29");
     let path = run.path("server.db");
     let v28 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..28]).unwrap();
@@ -372,22 +372,25 @@ async fn v28_to_v29_preserves_existing_artwork_rows_and_admits_avif() {
     let prior = history_of(&old).await;
     drop(old);
 
-    let current = open(&path, Intent::Migrate).await.unwrap();
-    current.owner().check_integrity().await.unwrap();
-    assert_eq!(history_of(current.owner()).await[..28], prior);
+    let v36 = Registry::new(SERVER_APPLICATION_ID, SERVER_EPOCH, &MIGRATIONS[..36]).unwrap();
+    let current = OwnedDatabase::open(OpenRequest::new(&path, v36, Intent::Migrate, clock()))
+        .await
+        .unwrap();
+    current.check_integrity().await.unwrap();
+    assert_eq!(history_of(&current).await[..28], prior);
     assert_eq!(
-        values(
+        owner_values(
             &current,
             "SELECT id,content_type FROM media_image_assets ORDER BY id"
         )
         .await,
-        vec![vec![text(intent), text("image/png")]]
+        vec![vec![text(intent), text("image/png")]],
     );
 
     let avif_intent = "20000000-0000-4000-8000-000000000002";
     let avif_op = "10000000-0000-4000-8000-000000000002";
     let avif_sha = "b".repeat(64);
-    let tx = current.owner().begin_write().await.unwrap();
+    let tx = current.begin_write().await.unwrap();
     tx.execute(
         "INSERT INTO media_image_intents VALUES(?1,?2,'alice',?3,?4,322,'image/avif','cover-image-v1',0,1800000,X'7b7d',?5)",
         params_from_iter([
@@ -417,6 +420,56 @@ async fn v28_to_v29_preserves_existing_artwork_rows_and_admits_avif() {
         params_from_iter([text(work), text(&sha), text(&format!("ii-r1:sha256:{sha}"))]),
     ).await.unwrap_err();
     assert_eq!(legacy_error, guard("policy.avif_only"));
+    tx.commit().await.unwrap();
+    let history = history_of(&current).await;
+    drop(current);
+    let current = open(&path, Intent::Migrate).await.unwrap();
+    current.owner().check_integrity().await.unwrap();
+    assert_eq!(history_of(current.owner()).await[..36], history);
+    assert_eq!(
+        values(
+            &current,
+            "SELECT id,content_type,hex(document_bytes),digest FROM media_image_assets ORDER BY id"
+        )
+        .await,
+        vec![
+            vec![
+                text(intent),
+                text("image/png"),
+                text("7B7D"),
+                text(&format!("ia-r1:sha256:{sha}"))
+            ],
+            vec![
+                text(avif_intent),
+                text("image/avif"),
+                text("7B7D"),
+                text(&format!("ia-r1:sha256:{avif_sha}"))
+            ],
+        ]
+    );
+    assert!(values(&current, "SELECT * FROM media_cover_variants")
+        .await
+        .is_empty());
+    let tx = current.owner().begin_write().await.unwrap();
+    let insert = "INSERT INTO media_image_intents VALUES('20000000-0000-4000-8000-000000000099',?1,'alice','10000000-0000-4000-8000-000000000099',?2,64,?3,'cover-image-v1',0,1800000,X'7b7d',?4)";
+    for mime in ["image/avif", "image/webp"] {
+        let result = tx
+            .execute(
+                insert,
+                params_from_iter([
+                    text(work),
+                    text(&sha),
+                    text(mime),
+                    text(&format!("ii-r1:sha256:{sha}")),
+                ]),
+            )
+            .await;
+        if mime == "image/avif" {
+            assert_eq!(result.unwrap_err(), guard("policy.webp_only"));
+        } else {
+            result.unwrap();
+        }
+    }
     tx.commit().await.unwrap();
 }
 

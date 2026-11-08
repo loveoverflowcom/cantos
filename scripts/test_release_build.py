@@ -122,7 +122,7 @@ class ReleaseBuildTests(unittest.TestCase):
             release.web_archive(dist, output / "bundle.tar.gz")
             with tarfile.open(output / "bundle.tar.gz") as archive:
                 names = archive.getnames()
-            self.assertIn("assets/empty/library-expressive.avif", names)
+            self.assertIn("assets/empty/library-expressive-light.webp", names)
             self.assertIn("assets/empty/light/cantos-empty-works.svg", names)
             self.assertFalse(any(name.endswith(".md") for name in names))
 
@@ -144,9 +144,9 @@ class ReleaseBuildTests(unittest.TestCase):
             dist = output / "dist"
             dist.mkdir()
             (dist / "index.html").write_text("<html>Cantos</html>")
-            (dist / "cover.avif").write_bytes(bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
+            (dist / "cover.webp").write_bytes(bytes.fromhex(json.loads(png.read_text())["python-rgb-2x3.png"]))
             archive = output / "bundle.tar.gz"
-            with self.assertRaisesRegex(ValueError, "runtime image policy.*cover.avif.*legacy"):
+            with self.assertRaisesRegex(ValueError, "runtime image policy.*cover.webp.*legacy"):
                 release.web_archive(dist, archive)
             self.assertFalse(archive.exists())
 

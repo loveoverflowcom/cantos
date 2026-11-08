@@ -22,7 +22,7 @@ pub const SERVER_EPOCH: u32 = 1;
 
 /// Each reviewed slice appends a version; an applied version is never edited, so a candidate
 /// file built by an older head is refused as diverged instead of adopted.
-pub(crate) const MIGRATIONS: [Migration; 36] = [
+pub(crate) const MIGRATIONS: [Migration; 37] = [
     Migration {
         version: 1,
         name: "server_actor_registry",
@@ -205,6 +205,11 @@ pub(crate) const MIGRATIONS: [Migration; 36] = [
         version: 36,
         name: "server_owner_recovery_fence",
         sql: cantos_store_turso::recovery::RECOVERY_SCHEMA,
+    },
+    Migration {
+        version: 37,
+        name: "media_webp_cover_variants",
+        sql: include_str!("media_webp_cover_variants.sql"),
     },
 ];
 

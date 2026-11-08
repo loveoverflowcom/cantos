@@ -6,7 +6,8 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::contexts::catalog::domain::{OwnerId, WorkId};
 use crate::contexts::media::domain::image::{
-    sha256_valid, ImageAsset, ImageAssetId, ImageIntent, ImageIntentId, MAX_IMAGE_DOCUMENT_BYTES,
+    sha256_valid, CoverVariant, ImageAsset, ImageAssetId, ImageIntent, ImageIntentId,
+    ImageMetadata, ImageMime, MAX_IMAGE_DOCUMENT_BYTES,
 };
 use crate::platform::store::{checked_number, StoreError, Tx};
 
@@ -258,4 +259,63 @@ pub(in crate::contexts::media) async fn insert_asset(
           &d.verified_media.profile_id,&value.admitted_at_ms(),&bytes,&d.digest],
     ).await.map_err(insert_error)?;
     Ok(bytes)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(in crate::contexts::media) struct StoredCoverVariant {
+    pub variant: CoverVariant,
+    pub metadata: ImageMetadata,
+}
+
+pub(super) fn variant_row(
+    row: &Row,
+    source: &StoredImageAsset,
+) -> Result<StoredCoverVariant, StoreError> {
+    let name: String = corrupt(row.try_get("variant"))?;
+    let variant = CoverVariant::parse(&name).ok_or(StoreError::CorruptRevision)?;
+    let digest: String = corrupt(row.try_get("source_digest"))?;
+    let byte_length = u64::try_from(corrupt(row.try_get::<_, i64>("byte_length"))?)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let width = u32::try_from(corrupt(row.try_get::<_, i64>("width_px"))?)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let height = u32::try_from(corrupt(row.try_get::<_, i64>("height_px"))?)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let metadata = ImageMetadata::new(
+        corrupt(row.try_get("sha256"))?,
+        byte_length,
+        ImageMime::Webp,
+        width,
+        height,
+    )
+    .map_err(|_| StoreError::CorruptRevision)?;
+    if digest != source.asset.document().digest
+        || !variant.matches(source.asset.metadata(), &metadata)
+    {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(StoredCoverVariant { variant, metadata })
+}
+
+pub(in crate::contexts::media) async fn insert_variants(
+    tx: &Tx<'_>,
+    source: &ImageAsset,
+    target: &str,
+    variants: [crate::contexts::media::image_application::RecordedCoverVariant; 2],
+) -> Result<(), StoreError> {
+    for (expected, stored) in CoverVariant::ALL.into_iter().zip(variants) {
+        if expected != stored.variant
+            || !expected.matches(source.metadata(), &stored.metadata)
+            || stored.location.storage_target != target
+            || stored.location.object_key != stored.metadata.sha256()
+        {
+            return Err(StoreError::CorruptRevision);
+        }
+        tx.execute(
+            "INSERT INTO media_cover_variants(asset_id,source_digest,variant,sha256,byte_length,width_px,height_px) VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            &[&source.id().as_str(), &source.document().digest, &expected.as_str(),
+              &stored.metadata.sha256(), &checked_number(stored.metadata.byte_length())?,
+              &i64::from(stored.metadata.width_px()), &i64::from(stored.metadata.height_px())],
+        ).await.map_err(insert_error)?;
+    }
+    Ok(())
 }

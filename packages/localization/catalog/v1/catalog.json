@@ -13121,10 +13121,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "AVIF · 1 byte–8 MiB · mỗi chiều 1–4096 px."
+          "text": "WebP lossy · 1 byte–8 MiB · mỗi chiều 1–4096 px."
         },
         "en": {
-          "text": "AVIF · 1 byte–8 MiB · each dimension 1–4096 px."
+          "text": "WebP lossy · 1 byte–8 MiB · each dimension 1–4096 px."
         }
       }
     },
@@ -17921,10 +17921,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Chọn AVIF không rỗng, tối đa 8 MiB."
+          "text": "Chọn ảnh WebP lossy không rỗng, tối đa 8 MiB."
         },
         "en": {
-          "text": "Choose a nonempty AVIF, at most 8 MiB."
+          "text": "Choose a nonempty lossy WebP, at most 8 MiB."
         }
       }
     },
@@ -17945,10 +17945,10 @@
       "exposure": "production",
       "translations": {
         "vi-VN": {
-          "text": "Không đọc được ảnh. Hãy chọn một AVIF hợp lệ."
+          "text": "Không đọc được ảnh. Hãy chọn ảnh WebP lossy hợp lệ."
         },
         "en": {
-          "text": "Image could not be decoded. Choose a valid AVIF."
+          "text": "Image could not be decoded. Choose a valid lossy WebP."
         }
       }
     },

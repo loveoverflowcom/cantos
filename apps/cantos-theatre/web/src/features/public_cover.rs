@@ -2,7 +2,7 @@
 //!
 //! When the Work has no authorized cover (`cover: null`) or its cover fails to load (revoked,
 //! expired, withdrawn, unavailable, corrupt), the frame renders the bundled textless 2:3 celestial
-//! fallback (`assets/artwork/cantos-cover-fallback.avif`): no artwork is invented from another
+//! fallback (`assets/artwork/cantos-cover-fallback.webp`): no artwork is invented from another
 //! Work, no text/logo/chip is baked into the cover, and the title, link and playback never depend
 //! on the image. While an authorized cover is in flight, `SurfacePulse` is shown without flashing
 //! the fallback image; once loaded, only the authorized cover is shown.
@@ -10,7 +10,7 @@ use crate::contract::discovery::CoverImage;
 use cantos_ui::SurfacePulse;
 use leptos::prelude::*;
 
-pub(crate) const COVER_FALLBACK_SRC: &str = "assets/artwork/cantos-cover-fallback.avif";
+pub(crate) const COVER_FALLBACK_SRC: &str = "assets/artwork/cantos-cover-fallback.webp";
 
 /// What the listener currently sees; the markup mirrors it in `data-cover` for styling and tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,8 +47,6 @@ pub(crate) fn PublicCover(
     /// Extra frame class beyond `theatre-cover`.
     class: &'static str,
 ) -> impl IntoView {
-    let cover =
-        cover.filter(|cover| cover.content_type == crate::contract::discovery::CoverMime::Avif);
     let node = NodeRef::<leptos::html::Div>::new();
     let active = crate::platform::loading_presence(node);
     let phase = RwSignal::new(if cover.is_some() {
@@ -64,10 +62,14 @@ pub(crate) fn PublicCover(
     });
     let image = cover.map(|cover| {
         let (width, height) = (cover.width_px, cover.height_px);
+        let loading = match cover.variant {
+            crate::contract::discovery::CoverVariant::Thumbnail => "lazy",
+            crate::contract::discovery::CoverVariant::Full => "eager",
+        };
         view! {
             <Show when=move || phase.get() != CoverPhase::Failed>
                 <img class="theatre-cover-art" src=cover.url.clone() alt=cover.alt_text.clone()
-                    lang=lang.clone() width=width height=height decoding="async" loading="lazy"
+                    lang=lang.clone() width=width height=height decoding="async" loading=loading
                     referrerpolicy="no-referrer"
                     on:load=move |_| phase.set(CoverPhase::Shown)
                     on:error=move |_| phase.set(CoverPhase::Failed)/>
@@ -121,11 +123,8 @@ mod tests {
         assert!(html.contains("data-cover=\"loading\""), "{html}");
         assert!(html.contains("lang=\"vi-VN\""), "{html}");
         assert!(html.contains("referrerpolicy=\"no-referrer\""), "{html}");
-        assert!(html.contains("width=\"1200\"") && html.contains("height=\"1800\""));
-        assert!(
-            html.contains("--theatre-cover-ratio: 1200 / 1800"),
-            "{html}"
-        );
+        assert!(html.contains("width=\"384\"") && html.contains("height=\"576\""));
+        assert!(html.contains("--theatre-cover-ratio: 384 / 576"), "{html}");
         assert!(html.contains("theatre-cover-pending"), "{html}");
         assert!(!html.contains("theatre-cover-fallback-art"), "{html}");
     }
@@ -190,20 +189,5 @@ mod tests {
         assert!(frame.contains("overflow: hidden"));
         assert!(!rule(".theatre-cover-fallback-art").contains("border-radius"));
         assert!(!rule(".theatre-cover-art").contains("border-radius"));
-    }
-
-    #[test]
-    fn legacy_cover_metadata_never_emits_its_network_image_url() {
-        for mime in [
-            crate::contract::discovery::CoverMime::Png,
-            crate::contract::discovery::CoverMime::Jpeg,
-        ] {
-            let mut cover = covered();
-            cover.content_type = mime;
-            let url = cover.url.clone();
-            let html = render(Some(cover));
-            assert!(!html.contains(&url));
-            assert!(html.contains(COVER_FALLBACK_SRC));
-        }
     }
 }

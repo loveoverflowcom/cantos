@@ -17,7 +17,7 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/search", get(works))
         .route("/works/{work}", get(work))
         .route("/works/{work}/units", get(units))
-        .route("/works/{work}/cover/{sha256}", get(cover))
+        .route("/works/{work}/cover/{variant}/{sha256}", get(cover))
         .route("/publications/{publication}", get(manifest))
         .route(
             "/publications/{publication}/playback-authorizations",
@@ -260,8 +260,12 @@ pub(super) const COVER_CACHE_CONTROL: HeaderValue = HeaderValue::from_static("pu
 pub(super) fn cover_path(path: &str) -> bool {
     path.strip_prefix("/api/v1/theatre/works/")
         .and_then(|rest| rest.split_once("/cover/"))
-        .is_some_and(|(work, sha)| {
-            !work.is_empty() && !work.contains('/') && !sha.is_empty() && !sha.contains('/')
+        .is_some_and(|(work, tail)| {
+            !work.is_empty()
+                && !work.contains('/')
+                && tail.split_once('/').is_some_and(|(variant, sha)| {
+                    !variant.is_empty() && !sha.is_empty() && !sha.contains('/')
+                })
         })
 }
 
@@ -270,14 +274,14 @@ pub(super) fn cover_path(path: &str) -> bool {
 /// Ranges are not served: a `Range` header receives the full representation.
 async fn cover(
     Extension(service): Extension<ListenerService>,
-    path: Result<Path<(String, String)>, PathRejection>,
+    path: Result<Path<(String, String, String)>, PathRejection>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
-    let Ok(Path((work, sha256))) = path else {
+    let Ok(Path((work, variant, sha256))) = path else {
         return error(ListenerError::NotFound);
     };
-    let admitted = match service.admit_cover(&work, &sha256).await {
+    let admitted = match service.admit_cover(&work, &variant, &sha256).await {
         Ok(admitted) => admitted,
         Err(e) => return error(e),
     };
@@ -285,17 +289,15 @@ async fn cover(
     let Ok(etag) = HeaderValue::from_str(&etag) else {
         return error(ListenerError::Corrupt);
     };
-    let not_modified = headers
-        .get_all(header::IF_NONE_MATCH)
-        .iter()
-        .any(|value| etag_matches(value, &etag));
+    let not_modified = audio_transport::if_none_match(&headers, admitted.sha256()).unwrap_or(false);
+    // Verify the selected object and recheck disclosure after storage I/O even on a cache hit.
+    let stream = match service.open_cover(&admitted).await {
+        Ok(stream) => stream,
+        Err(_) => return error(ListenerError::NotFound),
+    };
     let mut response = if not_modified {
         StatusCode::NOT_MODIFIED.into_response()
     } else {
-        let stream = match service.open_cover(&admitted).await {
-            Ok(stream) => stream,
-            Err(e) => return error(e),
-        };
         let body = if method == Method::HEAD {
             Body::empty()
         } else {
@@ -321,17 +323,6 @@ async fn cover(
         HeaderValue::from_static("nosniff"),
     );
     response
-}
-
-/// `If-None-Match` uses weak comparison (RFC 9110 13.1.2): `*`, or any listed tag whose opaque
-/// value equals the strong cover tag.
-fn etag_matches(value: &HeaderValue, etag: &HeaderValue) -> bool {
-    let (Ok(value), Ok(etag)) = (value.to_str(), etag.to_str()) else {
-        return false;
-    };
-    value.split(',').map(str::trim).any(|candidate| {
-        candidate == "*" || candidate.strip_prefix("W/").unwrap_or(candidate) == etag
-    })
 }
 
 fn transport_error(e: audio_transport::AudioTransportError) -> ListenerError {

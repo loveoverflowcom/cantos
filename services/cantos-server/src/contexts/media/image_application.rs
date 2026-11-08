@@ -11,8 +11,8 @@ use super::{
     domain::{
         artwork::{ArtworkChangeValue, ArtworkError, SetWorkArtwork},
         image::{
-            ExpectedImage, ImageAssetId, ImageError, ImageIntentId, ImageMetadata, ImageMime,
-            PrepareImage, MAX_IMAGE_BYTES,
+            CoverVariant, ExpectedImage, ImageAssetId, ImageError, ImageIntentId, ImageMetadata,
+            ImageMime, PrepareImage, MAX_IMAGE_BYTES,
         },
     },
     image_intake::{ImageAdmission, ImageIntakeError, VerifiedImage},
@@ -166,6 +166,7 @@ pub(super) trait ArtworkRepository: Send + Sync {
         id: ImageIntentId,
         metadata: ImageMetadata,
         location: RecordedImageLocation,
+        variants: [RecordedCoverVariant; 2],
     ) -> MetadataFuture<ArtworkReceipt<dto::ImageAssetDocument>>;
     fn asset(&self, scope: OwnerWorkScope, id: ImageAssetId) -> MetadataFuture<StoredImageAsset>;
     fn artwork(
@@ -191,6 +192,11 @@ pub(super) trait ArtworkRepository: Send + Sync {
 pub(super) struct RecordedImageLocation {
     pub storage_target: String,
     pub object_key: String,
+}
+pub(super) struct RecordedCoverVariant {
+    pub variant: CoverVariant,
+    pub metadata: ImageMetadata,
+    pub location: RecordedImageLocation,
 }
 pub(super) struct OpenImage {
     pub stream: ImageByteStream,
@@ -226,7 +232,7 @@ impl ArtworkService {
     ) -> Result<ArtworkReceipt<dto::ImageIntentDocument>, ArtworkApplicationError> {
         let scope = OwnerWorkScope::new(token, work)?;
         let request = PrepareImage::admit(&raw)?;
-        request.expected().content_type().require_avif()?;
+        request.expected().content_type().require_webp()?;
         self.repository.prepare(scope, request).await
     }
     pub async fn intent(
@@ -253,7 +259,7 @@ impl ArtworkService {
         let scope = OwnerWorkScope::new(token, work)?;
         let id = ImageIntentId::parse(id)?;
         let mime = ImageMime::from(mime);
-        mime.require_avif()?;
+        mime.require_webp()?;
         let initial = self
             .repository
             .admission_context(scope.clone(), id.clone())
@@ -280,6 +286,7 @@ impl ArtworkService {
             id,
             mime,
             expected: current.intent.intent.request().expected().clone(),
+            has_asset: current.asset.is_some(),
             admission,
         })
     }
@@ -329,7 +336,7 @@ impl ArtworkService {
         }
         if let ArtworkChangeValue::Set(selection) = request.change() {
             let asset = context.asset.as_ref().ok_or(ArtworkError::MissingAsset)?;
-            asset.asset.metadata().content_type().require_avif()?;
+            asset.asset.metadata().content_type().require_webp()?;
             selection.require_asset(&context.work, &asset.asset)?;
             self.objects.verify(asset.clone()).await?;
         }
@@ -348,7 +355,7 @@ impl ArtworkService {
         let id = ImageAssetId::parse(id)?;
         let stored = self.repository.asset(scope.clone(), id.clone()).await?;
         let metadata = stored.asset.metadata().clone();
-        metadata.content_type().require_avif()?;
+        metadata.content_type().require_webp()?;
         let opened = self.objects.open(stored.clone()).await?;
         if opened.byte_length != metadata.byte_length() {
             return Err(ImageObjectError::Corrupt.into());
@@ -370,6 +377,7 @@ pub struct ImageUploadTicket {
     id: ImageIntentId,
     mime: ImageMime,
     expected: ExpectedImage,
+    has_asset: bool,
     admission: ImageAdmission,
 }
 impl ImageUploadTicket {
@@ -391,8 +399,11 @@ impl ImageUploadTicket {
         if bytes.len() as u64 != self.expected.byte_length() {
             return Err(ImageError::ExpectedLengthMismatch.into());
         }
-        let image = self.admission.inspect(bytes, self.mime).await?;
-        let metadata = image.metadata().clone();
+        let inspected = if self.has_asset {
+            None
+        } else {
+            Some(self.admission.inspect_cover(bytes, self.mime).await?)
+        };
         // Revalidate declared hash/size before any object write. The repository call ends its
         // transaction before the sealed payload crosses the actual private-object boundary.
         let context = self
@@ -401,16 +412,8 @@ impl ImageUploadTicket {
             .admission_context(self.scope.clone(), self.id.clone())
             .await?;
         validate_admission_context(&self.scope, &self.id, &context)?;
-        context
-            .intent
-            .intent
-            .request()
-            .expected()
-            .matches(&metadata)?;
         if let Some(asset) = context.asset {
-            if asset.asset.metadata() != &metadata {
-                return Err(ImageError::BindingMismatch.into());
-            }
+            self.expected.matches(asset.asset.metadata())?;
             self.service.objects.verify(asset.clone()).await?;
             let current = self
                 .service
@@ -425,11 +428,32 @@ impl ImageUploadTicket {
                 json_bytes: current.document_bytes,
             });
         }
+        let (image, [thumbnail, full]) = inspected.ok_or(StoreError::CorruptRevision)?;
+        let metadata = image.metadata().clone();
+        context
+            .intent
+            .intent
+            .request()
+            .expected()
+            .matches(&metadata)?;
         let location = self.service.objects.persist(image).await?;
+        let thumbnail = persist_variant(
+            self.service.objects.as_ref(),
+            CoverVariant::Thumbnail,
+            thumbnail,
+        )
+        .await?;
+        let full = persist_variant(self.service.objects.as_ref(), CoverVariant::Full, full).await?;
         let receipt = self
             .service
             .repository
-            .finalize(self.scope.clone(), self.id.clone(), metadata, location)
+            .finalize(
+                self.scope.clone(),
+                self.id.clone(),
+                metadata,
+                location,
+                [thumbnail, full],
+            )
             .await?;
         // Another equal admission may have committed on a different recorded target while
         // this write was in flight. Verify the authoritative accepted target, then reauthorize.
@@ -450,6 +474,20 @@ impl ImageUploadTicket {
         }
         Ok(receipt)
     }
+}
+
+pub(super) async fn persist_variant(
+    objects: &dyn ImageObjects,
+    variant: CoverVariant,
+    image: VerifiedImage,
+) -> Result<RecordedCoverVariant, ImageObjectError> {
+    let metadata = image.metadata().clone();
+    let location = objects.persist(image).await?;
+    Ok(RecordedCoverVariant {
+        variant,
+        metadata,
+        location,
+    })
 }
 
 pub struct PrivateImagePreview {

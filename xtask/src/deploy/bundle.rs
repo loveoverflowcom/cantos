@@ -31,9 +31,8 @@ pub const INDEX_LIMIT: u64 = 256 * 1024;
 /// How many leading bytes of each file the scan keeps for type checks.
 pub const HEAD_BYTES: usize = 64;
 
-const ALLOWED_EXTENSIONS: [&str; 16] = [
-    "html", "js", "wasm", "css", "json", "svg", "avif", "png", "webp", "jpg", "jpeg", "gif", "ico",
-    "woff", "woff2", "txt",
+const ALLOWED_EXTENSIONS: [&str; 10] = [
+    "html", "js", "wasm", "css", "json", "svg", "webp", "woff", "woff2", "txt",
 ];
 /// Names that are valid JSON but never public content of a Cantos web bundle.
 const PRIVATE_NAMES: [&str; 5] = [
@@ -923,14 +922,14 @@ mod tests {
     }
 
     #[test]
-    fn avif_assets_are_inventoried_for_both_apps_and_static_providers() {
-        let avif = include_bytes!("../../../scripts/fixtures/runtime-images/red-2x3.avif");
+    fn webp_assets_are_inventoried_for_both_apps_and_static_providers() {
+        let webp = include_bytes!("../../../scripts/fixtures/runtime-images/red-2x3.webp");
         for app in [App::Theatre, App::Studio] {
             for provider in [Provider::Firebase, Provider::Pages] {
                 let mut scan = good_scan(app);
-                let asset = file("assets/artwork/cover.avif", avif);
+                let asset = file("assets/artwork/cover.webp", webp);
                 scan.files.push(asset.clone());
-                let manifest = validate_for(app, &scan, provider).expect("AVIF static bundle");
+                let manifest = validate_for(app, &scan, provider).expect("WebP static bundle");
                 assert!(manifest.files.contains(&ManifestFile {
                     path: asset.path,
                     size: asset.size,
@@ -941,8 +940,8 @@ mod tests {
     }
 
     #[test]
-    fn avif_suffix_does_not_admit_an_html_page() {
-        let path = "assets/artwork/cover.avif";
+    fn webp_suffix_does_not_admit_an_html_page() {
+        let path = "assets/artwork/cover.webp";
         for app in [App::Theatre, App::Studio] {
             for provider in [Provider::Firebase, Provider::Pages] {
                 let mut scan = good_scan(app);

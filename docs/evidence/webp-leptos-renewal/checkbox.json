@@ -1,0 +1,31 @@
+{
+  "component_id": "checkbox",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex, 2026-11-08; automated, bounded gallery renewal",
+  "reference": "Current gallery and byte-equivalent baseline. Prior source-bound record: docs/evidence/ui-requalification-737-checkbox-leptos.json.",
+  "tokens_sha256": "79294511da18b463bd20056aa70cda914d488c43d6ccaabf0b398184b4fc1218",
+  "source_sha256": "840af4080c5a7bd010ceda5e72b919a4e8ed2a58f5aa85b21482d45d7fe13cc4",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify; compare the resolved WASM Cargo tree",
+      "artifact": "docs/evidence/webp-leptos-renewal/README.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "Build the baseline and current Trunk galleries and compare with diff -qr; mount the current gallery in headless Chrome CDP",
+      "artifact": "docs/evidence/webp-leptos-renewal/README.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "Inspect the Chrome Accessibility tree and recipe focus; reuse the previous observations for byte-identical gallery output",
+      "artifact": "docs/evidence/webp-leptos-renewal/README.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "Open current light and dark 390 CSS px specimens; compare the complete gallery bundle with the qualified source",
+      "artifact": "docs/evidence/webp-leptos-renewal/README.md"
+    }
+  }
+}

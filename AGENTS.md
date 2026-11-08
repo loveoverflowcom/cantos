@@ -123,7 +123,7 @@ Skills own working method; `docs/` owns product rules. Keep one copy of each ski
 
 ## Runtime images
 
-Follow the canonical [image policy](docs/design/runtime-images.md): AVIF raster, SVG/native
+Follow the canonical [image policy](docs/design/runtime-images.md): opaque lossy WebP raster, SVG/native
 vector resources, explicit documentation-only legacy and recorded Media migration gaps.
 The owner permits Xcode-generated compatibility PNGs from `.icon`/SVG for the iOS launcher
 only; source PNGs and legacy content fallbacks remain disallowed. Audit bytes and consumers

@@ -1,3 +1,13 @@
+# Private image intake vectors
+
+The red, green and blue 2 × 3 positive fixtures are synthetic opaque RGB pixels
+encoded as VP8 using cwebp 1.5.0, quality 84 and method 6.
+`webp-rejections.json` contains actual VP8L, alpha and two-frame animation bytes
+from cwebp and webpmux. PNG/JPEG and the following frozen AVIF files are rejection
+vectors for current intake.
+
+## Historical AVIF derivation
+
 # Synthetic image fixtures
 
 The three original PNG/JPEG positive fixtures were converted to actual AVIF under #607.

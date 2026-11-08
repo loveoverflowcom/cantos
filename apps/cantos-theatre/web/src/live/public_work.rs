@@ -192,8 +192,8 @@ mod tests {
     use super::*;
 
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
-    const WORKS: &str = include_str!(
-        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+    const WORK_DETAIL: &str = include_str!(
+        "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_work.json"
     );
     const UNITS: &str = include_str!(
         "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/presented_units.json"
@@ -228,8 +228,7 @@ mod tests {
         PublicWorkId::parse(WORK).unwrap()
     }
     fn work_body() -> Vec<u8> {
-        let page: serde_json::Value = serde_json::from_str(WORKS).unwrap();
-        serde_json::to_vec(&page["items"][0]).unwrap()
+        WORK_DETAIL.as_bytes().to_vec()
     }
     /// The shared continuation/republish fixtures predate `ordinal`; rank their rows in list
     /// order as the presentation capability does. Anything that is not such a page is untouched.

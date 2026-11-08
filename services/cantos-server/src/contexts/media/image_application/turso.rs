@@ -65,9 +65,10 @@ impl ArtworkRepository for TursoArtworkRepository {
         id: ImageIntentId,
         metadata: ImageMetadata,
         location: RecordedImageLocation,
+        variants: [super::RecordedCoverVariant; 2],
     ) -> MetadataFuture<ArtworkReceipt<dto::ImageAssetDocument>> {
         let store = self.0.clone();
-        Box::pin(async move { finalize(&store, &scope, &id, metadata, location).await })
+        Box::pin(async move { finalize(&store, &scope, &id, metadata, location, variants).await })
     }
     fn asset(
         &self,
@@ -346,6 +347,7 @@ async fn finalize(
     id: &ImageIntentId,
     metadata: ImageMetadata,
     location: RecordedImageLocation,
+    variants: [super::RecordedCoverVariant; 2],
 ) -> Result<ArtworkReceipt<dto::ImageAssetDocument>, ArtworkApplicationError> {
     let mut connection = store.connection().await?;
     let tx = connection.transaction().await.map_err(StoreError::from)?;
@@ -384,6 +386,7 @@ async fn finalize(
                 &location.object_key,
             )
             .await?;
+            image_sql::insert_variants(&tx, &asset, &location.storage_target, variants).await?;
             // Time can advance while awaiting INSERT/locks; expire before commit and roll back
             // metadata while retaining only the immutable private orphan from earlier I/O.
             intent

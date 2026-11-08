@@ -105,7 +105,7 @@ pub fn ArtworkForm(
                 })}
             </figure>
             <div class="artwork-replacement"><h4>{move ||label(Key::Replacement)}</h4>
-                <NativeFilePicker id="artwork-file" accept="image/avif"
+                <NativeFilePicker id="artwork-file" accept="image/webp"
                     label=Signal::derive(move ||label(Key::File)) help=Signal::derive(move ||label(Key::Bounds))
                     error=Signal::derive(move ||file_problem().map(|p|copy::problem(p,locale.get()).to_owned()))
                     status=Signal::derive(move ||model.with(|m|m.local.as_ref().map(|file|

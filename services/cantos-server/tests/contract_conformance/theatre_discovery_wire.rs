@@ -260,8 +260,10 @@ fn cover_fixtures_bind_url_to_their_work_and_bytes_and_cover_both_states() {
         let Some(cover) = &work.cover else { continue };
         shown += 1;
         let suffix = format!(
-            "/api/v1/theatre/works/{}/cover/{}",
-            work.work_id, cover.sha256
+            "/api/v1/theatre/works/{}/cover/{}/{}",
+            work.work_id,
+            cover.variant.as_str(),
+            cover.sha256
         );
         assert!(cover.url.ends_with(&suffix), "{}", cover.url);
     }

@@ -489,6 +489,7 @@
         "url",
         "sha256",
         "content_type",
+        "variant",
         "width_px",
         "height_px",
         "byte_length",
@@ -498,33 +499,30 @@
         "url": {
           "type": "string",
           "maxLength": 4096,
-          "pattern": "^https://[^\\s/?#@]+/api/v1/theatre/works/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/cover/[a-f0-9]{64}$"
+          "pattern": "^https://[^\\s/?#@]+/api/v1/theatre/works/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/cover/(thumbnail|full)/[a-f0-9]{64}$"
         },
         "sha256": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
         "content_type": {
-          "enum": [
-            "image/png",
-            "image/jpeg",
-            "image/avif"
-          ]
+          "const": "image/webp"
         },
+        "variant": {"enum": ["thumbnail", "full"]},
         "width_px": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 4096
+          "maximum": 1200
         },
         "height_px": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 4096
+          "maximum": 1200
         },
         "byte_length": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 8388608
+          "maximum": 2097152
         },
         "alt_text": {
           "type": "string",

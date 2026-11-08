@@ -155,8 +155,17 @@ impl PublicMediaOrigin {
         format!("{}{THEATRE_BASE}/{lane}/{token}", self.0)
     }
     /// The accepted Discovery v1.2 cover URL; clients use it exactly as given (ADR 0033).
-    pub(super) fn cover_url(&self, work_id: &str, sha256: &str) -> String {
-        format!("{}{THEATRE_BASE}/works/{work_id}/cover/{sha256}", self.0)
+    pub(super) fn cover_url(
+        &self,
+        work_id: &str,
+        variant: crate::contract::theatre::discovery::CoverVariant,
+        sha256: &str,
+    ) -> String {
+        format!(
+            "{}{THEATRE_BASE}/works/{work_id}/cover/{}/{sha256}",
+            self.0,
+            variant.as_str()
+        )
     }
 }
 

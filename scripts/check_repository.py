@@ -1681,8 +1681,7 @@ def check(base=None):
     image_errors, image_debt = runtime_image_failures(ROOT, names)
     errors += image_errors
     if image_debt:
-        print(f"Image policy migration gaps (#607): {len(image_debt)} frozen Media fixtures; "
-              "repository PASS is prevention of new source debt, not full runtime compliance.")
+        print(f"Image policy integration: {len(image_debt)} pinned CMP AVIF resources pending PR2.")
 
     from native_table_ownership import repository_failures as native_ownership_failures
     errors += native_ownership_failures(ROOT)

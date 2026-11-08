@@ -1,4 +1,4 @@
-//! Exact v27 prefix to v36 on real Turso. Synthetic files only, never live restore evidence.
+//! Exact v27 prefix to current schema on real Turso. Synthetic files only, never live restore evidence.
 use super::{
     historical::{history_of, owner_values},
     *,
@@ -110,8 +110,8 @@ async fn snapshot(owner: &OwnedDatabase, tables: &[String]) -> BTreeMap<String, 
 }
 
 #[tokio::test]
-async fn v27_to_v36_preserves_every_baseline_table_and_revocation_and_is_repeatable() {
-    let run = TestRun::new("historical-v27-v36");
+async fn v27_to_current_preserves_every_baseline_table_and_revocation_and_is_repeatable() {
+    let run = TestRun::new("historical-v27-current");
     let path = run.path("server.db");
     let old = OwnedDatabase::open(OpenRequest::new(&path, v27(), Intent::Migrate, clock()))
         .await
@@ -127,7 +127,7 @@ async fn v27_to_v36_preserves_every_baseline_table_and_revocation_and_is_repeata
         refused(&path, Intent::Serve).await,
         ServerDatabaseError::Open(OpenError::Refused(Refusal::PendingMigrations {
             applied: 27,
-            latest: 36
+            latest: 37
         }))
     );
     assert_eq!(bytes(&path), unchanged);
@@ -136,7 +136,7 @@ async fn v27_to_v36_preserves_every_baseline_table_and_revocation_and_is_repeata
         current.owner().check_integrity().await.unwrap();
         assert_eq!(snapshot(current.owner(), &tables).await, before);
         let applied = history_of(current.owner()).await;
-        assert_eq!(applied.len(), 36);
+        assert_eq!(applied.len(), 37);
         assert_eq!(applied[..27], history);
         assert_eq!(
             values(&current, "SELECT active FROM actors WHERE id='bob'").await,
@@ -186,7 +186,7 @@ async fn v27_to_v36_preserves_every_baseline_table_and_revocation_and_is_repeata
         Err(error) => assert_eq!(
             error,
             OpenError::Refused(Refusal::NewerThanBinary {
-                applied: 36,
+                applied: 37,
                 known: 27
             })
         ),
@@ -356,7 +356,7 @@ async fn migrating_a_stale_copy_cannot_reconstruct_post_cut_revocation() {
     );
     let stale = open(&copy, Intent::Migrate).await.unwrap();
     stale.owner().check_integrity().await.unwrap();
-    assert_eq!(history_of(stale.owner()).await.len(), 36);
+    assert_eq!(history_of(stale.owner()).await.len(), 37);
     // This demonstrates the unsafe state. It must never be labelled restore PASS.
     assert_eq!(
         values(

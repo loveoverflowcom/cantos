@@ -271,7 +271,7 @@ mod recovery_tests {
                     shared.observe(account.fence());
                     let first = shared.catalog.begin(DiscoveryQuery::default()).unwrap();
                     let request = if tail_failure {
-                        let mut page: crate::contract::discovery::MetadataWorkPage = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json")).unwrap();
+                        let mut page: crate::contract::discovery::MetadataWorkPage = serde_json::from_str(include_str!("../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_works.json")).unwrap();
                         page.next_cursor=Some("page-two".into());
                         shared.catalog.finish(&first, Ok(page));
                         shared.catalog.load_more().unwrap()

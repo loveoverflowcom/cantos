@@ -348,8 +348,8 @@ async fn upload(
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
     {
-        Some("image/avif") if !request.headers().contains_key(header::CONTENT_ENCODING) => {
-            dto::ImageMime::Avif
+        Some("image/webp") if !request.headers().contains_key(header::CONTENT_ENCODING) => {
+            dto::ImageMime::Webp
         }
         _ => {
             return failure(

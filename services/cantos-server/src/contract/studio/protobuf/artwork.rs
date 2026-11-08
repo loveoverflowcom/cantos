@@ -43,6 +43,7 @@ impl From<ImageMime> for generated::ImageMime {
             ImageMime::Png => Self::Png,
             ImageMime::Jpeg => Self::Jpeg,
             ImageMime::Avif => Self::Avif,
+            ImageMime::Webp => Self::Webp,
         }
     }
 }
@@ -53,6 +54,7 @@ impl TryFrom<i32> for ImageMime {
             generated::ImageMime::Png => Ok(Self::Png),
             generated::ImageMime::Jpeg => Ok(Self::Jpeg),
             generated::ImageMime::Avif => Ok(Self::Avif),
+            generated::ImageMime::Webp => Ok(Self::Webp),
             generated::ImageMime::Unspecified => Err(DecodeError::Shape),
         }
     }

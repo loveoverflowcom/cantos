@@ -137,6 +137,7 @@ pub enum ImageMime {
     Png = 1,
     Jpeg = 2,
     Avif = 3,
+    Webp = 4,
 }
 impl ImageMime {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -149,6 +150,7 @@ impl ImageMime {
             Self::Png => "IMAGE_MIME_PNG",
             Self::Jpeg => "IMAGE_MIME_JPEG",
             Self::Avif => "IMAGE_MIME_AVIF",
+            Self::Webp => "IMAGE_MIME_WEBP",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -158,6 +160,7 @@ impl ImageMime {
             "IMAGE_MIME_PNG" => Some(Self::Png),
             "IMAGE_MIME_JPEG" => Some(Self::Jpeg),
             "IMAGE_MIME_AVIF" => Some(Self::Avif),
+            "IMAGE_MIME_WEBP" => Some(Self::Webp),
             _ => None,
         }
     }

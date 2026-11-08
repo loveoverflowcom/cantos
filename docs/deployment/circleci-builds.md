@@ -179,6 +179,6 @@ Official references: [configuration](https://circleci.com/docs/reference/configu
 [contexts](https://circleci.com/docs/guides/security/contexts/).
 
 New Web archive production follows the [runtime image policy](../design/runtime-images.md):
-AVIF/SVG assets, with actual signature checks before packaging. The version-2 archive reader
+lossy WebP/SVG assets, with actual signature checks before packaging. The version-2 archive reader
 accepts AVIF additively and retains historical legacy suffix compatibility for retained records;
 that does not permit producing a new bundle with legacy raster. No publish/deploy is implied.

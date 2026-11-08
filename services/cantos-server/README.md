@@ -260,15 +260,13 @@ only exposes the existing clock seam to these fixtures; runtime builds do not en
 The fixed six-Work sample and non-login principals remain separate. `cargo xtask seed dataset`
 never provisions an Identity/Studio account or changes production schemas/search.
 
-### AVIF-only image admission (#607)
+### Lossy WebP cover admission and delivery
 
-New artwork and public-cover delivery follow [runtime image policy](../../docs/design/runtime-images.md).
-The inspector links pinned dav1d Rust bindings to libdav1d>=1.3: build hosts need pkg-config
-and development headers, deployed Server needs the shared library. OCI source packages and
-Rust CI include them. Header parsing precedes real AV1 pixel decoding of every item of the admitted profile: a
-single primary or an ImageGrid, with an optional alpha image, one picture at a time. Historical receipts
-and registered migrations are preserved; migration30 only guards future admission/selection.
-
+The [runtime policy](../../docs/design/runtime-images.md) owns the opaque VP8 input and
+two immutable renditions. Migration 37 preserves receipts and requires WebP for new
+admission and selection. Disclosure continues to bind to the source digest. The
+[Theatre contract](contracts/theatre/discovery/v1/README.md) owns the exact variant URL
+and conditional delivery.
 
 S06 adds the private [viewer access](contracts/studio/viewer-access/v1/README.md) and
 [Theatre claim](contracts/theatre/viewer-access/v1/README.md) control planes on `server.db` v33.

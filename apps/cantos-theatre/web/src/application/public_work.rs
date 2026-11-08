@@ -66,7 +66,11 @@ pub fn validate_work(work: &MetadataWorkSummary, expected: PublicWorkId) -> bool
     PublicWorkId::parse(&work.work_id) == Some(expected)
         && !work.title.trim().is_empty()
         && !work.language.trim().is_empty()
-        && crate::application::public_cover::work_is_admitted(work, expected)
+        && crate::application::public_cover::work_is_admitted(
+            work,
+            expected,
+            crate::contract::discovery::CoverVariant::Full,
+        )
 }
 
 /// Page-local checks shared by the HTTP decoder and the state machine.
@@ -493,12 +497,10 @@ mod tests {
         PublicWorkId::parse(WORK).unwrap()
     }
     fn work_summary() -> MetadataWorkSummary {
-        let page: crate::contract::discovery::MetadataWorkPage =
-            serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_work.json"
         ))
-            .unwrap();
-        page.items.into_iter().next().unwrap()
+        .unwrap()
     }
     fn unit(n: u128, position: u32) -> MetadataUnitSummary {
         MetadataUnitSummary {

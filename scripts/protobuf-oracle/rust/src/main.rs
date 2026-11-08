@@ -187,6 +187,7 @@ fn enumeration(value: &Value, field: &str) -> Option<i32> {
         "image/png" | "pending" => 1,
         "image/jpeg" | "admitted" => 2,
         "image/avif" | "expired" => 3,
+        "image/webp" => 4,
         other => panic!("unknown enum value {other}"),
     })
 }

@@ -1115,7 +1115,7 @@ fn UnitActions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::discovery::{MetadataUnitPage, MetadataWorkPage};
+    use crate::contract::discovery::MetadataUnitPage;
     use crate::{
         application::public_work::{CatalogReadError, Step},
         core::public_ids::PublicWorkId,
@@ -1125,11 +1125,10 @@ mod tests {
     const WORK: &str = "10000000-0000-4000-8000-000000000001";
 
     fn fixture_work() -> MetadataWorkSummary {
-        let page: MetadataWorkPage = serde_json::from_str(include_str!(
-            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/covered_works.json"
+        serde_json::from_str(include_str!(
+            "../../../../../services/cantos-server/contracts/theatre/discovery/v1/fixtures/metadata/webp_work.json"
         ))
-        .unwrap();
-        page.items.into_iter().next().unwrap()
+        .unwrap()
     }
     fn fixture_units() -> MetadataUnitPage {
         serde_json::from_str(include_str!(
@@ -1440,7 +1439,7 @@ mod tests {
         assert!(!html.contains("theatre-cover-art"), "{html}");
         assert!(html.contains("theatre-cover-fallback-art"), "{html}");
         assert!(
-            html.contains("assets/artwork/cantos-cover-fallback.avif"),
+            html.contains("assets/artwork/cantos-cover-fallback.webp"),
             "{html}"
         );
         assert!(!html.contains("theatre-cover-moon"), "{html}");

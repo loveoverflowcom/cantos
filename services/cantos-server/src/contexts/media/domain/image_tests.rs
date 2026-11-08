@@ -12,7 +12,7 @@ fn request() -> dto::CreateImageIntentRequest {
         id: INTENT.into(),
         expected_sha256: "a".repeat(64),
         expected_byte_length: 67,
-        content_type: dto::ImageMime::Avif,
+        content_type: dto::ImageMime::Webp,
         declarations: dto::ImageDeclarations {
             provenance: "Prepared cover".into(),
             rights_refs: vec!["rights-z".into(), "rights-a".into()],
@@ -29,7 +29,7 @@ fn intent() -> ImageIntent {
     .unwrap()
 }
 fn metadata() -> ImageMetadata {
-    ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap()
+    ImageMetadata::new("a".repeat(64), 67, ImageMime::Webp, 2, 3).unwrap()
 }
 
 #[test]
@@ -135,30 +135,30 @@ fn closed_profiles_and_canonical_ids_reject_alias_spellings() {
 fn expected_metadata_accepts_only_canonical_hash_and_bounded_encoded_size() {
     for hash in ["".into(), "A".repeat(64), "a".repeat(63), "g".repeat(64)] {
         assert_eq!(
-            ExpectedImage::new(hash, 1, ImageMime::Avif),
+            ExpectedImage::new(hash, 1, ImageMime::Webp),
             Err(ImageError::InvalidHash)
         );
     }
     assert_eq!(
-        ExpectedImage::new("a".repeat(64), 0, ImageMime::Avif),
+        ExpectedImage::new("a".repeat(64), 0, ImageMime::Webp),
         Err(ImageError::EmptyImage)
     );
     assert_eq!(
-        ImageMetadata::new("a".repeat(64), 1, ImageMime::Avif, 0, 1),
+        ImageMetadata::new("a".repeat(64), 1, ImageMime::Webp, 0, 1),
         Err(ImageError::InvalidDimensions)
     );
-    let expected = ExpectedImage::new("a".repeat(64), 67, ImageMime::Avif).unwrap();
-    assert_eq!(ImageMime::parse("image/avif"), Ok(ImageMime::Avif));
-    assert_eq!(ImageMime::Avif.as_str(), "image/avif");
-    assert_eq!(ImageMime::Avif.document(), dto::ImageMime::Avif);
-    assert_eq!(ImageMime::from(dto::ImageMime::Avif), ImageMime::Avif);
+    let expected = ExpectedImage::new("a".repeat(64), 67, ImageMime::Webp).unwrap();
+    assert_eq!(ImageMime::parse("image/webp"), Ok(ImageMime::Webp));
+    assert_eq!(ImageMime::Webp.as_str(), "image/webp");
+    assert_eq!(ImageMime::Webp.document(), dto::ImageMime::Webp);
+    assert_eq!(ImageMime::from(dto::ImageMime::Webp), ImageMime::Webp);
     assert_eq!(expected.matches(&metadata()), Ok(()));
     assert_eq!(
-        expected.matches(&ImageMetadata::new("b".repeat(64), 67, ImageMime::Avif, 2, 3).unwrap()),
+        expected.matches(&ImageMetadata::new("b".repeat(64), 67, ImageMime::Webp, 2, 3).unwrap()),
         Err(ImageError::ExpectedHashMismatch)
     );
     assert_eq!(
-        expected.matches(&ImageMetadata::new("a".repeat(64), 68, ImageMime::Avif, 2, 3).unwrap()),
+        expected.matches(&ImageMetadata::new("a".repeat(64), 68, ImageMime::Webp, 2, 3).unwrap()),
         Err(ImageError::ExpectedLengthMismatch)
     );
     assert_eq!(
@@ -255,16 +255,16 @@ fn intent_and_asset_digests_match_independent_ordered_python_literals() {
     let intent = intent();
     assert_eq!(
         intent.document().digest,
-        "ii-r1:sha256:28299cfb55060c24ca1beb129fbcc83a9e049608d85781820faa44d033f94c87"
+        "ii-r1:sha256:e595202db58f857364ceaa5ba1cf7debbac0fa4b7c5895aa890a607be119519c"
     );
     assert_eq!(
         intent.request().fingerprint(intent.work_id()).unwrap(),
-        "image-operation1:sha256:986d6ad04f10fe2cd35fa43b38ad4c28b18025adc883f4b03eb34e7d7e9726c3"
+        "image-operation1:sha256:4c7d945566620c6ed6e98ecd2cb5f74d30522677d784366c29d42476eeb4b479"
     );
     let asset = ImageAsset::create(&intent, metadata(), 101).unwrap();
     assert_eq!(
         asset.digest(),
-        "ia-r1:sha256:55fd5d3a78884838a0e874d2caebb4e51b9e9bf72a0b6a07c0982919aa840587"
+        "ia-r1:sha256:142360cd490e1943a1b13f7f1e6aa6b008ac552d62282aeb6caec1530837433b"
     );
     assert_eq!(
         ImageIntent::restore(intent.document().clone()).unwrap(),
@@ -430,7 +430,7 @@ fn admission_replays_exact_receipt_after_expiry_and_refuses_metadata_changes() {
     assert_eq!(
         decide_image_admission(
             &intent,
-            &ImageMetadata::new("a".repeat(64), 67, ImageMime::Avif, 3, 2).unwrap(),
+            &ImageMetadata::new("a".repeat(64), 67, ImageMime::Webp, 3, 2).unwrap(),
             Some(&original),
             102,
         ),

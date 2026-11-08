@@ -29,7 +29,7 @@
       "enum": [
         "image/png",
         "image/jpeg",
-        "image/avif"
+        "image/avif", "image/webp"
       ]
     },
     "ImageIntentState": {

@@ -24,7 +24,8 @@ pub(crate) fn EmptyArtwork(kind: EmptyArtworkKind) -> impl IntoView {
             paired_empty_artwork("works").into_any()
         } else { view! {
             <div class="theatre-empty-artwork" data-artwork="library" aria-hidden="true">
-                <img src="assets/empty/library-expressive.avif" alt="" width="1374" height="1145" decoding="async" on:error=move |_| failed.set(true)/>
+                <img class="theatre-empty-artwork-light" src="assets/empty/library-expressive-light.webp" alt="" width="512" height="427" decoding="async" loading="lazy" on:error=move |_| failed.set(true)/>
+                <img class="theatre-empty-artwork-dark" src="assets/empty/library-expressive-dark.webp" alt="" width="512" height="427" decoding="async" loading="lazy" on:error=move |_| failed.set(true)/>
             </div>
         }.into_any() }).into_any(),
         EmptyArtworkKind::Works => paired_empty_artwork("works").into_any(),
@@ -128,8 +129,8 @@ pub(crate) fn progress_percent(position_ms: u32, duration_seconds: u32) -> u8 {
 /// keep the typographic cover.
 pub(crate) fn artwork_src(id: WorkId) -> Option<&'static str> {
     match id {
-        WorkId::Mountain => Some("assets/artwork/son-ha-ky.avif"),
-        WorkId::River => Some("assets/artwork/den-khuya.avif"),
+        WorkId::Mountain => Some("assets/artwork/son-ha-ky.webp"),
+        WorkId::River => Some("assets/artwork/den-khuya.webp"),
         WorkId::Dream => None,
     }
 }
