@@ -1170,6 +1170,7 @@ mod tests {
                 Finding::UnexpectedType("episode.opus".into()),
             ),
             ("script.sh", Finding::UnexpectedType("script.sh".into())),
+            ("cover.avif", Finding::UnexpectedType("cover.avif".into())),
             ("noextension", Finding::UnexpectedType("noextension".into())),
             ("other.html", Finding::UnexpectedType("other.html".into())),
         ] {
@@ -1212,23 +1213,23 @@ mod tests {
         let mut big = good_theatre();
         big.files.push(FileFacts {
             size: MAX_FILE_BYTES + 1,
-            ..file("big.png", b"\x89PNG")
+            ..file("big.woff2", b"wOF2")
         });
         let found = findings(App::Theatre, &big);
-        assert!(found.contains(&Finding::FileTooLarge("big.png".into())));
+        assert!(found.contains(&Finding::FileTooLarge("big.woff2".into())));
         let mut total = good_theatre();
         for index in 0..5 {
             total.files.push(FileFacts {
                 size: MAX_FILE_BYTES,
-                ..file(&format!("part{index}.png"), b"\x89PNG")
+                ..file(&format!("part{index}.woff2"), b"wOF2")
             });
         }
         assert!(findings(App::Theatre, &total)
             .iter()
             .any(|f| matches!(f, Finding::TotalTooLarge(_))));
         let mut empty = good_theatre();
-        empty.files.push(file("zero.png", b""));
-        assert!(findings(App::Theatre, &empty).contains(&Finding::EmptyFile("zero.png".into())));
+        empty.files.push(file("zero.txt", b""));
+        assert!(findings(App::Theatre, &empty).contains(&Finding::EmptyFile("zero.txt".into())));
     }
 
     #[test]
