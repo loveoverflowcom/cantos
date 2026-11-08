@@ -51,8 +51,8 @@ class PublicCatalogWireDriftTest {
 
     @Test
     fun all_current_generation_fixtures_and_playback_contracts_round_trip() {
-        roundTrip(MetadataWorkPageWire.serializer(), "metadata/covered_works.json")
-        roundTrip(MetadataWorkWire.serializer(), "metadata/covered_work.json")
+        roundTrip(MetadataWorkPageWire.serializer(), "metadata/webp_works.json")
+        roundTrip(MetadataWorkWire.serializer(), "metadata/webp_work.json")
         for (name in listOf("metadata/presented_units.json", "metadata/units_republished.json")) roundTrip(MetadataUnitPageWire.serializer(), name)
         for (name in listOf("metadata/unreleased.json", "metadata/released.json")) roundTrip(MetadataUnitWire.serializer(), name)
         roundTrip(MetadataWorkPageWire.serializer(), "empty.json")
@@ -62,7 +62,7 @@ class PublicCatalogWireDriftTest {
 
     @Test
     fun replaced_release_only_shapes_are_rejected_by_current_readers() {
-        for (file in listOf("works.json", "presented_works.json", "cover/covered_works.json")) {
+        for (file in listOf("works.json", "presented_works.json", "cover/covered_works.json", "metadata/covered_works.json")) {
             assertFailsWith<SerializationException>(file) { catalogJson.decodeFromString(MetadataWorkPageWire.serializer(), fixtures.getValue(file)) }
         }
         for (file in listOf("units.json", "presented_units.json")) {
@@ -91,7 +91,7 @@ class PublicCatalogWireDriftTest {
         for (changes in listOf(mapOf("private_owner" to JsonPrimitive("secret")), mapOf("ordinal" to JsonPrimitive("1")), mapOf("position" to JsonPrimitive(0.5)), mapOf("kind" to JsonPrimitive("unknown")))) {
             assertFailsWith<SerializationException> { catalogJson.decodeFromString(MetadataUnitWire.serializer(), JsonObject(raw + changes).toString()) }
         }
-        val work = Json.parseToJsonElement(fixtures.getValue("metadata/covered_work.json")).jsonObject
+        val work = Json.parseToJsonElement(fixtures.getValue("metadata/webp_work.json")).jsonObject
         assertFailsWith<SerializationException> { catalogJson.decodeFromString(MetadataWorkWire.serializer(), JsonObject(work - "cover").toString()) }
         assertFailsWith<SerializationException> { catalogJson.decodeFromString(MetadataWorkPageWire.serializer(), """{"items":[]}""") }
         assertNotNull(catalogJson.decodeFromString(MetadataWorkWire.serializer(), work.toString()).cover)

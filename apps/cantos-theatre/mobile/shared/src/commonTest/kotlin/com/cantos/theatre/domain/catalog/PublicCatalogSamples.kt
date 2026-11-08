@@ -27,8 +27,8 @@ object PublicCatalogSamples {
     fun cover(n: Int, alt: String = "Bìa của tác phẩm $n: ngọn đèn vàng trên sân khấu tối."): PublicCover {
         val sha = n.toString(16).padStart(64, 'a')
         return PublicCover.of(
-            workId(n), "https://api.cantos.example/api/v1/theatre/works/${workId(n).value}/cover/$sha", sha,
-            CoverContentType.Png, 1024, 1536, 4_096, alt,
+            workId(n), "https://api.cantos.example/api/v1/theatre/works/${workId(n).value}/cover/full/$sha", sha,
+            CoverContentType.Webp, CoverVariant.Full, 800, 1200, 4_096, alt,
         ).valid()
     }
 

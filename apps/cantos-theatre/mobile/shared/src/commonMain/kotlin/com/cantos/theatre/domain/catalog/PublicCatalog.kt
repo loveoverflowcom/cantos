@@ -100,11 +100,13 @@ val PublicWorkKind.unitKind: PublicUnitKind
     }
 
 /** The three image types the Server admits for a public cover. */
-enum class CoverContentType(val mime: String) { Png("image/png"), Jpeg("image/jpeg"), Avif("image/avif") }
+enum class CoverContentType(val mime: String) { Webp("image/webp") }
 
-/** Bounds the Server enforces on every cover (private Artwork v1 admission); no resize exists. */
-const val MaxCoverDimensionPx: Long = 4096
-const val MaxCoverBytes: Long = 8_388_608
+enum class CoverVariant(val path: String, val maxWidth: Int, val maxHeight: Int, val maxBytes: Int) {
+    Thumbnail("thumbnail", 384, 576, 262_144),
+    Full("full", 1200, 1200, 2_097_152),
+}
+
 const val MaxCoverAltTextBytes: Int = 1024
 
 private val sha256Hex = Regex("^[0-9a-f]{64}$")
@@ -122,16 +124,17 @@ class PublicCover private constructor(
     val url: String,
     val sha256: String,
     val contentType: CoverContentType,
+    val variant: CoverVariant,
     val widthPx: Int,
     val heightPx: Int,
     val byteLength: Int,
     val altText: String,
 ) {
     override fun equals(other: Any?): Boolean = other is PublicCover && work == other.work && url == other.url &&
-        sha256 == other.sha256 && contentType == other.contentType && widthPx == other.widthPx &&
+        sha256 == other.sha256 && contentType == other.contentType && variant == other.variant && widthPx == other.widthPx &&
         heightPx == other.heightPx && byteLength == other.byteLength && altText == other.altText
 
-    override fun hashCode(): Int = listOf(work, url, sha256, contentType, widthPx, heightPx, byteLength, altText).hashCode()
+    override fun hashCode(): Int = listOf(work, url, sha256, contentType, variant, widthPx, heightPx, byteLength, altText).hashCode()
     override fun toString(): String = "PublicCover(work=${work.value}, sha256=$sha256, $contentType ${widthPx}x$heightPx)"
 
     companion object {
@@ -140,29 +143,30 @@ class PublicCover private constructor(
             url: String,
             sha256: String,
             contentType: CoverContentType,
+            variant: CoverVariant,
             widthPx: Long,
             heightPx: Long,
             byteLength: Long,
             altText: String,
         ): CatalogCheck<PublicCover> = when {
-            !sha256Hex.matches(sha256) || widthPx !in 1..MaxCoverDimensionPx || heightPx !in 1..MaxCoverDimensionPx ||
-                byteLength !in 1..MaxCoverBytes || altText.isBlank() ||
+            !sha256Hex.matches(sha256) || widthPx !in 1..variant.maxWidth.toLong() || heightPx !in 1..variant.maxHeight.toLong() ||
+                byteLength !in 1..variant.maxBytes.toLong() || altText.isBlank() ||
                 altText.encodeToByteArray().size > MaxCoverAltTextBytes -> CatalogCheck.Invalid(CatalogViolation.InvalidCover)
-            !isCoverRoute(url, work, sha256) -> CatalogCheck.Invalid(CatalogViolation.CoverUrlMismatch)
+            !isCoverRoute(url, work, variant, sha256) -> CatalogCheck.Invalid(CatalogViolation.CoverUrlMismatch)
             else -> CatalogCheck.Valid(
-                PublicCover(work, url, sha256, contentType, widthPx.toInt(), heightPx.toInt(), byteLength.toInt(), altText),
+                PublicCover(work, url, sha256, contentType, variant, widthPx.toInt(), heightPx.toInt(), byteLength.toInt(), altText),
             )
         }
 
-        /** `https://{authority}/api/v1/theatre/works/{work}/cover/{sha256}` and nothing else. */
-        private fun isCoverRoute(url: String, work: PublicWorkId, sha256: String): Boolean {
+        /** `https://{authority}/api/v1/theatre/works/{work}/cover/{variant}/{sha256}` and nothing else. */
+        private fun isCoverRoute(url: String, work: PublicWorkId, variant: CoverVariant, sha256: String): Boolean {
             if (url.length > 4096 || !url.startsWith("https://")) return false
             val rest = url.removePrefix("https://")
             val slash = rest.indexOf('/')
             if (slash <= 0) return false
             val authority = rest.substring(0, slash)
             if (authority.any { it.isWhitespace() || it.isISOControl() || it == '?' || it == '#' || it == '@' || it == '\\' }) return false
-            return rest.substring(slash) == "/api/v1/theatre/works/${work.value}/cover/$sha256"
+            return rest.substring(slash) == "/api/v1/theatre/works/${work.value}/cover/${variant.path}/$sha256"
         }
     }
 }

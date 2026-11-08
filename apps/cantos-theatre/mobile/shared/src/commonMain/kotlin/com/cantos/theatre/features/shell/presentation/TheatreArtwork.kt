@@ -10,7 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,10 +27,13 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.resources.Res
 import com.cantos.theatre.resources.noto_sans_bold
@@ -70,7 +77,7 @@ sealed interface CoverLoad {
  * pipeline supplies none and every cover keeps the fallback.
  */
 fun interface CoverImageSource {
-    suspend fun load(cover: ShellCover): CoverLoad
+    suspend fun load(cover: ShellCover, widthPx: Int, heightPx: Int): CoverLoad
 }
 
 val LocalCoverImages = androidx.compose.runtime.staticCompositionLocalOf<CoverImageSource?> { null }
@@ -99,13 +106,13 @@ internal fun WorkArtwork(
     if (supplied != null && cover == null) supplied(id, modifier, shape) else ArtworkFallback(modifier, shape)
 }
 
-internal const val CoverFallbackResourcePath: String = "files/artwork/cantos_cover_fallback.avif"
+internal const val CoverFallbackResourcePath: String = "files/artwork/cantos_cover_fallback.webp"
 
 internal sealed interface CoverFallbackArt {
     data object Loading : CoverFallbackArt
     data class Ready(val image: ImageBitmap) : CoverFallbackArt
 
-    /** The platform cannot decode the packaged AVIF: the vector backdrop is the fallback. */
+    /** The platform cannot decode the packaged WebP: the vector backdrop is the fallback. */
     data object Unavailable : CoverFallbackArt
 }
 
@@ -227,10 +234,21 @@ private fun CoverArtwork(
 ) {
     // A digest does not grant another Work's authorization. Recreate the state when any
     // disclosed fact or the host source changes, so no old image survives the next pending read.
-    val loaded by key(cover, source) {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val artwork = modifier.onSizeChanged { measured ->
+        // Physical-pixel buckets keep minor layout movement from remounting the request.
+        size = IntSize(
+            measured.width.coerceAtMost(1200).let { ((it + 31) / 32) * 32 },
+            measured.height.coerceAtMost(1200).let { ((it + 31) / 32) * 32 },
+        )
+    }
+    val loaded by key(cover, source, size) {
         produceState<CoverLoad?>(null) {
+            if (size.width == 0 || size.height == 0) return@produceState
+            // Let the measured placeholder and Search input reach a frame first.
+            withFrameNanos { }
             value = try {
-                source.load(cover)
+                source.load(cover, size.width, size.height)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -241,7 +259,7 @@ private fun CoverArtwork(
     val revealed by animateFloatAsState(if (loaded is CoverLoad.Ready) 1f else 0f,
         loadingRevealFor(LocalUiPreferences.current.motion).toAnimationSpec(), label = "cover-reveal")
     when (val result = loaded) {
-        is CoverLoad.Ready -> Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
+        is CoverLoad.Ready -> Surface(artwork, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
             Image(
                 bitmap = result.bitmap,
                 contentDescription = cover.altText,
@@ -249,7 +267,9 @@ private fun CoverArtwork(
                 contentScale = contentScale,
             )
         }
-        null -> RequestPulse(modifier, shape = shape)
-        CoverLoad.Unavailable -> ArtworkFallback(modifier, shape)
+        null -> if (cover.variant == ShellCoverVariant.Thumbnail) {
+            Surface(artwork, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {}
+        } else RequestPulse(artwork, shape = shape)
+        CoverLoad.Unavailable -> ArtworkFallback(artwork, shape)
     }
 }

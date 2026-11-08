@@ -60,6 +60,8 @@ data class ShellWork(
     val cover: ShellCover? = null,
 )
 
+enum class ShellCoverVariant { Thumbnail, Full }
+
 /**
  * A public cover as the screens need it: the Server's URL exactly as given plus the facts the
  * image read is verified against, and the alt text. Built only from a validated domain cover;
@@ -73,6 +75,7 @@ data class ShellCover(
     val widthPx: Int,
     val heightPx: Int,
     val altText: String,
+    val variant: ShellCoverVariant,
 )
 
 /**

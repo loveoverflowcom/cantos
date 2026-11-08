@@ -25,6 +25,7 @@ import com.cantos.theatre.features.shell.presentation.CoverLoad
 import com.cantos.theatre.features.shell.presentation.LocalCoverImages
 import com.cantos.theatre.presentation.model.ShellCatalogView
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.cantos.theatre.presentation.model.ShellEpisodeId
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
@@ -47,8 +48,9 @@ class PublicCoverPresentationTest {
     private val none = ShellEpisodeId("none", ShellWorkId("none"))
 
     private fun cover(tag: String, alt: String) = ShellCover(
-        url = "https://api.cantos.example/api/v1/theatre/works/$tag/cover/${tag.padEnd(64, 'a')}",
-        sha256 = tag.padEnd(64, 'a'), byteLength = 1, mime = "image/png", widthPx = 300, heightPx = 450, altText = alt,
+        url = "https://api.cantos.example/api/v1/theatre/works/$tag/cover/thumbnail/${tag.padEnd(64, 'a')}",
+        sha256 = tag.padEnd(64, 'a'), byteLength = 1, mime = "image/webp", widthPx = 300, heightPx = 450, altText = alt,
+        variant = ShellCoverVariant.Thumbnail,
     )
 
     private val shown = ShellWork(
@@ -71,7 +73,7 @@ class PublicCoverPresentationTest {
         canvas.drawCircle(Offset(150f, 170f), 80f, paint)
     }
 
-    private val source = CoverImageSource { cover -> if (cover.sha256.startsWith("c")) CoverLoad.Unavailable else CoverLoad.Ready(artwork) }
+    private val source = CoverImageSource { cover, _, _ -> if (cover.sha256.startsWith("c")) CoverLoad.Unavailable else CoverLoad.Ready(artwork) }
 
     private fun ComposeUiTest.mount(state: ShellState, events: MutableList<ShellEvent> = mutableListOf()) {
         setContent {

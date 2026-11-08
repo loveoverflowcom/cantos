@@ -87,8 +87,8 @@ class PublicCatalogTest {
     }
 
     private fun cover(work: PublicWorkId = workId(1), sha: String = "a".repeat(64), url: String? = null) = PublicCover.of(
-        work, url ?: "https://api.cantos.example/api/v1/theatre/works/${work.value}/cover/$sha", sha,
-        CoverContentType.Png, 1024, 1024, 4096, "Bìa Ánh đèn cuối sân khấu",
+        work, url ?: "https://api.cantos.example/api/v1/theatre/works/${work.value}/cover/full/$sha", sha,
+        CoverContentType.Webp, CoverVariant.Full, 1024, 1024, 4096, "Bìa Ánh đèn cuối sân khấu",
     )
 
     @Test

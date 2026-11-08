@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import com.cantos.theatre.presentation.model.ShellWorkId
-import com.cantos.theatre.adapters.image.decodeBundledAvif
+import com.cantos.theatre.adapters.image.decodeBundledWebp
 import com.cantos.theatre.features.shell.presentation.ArtworkFallback
 import com.cantos.theatre.features.shell.presentation.LocalBundledImageDecoder
 import com.cantos.theatre.features.shell.presentation.LocalWorkArtwork
@@ -22,14 +22,14 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun WithPreviewArtwork(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalBundledImageDecoder provides ::decodeBundledAvif, LocalWorkArtwork provides { id, modifier, shape -> PreviewWorkArtwork(id, modifier, shape) }, content = content)
+    CompositionLocalProvider(LocalBundledImageDecoder provides ::decodeBundledWebp, LocalWorkArtwork provides { id, modifier, shape -> PreviewWorkArtwork(id, modifier, shape) }, content = content)
 }
 
 @Composable
 private fun PreviewWorkArtwork(id: ShellWorkId, modifier: Modifier, shape: Shape) {
     val path = when (id) {
-        PreviewWorkIds.SonHa -> "files/artwork/son_ha_moon.avif"
-        PreviewWorkIds.DenKhua -> "files/artwork/den_khuya.avif"
+        PreviewWorkIds.SonHa -> "files/artwork/son_ha_moon.webp"
+        PreviewWorkIds.DenKhua -> "files/artwork/den_khuya.webp"
         else -> null
     }
     val bitmap by produceState<ImageBitmap?>(null, path) {
@@ -46,7 +46,7 @@ private fun PreviewWorkArtwork(id: ShellWorkId, modifier: Modifier, shape: Shape
 }
 
 internal suspend fun loadArtwork(path: String): ImageBitmap? = try {
-    withContext(Dispatchers.Default) { decodeBundledAvif(Res.readBytes(path)) }
+    withContext(Dispatchers.Default) { decodeBundledWebp(Res.readBytes(path)) }
 } catch (cancelled: CancellationException) {
     throw cancelled
 } catch (_: Exception) {

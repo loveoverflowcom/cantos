@@ -36,11 +36,12 @@ class JvmCatalogTransport(
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", request.accept)
                 connection.setRequestProperty("Cookie", "")
+                request.ifNoneMatch?.let { connection.setRequestProperty("If-None-Match", it) }
                 val status = connection.responseCode
                 if (connection.contentLengthLong > request.maxBodyBytes) throw CatalogResponseTooLargeException()
                 val stream = if (status >= 400) connection.errorStream else connection.inputStream
                 val bytes = stream?.use { it.readAtMost(request.maxBodyBytes) } ?: ByteArray(0)
-                if (continuation.isActive) continuation.resume(CatalogHttpResponse(status, connection.contentType, bytes))
+                if (continuation.isActive) continuation.resume(CatalogHttpResponse(status, connection.contentType, bytes, connection.getHeaderField("ETag")))
             } catch (failure: Exception) {
                 if (continuation.isActive) continuation.resumeWithException(if (failure is java.net.SocketTimeoutException) CatalogTimeoutException() else failure)
             } finally {

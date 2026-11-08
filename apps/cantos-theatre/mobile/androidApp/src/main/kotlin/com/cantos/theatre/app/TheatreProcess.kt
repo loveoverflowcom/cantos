@@ -64,7 +64,7 @@ internal class AndroidProductionOwner(context: Context, val origin: ApiOrigin, s
     val catalog = PublicCatalogController(scope, PublicCatalogHttpAdapter(origin, JvmCatalogTransport(), cache), { cache?.invalidate() })
         .also { it.dispatch(PublicCatalogIntent.Start) }
     /** Anonymous, verified cover reads; decoded images live in memory only. */
-    val coverImages = CoverImages(PublicCoverHttp(JvmCatalogTransport()), AndroidCoverDecoder, System::currentTimeMillis)
+    val coverImages = CoverImages(scope, PublicCoverHttp(JvmCatalogTransport()), AndroidCoverDecoder)
     private val account = createAndroidNativeAccount(scope, app, origin)
     private val authorizedHttp = NativeAuthorizedHttpPort(scope, origin, account, http)
     private val library = store?.let { nativeLibraryController(scope, NativeLibraryClient(origin, authorizedHttp), it,
