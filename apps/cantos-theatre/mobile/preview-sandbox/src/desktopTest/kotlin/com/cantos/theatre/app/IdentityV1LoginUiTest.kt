@@ -68,7 +68,8 @@ class IdentityV1LoginUiTest {
         // v4.3 removed the promotional composition entirely, in both locales' copy.
         onNodeWithTag("auth-brand").assertDoesNotExist()
         for (text in listOf("CANTOS", "Close your eyes", "Sign in to return to your library")) onAllNodesWithText(text, substring = true).assertCountEquals(0)
-        onNodeWithTag("back").assertExists(); onNodeWithTag("auth-theme").assertExists()
+        onNodeWithTag("back").assertExists(); onNodeWithTag("guest-theme").assertExists(); onNodeWithTag("guest-language").assertExists()
+        onNodeWithTag("auth-theme").assertDoesNotExist()
     }
     @Test fun the_password_eye_is_a_48dp_in_field_control_that_never_submits_or_moves_focus() = run { h ->
         input()

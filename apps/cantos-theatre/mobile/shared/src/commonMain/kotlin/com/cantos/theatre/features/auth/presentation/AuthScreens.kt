@@ -4,19 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.material3.Icon as MaterialIcon
-import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,7 +68,6 @@ import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.tonalAuthActions
-import com.cantos.ui.rememberCantosIconVector
 import com.cantos.ui.tokenDp
 
 
@@ -90,7 +85,6 @@ sealed interface AuthIntent {
     data object OpenLibrary : AuthIntent
     data object OpenMembership : AuthIntent
     data object OpenSettings : AuthIntent
-    data object ToggleTheme : AuthIntent
     data object Logout : AuthIntent
     data object Back : AuthIntent
 }
@@ -125,6 +119,11 @@ fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
     }
 }
 
+/**
+ * The one auth header row: Back | Cantos | preferences. The shell supplies [preferences] (the guest
+ * Theme + Language owner); this header renders no theme state or toggle of its own, so an auth route
+ * can never show a second theme control. The logo yields width before Back or a preference control.
+ */
 @Composable
 fun AuthHeader(
     locale: ShellLocale,
@@ -132,6 +131,7 @@ fun AuthHeader(
     destination: AuthReturn,
     onIntent: (AuthIntent) -> Unit,
     modifier: Modifier = Modifier,
+    preferences: @Composable () -> Unit = {},
 ) {
     val copy = AuthCopy(locale)
     AuthTonalScope {
@@ -146,18 +146,15 @@ fun AuthHeader(
                 AccessibleName.of(copy.text(destination.label)), { onIntent(AuthIntent.Back) },
                 iconOnly = true, controlModifier = Modifier.testTag("back"),
             )
-            Logo(
-                modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
-                tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
-                accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
-            )
-            Spacer(Modifier.weight(1f))
-            MaterialIconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
-                MaterialIcon(
-                    if (theme == ShellTheme.Dark) rememberCantosIconVector("light_mode") else rememberCantosIconVector("dark_mode"),
-                    contentDescription = copy.text(AuthText.ToggleTheme),
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                Logo(
+                    modifier = Modifier.widthIn(max = tokenDp("size.authLogo")).fillMaxWidth()
+                        .heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
+                    tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
+                    accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
                 )
             }
+            preferences()
         }
     }
 }

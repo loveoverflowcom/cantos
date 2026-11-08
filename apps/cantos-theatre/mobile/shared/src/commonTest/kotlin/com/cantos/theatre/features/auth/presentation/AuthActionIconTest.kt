@@ -14,7 +14,7 @@ class AuthActionIconTest {
             AuthIntent.RestoreSession to "refresh", AuthIntent.RetryCleanup to "refresh",
             AuthIntent.OpenHome to "home", AuthIntent.Logout to "logout", AuthIntent.Back to "arrow_back",
             AuthIntent.OpenLibrary to "arrow_forward", AuthIntent.OpenMembership to "arrow_forward",
-            AuthIntent.OpenSettings to "settings", AuthIntent.ToggleTheme to null,
+            AuthIntent.OpenSettings to "settings",
         )
         expected.forEach { (intent, glyph) ->
             assertEquals(glyph, authActionIcon(intent), "$intent")
