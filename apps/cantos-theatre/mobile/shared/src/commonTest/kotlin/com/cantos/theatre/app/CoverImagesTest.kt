@@ -5,9 +5,9 @@ import com.cantos.theatre.adapters.http.CoverBytes
 import com.cantos.theatre.adapters.http.CoverBytesSource
 import com.cantos.theatre.adapters.http.CoverRequest
 import com.cantos.theatre.adapters.image.CoverDecoder
-import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.features.shell.presentation.CoverLoad
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,10 +24,10 @@ import kotlin.test.assertSame
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CoverImagesTest {
-    private fun cover(n: Int, work: Int = 1, variant: CoverVariant = CoverVariant.Thumbnail): ShellCover {
+    private fun cover(n: Int, work: Int = 1, variant: ShellCoverVariant = ShellCoverVariant.Thumbnail): ShellCover {
         val digest = n.toString().padStart(64, '0')
         return ShellCover(
-            url = "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-00000000000$work/cover/${variant.path}/$digest",
+            url = "https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-00000000000$work/cover/${variant.name.lowercase()}/$digest",
             sha256 = digest, byteLength = 74, mime = "image/webp", widthPx = 384, heightPx = 576,
             altText = "Bìa $n", variant = variant,
         )
@@ -85,7 +85,7 @@ class CoverImagesTest {
         val source = Source()
         val loader = images(source)
         loader.thumb(cover(1))
-        for (other in listOf(cover(1, work = 2), cover(1, variant = CoverVariant.Full), cover(1).copy(byteLength = 75))) {
+        for (other in listOf(cover(1, work = 2), cover(1, variant = ShellCoverVariant.Full), cover(1).copy(byteLength = 75))) {
             assertIs<CoverLoad.Ready>(loader.thumb(other))
             assertNull(source.requests.last().ifNoneMatch)
         }

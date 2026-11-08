@@ -8,6 +8,7 @@ import com.cantos.theatre.application.catalog.WalkPhase
 import com.cantos.theatre.application.playback.NativeSelection
 import com.cantos.theatre.domain.catalog.PublicUnit
 import com.cantos.theatre.domain.catalog.PublicCover
+import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.domain.catalog.PublicWork
 import com.cantos.theatre.domain.catalog.PublicWorkKind
 import com.cantos.theatre.domain.catalog.PublicUnitKind
@@ -55,6 +56,7 @@ import com.cantos.theatre.presentation.model.ShellTimer
 import com.cantos.theatre.presentation.model.ShellSearchKind
 import com.cantos.theatre.presentation.model.ShellUnitKind
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.cantos.theatre.presentation.model.ShellWork
 import com.cantos.theatre.presentation.model.ShellWorkId
 
@@ -452,7 +454,17 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 }
 
 private fun shellCover(cover: PublicCover) = ShellCover(
-    cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText, cover.variant,
+    url = cover.url,
+    sha256 = cover.sha256,
+    byteLength = cover.byteLength,
+    mime = cover.contentType.mime,
+    widthPx = cover.widthPx,
+    heightPx = cover.heightPx,
+    altText = cover.altText,
+    variant = when (cover.variant) {
+        CoverVariant.Thumbnail -> ShellCoverVariant.Thumbnail
+        CoverVariant.Full -> ShellCoverVariant.Full
+    },
 )
 
 private fun LibraryWorkKind.toPublic(): PublicWorkKind = when (this) {

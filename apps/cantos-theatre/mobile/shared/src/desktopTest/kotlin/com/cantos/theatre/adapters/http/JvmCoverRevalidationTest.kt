@@ -3,9 +3,9 @@ package com.cantos.theatre.adapters.http
 import com.cantos.theatre.adapters.image.CoverDecoder
 import com.cantos.theatre.adapters.image.SkiaCoverDecoder
 import com.cantos.theatre.app.CoverImages
-import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.features.shell.presentation.CoverLoad
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.test.runTest
 import java.net.InetSocketAddress
@@ -60,7 +60,7 @@ class JvmCoverRevalidationTest {
         try {
             val cover = ShellCover(
                 "http://127.0.0.1:${peer.address.port}/cover", sha, bytes.size, "image/webp", 2, 3,
-                "Bìa thử nghiệm", CoverVariant.Thumbnail,
+                "Bìa thử nghiệm", ShellCoverVariant.Thumbnail,
             )
             val loader = CoverImages(this, PublicCoverHttp(JvmCatalogTransport()), CoverDecoder { body, edge ->
                 decodes.incrementAndGet()

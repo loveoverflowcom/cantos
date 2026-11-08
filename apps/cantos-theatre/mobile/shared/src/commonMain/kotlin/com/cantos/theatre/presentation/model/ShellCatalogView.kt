@@ -1,7 +1,5 @@
 package com.cantos.theatre.presentation.model
 
-import com.cantos.theatre.domain.catalog.CoverVariant
-
 /** Opaque presentation identity; supplied metadata defines its meaning. */
 data class ShellWorkId(val value: String) {
     init { require(value.isNotBlank()) }
@@ -62,6 +60,8 @@ data class ShellWork(
     val cover: ShellCover? = null,
 )
 
+enum class ShellCoverVariant { Thumbnail, Full }
+
 /**
  * A public cover as the screens need it: the Server's URL exactly as given plus the facts the
  * image read is verified against, and the alt text. Built only from a validated domain cover;
@@ -75,7 +75,7 @@ data class ShellCover(
     val widthPx: Int,
     val heightPx: Int,
     val altText: String,
-    val variant: CoverVariant,
+    val variant: ShellCoverVariant,
 )
 
 /**

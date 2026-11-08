@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.resources.Res
 import com.cantos.theatre.resources.noto_sans_bold
@@ -267,7 +267,7 @@ private fun CoverArtwork(
                 contentScale = contentScale,
             )
         }
-        null -> if (cover.variant == CoverVariant.Thumbnail) {
+        null -> if (cover.variant == ShellCoverVariant.Thumbnail) {
             Surface(artwork, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {}
         } else RequestPulse(artwork, shape = shape)
         CoverLoad.Unavailable -> ArtworkFallback(artwork, shape)

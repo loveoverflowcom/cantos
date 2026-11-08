@@ -5,9 +5,11 @@ import com.cantos.theatre.adapters.http.CoverBytes
 import com.cantos.theatre.adapters.http.CoverBytesSource
 import com.cantos.theatre.adapters.http.CoverRequest
 import com.cantos.theatre.adapters.image.CoverDecoder
+import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.features.shell.presentation.CoverImageSource
 import com.cantos.theatre.features.shell.presentation.CoverLoad
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -45,7 +47,11 @@ class CoverImages(
 
     override suspend fun load(cover: ShellCover, widthPx: Int, heightPx: Int): CoverLoad {
         if (widthPx <= 0 || heightPx <= 0 || cover.widthPx <= 0 || cover.heightPx <= 0) return CoverLoad.Unavailable
-        val request = CoverRequest(cover.url, cover.sha256, cover.byteLength, cover.mime, cover.variant, cover.widthPx, cover.heightPx)
+        val variant = when (cover.variant) {
+            ShellCoverVariant.Thumbnail -> CoverVariant.Thumbnail
+            ShellCoverVariant.Full -> CoverVariant.Full
+        }
+        val request = CoverRequest(cover.url, cover.sha256, cover.byteLength, cover.mime, variant, cover.widthPx, cover.heightPx)
         // Crop uses the larger scale. Clamp it to the source and bucket physical edges so
         // small layout changes during IME/viewport movement do not start another decode.
         val scale = maxOf(widthPx.toDouble() / cover.widthPx, heightPx.toDouble() / cover.heightPx).coerceAtMost(1.0)

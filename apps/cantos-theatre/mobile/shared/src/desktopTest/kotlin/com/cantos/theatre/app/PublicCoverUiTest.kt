@@ -51,6 +51,7 @@ import com.cantos.theatre.ports.PublicCatalogPort
 import com.cantos.theatre.ports.PublicCatalogRead
 import com.cantos.theatre.ports.StreamingMediaEngine
 import com.cantos.theatre.presentation.model.ShellCover
+import com.cantos.theatre.presentation.model.ShellCoverVariant
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.UiPreferences
@@ -132,7 +133,7 @@ class PublicCoverUiTest {
 
     private fun shellCover(n: Int): ShellCover {
         val cover = sample.cover(n)
-        return ShellCover(cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText, cover.variant)
+        return ShellCover(cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText, ShellCoverVariant.Full)
     }
 
     private fun androidx.compose.ui.test.ComposeUiTest.mountArtwork(cover: () -> ShellCover, source: () -> CoverImageSource) {
