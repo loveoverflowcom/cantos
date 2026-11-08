@@ -56,7 +56,9 @@ verifies status, content type, length and SHA-256 before decoding; `CoverImages`
 32 MiB in-memory LRU, nothing on disk) feeds the `WorkArtwork` seam on Discovery cards and the Work
 detail. Loading pulses only its cover slot; `null`, 404/503/mismatch/decode failure keep the decorative tonal fallback
 and never block the title, navigation or playback; preview mock artwork is never a production
-fallback. Android decodes with `BitmapFactory`; **iOS has no cover boundary yet** (its URLSession
+fallback. The shell decodes its bundled fallback AVIF once on a background dispatcher and
+shares the bitmap across routes and artwork slots. Android decodes with `BitmapFactory`;
+**iOS has no cover boundary yet** (its URLSession
 bridge carries `String` bodies), so iOS shows the fallback. Player, mini-player and Library artwork
 are unchanged. Only desktop JVM tests and an Android debug compile were run; no emulator, device or
 real-server image read.
