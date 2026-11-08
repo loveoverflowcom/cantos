@@ -3,6 +3,7 @@ package com.cantos.theatre.features.shell.presentation
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -27,11 +28,11 @@ internal enum class TheatreEmptyArtworkKind { Library, Works, History }
 /** Bundled artwork, chosen from the injected app preference; no request, tint or extra spoken name. */
 @Composable
 internal fun TheatreEmptyArtwork(kind: TheatreEmptyArtworkKind, theme: ShellTheme, modifier: Modifier = Modifier) {
-    // AVIF is a raw resource: the pinned Compose drawable generator does not admit .avif.
-    // A decoder failure uses the existing native vector, never a legacy raster fallback.
     val decoder = LocalBundledImageDecoder.current
-    val library by produceState<ImageBitmap?>(null, kind, decoder) {
-        if (kind == TheatreEmptyArtworkKind.Library) value = loadLibraryArtwork(decoder)
+    val library by key(kind, theme, decoder) {
+        produceState<ImageBitmap?>(null) {
+            if (kind == TheatreEmptyArtworkKind.Library) value = loadLibraryArtwork(theme, decoder)
+        }
     }
     val bitmap = library
     if (kind == TheatreEmptyArtworkKind.Library && bitmap != null) {
@@ -51,8 +52,9 @@ internal fun TheatreEmptyArtwork(kind: TheatreEmptyArtworkKind, theme: ShellThem
     Image(painterResource(resource), contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit)
 }
 
-internal suspend fun loadLibraryArtwork(decoder: (ByteArray) -> ImageBitmap?): ImageBitmap? = try {
-    withContext(Dispatchers.Default) { decoder(Res.readBytes("files/artwork/library_expressive.avif")) }
+internal suspend fun loadLibraryArtwork(theme: ShellTheme, decoder: (ByteArray) -> ImageBitmap?): ImageBitmap? = try {
+    val name = if (theme == ShellTheme.Dark) "dark" else "light"
+    withContext(Dispatchers.Default) { decoder(Res.readBytes("files/artwork/library_expressive_$name.webp")) }
 } catch (cancelled: CancellationException) {
     throw cancelled
 } catch (_: Exception) {

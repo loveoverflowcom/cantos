@@ -452,7 +452,7 @@ private class WorkBuilder(private val known: KnownCatalog, private val copy: She
 }
 
 private fun shellCover(cover: PublicCover) = ShellCover(
-    cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText,
+    cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText, cover.variant,
 )
 
 private fun LibraryWorkKind.toPublic(): PublicWorkKind = when (this) {

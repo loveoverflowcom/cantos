@@ -10,6 +10,8 @@ import com.cantos.theatre.adapters.http.CatalogHttpResponse
 import com.cantos.theatre.adapters.http.CatalogHttpTransport
 import com.cantos.theatre.adapters.http.CatalogResponseTooLargeException
 import com.cantos.theatre.adapters.http.PublicCatalogHttpAdapter
+import com.cantos.theatre.adapters.http.PublicCoverHttp
+import com.cantos.theatre.adapters.image.IosCoverDecoder
 import com.cantos.theatre.adapters.http.selectPackagedApiOrigin
 import com.cantos.theatre.adapters.preferences.IosLocalePreferenceStore
 import com.cantos.theatre.application.catalog.PublicCatalogController
@@ -24,7 +26,12 @@ import com.cantos.theatre.adapters.library.iosLibraryStore
 import com.cantos.theatre.adapters.playback.IosMediaDriver
 import com.cantos.theatre.adapters.playback.IosMediaEngine
 import com.cantos.theatre.adapters.library.nativeLibraryController
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
+import platform.Foundation.NSData
 import platform.Foundation.NSDate
+import platform.posix.memcpy
 import platform.Foundation.NSUUID
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
 import com.cantos.theatre.ports.NativeRequestHandle
@@ -41,7 +48,13 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /** Only the Swift URLSession boundary supplies these foreign outcomes. No credentials. */
-class IosCatalogReply(val status: Int, val contentType: String?, val body: String?, val failure: String?)
+class IosCatalogReply(
+    val status: Int,
+    val contentType: String?,
+    val body: NSData?,
+    val etag: String?,
+    val failure: String?,
+)
 
 interface IosCatalogPlatform {
     fun sendCatalog(request: CatalogHttpRequest, completion: (IosCatalogReply) -> Unit): NativeRequestHandle
@@ -53,11 +66,13 @@ private class IosCatalogTransport(private val platform: IosCatalogPlatform) : Ca
             if (continuation.isActive) {
                 when (reply.failure) {
                     "oversized" -> continuation.resumeWithException(CatalogResponseTooLargeException())
-                    "malformed" -> continuation.resume(CatalogHttpResponse(reply.status, reply.contentType, byteArrayOf(-1)))
                     null -> {
                         val body = reply.body
-                        if (body == null) continuation.resumeWithException(IllegalStateException("Missing catalog body"))
-                        else continuation.resume(CatalogHttpResponse(reply.status, reply.contentType, body.encodeToByteArray()))
+                        when {
+                            body == null -> continuation.resumeWithException(IllegalStateException("Missing catalog body"))
+                            body.length > request.maxBodyBytes.toULong() -> continuation.resumeWithException(CatalogResponseTooLargeException())
+                            else -> continuation.resume(CatalogHttpResponse(reply.status, reply.contentType, body.catalogBytes(), reply.etag))
+                        }
                     }
                     else -> continuation.resumeWithException(IllegalStateException("Catalog transport unavailable"))
                 }
@@ -66,6 +81,12 @@ private class IosCatalogTransport(private val platform: IosCatalogPlatform) : Ca
         continuation.invokeOnCancellation { handle.cancel() }
     }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+private fun NSData.catalogBytes(): ByteArray =
+    ByteArray(length.toInt()).also { output ->
+        if (output.isNotEmpty()) output.usePinned { memcpy(it.addressOf(0), bytes, length) }
+    }
 
 /** Process-owned production catalog. A cold empty catalog creates no playback or demo state. */
 class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
@@ -81,9 +102,11 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
         try { iosLibraryStore(applicationSupportDirectory) } catch (_: Exception) { null }
     }
     private val cache = store?.let { AccountCatalogCache(it) { accountScope } }
+    private val catalogTransport = IosCatalogTransport(platform)
+    private val coverImages = CoverImages(scope, PublicCoverHttp(catalogTransport), IosCoverDecoder)
     private val catalog = when (val origin = selectedOrigin) {
         is HostOrigin.Ready -> PublicCatalogController(scope,
-            PublicCatalogHttpAdapter(origin.origin, IosCatalogTransport(platform), cache), { cache?.invalidate() })
+            PublicCatalogHttpAdapter(origin.origin, catalogTransport, cache), { cache?.invalidate() })
             .also { it.dispatch(PublicCatalogIntent.Start) }
         is HostOrigin.Refused -> null
     }
@@ -127,7 +150,7 @@ class IosCatalogOwner(apiOrigin: String?, platform: IosCatalogPlatform,
         val owner = shell
         if (owner == null) CantosListeningUnavailable(ui, locale = locale.locale.toShellLocale(),
             fault = (selectedOrigin as? HostOrigin.Refused)?.fault)
-        else CantosTheatreApp(owner, cache = cache)
+        else CantosTheatreApp(owner, cache = cache, coverImages = coverImages)
     }
 
     private fun reloadCatalogForAccount() { catalog?.dispatch(PublicCatalogIntent.AccountChanged) }

@@ -204,7 +204,7 @@ fun LiveEnrollmentPreview(origin: ApiOrigin) {
     val owners = remember(origin) { LiveEnrollmentOwners(scope, origin) }
     DisposableEffect(owners) { onDispose { owners.close() } }
     CantosTheme(UiPreferences()) {
-        val covers = remember { CoverImages(PublicCoverHttp(JvmCatalogTransport()), SkiaCoverDecoder, System::currentTimeMillis) }
+        val covers = remember { CoverImages(scope, PublicCoverHttp(JvmCatalogTransport()), SkiaCoverDecoder) }
         CantosTheatreApp(owners.shell, cache = owners.cache, coverImages = covers)
     }
 }

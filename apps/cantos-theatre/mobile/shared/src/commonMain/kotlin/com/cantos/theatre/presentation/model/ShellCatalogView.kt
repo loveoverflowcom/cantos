@@ -1,5 +1,7 @@
 package com.cantos.theatre.presentation.model
 
+import com.cantos.theatre.domain.catalog.CoverVariant
+
 /** Opaque presentation identity; supplied metadata defines its meaning. */
 data class ShellWorkId(val value: String) {
     init { require(value.isNotBlank()) }
@@ -73,6 +75,7 @@ data class ShellCover(
     val widthPx: Int,
     val heightPx: Int,
     val altText: String,
+    val variant: CoverVariant,
 )
 
 /**

@@ -3,14 +3,18 @@
   "drive_source": "https://drive.google.com/file/d/16A3X5SkhV4lPDiBbGp5K-da_ryY1kk3w/view",
   "assets": [
     {
-      "resource": "files/artwork/library_expressive.avif",
+      "resource": "files/artwork/library_expressive_light.webp",
       "source": "source/assets/library-expressive.png",
-      "sha256": "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
-      "bytes": 464587,
-      "provenance": "ImageGen in this task from owner visual direction; transparent raster; not SVG/native vector",
-      "source_sha256": "96babcc01a2f692c941fcc199d30d521c97f9ccc95b65381571cbc66004a302a",
-      "source_bytes": 897322,
-      "conversion": "Pillow 12.3.0 / libavif 1.4.2; quality=100, 4:4:4, speed=4; dimensions preserved"
+      "sha256": "44d56cd5f5c434d1306a533fef2e604f3798b18c826cedb657c19f2cddae2f7e",
+      "bytes": 12864,
+      "provenance": "Opaque still VP8, cwebp 1.5.0 q82/m6/sharp_yuv, matted onto Theatre primary-container #291332. Previous derivative SHA-256 88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c."
+    },
+    {
+      "resource": "files/artwork/library_expressive_dark.webp",
+      "source": "source/assets/library-expressive.png",
+      "sha256": "2cd14f98158663966a2c8e4949120ced38656ef5824f28dd3454c6181845a39d",
+      "bytes": 11250,
+      "provenance": "Opaque still VP8, cwebp 1.5.0 q82/m6/sharp_yuv, matted onto Theatre primary-container #BFA0EB. Previous derivative SHA-256 88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c."
     },
     {
       "resource": "drawable/cantos_empty_works_light.xml",
@@ -41,12 +45,12 @@
       "provenance": "Original Drive empty-state pack; upstream manifest retained in references/empty-original"
     },
     {
-      "resource": "files/artwork/cantos_cover_fallback.avif",
+      "resource": "files/artwork/cantos_cover_fallback.webp",
       "source": "cantos-cover-fallback-trimmed-master.png",
-      "sha256": "dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5",
-      "bytes": 12506,
-      "provenance": "Textless 2:3 celestial Lavender Stage cover fallback (600x900 px, ffmpeg libsvtav1 CRF 26) for issue #608"
+      "sha256": "eb0dc9bb6df48658e7cc2c5ee29a4bc44615b20a1c3181ec168fd8714934daf1",
+      "bytes": 8832,
+      "provenance": "Textless 384 × 576 Lavender Stage cover. cwebp 1.5.0 q82/m6/sharp_yuv. Previous derivative SHA-256 dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5."
     }
   ],
-  "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. AVIF raster + native XML; decoding and rendering require platform evidence."
+  "boundary": "Locally packaged decorative UI artwork; no cover, media or publication authority. opaque lossy WebP raster + native XML; decoding and rendering require platform evidence."
 }

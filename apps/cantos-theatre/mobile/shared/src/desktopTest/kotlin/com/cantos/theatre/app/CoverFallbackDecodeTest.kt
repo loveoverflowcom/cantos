@@ -33,16 +33,18 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertNull
 
-/**
- * Desktop Skia ships no AVIF codec: an AVIF cover or the packaged fallback never decodes here, so
- * the decoder reports `null` (fail closed) and the shell draws its vector celestial backdrop
- * instead. Android decoding of AVIF is a separate platform acceptance (API 31+).
- */
+/** Real bundled WebP decode and one shared fallback bitmap across remounts. */
 class CoverFallbackDecodeTest {
     @Test
-    fun desktop_skia_refuses_avif_bytes_so_the_vector_backdrop_stays_the_fallback() = runTest {
-        val bytes = Res.readBytes("files/artwork/cantos_cover_fallback.avif")
-        assertNull(SkiaCoverDecoder.decode(bytes, maxEdgePx = 1024))
+    fun desktop_skia_decodes_and_samples_the_bundled_vp8_fallback() = runTest {
+        val bytes = Res.readBytes("files/artwork/cantos_cover_fallback.webp")
+        val decoded = requireNotNull(SkiaCoverDecoder.decode(bytes, 192))
+        assertEquals(128, decoded.width)
+        assertEquals(192, decoded.height)
+        for (name in listOf("grid-2x2-120x100", "grid-alpha-2x2-120x100", "pillow-alpha-64x48")) {
+            val legacy = checkNotNull(javaClass.getResourceAsStream("/avif/$name.avif")).use { it.readBytes() }
+            assertNull(SkiaCoverDecoder.decode(legacy, 192))
+        }
     }
 
     @OptIn(ExperimentalTestApi::class)

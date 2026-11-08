@@ -29,8 +29,10 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
               url.scheme == "https", origin.scheme == "https",
               url.host == origin.host, url.port == origin.port,
               url.user == nil, url.password == nil, url.fragment == nil,
-              url.path.hasPrefix("/api/v1/theatre/"), bound > 0 else {
-            _ = completion(IosCatalogReply(status: 0, contentType: nil, body: nil, failure: "transport"))
+              url.path.hasPrefix("/api/v1/theatre/"), bound > 0,
+              ["application/json", "image/webp"].contains(request.accept),
+              request.ifNoneMatch == nil || request.accept == "image/webp" else {
+            _ = completion(IosCatalogReply(status: 0, contentType: nil, body: nil, etag: nil, failure: "transport"))
             return
         }
         let config = URLSessionConfiguration.ephemeral
@@ -45,7 +47,10 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
         session = owned
         var nativeRequest = URLRequest(url: url)
         nativeRequest.httpMethod = "GET"
-        nativeRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        nativeRequest.setValue(request.accept, forHTTPHeaderField: "Accept")
+        if let etag = request.ifNoneMatch {
+            nativeRequest.setValue(etag, forHTTPHeaderField: "If-None-Match")
+        }
         task = owned.dataTask(with: nativeRequest)
         task?.resume()
     }
@@ -93,10 +98,11 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
         lock.unlock()
         defer { session.finishTasksAndInvalidate() }
         guard !wasCancelled else { return }
-        let body = String(data: bytes, encoding: .utf8)
-        let failure = oversized ? "oversized" : (error != nil ? "transport" : (body == nil ? "malformed" : nil))
+        let failure = oversized ? "oversized" : (error != nil ? "transport" : nil)
         let result = IosCatalogReply(status: Int32(response?.statusCode ?? 0),
-            contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure)
-        DispatchQueue.main.async { _ = self.completion(result) }
+            contentType: response?.value(forHTTPHeaderField: "Content-Type"),
+            body: failure == nil ? bytes : nil,
+            etag: response?.value(forHTTPHeaderField: "ETag"), failure: failure)
+        _ = completion(result)
     }
 }

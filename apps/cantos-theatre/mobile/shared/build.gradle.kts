@@ -127,7 +127,7 @@ val generatedDiscoveryDirectory = layout.buildDirectory.dir("generated/discovery
 val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
     val fixtures = discoveryContract.resolve("fixtures")
     val schema = discoveryContract.resolve("discovery.schema.json")
-    val metadataSchema = discoveryContract.resolve("metadata.schema.json")
+    val metadataSchema = discoveryContract.resolve("metadata-webp.schema.json")
     // The v1.2 cover fixtures live in a subdirectory so the default-v1 corpus above is unchanged;
     // they enter the same map under a `cover/` key.
     inputs.files(fileTree(fixtures) { include("*.json", "cover/*.json", "metadata/*.json") })
@@ -428,8 +428,6 @@ kotlin {
             dependencies {
                 implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
                 implementation(compose.desktop.currentOs)
-                // Bundled AVIF only: Skiko 0.9.22 omits an AVIF codec. See runtime-images.md.
-                implementation("media.kamel:avif-jvm:0.0.1")
             }
         }
         val desktopTest by getting {
@@ -446,8 +444,6 @@ kotlin {
                 kotlin.srcDir("src/jvmHttpMain/kotlin")
                 dependencies {
                     implementation("app.cash.sqldelight:android-driver:2.1.0")
-                    // API21+ AOMedia JNI; scoped to bundled AVIF, never a public-cover contract change.
-                    implementation("org.aomedia.avif.android:avif:1.3.0.841110fd")
                 }
             }
         }

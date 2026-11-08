@@ -77,7 +77,7 @@ class PublicCoverUiTest {
     private class Covers(val reply: (ShellCover) -> CoverLoad) : CoverImageSource {
         val loads = mutableListOf<String>()
         var gate: CompletableDeferred<Unit>? = null
-        override suspend fun load(cover: ShellCover): CoverLoad {
+        override suspend fun load(cover: ShellCover, widthPx: Int, heightPx: Int): CoverLoad {
             loads += cover.sha256
             gate?.await()
             return reply(cover)
@@ -132,7 +132,7 @@ class PublicCoverUiTest {
 
     private fun shellCover(n: Int): ShellCover {
         val cover = sample.cover(n)
-        return ShellCover(cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText)
+        return ShellCover(cover.url, cover.sha256, cover.byteLength, cover.contentType.mime, cover.widthPx, cover.heightPx, cover.altText, cover.variant)
     }
 
     private fun androidx.compose.ui.test.ComposeUiTest.mountArtwork(cover: () -> ShellCover, source: () -> CoverImageSource) {
@@ -149,14 +149,14 @@ class PublicCoverUiTest {
     fun changing_the_work_url_with_the_same_digest_rechecks_the_new_authorization() = runDesktopComposeUiTest(width = 390, height = 844) {
         val first = shellCover(1)
         val second = first.copy(
-            url = "https://api.cantos.example/api/v1/theatre/works/${sample.workId(2).value}/cover/${first.sha256}",
+            url = "https://api.cantos.example/api/v1/theatre/works/${sample.workId(2).value}/cover/full/${first.sha256}",
             altText = "Bìa thứ hai",
         )
         var cover by mutableStateOf(first)
         val requested = mutableListOf<ShellCover>()
-        val source = CoverImageSource {
-            requested += it
-            if (it == first) CoverLoad.Ready(image) else CoverLoad.Unavailable
+        val source = CoverImageSource { cover, _, _ ->
+            requested += cover
+            if (cover == first) CoverLoad.Ready(image) else CoverLoad.Unavailable
         }
         mountArtwork({ cover }, { source })
         waitUntil { onAllNodesWithTag("cover-image", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
@@ -173,9 +173,9 @@ class PublicCoverUiTest {
         var cover by mutableStateOf(first)
         val next = CompletableDeferred<CoverLoad>()
         val requested = mutableListOf<ShellCover>()
-        val source = CoverImageSource {
-            requested += it
-            if (it == first) CoverLoad.Ready(image) else next.await()
+        val source = CoverImageSource { cover, _, _ ->
+            requested += cover
+            if (cover == first) CoverLoad.Ready(image) else next.await()
         }
         mountArtwork({ cover }, { source })
         waitUntil { onAllNodesWithTag("cover-image", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }

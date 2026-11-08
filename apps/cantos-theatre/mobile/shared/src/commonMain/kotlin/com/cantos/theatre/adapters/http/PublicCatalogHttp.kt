@@ -6,6 +6,7 @@ import com.cantos.theatre.domain.catalog.CatalogCheck
 import com.cantos.theatre.domain.catalog.CatalogCursor
 import com.cantos.theatre.domain.catalog.CatalogViolation
 import com.cantos.theatre.domain.catalog.CoverContentType
+import com.cantos.theatre.domain.catalog.CoverVariant
 import com.cantos.theatre.domain.catalog.MaxSafeMillis
 import com.cantos.theatre.domain.catalog.PublicCover
 import com.cantos.theatre.domain.catalog.PublicUnit
@@ -92,9 +93,13 @@ internal enum class UnitKindWire {
 
 @Serializable
 internal enum class CoverContentTypeWire {
-    @SerialName("image/png") Png,
-    @SerialName("image/jpeg") Jpeg,
-    @SerialName("image/avif") Avif,
+    @SerialName("image/webp") Webp,
+}
+
+@Serializable
+internal enum class CoverVariantWire {
+    @SerialName("thumbnail") Thumbnail,
+    @SerialName("full") Full,
 }
 
 /** `CoverImage` of Discovery v1.2; every field is required and nothing else is admitted. */
@@ -103,6 +108,7 @@ internal data class CoverImageWire(
     @SerialName("url") val url: String,
     @SerialName("sha256") val sha256: String,
     @SerialName("content_type") val contentType: CoverContentTypeWire,
+    val variant: CoverVariantWire,
     @SerialName("width_px") @Serializable(with = StrictJsonLong::class) val widthPx: Long,
     @SerialName("height_px") @Serializable(with = StrictJsonLong::class) val heightPx: Long,
     @SerialName("byte_length") @Serializable(with = StrictJsonLong::class) val byteLength: Long,
@@ -209,23 +215,24 @@ private fun UnitKindWire.toDomain(): PublicUnitKind = when (this) {
 private fun String?.toCursor(): CatalogCheck<CatalogCursor?> =
     if (this == null) CatalogCheck.Valid(null) else CatalogCursor.parse(this)
 
-private fun CoverContentTypeWire.toDomain(): CoverContentType = when (this) {
-    CoverContentTypeWire.Png -> CoverContentType.Png
-    CoverContentTypeWire.Jpeg -> CoverContentType.Jpeg
-    CoverContentTypeWire.Avif -> CoverContentType.Avif
+private fun CoverVariantWire.toDomain(): CoverVariant = when (this) {
+    CoverVariantWire.Thumbnail -> CoverVariant.Thumbnail
+    CoverVariantWire.Full -> CoverVariant.Full
 }
 
-private fun CoverImageWire?.toCover(work: PublicWorkId): CatalogCheck<PublicCover?> =
-    if (this == null) CatalogCheck.Valid(null)
-    else PublicCover.of(work, url, sha256, contentType.toDomain(), widthPx, heightPx, byteLength, altText).then {
-        CatalogCheck.Valid(it)
+private fun CoverImageWire?.toCover(work: PublicWorkId, variant: CoverVariant): CatalogCheck<PublicCover?> =
+    when {
+        this == null -> CatalogCheck.Valid(null)
+        this.variant.toDomain() != variant -> CatalogCheck.Invalid(CatalogViolation.InvalidCover)
+        else -> PublicCover.of(work, url, sha256, CoverContentType.Webp, variant, widthPx, heightPx, byteLength, altText)
+            .then { CatalogCheck.Valid(it) }
     }
 
-internal fun MetadataWorkWire.toDomain(): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
+internal fun MetadataWorkWire.toDomain(variant: CoverVariant = CoverVariant.Full): CatalogCheck<PublicWork> = PublicWorkId.parse(workId).then { id ->
     if (unitCount !in 0..MaxSafeMillis) CatalogCheck.Invalid(CatalogViolation.InvalidUnitCount)
-    else cover.toCover(id).then { checked -> PublicWork.of(id, kind.toDomain(), title, description, language, firstVisibleAtMs, checked) }
+    else cover.toCover(id, variant).then { checked -> PublicWork.of(id, kind.toDomain(), title, description, language, firstVisibleAtMs, checked) }
 }
-internal fun MetadataWorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain() }.then { works ->
+internal fun MetadataWorkPageWire.toDomain(): CatalogCheck<PublicWorkPage> = items.checkEach { it.toDomain(CoverVariant.Thumbnail) }.then { works ->
     nextCursor.toCursor().then { next -> PublicWorkPage.of(works, next) }
 }
 internal fun MetadataUnitWire.toDomain(): CatalogCheck<PublicUnit> = PublicUnitId.parse(unitId).then { id ->
@@ -257,9 +264,19 @@ const val CatalogBodyLimitBytes: Int = 4 * 1024 * 1024
 const val CatalogPageLimit: Int = 20
 
 /** Closed anonymous GET plan, built only from a validated origin, IDs and cursors. */
-class CatalogHttpRequest internal constructor(val url: String, val maxBodyBytes: Int, val accept: String = "application/json")
+class CatalogHttpRequest internal constructor(
+    val url: String,
+    val maxBodyBytes: Int,
+    val accept: String = "application/json",
+    val ifNoneMatch: String? = null,
+)
 
-class CatalogHttpResponse(val status: Int, val contentType: String?, val body: ByteArray)
+class CatalogHttpResponse(
+    val status: Int,
+    val contentType: String?,
+    val body: ByteArray,
+    val etag: String? = null,
+)
 
 /**
  * GET-only, no cookies, credentials or redirects. Implementations throw

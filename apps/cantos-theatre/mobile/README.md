@@ -15,7 +15,7 @@ See [what the application reads from where](#the-application-over-real-owners).
 
 Discovery uses compact keyed Work cards, with one title/arrow navigation action and a separate
 save action. Catalog completeness, filtered no-results and retained partial data remain distinct.
-The app-owned empty artwork uses the AVIF derivative of the supplied transparent Library artwork and theme-paired
+The app-owned empty artwork uses theme-matched lossy WebP derivatives of the supplied Library artwork and theme-paired
 Works/History XML through Compose resources; its provenance is bundled in
 `shared/src/commonMain/composeResources/files/theatre_empty_artwork_provenance.json`.
 The header cycles Dark → Light → System through the existing preference owner. The app root
@@ -47,21 +47,32 @@ rows, append uses the 20-unit footer arc, and Stale has no running indicator. Se
 and window focus. [Bounded evidence](../../../docs/evidence/loading-588.md) records JVM results
 separately from Android/iOS lifecycle, OS motion and AT acceptance still outstanding.
 
-**Public cover ([#159](https://github.com/loveoverflowcom/cantos/issues/159), ADR 0033).** Work
-list, search and detail reads use the single default published-generation representation and strictly decode the metadata-capable DTOs
-(unit reads stay on default v1). `PublicCover` admits only the exact
-`https://{origin}/api/v1/theatre/works/{work}/cover/{sha256}` delivery shape; any other shape
-refuses the page. `PublicCoverHttp` reads the image anonymously, bounded by `byte_length`, and
-verifies status, content type, length and SHA-256 before decoding; `CoverImages` (3 concurrent,
-32 MiB in-memory LRU, nothing on disk) feeds the `WorkArtwork` seam on Discovery cards and the Work
-detail. Loading pulses only its cover slot; `null`, 404/503/mismatch/decode failure keep the decorative tonal fallback
-and never block the title, navigation or playback; preview mock artwork is never a production
-fallback. The shell decodes its bundled fallback AVIF once on a background dispatcher and
-shares the bitmap across routes and artwork slots. Android decodes with `BitmapFactory`;
-**iOS has no cover boundary yet** (its URLSession
-bridge carries `String` bodies), so iOS shows the fallback. Player, mini-player and Library artwork
-are unchanged. Only desktop JVM tests and an Android debug compile were run; no emulator, device or
-real-server image read.
+**Public cover.** Discovery, Search and Work lists receive Thumbnail. Detail receives Full.
+The client admits only the exact HTTPS URL for the Work, variant and digest. The
+[Server contract](../../../services/cantos-server/contracts/theatre/discovery/v1/README.md#metadata-reads)
+defines the role, byte and geometry bounds. Neither public metadata nor cached pixels
+grant image access.
+
+The process-owned loader sends a conditional anonymous GET when the exact variant and
+display bucket have a cached bitmap. It accepts a 304 only with the matching strong ETag
+and no body. A 200 must match MIME, byte length, digest, geometry and the opaque VP8
+profile before decode. A denial drops every cached size for that request. An unavailable
+network or decoder shows the decorative fallback. Requests already in flight for the
+same representation and display bucket are shared while they have visible waiters.
+
+The LRU holds up to 32 MiB of ARGB_8888-equivalent pixels. Network work has three permits,
+and decoding has two worker slots. Targets use physical layout pixels rounded to bounded
+buckets. Android samples with BitmapFactory and scales the remainder. iOS uses a binary
+URLSession bridge and ImageIO. Desktop uses the existing Skia renderer. The maximum public
+output is 1,440,000 pixels or 5,760,000 bytes at four bytes per pixel. In-flight, displayed
+and native decoder allocations are additional to the cache budget.
+
+The shared shell decodes its bundled fallback once per mounted shell on a background
+dispatcher. Search keeps its query owner, 350 ms debounce, explicit submit, filters and
+Back behavior. Thumbnail requests start after the slot has been measured and a frame has
+been offered. The viewport owns cancellation. Device frame and IME latency require a named
+before/after run.
+
 The separate [metadata cover proposal](../../../services/cantos-server/contracts/studio/cover-disclosure/v1/metadata-proposal.md)
 does not enable images for the fictional metadata-only catalog; no client-side workaround or
 fallback release is created.
@@ -1127,11 +1138,9 @@ as typed diagnostics into the shared shell ErrorCenter. Unknown Library outcomes
 existing receipt owner and never gain a generic modal Retry. Native identity configuration
 refusals now reach the Account view as typed reasons while public catalog remains available.
 
-Bundled AVIFs use raw `files/artwork` resources and platform adapters; the Desktop Preview
-pins its AVIF codec only in `desktopMain`. The native minimum OS versions are unchanged;
-unsupported codecs render the existing vector placeholder. Read the [image policy](../../../docs/design/runtime-images.md),
-[decoder proposal](../../../docs/decisions/0052-bundled-avif-decoding.md) and
-[platform evidence/gaps](../../../docs/evidence/runtime-images-607/README.md).
+Bundled artwork uses opaque VP8 in raw Compose resources. Theme-specific Library
+matte colors use the Theatre primary-container tokens. Old AVIF files are confined to
+frozen rejection vectors. See the [runtime image policy](../../../docs/design/runtime-images.md).
 
 
 Generation Discovery rejects the retired `presentation=1–3` selectors. The Kotlin consumer owns
