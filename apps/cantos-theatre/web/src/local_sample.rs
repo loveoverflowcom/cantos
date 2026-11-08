@@ -2,7 +2,7 @@
 //!
 //! Connects Theatre Web on localhost to the loopback `--sample-serve` host (`127.0.0.1:8080`)
 //! through Trunk's same-origin `/api/` proxy. Reads the 6 private Works, 12 draft Chapters and
-//! 6 original PNG covers from Server-owned Turso (`server.db`) without changing public discovery
+//! 6 admitted WebP covers from Server-owned Turso (`server.db`) without changing public discovery
 //! policy, fabricating release metadata or exposing Studio credentials.
 use crate::{
     app::routes::Route,

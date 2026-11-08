@@ -316,14 +316,15 @@ fn cover_rejects_private_fields_and_out_of_contract_values() {
     }
     let sha = cover["sha256"].as_str().unwrap().to_owned();
     for (field, invalid) in [
-        ("content_type", json!("image/webp")),
+        ("content_type", json!("image/avif")),
         ("content_type", json!("image/svg+xml")),
+        ("variant", json!("original")),
         ("width_px", json!(0)),
-        ("width_px", json!(4097)),
+        ("width_px", json!(1201)),
         ("height_px", json!(0)),
-        ("height_px", json!(4097)),
+        ("height_px", json!(1201)),
         ("byte_length", json!(0)),
-        ("byte_length", json!(8_388_609)),
+        ("byte_length", json!(2_097_153)),
     ] {
         let mut v = cover.clone();
         v[field] = invalid;
@@ -340,9 +341,10 @@ fn cover_rejects_private_fields_and_out_of_contract_values() {
     for (field, invalid) in [
         ("sha256", "A".repeat(64)),
         ("alt_text", String::new()),
-        ("url", format!("http://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/{sha}")),
+        ("url", format!("http://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/thumbnail/{sha}")),
         ("url", format!("https://api.cantos.example/api/v1/theatre/media/pg1_{sha}")),
-        ("url", format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/{sha}?sig=x")),
+        ("url", format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/{sha}")),
+        ("url", format!("https://api.cantos.example/api/v1/theatre/works/10000000-0000-4000-8000-000000000001/cover/thumbnail/{sha}?sig=x")),
     ] {
         let mut v = cover.clone();
         v[field] = json!(invalid);

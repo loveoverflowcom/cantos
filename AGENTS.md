@@ -150,8 +150,9 @@ Native command truth is [xtask](xtask/README.md), `xtask/src/cli.rs`, `retired.r
 serve. `services list|validate` remains available. Plain `seed theatre` refuses while the native
 `catalog_http` fixture is absent. Its explicit [prepared-sample lane](docs/deployment/theatre-seeded-catalog.md)
 uses `--sample-input JSON --sample-media-source DIR --sample-root DIR` for six private Works,
-twelve draft chapters and the six supplied covers in isolated files outside Git. Mock audio
-stays unavailable; public-cover policy and Web/CMP acceptance remain separate. `--sample-serve`
+twelve draft chapters and six admitted WebP covers in isolated files outside Git. The historical PNG
+package requires authorized conversion and repinning before reuse. Mock audio stays unavailable;
+public-cover policy and Web/CMP acceptance remain separate. `--sample-serve`
 is a test-hosted loopback Server router, with no Identity. `--sample-root DIR --reset` archives
 only a marker-bound, owner-unlocked sample root and never deletes it. Kanidm, PostgreSQL/DBSP verification, provider enrollment,
 container lifecycle and legacy VPS/API-release commands are hidden retired refusals before effects.
@@ -253,7 +254,7 @@ run their standalone equivalents again when covered by that handoff run.
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or HTTP | Scoped real-file/context/HTTP checks through native Rust/Turso owners; preserve archived PG oracles as porting inputs and report unported coverage |
-| Prepared sample catalog | Command/parser regressions stay in the existing Rust gate; explicit `cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR` exercises actual provided PNGs, file-backed Turso and private Studio HTTP. It is never selected by build/preflight/CI and does not establish public catalog, browser/device or audio acceptance. |
+| Prepared sample catalog | Command/parser regressions stay in the existing Rust gate; explicit `cargo xtask seed theatre --sample-input JSON --sample-media-source DIR --sample-root DIR` requires a pinned WebP corpus and exercises file-backed Turso and private Studio HTTP. It is never selected by build/preflight/CI and does not establish public catalog, browser/device or audio acceptance. |
 | Localhost dataset profiles | `cargo xtask seed dataset` has explicit list/plan/create/verify/serve/archive actions ([runbook](docs/deployment/localhost-datasets.md)); bounded regressions stay in existing Rust gates. Heavy sizes and engine probes never run at startup/preflight/CI. Test callers do not establish Studio login. |
 | Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
