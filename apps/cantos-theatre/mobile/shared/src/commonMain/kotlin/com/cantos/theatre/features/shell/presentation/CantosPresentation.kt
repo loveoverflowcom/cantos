@@ -230,7 +230,10 @@ fun CantosPresentation(
         uiFontFamily = theatreSans(),
         editorialFontFamily = theatreSerif(),
     ) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalLoadingViewport provides surfaceBounds) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalLoadingViewport provides surfaceBounds,
+            LocalCoverFallback provides rememberCoverFallback(),
+        ) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 Modifier.fillMaxSize().safeDrawingPadding().imePadding()

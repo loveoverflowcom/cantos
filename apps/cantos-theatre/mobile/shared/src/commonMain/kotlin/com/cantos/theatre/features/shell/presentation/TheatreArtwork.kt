@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,6 +37,8 @@ import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.loadingRevealFor
 import com.cantos.ui.toAnimationSpec
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
@@ -97,7 +101,7 @@ internal fun WorkArtwork(
 
 internal const val CoverFallbackResourcePath: String = "files/artwork/cantos_cover_fallback.avif"
 
-private sealed interface CoverFallbackArt {
+internal sealed interface CoverFallbackArt {
     data object Loading : CoverFallbackArt
     data class Ready(val image: ImageBitmap) : CoverFallbackArt
 
@@ -105,22 +109,34 @@ private sealed interface CoverFallbackArt {
     data object Unavailable : CoverFallbackArt
 }
 
+internal val LocalCoverFallback = staticCompositionLocalOf<State<CoverFallbackArt>?> { null }
+
+private suspend fun decodeCoverFallback(): ImageBitmap =
+    Res.readBytes(CoverFallbackResourcePath).decodeToImageBitmap()
+
+/** Keep one decoded copy for the shell so remounting result rows never starts another decode. */
 @Composable
-fun ArtworkFallback(modifier: Modifier, shape: Shape) {
-    val art by produceState<CoverFallbackArt>(CoverFallbackArt.Loading) {
+internal fun rememberCoverFallback(
+    decode: suspend () -> ImageBitmap = ::decodeCoverFallback,
+): State<CoverFallbackArt> =
+    produceState<CoverFallbackArt>(CoverFallbackArt.Loading) {
         value = try {
-            CoverFallbackArt.Ready(Res.readBytes(CoverFallbackResourcePath).decodeToImageBitmap())
+            CoverFallbackArt.Ready(withContext(Dispatchers.Default) { decode() })
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
             CoverFallbackArt.Unavailable
         }
     }
+
+@Composable
+fun ArtworkFallback(modifier: Modifier, shape: Shape) {
+    val art = LocalCoverFallback.current?.value ?: CoverFallbackArt.Unavailable
     Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
-        when (val resolved = art) {
+        when (art) {
             CoverFallbackArt.Loading -> Unit
             is CoverFallbackArt.Ready -> Image(
-                bitmap = resolved.image,
+                bitmap = art.image,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
