@@ -188,6 +188,7 @@ TABLE_OWNER = {
     "media_image_intents": "media", "media_image_assets": "media",
     "media_work_artwork_changes": "media", "media_artwork_operations": "media",
     "media_cover_disclosures": "media",
+    "media_cover_variants": "media",
     "media_metadata_cover_bindings": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations", "listener_bookmarks")},
 }

@@ -1,7 +1,5 @@
-//! L5 acceptance sources: actual loopback HTTP → production artwork service → PostgreSQL
-//! application role and the shared private-filesystem registry. Ordinary Rust runs ignore
-//! these tests. Compilation or authored assertions are not database/storage acceptance.
-//! Use only `cargo xtask verify postgres`, which owns a fresh disposable cluster.
+//! Actual loopback HTTP through the production artwork service, file-backed Turso and the
+//! shared private-filesystem registry. Each harness owns disposable database and object paths.
 #![cfg(unix)]
 
 #[path = "support/artwork_storage_http.rs"]
@@ -52,8 +50,8 @@ struct Fixture {
     content_type: &'static str,
 }
 
-// The three existing 2x3 fixtures were independently generated with Python struct/zlib
-// and Pillow; expected hashes are recorded independently of the production decoder.
+// Synthetic 2x3 fixtures encoded with cwebp. Their hashes are pinned independently
+// of the production decoder.
 const FIXTURES: [Fixture; 3] = [
     Fixture {
         bytes: include_bytes!("../src/contexts/media/image_intake/fixtures/red-2x3.webp"),
@@ -235,6 +233,24 @@ impl Harness {
             fs::metadata(object).unwrap().permissions().mode() & 0o777,
             0o400
         );
+        let variants = self
+            .admin
+            .query(
+                "SELECT variant,sha256,byte_length,width_px,height_px FROM media_cover_variants
+             WHERE asset_id=?1 AND source_digest=?2 ORDER BY variant",
+                &[&asset.id, &asset.digest],
+            )
+            .await
+            .unwrap();
+        assert_eq!(variants.len(), 2);
+        for (row, role) in variants.iter().zip(["full", "thumbnail"]) {
+            assert_eq!(row.get::<_, String>(0), role);
+            let digest = row.get::<_, String>(1);
+            let bytes = fs::read(self.roots.object(target, &digest)).unwrap();
+            assert_eq!(format!("{:x}", Sha256::digest(&bytes)), digest);
+            assert_eq!(row.get::<_, i64>(2), bytes.len() as i64);
+            assert_eq!((row.get::<_, i32>(3), row.get::<_, i32>(4)), (2, 3));
+        }
     }
 }
 
@@ -630,7 +646,7 @@ async fn production_http_shared_storage_preserves_three_webp_fixtures_receipts_t
         ),
         (5, 5, 3, 6, 3, 3, 5)
     );
-    assert_eq!(h.roots.snapshot().len(), 3);
+    assert_eq!(h.roots.snapshot().len(), FIXTURES.len() * 3);
     for suffix in [
         "artwork?work_revision=6",
         "image-assets/00000000-0000-4000-8000-000000000099",

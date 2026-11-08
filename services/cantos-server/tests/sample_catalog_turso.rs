@@ -657,12 +657,16 @@ fn sources_if_new(bytes: &[u8]) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn independent_png_decoder_rejects_corruption_and_decodes_actual_pixels() {
-    let png = include_bytes!("../src/contexts/media/image_intake/fixtures/red-2x3.webp");
-    assert_eq!(input::decode(png.to_vec()).await, Ok((2, 3)));
+async fn sample_intake_decodes_actual_webp_pixels_and_rejects_corruption() {
+    let webp = include_bytes!("../src/contexts/media/image_intake/fixtures/red-2x3.webp");
+    assert_eq!(input::decode(webp.to_vec()).await, Ok((2, 3)));
+    assert_eq!(
+        input::decode(webp[..webp.len() - 1].to_vec()).await,
+        Err(input::InputError::ImageRejected("malformed_image"))
+    );
     assert_eq!(
         input::decode(vec![1, 2, 3]).await,
-        Err(input::InputError::ImageRejected("unsupported_image_format"))
+        Err(input::InputError::ImageRejected("image_format_mismatch"))
     );
 }
 
