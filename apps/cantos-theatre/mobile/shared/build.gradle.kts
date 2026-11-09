@@ -437,7 +437,8 @@ kotlin {
             }
         }
         if (iosEnabled) {
-            val iosMain by getting { dependencies { implementation("app.cash.sqldelight:native-driver:2.1.0") } }
+            // The default hierarchy template creates iosMain lazily; `by getting` runs before it exists.
+            iosMain.dependencies { implementation("app.cash.sqldelight:native-driver:2.1.0") }
         }
         if (androidEnabled) {
             val androidMain by getting {
