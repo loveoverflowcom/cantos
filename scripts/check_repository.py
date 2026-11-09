@@ -1679,10 +1679,7 @@ def check(base=None):
     errors += check_theatre_architecture(ROOT)
 
     from runtime_images import repository_failures as runtime_image_failures
-    image_errors, image_debt = runtime_image_failures(ROOT, names)
-    errors += image_errors
-    if image_debt:
-        print(f"Image policy integration: {len(image_debt)} pinned CMP AVIF resources pending PR2.")
+    errors += runtime_image_failures(ROOT, names)
 
     from native_table_ownership import repository_failures as native_ownership_failures
     errors += native_ownership_failures(ROOT)
