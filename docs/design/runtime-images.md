@@ -79,14 +79,16 @@ converted by migration.
 
 The prepared six-cover sample requires an authorized WebP source package and a manifest
 repinned to the new bytes. The earlier PNG or AVIF manifests cannot be relabelled.
-Integration order is Server and Web first, then Theatre CMP against the merged
-contract. Ship the combined change together when the applicable deployment acceptance is met.
+Server/Web (#769) and Theatre CMP (#770) both consume the same merged contract. Deployment
+of the combined change still needs its own acceptance.
 
 ## Guard boundary
 
 The existing [source guard](../../scripts/runtime_images.py) checks suffix, actual
 signature and opaque VP8 chunk shape. It also rejects legacy raster references in SVG.
-The intermediate PR permits exactly four checksum-pinned CMP resources until its WebP
-fallback is present. The actual-byte AVIF test vectors are frozen by path and hash.
+No runtime or preview path has a transition allowance: the four CMP AVIF resources retired
+by #770 are refused at their former paths, with their exact bytes, whether or not the WebP
+fallback is present. Only the actual-byte AVIF test vectors are frozen by path and hash,
+and only at fixture or test-resource paths.
 Trunk output is independently inventoried by the existing release build. Source and
 bundle checks cannot establish device decoding, delivery, rights or deployed state.

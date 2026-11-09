@@ -130,7 +130,7 @@ mod tests {
     }
 
     #[test]
-    fn a_work_without_a_cover_renders_only_the_textless_celestial_avif_fallback() {
+    fn a_work_without_a_cover_renders_only_the_textless_celestial_webp_fallback() {
         let html = render(None);
         assert!(html.contains("data-cover=\"none\""), "{html}");
         assert!(!html.contains("theatre-cover-art"), "{html}");

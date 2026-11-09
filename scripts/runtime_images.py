@@ -3,7 +3,7 @@
 Checks suffixes AND signatures, plus SVG image references. A matching signature is
 not full decoding, rights, bundle inspection or deployed acceptance. Legacy bytes may
 appear only as explicitly named rejection vectors, never positive fixtures.
-The canonical policy and transition boundary live in docs/design/runtime-images.md.
+The canonical policy lives in docs/design/runtime-images.md; no path has a transition allowance.
 """
 
 from pathlib import Path
@@ -42,24 +42,6 @@ AVIF_REJECTIONS = {
     "services/cantos-server/src/contexts/media/image_intake/fixtures/python-rgba16-2x3.avif":
         "d200d30121283e2053867e2aa720e3b4b8e9fed50d3c006e3c893e36ed2f99d7",
 }
-
-# Only the existing CMP paths/bytes may survive the Server/Web integration commit.
-# Once the WebP fallback is present, the repository refuses every one of these paths.
-CMP_TRANSITION = {
-    "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/artwork/den_khuya.avif":
-        "d053df56699afb2c1ff6031d3a34d636a86c802473b69f2e383bf2e3c76e392f",
-    "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/artwork/son_ha_moon.avif":
-        "2abd065841decb84fbe8741f725ed553534f60b50e907ff34d0524dc5a95c171",
-    "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/artwork/cantos_cover_fallback.avif":
-        "dfcf6b4d8405426bbd833db6629b6b14c9ca9a4990d9c85bd82321d759b5e4a5",
-    "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/artwork/library_expressive.avif":
-        "88fdbb675291ac016955976b91504c9e5a423293160b9336f563228853cb0f2c",
-}
-CMP_WEBP_FALLBACK = (
-    "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/artwork/"
-    "cantos_cover_fallback.webp"
-)
-
 
 def signature(data):
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -134,8 +116,7 @@ def image_failure(name, data):
 
 
 def repository_failures(root, names):
-    errors, debt = [], []
-    transitioning = not (root / CMP_WEBP_FALLBACK).exists()
+    errors = []
     for name in sorted(set(names)):
         path = root / name
         if not path.is_file():
@@ -145,10 +126,7 @@ def repository_failures(root, names):
         data = path.read_bytes()
         if name in AVIF_REJECTIONS and hashlib.sha256(data).hexdigest() == AVIF_REJECTIONS[name]:
             continue
-        if transitioning and name in CMP_TRANSITION and hashlib.sha256(data).hexdigest() == CMP_TRANSITION[name]:
-            debt.append(name)
-            continue
         failure = image_failure(name, data)
         if failure:
             errors.append(f"{name}: {failure}")
-    return errors, debt
+    return errors

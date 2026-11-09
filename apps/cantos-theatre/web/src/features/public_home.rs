@@ -1213,7 +1213,7 @@ mod tests {
         assert_eq!(html.matches("data-cover=\"loading\"").count(), 1, "{html}");
         assert_eq!(html.matches("data-cover=\"none\"").count(), 1, "{html}");
         // The covered card's image is not the link: navigation stays on the one named title link,
-        // and the card without a cover shows the textless celestial AVIF fallback.
+        // and the card without a cover shows the textless celestial WebP fallback.
         assert!(html.matches("theatre-public-work-link").count() >= 2);
         assert!(
             html.contains("assets/artwork/cantos-cover-fallback.webp"),
