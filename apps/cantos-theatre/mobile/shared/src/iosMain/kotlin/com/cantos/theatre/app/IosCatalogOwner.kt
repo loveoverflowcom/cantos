@@ -33,6 +33,7 @@ import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.posix.memcpy
 import platform.Foundation.NSUUID
+import platform.Foundation.timeIntervalSince1970
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
 import com.cantos.theatre.ports.NativeRequestHandle
 import com.cantos.ui.ThemeMode

@@ -5,7 +5,7 @@ import CantosTheatre
 final class CatalogPlatform: NSObject, IosCatalogPlatform {
     private let apiOrigin: String
     init(apiOrigin: String) { self.apiOrigin = apiOrigin; super.init() }
-    func sendCatalog(request: CatalogHttpRequest, completion: @escaping (IosCatalogReply) -> KotlinUnit) -> NativeRequestHandle {
+    func sendCatalog(request: CatalogHttpRequest, completion: @escaping (IosCatalogReply) -> Void) -> NativeRequestHandle {
         CatalogCall(request: request, apiOrigin: apiOrigin, completion: completion)
     }
 }
@@ -19,9 +19,9 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
     private var cancelled = false
     private let lock = NSLock()
     private let bound: Int
-    private let completion: (IosCatalogReply) -> KotlinUnit
+    private let completion: (IosCatalogReply) -> Void
 
-    init(request: CatalogHttpRequest, apiOrigin: String, completion: @escaping (IosCatalogReply) -> KotlinUnit) {
+    init(request: CatalogHttpRequest, apiOrigin: String, completion: @escaping (IosCatalogReply) -> Void) {
         self.completion = completion
         bound = Int(request.maxBodyBytes)
         super.init()
@@ -32,7 +32,7 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
               url.path.hasPrefix("/api/v1/theatre/"), bound > 0,
               ["application/json", "image/webp"].contains(request.accept),
               request.ifNoneMatch == nil || request.accept == "image/webp" else {
-            _ = completion(IosCatalogReply(status: 0, contentType: nil, body: nil, etag: nil, failure: "transport"))
+            completion(IosCatalogReply(status: 0, contentType: nil, body: nil, etag: nil, failure: "transport"))
             return
         }
         let config = URLSessionConfiguration.ephemeral
@@ -103,6 +103,6 @@ private final class CatalogCall: NSObject, URLSessionDataDelegate, NativeRequest
             contentType: response?.value(forHTTPHeaderField: "Content-Type"),
             body: failure == nil ? bytes : nil,
             etag: response?.value(forHTTPHeaderField: "ETag"), failure: failure)
-        _ = completion(result)
+        completion(result)
     }
 }

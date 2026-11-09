@@ -264,7 +264,7 @@
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 MARKETING_VERSION = 0.1.0;
-                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre);
+                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre, "-lsqlite3");
                 PRODUCT_BUNDLE_IDENTIFIER = com.cantos.theatre;
                 PRODUCT_NAME = "$(TARGET_NAME)";
                 SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -294,7 +294,7 @@
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 MARKETING_VERSION = 0.1.0;
-                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre);
+                OTHER_LDFLAGS = ("$(inherited)", "-framework", CantosTheatre, "-lsqlite3");
                 PRODUCT_BUNDLE_IDENTIFIER = com.cantos.theatre;
                 PRODUCT_NAME = "$(TARGET_NAME)";
                 SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

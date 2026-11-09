@@ -91,8 +91,8 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     private var maxBodyBytes = 65536
     private var cancelled = false
     private let lock = NSLock()
-    private let completion: (NativeHttpResponse) -> KotlinUnit
-    init(request: NativeHttpRequest, apiOrigin: String, completion: @escaping (NativeHttpResponse) -> KotlinUnit) {
+    private let completion: (NativeHttpResponse) -> Void
+    init(request: NativeHttpRequest, apiOrigin: String, completion: @escaping (NativeHttpResponse) -> Void) {
         self.completion = completion
         self.maxBodyBytes = min(max(Int(request.maxBodyBytes), 1), 4 * 1024 * 1024)
         super.init()
@@ -100,7 +100,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
               url.scheme == "https", url.host == origin.host, url.port == origin.port,
               url.user == nil, url.password == nil, url.fragment == nil,
               ["GET", "POST", "PUT", "DELETE"].contains(request.method) else {
-            _ = completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil, retryAfter: nil)); return
+            completion(NativeHttpResponse(status: 0, contentType: nil, body: nil, failure: "configuration", actualSession: nil, retryAfter: nil)); return
         }
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieStorage = nil; config.httpShouldSetCookies = false; config.urlCache = nil
@@ -137,7 +137,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
         let body = String(data: bytes, encoding: .utf8)
         let failure = protocolFailure || body == nil ? "protocol" : (error == nil ? nil : "transport")
         let result = NativeHttpResponse(status: Int32(response?.statusCode ?? 0), contentType: response?.value(forHTTPHeaderField: "Content-Type"), body: body, failure: failure, actualSession: response?.value(forHTTPHeaderField: "X-Cantos-Theatre-Session"), retryAfter: response?.value(forHTTPHeaderField: "Retry-After"))
-        DispatchQueue.main.async { _ = self.completion(result) }
+        DispatchQueue.main.async { self.completion(result) }
     }
 }
 
@@ -165,7 +165,7 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     func readLogoutBarrier() -> String { barrier?.read() ?? "unavailable" }
     func markLogoutBarrier() -> String? { guard let barrier else { return "unavailable" }; do { try barrier.mark(); return nil } catch { return failure(error) } }
     func clearLogoutBarrier() -> String? { guard let barrier else { return "unavailable" }; do { try barrier.clear(); return nil } catch { return failure(error) } }
-    func send(request: NativeHttpRequest, completion: @escaping (NativeHttpResponse) -> KotlinUnit) -> NativeRequestHandle {
+    func send(request: NativeHttpRequest, completion: @escaping (NativeHttpResponse) -> Void) -> NativeRequestHandle {
         TheatreHttpCall(request: request, apiOrigin: apiOrigin, completion: completion)
     }
 }

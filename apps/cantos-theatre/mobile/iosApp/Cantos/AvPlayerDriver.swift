@@ -43,8 +43,8 @@ final class AvPlayerDriver: NSObject, IosMediaDriver {
                     let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                     reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else { return }
                 self.player.pause()
-                self.listener?.control(control: .interruptionBegan, value: 0)
-                self.listener?.control(control: .interruptionPause, value: 0)
+                self.listener?.control(control: .interruptionbegan, value: 0)
+                self.listener?.control(control: .interruptionpause, value: 0)
             })
         controlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
             // AVFoundation KVO delivery is not assumed to be main-thread delivery.
@@ -238,14 +238,14 @@ final class AvPlayerDriver: NSObject, IosMediaDriver {
         case .began:
             interrupted = true
             player.pause()
-            listener?.control(control: .interruptionBegan, value: 0)
+            listener?.control(control: .interruptionbegan, value: 0)
         case .ended:
             interrupted = false
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let resume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
-            listener?.control(control: resume ? .interruptionResume : .interruptionPause, value: 0)
+            listener?.control(control: resume ? .interruptionresume : .interruptionpause, value: 0)
         @unknown default:
-            listener?.control(control: .interruptionPause, value: 0)
+            listener?.control(control: .interruptionpause, value: 0)
         }
     }
 

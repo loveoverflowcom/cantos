@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import platform.Foundation.NSDate
+import platform.Foundation.timeIntervalSince1970
 
 /** Swift-only foreign boundary; all outcomes are translated before entering common owners. */
 class IosStoreRead(val value: String?, val failure: String?) {
